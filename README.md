@@ -1,6 +1,6 @@
 # Goodmail
 
-An iOS email client. Goals and plan are in progress.
+An iOS email client. Product decisions are in [docs/product-brief.md](docs/product-brief.md).
 
 ## Development environment
 
