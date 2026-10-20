@@ -16,7 +16,7 @@ Set up on 2026-10-20 under the owner's Google account. None of these values are 
 
 ## Still to do
 
-- **Publish to "In production" (ADR-009).** The console requires a home page, a privacy policy and an authorized domain before it allows publishing. That waits for the Goodmail domain (M6). Until then, refresh tokens expire after 7 days.
+- **Publish to "In production" (ADR-009).** The console requires a home page, a privacy policy and an authorized domain before it allows publishing. There is deliberately no domain for now (owner's decision, 2026-10-20). Until then, refresh tokens expire after 7 days.
 
 ## Reproducing with the CLI
 
