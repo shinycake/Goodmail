@@ -1,15 +1,17 @@
 {
+  "enabledPlugins": {
+    "pstack@pstack-claude": true,
+    "swiftui-expert@swiftui-expert-skill": true,
+    "swift-concurrency@swift-concurrency-agent-skill": true,
+    "swift-testing-expert@swift-testing-agent-skill": true,
+    "core-data-expert@core-data-agent-skill": true,
+    "xcode-build-skills@xcode-build-skills": true
+  },
   "extraKnownMarketplaces": {
     "pstack-claude": {
       "source": {
         "source": "github",
         "repo": "michael-denyer/pstack-claude"
-      }
-    },
-    "ecc": {
-      "source": {
-        "source": "git",
-        "url": "https://github.com/affaan-m/ECC.git"
       }
     },
     "swiftui-expert-skill": {
@@ -42,14 +44,5 @@
         "repo": "AvdLee/Xcode-Build-Optimization-Agent-Skill"
       }
     }
-  },
-  "enabledPlugins": {
-    "pstack@pstack-claude": true,
-    "ecc@ecc": true,
-    "swiftui-expert@swiftui-expert-skill": true,
-    "swift-concurrency@swift-concurrency-agent-skill": true,
-    "swift-testing-expert@swift-testing-agent-skill": true,
-    "core-data-expert@core-data-agent-skill": true,
-    "xcode-build-skills@xcode-build-skills": true
   }
 }
