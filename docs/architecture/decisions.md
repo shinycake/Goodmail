@@ -137,3 +137,12 @@ The owner decided these on 2026-10-20 after talking through the options. Each en
 - `scripts/check` fails on any `.swift` or `.ts` file over 1000 lines, and warns above 800. The pre-commit hook and CI run it too.
 - **Exempt:** fixtures, `.xcstrings`, `project.pbxproj`, lockfiles and other generated files.
 - **On hitting the cap:** split by responsibility. Never squeeze lines to get under it.
+
+## ADR-015: Xcode's JSON project format (`.xcproj`)
+
+- **Decision:** the Xcode project uses the JSON project configuration format (`project.xcproj`) introduced in Xcode 27.2, not `project.pbxproj`.
+- **Why:** smaller and hierarchical diffs, fewer merge conflicts, and easier editing for coding agents. This complements ADR-013's conflict hygiene.
+- **Requirements:**
+  - Xcode 27.2 or later to create and convert projects. Projects in the new format still open in earlier Xcode 27 versions.
+  - Apple's `xcode-project-format` Swift library is available for scripted edits if ever needed. It's a dependency, so it needs approval first.
+- **Note:** ADR-014's line-cap exemption for `project.pbxproj` applies to `project.xcproj` instead.
