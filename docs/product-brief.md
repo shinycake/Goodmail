@@ -51,7 +51,7 @@ The backend relays push and nothing else.
 ## Engineering
 
 - **Stack:** iOS 27, Swift 6.4, Xcode 27.
-- **Dependencies:** none from third parties unless truly needed. Each one needs the owner's approval and an ADR.
+- **Dependencies:** none from third parties unless truly needed. Each one needs the owner's approval and an ADR. Approved so far: GRDB (ADR-001).
 - **Testing:** TDD for logic, using Swift Testing against recorded API fixtures.
 - **Workflow:** Claude works autonomously. Each change ships as a PR whose evidence (tests, screenshots, recordings) is what the owner reviews.
 
