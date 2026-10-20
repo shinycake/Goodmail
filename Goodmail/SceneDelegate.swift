@@ -1,0 +1,19 @@
+import MailUI
+import UIKit
+
+/// One per window. Each window gets its own coordinator once there is navigation to coordinate (ADR-011).
+final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+    var window: UIWindow?
+
+    func scene(
+        _ scene: UIScene,
+        willConnectTo session: UISceneSession,
+        options connectionOptions: UIScene.ConnectionOptions
+    ) {
+        guard let windowScene = scene as? UIWindowScene else { return }
+        let window = UIWindow(windowScene: windowScene)
+        window.rootViewController = UINavigationController(rootViewController: WelcomeViewController())
+        window.makeKeyAndVisible()
+        self.window = window
+    }
+}

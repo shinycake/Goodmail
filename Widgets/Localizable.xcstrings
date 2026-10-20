@@ -1,0 +1,39 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Inbox" : {
+      "comment" : "Widget name in the widget gallery",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דואר נכנס"
+          }
+        }
+      }
+    },
+    "No Accounts" : {
+      "comment" : "Widget empty state shown before any mail account is added",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אין חשבונות"
+          }
+        }
+      }
+    },
+    "Your newest mail." : {
+      "comment" : "Widget description in the widget gallery",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הדואר החדש ביותר שלך."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
