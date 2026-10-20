@@ -1,14 +1,55 @@
 {
   "extraKnownMarketplaces": {
     "pstack-claude": {
-      "source": { "source": "github", "repo": "michael-denyer/pstack-claude" }
+      "source": {
+        "source": "github",
+        "repo": "michael-denyer/pstack-claude"
+      }
     },
     "ecc": {
-      "source": { "source": "git", "url": "https://github.com/affaan-m/ECC.git" }
+      "source": {
+        "source": "git",
+        "url": "https://github.com/affaan-m/ECC.git"
+      }
+    },
+    "swiftui-expert-skill": {
+      "source": {
+        "source": "github",
+        "repo": "AvdLee/SwiftUI-Agent-Skill"
+      }
+    },
+    "swift-concurrency-agent-skill": {
+      "source": {
+        "source": "github",
+        "repo": "AvdLee/Swift-Concurrency-Agent-Skill"
+      }
+    },
+    "swift-testing-agent-skill": {
+      "source": {
+        "source": "github",
+        "repo": "AvdLee/Swift-Testing-Agent-Skill"
+      }
+    },
+    "core-data-agent-skill": {
+      "source": {
+        "source": "github",
+        "repo": "AvdLee/Core-Data-Agent-Skill"
+      }
+    },
+    "xcode-build-skills": {
+      "source": {
+        "source": "github",
+        "repo": "AvdLee/Xcode-Build-Optimization-Agent-Skill"
+      }
     }
   },
   "enabledPlugins": {
     "pstack@pstack-claude": true,
-    "ecc@ecc": true
+    "ecc@ecc": true,
+    "swiftui-expert@swiftui-expert-skill": true,
+    "swift-concurrency@swift-concurrency-agent-skill": true,
+    "swift-testing-expert@swift-testing-agent-skill": true,
+    "core-data-expert@core-data-agent-skill": true,
+    "xcode-build-skills@xcode-build-skills": true
   }
 }
