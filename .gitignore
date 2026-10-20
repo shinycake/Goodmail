@@ -21,3 +21,6 @@ Secrets.plist
 
 # Claude Code local-only settings
 .claude/settings.local.json
+
+# Synced from Xcode by scripts/sync-xcode-skills.sh
+.claude/skills/xcode-*/
