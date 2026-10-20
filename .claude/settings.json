@@ -1,0 +1,14 @@
+{
+  "extraKnownMarketplaces": {
+    "pstack-claude": {
+      "source": { "source": "github", "repo": "michael-denyer/pstack-claude" }
+    },
+    "ecc": {
+      "source": { "source": "git", "url": "https://github.com/affaan-m/ECC.git" }
+    }
+  },
+  "enabledPlugins": {
+    "pstack@pstack-claude": true,
+    "ecc@ecc": true
+  }
+}
