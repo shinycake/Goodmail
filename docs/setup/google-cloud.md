@@ -8,7 +8,7 @@ Set up on 2026-10-20 under idan.birman@gmail.com. None of these values are secre
 | APIs enabled | Gmail, People, Pub/Sub |
 | Pub/Sub topic | `projects/goodmail-ios/topics/gmail-push`, where `gmail-api-push@system.gserviceaccount.com` has `roles/pubsub.publisher` |
 | Pub/Sub subscription | Not created yet. It will be a push subscription to the Worker URL, created in M6 |
-| OAuth audience | External, **Testing**. Test users: idan.birman@gmail.com |
+| OAuth audience | External, **Testing**. Test users: idan.birman@gmail.com, idanbirmandev@gmail.com (the dedicated test account for fixtures, ADR-010) |
 | OAuth scopes | `gmail.modify`, `gmail.settings.basic` (restricted); `contacts.readonly`, `contacts.other.readonly` (sensitive); `openid`, `userinfo.email` |
 | iOS OAuth client | "Goodmail iOS", bundle ID `com.idanbirman.goodmail` |
 | Client ID | `847337870740-fpj7hd07nfsueispeug4nell21pf3vi2.apps.googleusercontent.com` |
@@ -17,7 +17,6 @@ Set up on 2026-10-20 under idan.birman@gmail.com. None of these values are secre
 ## Still to do
 
 - **Publish to "In production" (ADR-009).** The console requires a home page, a privacy policy and an authorized domain before it allows publishing. That waits for the Goodmail domain (M6). Until then, refresh tokens expire after 7 days.
-- **Test account:** add the dedicated test Gmail account (ADR-010) as a test user once it exists.
 
 ## Reproducing with the CLI
 
