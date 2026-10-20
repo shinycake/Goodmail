@@ -94,3 +94,46 @@ The owner decided these on 2026-10-20 after talking through the options. Each en
 
 - **Decision:** record Gmail API responses from a dedicated test Gmail account that the owner provides, never a personal inbox. A script strips personal data, and the fixtures are committed.
 - **Tests:** sync and provider tests run offline against them with Swift Testing.
+
+## ADR-011: MVVM+C with Commands and Routes
+
+- **ViewModel:** `@MainActor @Observable`, with no UIKit import. It holds screen state and calls domain APIs.
+- **ViewController:** programmatic UIKit. It renders through Observation (`updateProperties()`) and forwards user events. No logic.
+- **Coordinator:** one per window (scene), owning the `UISplitViewController`. Child coordinators handle flows (compose, account setup).
+- **Commands:** `MailCommands` in `MailCore` is the only way to change mail (archive, send, move, label…). View models, App Intents, notification actions and widgets all call it. It applies the change locally and queues the intent in the outbox (ADR-008).
+- **Routes:** a typed `Route` enum is the only way to navigate. Notifications, Spotlight, `mailto:`, App Intents, Handoff and state restoration all produce Routes, and the scene coordinator handles them.
+- **Rejected:**
+  - TCA: a dependency.
+  - VIPER: too much ceremony.
+  - Plain MVVM+C: action logic would be duplicated between view models and intents.
+
+## ADR-012: App Intents are a first-class surface
+
+- **Package:** a `MailIntents` package (`AppIntentsPackage`), shared by the app, widgets and the NSE.
+- **Entities:** Account, Mailbox, Thread, Message, Draft and Contact, adopting the SDK's `.mail` app-schema domain (`MailAccountEntity`, `MailboxEntity`, `MailThreadEntity`, `MailMessageEntity`, `MailDraftEntity`).
+- **Spotlight:** entities are `IndexedEntity`. This is the one mechanism for Spotlight; there is no separate `CSSearchableIndex` code.
+- **Rule:** every user action is an intent, and calls `MailCommands`. Destructive intents are `UndoableIntent`.
+- **v1 scope** (the full surface):
+  - App Shortcuts with English and Hebrew phrases
+  - Focus filters (accounts per Focus)
+  - a Control Center control (New Message)
+  - interactive widgets
+  - open intents that produce Routes
+
+## ADR-013: Trunk-based workflow with a local gate
+
+- **Branching:** short-lived branches, one vertical slice per PR, squash-merged into `main`, linear history.
+- **The gate:** `scripts/check` runs format lint, the line cap, the build and the tests. A tracked pre-push hook (`.githooks`, `core.hooksPath`) runs it. Each PR description includes its output and other evidence (screenshots, recordings).
+- **Merging:** Claude merges its own PRs once the gate passes. The owner reviews evidence afterwards, and feedback becomes follow-up PRs.
+- **CI:** advisory only, on GitHub Actions Linux runners: format lint, the line cap, Worker tests. There are no required checks and no branch-protection gates. Xcode Cloud comes later, only for TestFlight builds.
+- **Merge-conflict hygiene:**
+  - Code lives in local packages, and the app target uses Xcode synchronized (buildable) folders, so adding files doesn't edit `project.pbxproj`.
+  - `swift format`, which ships with the toolchain, auto-formats.
+  - Each package has its own String Catalog.
+  - Parallel sessions work in separate git worktrees on separate packages.
+
+## ADR-014: 1000-line hard cap per file
+
+- `scripts/check` fails on any `.swift` or `.ts` file over 1000 lines, and warns above 800. The pre-commit hook and CI run it too.
+- **Exempt:** fixtures, `.xcstrings`, `project.pbxproj`, lockfiles and other generated files.
+- **On hitting the cap:** split by responsibility. Never squeeze lines to get under it.
