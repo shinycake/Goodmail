@@ -21,7 +21,7 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
 |---|---|
 | M0 | Xcode 27.2 installed and selected with `xcode-select` |
 | M1 | ~~Google Cloud project, OAuth client, Gmail and People APIs~~ (done, see [setup](../setup/google-cloud.md)); ~~test account~~ (idanbirmandev@gmail.com) |
-| M6 | Apple Developer Program membership, a domain, a Cloudflare account, a Pub/Sub topic (billing enabled); request the notification-filtering entitlement |
+| M6 | Apple Developer Program membership, ~~a Cloudflare account~~ (done; the Worker runs on `workers.dev`, no domain needed), a Pub/Sub topic (billing enabled); request the notification-filtering entitlement |
 | M9 | Request the mail-client (default mail app) entitlement |
 
 ## Milestones
