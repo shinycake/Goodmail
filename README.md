@@ -1,6 +1,6 @@
 # Goodmail
 
-An iOS email client. Product decisions are in [docs/product-brief.md](docs/product-brief.md); architecture decisions are in [docs/architecture/decisions.md](docs/architecture/decisions.md); design decisions are in [docs/design/design-decisions.md](docs/design/design-decisions.md).
+An iOS email client. Product decisions are in [docs/product-brief.md](docs/product-brief.md); architecture decisions are in [docs/architecture/decisions.md](docs/architecture/decisions.md); design decisions are in [docs/design/design-decisions.md](docs/design/design-decisions.md); the v1 plan is in [docs/plan/v1-plan.md](docs/plan/v1-plan.md).
 
 ## Development environment
 
