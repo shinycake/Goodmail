@@ -89,6 +89,7 @@ The owner decided these on 2026-10-20 after talking through the options. Each en
 - **Decision:** publish the OAuth consent screen as "In production" without verification.
 - **Why:** Testing mode expires refresh tokens after 7 days, which would force a weekly sign-in and break push.
 - **Accepted costs:** a one-time "unverified app" warning at sign-in, and a cap of 100 users.
+- **Timing (2026-10-20):** publishing needs a home page, a privacy policy and an authorized domain. The app stays in Testing (7-day tokens) until the Goodmail domain exists in M6. See [../setup/google-cloud.md](../setup/google-cloud.md).
 
 ## ADR-010: Sync tests run on scrubbed recorded fixtures
 
