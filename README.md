@@ -12,4 +12,14 @@ Claude Code tooling is declared in the repo:
 - `.mcp.json` registers Xcode's MCP bridge (`xcrun mcpbridge`). It covers builds, previews, documentation search and String Catalog tools, and works only while Xcode has the project open.
 - `scripts/sync-xcode-skills.sh` copies the agent skills that ship with the active Xcode, currently String Catalog translation, into `.claude/skills/`. Run it after cloning and after each Xcode update.
 
-Requires Xcode 27 / Swift 6.4.
+Requires Xcode 27.2 / Swift 6.4.
+
+## Building and the gate
+
+- Open `Goodmail.xcodeproj` (JSON project format). Code lives in the local package `Packages/GoodmailKit` (targets `MailCore`, `MailStore`, `GmailProvider`, `MailUI`, `MailIntents`); the app, `NotificationService` and `Widgets` targets are thin.
+- `scripts/check` is the gate: swift-format lint, the 1000-line cap, package tests and the app's English/Hebrew launch tests. `scripts/check --lint` runs only the fast part.
+- After cloning, enable the tracked hooks (pre-commit runs `--lint`, pre-push runs everything):
+
+  ```bash
+  git config core.hooksPath .githooks
+  ```

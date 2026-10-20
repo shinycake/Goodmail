@@ -12,7 +12,6 @@ xcuserdata/
 # SwiftPM
 .build/
 .swiftpm/
-Package.resolved
 
 # Secrets / local config
 *.xcconfig.local

@@ -1,0 +1,18 @@
+# Advisory only (ADR-013): nothing here blocks a merge. The local gate, scripts/check, is the real one.
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    container: swift:6.4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Format and line cap
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          scripts/check --lint

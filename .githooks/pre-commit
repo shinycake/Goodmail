@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Fast checks only; the full gate runs before push. Enable with: git config core.hooksPath .githooks
+exec "$(git rev-parse --show-toplevel)/scripts/check" --lint

@@ -37,6 +37,8 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
 
 **Evidence:** `scripts/check` passes on an empty app that launches in English and Hebrew.
 
+**Status:** done (branch `m0-foundations`). Device builds still need a development team set in Xcode once the Apple Developer Program membership is active (M6 prerequisite); the gate builds for the simulator without signing.
+
 ### M1: First light, the thinnest end-to-end path
 
 **Builds:**

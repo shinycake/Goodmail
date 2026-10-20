@@ -17,6 +17,7 @@ The owner decided these on 2026-10-20 after reviewing mockups. The design will b
   - New York (system serif, `UIFontDescriptor.withDesign(.serif)`) for large titles, subjects and message bodies
   - SF Pro for names, times, metadata and controls
   - Dynamic Type throughout
+  - New York has no Hebrew glyphs, so Hebrew text in those styles falls back to the system Hebrew serif (seen in the M0 launch screenshot). Review it when real content lands.
 - **Motion and haptics** confirm actions and never decorate. SF Symbol effects provide the delight moments.
 - **RTL indistinguishable from native.** Mixed Hebrew/English content renders correctly, and gestures and animations mirror.
 
