@@ -4,7 +4,7 @@ The facts every design must honor. Product decisions are in [../product-brief.md
 
 ## Toolchain
 
-- Xcode 27.1 RC (27A9275), Swift 6.4, iPhoneOS27.1 SDK. The SDK is at `$(xcrun --sdk iphoneos --show-sdk-path)`; grep its `.swiftinterface` files rather than guessing at APIs.
+- Xcode 27.2 RC (27B48), Swift 6.4, iPhoneOS27.2 SDK. The SDK is at `$(xcrun --sdk iphoneos --show-sdk-path)`; grep its `.swiftinterface` files rather than guessing at APIs.
 - Swift 6 language mode with strict concurrency. Approachable-concurrency settings are available (default MainActor isolation per module, `nonisolated(nonsending)` by default).
 - Present in the SDK: SwiftData, WebKit (`WebPage` for SwiftUI plus `WKWebView`), AppIntents, WidgetKit, BackgroundTasks, CoreSpotlight, UserNotifications/UI, AuthenticationServices, Network, FoundationModels (not used: AI is system-only).
 - New SwiftData types in this SDK: `ResultsObserver`, `HistoryObserver`, `SectionedResults`, `DataStoreBatching`, `HistoryDescriptor`. `ModelConfiguration` supports a `GroupContainer` (App Group).

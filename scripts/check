@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# The local gate (ADR-013): format lint, the line cap (ADR-014), then package tests and the app's launch tests.
+#
+#   scripts/check          everything; the pre-push hook runs this
+#   scripts/check --lint   format and line cap only; the pre-commit hook and Linux CI run this
+#
+# GOODMAIL_SIMULATOR picks the simulator (default: iPhone 18 Pro).
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+SWIFT_ROOTS=(Goodmail GoodmailUITests NotificationService Widgets Packages)
+DESTINATION="platform=iOS Simulator,name=${GOODMAIL_SIMULATOR:-iPhone 18 Pro}"
+
+step() { printf '\n▸ %s\n' "$1"; }
+
+step "Format (swift format lint --strict)"
+swift format lint --strict --recursive --parallel "${SWIFT_ROOTS[@]}"
+
+step "Line cap (fail above 1000, warn above 800)"
+over_cap=0
+while IFS= read -r file; do
+    [[ -f "$file" ]] || continue
+    lines=$(wc -l <"$file" | tr -d ' ')
+    if ((lines > 1000)); then
+        echo "✘ $file has $lines lines. Split it by responsibility."
+        over_cap=1
+    elif ((lines > 800)); then
+        echo "⚠ $file has $lines lines."
+    fi
+done < <(git ls-files --cached --others --exclude-standard -- '*.swift' '*.ts' ':(exclude)**/Fixtures/**')
+((over_cap == 0)) || exit 1
+
+[[ "${1:-}" == "--lint" ]] && exit 0
+
+step "Package tests ($DESTINATION)"
+(cd Packages/GoodmailKit && xcodebuild test -quiet -scheme GoodmailKit-Package -destination "$DESTINATION" \
+    -derivedDataPath ../../.build/DerivedData-Kit)
+
+step "App build and launch tests in English and Hebrew ($DESTINATION)"
+xcodebuild test -quiet -project Goodmail.xcodeproj -scheme Goodmail -destination "$DESTINATION" \
+    -derivedDataPath .build/DerivedData -resultBundlePath ".build/results/check-$(date +%Y%m%d-%H%M%S).xcresult" \
+    CODE_SIGNING_ALLOWED=NO
+
+printf '\n✔ scripts/check passed\n'

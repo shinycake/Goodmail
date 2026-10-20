@@ -1,0 +1,28 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Add a Gmail account to get started." : {
+      "comment" : "Empty-state explanation shown before any mail account is added",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כדי להתחיל, יש להוסיף חשבון Gmail."
+          }
+        }
+      }
+    },
+    "No Accounts" : {
+      "comment" : "Empty-state title shown before any mail account is added",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אין חשבונות"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

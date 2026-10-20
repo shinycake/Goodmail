@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# The full local gate (ADR-013). Enable with: git config core.hooksPath .githooks
+exec "$(git rev-parse --show-toplevel)/scripts/check"
