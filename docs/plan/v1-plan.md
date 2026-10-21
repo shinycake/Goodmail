@@ -6,7 +6,7 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
 
 ## Rules that apply to every slice
 
-- **Multi-account and RTL from day one.**
+- **Multi-account and RTL from day one.** RTL effort goes first to mail content: the reader (M3) and the composer (M5). Mirrored chrome gets what UIKit gives for free, and polish only after those two (owner's priority, 2026-10-20).
   - Every table and type carries `AccountID`, even while the UI shows one account.
   - Every user-facing string goes into a String Catalog with English and Hebrew.
 - **One way to do things:**
@@ -71,8 +71,9 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
 - the thread view, laid out as letters (timeline plus card)
 - one `WKWebView` per message (ADR-003), with remote content blocked, a Load action, `cid:` images, `dir=auto`, and quoted text folded
 - attachments, previewed with Quick Look
+- **RTL reading:** each paragraph takes its own direction (`dir=auto` per block, also for plain-text bodies). Quoted text keeps the direction it was written in. Mixed-script lines keep numbers, addresses and punctuation in order. Subject and sender lines follow their own content.
 
-**Evidence:** rendering tests on tricky real-world MIME fixtures, and screenshots of a Hebrew/English mixed thread and an HTML newsletter.
+**Evidence:** rendering tests on tricky real-world MIME fixtures, including Hebrew mail from Gmail, Outlook and Apple Mail with mixed English, numbers, links and nested quotes. Screenshots of a Hebrew/English mixed thread and an HTML newsletter.
 
 ### M4: Actions and outbox
 
@@ -93,8 +94,9 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
 - **Signatures and drafts:** `sendAs` signatures, drafts synced to Gmail
 - **Sending:** undo send (10 s, adjustable), and outbox send over a background `URLSession`
 - **Recipients:** autocomplete from local history, Contacts and the People API
+- **RTL composing:** each paragraph's direction follows what is typed in it, and can be overridden. Lists, quotes and the cursor move correctly in both directions. The HTML that is sent carries `dir` per block, so the message renders right in Gmail web, Apple Mail and Outlook. A Hebrew reply above an English quote keeps both directions.
 
-**Evidence:** HTML serializer golden tests, a recording of sending a rich reply, and how that reply renders in Gmail web.
+**Evidence:** HTML serializer golden tests, including per-block `dir`. A recording of composing and sending a mixed Hebrew/English rich reply, and how it renders in Gmail web.
 
 ### M6: Push
 
