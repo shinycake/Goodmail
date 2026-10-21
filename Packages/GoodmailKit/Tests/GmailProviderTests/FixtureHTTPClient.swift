@@ -30,11 +30,18 @@ final class FixtureHTTPClient: HTTPClient {
             replies[path] = queue
             return first
         }
-        let url = Bundle.module.url(forResource: reply.fixture, withExtension: "json", subdirectory: "Fixtures")!
+        let url = fixtureURL(reply.fixture)
         let response = HTTPURLResponse(
             url: request.url!, statusCode: reply.status, httpVersion: nil, headerFields: nil)!
         return (try Data(contentsOf: url), response)
     }
+}
+
+/// `name` may sit in a folder under Fixtures, as in `Recorded/newsletter`.
+func fixtureURL(_ name: String) -> URL {
+    let folder = (["Fixtures"] + name.split(separator: "/").dropLast().map(String.init)).joined(separator: "/")
+    let file = String(name.split(separator: "/").last!)
+    return Bundle.module.url(forResource: file, withExtension: "json", subdirectory: folder)!
 }
 
 extension URLRequest {

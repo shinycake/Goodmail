@@ -1,0 +1,32 @@
+Content-Type: multipart/alternative;
+ boundary="===============5071861863253286476=="
+MIME-Version: 1.0
+From: =?utf-8?b?15nXotecINeb15TXnw==?= <yael@example.co.il>
+To: =?utf-8?b?15DXkdeZINee15bXqNeX15k=?= <avi@example.co.il>,
+ Goodmail Tester <tester@example.com>
+Subject: =?utf-8?b?UmU6INeq157Xldeg15XXqiDXnteU15jXmdeV15w=?=
+Date: Mon, 12 Oct 2026 12:50:00 +0300
+Message-ID: <am-1@goodmail.test>
+
+--===============5071861863253286476==
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: base64
+
+157XoteV15zXlCwg16rXldeT15QhCgo+INeRLTEyINeR15DXlden17MgMjAyNiwg15HXqdei15Qg
+MTI6NDAsINeQ15HXmSDXnteW16jXl9eZIDxhdmlAZXhhbXBsZS5jby5pbD4g15vXqteRL9eUOgo+
+Cj4g15TXoNeUINeU16rXnteV16DXldeqINee15TXmNeZ15XXnC4K
+
+--===============5071861863253286476==
+Content-Type: text/html; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: base64
+
+PGh0bWw+PGJvZHkgZGlyPSJhdXRvIj48ZGl2IGRpcj0icnRsIj7Xntei15XXnNeULCDXqteV15PX
+lCE8L2Rpdj48ZGl2IGRpcj0icnRsIj48YnI+PGJsb2NrcXVvdGUgdHlwZT0iY2l0ZSI+15EtMTIg
+15HXkNeV16fXsyAyMDI2LCDXkdep16LXlCAxMjo0MCwg15DXkdeZINee15bXqNeX15kgJmx0O2F2
+aUBleGFtcGxlLmNvLmlsJmd0OyDXm9eq15Ev15Q6PGJyPjxicj48L2Jsb2NrcXVvdGU+PC9kaXY+
+PGJsb2NrcXVvdGUgdHlwZT0iY2l0ZSI+PGRpdiBkaXI9InJ0bCI+15TXoNeUINeU16rXnteV16DX
+ldeqINee15TXmNeZ15XXnC48L2Rpdj48L2Jsb2NrcXVvdGU+PC9ib2R5PjwvaHRtbD4=
+
+--===============5071861863253286476==--

@@ -1,0 +1,39 @@
+Content-Type: multipart/alternative;
+ boundary="===============4152025528761411537=="
+MIME-Version: 1.0
+From: =?utf-8?b?15nXotecINeb15TXnw==?= <yael@example.co.il>
+To: Dana Levi <dana@example.com>, Goodmail Tester <tester@example.com>
+Subject: =?utf-8?b?UmU6IFJldmlldyDihpIgVGh1cnNkYXk/?=
+Date: Mon, 12 Oct 2026 10:10:00 +0300
+Message-ID: <gm-2@goodmail.test>
+In-Reply-To: <gm-1@goodmail.test>
+References: <gm-1@goodmail.test>
+
+--===============4152025528761411537==
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: base64
+
+15HXmNeXLCDXmdeV150g15fXnteZ16nXmSDXkS0xNDowMCDXnteq15DXmdedLiDXkNeg15kg15DX
+kdeZ15Ag15DXqiDXlNeg16rXldeg15nXnSDXqdecIFE0LgoKT24gTW9uLCBPY3QgMTIsIDIwMjYg
+YXQgODozMCBBTSBEYW5hIExldmkgPGRhbmFAZXhhbXBsZS5jb20+IHdyb3RlOgo+IEhpIFlhZWws
+Cj4KPiBDYW4gd2UgbW92ZSB0aGUgcmV2aWV3IHRvIFRodXJzZGF5IDE0OjAwPwo=
+
+--===============4152025528761411537==
+Content-Type: text/html; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: base64
+
+PGRpdiBkaXI9InJ0bCI+15HXmNeXLCDXmdeV150g15fXnteZ16nXmSDXkS0xNDowMCDXnteq15DX
+mdedLiDXkNeg15kg15DXkdeZ15Ag15DXqiDXlNeg16rXldeg15nXnSDXqdecIFE0LjwvZGl2Pjxi
+cj48ZGl2IGNsYXNzPSJnbWFpbF9xdW90ZSI+PGRpdiBkaXI9Imx0ciIgY2xhc3M9ImdtYWlsX2F0
+dHIiPk9uIE1vbiwgT2N0IDEyLCAyMDI2IGF0IDg6MzAgQU0gRGFuYSBMZXZpICZsdDs8YSBocmVm
+PSJtYWlsdG86ZGFuYUBleGFtcGxlLmNvbSI+ZGFuYUBleGFtcGxlLmNvbTwvYT4mZ3Q7IHdyb3Rl
+Ojxicj48L2Rpdj48YmxvY2txdW90ZSBjbGFzcz0iZ21haWxfcXVvdGUiIHN0eWxlPSJtYXJnaW46
+MHB4IDBweCAwcHggMC44ZXg7Ym9yZGVyLWxlZnQ6MXB4IHNvbGlkIHJnYigyMDQsMjA0LDIwNCk7
+cGFkZGluZy1sZWZ0OjFleCI+PGRpdiBkaXI9Imx0ciI+SGkgWWFlbCw8ZGl2Pjxicj48L2Rpdj48
+ZGl2PkNhbiB3ZSBtb3ZlIHRoZSByZXZpZXcgdG8gVGh1cnNkYXkgMTQ6MDA/IEFnZW5kYTogUTQg
+bnVtYmVycywgaGlyaW5nLCB0aGUgUlRMIGJ1ZyAoIzQ4MikuPC9kaXY+PGRpdj48YnI+PC9kaXY+
+PGRpdj5EYW5hPC9kaXY+PC9kaXY+PC9ibG9ja3F1b3RlPjwvZGl2Pg==
+
+--===============4152025528761411537==--

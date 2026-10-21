@@ -18,6 +18,12 @@ public protocol MailProvider: Sendable {
     /// The threads that changed since `cursor`, and the cursor to continue from.
     /// Throws `ProviderError.cursorExpired` when the service no longer remembers `cursor`; resync from scratch.
     func changes(since cursor: String) async throws -> ChangeSet
+
+    /// A thread's messages with their bodies, oldest first.
+    func messages(inThread threadID: String) async throws -> [Message]
+
+    /// The content of an attachment the provider didn't include with its message.
+    func data(for attachment: Attachment, in message: Message.ID) async throws -> Data
 }
 
 public enum ProviderError: Error, Equatable {

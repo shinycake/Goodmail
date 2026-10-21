@@ -1,0 +1,108 @@
+{
+ "id": "1a12fa9805cfa4d5",
+ "historyId": "376351",
+ "messages": [
+  {
+   "id": "1a12fa9805cfa4d5",
+   "threadId": "1a12fa9805cfa4d5",
+   "labelIds": [
+    "UNREAD",
+    "INBOX"
+   ],
+   "snippet": "This week: the new release, three talks, and a sale. Read more",
+   "payload": {
+    "partId": "",
+    "mimeType": "multipart/alternative",
+    "filename": "",
+    "headers": [
+     {
+      "name": "Received",
+      "value": "from 847337870740 named unknown by gmailapi.google.com with HTTPREST; Wed, 21 Oct 2026 03:17:54 +0200"
+     },
+     {
+      "name": "Content-Type",
+      "value": "multipart/alternative; boundary=\"===============4942485114189471573==\""
+     },
+     {
+      "name": "MIME-Version",
+      "value": "1.0"
+     },
+     {
+      "name": "From",
+      "value": "Example Co <news@example.com>"
+     },
+     {
+      "name": "To",
+      "value": "Goodmail Tester <tester@example.com>"
+     },
+     {
+      "name": "Subject",
+      "value": "This week at Example Co"
+     },
+     {
+      "name": "Date",
+      "value": "Mon, 12 Oct 2026 13:30:00 +0300"
+     },
+     {
+      "name": "Message-ID",
+      "value": "<nl-1@goodmail.test>"
+     }
+    ],
+    "body": {
+     "size": 0
+    },
+    "parts": [
+     {
+      "partId": "0",
+      "mimeType": "text/plain",
+      "filename": "",
+      "headers": [
+       {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+       },
+       {
+        "name": "MIME-Version",
+        "value": "1.0"
+       },
+       {
+        "name": "Content-Transfer-Encoding",
+        "value": "base64"
+       }
+      ],
+      "body": {
+       "size": 66,
+       "data": "VGhpcyB3ZWVrIGF0IEV4YW1wbGUgQ286IHRoZSBuZXcgcmVsZWFzZSwgdGhyZWUgdGFsa3MsIGFuZCBhIHNhbGUu"
+      }
+     },
+     {
+      "partId": "1",
+      "mimeType": "text/html",
+      "filename": "",
+      "headers": [
+       {
+        "name": "Content-Type",
+        "value": "text/html; charset=\"utf-8\""
+       },
+       {
+        "name": "MIME-Version",
+        "value": "1.0"
+       },
+       {
+        "name": "Content-Transfer-Encoding",
+        "value": "base64"
+       }
+      ],
+      "body": {
+       "size": 551,
+       "data": "PGh0bWw-PGJvZHkgc3R5bGU9Im1hcmdpbjowO2JhY2tncm91bmQ6I2Y0ZjRmNCI-PHRhYmxlIHdpZHRoPSIxMDAlIiBjZWxscGFkZGluZz0iMCIgY2VsbHNwYWNpbmc9IjAiPjx0cj48dGQgYWxpZ249ImNlbnRlciI-PHRhYmxlIHdpZHRoPSI2MDAiIHN0eWxlPSJiYWNrZ3JvdW5kOiNmZmYiPjx0cj48dGQ-PGltZyBzcmM9Imh0dHBzOi8vaW1hZ2VzLmV4YW1wbGUuY29tL2Jhbm5lci5wbmciIHdpZHRoPSI2MDAiIGFsdD0iRXhhbXBsZSBDbyI-PC90ZD48L3RyPjx0cj48dGQgc3R5bGU9InBhZGRpbmc6MjRweDtmb250OjE2cHggSGVsdmV0aWNhIj5UaGlzIHdlZWs6IHRoZSBuZXcgcmVsZWFzZSwgdGhyZWUgdGFsa3MsIGFuZCBhIHNhbGUuIDxhIGhyZWY9Imh0dHBzOi8vZXhhbXBsZS5jb20vbmV3cz91dG1fc291cmNlPW1haWwiPlJlYWQgbW9yZTwvYT48L3RkPjwvdHI-PC90YWJsZT48L3RkPjwvdHI-PC90YWJsZT48aW1nIHNyYz0iaHR0cHM6Ly90cmFjay5leGFtcGxlLmNvbS9vcGVuLmdpZj91PTEyMyIgd2lkdGg9IjEiIGhlaWdodD0iMSI-PC9ib2R5PjwvaHRtbD4="
+      }
+     }
+    ]
+   },
+   "sizeEstimate": 1565,
+   "historyId": "376351",
+   "internalDate": "1791801000000"
+  }
+ ]
+}

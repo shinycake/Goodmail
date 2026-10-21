@@ -11,7 +11,7 @@ struct ThreadList: Decodable {
     let nextPageToken: String?
 }
 
-/// `users.threads.get` with `format=metadata`.
+/// `users.threads.get` with `format=metadata` or `format=full`; `full` adds the MIME tree under `payload`.
 struct GmailThread: Decodable {
     struct Message: Decodable {
         struct Payload: Decodable {
@@ -20,7 +20,32 @@ struct GmailThread: Decodable {
                 let value: String
             }
 
+            struct Body: Decodable {
+                let size: Int?
+                /// base64url, transfer encoding undone. Text arrives as UTF-8 whatever the part's declared charset.
+                let data: String?
+                let attachmentId: String?
+            }
+
+            let partId: String?
+            let mimeType: String?
+            let filename: String?
             let headers: [Header]?
+            let body: Body?
+            let parts: [Payload]?
+
+            var mimePart: MIMEPart {
+                MIMEPart(
+                    partID: partId ?? "",
+                    mimeType: mimeType ?? "application/octet-stream",
+                    headers: (headers ?? []).map { ($0.name, $0.value) },
+                    filename: filename ?? "",
+                    data: body?.data.flatMap(Data.init(base64URLEncoded:)),
+                    size: body?.size ?? 0,
+                    fetchToken: body?.attachmentId,
+                    parts: (parts ?? []).map(\.mimePart)
+                )
+            }
         }
 
         let id: String
@@ -41,6 +66,13 @@ struct GmailThread: Decodable {
     let id: String
     let messages: [Message]?
 
+    /// The thread's messages, oldest first, for `format=full`.
+    func messages(accountID: AccountID) -> [MailCore.Message] {
+        (messages ?? [])
+            .map { $0.message(accountID: accountID, threadID: id) }
+            .sorted { $0.date < $1.date }
+    }
+
     /// `nil` for a thread with no messages, which Gmail can briefly return after a delete.
     func summary(accountID: AccountID) -> ThreadSummary? {
         guard let messages, let latest = messages.max(by: { ($0.date ?? .distantPast) < ($1.date ?? .distantPast) })
@@ -60,18 +92,30 @@ struct GmailThread: Decodable {
     }
 }
 
-extension Contact {
-    /// Parses an RFC 5322 mailbox as Gmail returns it, already MIME-decoded: `"Name" <a@b.c>`, `Name <a@b.c>` or `a@b.c`.
-    init(parsing header: String) {
-        let trimmed = header.trimmingCharacters(in: .whitespaces)
-        guard let open = trimmed.lastIndex(of: "<"), let close = trimmed.lastIndex(of: ">"), open < close else {
-            self.init(name: nil, address: trimmed)
-            return
-        }
-        let address = String(trimmed[trimmed.index(after: open)..<close])
-        let name = trimmed[..<open]
-            .trimmingCharacters(in: .whitespaces)
-            .trimmingCharacters(in: CharacterSet(charactersIn: "\""))
-        self.init(name: name.isEmpty ? nil : name, address: address)
+extension GmailThread.Message {
+    func message(accountID: AccountID, threadID: String) -> MailCore.Message {
+        let content = payload?.mimePart.content() ?? (body: MessageBody(), attachments: [])
+        return MailCore.Message(
+            id: MailCore.Message.ID(accountID: accountID, messageID: id),
+            threadID: threadID,
+            from: Contact(parsing: header("From") ?? ""),
+            to: Contact.list(parsing: header("To") ?? ""),
+            cc: Contact.list(parsing: header("Cc") ?? ""),
+            replyTo: Contact.list(parsing: header("Reply-To") ?? ""),
+            subject: header("Subject") ?? "",
+            date: date ?? .distantPast,
+            snippet: HTMLEntities.decode(snippet ?? ""),
+            labelIDs: Set(labelIds ?? []),
+            body: content.body,
+            attachments: content.attachments,
+            internetMessageID: header("Message-ID")?.trimmingCharacters(in: CharacterSet(charactersIn: "<> ")),
+            references: (header("References") ?? "").split(whereSeparator: \.isWhitespace)
+                .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "<>")) }
+        )
     }
+}
+
+/// `users.messages.attachments.get`.
+struct GmailAttachmentBody: Decodable {
+    let data: String
 }
