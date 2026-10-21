@@ -35,6 +35,7 @@ let package = Package(
         .target(name: "MailIntents", dependencies: ["MailCore"]),
         .testTarget(name: "MailCoreTests", dependencies: ["MailCore"]),
         .testTarget(name: "MailStoreTests", dependencies: ["MailStore"]),
+        .testTarget(name: "GmailProviderTests", dependencies: ["GmailProvider"], resources: [.copy("Fixtures")]),
         .testTarget(name: "MailUITests", dependencies: ["MailUI"]),
     ],
     swiftLanguageModes: [.v6]

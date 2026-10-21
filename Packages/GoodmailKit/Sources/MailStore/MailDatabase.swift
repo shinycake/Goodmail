@@ -32,6 +32,30 @@ public final class MailDatabase: Sendable {
                 table.column("createdAt", .datetime).notNull()
             }
         }
+        migrator.registerMigration("v2-threads") { db in
+            try db.create(table: "thread") { table in
+                table.column("accountID", .text).notNull().references("account", onDelete: .cascade)
+                table.column("id", .text).notNull()
+                table.column("subject", .text).notNull()
+                table.column("snippet", .text).notNull()
+                table.column("senderName", .text)
+                table.column("senderAddress", .text).notNull()
+                table.column("date", .datetime).notNull()
+                table.column("isUnread", .boolean).notNull()
+                table.column("messageCount", .integer).notNull()
+                table.primaryKey(["accountID", "id"])
+            }
+            // Gmail labels are many-to-many; folder providers will map each folder to one label row.
+            try db.create(table: "threadLabel") { table in
+                table.column("accountID", .text).notNull()
+                table.column("threadID", .text).notNull()
+                table.column("labelID", .text).notNull()
+                table.primaryKey(["accountID", "threadID", "labelID"])
+                table.foreignKey(["accountID", "threadID"], references: "thread", onDelete: .cascade)
+            }
+            try db.create(index: "threadLabel_byLabel", on: "threadLabel", columns: ["labelID", "accountID"])
+            try db.create(index: "thread_byDate", on: "thread", columns: ["date"])
+        }
         return migrator
     }
 }

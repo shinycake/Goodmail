@@ -1,0 +1,34 @@
+{
+  "id": "18f0a1",
+  "historyId": "9001",
+  "messages": [
+    {
+      "id": "m1",
+      "threadId": "18f0a1",
+      "labelIds": ["INBOX", "CATEGORY_PERSONAL"],
+      "snippet": "Are you free?",
+      "internalDate": "1792490400000",
+      "payload": {
+        "headers": [
+          { "name": "From", "value": "Me <tester@example.com>" },
+          { "name": "Subject", "value": "Lunch" },
+          { "name": "Date", "value": "Mon, 19 Oct 2026 10:00:00 +0000" }
+        ]
+      }
+    },
+    {
+      "id": "m2",
+      "threadId": "18f0a1",
+      "labelIds": ["UNREAD", "INBOX", "CATEGORY_PERSONAL", "IMPORTANT"],
+      "snippet": "Sure &#8212; let&#39;s do 12:30 at Dana&amp;Co. &quot;Same table&quot;",
+      "internalDate": "1792501200000",
+      "payload": {
+        "headers": [
+          { "name": "From", "value": "\"Dana Levi\" <dana@example.com>" },
+          { "name": "Subject", "value": "Re: Lunch" },
+          { "name": "Date", "value": "Mon, 19 Oct 2026 13:00:00 +0000" }
+        ]
+      }
+    }
+  ]
+}

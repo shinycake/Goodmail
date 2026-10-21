@@ -1,0 +1,19 @@
+{
+  "id": "18f0a2",
+  "historyId": "9002",
+  "messages": [
+    {
+      "id": "m3",
+      "threadId": "18f0a2",
+      "labelIds": ["INBOX", "CATEGORY_UPDATES"],
+      "snippet": "שלום, מצורף הסיכום של הפגישה",
+      "internalDate": "1792404000000",
+      "payload": {
+        "headers": [
+          { "name": "From", "value": "יעל כהן <yael@example.co.il>" },
+          { "name": "Subject", "value": "סיכום פגישה" }
+        ]
+      }
+    }
+  ]
+}
