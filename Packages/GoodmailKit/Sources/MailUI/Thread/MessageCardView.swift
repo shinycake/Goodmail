@@ -5,6 +5,9 @@ import UIKit
 final class MessageCardView: UIView {
     var onToggle: (() -> Void)?
     var onAllowRemoteContent: (() -> Void)?
+    var onOpenAttachment: ((Attachment) -> Void)? {
+        didSet { attachments.onOpen = onOpenAttachment }
+    }
     var openURL: ((URL) -> Void)? {
         didSet { body.openURL = openURL }
     }
@@ -15,6 +18,7 @@ final class MessageCardView: UIView {
     private let recipients = UILabel()
     private let remoteNotice = UIButton(configuration: .plain())
     private let body: MessageWebView
+    private let attachments = AttachmentListView()
 
     init(attachmentData: @escaping (Attachment, Message.ID) async throws -> Data) {
         body = MessageWebView(attachmentData: attachmentData)
@@ -57,7 +61,7 @@ final class MessageCardView: UIView {
         header.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(toggle)))
 
         let noticeRow = UIStackView(arrangedSubviews: [remoteNotice, UIView()])
-        let stack = UIStackView(arrangedSubviews: [header, noticeRow, body])
+        let stack = UIStackView(arrangedSubviews: [header, noticeRow, body, attachments])
         stack.axis = .vertical
         stack.spacing = 14
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -86,7 +90,12 @@ final class MessageCardView: UIView {
         avatar.configure(name: message.from.displayName, badge: message.isUnread ? accountColor : nil)
         recipients.setContentText(Self.recipientsLine(message, accountEmail: accountEmail), alignedToContent: false)
         body.show(MessageWebView.Content(message: message, allowsRemoteContent: allowsRemoteContent))
+        attachments.show(AttachmentListView.listed(in: message))
         accessibilityLabel = [message.from.displayName, dateText].joined(separator: ", ")
+    }
+
+    func setLoading(_ loading: Bool, for attachment: Attachment) {
+        attachments.setLoading(loading, for: attachment)
     }
 
     @objc private func toggle() {

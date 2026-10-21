@@ -1,4 +1,5 @@
 import MailCore
+import QuickLook
 import UIKit
 
 /// A conversation read as letters: the subject, a slim timeline of earlier messages, and cards for the ones that
@@ -14,6 +15,7 @@ public final class ThreadViewController: UIViewController {
     private var rows: [Message.ID: TimelineRowView] = [:]
     private var observation: Task<Void, Never>?
     private var hasScrolledToFocus = false
+    private var previewURL: URL?
 
     public init(viewModel: ThreadViewModel, openURL: @escaping (URL) -> Void) {
         self.viewModel = viewModel
@@ -109,6 +111,10 @@ public final class ThreadViewController: UIViewController {
         card.onToggle = { [weak self] in self?.viewModel.toggle(id) }
         card.onAllowRemoteContent = { [weak self] in self?.viewModel.allowRemoteContent(in: id) }
         card.openURL = openURL
+        card.onOpenAttachment = { [weak self, weak card] attachment in
+            guard let self, let card else { return }
+            open(attachment, in: id, from: card)
+        }
         cards[id] = card
         return card
     }
@@ -118,6 +124,28 @@ public final class ThreadViewController: UIViewController {
         row.addAction(UIAction { [weak self] _ in self?.viewModel.toggle(id) }, for: .primaryActionTriggered)
         rows[id] = row
         return row
+    }
+
+    private func open(_ attachment: Attachment, in message: Message.ID, from card: MessageCardView) {
+        card.setLoading(true, for: attachment)
+        Task {
+            defer { card.setLoading(false, for: attachment) }
+            do {
+                previewURL = try await viewModel.file(for: attachment, in: message)
+                let preview = QLPreviewController()
+                preview.dataSource = self
+                present(preview, animated: true)
+            } catch {
+                let alert = UIAlertController(
+                    title: String(
+                        localized: "Couldn’t Open Attachment", bundle: .module,
+                        comment: "Alert title when an attachment fails to download"),
+                    message: error.localizedDescription, preferredStyle: .alert)
+                alert.addAction(
+                    UIAlertAction(title: String(localized: "OK", bundle: .module, comment: "Dismiss"), style: .default))
+                present(alert, animated: true)
+            }
+        }
     }
 
     /// Opens on the first unread message, or the newest, once the messages first arrive.
@@ -135,5 +163,15 @@ public final class ThreadViewController: UIViewController {
     static func countText(_ count: Int) -> String {
         guard count > 1 else { return "" }
         return String(localized: "\(count) messages", bundle: .module, comment: "How many messages a thread holds")
+    }
+}
+
+extension ThreadViewController: QLPreviewControllerDataSource {
+    public func numberOfPreviewItems(in controller: QLPreviewController) -> Int {
+        previewURL == nil ? 0 : 1
+    }
+
+    public func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> any QLPreviewItem {
+        (previewURL ?? URL(filePath: "/")) as NSURL
     }
 }

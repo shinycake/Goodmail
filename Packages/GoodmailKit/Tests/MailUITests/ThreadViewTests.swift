@@ -65,3 +65,47 @@ struct ThreadViewModelTests {
         #expect(model.expanded == [messages[0].id], "a thread always shows at least one card")
     }
 }
+
+@MainActor
+struct AttachmentFileTests {
+    @Test func attachmentsDownloadOnceAndKeepTheirName() async throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let account = AccountID(rawValue: "a")
+        var fetches = 0
+        let model = ThreadViewModel(
+            thread: ThreadSummary(
+                id: .init(accountID: account, threadID: "t"), subject: "Quote", snippet: "",
+                sender: Contact(name: nil, address: "a@example.com"), date: .now, isUnread: false, messageCount: 1,
+                labelIDs: []),
+            accountEmail: "me@example.com", accountColor: .blue,
+            messages: { AsyncThrowingStream { $0.finish() } }, load: {},
+            attachmentData: { _, _ in
+                fetches += 1
+                return Data("%PDF".utf8)
+            },
+            attachmentsDirectory: directory)
+        let attachment = Attachment(id: "1", filename: "../Quote 2026.pdf", mimeType: "application/pdf", size: 4)
+        let message = Message.ID(accountID: account, messageID: "m")
+        let first = try await model.file(for: attachment, in: message)
+        let second = try await model.file(for: attachment, in: message)
+        #expect(first == second)
+        #expect(fetches == 1)
+        #expect(first.lastPathComponent == "-Quote 2026.pdf")
+        #expect(first.path().hasPrefix(directory.path()))
+        #expect(try Data(contentsOf: first) == Data("%PDF".utf8))
+    }
+
+    @Test func inlineImagesTheBodyPlacesAreNotListed() {
+        let message = Message(
+            id: .init(accountID: AccountID(rawValue: "a"), messageID: "m"), threadID: "t",
+            from: Contact(name: nil, address: "a@example.com"), subject: "", date: .now, body: MessageBody(),
+            attachments: [
+                Attachment(
+                    id: "1", filename: "logo.png", mimeType: "image/png", size: 1, contentID: "logo", isInline: true),
+                Attachment(id: "2", filename: "quote.pdf", mimeType: "application/pdf", size: 1),
+            ])
+        #expect(AttachmentListView.listed(in: message).map(\.id) == ["2"])
+        #expect(AttachmentListView.symbol(for: "application/pdf") == "doc.richtext")
+    }
+}
