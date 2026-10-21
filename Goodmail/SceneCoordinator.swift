@@ -1,3 +1,4 @@
+import MailCore
 import MailStore
 import MailUI
 import UIKit
@@ -36,7 +37,8 @@ final class SceneCoordinator {
             accounts: model.accounts,
             threads: { model.database.threads(labeled: "INBOX") },
             refresh: { try await model.syncAll() },
-            loadOlder: { try await model.loadOlder(label: "INBOX") }
+            loadOlder: { try await model.loadOlder(label: "INBOX") },
+            navigate: { [weak self] route in self?.handle(route) }
         )
         let mailbox = UINavigationController(rootViewController: MailboxViewController(viewModel: viewModel))
         if window.rootViewController == nil {
@@ -45,6 +47,28 @@ final class SceneCoordinator {
             UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve) {
                 self.window.rootViewController = mailbox
             }
+        }
+    }
+
+    /// The one place navigation happens (ADR-011).
+    func handle(_ route: Route) {
+        switch route {
+        case .thread(let id):
+            guard let thread = try? model.database.thread(id),
+                let account = model.accounts.first(where: { $0.id == id.accountID }),
+                let navigation = window.rootViewController as? UINavigationController
+            else { return }
+            let model = model
+            let viewModel = ThreadViewModel(
+                thread: thread,
+                accountEmail: account.email,
+                accountColor: account.color,
+                messages: { model.database.messages(inThread: id) },
+                load: { try await model.loadMessages(of: id) },
+                attachmentData: { try await model.attachmentData($0, in: $1) }
+            )
+            let reader = ThreadViewController(viewModel: viewModel) { url in UIApplication.shared.open(url) }
+            navigation.pushViewController(reader, animated: true)
         }
     }
 }

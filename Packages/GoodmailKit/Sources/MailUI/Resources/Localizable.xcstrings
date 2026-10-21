@@ -1,6 +1,53 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%lld messages" : {
+      "comment" : "How many messages a thread holds",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld message"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld messages"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "הודעה אחת"
+                }
+              },
+              "two" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "שתי הודעות"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld הודעות"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "(No Subject)" : {
       "comment" : "Shown in place of an empty email subject",
       "localizations" : {
@@ -67,6 +114,17 @@
         }
       }
     },
+    "Load Remote Images" : {
+      "comment" : "Shows blocked remote content",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "טעינת תמונות מרוחקות"
+          }
+        }
+      }
+    },
     "No Accounts" : {
       "comment" : "Empty-state title shown before any mail account is added",
       "localizations" : {
@@ -85,6 +143,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "אישור"
+          }
+        }
+      }
+    },
+    "Show Quoted Text" : {
+      "comment" : "Accessibility label of the fold",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצגת טקסט מצוטט"
           }
         }
       }
@@ -162,6 +231,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "אתמול"
+          }
+        }
+      }
+    },
+    "me" : {
+      "comment" : "The reader, in a recipient list",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אני"
+          }
+        }
+      }
+    },
+    "to %@" : {
+      "comment" : "The recipients of a message, under its sender",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אל %@"
           }
         }
       }

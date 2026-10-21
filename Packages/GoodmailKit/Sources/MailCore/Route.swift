@@ -1,0 +1,5 @@
+/// Every place the app can navigate to (ADR-011). Notifications, intents, Spotlight and the UI all produce these,
+/// and the scene coordinator is the only thing that acts on them.
+public enum Route: Hashable, Sendable {
+    case thread(ThreadSummary.ID)
+}
