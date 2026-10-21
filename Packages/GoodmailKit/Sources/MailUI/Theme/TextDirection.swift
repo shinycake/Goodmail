@@ -14,6 +14,16 @@ nonisolated enum TextDirection: Equatable {
         return nil
     }
 
+    /// A subject's direction, decided past reply and forward prefixes: "Re: סיכום פגישה" is a Hebrew subject.
+    static func of(subject: String) -> TextDirection? {
+        let range = subject.range(of: replyPrefixes, options: [.regularExpression, .caseInsensitive])
+        let rest = range.map { subject[$0.upperBound...] }.map(String.init) ?? subject
+        return of(rest) ?? of(subject)
+    }
+
+    /// Repeated prefixes such as "Re:", "Fwd:", "RE[2]:", "AW:" and Hebrew clients' "השב:" and "הועבר:".
+    private static let replyPrefixes = #"^\s*((re|fwd?|aw|wg|sv|vs|tr|r|rv|enc|השב|הועבר|תשובה)(\[\d+\])?\s*:\s*)+"#
+
     private static func isRightToLeft(_ scalar: Unicode.Scalar) -> Bool {
         switch scalar.value {
         case 0x0590...0x08FF,  // Hebrew, Arabic, Syriac, Thaana, NKo, Samaritan, Mandaic, Arabic Extended
@@ -33,10 +43,19 @@ extension UILabel {
     /// `alignedToContent`, the paragraph also aligns to where that language starts; otherwise it follows the
     /// interface, for text that sits beside other elements. Text with no letters follows the interface.
     func setContentText(_ text: String, alignedToContent: Bool = true) {
+        setContentText(text, direction: TextDirection.of(text), alignedToContent: alignedToContent)
+    }
+
+    /// `setContentText` for a subject, whose direction ignores reply and forward prefixes.
+    func setSubjectText(_ subject: String) {
+        setContentText(subject, direction: TextDirection.of(subject: subject), alignedToContent: true)
+    }
+
+    private func setContentText(_ text: String, direction: TextDirection?, alignedToContent: Bool) {
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineBreakMode = .byTruncatingTail
         paragraph.alignment = .natural
-        switch TextDirection.of(text) {
+        switch direction {
         case .leftToRight:
             paragraph.baseWritingDirection = .leftToRight
             if alignedToContent { paragraph.alignment = .left }

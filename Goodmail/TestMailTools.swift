@@ -150,7 +150,7 @@
             var request = request
             request.setValue("Bearer \(try await session.validAccessToken())", forHTTPHeaderField: "Authorization")
             let (data, response) = try await URLSession.shared.data(for: request)
-            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            let status = response.statusCode
             guard (200..<300).contains(status) else {
                 throw Failure(status: status, body: String(decoding: data, as: UTF8.self))
             }

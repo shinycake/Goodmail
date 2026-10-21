@@ -101,7 +101,7 @@ final class ThreadRowContentView: UIView, UIContentView {
         sender.setContentText(name, alignedToContent: false)
         date.text = current.dateText
         let subjectText = thread.subject.isEmpty ? ThreadRowMetrics.noSubject : thread.subject
-        subject.setContentText(subjectText)
+        subject.setSubjectText(subjectText)
         preview.setContentText(thread.snippet)
         preview.numberOfLines = current.previewLines
         preview.isHidden = current.previewLines == 0 || thread.snippet.isEmpty
