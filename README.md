@@ -17,7 +17,8 @@ Requires Xcode 27.2 / Swift 6.4.
 ## Building and the gate
 
 - Open `Goodmail.xcodeproj` (JSON project format). Code lives in the local package `Packages/GoodmailKit` (targets `MailCore`, `MailStore`, `GmailProvider`, `MailUI`, `MailIntents`); the app, `NotificationService` and `Widgets` targets are thin.
-- `scripts/check` is the gate: swift-format lint, the 1000-line cap, package tests and the app's English/Hebrew launch tests. `scripts/check --lint` runs only the fast part.
+- `scripts/check` is the gate: swift-format lint, the 1000-line cap, package tests and the app's English/Hebrew launch tests. `scripts/check --lint` runs only the fast part. Its tests run on a separate "Goodmail Check" simulator.
+- `scripts/run` builds the signed Debug app and installs it on the dev simulator, keeping its Gmail sign-in. Arguments pass through to the app, e.g. `scripts/run -AppleLanguages "(he)"`.
 - After cloning, enable the tracked hooks (pre-commit runs `--lint`, pre-push runs everything):
 
   ```bash

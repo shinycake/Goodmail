@@ -11,8 +11,12 @@ public protocol SecretStore: Sendable {
 /// Secrets shared by the app and its extensions. Items are readable after first unlock, so the NSE can
 /// use them while the phone is locked. The access group is the entitlement's first one, the shared group.
 public struct Keychain: SecretStore {
-    public struct Failure: Error, Equatable {
+    public struct Failure: LocalizedError, Equatable {
         public let status: OSStatus
+
+        public var errorDescription: String? {
+            "Keychain error \(status): \(SecCopyErrorMessageString(status, nil) as String? ?? "unknown")"
+        }
     }
 
     private let service: String

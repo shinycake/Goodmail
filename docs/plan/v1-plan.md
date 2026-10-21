@@ -48,6 +48,8 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
 
 **Evidence:** a screenshot of the test account's inbox in English and Hebrew, provider tests on fixtures, and the scroll measurement.
 
+**Status:** done (branch `m1-first-light`). The real inbox signs in, persists across relaunches, and renders in English and Hebrew. The scroll measurement ran on the simulator (50k threads add about 0.5–1 s to first rows). The on-device Instruments run waits for a development team, like M0's device builds. Fixtures are hand-written until scrubbed recordings exist (ADR-010).
+
 ### M2: Sync engine
 
 **Builds:**
