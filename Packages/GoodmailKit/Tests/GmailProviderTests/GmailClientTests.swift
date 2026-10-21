@@ -22,7 +22,9 @@ struct GmailClientTests {
     @Test func inboxThreadsKeepGmailsOrderAndMapToSummaries() async throws {
         let http = FixtureHTTPClient(Self.inboxReplies)
         let session = try await signedIn(http)
-        let threads = try await GmailClient(session: session, http: http).inboxThreads()
+        let threads = try await GmailClient(session: session, http: http).threads(
+            matching: ThreadQuery(label: "INBOX"), pageToken: nil
+        ).threads
 
         #expect(threads.map(\.id.threadID) == ["18f0a1", "18f0a2", "18f0a3"])
         #expect(threads.allSatisfy { $0.id.accountID == session.accountID })
@@ -48,7 +50,8 @@ struct GmailClientTests {
 
     @Test func requestsAskForMetadataHeadersWithTheBearerToken() async throws {
         let http = FixtureHTTPClient(Self.inboxReplies)
-        _ = try await GmailClient(session: try await signedIn(http), http: http).inboxThreads()
+        _ = try await GmailClient(session: try await signedIn(http), http: http)
+            .threads(matching: ThreadQuery(label: "INBOX"), pageToken: nil)
 
         let threadGet = try #require(http.requests.first { $0.url!.path().hasSuffix("/threads/18f0a1") })
         let query = try #require(threadGet.url?.query())
