@@ -6,7 +6,7 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
 
 ## Rules that apply to every slice
 
-- **Multi-account and RTL from day one.** RTL effort goes first to mail content: the reader (M3) and the composer (M5). Mirrored chrome gets what UIKit gives for free, and polish only after those two (owner's priority, 2026-10-20).
+- **Multi-account and RTL from day one, English first.** A working English client comes before Hebrew polish: each milestone ships and is verified with English mail, keeping the RTL behavior already built working. RTL refinement is then scheduled by priority, content (reader, composer) before chrome (owner's priority, 2026-10-20).
   - Every table and type carries `AccountID`, even while the UI shows one account.
   - Every user-facing string goes into a String Catalog with English and Hebrew.
 - **One way to do things:**
@@ -76,6 +76,8 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
 - **RTL reading:** each paragraph takes its own direction (`dir=auto` per block, also for plain-text bodies). Quoted text keeps the direction it was written in. Mixed-script lines keep numbers, addresses and punctuation in order. Subject and sender lines follow their own content.
 
 **Evidence:** rendering tests on tricky real-world MIME fixtures, including Hebrew mail from Gmail, Outlook and Apple Mail with mixed English, numbers, links and nested quotes. Screenshots of a Hebrew/English mixed thread and an HTML newsletter.
+
+**Status:** done (PRs #6, #7, #8). Body prefetch and an attachment cache limit are deferred.
 
 ### M4: Actions and outbox
 

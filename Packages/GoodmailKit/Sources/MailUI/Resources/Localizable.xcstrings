@@ -92,6 +92,17 @@
         }
       }
     },
+    "Couldn’t Open Attachment" : {
+      "comment" : "Alert title when an attachment fails to download",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן לפתוח את הקובץ המצורף"
+          }
+        }
+      }
+    },
     "Inbox" : {
       "comment" : "Mailbox title",
       "localizations" : {
