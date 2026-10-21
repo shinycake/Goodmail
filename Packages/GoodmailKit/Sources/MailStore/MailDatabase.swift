@@ -56,6 +56,25 @@ public final class MailDatabase: Sendable {
             try db.create(index: "threadLabel_byLabel", on: "threadLabel", columns: ["labelID", "accountID"])
             try db.create(index: "thread_byDate", on: "thread", columns: ["date"])
         }
+        migrator.registerMigration("v3-sync") { db in
+            // The resync that last saw the thread; see `Sweep`.
+            try db.alter(table: "thread") { table in
+                table.add(column: "generation", .integer).notNull().defaults(to: 0)
+            }
+            try db.create(table: "label") { table in
+                table.column("accountID", .text).notNull().references("account", onDelete: .cascade)
+                table.column("id", .text).notNull()
+                table.column("name", .text).notNull()
+                table.column("kind", .text).notNull()
+                table.column("color", .text)
+                table.column("isHidden", .boolean).notNull()
+                table.primaryKey(["accountID", "id"])
+            }
+            try db.create(table: "syncState") { table in
+                table.primaryKey("accountID", .text).references("account", onDelete: .cascade)
+                table.column("state", .jsonText).notNull()
+            }
+        }
         return migrator
     }
 }

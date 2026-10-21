@@ -6,19 +6,28 @@ extension MailDatabase {
     /// Inserts or updates the threads and replaces their labels. One short transaction (ADR-002).
     public func upsert(_ threads: [ThreadSummary]) throws {
         try pool.write { db in
-            for thread in threads {
-                try ThreadRecord(thread).upsert(db)
-                try db.execute(
-                    sql: "DELETE FROM threadLabel WHERE accountID = ? AND threadID = ?",
-                    arguments: [thread.id.accountID.rawValue, thread.id.threadID]
-                )
-                for label in thread.labelIDs {
-                    try db.execute(
-                        sql: "INSERT INTO threadLabel (accountID, threadID, labelID) VALUES (?, ?, ?)",
-                        arguments: [thread.id.accountID.rawValue, thread.id.threadID, label]
-                    )
-                }
-            }
+            for thread in threads { try Self.upsert(thread, in: db) }
+        }
+    }
+
+    static func upsert(_ thread: ThreadSummary, generation: Int? = nil, in db: Database) throws {
+        let accountID = thread.id.accountID.rawValue
+        try ThreadRecord(thread).upsert(db)
+        if let generation {
+            try db.execute(
+                sql: "UPDATE thread SET generation = ? WHERE accountID = ? AND id = ?",
+                arguments: [generation, accountID, thread.id.threadID]
+            )
+        }
+        try db.execute(
+            sql: "DELETE FROM threadLabel WHERE accountID = ? AND threadID = ?",
+            arguments: [accountID, thread.id.threadID]
+        )
+        for label in thread.labelIDs {
+            try db.execute(
+                sql: "INSERT INTO threadLabel (accountID, threadID, labelID) VALUES (?, ?, ?)",
+                arguments: [accountID, thread.id.threadID, label]
+            )
         }
     }
 

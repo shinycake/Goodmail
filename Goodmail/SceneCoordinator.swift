@@ -35,7 +35,7 @@ final class SceneCoordinator {
         let viewModel = MailboxViewModel(
             accounts: model.accounts,
             threads: { model.database.threads(labeled: "INBOX") },
-            refresh: { try await model.refreshInbox() }
+            refresh: { try await model.syncAll() }
         )
         let mailbox = UINavigationController(rootViewController: MailboxViewController(viewModel: viewModel))
         if window.rootViewController == nil {

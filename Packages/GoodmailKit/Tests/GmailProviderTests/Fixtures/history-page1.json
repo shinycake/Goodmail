@@ -1,0 +1,8 @@
+{
+  "history": [
+    { "id": "9003", "messages": [{ "id": "m4", "threadId": "18f0a4" }], "messagesAdded": [{ "message": { "id": "m4", "threadId": "18f0a4", "labelIds": ["INBOX", "UNREAD"] } }] },
+    { "id": "9005", "messages": [{ "id": "m1", "threadId": "18f0a1" }], "labelsRemoved": [{ "message": { "id": "m1", "threadId": "18f0a1", "labelIds": [] }, "labelIds": ["INBOX"] }] }
+  ],
+  "nextPageToken": "page-2",
+  "historyId": "9010"
+}
