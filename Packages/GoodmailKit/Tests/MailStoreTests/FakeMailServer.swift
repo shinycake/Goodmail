@@ -20,6 +20,8 @@ final class FakeMailServer: MailProvider {
         var changeRequests = 0
         var performed: [(threadID: String, action: ThreadAction)] = []
         var failPerform: (any Error)?
+        var sent: [(raw: Data, threadID: String?)] = []
+        var failSend: (any Error)?
     }
 
     let pageSize: Int
@@ -130,5 +132,20 @@ extension FakeMailServer {
     /// Makes every `perform` throw `error` until set back to `nil`.
     func failPerform(with error: (any Error)?) {
         state.withLock { $0.failPerform = error }
+    }
+}
+
+extension FakeMailServer {
+    func send(_ raw: Data, inThread threadID: String?) async throws {
+        try state.withLock { state in
+            if let failure = state.failSend { throw failure }
+            state.sent.append((raw, threadID))
+        }
+    }
+
+    var sent: [(raw: Data, threadID: String?)] { state.withLock { $0.sent } }
+
+    func failSend(with error: (any Error)?) {
+        state.withLock { $0.failSend = error }
     }
 }

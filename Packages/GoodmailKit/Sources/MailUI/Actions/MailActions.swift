@@ -10,14 +10,26 @@ public final class MailActions {
     public struct Toast: Equatable, Identifiable {
         public let id = UUID()
         public let message: String
-        let undo: MailCommands.Undo
+        let undo: Undo
     }
+
+    enum Undo: Equatable {
+        case actions(MailCommands.Undo)
+        /// Takes a message back during its undo-send window.
+        case send(Draft.ID)
+    }
+
+    /// How long a sent message waits before it goes, so it can be taken back.
+    public static let undoSendDelay: Duration = .seconds(10)
+
+    /// Opens a taken-back message in the composer again.
+    @ObservationIgnored public var reopen: ((Draft) -> Void)?
 
     public private(set) var toast: Toast?
     /// A failure to apply or undo an action locally.
     public private(set) var error: (any Error)?
     @ObservationIgnored private let commands: MailCommands
-    @ObservationIgnored private var lastUndo: MailCommands.Undo?
+    @ObservationIgnored private var lastUndo: Undo?
     @ObservationIgnored private let toastDuration: Duration
 
     public init(commands: MailCommands, toastDuration: Duration = .seconds(5)) {
@@ -29,9 +41,9 @@ public final class MailActions {
         do {
             let undo = try commands.perform(action, on: threads)
             guard !undo.isEmpty else { return }
-            lastUndo = undo
+            lastUndo = .actions(undo)
             if let message = Self.confirmation(for: action, count: threads.count) {
-                show(Toast(message: message, undo: undo))
+                show(Toast(message: message, undo: .actions(undo)), for: toastDuration)
             }
         } catch {
             self.error = error
@@ -44,7 +56,28 @@ public final class MailActions {
         lastUndo = nil
         toast = nil
         do {
-            try commands.undo(undo)
+            switch undo {
+            case .actions(let undo):
+                try commands.undo(undo)
+            case .send(let id):
+                if let draft = try commands.cancelSend(id) { reopen?(draft) }
+            }
+        } catch {
+            self.error = error
+        }
+    }
+
+    /// Queues a message to send after the undo window, with a toast to take it back.
+    public func send(_ draft: Draft) {
+        do {
+            try commands.send(draft, after: Self.undoSendDelay)
+            lastUndo = .send(draft.id)
+            show(
+                Toast(
+                    message: String(
+                        localized: "Sending…", bundle: .module, comment: "Toast while a message waits to go"),
+                    undo: .send(draft.id)),
+                for: Self.undoSendDelay)
         } catch {
             self.error = error
         }
@@ -54,10 +87,10 @@ public final class MailActions {
         toast = nil
     }
 
-    private func show(_ toast: Toast) {
+    private func show(_ toast: Toast, for duration: Duration) {
         self.toast = toast
-        Task { [toastDuration] in
-            try? await Task.sleep(for: toastDuration)
+        Task {
+            try? await Task.sleep(for: duration)
             if self.toast?.id == toast.id { self.toast = nil }
         }
     }

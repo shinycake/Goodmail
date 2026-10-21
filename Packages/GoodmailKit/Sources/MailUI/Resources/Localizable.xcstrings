@@ -72,16 +72,16 @@
                   "value" : "הודעה אחת"
                 }
               },
-              "two" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "שתי הודעות"
-                }
-              },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
                   "value" : "%lld הודעות"
+                }
+              },
+              "two" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "שתי הודעות"
                 }
               }
             }
@@ -215,6 +215,39 @@
         }
       }
     },
+    "Bcc:" : {
+      "comment" : "Compose field label",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עותק מוסתר:"
+          }
+        }
+      }
+    },
+    "Cc/Bcc" : {
+      "comment" : "Shows Cc and Bcc",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עותק/מוסתר"
+          }
+        }
+      }
+    },
+    "Cc:" : {
+      "comment" : "Compose field label",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עותק:"
+          }
+        }
+      }
+    },
     "Change Labels" : {
       "comment" : "Action: add or remove labels",
       "localizations" : {
@@ -222,6 +255,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "שינוי תוויות"
+          }
+        }
+      }
+    },
+    "Couldn't Send “%@”" : {
+      "comment" : "A message failed to send",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן לשלוח את “%@”"
           }
         }
       }
@@ -248,6 +292,50 @@
         }
       }
     },
+    "Delete" : {
+      "comment" : "Deletes a failed message",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחק"
+          }
+        }
+      }
+    },
+    "Delete Draft" : {
+      "comment" : "Discards the message",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחק טיוטה"
+          }
+        }
+      }
+    },
+    "Edit" : {
+      "comment" : "Reopens a failed message",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ערוך"
+          }
+        }
+      }
+    },
+    "Forward" : {
+      "comment" : "Forwards the message",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העבר"
+          }
+        }
+      }
+    },
     "Inbox" : {
       "comment" : "Mailbox title",
       "localizations" : {
@@ -255,6 +343,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "דואר נכנס"
+          }
+        }
+      }
+    },
+    "Keep Editing" : {
+      "comment" : "Returns to the message",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "המשך לערוך"
           }
         }
       }
@@ -303,6 +402,17 @@
         }
       }
     },
+    "Message" : {
+      "comment" : "The body field",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הודעה"
+          }
+        }
+      }
+    },
     "Move Out of Trash" : {
       "comment" : "Action: restore a thread",
       "localizations" : {
@@ -321,6 +431,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "העברה לדואר הנכנס"
+          }
+        }
+      }
+    },
+    "New Message" : {
+      "comment" : "Composer title",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הודעה חדשה"
           }
         }
       }
@@ -347,6 +468,28 @@
         }
       }
     },
+    "Reply" : {
+      "comment" : "Composer title for a reply",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השב"
+          }
+        }
+      }
+    },
+    "Reply All" : {
+      "comment" : "Replies to everyone",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השב לכולם"
+          }
+        }
+      }
+    },
     "Report Spam" : {
       "comment" : "Action: report a thread as spam",
       "localizations" : {
@@ -354,6 +497,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "דיווח כספאם"
+          }
+        }
+      }
+    },
+    "Send" : {
+      "comment" : "Sends the message",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שלח"
+          }
+        }
+      }
+    },
+    "Sending…" : {
+      "comment" : "Toast while a message waits to go",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שולח…"
           }
         }
       }
@@ -376,6 +541,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "סימון בכוכב"
+          }
+        }
+      }
+    },
+    "Subject:" : {
+      "comment" : "Compose field label",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נושא:"
           }
         }
       }
@@ -435,6 +611,17 @@
         }
       }
     },
+    "To:" : {
+      "comment" : "Compose field label",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אל:"
+          }
+        }
+      }
+    },
     "Trash" : {
       "comment" : "Action: move a thread to Trash",
       "localizations" : {
@@ -442,6 +629,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "העברה לפח"
+          }
+        }
+      }
+    },
+    "Try Again" : {
+      "comment" : "Sends a failed message again",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נסה שוב"
           }
         }
       }

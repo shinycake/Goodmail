@@ -3,6 +3,7 @@ import GmailProvider
 import MailCore
 import MailStore
 import OSLog
+import UIKit
 
 /// The composition root, shared by every window: the database, the accounts, each account's sync engine, and the
 /// commands that change mail.
@@ -13,6 +14,7 @@ final class AppModel {
     private var clients: [AccountID: GmailClient] = [:]
     private var engines: [AccountID: SyncEngine] = [:]
     private let outboxes: Outboxes
+    private let senders: Senders
 
     init(database: MailDatabase) throws {
         self.database = database
@@ -21,7 +23,25 @@ final class AppModel {
             Outbox(accountID: id, provider: GmailClient(session: GmailSession(accountID: id)), store: database)
         }
         self.outboxes = outboxes
-        commands = MailCommands(store: database, replay: { id in Task { await outboxes.flush(id) } })
+        let senders = Senders { id in
+            let email = (try? database.accounts().first { $0.id == id }?.email) ?? ""
+            return Sender(
+                accountID: id, provider: GmailClient(session: GmailSession(accountID: id)), store: database,
+                from: Contact(name: nil, address: email))
+        }
+        self.senders = senders
+        commands = MailCommands(
+            store: database,
+            replay: { id in Task { await outboxes.flush(id) } },
+            deliver: { id, date in Task { await senders.deliver(id, at: date) } })
+        // A sent message lands in its thread on the server; fetch it so the list and the reader show it there.
+        senders.onSent = { [weak self] id, sent in
+            guard let self else { return }
+            try? await engine(for: id).sync()
+            for threadID in Set(sent.compactMap(\.threadID)) {
+                try? await loadMessages(of: ThreadSummary.ID(accountID: id, threadID: threadID))
+            }
+        }
     }
 
     /// The shared container's database, so the extensions see the same mail (ADR-002).
@@ -65,6 +85,8 @@ final class AppModel {
     func syncAll() async throws {
         let engines = accounts.map { engine(for: $0.id) }
         let outboxes = outboxes
+        // Messages whose undo window closed while the app was away.
+        for account in accounts { await senders.deliver(account.id, at: .now) }
         try await withThrowingTaskGroup(of: Void.self) { group in
             for engine in engines {
                 group.addTask {
@@ -134,5 +156,29 @@ actor Outboxes {
             Logger(subsystem: "com.idanbirman.goodmail", category: "outbox")
                 .error("Replay stopped: \(error, privacy: .public)")
         }
+    }
+}
+
+/// One sender per account. Each queued message is sent once its undo window closes, with background time asked
+/// for so leaving the app in that window doesn't hold it back.
+final class Senders {
+    var onSent: ((AccountID, [Draft]) async -> Void)?
+    private let make: (AccountID) -> Sender
+    private var senders: [AccountID: Sender] = [:]
+
+    init(make: @escaping (AccountID) -> Sender) {
+        self.make = make
+    }
+
+    func deliver(_ id: AccountID, at date: Date) async {
+        let application = UIApplication.shared
+        let background = application.beginBackgroundTask(withName: "Send")
+        defer { if background != .invalid { application.endBackgroundTask(background) } }
+        let wait = date.timeIntervalSinceNow
+        if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
+        let sender = senders[id] ?? make(id)
+        senders[id] = sender
+        let sent = await sender.flush()
+        if !sent.isEmpty { await onSent?(id, sent) }
     }
 }

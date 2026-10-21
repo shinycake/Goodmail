@@ -27,6 +27,10 @@ public protocol MailProvider: Sendable {
 
     /// Applies `action` to every message in the thread. Throws `ProviderError.notFound` when the thread is gone.
     func perform(_ action: ThreadAction, onThread threadID: String) async throws
+
+    /// Sends an RFC 5322 message, in `threadID` when it answers one. Throws `ProviderError.rejected` for a message
+    /// the service won't send.
+    func send(_ raw: Data, inThread threadID: String?) async throws
 }
 
 public enum ProviderError: Error, Equatable {

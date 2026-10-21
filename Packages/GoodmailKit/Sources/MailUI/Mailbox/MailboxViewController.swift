@@ -10,8 +10,6 @@ public final class MailboxViewController: UIViewController {
     private var sectionTitles: [TimeSection: String] = [:]
     private var observation: Task<Void, Never>?
     private var swipes: SwipeActionsController!
-    private let toast = UndoToastView()
-    private var shownToast: MailActions.Toast.ID?
 
     public init(viewModel: MailboxViewModel) {
         self.viewModel = viewModel
@@ -47,7 +45,13 @@ public final class MailboxViewController: UIViewController {
         view.addSubview(collectionView)
         configureDataSource()
         configureSwipes()
-        configureToast()
+        toolbarItems = [
+            .flexibleSpace(),
+            UIBarButtonItem(
+                title: String(localized: "New Message", bundle: .module, comment: "Composer title"),
+                image: UIImage(systemName: "square.and.pencil"),
+                primaryAction: UIAction { [weak self] _ in self?.viewModel.compose() }),
+        ]
 
         observation = Task { [viewModel] in await viewModel.observe() }
     }
@@ -57,6 +61,7 @@ public final class MailboxViewController: UIViewController {
         for indexPath in collectionView.indexPathsForSelectedItems ?? [] {
             collectionView.deselectItem(at: indexPath, animated: animated)
         }
+        navigationController?.setToolbarHidden(false, animated: animated)
         navigationController?.navigationBar.prefersLargeTitles = true
         navigationController?.navigationBar.largeTitleTextAttributes = [
             .font: Typography.serif(.largeTitle, weight: .bold)
@@ -70,20 +75,6 @@ public final class MailboxViewController: UIViewController {
         if !viewModel.isRefreshing, collectionView.refreshControl?.isRefreshing == true {
             collectionView.refreshControl?.endRefreshing()
         }
-        updateToast(viewModel.actions?.toast)
-    }
-
-    public override var canBecomeFirstResponder: Bool { true }
-
-    public override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-        becomeFirstResponder()
-    }
-
-    /// Shake to undo the last action, as everywhere on iOS.
-    public override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
-        guard motion == .motionShake else { return super.motionEnded(motion, with: event) }
-        viewModel.actions?.undoLast()
     }
 
     private func configureSwipes() {
@@ -100,32 +91,6 @@ public final class MailboxViewController: UIViewController {
             SwipeAction(title: action.title, symbol: action.symbol, isDestructive: action.isDestructive) {
                 [weak self] in self?.viewModel.perform(action, on: id)
             }
-        }
-    }
-
-    private func configureToast() {
-        toast.translatesAutoresizingMaskIntoConstraints = false
-        toast.alpha = 0
-        toast.onUndo = { [weak self] in self?.viewModel.actions?.undoLast() }
-        view.addSubview(toast)
-        NSLayoutConstraint.activate([
-            toast.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            toast.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12),
-            toast.leadingAnchor.constraint(greaterThanOrEqualTo: view.layoutMarginsGuide.leadingAnchor),
-        ])
-    }
-
-    private func updateToast(_ current: MailActions.Toast?) {
-        guard current?.id != shownToast else { return }
-        shownToast = current?.id
-        if let current {
-            toast.show(current.message)
-            toast.transform = CGAffineTransform(translationX: 0, y: 20).scaledBy(x: 0.9, y: 0.9)
-            UIAccessibility.post(notification: .announcement, argument: current.message)
-        }
-        UIView.animate(springDuration: 0.35, bounce: 0.2) {
-            self.toast.alpha = current == nil ? 0 : 1
-            self.toast.transform = .identity
         }
     }
 
