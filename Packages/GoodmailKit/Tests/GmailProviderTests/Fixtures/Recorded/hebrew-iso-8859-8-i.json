@@ -1,0 +1,65 @@
+{
+ "id": "1a12eb24f3665a01",
+ "historyId": "376244",
+ "messages": [
+  {
+   "id": "1a12eb24f3665a01",
+   "threadId": "1a12eb24f3665a01",
+   "labelIds": [
+    "UNREAD",
+    "INBOX"
+   ],
+   "snippet": "תזכורת: התור לרופא ביום רביעי בשעה 09:40. כתובת: רחוב הרצל 12, תל אביב.",
+   "payload": {
+    "partId": "",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+     {
+      "name": "Received",
+      "value": "from 847337870740 named unknown by gmailapi.google.com with HTTPREST; Wed, 21 Oct 2026 03:17:53 +0200"
+     },
+     {
+      "name": "MIME-Version",
+      "value": "1.0"
+     },
+     {
+      "name": "Content-Type",
+      "value": "text/plain; charset=\"iso-8859-8-i\""
+     },
+     {
+      "name": "Content-Transfer-Encoding",
+      "value": "base64"
+     },
+     {
+      "name": "From",
+      "value": "\"יעל כהן\" <yael@example.co.il>"
+     },
+     {
+      "name": "To",
+      "value": "Goodmail Tester <tester@example.com>"
+     },
+     {
+      "name": "Subject",
+      "value": "תזכורת: תור לרופא"
+     },
+     {
+      "name": "Date",
+      "value": "Mon, 12 Oct 2026 09:00:00 +0300"
+     },
+     {
+      "name": "Message-ID",
+      "value": "<iso88598i-1@goodmail.test>"
+     }
+    ],
+    "body": {
+     "size": 72,
+     "data": "16rXlteb15XXqNeqOiDXlNeq15XXqCDXnNeo15XXpNeQINeR15nXldedINeo15HXmdei15kg15HXqdei15QgMDk6NDAuDQrXm9eq15XXkdeqOiDXqNeX15XXkSDXlNeo16bXnCAxMiwg16rXnCDXkNeR15nXkS4="
+    }
+   },
+   "sizeEstimate": 566,
+   "historyId": "376244",
+   "internalDate": "1791784800000"
+  }
+ ]
+}

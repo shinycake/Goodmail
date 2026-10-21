@@ -1,0 +1,108 @@
+{
+ "id": "1a12f4df3a6dbec4",
+ "historyId": "376390",
+ "messages": [
+  {
+   "id": "1a12f4df3a6dbec4",
+   "threadId": "1a12f4df3a6dbec4",
+   "labelIds": [
+    "UNREAD",
+    "INBOX"
+   ],
+   "snippet": "היי, הקובץ המעודכן נמצא בתיקייה המשותפת. שימו לב לשינוי בעמוד 4 (Revenue YoY +12%). From: Dana Levi &lt;dana@example.com&gt; Sent: Monday, October 12, 2026 11:02 Subject: Quarterly report Please send",
+   "payload": {
+    "partId": "",
+    "mimeType": "multipart/alternative",
+    "filename": "",
+    "headers": [
+     {
+      "name": "Received",
+      "value": "from 847337870740 named unknown by gmailapi.google.com with HTTPREST; Tue, 20 Oct 2026 18:17:54 -0700"
+     },
+     {
+      "name": "Content-Type",
+      "value": "multipart/alternative; boundary=\"===============1183515638165415510==\""
+     },
+     {
+      "name": "MIME-Version",
+      "value": "1.0"
+     },
+     {
+      "name": "From",
+      "value": "\"יעל כהן\" <yael@example.co.il>"
+     },
+     {
+      "name": "To",
+      "value": "Dana Levi <dana@example.com>, Goodmail Tester <tester@example.com>"
+     },
+     {
+      "name": "Subject",
+      "value": "RE: Quarterly report"
+     },
+     {
+      "name": "Date",
+      "value": "Mon, 12 Oct 2026 11:50:00 +0300"
+     },
+     {
+      "name": "Message-ID",
+      "value": "<ol-1@goodmail.test>"
+     }
+    ],
+    "body": {
+     "size": 0
+    },
+    "parts": [
+     {
+      "partId": "0",
+      "mimeType": "text/plain",
+      "filename": "",
+      "headers": [
+       {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+       },
+       {
+        "name": "MIME-Version",
+        "value": "1.0"
+       },
+       {
+        "name": "Content-Transfer-Encoding",
+        "value": "base64"
+       }
+      ],
+      "body": {
+       "size": 244,
+       "data": "15TXmdeZLArXlNen15XXkdelINeU157XoteV15PXm9efINeg157XpteQINeR16rXmden15nXmdeUINeU157XqdeV16rXpNeqLiDXqdeZ157XlSDXnNeRINec16nXmdeg15XXmSDXkdei157XldeTIDQuCgpGcm9tOiBEYW5hIExldmkgPGRhbmFAZXhhbXBsZS5jb20-ClNlbnQ6IE1vbmRheSwgT2N0b2JlciAxMiwgMjAyNiAxMTowMgpTdWJqZWN0OiBRdWFydGVybHkgcmVwb3J0CgpQbGVhc2Ugc2VuZCB0aGUgdXBkYXRlZCBmaWxlLg=="
+      }
+     },
+     {
+      "partId": "1",
+      "mimeType": "text/html",
+      "filename": "",
+      "headers": [
+       {
+        "name": "Content-Type",
+        "value": "text/html; charset=\"utf-8\""
+       },
+       {
+        "name": "MIME-Version",
+        "value": "1.0"
+       },
+       {
+        "name": "Content-Transfer-Encoding",
+        "value": "base64"
+       }
+      ],
+      "body": {
+       "size": 844,
+       "data": "PGh0bWwgZGlyPSJydGwiPjxoZWFkPjxtZXRhIGh0dHAtZXF1aXY9IkNvbnRlbnQtVHlwZSIgY29udGVudD0idGV4dC9odG1sOyBjaGFyc2V0PXV0Zi04Ij48c3R5bGU-cC5Nc29Ob3JtYWx7bWFyZ2luOjBjbTtmb250LXNpemU6MTFwdDtmb250LWZhbWlseToiQ2FsaWJyaSIsc2Fucy1zZXJpZn08L3N0eWxlPjwvaGVhZD48Ym9keSBsYW5nPSJIRSIgZGlyPSJydGwiPjxkaXYgY2xhc3M9IldvcmRTZWN0aW9uMSI-PHAgY2xhc3M9Ik1zb05vcm1hbCIgZGlyPSJSVEwiPteU15nXmSw8L3A-PHAgY2xhc3M9Ik1zb05vcm1hbCIgZGlyPSJSVEwiPteU16fXldeR16Ug15TXntei15XXk9eb158g16DXntem15Ag15HXqteZ16fXmdeZ15Qg15TXntep15XXqtek16ouINep15nXnteVINec15Eg15zXqdeZ16DXldeZINeR16LXnteV15MgNCAoUmV2ZW51ZSBZb1kgKzEyJSkuPC9wPjxwIGNsYXNzPSJNc29Ob3JtYWwiIGRpcj0iUlRMIj4mbmJzcDs8L3A-PGRpdiBzdHlsZT0iYm9yZGVyOm5vbmU7Ym9yZGVyLXRvcDpzb2xpZCAjRTFFMUUxIDEuMHB0O3BhZGRpbmc6My4wcHQgMGNtIDBjbSAwY20iPjxkaXYgaWQ9ImRpdlJwbHlGd2RNc2ciIGRpcj0ibHRyIj48cCBjbGFzcz0iTXNvTm9ybWFsIj48Yj5Gcm9tOjwvYj4gRGFuYSBMZXZpICZsdDtkYW5hQGV4YW1wbGUuY29tJmd0Ozxicj48Yj5TZW50OjwvYj4gTW9uZGF5LCBPY3RvYmVyIDEyLCAyMDI2IDExOjAyPGJyPjxiPlN1YmplY3Q6PC9iPiBRdWFydGVybHkgcmVwb3J0PC9wPjwvZGl2PjwvZGl2PjxwIGNsYXNzPSJNc29Ob3JtYWwiIGRpcj0iTFRSIj5QbGVhc2Ugc2VuZCB0aGUgdXBkYXRlZCBmaWxlLjwvcD48L2Rpdj48L2JvZHk-PC9odG1sPg=="
+      }
+     }
+    ]
+   },
+   "sizeEstimate": 2258,
+   "historyId": "376390",
+   "internalDate": "1791795000000"
+  }
+ ]
+}

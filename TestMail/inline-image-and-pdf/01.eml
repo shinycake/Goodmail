@@ -1,0 +1,47 @@
+Content-Type: multipart/mixed; boundary="===============3212607906564830946=="
+MIME-Version: 1.0
+From: =?utf-8?b?15DXkdeZINee15bXqNeX15k=?= <avi@example.co.il>
+To: Goodmail Tester <tester@example.com>
+Subject: =?utf-8?b?15zXldeS15Ug15fXk9epICsg15TXptei16og157Xl9eZ16g=?=
+Date: Mon, 12 Oct 2026 14:00:00 +0300
+Message-ID: <img-1@goodmail.test>
+
+--===============3212607906564830946==
+Content-Type: multipart/related;
+ boundary="===============3083487913649003606=="
+MIME-Version: 1.0
+
+--===============3083487913649003606==
+Content-Type: text/html; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: base64
+
+PGRpdiBkaXI9InJ0bCI+157XpteV16jXoyDXlNec15XXkteVINeU15fXk9epOiA8aW1nIHNyYz0i
+Y2lkOmxvZ29AZ29vZG1haWwudGVzdCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0Ij4g15XXkden15XX
+kdelINeULVBERiDXlNek16jXmNeZ150uPC9kaXY+
+
+--===============3083487913649003606==
+Content-Type: image/png
+MIME-Version: 1.0
+Content-Transfer-Encoding: base64
+Content-ID: <logo@goodmail.test>
+Content-Disposition: inline; filename="logo.png"
+
+iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAIAAABvFaqvAAAAH0lEQVR4nGMQW55GFcQwatCoQaMG
+jRo0atCoQQNvEABPGI7f59q7hQAAAABJRU5ErkJggg==
+
+--===============3083487913649003606==--
+
+--===============3212607906564830946==
+Content-Type: application/pdf
+MIME-Version: 1.0
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename*=utf-8''%D7%94%D7%A6%D7%A2%D7%AA%20%D7%9E%D7%97%D7%99%D7%A8.pdf
+
+JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqIDIgMCBv
+Ymo8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PmVuZG9iaiAzIDAgb2JqPDwvVHlw
+ZS9QYWdlL1BhcmVudCAyIDAgUi9NZWRpYUJveFswIDAgMjAwIDEwMF0+PmVuZG9iagp0cmFpbGVy
+PDwvUm9vdCAxIDAgUj4+CiUlRU9GCg==
+
+--===============3212607906564830946==--

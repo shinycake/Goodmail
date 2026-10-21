@@ -32,21 +32,8 @@
                 Inserted by Goodmail's test delivery at \(date).
                 """
                 .replacingOccurrences(of: "\n", with: "\r\n")
-            let raw = Data(message.utf8).base64EncodedString()
-                .replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_")
-                .replacingOccurrences(of: "=", with: "")
-
-            let token = try await GmailSession(accountID: account.id).validAccessToken()
-            var request = URLRequest(
-                url: GmailConfiguration.apiBaseURL.appending(path: "users/me/messages")
-                    .appending(queryItems: [URLQueryItem(name: "internalDateSource", value: "receivedTime")]))
-            request.httpMethod = "POST"
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.httpBody = try JSONSerialization.data(withJSONObject: [
-                "raw": raw, "labelIds": ["INBOX", "UNREAD"],
-            ])
-            _ = try await URLSession.shared.data(for: request)
+            _ = try await DebugGmail(session: GmailSession(accountID: account.id))
+                .insert(raw: Data(message.utf8), datedByHeader: false)
         }
     }
 #endif

@@ -24,6 +24,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         syncScheduler.start()
         #if DEBUG
             TestDelivery.scheduleIfRequested(model: model)
+            TestMailTools.runIfRequested(model: model)
         #endif
         return true
     }

@@ -99,4 +99,8 @@ final class FakeMailServer: MailProvider {
             )
         }
     }
+
+    func messages(inThread threadID: String) async throws -> [Message] { [] }
+
+    func data(for attachment: Attachment, in message: Message.ID) async throws -> Data { Data() }
 }

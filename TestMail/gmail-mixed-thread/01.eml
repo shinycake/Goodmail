@@ -1,0 +1,29 @@
+Content-Type: multipart/alternative;
+ boundary="===============1200755720900675128=="
+MIME-Version: 1.0
+From: Dana Levi <dana@example.com>
+To: =?utf-8?b?15nXotecINeb15TXnw==?= <yael@example.co.il>,
+ Goodmail Tester <tester@example.com>
+Subject: =?utf-8?q?Review_=E2=86=92_Thursday=3F?=
+Date: Mon, 12 Oct 2026 09:30:00 +0300
+Message-ID: <gm-1@goodmail.test>
+
+--===============1200755720900675128==
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: base64
+
+SGkgWWFlbCwKCkNhbiB3ZSBtb3ZlIHRoZSByZXZpZXcgdG8gVGh1cnNkYXkgMTQ6MDA/IEFnZW5k
+YTogUTQgbnVtYmVycywgaGlyaW5nLCB0aGUgUlRMIGJ1ZyAoIzQ4MikuCgpEYW5h
+
+--===============1200755720900675128==
+Content-Type: text/html; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: base64
+
+PGRpdiBkaXI9Imx0ciI+SGkgWWFlbCw8ZGl2Pjxicj48L2Rpdj48ZGl2PkNhbiB3ZSBtb3ZlIHRo
+ZSByZXZpZXcgdG8gVGh1cnNkYXkgMTQ6MDA/IEFnZW5kYTogUTQgbnVtYmVycywgaGlyaW5nLCB0
+aGUgUlRMIGJ1ZyAoPGEgaHJlZj0iaHR0cHM6Ly9leGFtcGxlLmNvbS9pc3N1ZXMvNDgyIj4jNDgy
+PC9hPikuPC9kaXY+PGRpdj48YnI+PC9kaXY+PGRpdj5EYW5hPC9kaXY+PC9kaXY+
+
+--===============1200755720900675128==--
