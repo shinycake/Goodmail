@@ -33,6 +33,7 @@ public final class MailboxViewController: UIViewController {
             frame: view.bounds, collectionViewLayout: UICollectionViewCompositionalLayout.list(using: list))
         collectionView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         collectionView.accessibilityIdentifier = "mailbox"
+        collectionView.delegate = self
         collectionView.refreshControl = UIRefreshControl(
             frame: .zero,
             primaryAction: UIAction { [weak self] _ in
@@ -108,5 +109,21 @@ public final class MailboxViewController: UIViewController {
         sectionTitles = Dictionary(uniqueKeysWithValues: sections.map { ($0.id, $0.title) })
         if titlesChanged { snapshot.reloadSections(snapshot.sectionIdentifiers) }
         dataSource.apply(snapshot, animatingDifferences: view.window != nil)
+    }
+}
+
+extension MailboxViewController: UICollectionViewDelegate {
+    /// How close to the last row the next older page is requested, so it arrives before the user gets there.
+    private static let loadOlderLead = 20
+
+    public func collectionView(
+        _ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath
+    ) {
+        let snapshot = dataSource.snapshot()
+        guard let section = dataSource.sectionIdentifier(for: indexPath.section) else { return }
+        let before = snapshot.sectionIdentifiers.prefix { $0 != section }
+            .reduce(0) { $0 + snapshot.numberOfItems(inSection: $1) }
+        guard snapshot.numberOfItems - (before + indexPath.item) <= Self.loadOlderLead else { return }
+        Task { [viewModel] in await viewModel.loadOlderIfNeeded() }
     }
 }

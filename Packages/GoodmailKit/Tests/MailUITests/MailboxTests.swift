@@ -117,4 +117,25 @@ struct MailboxTests {
         await viewModel.refresh()
         #expect(viewModel.refreshError == nil)
     }
+
+    @Test func loadingOlderStopsOnceTheProviderRunsOutAndRetriesAfterAFailure() async {
+        struct Offline: Error {}
+        var calls = 0
+        var replies: [Result<Bool, any Error>] = [.failure(Offline()), .success(true), .success(false)]
+        let viewModel = MailboxViewModel(
+            accounts: [],
+            threads: { AsyncThrowingStream { $0.finish() } },
+            refresh: {},
+            loadOlder: {
+                calls += 1
+                return try replies.removeFirst().get()
+            }
+        )
+        await viewModel.loadOlderIfNeeded()
+        await viewModel.loadOlderIfNeeded()
+        await viewModel.loadOlderIfNeeded()
+        await viewModel.loadOlderIfNeeded()
+        #expect(calls == 3, "failure retries, true continues, false stops")
+        #expect(!viewModel.isLoadingOlder)
+    }
 }
