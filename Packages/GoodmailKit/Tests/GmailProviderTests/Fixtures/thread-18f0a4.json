@@ -1,0 +1,10 @@
+{
+  "id": "18f0a4",
+  "historyId": "9003",
+  "messages": [
+    {
+      "id": "m4", "threadId": "18f0a4", "labelIds": ["INBOX", "UNREAD"], "snippet": "New one", "internalDate": "1792510000000",
+      "payload": { "headers": [{ "name": "From", "value": "Noah Peretz <noah@example.com>" }, { "name": "Subject", "value": "Arrived" }] }
+    }
+  ]
+}

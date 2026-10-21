@@ -1,0 +1,8 @@
+{
+  "labels": [
+    { "id": "INBOX", "name": "INBOX", "type": "system", "messageListVisibility": "hide", "labelListVisibility": "labelShow" },
+    { "id": "CATEGORY_SOCIAL", "name": "CATEGORY_SOCIAL", "type": "system" },
+    { "id": "Label_7", "name": "קבלות", "type": "user", "labelListVisibility": "labelShow", "color": { "textColor": "#ffffff", "backgroundColor": "#16a766" } },
+    { "id": "Label_8", "name": "Old projects", "type": "user", "labelListVisibility": "labelHide" }
+  ]
+}
