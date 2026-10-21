@@ -15,7 +15,7 @@ extension MailDatabase: SyncStore {
 
     public func apply(_ changes: StoreChanges) throws {
         let account = changes.accountID.rawValue
-        try pool.write { db in
+        try write { db in
             for thread in changes.upserts {
                 try Self.upsert(thread, generation: changes.generation, in: db)
             }

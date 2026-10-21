@@ -60,6 +60,19 @@ final class AppModel {
         }
     }
 
+    /// Fetches the next older page of `label` in every account. Returns whether any account may have more.
+    func loadOlder(label: String) async throws -> Bool {
+        let engines = accounts.map { engine(for: $0.id) }
+        return try await withThrowingTaskGroup(of: Bool.self) { group in
+            for engine in engines {
+                group.addTask { try await engine.backfill(label: label) }
+            }
+            var mayHaveMore = false
+            for try await more in group { mayHaveMore = mayHaveMore || more }
+            return mayHaveMore
+        }
+    }
+
     private func engine(for id: AccountID) -> SyncEngine {
         if let engine = engines[id] { return engine }
         let engine = engine(for: GmailSession(accountID: id))

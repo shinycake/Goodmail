@@ -13,12 +13,16 @@ public final class MailboxViewModel {
 
     public private(set) var sections: [Section] = []
     public private(set) var isRefreshing = false
+    /// Whether older threads are being fetched for the bottom of the list.
+    public private(set) var isLoadingOlder = false
     /// A refresh failure, for a quiet inline notice. Cleared by the next successful refresh.
     public private(set) var refreshError: (any Error)?
     public let accountColors: [AccountID: AccountColor]
 
     @ObservationIgnored private let threads: () -> AsyncThrowingStream<[ThreadSummary], any Error>
     @ObservationIgnored private let refreshAction: () async throws -> Void
+    @ObservationIgnored private let loadOlderAction: () async throws -> Bool
+    @ObservationIgnored private var mayHaveOlder = true
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let calendar: Calendar
 
@@ -26,12 +30,14 @@ public final class MailboxViewModel {
         accounts: [Account],
         threads: @escaping () -> AsyncThrowingStream<[ThreadSummary], any Error>,
         refresh: @escaping () async throws -> Void,
+        loadOlder: @escaping () async throws -> Bool = { false },
         now: @escaping () -> Date = Date.init,
         calendar: Calendar = .autoupdatingCurrent
     ) {
         accountColors = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0.color) })
         self.threads = threads
         refreshAction = refresh
+        loadOlderAction = loadOlder
         self.now = now
         self.calendar = calendar
     }
@@ -59,6 +65,19 @@ public final class MailboxViewModel {
             refreshError = nil
         } catch {
             refreshError = error
+        }
+    }
+
+    /// Call as the list nears its end. Fetches one older page at a time until the provider has no more.
+    /// A failure is quiet: the next approach to the end tries again.
+    public func loadOlderIfNeeded() async {
+        guard mayHaveOlder, !isLoadingOlder else { return }
+        isLoadingOlder = true
+        defer { isLoadingOlder = false }
+        do {
+            mayHaveOlder = try await loadOlderAction()
+        } catch {
+            mayHaveOlder = true
         }
     }
 

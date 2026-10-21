@@ -4,7 +4,7 @@ import MailCore
 
 extension MailDatabase {
     public func save(_ account: Account) throws {
-        try pool.write { db in try AccountRecord(account).save(db) }
+        try write { db in try AccountRecord(account).save(db) }
     }
 
     /// In the order they were added.

@@ -16,7 +16,7 @@ final class SceneCoordinator {
         if model.accounts.isEmpty {
             showWelcome()
         } else {
-            showMailbox(refreshing: true)
+            showMailbox()
         }
     }
 
@@ -24,18 +24,19 @@ final class SceneCoordinator {
         let welcome = WelcomeViewController { [weak self] in
             guard let self else { return }
             if try await model.addGmailAccount(using: WebAuthentication(window: window)) {
-                showMailbox(refreshing: false)
+                showMailbox()
             }
         }
         window.rootViewController = UINavigationController(rootViewController: welcome)
     }
 
-    private func showMailbox(refreshing: Bool) {
+    private func showMailbox() {
         let model = model
         let viewModel = MailboxViewModel(
             accounts: model.accounts,
             threads: { model.database.threads(labeled: "INBOX") },
-            refresh: { try await model.syncAll() }
+            refresh: { try await model.syncAll() },
+            loadOlder: { try await model.loadOlder(label: "INBOX") }
         )
         let mailbox = UINavigationController(rootViewController: MailboxViewController(viewModel: viewModel))
         if window.rootViewController == nil {
@@ -44,9 +45,6 @@ final class SceneCoordinator {
             UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve) {
                 self.window.rootViewController = mailbox
             }
-        }
-        if refreshing {
-            Task { await viewModel.refresh() }
         }
     }
 }
