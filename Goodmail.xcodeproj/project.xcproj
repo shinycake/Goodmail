@@ -89,6 +89,15 @@
       ],
       "package-product-members": [
         {
+          "product-name": "GmailProvider",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "product-name": "MailCore",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "product-name": "MailStore",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
           "product-name": "MailUI",
           "build-phase": { "build-phase": "frameworks" },
         },

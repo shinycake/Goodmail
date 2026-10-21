@@ -1,0 +1,18 @@
+{
+  "id": "18f0a3",
+  "historyId": "9003",
+  "messages": [
+    {
+      "id": "m4",
+      "threadId": "18f0a3",
+      "labelIds": ["INBOX", "UNREAD", "CATEGORY_PROMOTIONS"],
+      "snippet": "",
+      "internalDate": "1792317600000",
+      "payload": {
+        "headers": [
+          { "name": "From", "value": "noreply@shop.example" }
+        ]
+      }
+    }
+  ]
+}
