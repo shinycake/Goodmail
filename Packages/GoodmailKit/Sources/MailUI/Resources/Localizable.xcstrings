@@ -1,6 +1,28 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "(No Subject)" : {
+      "comment" : "Shown in place of an empty email subject",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(ללא נושא)"
+          }
+        }
+      }
+    },
+    "Add Gmail Account" : {
+      "comment" : "Button that starts sign-in",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הוספת חשבון Gmail"
+          }
+        }
+      }
+    },
     "Add a Gmail account to get started." : {
       "comment" : "Empty-state explanation shown before any mail account is added",
       "localizations" : {
@@ -12,6 +34,39 @@
         }
       }
     },
+    "Couldn’t Add Account" : {
+      "comment" : "Sign-in failure alert title",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן להוסיף את החשבון"
+          }
+        }
+      }
+    },
+    "Inbox" : {
+      "comment" : "Mailbox title",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דואר נכנס"
+          }
+        }
+      }
+    },
+    "Last week" : {
+      "comment" : "Mailbox section header",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בשבוע שעבר"
+          }
+        }
+      }
+    },
     "No Accounts" : {
       "comment" : "Empty-state title shown before any mail account is added",
       "localizations" : {
@@ -19,6 +74,94 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "אין חשבונות"
+          }
+        }
+      }
+    },
+    "OK" : {
+      "comment" : "Dismiss",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אישור"
+          }
+        }
+      }
+    },
+    "This afternoon" : {
+      "comment" : "Mailbox section header",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אחר הצהריים"
+          }
+        }
+      }
+    },
+    "This evening" : {
+      "comment" : "Mailbox section header",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הערב"
+          }
+        }
+      }
+    },
+    "This month" : {
+      "comment" : "Mailbox section header",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "החודש"
+          }
+        }
+      }
+    },
+    "This morning" : {
+      "comment" : "Mailbox section header",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הבוקר"
+          }
+        }
+      }
+    },
+    "This week" : {
+      "comment" : "Mailbox section header",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השבוע"
+          }
+        }
+      }
+    },
+    "Unread" : {
+      "comment" : "VoiceOver: thread state",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא נקראה"
+          }
+        }
+      }
+    },
+    "Yesterday" : {
+      "comment" : "Mailbox section header",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אתמול"
           }
         }
       }

@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Build the signed Debug app and install it on the dev simulator, keeping its data and Keychain sign-in.
+# Use this, not scripts/check's unsigned test build, whenever you run the app by hand.
+#
+# GOODMAIL_DEV_SIMULATOR picks the simulator (default: iPhone 18 Pro). Extra arguments go to the app.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+simulator="${GOODMAIL_DEV_SIMULATOR:-iPhone 18 Pro}"
+xcrun simctl boot "$simulator" 2>/dev/null || true
+xcodebuild build -quiet -project Goodmail.xcodeproj -scheme Goodmail \
+    -destination "platform=iOS Simulator,name=$simulator" -derivedDataPath .build/dev
+xcrun simctl terminate "$simulator" com.idanbirman.goodmail 2>/dev/null || true
+xcrun simctl install "$simulator" .build/dev/Build/Products/Debug-iphonesimulator/Goodmail.app
+xcrun simctl launch "$simulator" com.idanbirman.goodmail "$@"

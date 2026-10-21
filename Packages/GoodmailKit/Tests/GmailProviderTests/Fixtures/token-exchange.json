@@ -1,0 +1,8 @@
+{
+  "access_token": "ya29.fixture-access-token",
+  "expires_in": 3599,
+  "refresh_token": "1//fixture-refresh-token",
+  "scope": "openid https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/userinfo.email",
+  "token_type": "Bearer",
+  "id_token": "eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJlbWFpbCI6InRlc3RlckBleGFtcGxlLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlfQ.c2lnbmF0dXJl"
+}

@@ -1,0 +1,8 @@
+{
+  "threads": [
+    { "id": "18f0a1", "snippet": "Lunch tomorrow?", "historyId": "9001" },
+    { "id": "18f0a2", "snippet": "שלום, מצורף הסיכום", "historyId": "9002" },
+    { "id": "18f0a3", "snippet": "", "historyId": "9003" }
+  ],
+  "resultSizeEstimate": 3
+}

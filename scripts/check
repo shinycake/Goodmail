@@ -4,12 +4,13 @@
 #   scripts/check          everything; the pre-push hook runs this
 #   scripts/check --lint   format and line cap only; the pre-commit hook and Linux CI run this
 #
-# GOODMAIL_SIMULATOR picks the simulator (default: iPhone 18 Pro).
+# Tests run on a dedicated "Goodmail Check" simulator, created on first use, so the unsigned test build never
+# replaces the signed dev install (and its Keychain sign-in) on your everyday simulator.
+# GOODMAIL_SIMULATOR picks its device type (default: iPhone 18 Pro).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 SWIFT_ROOTS=(Goodmail GoodmailUITests NotificationService Widgets Packages)
-DESTINATION="platform=iOS Simulator,name=${GOODMAIL_SIMULATOR:-iPhone 18 Pro}"
 
 step() { printf '\n▸ %s\n' "$1"; }
 
@@ -31,6 +32,12 @@ done < <(git ls-files --cached --others --exclude-standard -- '*.swift' '*.ts' '
 ((over_cap == 0)) || exit 1
 
 [[ "${1:-}" == "--lint" ]] && exit 0
+
+check_simulator=$(xcrun simctl list devices available | grep -m1 "Goodmail Check (" | grep -oE '[0-9A-F-]{36}' || true)
+if [[ -z "$check_simulator" ]]; then
+    check_simulator=$(xcrun simctl create "Goodmail Check" "${GOODMAIL_SIMULATOR:-iPhone 18 Pro}")
+fi
+DESTINATION="platform=iOS Simulator,id=$check_simulator"
 
 step "Package tests ($DESTINATION)"
 (cd Packages/GoodmailKit && xcodebuild test -quiet -scheme GoodmailKit-Package -destination "$DESTINATION" \
