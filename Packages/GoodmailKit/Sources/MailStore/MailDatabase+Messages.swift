@@ -3,7 +3,8 @@ import GRDB
 import MailCore
 
 extension MailDatabase {
-    /// Replaces the stored messages of `thread` with these. The thread must be stored.
+    /// Replaces the stored messages of `thread` with these. The thread must be stored. `fetchedAt` is when their
+    /// fetch began.
     public func save(_ messages: [Message], inThread thread: ThreadSummary.ID, fetchedAt: Date = .now) throws {
         let encoder = JSONEncoder()
         try write { db in
@@ -23,6 +24,9 @@ extension MailDatabase {
                     ]
                 )
             }
+            // Fetched before queued actions reached the server: show them as the reader left them.
+            try Self.reapplyPending(
+                account: thread.accountID.rawValue, threadIDs: [thread.threadID], fetchedAt: fetchedAt, in: db)
         }
     }
 

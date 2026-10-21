@@ -18,6 +18,7 @@ public final class MailboxViewModel {
     /// A refresh failure, for a quiet inline notice. Cleared by the next successful refresh.
     public private(set) var refreshError: (any Error)?
     public let accountColors: [AccountID: AccountColor]
+    public let actions: MailActions?
 
     @ObservationIgnored private let threads: () -> AsyncThrowingStream<[ThreadSummary], any Error>
     @ObservationIgnored private let refreshAction: () async throws -> Void
@@ -33,9 +34,11 @@ public final class MailboxViewModel {
         refresh: @escaping () async throws -> Void,
         loadOlder: @escaping () async throws -> Bool = { false },
         navigate: @escaping (Route) -> Void = { _ in },
+        actions: MailActions? = nil,
         now: @escaping () -> Date = Date.init,
         calendar: Calendar = .autoupdatingCurrent
     ) {
+        self.actions = actions
         accountColors = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0.color) })
         self.threads = threads
         refreshAction = refresh
@@ -86,6 +89,20 @@ public final class MailboxViewModel {
 
     public func open(_ id: ThreadSummary.ID) {
         navigate(.thread(id))
+    }
+
+    /// The swipe actions for a row, edge-most first: reading state and star from the leading edge, archive and trash
+    /// from the trailing one.
+    func swipeActions(for thread: ThreadSummary, leading: Bool) -> [ThreadAction] {
+        guard actions != nil else { return [] }
+        if leading {
+            return [.markRead(thread.isUnread), .star(!thread.labelIDs.contains(SystemLabel.starred))]
+        }
+        return [.archive, .trash]
+    }
+
+    public func perform(_ action: ThreadAction, on thread: ThreadSummary.ID) {
+        actions?.perform(action, on: [thread])
     }
 
     public func dateText(for thread: ThreadSummary) -> String {

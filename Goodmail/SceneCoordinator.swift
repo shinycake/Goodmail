@@ -7,10 +7,12 @@ import UIKit
 final class SceneCoordinator {
     private let window: UIWindow
     private let model: AppModel
+    private let actions: MailActions
 
     init(window: UIWindow, model: AppModel) {
         self.window = window
         self.model = model
+        actions = MailActions(commands: model.commands)
     }
 
     func start() {
@@ -38,7 +40,8 @@ final class SceneCoordinator {
             threads: { model.database.threads(labeled: "INBOX") },
             refresh: { try await model.syncAll() },
             loadOlder: { try await model.loadOlder(label: "INBOX") },
-            navigate: { [weak self] route in self?.handle(route) }
+            navigate: { [weak self] route in self?.handle(route) },
+            actions: actions
         )
         let mailbox = UINavigationController(rootViewController: MailboxViewController(viewModel: viewModel))
         if window.rootViewController == nil {
@@ -65,9 +68,13 @@ final class SceneCoordinator {
                 accountColor: account.color,
                 messages: { model.database.messages(inThread: id) },
                 load: { try await model.loadMessages(of: id) },
-                attachmentData: { try await model.attachmentData($0, in: $1) }
+                attachmentData: { try await model.attachmentData($0, in: $1) },
+                actions: actions
             )
-            let reader = ThreadViewController(viewModel: viewModel) { url in UIApplication.shared.open(url) }
+            let reader = ThreadViewController(
+                viewModel: viewModel,
+                openURL: { url in UIApplication.shared.open(url) },
+                close: { [weak navigation] in navigation?.popViewController(animated: true) })
             navigation.pushViewController(reader, animated: true)
         }
     }

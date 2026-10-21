@@ -1,6 +1,47 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%lld archived" : {
+      "comment" : "Toast after archiving threads",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Archived"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld threads archived"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "הועבר לארכיון"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld שרשורים הועברו לארכיון"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld messages" : {
       "comment" : "How many messages a thread holds",
       "localizations" : {
@@ -48,6 +89,88 @@
         }
       }
     },
+    "%lld moved to Trash" : {
+      "comment" : "Toast after trashing threads",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Moved to Trash"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld threads moved to Trash"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "הועבר לפח"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld שרשורים הועברו לפח"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld reported as spam" : {
+      "comment" : "Toast after reporting spam",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Reported as spam"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld threads reported as spam"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "דווח כספאם"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld שרשורים דווחו כספאם"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "(No Subject)" : {
       "comment" : "Shown in place of an empty email subject",
       "localizations" : {
@@ -77,6 +200,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "כדי להתחיל, יש להוסיף חשבון Gmail."
+          }
+        }
+      }
+    },
+    "Archive" : {
+      "comment" : "Action: archive a thread",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה לארכיון"
+          }
+        }
+      }
+    },
+    "Change Labels" : {
+      "comment" : "Action: add or remove labels",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שינוי תוויות"
           }
         }
       }
@@ -136,6 +281,50 @@
         }
       }
     },
+    "Mark as Read" : {
+      "comment" : "Action",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סימון כנקרא"
+          }
+        }
+      }
+    },
+    "Mark as Unread" : {
+      "comment" : "Action",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סימון כלא נקרא"
+          }
+        }
+      }
+    },
+    "Move Out of Trash" : {
+      "comment" : "Action: restore a thread",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הוצאה מהפח"
+          }
+        }
+      }
+    },
+    "Move to Inbox" : {
+      "comment" : "Action: back to the Inbox",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה לדואר הנכנס"
+          }
+        }
+      }
+    },
     "No Accounts" : {
       "comment" : "Empty-state title shown before any mail account is added",
       "localizations" : {
@@ -158,6 +347,17 @@
         }
       }
     },
+    "Report Spam" : {
+      "comment" : "Action: report a thread as spam",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דיווח כספאם"
+          }
+        }
+      }
+    },
     "Show Quoted Text" : {
       "comment" : "Accessibility label of the fold",
       "localizations" : {
@@ -165,6 +365,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "הצגת טקסט מצוטט"
+          }
+        }
+      }
+    },
+    "Star" : {
+      "comment" : "Action: star a thread",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סימון בכוכב"
           }
         }
       }
@@ -224,6 +435,28 @@
         }
       }
     },
+    "Trash" : {
+      "comment" : "Action: move a thread to Trash",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה לפח"
+          }
+        }
+      }
+    },
+    "Undo" : {
+      "comment" : "Undoes the last action",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ביטול"
+          }
+        }
+      }
+    },
     "Unread" : {
       "comment" : "VoiceOver: thread state",
       "localizations" : {
@@ -231,6 +464,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "לא נקראה"
+          }
+        }
+      }
+    },
+    "Unstar" : {
+      "comment" : "Action: remove a thread's star",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הסרת כוכב"
           }
         }
       }

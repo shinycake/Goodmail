@@ -19,6 +19,9 @@ extension MailDatabase: SyncStore {
             for thread in changes.upserts {
                 try Self.upsert(thread, generation: changes.generation, in: db)
             }
+            // A refetch may predate queued actions; keep showing them until they replay (ADR-008).
+            try Self.reapplyPending(
+                account: account, threadIDs: changes.upserts.map(\.id.threadID), fetchedAt: changes.fetchedAt, in: db)
             for id in changes.deletions {
                 try db.execute(sql: "DELETE FROM thread WHERE accountID = ? AND id = ?", arguments: [account, id])
             }
