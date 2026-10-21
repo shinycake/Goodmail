@@ -106,12 +106,42 @@ public struct GmailClient: MailProvider {
         return data
     }
 
+    public func perform(_ action: ThreadAction, onThread threadID: String) async throws {
+        let path = "users/me/threads/\(threadID)"
+        do {
+            switch action {
+            case .modifyLabels(let add, let remove):
+                let body = ["addLabelIds": add.sorted(), "removeLabelIds": remove.sorted()]
+                let _: GmailThreadRef = try await send(path + "/modify", method: "POST", body: body)
+            case .trash:
+                let _: GmailThreadRef = try await send(path + "/trash", method: "POST")
+            case .untrash:
+                let _: GmailThreadRef = try await send(path + "/untrash", method: "POST")
+            }
+        } catch let error as GmailError where error.status == 404 {
+            throw ProviderError.notFound
+        } catch let error as GmailError where error.status == 400 {
+            throw ProviderError.rejected
+        }
+    }
+
     private func get<Response: Decodable>(_ path: String, query: [URLQueryItem] = []) async throws -> Response {
+        try await send(path, query: query)
+    }
+
+    private func send<Response: Decodable>(
+        _ path: String, method: String = "GET", query: [URLQueryItem] = [], body: (any Encodable)? = nil
+    ) async throws -> Response {
         let url = GmailConfiguration.apiBaseURL.appending(path: path).appending(queryItems: query)
         var attempt = 0
         while true {
             var request = URLRequest(url: url)
+            request.httpMethod = method
             request.setValue("Bearer \(try await session.validAccessToken())", forHTTPHeaderField: "Authorization")
+            if let body {
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.httpBody = try JSONEncoder().encode(body)
+            }
             let (data, response) = try await http.data(for: request)
             if (200..<300).contains(response.statusCode) {
                 return try JSONDecoder().decode(Response.self, from: data)
@@ -122,6 +152,11 @@ public struct GmailClient: MailProvider {
             attempt += 1
         }
     }
+}
+
+/// The reply to `threads.modify`, `trash` and `untrash`; only its ID is read.
+struct GmailThreadRef: Decodable {
+    let id: String
 }
 
 public struct GmailError: Error, Equatable {

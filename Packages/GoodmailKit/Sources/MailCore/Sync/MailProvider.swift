@@ -24,10 +24,17 @@ public protocol MailProvider: Sendable {
 
     /// The content of an attachment the provider didn't include with its message.
     func data(for attachment: Attachment, in message: Message.ID) async throws -> Data
+
+    /// Applies `action` to every message in the thread. Throws `ProviderError.notFound` when the thread is gone.
+    func perform(_ action: ThreadAction, onThread threadID: String) async throws
 }
 
 public enum ProviderError: Error, Equatable {
     case cursorExpired
+    /// The thread or message is gone.
+    case notFound
+    /// The provider refused the request as invalid; sending it again won't help.
+    case rejected
 }
 
 public struct ThreadQuery: Equatable, Sendable {

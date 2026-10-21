@@ -9,6 +9,9 @@ public final class MailboxViewController: UIViewController {
     private var threadsByID: [ThreadSummary.ID: ThreadSummary] = [:]
     private var sectionTitles: [TimeSection: String] = [:]
     private var observation: Task<Void, Never>?
+    private var swipes: SwipeActionsController!
+    private let toast = UndoToastView()
+    private var shownToast: MailActions.Toast.ID?
 
     public init(viewModel: MailboxViewModel) {
         self.viewModel = viewModel
@@ -43,6 +46,8 @@ public final class MailboxViewController: UIViewController {
         )
         view.addSubview(collectionView)
         configureDataSource()
+        configureSwipes()
+        configureToast()
 
         observation = Task { [viewModel] in await viewModel.observe() }
     }
@@ -65,6 +70,63 @@ public final class MailboxViewController: UIViewController {
         if !viewModel.isRefreshing, collectionView.refreshControl?.isRefreshing == true {
             collectionView.refreshControl?.endRefreshing()
         }
+        updateToast(viewModel.actions?.toast)
+    }
+
+    public override var canBecomeFirstResponder: Bool { true }
+
+    public override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        becomeFirstResponder()
+    }
+
+    /// Shake to undo the last action, as everywhere on iOS.
+    public override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
+        guard motion == .motionShake else { return super.motionEnded(motion, with: event) }
+        viewModel.actions?.undoLast()
+    }
+
+    private func configureSwipes() {
+        swipes = SwipeActionsController(collectionView: collectionView)
+        swipes.actions = { [weak self] indexPath, edge in
+            guard let self, let id = dataSource.itemIdentifier(for: indexPath) else { return [] }
+            return swipeActions(for: id, leading: edge == .leading)
+        }
+    }
+
+    private func swipeActions(for id: ThreadSummary.ID, leading: Bool) -> [SwipeAction] {
+        guard let thread = threadsByID[id] else { return [] }
+        return viewModel.swipeActions(for: thread, leading: leading).map { action in
+            SwipeAction(title: action.title, symbol: action.symbol, isDestructive: action.isDestructive) {
+                [weak self] in self?.viewModel.perform(action, on: id)
+            }
+        }
+    }
+
+    private func configureToast() {
+        toast.translatesAutoresizingMaskIntoConstraints = false
+        toast.alpha = 0
+        toast.onUndo = { [weak self] in self?.viewModel.actions?.undoLast() }
+        view.addSubview(toast)
+        NSLayoutConstraint.activate([
+            toast.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            toast.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12),
+            toast.leadingAnchor.constraint(greaterThanOrEqualTo: view.layoutMarginsGuide.leadingAnchor),
+        ])
+    }
+
+    private func updateToast(_ current: MailActions.Toast?) {
+        guard current?.id != shownToast else { return }
+        shownToast = current?.id
+        if let current {
+            toast.show(current.message)
+            toast.transform = CGAffineTransform(translationX: 0, y: 20).scaledBy(x: 0.9, y: 0.9)
+            UIAccessibility.post(notification: .announcement, argument: current.message)
+        }
+        UIView.animate(springDuration: 0.35, bounce: 0.2) {
+            self.toast.alpha = current == nil ? 0 : 1
+            self.toast.transform = .identity
+        }
     }
 
     private func configureDataSource() {
@@ -76,6 +138,15 @@ public final class MailboxViewController: UIViewController {
                 dateText: viewModel.dateText(for: thread),
                 accountColor: viewModel.accountColors[thread.id.accountID]?.uiColor ?? .tintColor
             )
+            // VoiceOver reaches the swipe actions through the rotor.
+            cell.accessibilityCustomActions =
+                (swipeActions(for: id, leading: false)
+                + swipeActions(for: id, leading: true)).map { action in
+                    UIAccessibilityCustomAction(name: action.title) { _ in
+                        action.handler()
+                        return true
+                    }
+                }
         }
         let header = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(
             elementKind: UICollectionView.elementKindSectionHeader
@@ -128,6 +199,15 @@ extension MailboxViewController: UICollectionViewDelegate {
             .reduce(0) { $0 + snapshot.numberOfItems(inSection: $1) }
         guard snapshot.numberOfItems - (before + indexPath.item) <= Self.loadOlderLead else { return }
         Task { [viewModel] in await viewModel.loadOlderIfNeeded() }
+    }
+
+    public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        swipes.close()
+    }
+
+    public func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
+        // A tap while actions are open just closes them.
+        !swipes.close()
     }
 
     public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {

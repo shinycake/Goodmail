@@ -18,6 +18,8 @@ final class FakeMailServer: MailProvider {
         var failPageRequests: Int?
         var queries: [Query] = []
         var changeRequests = 0
+        var performed: [(threadID: String, action: ThreadAction)] = []
+        var failPerform: (any Error)?
     }
 
     let pageSize: Int
@@ -103,4 +105,30 @@ final class FakeMailServer: MailProvider {
     func messages(inThread threadID: String) async throws -> [Message] { [] }
 
     func data(for attachment: Attachment, in message: Message.ID) async throws -> Data { Data() }
+}
+
+extension FakeMailServer {
+    /// Applies an action as Gmail would, recording it in history; a missing thread is `notFound`.
+    func perform(_ action: ThreadAction, onThread threadID: String) async throws {
+        try state.withLock { state in
+            state.performed.append((threadID, action))
+            if let failure = state.failPerform { throw failure }
+            guard var thread = state.threads[threadID] else { throw ProviderError.notFound }
+            var labels = thread.labelIDs
+            if thread.isUnread { labels.insert(SystemLabel.unread) }
+            labels = action.applied(to: labels)
+            thread.isUnread = labels.contains(SystemLabel.unread)
+            thread.labelIDs = labels.subtracting([SystemLabel.unread])
+            state.threads[threadID] = thread
+            state.history += 1
+            state.changed.append((state.history, threadID))
+        }
+    }
+
+    var performed: [(threadID: String, action: ThreadAction)] { state.withLock { $0.performed } }
+
+    /// Makes every `perform` throw `error` until set back to `nil`.
+    func failPerform(with error: (any Error)?) {
+        state.withLock { $0.failPerform = error }
+    }
 }

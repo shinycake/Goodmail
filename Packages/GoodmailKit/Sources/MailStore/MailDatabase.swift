@@ -102,6 +102,22 @@ public final class MailDatabase: Sendable {
             }
             try db.create(index: "message_byThread", on: "message", columns: ["accountID", "threadID", "date"])
         }
+        migrator.registerMigration("v5-outbox") { db in
+            // Not tied to the thread: an intent outlives a sweep that removes its thread, and is dropped on replay.
+            try db.create(table: "outbox") { table in
+                table.autoIncrementedPrimaryKey("sequence")
+                table.column("id", .text).notNull().unique()
+                table.column("accountID", .text).notNull()
+                table.column("threadID", .text).notNull()
+                table.column("intent", .jsonText).notNull()
+            }
+            try db.create(index: "outbox_byThread", on: "outbox", columns: ["accountID", "threadID"])
+        }
+        migrator.registerMigration("v6-outbox-sent") { db in
+            try db.alter(table: "outbox") { table in
+                table.add(column: "sentAt", .datetime)
+            }
+        }
         return migrator
     }
 }

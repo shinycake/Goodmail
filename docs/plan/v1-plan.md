@@ -89,6 +89,8 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
 
 **Evidence:** offline replay tests (airplane mode, then reconnect), plus a swipe recording in LTR and RTL.
 
+**Status:** M4.1 done: `MailCommands`, the outbox, Gmail modify/trash/untrash, glass swipe actions, the thread toolbar, and undo (toast and shake). Still to do: multi-select, labels/move/mute, and the `UndoableIntent`s.
+
 ### M5: Compose and send
 
 **Builds:**
