@@ -18,6 +18,8 @@ public final class ThreadViewModel {
     @ObservationIgnored private let stream: () -> AsyncThrowingStream<[Message], any Error>
     @ObservationIgnored private let loadAction: () async throws -> Void
     @ObservationIgnored let attachmentData: (Attachment, Message.ID) async throws -> Data
+    @ObservationIgnored private let actions: MailActions?
+    @ObservationIgnored private var hasMarkedRead = false
     @ObservationIgnored private let attachmentsDirectory: URL
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let calendar: Calendar
@@ -29,10 +31,12 @@ public final class ThreadViewModel {
         messages: @escaping () -> AsyncThrowingStream<[Message], any Error>,
         load: @escaping () async throws -> Void,
         attachmentData: @escaping (Attachment, Message.ID) async throws -> Data,
+        actions: MailActions? = nil,
         attachmentsDirectory: URL = FileManager.default.temporaryDirectory.appending(path: "Attachments"),
         now: @escaping () -> Date = Date.init,
         calendar: Calendar = .autoupdatingCurrent
     ) {
+        self.actions = actions
         self.attachmentsDirectory = attachmentsDirectory
         self.thread = thread
         self.accountEmail = accountEmail
@@ -44,8 +48,13 @@ public final class ThreadViewModel {
         self.calendar = calendar
     }
 
-    /// Shows the cached messages at once, then fetches the latest; follows the store until cancelled.
+    /// Shows the cached messages at once, then fetches the latest; follows the store until cancelled. Opening a
+    /// thread reads it.
     public func observe() async {
+        if thread.isUnread, !hasMarkedRead {
+            hasMarkedRead = true
+            actions?.perform(.markRead(true), on: [thread.id])
+        }
         Task { await load() }
         do {
             for try await messages in stream() {
@@ -99,6 +108,18 @@ public final class ThreadViewModel {
         let cleaned = name.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
             .trimmingCharacters(in: CharacterSet(charactersIn: ". ").union(.whitespacesAndNewlines))
         return cleaned.isEmpty ? "Attachment" : cleaned
+    }
+
+    /// Whether any message carries the star; the toolbar's star button toggles it for the thread.
+    public var isStarred: Bool {
+        messages.contains { $0.labelIDs.contains(SystemLabel.starred) }
+    }
+
+    /// Applies an action to the whole thread. Returns whether the thread leaves the mailbox, so the view closes.
+    @discardableResult
+    public func perform(_ action: ThreadAction) -> Bool {
+        actions?.perform(action, on: [thread.id])
+        return action == .archive || action == .trash || action == .reportSpam
     }
 
     /// The first message the view scrolls to: the first unread one, or the newest.

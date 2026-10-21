@@ -56,6 +56,8 @@ public struct StoreChanges: Sendable {
     public var generation: Int?
     public var sweep: Sweep?
     public var state: SyncState?
+    /// When the fetch that produced `upserts` began. Actions sent after it aren't in them yet (ADR-008).
+    public var fetchedAt: Date?
 
     public init(
         accountID: AccountID,
@@ -64,7 +66,8 @@ public struct StoreChanges: Sendable {
         labels: [MailLabel]? = nil,
         generation: Int? = nil,
         sweep: Sweep? = nil,
-        state: SyncState? = nil
+        state: SyncState? = nil,
+        fetchedAt: Date? = nil
     ) {
         self.accountID = accountID
         self.upserts = upserts
@@ -73,6 +76,7 @@ public struct StoreChanges: Sendable {
         self.generation = generation
         self.sweep = sweep
         self.state = state
+        self.fetchedAt = fetchedAt
     }
 }
 

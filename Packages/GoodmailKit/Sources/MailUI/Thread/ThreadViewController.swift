@@ -7,6 +7,8 @@ import UIKit
 public final class ThreadViewController: UIViewController {
     private let viewModel: ThreadViewModel
     private let openURL: (URL) -> Void
+    private let close: () -> Void
+    private let starItem = UIBarButtonItem()
     private let scrollView = UIScrollView()
     private let stack = UIStackView()
     private let subject = UILabel()
@@ -17,9 +19,11 @@ public final class ThreadViewController: UIViewController {
     private var hasScrolledToFocus = false
     private var previewURL: URL?
 
-    public init(viewModel: ThreadViewModel, openURL: @escaping (URL) -> Void) {
+    /// `close` leaves the thread, after an action that takes it out of the mailbox.
+    public init(viewModel: ThreadViewModel, openURL: @escaping (URL) -> Void, close: @escaping () -> Void = {}) {
         self.viewModel = viewModel
         self.openURL = openURL
+        self.close = close
         super.init(nibName: nil, bundle: nil)
         navigationItem.largeTitleDisplayMode = .never
     }
@@ -56,6 +60,7 @@ public final class ThreadViewController: UIViewController {
         stack.axis = .vertical
         stack.spacing = 12
         stack.addArrangedSubview(header)
+        configureToolbar()
         stack.translatesAutoresizingMaskIntoConstraints = false
         scrollView.addSubview(stack)
 
@@ -77,8 +82,43 @@ public final class ThreadViewController: UIViewController {
         observation = Task { [viewModel] in await viewModel.observe() }
     }
 
+    public override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.setToolbarHidden(false, animated: animated)
+    }
+
+    public override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        navigationController?.setToolbarHidden(true, animated: animated)
+    }
+
+    /// Archive and Trash leave the thread; Unread leaves it too, as the reader is putting it back for later.
+    private func configureToolbar() {
+        func item(_ action: ThreadAction, leaves: Bool) -> UIBarButtonItem {
+            let item = UIBarButtonItem(
+                title: action.title, image: UIImage(systemName: action.symbol),
+                primaryAction: UIAction { [weak self] _ in
+                    guard let self else { return }
+                    viewModel.perform(action)
+                    if leaves { close() }
+                })
+            return item
+        }
+        starItem.primaryAction = UIAction { [weak self] _ in
+            guard let self else { return }
+            viewModel.perform(.star(!viewModel.isStarred))
+        }
+        toolbarItems = [
+            item(.archive, leaves: true), item(.trash, leaves: true), .flexibleSpace(),
+            item(.markRead(false), leaves: true), starItem,
+        ]
+    }
+
     public override func updateProperties() {
         super.updateProperties()
+        let star: ThreadAction = .star(!viewModel.isStarred)
+        starItem.image = UIImage(systemName: viewModel.isStarred ? "star.fill" : "star")
+        starItem.accessibilityLabel = star.title
         let messages = viewModel.messages
         metadata.text = [viewModel.accountEmail, Self.countText(messages.count)]
             .filter { !$0.isEmpty }.joined(separator: " · ")

@@ -45,9 +45,10 @@ public actor SyncEngine {
     public func backfill(label: String) async throws -> Bool {
         guard let oldest = try store.oldestThreadDate(labeled: label, account: accountID) else { return false }
         // One second of overlap, so threads sharing the oldest timestamp aren't skipped; rewriting them is harmless.
+        let fetchedAt = now()
         let page = try await provider.threads(
             matching: ThreadQuery(label: label, before: oldest.addingTimeInterval(1)), pageToken: nil)
-        try store.apply(StoreChanges(accountID: accountID, upserts: page.threads))
+        try store.apply(StoreChanges(accountID: accountID, upserts: page.threads, fetchedAt: fetchedAt))
         let madeProgress = page.threads.contains { $0.date < oldest }
         return madeProgress && page.nextPageToken != nil
     }
@@ -90,6 +91,7 @@ public actor SyncEngine {
         var resync = start
         let stages = Self.stages(startedAt: resync.startedAt)
         while resync.stage < stages.count {
+            let fetchedAt = now()
             let page = try await provider.threads(matching: stages[resync.stage], pageToken: resync.pageToken)
             if let next = page.nextPageToken {
                 resync.pageToken = next
@@ -102,7 +104,8 @@ public actor SyncEngine {
                     accountID: accountID,
                     upserts: page.threads,
                     generation: resync.generation,
-                    state: .resyncing(resync)
+                    state: .resyncing(resync),
+                    fetchedAt: fetchedAt
                 )
             )
         }
@@ -119,6 +122,7 @@ public actor SyncEngine {
     }
 
     private func syncChanges(since cursor: String) async throws {
+        let fetchedAt = now()
         let changes = try await provider.changes(since: cursor)
         let fetch =
             changes.threadIDs.isEmpty
@@ -129,7 +133,8 @@ public actor SyncEngine {
                 accountID: accountID,
                 upserts: fetch.found,
                 deletions: fetch.missing,
-                state: .current(cursor: changes.cursor)
+                state: .current(cursor: changes.cursor),
+                fetchedAt: fetchedAt
             )
         )
     }
