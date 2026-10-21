@@ -7,6 +7,7 @@ import MailStore
 final class AppModel {
     let database: MailDatabase
     private(set) var accounts: [Account]
+    private var clients: [AccountID: GmailClient] = [:]
     private var engines: [AccountID: SyncEngine] = [:]
 
     init(database: MailDatabase) throws {
@@ -35,7 +36,8 @@ final class AppModel {
         let (session, email) = try await GmailSession.signIn(code: code, pkce: pkce) { email in
             existing.first { $0.email.caseInsensitiveCompare(email) == .orderedSame }?.id ?? .generate()
         }
-        engines[session.accountID] = engine(for: session)
+        clients[session.accountID] = GmailClient(session: session)
+        engines[session.accountID] = nil
         if !accounts.contains(where: { $0.id == session.accountID }) {
             let account = Account(
                 id: session.accountID,
@@ -73,14 +75,27 @@ final class AppModel {
         }
     }
 
-    private func engine(for id: AccountID) -> SyncEngine {
-        if let engine = engines[id] { return engine }
-        let engine = engine(for: GmailSession(accountID: id))
-        engines[id] = engine
-        return engine
+    /// Fetches a thread's messages with their bodies into the store, where the thread view reads them.
+    func loadMessages(of thread: ThreadSummary.ID) async throws {
+        let messages = try await client(for: thread.accountID).messages(inThread: thread.threadID)
+        try database.save(messages, inThread: thread)
     }
 
-    private func engine(for session: GmailSession) -> SyncEngine {
-        SyncEngine(accountID: session.accountID, provider: GmailClient(session: session), store: database)
+    func attachmentData(_ attachment: Attachment, in message: Message.ID) async throws -> Data {
+        try await client(for: message.accountID).data(for: attachment, in: message)
+    }
+
+    private func client(for id: AccountID) -> GmailClient {
+        if let client = clients[id] { return client }
+        let client = GmailClient(session: GmailSession(accountID: id))
+        clients[id] = client
+        return client
+    }
+
+    private func engine(for id: AccountID) -> SyncEngine {
+        if let engine = engines[id] { return engine }
+        let engine = SyncEngine(accountID: id, provider: client(for: id), store: database)
+        engines[id] = engine
+        return engine
     }
 }

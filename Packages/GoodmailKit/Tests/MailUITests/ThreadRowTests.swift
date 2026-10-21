@@ -57,6 +57,14 @@ struct TextDirectionTests {
         #expect(TextDirection.of("") == nil)
     }
 
+    @Test func subjectsAreDecidedPastReplyPrefixes() {
+        #expect(TextDirection.of(subject: "Re: סיכום פגישה") == .rightToLeft)
+        #expect(TextDirection.of(subject: "RE[2]: Fwd: סיכום") == .rightToLeft)
+        #expect(TextDirection.of(subject: "השב: Quarterly report") == .leftToRight)
+        #expect(TextDirection.of(subject: "Review → Thursday?") == .leftToRight, "a word that starts like a prefix")
+        #expect(TextDirection.of(subject: "Re: 12:30") == .leftToRight, "only the prefix has letters")
+    }
+
     @Test @MainActor func hebrewContentGetsARightToLeftParagraphInAnEnglishInterface() throws {
         let label = UILabel()
         label.setContentText("שלום עולם.")

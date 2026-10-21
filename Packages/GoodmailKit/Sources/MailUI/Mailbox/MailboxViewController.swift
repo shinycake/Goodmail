@@ -49,6 +49,9 @@ public final class MailboxViewController: UIViewController {
 
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        for indexPath in collectionView.indexPathsForSelectedItems ?? [] {
+            collectionView.deselectItem(at: indexPath, animated: animated)
+        }
         navigationController?.navigationBar.prefersLargeTitles = true
         navigationController?.navigationBar.largeTitleTextAttributes = [
             .font: Typography.serif(.largeTitle, weight: .bold)
@@ -125,5 +128,10 @@ extension MailboxViewController: UICollectionViewDelegate {
             .reduce(0) { $0 + snapshot.numberOfItems(inSection: $1) }
         guard snapshot.numberOfItems - (before + indexPath.item) <= Self.loadOlderLead else { return }
         Task { [viewModel] in await viewModel.loadOlderIfNeeded() }
+    }
+
+    public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        guard let id = dataSource.itemIdentifier(for: indexPath) else { return }
+        viewModel.open(id)
     }
 }

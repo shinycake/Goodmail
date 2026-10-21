@@ -22,6 +22,7 @@ public final class MailboxViewModel {
     @ObservationIgnored private let threads: () -> AsyncThrowingStream<[ThreadSummary], any Error>
     @ObservationIgnored private let refreshAction: () async throws -> Void
     @ObservationIgnored private let loadOlderAction: () async throws -> Bool
+    @ObservationIgnored private let navigate: (Route) -> Void
     @ObservationIgnored private var mayHaveOlder = true
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let calendar: Calendar
@@ -31,6 +32,7 @@ public final class MailboxViewModel {
         threads: @escaping () -> AsyncThrowingStream<[ThreadSummary], any Error>,
         refresh: @escaping () async throws -> Void,
         loadOlder: @escaping () async throws -> Bool = { false },
+        navigate: @escaping (Route) -> Void = { _ in },
         now: @escaping () -> Date = Date.init,
         calendar: Calendar = .autoupdatingCurrent
     ) {
@@ -38,6 +40,7 @@ public final class MailboxViewModel {
         self.threads = threads
         refreshAction = refresh
         loadOlderAction = loadOlder
+        self.navigate = navigate
         self.now = now
         self.calendar = calendar
     }
@@ -79,6 +82,10 @@ public final class MailboxViewModel {
         } catch {
             mayHaveOlder = true
         }
+    }
+
+    public func open(_ id: ThreadSummary.ID) {
+        navigate(.thread(id))
     }
 
     public func dateText(for thread: ThreadSummary) -> String {
