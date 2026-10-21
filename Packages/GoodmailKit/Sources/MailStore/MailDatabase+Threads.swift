@@ -5,7 +5,7 @@ import MailCore
 extension MailDatabase {
     /// Inserts or updates the threads and replaces their labels. One short transaction (ADR-002).
     public func upsert(_ threads: [ThreadSummary]) throws {
-        try pool.write { db in
+        try write { db in
             for thread in threads { try Self.upsert(thread, in: db) }
         }
     }
@@ -33,7 +33,9 @@ extension MailDatabase {
 
     /// Threads carrying `label` in every account, newest first. Emits now and after every change.
     public func threads(labeled label: String) -> AsyncThrowingStream<[ThreadSummary], any Error> {
+        // Signals from other processes re-run the query even when nothing it reads changed.
         let observation = ValueObservation.tracking { db in try Self.fetchThreads(db, labeled: label) }
+            .removeDuplicates()
         return AsyncThrowingStream { continuation in
             let cancellable = observation.start(
                 in: pool,

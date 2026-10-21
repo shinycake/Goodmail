@@ -15,4 +15,16 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
             fatalError("Couldn't open the mail database: \(error)")
         }
     }()
+    private lazy var syncScheduler = SyncScheduler(model: model)
+
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+    ) -> Bool {
+        syncScheduler.start()
+        #if DEBUG
+            TestDelivery.scheduleIfRequested(model: model)
+        #endif
+        return true
+    }
 }

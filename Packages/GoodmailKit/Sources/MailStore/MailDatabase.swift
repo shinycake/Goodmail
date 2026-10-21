@@ -5,6 +5,7 @@ import GRDB
 /// so every write is a short transaction and every process waits out the other's lock.
 public final class MailDatabase: Sendable {
     let pool: DatabasePool
+    private let signal: ChangeSignal
 
     /// Opens (creating if needed) the database at `url` and migrates it to the current schema.
     public init(url: URL) throws {
@@ -18,8 +19,20 @@ public final class MailDatabase: Sendable {
 
         var configuration = Configuration()
         configuration.busyMode = .timeout(5)
-        pool = try DatabasePool(path: url.path, configuration: configuration)
+        let pool = try DatabasePool(path: url.path, configuration: configuration)
         try Self.migrator.migrate(pool)
+        self.pool = pool
+        // Another process wrote: re-run this process's observations against the new data.
+        signal = ChangeSignal {
+            try? pool.write { db in try db.notifyChanges(in: .fullDatabase) }
+        }
+    }
+
+    /// Every write goes through here, so the other processes hear about it.
+    func write<T>(_ updates: (Database) throws -> T) throws -> T {
+        let result = try pool.write(updates)
+        signal.post()
+        return result
     }
 
     static var migrator: DatabaseMigrator {

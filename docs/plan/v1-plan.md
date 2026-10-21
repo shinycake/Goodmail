@@ -64,6 +64,8 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
 - fixture tests for history merging, the gap/404 path, and resuming after a crash halfway through
 - a recording of mail arriving while the app is open
 
+**Status:** done (PRs #4 and #5). Covered by fixture tests: history merging, the 404 resync with its sweep, and resuming after a mid-resync crash. While the app is open it syncs on activation and then every 30 s, until push (M6). Background refresh is registered but not yet observed firing; iOS gives no timing guarantee. History fixtures are hand-written until scrubbed recordings exist (ADR-010).
+
 ### M3: Reading
 
 **Builds:**
