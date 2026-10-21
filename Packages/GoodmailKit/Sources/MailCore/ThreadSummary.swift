@@ -46,7 +46,7 @@ public struct ThreadSummary: Identifiable, Equatable, Sendable {
     }
 }
 
-public struct Contact: Equatable, Hashable, Sendable {
+public struct Contact: Equatable, Hashable, Codable, Sendable {
     public var name: String?
     public var address: String
 
@@ -59,5 +59,46 @@ public struct Contact: Equatable, Hashable, Sendable {
     public var displayName: String {
         guard let name, !name.isEmpty else { return address }
         return name
+    }
+}
+
+extension Contact {
+    /// Parses an RFC 5322 mailbox as providers return it, already MIME-decoded: `"Name" <a@b.c>`, `Name <a@b.c>` or
+    /// `a@b.c`.
+    public init(parsing header: String) {
+        let trimmed = header.trimmingCharacters(in: .whitespaces)
+        guard let open = trimmed.lastIndex(of: "<"), let close = trimmed.lastIndex(of: ">"), open < close else {
+            self.init(name: nil, address: trimmed)
+            return
+        }
+        let address = String(trimmed[trimmed.index(after: open)..<close])
+        let name = trimmed[..<open]
+            .trimmingCharacters(in: .whitespaces)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+        self.init(name: name.isEmpty ? nil : name, address: address)
+    }
+
+    /// Parses an address list such as `To:`. Commas inside quotes or angle brackets don't split it.
+    public static func list(parsing header: String) -> [Contact] {
+        var mailboxes: [String] = []
+        var current = ""
+        var inQuotes = false
+        var inAngles = false
+        for character in header {
+            switch character {
+            case "\"": inQuotes.toggle()
+            case "<" where !inQuotes: inAngles = true
+            case ">" where !inQuotes: inAngles = false
+            case "," where !inQuotes && !inAngles:
+                mailboxes.append(current)
+                current = ""
+                continue
+            default: break
+            }
+            current.append(character)
+        }
+        mailboxes.append(current)
+        return mailboxes.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }.map(
+            Contact.init(parsing:))
     }
 }

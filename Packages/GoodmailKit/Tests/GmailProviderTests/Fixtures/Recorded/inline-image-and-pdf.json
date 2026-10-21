@@ -1,0 +1,163 @@
+{
+ "id": "1a12fc4f7d26afee",
+ "historyId": "376323",
+ "messages": [
+  {
+   "id": "1a12fc4f7d26afee",
+   "threadId": "1a12fc4f7d26afee",
+   "labelIds": [
+    "UNREAD",
+    "INBOX"
+   ],
+   "snippet": "מצורף הלוגו החדש: ובקובץ ה-PDF הפרטים.",
+   "payload": {
+    "partId": "",
+    "mimeType": "multipart/mixed",
+    "filename": "",
+    "headers": [
+     {
+      "name": "Received",
+      "value": "from 847337870740 named unknown by gmailapi.google.com with HTTPREST; Wed, 21 Oct 2026 03:17:53 +0200"
+     },
+     {
+      "name": "Content-Type",
+      "value": "multipart/mixed; boundary=\"===============0945301809846921630==\""
+     },
+     {
+      "name": "MIME-Version",
+      "value": "1.0"
+     },
+     {
+      "name": "From",
+      "value": "\"אבי מזרחי\" <avi@example.co.il>"
+     },
+     {
+      "name": "To",
+      "value": "Goodmail Tester <tester@example.com>"
+     },
+     {
+      "name": "Subject",
+      "value": "לוגו חדש + הצעת מחיר"
+     },
+     {
+      "name": "Date",
+      "value": "Mon, 12 Oct 2026 14:00:00 +0300"
+     },
+     {
+      "name": "Message-ID",
+      "value": "<img-1@goodmail.test>"
+     }
+    ],
+    "body": {
+     "size": 0
+    },
+    "parts": [
+     {
+      "partId": "0",
+      "mimeType": "multipart/related",
+      "filename": "",
+      "headers": [
+       {
+        "name": "Content-Type",
+        "value": "multipart/related; boundary=\"===============4597435013359194587==\""
+       },
+       {
+        "name": "MIME-Version",
+        "value": "1.0"
+       }
+      ],
+      "body": {
+       "size": 0
+      },
+      "parts": [
+       {
+        "partId": "0.0",
+        "mimeType": "text/html",
+        "filename": "",
+        "headers": [
+         {
+          "name": "Content-Type",
+          "value": "text/html; charset=\"utf-8\""
+         },
+         {
+          "name": "MIME-Version",
+          "value": "1.0"
+         },
+         {
+          "name": "Content-Transfer-Encoding",
+          "value": "base64"
+         }
+        ],
+        "body": {
+         "size": 144,
+         "data": "PGRpdiBkaXI9InJ0bCI-157XpteV16jXoyDXlNec15XXkteVINeU15fXk9epOiA8aW1nIHNyYz0iY2lkOmxvZ29AZ29vZG1haWwudGVzdCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0Ij4g15XXkden15XXkdelINeULVBERiDXlNek16jXmNeZ150uPC9kaXY-"
+        }
+       },
+       {
+        "partId": "0.1",
+        "mimeType": "image/png",
+        "filename": "logo.png",
+        "headers": [
+         {
+          "name": "Content-Type",
+          "value": "image/png"
+         },
+         {
+          "name": "MIME-Version",
+          "value": "1.0"
+         },
+         {
+          "name": "Content-Transfer-Encoding",
+          "value": "base64"
+         },
+         {
+          "name": "Content-ID",
+          "value": "<logo@goodmail.test>"
+         },
+         {
+          "name": "Content-Disposition",
+          "value": "inline; filename=\"logo.png\""
+         }
+        ],
+        "body": {
+         "attachmentId": "ANGjdJ_D1Tf1gUDQQpT65vtPWSqxHva7lFP4xeVbi8JV84T1sSgEGIz5aKGiVpxXP-e2AfTxRR8kcFVic8RsRJZD3y9tR7ENEImX8gX2kReGwJOe2N6IhNXdHl2MJmsocW9XLDz6BCUCHFVief-Oy339iZ42UZYIzIQzpmytiKzovZIsLXLXK_uNi_uOyLIxQMUARjCInvY73ULfFTs885O8-TDuwJeBWyHcVuvRtUSLRN9m2nhz2GFUxDE3wsDxnZCyCGBqmnd1-5uDAp_86V07RIu64yRZIhaOVENmxfPYhJF6GgvPG9Z79gNvM7daWzIS03-8DLAoa1Xe3fa5qrL1QLYicyDgirN4QP3pKtL1kKwSlOtnoNbZmpfxzwNjUOtAevf8RTn3vvFXyySn",
+         "size": 88
+        }
+       }
+      ]
+     },
+     {
+      "partId": "1",
+      "mimeType": "application/pdf",
+      "filename": "הצעת מחיר.pdf",
+      "headers": [
+       {
+        "name": "Content-Type",
+        "value": "application/pdf"
+       },
+       {
+        "name": "MIME-Version",
+        "value": "1.0"
+       },
+       {
+        "name": "Content-Transfer-Encoding",
+        "value": "base64"
+       },
+       {
+        "name": "Content-Disposition",
+        "value": "attachment; filename=\"הצעת מחיר.pdf\""
+       }
+      ],
+      "body": {
+       "attachmentId": "ANGjdJ957aKu_tw6r9mkrTz0Wo9Lruw2Aud9D-oDoqTM0JenKfq-IWUEa9btWPi4V1QFk8uWBStgEGNhdRMR3_zGiVGsy-HRTp0htj5BdbBab_PgPte4l9QkU--mkBdvyp7TbXfAK5ggSImg2sWCfUkV11UJbkVm_1NqbgGrcgGgt5vai9KcTmEG_cPytgkA36guBUPOXidqYj-vK1ShB_A9cq9YjVr--lOsQlj0RWfnRLkp53--ojgibfUkb0ruNd6kEMfIBBpMQxHG4Lw5ybt1XAlUcIfymsm2xsSE9KRd_Xw24klHjg7TGODHFmHt6WyKdManiDHqdZNriqJfefRbNdGE8AXsZmUdrESSIhu6z3O70K7v1--08x_QyFMfu080CwQ-axDRyADGASQY",
+       "size": 193
+      }
+     }
+    ]
+   },
+   "sizeEstimate": 1832,
+   "historyId": "376323",
+   "internalDate": "1791802800000"
+  }
+ ]
+}

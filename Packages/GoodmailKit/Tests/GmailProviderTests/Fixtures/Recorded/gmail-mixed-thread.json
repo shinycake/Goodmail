@@ -1,0 +1,328 @@
+{
+ "id": "1a12ecdc788efb0d",
+ "historyId": "376214",
+ "messages": [
+  {
+   "id": "1a12ecdc788efb0d",
+   "threadId": "1a12ecdc788efb0d",
+   "labelIds": [
+    "UNREAD",
+    "INBOX"
+   ],
+   "snippet": "Hi Yael, Can we move the review to Thursday 14:00? Agenda: Q4 numbers, hiring, the RTL bug (#482). Dana",
+   "payload": {
+    "partId": "",
+    "mimeType": "multipart/alternative",
+    "filename": "",
+    "headers": [
+     {
+      "name": "Received",
+      "value": "from 847337870740 named unknown by gmailapi.google.com with HTTPREST; Tue, 20 Oct 2026 21:17:52 -0400"
+     },
+     {
+      "name": "Content-Type",
+      "value": "multipart/alternative; boundary=\"===============8924062728780519925==\""
+     },
+     {
+      "name": "MIME-Version",
+      "value": "1.0"
+     },
+     {
+      "name": "From",
+      "value": "Dana Levi <dana@example.com>"
+     },
+     {
+      "name": "To",
+      "value": "\"יעל כהן\" <yael@example.co.il>, Goodmail Tester <tester@example.com>"
+     },
+     {
+      "name": "Subject",
+      "value": "Review → Thursday?"
+     },
+     {
+      "name": "Date",
+      "value": "Mon, 12 Oct 2026 09:30:00 +0300"
+     },
+     {
+      "name": "Message-ID",
+      "value": "<gm-1@goodmail.test>"
+     }
+    ],
+    "body": {
+     "size": 0
+    },
+    "parts": [
+     {
+      "partId": "0",
+      "mimeType": "text/plain",
+      "filename": "",
+      "headers": [
+       {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+       },
+       {
+        "name": "MIME-Version",
+        "value": "1.0"
+       },
+       {
+        "name": "Content-Transfer-Encoding",
+        "value": "base64"
+       }
+      ],
+      "body": {
+       "size": 105,
+       "data": "SGkgWWFlbCwKCkNhbiB3ZSBtb3ZlIHRoZSByZXZpZXcgdG8gVGh1cnNkYXkgMTQ6MDA_IEFnZW5kYTogUTQgbnVtYmVycywgaGlyaW5nLCB0aGUgUlRMIGJ1ZyAoIzQ4MikuCgpEYW5h"
+      }
+     },
+     {
+      "partId": "1",
+      "mimeType": "text/html",
+      "filename": "",
+      "headers": [
+       {
+        "name": "Content-Type",
+        "value": "text/html; charset=\"utf-8\""
+       },
+       {
+        "name": "MIME-Version",
+        "value": "1.0"
+       },
+       {
+        "name": "Content-Transfer-Encoding",
+        "value": "base64"
+       }
+      ],
+      "body": {
+       "size": 219,
+       "data": "PGRpdiBkaXI9Imx0ciI-SGkgWWFlbCw8ZGl2Pjxicj48L2Rpdj48ZGl2PkNhbiB3ZSBtb3ZlIHRoZSByZXZpZXcgdG8gVGh1cnNkYXkgMTQ6MDA_IEFnZW5kYTogUTQgbnVtYmVycywgaGlyaW5nLCB0aGUgUlRMIGJ1ZyAoPGEgaHJlZj0iaHR0cHM6Ly9leGFtcGxlLmNvbS9pc3N1ZXMvNDgyIj4jNDgyPC9hPikuPC9kaXY-PGRpdj48YnI-PC9kaXY-PGRpdj5EYW5hPC9kaXY-PC9kaXY-"
+      }
+     }
+    ]
+   },
+   "sizeEstimate": 1227,
+   "historyId": "376144",
+   "internalDate": "1791786600000"
+  },
+  {
+   "id": "1a12ef26545c3177",
+   "threadId": "1a12ecdc788efb0d",
+   "labelIds": [
+    "UNREAD",
+    "INBOX"
+   ],
+   "snippet": "בטח, יום חמישי ב-14:00 מתאים. אני אביא את הנתונים של Q4. On Mon, Oct 12, 2026 at 8:30 AM Dana Levi &lt;dana@example.com&gt; wrote: Hi Yael, Can we move the review to Thursday 14:00? Agenda: Q4 numbers,",
+   "payload": {
+    "partId": "",
+    "mimeType": "multipart/alternative",
+    "filename": "",
+    "headers": [
+     {
+      "name": "Received",
+      "value": "from 847337870740 named unknown by gmailapi.google.com with HTTPREST; Tue, 20 Oct 2026 21:17:52 -0400"
+     },
+     {
+      "name": "Content-Type",
+      "value": "multipart/alternative; boundary=\"===============0912584005052841026==\""
+     },
+     {
+      "name": "MIME-Version",
+      "value": "1.0"
+     },
+     {
+      "name": "From",
+      "value": "\"יעל כהן\" <yael@example.co.il>"
+     },
+     {
+      "name": "To",
+      "value": "Dana Levi <dana@example.com>, Goodmail Tester <tester@example.com>"
+     },
+     {
+      "name": "Subject",
+      "value": "Re: Review → Thursday?"
+     },
+     {
+      "name": "Date",
+      "value": "Mon, 12 Oct 2026 10:10:00 +0300"
+     },
+     {
+      "name": "Message-ID",
+      "value": "<gm-2@goodmail.test>"
+     },
+     {
+      "name": "In-Reply-To",
+      "value": "<gm-1@goodmail.test>"
+     },
+     {
+      "name": "References",
+      "value": "<gm-1@goodmail.test>"
+     }
+    ],
+    "body": {
+     "size": 0
+    },
+    "parts": [
+     {
+      "partId": "0",
+      "mimeType": "text/plain",
+      "filename": "",
+      "headers": [
+       {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+       },
+       {
+        "name": "MIME-Version",
+        "value": "1.0"
+       },
+       {
+        "name": "Content-Transfer-Encoding",
+        "value": "base64"
+       }
+      ],
+      "body": {
+       "size": 218,
+       "data": "15HXmNeXLCDXmdeV150g15fXnteZ16nXmSDXkS0xNDowMCDXnteq15DXmdedLiDXkNeg15kg15DXkdeZ15Ag15DXqiDXlNeg16rXldeg15nXnSDXqdecIFE0LgoKT24gTW9uLCBPY3QgMTIsIDIwMjYgYXQgODozMCBBTSBEYW5hIExldmkgPGRhbmFAZXhhbXBsZS5jb20-IHdyb3RlOgo-IEhpIFlhZWwsCj4KPiBDYW4gd2UgbW92ZSB0aGUgcmV2aWV3IHRvIFRodXJzZGF5IDE0OjAwPwo="
+      }
+     },
+     {
+      "partId": "1",
+      "mimeType": "text/html",
+      "filename": "",
+      "headers": [
+       {
+        "name": "Content-Type",
+        "value": "text/html; charset=\"utf-8\""
+       },
+       {
+        "name": "MIME-Version",
+        "value": "1.0"
+       },
+       {
+        "name": "Content-Transfer-Encoding",
+        "value": "base64"
+       }
+      ],
+      "body": {
+       "size": 610,
+       "data": "PGRpdiBkaXI9InJ0bCI-15HXmNeXLCDXmdeV150g15fXnteZ16nXmSDXkS0xNDowMCDXnteq15DXmdedLiDXkNeg15kg15DXkdeZ15Ag15DXqiDXlNeg16rXldeg15nXnSDXqdecIFE0LjwvZGl2Pjxicj48ZGl2IGNsYXNzPSJnbWFpbF9xdW90ZSI-PGRpdiBkaXI9Imx0ciIgY2xhc3M9ImdtYWlsX2F0dHIiPk9uIE1vbiwgT2N0IDEyLCAyMDI2IGF0IDg6MzAgQU0gRGFuYSBMZXZpICZsdDs8YSBocmVmPSJtYWlsdG86ZGFuYUBleGFtcGxlLmNvbSI-ZGFuYUBleGFtcGxlLmNvbTwvYT4mZ3Q7IHdyb3RlOjxicj48L2Rpdj48YmxvY2txdW90ZSBjbGFzcz0iZ21haWxfcXVvdGUiIHN0eWxlPSJtYXJnaW46MHB4IDBweCAwcHggMC44ZXg7Ym9yZGVyLWxlZnQ6MXB4IHNvbGlkIHJnYigyMDQsMjA0LDIwNCk7cGFkZGluZy1sZWZ0OjFleCI-PGRpdiBkaXI9Imx0ciI-SGkgWWFlbCw8ZGl2Pjxicj48L2Rpdj48ZGl2PkNhbiB3ZSBtb3ZlIHRoZSByZXZpZXcgdG8gVGh1cnNkYXkgMTQ6MDA_IEFnZW5kYTogUTQgbnVtYmVycywgaGlyaW5nLCB0aGUgUlRMIGJ1ZyAoIzQ4MikuPC9kaXY-PGRpdj48YnI-PC9kaXY-PGRpdj5EYW5hPC9kaXY-PC9kaXY-PC9ibG9ja3F1b3RlPjwvZGl2Pg=="
+      }
+     }
+    ]
+   },
+   "sizeEstimate": 1982,
+   "historyId": "376186",
+   "internalDate": "1791789000000"
+  },
+  {
+   "id": "1a12f0ddccd08a52",
+   "threadId": "1a12ecdc788efb0d",
+   "labelIds": [
+    "UNREAD",
+    "INBOX"
+   ],
+   "snippet": "Great — see you Thursday. אגב, the deck is at https://example.com/deck (גרסה 3). On Mon, Oct 12, 2026 at 9:10 AM יעל כהן &lt;yael@example.co.il&gt; wrote: בטח, יום חמישי ב-14:00 מתאים. אני אביא את",
+   "payload": {
+    "partId": "",
+    "mimeType": "multipart/alternative",
+    "filename": "",
+    "headers": [
+     {
+      "name": "Received",
+      "value": "from 847337870740 named unknown by gmailapi.google.com with HTTPREST; Tue, 20 Oct 2026 18:17:52 -0700"
+     },
+     {
+      "name": "Content-Type",
+      "value": "multipart/alternative; boundary=\"===============4577393673778404618==\""
+     },
+     {
+      "name": "MIME-Version",
+      "value": "1.0"
+     },
+     {
+      "name": "From",
+      "value": "Dana Levi <dana@example.com>"
+     },
+     {
+      "name": "To",
+      "value": "\"יעל כהן\" <yael@example.co.il>, Goodmail Tester <tester@example.com>"
+     },
+     {
+      "name": "Subject",
+      "value": "Re: Review → Thursday?"
+     },
+     {
+      "name": "Date",
+      "value": "Mon, 12 Oct 2026 10:40:00 +0300"
+     },
+     {
+      "name": "Message-ID",
+      "value": "<gm-3@goodmail.test>"
+     },
+     {
+      "name": "In-Reply-To",
+      "value": "<gm-2@goodmail.test>"
+     },
+     {
+      "name": "References",
+      "value": "<gm-1@goodmail.test> <gm-2@goodmail.test>"
+     }
+    ],
+    "body": {
+     "size": 0
+    },
+    "parts": [
+     {
+      "partId": "0",
+      "mimeType": "text/plain",
+      "filename": "",
+      "headers": [
+       {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+       },
+       {
+        "name": "MIME-Version",
+        "value": "1.0"
+       },
+       {
+        "name": "Content-Transfer-Encoding",
+        "value": "base64"
+       }
+      ],
+      "body": {
+       "size": 90,
+       "data": "R3JlYXQg4oCUIHNlZSB5b3UgVGh1cnNkYXkuINeQ15LXkSwgdGhlIGRlY2sgaXMgYXQgaHR0cHM6Ly9leGFtcGxlLmNvbS9kZWNrICjXkteo16HXlCAzKS4K"
+      }
+     },
+     {
+      "partId": "1",
+      "mimeType": "text/html",
+      "filename": "",
+      "headers": [
+       {
+        "name": "Content-Type",
+        "value": "text/html; charset=\"utf-8\""
+       },
+       {
+        "name": "MIME-Version",
+        "value": "1.0"
+       },
+       {
+        "name": "Content-Transfer-Encoding",
+        "value": "base64"
+       }
+      ],
+      "body": {
+       "size": 640,
+       "data": "PGRpdiBkaXI9Imx0ciI-R3JlYXQg4oCUIHNlZSB5b3UgVGh1cnNkYXkuINeQ15LXkSwgdGhlIGRlY2sgaXMgYXQgPGEgaHJlZj0iaHR0cHM6Ly9leGFtcGxlLmNvbS9kZWNrIj5odHRwczovL2V4YW1wbGUuY29tL2RlY2s8L2E-ICjXkteo16HXlCAzKS48L2Rpdj48YnI-PGRpdiBjbGFzcz0iZ21haWxfcXVvdGUiPjxkaXYgZGlyPSJsdHIiIGNsYXNzPSJnbWFpbF9hdHRyIj5PbiBNb24sIE9jdCAxMiwgMjAyNiBhdCA5OjEwIEFNINeZ16LXnCDXm9eU158gJmx0O3lhZWxAZXhhbXBsZS5jby5pbCZndDsgd3JvdGU6PGJyPjwvZGl2PjxibG9ja3F1b3RlIGNsYXNzPSJnbWFpbF9xdW90ZSI-PGRpdiBkaXI9InJ0bCI-15HXmNeXLCDXmdeV150g15fXnteZ16nXmSDXkS0xNDowMCDXnteq15DXmdedLiDXkNeg15kg15DXkdeZ15Ag15DXqiDXlNeg16rXldeg15nXnSDXqdecIFE0LjwvZGl2Pjxicj48ZGl2IGNsYXNzPSJnbWFpbF9xdW90ZSI-PGJsb2NrcXVvdGUgY2xhc3M9ImdtYWlsX3F1b3RlIj48ZGl2IGRpcj0ibHRyIj5IaSBZYWVsLDxkaXY-PGJyPjwvZGl2PjxkaXY-Q2FuIHdlIG1vdmUgdGhlIHJldmlldyB0byBUaHVyc2RheSAxNDowMD88L2Rpdj48L2Rpdj48L2Jsb2NrcXVvdGU-PC9kaXY-PC9ibG9ja3F1b3RlPjwvZGl2Pg=="
+      }
+     }
+    ]
+   },
+   "sizeEstimate": 1871,
+   "historyId": "376214",
+   "internalDate": "1791790800000"
+  }
+ ]
+}

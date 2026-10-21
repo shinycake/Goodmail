@@ -93,6 +93,19 @@ public struct GmailClient: MailProvider {
         return ChangeSet(threadIDs: threadIDs, cursor: latest)
     }
 
+    public func messages(inThread threadID: String) async throws -> [Message] {
+        let thread: GmailThread = try await get(
+            "users/me/threads/\(threadID)", query: [URLQueryItem(name: "format", value: "full")])
+        return thread.messages(accountID: session.accountID)
+    }
+
+    public func data(for attachment: Attachment, in message: Message.ID) async throws -> Data {
+        guard let token = attachment.fetchToken else { throw GmailError(status: 404, body: "No attachment ID") }
+        let body: GmailAttachmentBody = try await get("users/me/messages/\(message.messageID)/attachments/\(token)")
+        guard let data = Data(base64URLEncoded: body.data) else { throw GmailError(status: 0, body: "Bad base64") }
+        return data
+    }
+
     private func get<Response: Decodable>(_ path: String, query: [URLQueryItem] = []) async throws -> Response {
         let url = GmailConfiguration.apiBaseURL.appending(path: path).appending(queryItems: query)
         var attempt = 0

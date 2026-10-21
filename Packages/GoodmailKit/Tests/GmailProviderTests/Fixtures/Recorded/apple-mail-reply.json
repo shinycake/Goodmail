@@ -1,0 +1,108 @@
+{
+ "id": "1a12f84e10b1640f",
+ "historyId": "376116",
+ "messages": [
+  {
+   "id": "1a12f84e10b1640f",
+   "threadId": "1a12f84e10b1640f",
+   "labelIds": [
+    "UNREAD",
+    "INBOX"
+   ],
+   "snippet": "מעולה, תודה! ב-12 באוק׳ 2026, בשעה 12:40, אבי מזרחי &lt;avi@example.co.il&gt; כתב/ה: הנה התמונות מהטיול.",
+   "payload": {
+    "partId": "",
+    "mimeType": "multipart/alternative",
+    "filename": "",
+    "headers": [
+     {
+      "name": "Received",
+      "value": "from 847337870740 named unknown by gmailapi.google.com with HTTPREST; Tue, 20 Oct 2026 18:17:52 -0700"
+     },
+     {
+      "name": "Content-Type",
+      "value": "multipart/alternative; boundary=\"===============5153513975087143638==\""
+     },
+     {
+      "name": "MIME-Version",
+      "value": "1.0"
+     },
+     {
+      "name": "From",
+      "value": "\"יעל כהן\" <yael@example.co.il>"
+     },
+     {
+      "name": "To",
+      "value": "\"אבי מזרחי\" <avi@example.co.il>, Goodmail Tester <tester@example.com>"
+     },
+     {
+      "name": "Subject",
+      "value": "Re: תמונות מהטיול"
+     },
+     {
+      "name": "Date",
+      "value": "Mon, 12 Oct 2026 12:50:00 +0300"
+     },
+     {
+      "name": "Message-ID",
+      "value": "<am-1@goodmail.test>"
+     }
+    ],
+    "body": {
+     "size": 0
+    },
+    "parts": [
+     {
+      "partId": "0",
+      "mimeType": "text/plain",
+      "filename": "",
+      "headers": [
+       {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+       },
+       {
+        "name": "MIME-Version",
+        "value": "1.0"
+       },
+       {
+        "name": "Content-Transfer-Encoding",
+        "value": "base64"
+       }
+      ],
+      "body": {
+       "size": 153,
+       "data": "157XoteV15zXlCwg16rXldeT15QhCgo-INeRLTEyINeR15DXlden17MgMjAyNiwg15HXqdei15QgMTI6NDAsINeQ15HXmSDXnteW16jXl9eZIDxhdmlAZXhhbXBsZS5jby5pbD4g15vXqteRL9eUOgo-Cj4g15TXoNeUINeU16rXnteV16DXldeqINee15TXmNeZ15XXnC4K"
+      }
+     },
+     {
+      "partId": "1",
+      "mimeType": "text/html",
+      "filename": "",
+      "headers": [
+       {
+        "name": "Content-Type",
+        "value": "text/html; charset=\"utf-8\""
+       },
+       {
+        "name": "MIME-Version",
+        "value": "1.0"
+       },
+       {
+        "name": "Content-Transfer-Encoding",
+        "value": "base64"
+       }
+      ],
+      "body": {
+       "size": 335,
+       "data": "PGh0bWw-PGJvZHkgZGlyPSJhdXRvIj48ZGl2IGRpcj0icnRsIj7Xntei15XXnNeULCDXqteV15PXlCE8L2Rpdj48ZGl2IGRpcj0icnRsIj48YnI-PGJsb2NrcXVvdGUgdHlwZT0iY2l0ZSI-15EtMTIg15HXkNeV16fXsyAyMDI2LCDXkdep16LXlCAxMjo0MCwg15DXkdeZINee15bXqNeX15kgJmx0O2F2aUBleGFtcGxlLmNvLmlsJmd0OyDXm9eq15Ev15Q6PGJyPjxicj48L2Jsb2NrcXVvdGU-PC9kaXY-PGJsb2NrcXVvdGUgdHlwZT0iY2l0ZSI-PGRpdiBkaXI9InJ0bCI-15TXoNeUINeU16rXnteV16DXldeqINee15TXmNeZ15XXnC48L2Rpdj48L2Jsb2NrcXVvdGU-PC9ib2R5PjwvaHRtbD4="
+      }
+     }
+    ]
+   },
+   "sizeEstimate": 1490,
+   "historyId": "376116",
+   "internalDate": "1791798600000"
+  }
+ ]
+}

@@ -1,0 +1,65 @@
+{
+ "id": "1a12e96d6cfc4eae",
+ "historyId": "376284",
+ "messages": [
+  {
+   "id": "1a12e96d6cfc4eae",
+   "threadId": "1a12e96d6cfc4eae",
+   "labelIds": [
+    "UNREAD",
+    "INBOX"
+   ],
+   "snippet": "שלום, מצורף הסיכום מהפגישה ביום שלישי. סעיף 3 (תקציב 2027) עדיין פתוח. אפשר לענות עד 15:00, או להתקשר ל-03-5551234. תודה, אבי",
+   "payload": {
+    "partId": "",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+     {
+      "name": "Received",
+      "value": "from 847337870740 named unknown by gmailapi.google.com with HTTPREST; Tue, 20 Oct 2026 18:17:53 -0700"
+     },
+     {
+      "name": "MIME-Version",
+      "value": "1.0"
+     },
+     {
+      "name": "Content-Type",
+      "value": "text/plain; charset=\"windows-1255\""
+     },
+     {
+      "name": "Content-Transfer-Encoding",
+      "value": "quoted-printable"
+     },
+     {
+      "name": "From",
+      "value": "\"אבי מזרחי\" <avi@example.co.il>"
+     },
+     {
+      "name": "To",
+      "value": "Goodmail Tester <tester@example.com>"
+     },
+     {
+      "name": "Subject",
+      "value": "סיכום פגישה – תקציב 2027"
+     },
+     {
+      "name": "Date",
+      "value": "Mon, 12 Oct 2026 08:30:00 +0300"
+     },
+     {
+      "name": "Message-ID",
+      "value": "<w1255-1@goodmail.test>"
+     }
+    ],
+    "body": {
+     "size": 126,
+     "data": "16nXnNeV150sCtee16bXldeo16Mg15TXodeZ15vXldedINee15TXpNeS15nXqdeUINeR15nXldedINep15zXmdep15kuINeh16LXmdejIDMgKNeq16fXpteZ15EgMjAyNykg16LXk9eZ15nXnyDXpNeq15XXly4K15DXpNep16gg15zXoteg15XXqiDXoteTIDE1OjAwLCDXkNeVINec15TXqten16nXqCDXnC0wMy01NTUxMjM0LgoK16rXldeT15QsCteQ15HXmQ=="
+    }
+   },
+   "sizeEstimate": 751,
+   "historyId": "376284",
+   "internalDate": "1791783000000"
+  }
+ ]
+}

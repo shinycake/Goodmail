@@ -88,6 +88,20 @@ public final class MailDatabase: Sendable {
                 table.column("state", .jsonText).notNull()
             }
         }
+        migrator.registerMigration("v4-messages") { db in
+            // Bodies are cached per thread and go with it (ADR-007).
+            try db.create(table: "message") { table in
+                table.column("accountID", .text).notNull()
+                table.column("id", .text).notNull()
+                table.column("threadID", .text).notNull()
+                table.column("date", .datetime).notNull()
+                table.column("content", .jsonText).notNull()
+                table.column("fetchedAt", .datetime).notNull()
+                table.primaryKey(["accountID", "id"])
+                table.foreignKey(["accountID", "threadID"], references: "thread", onDelete: .cascade)
+            }
+            try db.create(index: "message_byThread", on: "message", columns: ["accountID", "threadID", "date"])
+        }
         return migrator
     }
 }
