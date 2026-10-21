@@ -18,6 +18,7 @@ public final class ThreadViewModel {
     @ObservationIgnored private let stream: () -> AsyncThrowingStream<[Message], any Error>
     @ObservationIgnored private let loadAction: () async throws -> Void
     @ObservationIgnored let attachmentData: (Attachment, Message.ID) async throws -> Data
+    @ObservationIgnored private let attachmentsDirectory: URL
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let calendar: Calendar
 
@@ -28,9 +29,11 @@ public final class ThreadViewModel {
         messages: @escaping () -> AsyncThrowingStream<[Message], any Error>,
         load: @escaping () async throws -> Void,
         attachmentData: @escaping (Attachment, Message.ID) async throws -> Data,
+        attachmentsDirectory: URL = FileManager.default.temporaryDirectory.appending(path: "Attachments"),
         now: @escaping () -> Date = Date.init,
         calendar: Calendar = .autoupdatingCurrent
     ) {
+        self.attachmentsDirectory = attachmentsDirectory
         self.thread = thread
         self.accountEmail = accountEmail
         self.accountColor = accountColor
@@ -75,6 +78,27 @@ public final class ThreadViewModel {
 
     public func allowRemoteContent(in id: Message.ID) {
         remoteContentAllowed.insert(id)
+    }
+
+    /// A local copy of an attachment for Quick Look, named as the sender named it. Fetched once per message part.
+    public func file(for attachment: Attachment, in message: Message.ID) async throws -> URL {
+        let folder =
+            attachmentsDirectory
+            .appending(path: message.accountID.rawValue, directoryHint: .isDirectory)
+            .appending(path: "\(message.messageID)-\(attachment.id)", directoryHint: .isDirectory)
+        let url = folder.appending(path: Self.safeFilename(attachment.filename))
+        if FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) { return url }
+        let data = try await attachmentData(attachment, message)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try data.write(to: url, options: .atomic)
+        return url
+    }
+
+    /// Path separators and leading dots can't escape the folder or hide the file.
+    static func safeFilename(_ name: String) -> String {
+        let cleaned = name.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
+            .trimmingCharacters(in: CharacterSet(charactersIn: ". ").union(.whitespacesAndNewlines))
+        return cleaned.isEmpty ? "Attachment" : cleaned
     }
 
     /// The first message the view scrolls to: the first unread one, or the newest.
