@@ -63,6 +63,39 @@ struct SenderTests {
         #expect(try database.dueMessages(for: account, by: .distantFuture).isEmpty, "not retried by itself")
     }
 
+    @Test func forwardedFilesAreFetchedWhenTheMessageGoes() async throws {
+        let original = Message.ID(accountID: account, messageID: "m1")
+        var draft = draft()
+        draft.attachments = [
+            DraftAttachment(
+                filename: "plan.pdf", mimeType: "application/pdf",
+                content: .forwarded(
+                    Attachment(
+                        id: "2", filename: "plan.pdf", mimeType: "application/pdf", size: 5,
+                        fetchToken: "att-1"), in: original))
+        ]
+        try commands().send(draft, after: .zero)
+        #expect(await sender().flush().count == 1)
+        let raw = String(decoding: server.sent[0].raw, as: UTF8.self)
+        #expect(raw.contains(Data("m1/att-1".utf8).base64EncodedString()))
+    }
+
+    @Test func aForwardedFileThatIsGoneFailsTheMessage() async throws {
+        var draft = draft()
+        draft.attachments = [
+            DraftAttachment(
+                filename: "plan.pdf", mimeType: "application/pdf",
+                content: .forwarded(
+                    Attachment(id: "2", filename: "plan.pdf", mimeType: "application/pdf", size: 5),
+                    in: Message.ID(accountID: account, messageID: "m1")))
+        ]
+        try commands().send(draft, after: .zero)
+        #expect(await sender().flush().isEmpty)
+        #expect(server.sent.isEmpty)
+        var failed = database.failedMessages().makeAsyncIterator()
+        #expect(try await failed.next()?.map(\.failure) == ["A forwarded attachment is no longer available."])
+    }
+
     @Test func offlineMessagesStayQueued() async throws {
         server.failSend(with: URLError(.notConnectedToInternet))
         try commands().send(draft(), after: .zero)

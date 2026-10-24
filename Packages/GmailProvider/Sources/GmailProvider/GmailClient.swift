@@ -106,8 +106,13 @@ public struct GmailClient: MailProvider {
     }
 
     public func data(for attachment: Attachment, in message: Message.ID) async throws -> Data {
-        guard let token = attachment.fetchToken else { throw GmailError(status: 404, body: "No attachment ID") }
-        let body: GmailAttachmentBody = try await get("users/me/messages/\(message.messageID)/attachments/\(token)")
+        guard let token = attachment.fetchToken else { throw ProviderError.notFound }
+        let body: GmailAttachmentBody
+        do {
+            body = try await get("users/me/messages/\(message.messageID)/attachments/\(token)")
+        } catch let error as GmailError where error.status == 404 {
+            throw ProviderError.notFound
+        }
         guard let data = Data(base64URLEncoded: body.data) else { throw GmailError(status: 0, body: "Bad base64") }
         return data
     }

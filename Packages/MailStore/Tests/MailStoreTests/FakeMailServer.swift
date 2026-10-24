@@ -111,7 +111,11 @@ final class FakeMailServer: MailProvider {
 
     func messages(inThread threadID: String) async throws -> [Message] { [] }
 
-    func data(for attachment: Attachment, in message: Message.ID) async throws -> Data { Data() }
+    /// The file's ID as its bytes; an attachment without a fetch token is gone.
+    func data(for attachment: Attachment, in message: Message.ID) async throws -> Data {
+        guard let token = attachment.fetchToken else { throw ProviderError.notFound }
+        return Data("\(message.messageID)/\(token)".utf8)
+    }
 }
 
 extension FakeMailServer {
