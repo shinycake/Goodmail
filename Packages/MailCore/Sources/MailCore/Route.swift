@@ -8,4 +8,6 @@ public enum Route: Hashable, Sendable {
     case compose(Draft)
     /// The label picker for these threads, which share one account.
     case changeLabels([ThreadSummary.ID])
+    /// Accounts and preferences.
+    case settings
 }

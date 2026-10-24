@@ -56,6 +56,25 @@ final class SceneCoordinator {
         presenter.present(alert, animated: true)
     }
 
+    /// Accounts and preferences. The mail screens are rebuilt once it closes if the accounts changed.
+    private func showSettings() {
+        guard let presenter = topViewController() else { return }
+        let model = model
+        let before = model.accounts.map(\.id)
+        let viewModel = SettingsViewModel(
+            accounts: { model.accounts },
+            add: { [weak self] in
+                guard let self else { return false }
+                return try await model.addGmailAccount(using: WebAuthentication(window: window))
+            },
+            remove: { try await model.removeAccount($0) },
+            closed: { [weak self] in
+                guard let self, model.accounts.map(\.id) != before else { return }
+                model.accounts.isEmpty ? showWelcome() : showMailbox()
+            })
+        presenter.present(SettingsScreen.make(model: viewModel), animated: true)
+    }
+
     private func topViewController() -> UIViewController? {
         var top = window.rootViewController
         while let presented = top?.presentedViewController { top = presented }
@@ -154,6 +173,8 @@ final class SceneCoordinator {
             let navigation = UINavigationController(rootViewController: picker)
             navigation.sheetPresentationController?.detents = [.medium(), .large()]
             presenter.present(navigation, animated: true)
+        case .settings:
+            showSettings()
         case .compose(let draft):
             guard let account = model.accounts.first(where: { $0.id == draft.accountID }),
                 let presenter = topViewController()

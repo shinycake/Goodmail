@@ -19,9 +19,6 @@ public final class MailActions {
         case send(Draft.ID)
     }
 
-    /// How long a sent message waits before it goes, so it can be taken back.
-    public static let undoSendDelay: Duration = .seconds(10)
-
     /// Opens a taken-back message in the composer again.
     @ObservationIgnored public var reopen: ((Draft) -> Void)?
 
@@ -31,10 +28,16 @@ public final class MailActions {
     @ObservationIgnored private let commands: MailCommands
     @ObservationIgnored private var lastUndo: Undo?
     @ObservationIgnored private let toastDuration: Duration
+    @ObservationIgnored private let undoSendDelay: () -> Duration
 
-    public init(commands: MailCommands, toastDuration: Duration = .seconds(5)) {
+    /// `undoSendDelay` is read at each send, so a change in Settings applies to the next message.
+    public init(
+        commands: MailCommands, toastDuration: Duration = .seconds(5),
+        undoSendDelay: @escaping () -> Duration = { .seconds(Preferences.undoSendSeconds) }
+    ) {
         self.commands = commands
         self.toastDuration = toastDuration
+        self.undoSendDelay = undoSendDelay
     }
 
     public func perform(_ action: ThreadAction, on threads: [ThreadSummary.ID]) {
@@ -87,15 +90,17 @@ public final class MailActions {
 
     /// Queues a message to send after the undo window, with a toast to take it back.
     public func send(_ draft: Draft) {
+        let delay = undoSendDelay()
         do {
-            try commands.send(draft, after: Self.undoSendDelay)
+            try commands.send(draft, after: delay)
+            guard delay > .zero else { return }
             lastUndo = .send(draft.id)
             show(
                 Toast(
                     message: String(
                         localized: "Sending…", bundle: .module, comment: "Toast while a message waits to go"),
                     undo: .send(draft.id)),
-                for: Self.undoSendDelay)
+                for: delay)
         } catch {
             self.error = error
         }

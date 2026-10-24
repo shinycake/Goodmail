@@ -80,6 +80,17 @@ final class AppModel {
         return true
     }
 
+    /// Signs the account out and takes it and its mail off the device. Nothing changes in Gmail.
+    func removeAccount(_ id: AccountID) async throws {
+        try? await GmailSession(accountID: id).signOut()
+        clients[id] = nil
+        engines[id] = nil
+        await outboxes.forget(id)
+        senders.forget(id)
+        try database.removeAccount(id)
+        accounts.removeAll { $0.id == id }
+    }
+
     /// Sends queued actions, then syncs, every account at once. Each engine coalesces overlapping calls, so this is
     /// safe to call often.
     func syncAll() async throws {
@@ -163,6 +174,10 @@ actor Outboxes {
         self.make = make
     }
 
+    func forget(_ id: AccountID) {
+        outboxes[id] = nil
+    }
+
     func flush(_ id: AccountID) async {
         let outbox = outboxes[id] ?? make(id)
         outboxes[id] = outbox
@@ -184,6 +199,10 @@ final class Senders {
 
     init(make: @escaping (AccountID) -> Sender) {
         self.make = make
+    }
+
+    func forget(_ id: AccountID) {
+        senders[id] = nil
     }
 
     func deliver(_ id: AccountID, at date: Date) async {
