@@ -61,6 +61,22 @@ struct MailboxesTests {
         #expect(MailboxViewModel.trailingActions(for: thread(labels: ["TRASH", "STARRED"])) == [.untrash])
     }
 
+    @Test func bulkActionsAreWhatEverySelectedThreadAllows() {
+        var read = thread(labels: ["INBOX"])
+        read.isUnread = false
+        #expect(MailboxViewModel.bulkActions(for: []) == [])
+        #expect(MailboxViewModel.bulkActions(for: [read]) == [.markRead(false), .archive, .trash])
+        #expect(
+            MailboxViewModel.bulkActions(for: [read, thread(labels: ["INBOX"])]) == [
+                .markRead(true), .archive, .trash,
+            ],
+            "any unread one makes it Mark as Read")
+        #expect(
+            MailboxViewModel.bulkActions(for: [read, thread(labels: ["Label_1"])]) == [.markRead(true), .trash],
+            "archived mail can't be archived again")
+        #expect(MailboxViewModel.bulkActions(for: [read, thread(labels: ["TRASH"])]) == [.markRead(true)])
+    }
+
     @Test func aShortListFetchesOlderMailWithoutAScroll() async {
         var loads = 0
         let viewModel = MailboxViewModel(
