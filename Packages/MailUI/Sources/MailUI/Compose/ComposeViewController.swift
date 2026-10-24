@@ -21,6 +21,7 @@ public final class ComposeViewController: UIViewController {
     private let suggestionList = UIStackView()
     private let attachmentsView = ComposeAttachmentsView()
     private let sendItem = UIBarButtonItem()
+    private let fromButton = UIButton(configuration: .plain())
 
     public init(viewModel: ComposeViewModel) {
         self.viewModel = viewModel
@@ -75,6 +76,7 @@ public final class ComposeViewController: UIViewController {
             bodyView, attachmentsView,
         ])
         stack.axis = .vertical
+        if viewModel.canChangeSender { stack.insertArrangedSubview(fromRow(), at: 0) }
         fields = stack
         stack.setCustomSpacing(16, after: attachmentsView)
         attachmentsView.show(viewModel.attachments)
@@ -236,6 +238,66 @@ public final class ComposeViewController: UIViewController {
         container.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 12, leading: 0, bottom: 0, trailing: 0)
         separator.heightAnchor.constraint(equalToConstant: 1 / max(1, traitCollection.displayScale)).isActive = true
         return container
+    }
+
+    /// The account the message goes from, as a menu of the others.
+    private func fromRow() -> UIView {
+        let label = UILabel()
+        label.text = String(localized: "From:", bundle: .module, comment: "Compose field label")
+        label.font = .preferredFont(forTextStyle: .body)
+        label.textColor = .secondaryLabel
+        label.adjustsFontForContentSizeCategory = true
+        label.setContentHuggingPriority(.required, for: .horizontal)
+        fromButton.configuration?.contentInsets = .zero
+        fromButton.configuration?.baseForegroundColor = .label
+        fromButton.configuration?.image = UIImage(systemName: "chevron.up.chevron.down")
+        fromButton.configuration?.imagePlacement = .trailing
+        fromButton.configuration?.imagePadding = 4
+        fromButton.configuration?.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(
+            textStyle: .footnote)
+        fromButton.showsMenuAsPrimaryAction = true
+        fromButton.changesSelectionAsPrimaryAction = false
+        // Sized to the address, so the menu opens from it rather than from the far edge.
+        fromButton.setContentHuggingPriority(.required, for: .horizontal)
+        updateFrom()
+        let line = UIStackView(arrangedSubviews: [label, fromButton, UIView()])
+        line.spacing = 6
+        line.alignment = .firstBaseline
+        let separator = UIView()
+        separator.backgroundColor = .separator
+        let container = UIStackView(arrangedSubviews: [line, separator])
+        container.axis = .vertical
+        container.spacing = 12
+        container.isLayoutMarginsRelativeArrangement = true
+        container.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 12, leading: 0, bottom: 0, trailing: 0)
+        separator.heightAnchor.constraint(equalToConstant: 1 / max(1, traitCollection.displayScale)).isActive = true
+        return container
+    }
+
+    private func updateFrom() {
+        var title = AttributedString(viewModel.accountEmail)
+        title.font = .preferredFont(forTextStyle: .body)
+        fromButton.configuration?.attributedTitle = title
+        fromButton.accessibilityLabel = String(
+            localized: "From: \(viewModel.accountEmail)", bundle: .module,
+            comment: "VoiceOver: the account the message is sent from")
+        fromButton.menu = UIMenu(
+            options: .singleSelection,
+            children: viewModel.senders.map { account in
+                // No image: the address gets the menu's whole width rather than wrapping.
+                UIAction(title: account.email, state: account.email == viewModel.accountEmail ? .on : .off) {
+                    [weak self] _ in self?.changeSender(to: account)
+                }
+            })
+    }
+
+    private func changeSender(to account: Account) {
+        if let body = viewModel.changeSender(to: account, body: body), let font = bodyView.font {
+            bodyView.attributedText = RichTextSerializer.attributedText(from: body, font: font)
+            bodyView.typingAttributes = [.font: font]
+            bodyView.selectedRange = NSRange(location: 0, length: 0)
+        }
+        updateFrom()
     }
 
     /// The quoted conversation, folded behind a control, as in the reader.

@@ -182,8 +182,8 @@ final class SceneCoordinator {
             let actions = actions
             let composer = ComposeViewController(
                 viewModel: ComposeViewModel(
-                    draft: draft, accountEmail: account.email,
-                    signature: try? model.database.signature(for: account.id),
+                    draft: draft, accountEmail: account.email, senders: model.accounts,
+                    signature: { [database = model.database] in try? database.signature(for: $0) },
                     suggest: { [database = model.database] in (try? database.contacts(matching: $0)) ?? [] },
                     saveDraft: { actions.saveDraft($0) }, deleteDraft: { actions.deleteDraft($0) },
                     send: { actions.send($0) }))

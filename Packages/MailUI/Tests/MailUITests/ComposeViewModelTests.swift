@@ -61,7 +61,7 @@ struct ComposeViewModelTests {
 
     @Test func aNewDraftStartsWithTheSignatureAndClosesQuietly() {
         let model = ComposeViewModel(
-            draft: Draft(accountID: account), accountEmail: "me@example.com", signature: "Dana\nGoodmail",
+            draft: Draft(accountID: account), accountEmail: "me@example.com", signature: { _ in "Dana\nGoodmail" },
             send: { _ in })
         #expect(model.draft.body.plain == "\n\n-- \nDana\nGoodmail")
         #expect(!model.isRestored)
@@ -72,7 +72,7 @@ struct ComposeViewModelTests {
     @Test func aRestoredDraftKeepsItsOwnSignature() {
         let body = MessageBody(html: "<div>Hi</div>", plain: "Hi")
         let model = ComposeViewModel(
-            draft: Draft(accountID: account, body: body), accountEmail: "me@example.com", signature: "Dana",
+            draft: Draft(accountID: account, body: body), accountEmail: "me@example.com", signature: { _ in "Dana" },
             send: { _ in })
         #expect(model.draft.body == body)
     }
@@ -84,7 +84,7 @@ struct ComposeViewModelTests {
             accountID: account, subject: "Plan", body: MessageBody(html: "<div>Hi</div>", plain: "Hi"),
             savedDraft: Message.ID(accountID: account, messageID: "d1"))
         let model = ComposeViewModel(
-            draft: draft, accountEmail: "me@example.com", signature: "Dana", saveDraft: { saved = $0 },
+            draft: draft, accountEmail: "me@example.com", signature: { _ in "Dana" }, saveDraft: { saved = $0 },
             deleteDraft: { deleted = $0 }, send: { _ in })
         #expect(model.draft.body.plain == "Hi", "no second signature")
         #expect(!model.hasChanges(body: draft.body))
@@ -94,6 +94,34 @@ struct ComposeViewModelTests {
         #expect(saved?.savedDraft == draft.savedDraft)
         model.deleteDraft()
         #expect(deleted?.savedDraft == draft.savedDraft)
+    }
+
+    @Test func theSignatureFollowsTheSenderUntilTheWriterTypes() {
+        let personal = Account(id: account, email: "me@example.com", color: .blue)
+        let work = Account(id: AccountID(rawValue: "w"), email: "me@work.example", color: .orange)
+        let signatures = [personal.id: "Me", work.id: "Me, at work"]
+        let model = ComposeViewModel(
+            draft: Draft(accountID: personal.id), accountEmail: personal.email, senders: [personal, work],
+            signature: { signatures[$0] }, send: { _ in })
+        #expect(model.canChangeSender)
+
+        let body = model.changeSender(to: work, body: model.draft.body)
+        #expect(body?.plain == "\n\n-- \nMe, at work")
+        #expect(model.draft.accountID == work.id)
+        #expect(model.accountEmail == "me@work.example")
+        #expect(!model.hasChanges(body: model.draft.body))
+
+        #expect(model.changeSender(to: personal, body: MessageBody(plain: "Hi\n\n-- \nMe, at work")) == nil)
+        #expect(model.draft.accountID == personal.id, "the account changes; the typed text stays")
+    }
+
+    @Test func repliesStayInTheirAccount() {
+        let personal = Account(id: account, email: "me@example.com", color: .blue)
+        let work = Account(id: AccountID(rawValue: "w"), email: "me@work.example", color: .orange)
+        let model = ComposeViewModel(
+            draft: Draft(accountID: personal.id, threadID: "t1"), accountEmail: personal.email,
+            senders: [personal, work], send: { _ in })
+        #expect(!model.canChangeSender)
     }
 
     @Test func aRestoredDraftAlwaysAsksBeforeClosing() {
