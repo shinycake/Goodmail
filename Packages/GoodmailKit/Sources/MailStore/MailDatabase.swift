@@ -118,6 +118,15 @@ public final class MailDatabase: Sendable {
                 table.add(column: "sentAt", .datetime)
             }
         }
+        migrator.registerMigration("v7-outgoing") { db in
+            try db.create(table: "outgoing") { table in
+                table.column("id", .text).primaryKey()
+                table.column("accountID", .text).notNull()
+                table.column("sendAt", .datetime).notNull()
+                table.column("failure", .text)
+                table.column("draft", .jsonText).notNull()
+            }
+        }
         return migrator
     }
 }

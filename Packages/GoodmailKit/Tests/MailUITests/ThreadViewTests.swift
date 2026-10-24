@@ -1,6 +1,7 @@
 import Foundation
 import MailCore
 import Testing
+import UIKit
 
 @testable import MailUI
 
@@ -107,5 +108,44 @@ struct AttachmentFileTests {
             ])
         #expect(AttachmentListView.listed(in: message).map(\.id) == ["2"])
         #expect(AttachmentListView.symbol(for: "application/pdf") == "doc.richtext")
+    }
+}
+
+struct RichTextSerializerTests {
+    @Test func paragraphsAreAutoDirectionBlocksWithTheirStyles() {
+        let body = UIFont.preferredFont(forTextStyle: .body)
+        let bold = UIFont(descriptor: body.fontDescriptor.withSymbolicTraits(.traitBold)!, size: 0)
+        let text = NSMutableAttributedString(string: "Hi <Dana>,\n\nשלום ", attributes: [.font: body])
+        text.append(NSAttributedString(string: "bold", attributes: [.font: bold]))
+        text.append(
+            NSAttributedString(
+                string: " link", attributes: [.font: body, .link: URL(string: "https://example.com/?a=1&b=2")!]))
+
+        #expect(
+            RichTextSerializer.html(from: text)
+                == "<div dir=\"auto\">Hi &lt;Dana&gt;,</div><div dir=\"auto\"><br></div>"
+                + "<div dir=\"auto\">שלום <b>bold</b><a href=\"https://example.com/?a=1&amp;b=2\"> link</a></div>")
+        #expect(RichTextSerializer.body(from: text).plain == "Hi <Dana>,\n\nשלום bold link")
+    }
+
+    @Test func writtenHTMLReadsBackTheSame() throws {
+        let font = UIFont.systemFont(ofSize: 17)
+        let bold = try #require(font.fontDescriptor.withSymbolicTraits(.traitBold))
+        let text = NSMutableAttributedString(string: "Hi <Dana> & co,\n\n", attributes: [.font: font])
+        text.append(NSAttributedString(string: "bold", attributes: [.font: UIFont(descriptor: bold, size: 0)]))
+        text.append(
+            NSAttributedString(
+                string: " link\n", attributes: [.font: font, .link: URL(string: "https://example.com/?a=1&b=2")!]))
+        let html = RichTextSerializer.html(from: text)
+        let read = RichTextSerializer.attributedText(from: MessageBody(html: html, plain: text.string), font: font)
+        #expect(read.string == text.string)
+        #expect(RichTextSerializer.html(from: read) == html)
+    }
+
+    @Test func emptyAndTrailingLinesSurvive() {
+        #expect(RichTextSerializer.html(from: NSAttributedString(string: "")) == "<div dir=\"auto\"><br></div>")
+        #expect(
+            RichTextSerializer.html(from: NSAttributedString(string: "a\n"))
+                == "<div dir=\"auto\">a</div><div dir=\"auto\"><br></div>")
     }
 }

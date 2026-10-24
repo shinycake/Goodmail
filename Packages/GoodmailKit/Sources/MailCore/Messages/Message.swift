@@ -64,7 +64,7 @@ public struct Message: Identifiable, Equatable, Codable, Sendable {
     }
 }
 
-public struct MessageBody: Equatable, Codable, Sendable {
+public struct MessageBody: Hashable, Codable, Sendable {
     public var html: String?
     public var plain: String?
 

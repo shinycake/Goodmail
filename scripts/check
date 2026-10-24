@@ -9,6 +9,9 @@
 # GOODMAIL_SIMULATOR picks its device type (default: iPhone 18 Pro).
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# Build output lives on the external drive when it's mounted, to spare the internal disk.
+BUILD_DIR="${GOODMAIL_BUILD_DIR:-$([[ -d /Volumes/Idan1TB ]] && echo /Volumes/Idan1TB/Goodmail-build || echo "$PWD/.build")}"
+mkdir -p "$BUILD_DIR"
 
 SWIFT_ROOTS=(Goodmail GoodmailUITests NotificationService Widgets Packages)
 
@@ -41,11 +44,11 @@ DESTINATION="platform=iOS Simulator,id=$check_simulator"
 
 step "Package tests ($DESTINATION)"
 (cd Packages/GoodmailKit && xcodebuild test -quiet -scheme GoodmailKit-Package -destination "$DESTINATION" \
-    -derivedDataPath ../../.build/DerivedData-Kit)
+    -derivedDataPath "$BUILD_DIR/DerivedData-Kit")
 
 step "App build and launch tests in English and Hebrew ($DESTINATION)"
 xcodebuild test -quiet -project Goodmail.xcodeproj -scheme Goodmail -destination "$DESTINATION" \
-    -derivedDataPath .build/DerivedData -resultBundlePath ".build/results/check-$(date +%Y%m%d-%H%M%S).xcresult" \
+    -derivedDataPath "$BUILD_DIR/DerivedData" -resultBundlePath "$BUILD_DIR/results/check-$(date +%Y%m%d-%H%M%S).xcresult" \
     CODE_SIGNING_ALLOWED=NO
 
 printf '\n✔ scripts/check passed\n'
