@@ -498,6 +498,28 @@
         }
       }
     },
+    "From:" : {
+      "comment" : "Compose field label",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מאת:"
+          }
+        }
+      }
+    },
+    "From: %@" : {
+      "comment" : "VoiceOver: the account the message is sent from",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מאת: %@"
+          }
+        }
+      }
+    },
     "Gmail sends up to 25 MB of attachments in one message." : {
       "comment" : "Alert explaining the attachment size limit",
       "localizations" : {
