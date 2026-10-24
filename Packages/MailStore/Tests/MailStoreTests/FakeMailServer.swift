@@ -75,6 +75,8 @@ final class FakeMailServer: MailProvider {
                         ?? thread.labelIDs.isDisjoint(with: [SystemLabel.spam, SystemLabel.trash]))
                         && (query.since.map { thread.date >= $0 } ?? true)
                         && (query.before.map { thread.date < $0 } ?? true)
+                        // Search stands in for Gmail's by matching the subject.
+                        && (query.text.map { thread.subject.localizedCaseInsensitiveContains($0) } ?? true)
                 }
                 .sorted { $0.date > $1.date }
             let start = pageToken.flatMap(Int.init) ?? 0

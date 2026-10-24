@@ -10,9 +10,12 @@ public final class MailboxViewController: UIViewController {
     private var sectionTitles: [TimeSection: String] = [:]
     private var observation: Task<Void, Never>?
     private var swipes: SwipeActionsController!
+    private let searchResults: SearchResultsController?
 
-    public init(viewModel: MailboxViewModel) {
+    /// `searchResults`, when given, adds search to the toolbar.
+    public init(viewModel: MailboxViewModel, searchResults: SearchResultsController? = nil) {
         self.viewModel = viewModel
+        self.searchResults = searchResults
         super.init(nibName: nil, bundle: nil)
         title = viewModel.title
         navigationItem.largeTitleDisplayMode = .always
@@ -46,6 +49,7 @@ public final class MailboxViewController: UIViewController {
         configureDataSource()
         configureSwipes()
         toolbarItems = [
+            searchItem(),
             .flexibleSpace(),
             UIBarButtonItem(
                 title: String(localized: "New Message", bundle: .module, comment: "Composer title"),
@@ -66,6 +70,20 @@ public final class MailboxViewController: UIViewController {
         navigationController?.navigationBar.largeTitleTextAttributes = [
             .font: Typography.serif(.largeTitle, weight: .bold)
         ]
+    }
+
+    /// Search as a glass button in the toolbar that expands into the field, or a gap when there is no search.
+    private func searchItem() -> UIBarButtonItem {
+        guard let searchResults else { return .flexibleSpace() }
+        let search = UISearchController(searchResultsController: searchResults)
+        search.searchResultsUpdater = searchResults
+        search.searchBar.placeholder = String(
+            localized: "Search Mail", bundle: .module, comment: "Placeholder of the search field")
+        navigationItem.searchController = search
+        navigationItem.preferredSearchBarPlacement = .integratedButton
+        navigationItem.searchBarPlacementAllowsToolbarIntegration = true
+        definesPresentationContext = true
+        return navigationItem.searchBarPlacementBarButtonItem
     }
 
     /// Called by UIKit whenever an observed view-model property changes.
@@ -177,6 +195,8 @@ extension MailboxViewController: UICollectionViewDelegate {
 
     public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         guard let id = dataSource.itemIdentifier(for: indexPath) else { return }
+        // Search results sit outside the navigation stack, so they never see the reader close to deselect then.
+        if navigationController == nil { collectionView.deselectItem(at: indexPath, animated: true) }
         viewModel.open(id)
     }
 }

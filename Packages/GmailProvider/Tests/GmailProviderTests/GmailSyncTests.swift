@@ -88,6 +88,12 @@ struct GmailSyncTests {
         #expect(fields["maxResults"] == "50")
     }
 
+    @Test func searchTextLeadsTheQuery() {
+        let query = ThreadQuery(before: Date(timeIntervalSince1970: 1_800_000_000), text: "from:dana invoice")
+        #expect(query.gmailSearch == "from:dana invoice before:1800000000")
+        #expect(ThreadQuery(text: "  ").gmailSearch == nil)
+    }
+
     @Test func rateLimitedRequestsAreRetried() async throws {
         let (gmail, http) = try await client([
             "/gmail/v1/users/me/profile": [

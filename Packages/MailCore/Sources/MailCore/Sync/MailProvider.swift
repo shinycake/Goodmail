@@ -47,11 +47,14 @@ public struct ThreadQuery: Equatable, Sendable {
     public var since: Date?
     /// Only threads with a message before this date.
     public var before: Date?
+    /// Only threads matching this search, in the provider's own search syntax (Gmail's `from:` and so on).
+    public var text: String?
 
-    public init(label: String? = nil, since: Date? = nil, before: Date? = nil) {
+    public init(label: String? = nil, since: Date? = nil, before: Date? = nil, text: String? = nil) {
         self.label = label
         self.since = since
         self.before = before
+        self.text = text
     }
 }
 
