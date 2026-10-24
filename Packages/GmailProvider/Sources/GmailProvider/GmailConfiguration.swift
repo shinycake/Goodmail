@@ -8,6 +8,8 @@ public enum GmailConfiguration {
     )!
     public static let redirectScheme = "com.googleusercontent.apps.847337870740-fpj7hd07nfsueispeug4nell21pf3vi2"
     public static let apiBaseURL = URL(string: "https://gmail.googleapis.com/gmail/v1/")!
+    /// Where requests carrying a whole message go, for messages too large to send as JSON.
+    public static let uploadBaseURL = URL(string: "https://gmail.googleapis.com/upload/gmail/v1/")!
     public static let scopes = [
         "https://www.googleapis.com/auth/gmail.modify",
         "https://www.googleapis.com/auth/gmail.settings.basic",

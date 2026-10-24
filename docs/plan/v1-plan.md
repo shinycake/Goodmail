@@ -104,7 +104,7 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
 
 **Evidence:** HTML serializer golden tests, including per-block `dir`. A recording of composing and sending a mixed Hebrew/English rich reply, and how it renders in Gmail web.
 
-**Status:** M5.1 done: new message, reply, reply all and forward, with the quote folded; a per-paragraph `dir="auto"` HTML serializer; a persisted send queue with a 10 s undo that reopens the draft; failed sends offered as Edit / Try Again / Delete; and the undo toast moved to the window so it shows over any screen. M5.2 (part): recipient autocomplete from the people who wrote in, most frequent first. Still to do: attachments, signatures, drafts synced to Gmail, Contacts and People API suggestions, a background `URLSession` for sends, and the formatting controls.
+**Status:** M5.1 done: new message, reply, reply all and forward, with the quote folded; a per-paragraph `dir="auto"` HTML serializer; a persisted send queue with a 10 s undo that reopens the draft; failed sends offered as Edit / Try Again / Delete; and the undo toast moved to the window so it shows over any screen. M5.2 (part): recipient autocomplete from the people who wrote in, most frequent first; attachments from Photos and Files (up to Gmail's limit), sent as `multipart/mixed`, through Gmail's upload endpoint when large. Still to do: forwarding the original's attachments, signatures, drafts synced to Gmail, Contacts and People API suggestions, a background `URLSession` for sends, and the formatting controls.
 
 ### M6: Push
 

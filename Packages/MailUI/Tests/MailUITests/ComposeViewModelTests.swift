@@ -1,3 +1,4 @@
+import Foundation
 import MailCore
 import Testing
 
@@ -28,6 +29,21 @@ struct ComposeViewModelTests {
             ComposeViewModel.completing("dana@example.com, da", with: daniel)
                 == "dana@example.com, \"Daniel, Jr.\" <dan@example.com>, ")
         #expect(ComposeViewModel.completing("da", with: dana) == "Dana Levi <dana@example.com>, ")
+    }
+
+    @Test func filesGoWithTheMessageWithinGmailsLimit() {
+        var sent: Draft?
+        let model = model(
+            Draft(accountID: account, to: [Contact(name: nil, address: "dana@example.com")]), sent: { sent = $0 })
+        let photo = DraftAttachment(filename: "a.jpg", mimeType: "image/jpeg", data: Data(count: 10_000_000))
+        let video = DraftAttachment(filename: "b.mov", mimeType: "video/quicktime", data: Data(count: 10_000_000))
+        #expect(model.attach(photo))
+        #expect(model.hasChanges(body: MessageBody(plain: "")), "an added file counts as a change")
+        #expect(!model.attach(video), "together they'd pass 25 MB once encoded")
+        model.send(body: MessageBody(plain: "Here"))
+        #expect(sent?.attachments == [photo])
+        model.removeAttachment(photo.id)
+        #expect(model.attachments.isEmpty)
     }
 
     @Test func anUntouchedMessageClosesQuietly() {

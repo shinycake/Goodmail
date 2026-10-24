@@ -19,6 +19,7 @@ public final class ComposeViewController: UIViewController {
     private var fields: UIStackView!
     /// People matching the recipient being typed, shown under its field.
     private let suggestionList = UIStackView()
+    private let attachmentsView = ComposeAttachmentsView()
     private let sendItem = UIBarButtonItem()
 
     public init(viewModel: ComposeViewModel) {
@@ -71,10 +72,18 @@ public final class ComposeViewController: UIViewController {
         let stack = UIStackView(arrangedSubviews: [
             toRow, ccRow, bccRow,
             row(String(localized: "Subject:", bundle: .module, comment: "Compose field label"), subjectField),
-            bodyView,
+            bodyView, attachmentsView,
         ])
         stack.axis = .vertical
         fields = stack
+        stack.setCustomSpacing(16, after: attachmentsView)
+        attachmentsView.show(viewModel.attachments)
+        attachmentsView.onRemove = { [weak self] id in
+            guard let self else { return }
+            viewModel.removeAttachment(id)
+            attachmentsView.show(viewModel.attachments)
+            updateSendEnabled()
+        }
         suggestionList.axis = .vertical
         suggestionList.isHidden = true
         if viewModel.draft.quote != nil { stack.addArrangedSubview(quoteSection()) }
@@ -126,7 +135,7 @@ public final class ComposeViewController: UIViewController {
             title: String(localized: "Send", bundle: .module, comment: "Sends the message"),
             image: UIImage(systemName: "arrow.up")
         ) { [weak self] _ in self?.send() }
-        navigationItem.rightBarButtonItem = sendItem
+        navigationItem.rightBarButtonItems = [sendItem, attachItem()]
     }
 
     private func configure(_ field: UITextField, text: String, isAddress: Bool) {
@@ -273,6 +282,13 @@ public final class ComposeViewController: UIViewController {
 
     private var body: MessageBody {
         RichTextSerializer.body(from: bodyView.attributedText ?? NSAttributedString())
+    }
+
+    /// Adds a picked file, or explains why it can't go.
+    func add(_ attachment: DraftAttachment) {
+        guard viewModel.attach(attachment) else { return tooLarge() }
+        attachmentsView.show(viewModel.attachments)
+        updateSendEnabled()
     }
 
     private func send() {

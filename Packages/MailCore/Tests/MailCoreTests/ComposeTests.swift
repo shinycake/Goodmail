@@ -134,4 +134,39 @@ struct MIMEWriterTests {
         #expect(try body(parts[1]) == "Thanks!\n\n> old")
         #expect(try body(parts[2]).contains("<body><div dir=\"auto\">Thanks!</div><br><blockquote>old</blockquote>"))
     }
+
+    @Test func filesGoInAMixedPartAfterTheText() throws {
+        var draft = draft
+        let pdf = Data((0..<200).map { UInt8($0 % 256) })
+        draft.attachments = [
+            DraftAttachment(filename: "Report Q3.pdf", mimeType: "application/pdf", data: pdf),
+            DraftAttachment(filename: "סיכום.txt", mimeType: "text/plain", data: Data("hi".utf8)),
+        ]
+        let text = String(
+            decoding: MIMEWriter.message(
+                for: draft, from: Contact(name: nil, address: "me@example.com"), date: Date(timeIntervalSince1970: 0),
+                messageID: "id1@goodmail.app", boundary: "B"),
+            as: UTF8.self)
+        #expect(text.unicodeScalars.allSatisfy { $0.isASCII })
+        let headers = text.components(separatedBy: "\r\n\r\n")[0]
+        #expect(headers.hasSuffix("Content-Type: multipart/mixed; boundary=\"B\""))
+
+        let parts = text.components(separatedBy: "--B\r\n")
+        #expect(parts.count == 4, "preamble, the text, two files")
+        #expect(parts[1].hasPrefix("Content-Type: multipart/alternative; boundary=\"B-alt\""))
+        #expect(parts[1].contains("--B-alt--"))
+        #expect(parts[2].contains("Content-Type: application/pdf; name=\"Report Q3.pdf\""))
+        #expect(parts[2].contains("Content-Disposition: attachment; filename=\"Report Q3.pdf\""))
+        let encoded = parts[2].components(separatedBy: "\r\n\r\n")[1].replacingOccurrences(of: "\r\n", with: "")
+        #expect(Data(base64Encoded: encoded) == pdf)
+        #expect(parts[3].contains("filename*=UTF-8''%D7%A1%D7%99%D7%9B%D7%95%D7%9D.txt"))
+        #expect(text.hasSuffix("--B--\r\n"))
+    }
+
+    @Test func draftsSavedBeforeAttachmentsStillDecode() throws {
+        var json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(draft)) as! [String: Any]
+        json["attachments"] = nil
+        let decoded = try JSONDecoder().decode(Draft.self, from: JSONSerialization.data(withJSONObject: json))
+        #expect(decoded == draft)
+    }
 }
