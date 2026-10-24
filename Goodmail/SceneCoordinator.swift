@@ -160,7 +160,10 @@ final class SceneCoordinator {
             else { return }
             let actions = actions
             let composer = ComposeViewController(
-                viewModel: ComposeViewModel(draft: draft, accountEmail: account.email) { actions.send($0) })
+                viewModel: ComposeViewModel(
+                    draft: draft, accountEmail: account.email,
+                    suggest: { [database = model.database] in (try? database.contacts(matching: $0)) ?? [] },
+                    send: { actions.send($0) }))
             let navigation = UINavigationController(rootViewController: composer)
             navigation.modalPresentationStyle = .pageSheet
             presenter.present(navigation, animated: true)

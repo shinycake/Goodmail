@@ -15,6 +15,10 @@ public final class ComposeViewController: UIViewController {
     private let quoteLabel = UILabel()
     private var ccRow: UIView!
     private var bccRow: UIView!
+    private var toRow: UIView!
+    private var fields: UIStackView!
+    /// People matching the recipient being typed, shown under its field.
+    private let suggestionList = UIStackView()
     private let sendItem = UIBarButtonItem()
 
     public init(viewModel: ComposeViewModel) {
@@ -62,13 +66,17 @@ public final class ComposeViewController: UIViewController {
         bccRow = row(String(localized: "Bcc:", bundle: .module, comment: "Compose field label"), bccField)
         ccRow.isHidden = !showsCc
         bccRow.isHidden = !showsCc
+        toRow = row(
+            String(localized: "To:", bundle: .module, comment: "Compose field label"), toField, ccToggle: !showsCc)
         let stack = UIStackView(arrangedSubviews: [
-            row(String(localized: "To:", bundle: .module, comment: "Compose field label"), toField, ccToggle: !showsCc),
-            ccRow, bccRow,
+            toRow, ccRow, bccRow,
             row(String(localized: "Subject:", bundle: .module, comment: "Compose field label"), subjectField),
             bodyView,
         ])
         stack.axis = .vertical
+        fields = stack
+        suggestionList.axis = .vertical
+        suggestionList.isHidden = true
         if viewModel.draft.quote != nil { stack.addArrangedSubview(quoteSection()) }
         stack.translatesAutoresizingMaskIntoConstraints = false
         scrollView.addSubview(stack)
@@ -131,7 +139,53 @@ public final class ComposeViewController: UIViewController {
             field.autocapitalizationType = .none
             field.autocorrectionType = .no
         }
-        field.addAction(UIAction { [weak self] _ in self?.fieldChanged() }, for: .editingChanged)
+        field.addAction(
+            UIAction { [weak self, weak field] _ in
+                guard let self, let field else { return }
+                fieldChanged()
+                if isAddress { showSuggestions(for: field) }
+            }, for: .editingChanged)
+        if isAddress {
+            field.addAction(
+                UIAction { [weak self] _ in self?.suggestionList.isHidden = true }, for: .editingDidEnd)
+        }
+    }
+
+    /// Lists the people matching what is being typed in `field` right under it. A tap completes the recipient.
+    private func showSuggestions(for field: UITextField) {
+        for view in suggestionList.arrangedSubviews { view.removeFromSuperview() }
+        suggestionList.removeFromSuperview()
+        let row = [toField: toRow, ccField: ccRow, bccField: bccRow][field] ?? nil
+        let contacts = viewModel.suggestions(for: field.text ?? "")
+        guard !contacts.isEmpty, let row, let index = fields.arrangedSubviews.firstIndex(of: row) else {
+            suggestionList.isHidden = true
+            return
+        }
+        for contact in contacts {
+            var configuration = UIButton.Configuration.plain()
+            configuration.title = contact.name ?? contact.address
+            configuration.subtitle = contact.name == nil ? nil : contact.address
+            configuration.titleAlignment = .leading
+            configuration.baseForegroundColor = .label
+            configuration.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0)
+            configuration.subtitleTextAttributesTransformer = UIConfigurationTextAttributesTransformer {
+                var attributes = $0
+                attributes.foregroundColor = .secondaryLabel
+                return attributes
+            }
+            let button = UIButton(
+                configuration: configuration,
+                primaryAction: UIAction { [weak self, weak field] _ in
+                    guard let self, let field else { return }
+                    field.text = ComposeViewModel.completing(field.text ?? "", with: contact)
+                    fieldChanged()
+                    suggestionList.isHidden = true
+                })
+            button.contentHorizontalAlignment = .leading
+            suggestionList.addArrangedSubview(button)
+        }
+        fields.insertArrangedSubview(suggestionList, at: index + 1)
+        suggestionList.isHidden = false
     }
 
     private func row(_ title: String, _ field: UITextField, ccToggle: Bool = false) -> UIView {
@@ -150,7 +204,10 @@ public final class ComposeViewController: UIViewController {
             toggle.configuration?.title = String(localized: "Cc/Bcc", bundle: .module, comment: "Shows Cc and Bcc")
             toggle.configuration?.contentInsets = .zero
             toggle.setContentHuggingPriority(.required, for: .horizontal)
+            // A long recipient line scrolls in its field rather than squeezing the button.
+            toggle.setContentCompressionResistancePriority(.required, for: .horizontal)
             field.setContentHuggingPriority(.defaultLow, for: .horizontal)
+            field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
             toggle.addAction(
                 UIAction { [weak self, weak toggle] _ in
                     toggle?.isHidden = true
