@@ -201,6 +201,25 @@ struct SyncEngineTests {
         #expect(try database.signature(for: account.id) == nil)
     }
 
+    @Test func theAddressBookIsFetchedOnceADayAndAFailureLeavesMailAlone() async throws {
+        let dana = Contact(name: "Dana Levi", address: "dana@example.com")
+        server.setContacts([dana])
+        let engine = engine()
+        try await engine.sync()
+        try await engine.sync()
+        #expect(server.contactRequests == 1, "fresh for a day")
+        #expect(try database.contacts(matching: "dana") == [dana])
+
+        server.setContacts(nil)
+        let tomorrow = SyncEngine(
+            accountID: account.id, provider: server, store: database,
+            now: { Self.now.addingTimeInterval(SyncEngine.addressBookAge + 60) })
+        try await tomorrow.sync()
+        try await tomorrow.sync()
+        #expect(server.contactRequests == 2, "a refusal isn't asked again on every sync")
+        #expect(try database.contacts(matching: "dana") == [dana], "the last address book stays")
+    }
+
     @Test func backfillSkipsAnotherAccountsLabel() async throws {
         seed(thread("t", daysAgo: 200, labels: ["Label_1"]))
         let other = Mailbox(labelID: "Label_1", accountID: AccountID(rawValue: "someone-else"))

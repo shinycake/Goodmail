@@ -23,6 +23,8 @@ final class FakeMailServer: MailProvider {
         var sent: [(raw: Data, threadID: String?)] = []
         var failSend: (any Error)?
         var signature: String? = ""
+        var contacts: [Contact]? = []
+        var contactRequests = 0
         var drafts: [String: (raw: Data, threadID: String?)] = [:]
         var nextDraft = 1
     }
@@ -188,4 +190,21 @@ extension FakeMailServer {
     }
 
     var drafts: [String: (raw: Data, threadID: String?)] { state.withLock { $0.drafts } }
+}
+
+extension FakeMailServer {
+    /// Fails like a People API that isn't enabled when `nil`.
+    func contacts() async throws -> [Contact] {
+        try state.withLock { state in
+            state.contactRequests += 1
+            guard let contacts = state.contacts else { throw URLError(.userAuthenticationRequired) }
+            return contacts
+        }
+    }
+
+    func setContacts(_ contacts: [Contact]?) {
+        state.withLock { $0.contacts = contacts }
+    }
+
+    var contactRequests: Int { state.withLock(\.contactRequests) }
 }

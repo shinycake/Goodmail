@@ -1,0 +1,12 @@
+{
+  "connections": [
+    {
+      "resourceName": "people/c1",
+      "names": [{ "displayName": "Dana Levi" }],
+      "emailAddresses": [{ "value": "dana@example.com" }, { "value": "dana@work.example" }]
+    },
+    { "resourceName": "people/c2", "names": [{ "displayName": "No Email" }] }
+  ],
+  "nextPageToken": "page-2",
+  "totalPeople": 3
+}

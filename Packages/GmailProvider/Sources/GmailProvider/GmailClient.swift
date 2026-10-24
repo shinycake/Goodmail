@@ -195,6 +195,33 @@ public struct GmailClient: MailProvider {
         return nil
     }
 
+    /// The account's contacts and Gmail's "other contacts" (people it wrote to), one entry per address.
+    public func contacts() async throws -> [Contact] {
+        let saved = try await people("people/me/connections", fields: "personFields", listedIn: \.connections)
+        let others = try await people("otherContacts", fields: "readMask", listedIn: \.otherContacts)
+        return (saved + others).flatMap(\.contacts)
+    }
+
+    /// Every page of one People API list.
+    private func people(_ path: String, fields: String, listedIn list: KeyPath<GooglePeoplePage, [GooglePerson]?>)
+        async throws -> [GooglePerson]
+    {
+        var people: [GooglePerson] = []
+        var pageToken: String?
+        repeat {
+            var items = [
+                URLQueryItem(name: fields, value: "names,emailAddresses"),
+                URLQueryItem(name: "pageSize", value: "1000"),
+            ]
+            if let pageToken { items.append(URLQueryItem(name: "pageToken", value: pageToken)) }
+            let url = GmailConfiguration.peopleBaseURL.appending(path: path).appending(queryItems: items)
+            let page: GooglePeoplePage = try await send(url, method: "GET", payload: nil)
+            people += page[keyPath: list] ?? []
+            pageToken = page.nextPageToken
+        } while pageToken != nil
+        return people
+    }
+
     public func signature() async throws -> String {
         let list: GmailSendAsList = try await get("users/me/settings/sendAs")
         let addresses = list.sendAs ?? []
@@ -291,6 +318,34 @@ struct GmailDraftList: Decodable {
 
     let drafts: [Draft]?
     let nextPageToken: String?
+}
+
+/// One page of `people.connections.list` or `otherContacts.list`.
+struct GooglePeoplePage: Decodable {
+    let connections: [GooglePerson]?
+    let otherContacts: [GooglePerson]?
+    let nextPageToken: String?
+}
+
+struct GooglePerson: Decodable {
+    struct Name: Decodable {
+        let displayName: String?
+    }
+
+    struct Email: Decodable {
+        let value: String?
+    }
+
+    let names: [Name]?
+    let emailAddresses: [Email]?
+
+    /// One contact per address, all with the person's name.
+    var contacts: [Contact] {
+        let name = names?.first?.displayName
+        return (emailAddresses ?? []).compactMap(\.value).filter { !$0.isEmpty }.map {
+            Contact(name: name, address: $0)
+        }
+    }
 }
 
 /// A reply with no body, as `drafts.delete` sends.

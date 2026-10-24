@@ -39,6 +39,9 @@ public protocol MailProvider: Sendable {
     /// Removes a saved draft. One that is already gone is not an error.
     func deleteDraft(_ message: Message.ID) async throws
 
+    /// Everyone the account keeps contacts for, and the people it has written to.
+    func contacts() async throws -> [Contact]
+
     /// The plain-text signature the service adds to new mail from this account; empty when there is none.
     func signature() async throws -> String
 }

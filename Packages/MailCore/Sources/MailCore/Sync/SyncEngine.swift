@@ -18,6 +18,10 @@ public actor SyncEngine {
     private let store: any SyncStore
     private let now: @Sendable () -> Date
     private var running: Task<Void, any Error>?
+    /// When this engine last asked for the address book, so a provider that refuses isn't asked on every sync.
+    private var addressBookAttempt: Date?
+    /// How long an address book is kept before it is fetched again.
+    public static let addressBookAge: TimeInterval = 86_400
 
     public init(
         accountID: AccountID,
@@ -75,6 +79,7 @@ public actor SyncEngine {
         async let signature = try? provider.signature()
         let labels = try await provider.labels()
         try store.apply(StoreChanges(accountID: accountID, labels: labels, signature: await signature))
+        try await refreshAddressBookIfOld()
         switch try store.syncState(for: accountID) {
         case nil:
             try await fillWindow(from: try await startResync())
@@ -87,6 +92,17 @@ public actor SyncEngine {
                 try await fillWindow(from: try await startResync())
             }
         }
+    }
+
+    /// Fetches the address book once a day. Failing to never holds up mail.
+    private func refreshAddressBookIfOld() async throws {
+        let started = now()
+        let last = [try store.addressBookDate(for: accountID), addressBookAttempt].compactMap(\.self).max()
+        if let last, started.timeIntervalSince(last) < Self.addressBookAge { return }
+        addressBookAttempt = started
+        guard let contacts = try? await provider.contacts() else { return }
+        try store.apply(
+            StoreChanges(accountID: accountID, addressBook: AddressBook(contacts: contacts, fetchedAt: started)))
     }
 
     private func startResync() async throws -> Resync {

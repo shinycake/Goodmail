@@ -140,6 +140,27 @@ struct GmailSyncTests {
         #expect(http.requests.count == before + 1, "only the lookup: nothing to delete")
     }
 
+    @Test func contactsCoverEveryPageOfBothListsOneEntryPerAddress() async throws {
+        let (gmail, http) = try await client([
+            "/v1/people/me/connections": [
+                .init(fixture: "people-connections"), .init(fixture: "people-connections-2"),
+            ],
+            "/v1/otherContacts": [.init(fixture: "other-contacts")],
+        ])
+        let contacts = try await gmail.contacts()
+        #expect(
+            contacts == [
+                Contact(name: "Dana Levi", address: "dana@example.com"),
+                Contact(name: "Dana Levi", address: "dana@work.example"),
+                Contact(name: "יעל כהן", address: "yael@example.co.il"),
+                Contact(name: nil, address: "billing@shop.example"),
+            ])
+        let pages = http.requests.filter { $0.url?.host() == "people.googleapis.com" }
+        #expect(pages.count == 3)
+        #expect(pages[1].url?.query()?.contains("pageToken=page-2") == true)
+        #expect(pages[2].url?.query()?.contains("readMask=names,emailAddresses") == true)
+    }
+
     @Test func largeMessagesAreUploadedWithTheirThread() async throws {
         let (gmail, http) = try await client([
             "/upload/gmail/v1/users/me/messages/send": [.init(fixture: "message-sent")]

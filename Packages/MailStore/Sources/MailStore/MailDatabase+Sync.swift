@@ -36,6 +36,17 @@ extension MailDatabase: SyncStore {
                     sql: "UPDATE account SET signature = ? WHERE id = ? AND signature IS NOT ?",
                     arguments: [signature.isEmpty ? nil : signature, account, signature.isEmpty ? nil : signature])
             }
+            if let book = changes.addressBook {
+                try db.execute(sql: "DELETE FROM addressBook WHERE accountID = ?", arguments: [account])
+                for contact in book.contacts {
+                    // A person listed twice keeps the first name given.
+                    try db.execute(
+                        sql: """
+                            INSERT OR IGNORE INTO addressBook (accountID, address, name, fetchedAt) VALUES (?, ?, ?, ?)
+                            """,
+                        arguments: [account, contact.address, contact.name, book.fetchedAt])
+                }
+            }
             if let sweep = changes.sweep {
                 try Self.sweep(sweep, account: account, in: db)
             }
@@ -46,6 +57,13 @@ extension MailDatabase: SyncStore {
                     arguments: [account, json]
                 )
             }
+        }
+    }
+
+    public func addressBookDate(for account: AccountID) throws -> Date? {
+        try pool.read { db in
+            try Date.fetchOne(
+                db, sql: "SELECT max(fetchedAt) FROM addressBook WHERE accountID = ?", arguments: [account.rawValue])
         }
     }
 
