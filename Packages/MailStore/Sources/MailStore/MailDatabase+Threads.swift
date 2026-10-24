@@ -31,11 +31,17 @@ extension MailDatabase {
         }
     }
 
-    /// Threads carrying `label` in every account, newest first. Emits now and after every change.
-    public func threads(labeled label: String) -> AsyncThrowingStream<[ThreadSummary], any Error> {
+    /// The threads in `mailbox`, newest first. Emits now and after every change.
+    public func threads(in mailbox: Mailbox) -> AsyncThrowingStream<[ThreadSummary], any Error> {
         // Signals from other processes re-run the query even when nothing it reads changed.
-        let observation = ValueObservation.tracking { db in try Self.fetchThreads(db, labeled: label) }
-            .removeDuplicates()
+        observe { db in try Self.fetchThreads(db, in: mailbox) }
+    }
+
+    /// Follows a query on the main queue until the stream is dropped.
+    func observe<Value: Equatable & Sendable>(_ fetch: @escaping @Sendable (Database) throws -> Value)
+        -> AsyncThrowingStream<Value, any Error>
+    {
+        let observation = ValueObservation.tracking(fetch).removeDuplicates()
         return AsyncThrowingStream { continuation in
             let cancellable = observation.start(
                 in: pool,
@@ -61,19 +67,44 @@ extension MailDatabase {
         }
     }
 
-    static func fetchThreads(_ db: Database, labeled label: String) throws -> [ThreadSummary] {
+    /// `FROM … WHERE …` selecting the threads in `mailbox`.
+    static func threadQuery(in mailbox: Mailbox) -> (sql: String, arguments: StatementArguments) {
+        var sql: String
+        var arguments: StatementArguments
+        if let label = mailbox.labelID {
+            sql = """
+                FROM thread
+                JOIN threadLabel ON threadLabel.accountID = thread.accountID AND threadLabel.threadID = thread.id
+                WHERE threadLabel.labelID = ?
+                """
+            arguments = [label]
+        } else {
+            sql = """
+                FROM thread
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM threadLabel AS excluded
+                    WHERE excluded.accountID = thread.accountID AND excluded.threadID = thread.id
+                    AND excluded.labelID IN (?, ?))
+                """
+            arguments = [SystemLabel.spam, SystemLabel.trash]
+        }
+        if let account = mailbox.accountID {
+            sql += " AND thread.accountID = ?"
+            arguments += [account.rawValue]
+        }
+        return (sql, arguments)
+    }
+
+    static func fetchThreads(_ db: Database, in mailbox: Mailbox) throws -> [ThreadSummary] {
+        let query = threadQuery(in: mailbox)
         let rows = try Row.fetchCursor(
             db,
             sql: """
                 SELECT thread.*,
                     (SELECT group_concat(labelID, char(31)) FROM threadLabel AS all_labels
                      WHERE all_labels.accountID = thread.accountID AND all_labels.threadID = thread.id) AS labelIDs
-                FROM thread
-                JOIN threadLabel ON threadLabel.accountID = thread.accountID AND threadLabel.threadID = thread.id
-                WHERE threadLabel.labelID = ?
-                ORDER BY thread.date DESC
-                """,
-            arguments: [label]
+                """ + "\n" + query.sql + " ORDER BY thread.date DESC",
+            arguments: query.arguments
         )
         return try Array(
             rows.map { row in

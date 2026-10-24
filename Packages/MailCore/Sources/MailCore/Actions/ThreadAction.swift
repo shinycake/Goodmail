@@ -54,6 +54,8 @@ public enum SystemLabel {
     public static let starred = "STARRED"
     public static let trash = "TRASH"
     public static let spam = "SPAM"
+    public static let sent = "SENT"
+    public static let draft = "DRAFT"
 }
 
 /// One queued action: replayed to the provider in the order it was made, then removed.

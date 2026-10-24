@@ -85,6 +85,6 @@ public protocol SyncStore: Sendable {
     func syncState(for account: AccountID) throws -> SyncState?
     /// Applies everything in one transaction, or nothing.
     func apply(_ changes: StoreChanges) throws
-    /// The date of the oldest stored thread with `label`, where backfill continues from.
-    func oldestThreadDate(labeled label: String, account: AccountID) throws -> Date?
+    /// The date of the account's oldest stored thread in `mailbox`, where backfill continues from.
+    func oldestThreadDate(in mailbox: Mailbox, account: AccountID) throws -> Date?
 }
