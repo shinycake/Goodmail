@@ -6,7 +6,9 @@ import Observation
 @Observable
 public final class ComposeViewModel {
     public private(set) var draft: Draft
-    public let accountEmail: String
+    public private(set) var accountEmail: String
+    /// The accounts the message can go from.
+    public let senders: [Account]
     /// The recipient fields as typed, parsed into contacts when sending.
     public var toText: String
     public var ccText: String
@@ -17,15 +19,17 @@ public final class ComposeViewModel {
     @ObservationIgnored private let sendAction: (Draft) -> Void
     @ObservationIgnored private let saveAction: ((Draft) -> Void)?
     @ObservationIgnored private let deleteAction: (Draft) -> Void
+    @ObservationIgnored private let signature: (AccountID) -> String?
     @ObservationIgnored private let suggest: (String) -> [Contact]
     /// A draft that comes back with text, after Undo or a failed send, holds work closing would lose.
     @ObservationIgnored let isRestored: Bool
 
     /// `send` queues the finished draft; the composer closes right after. `saveDraft` keeps it in the provider's
     /// Drafts and `deleteDraft` removes the copy it was opened from. `suggest` finds people for what is typed. A new
-    /// draft starts with `signature` below the line being written.
+    /// draft starts with its account's `signature` below the line being written.
     public init(
-        draft: Draft, accountEmail: String, signature: String? = nil,
+        draft: Draft, accountEmail: String, senders: [Account] = [],
+        signature: @escaping (AccountID) -> String? = { _ in nil },
         suggest: @escaping (String) -> [Contact] = { _ in [] }, saveDraft: ((Draft) -> Void)? = nil,
         deleteDraft: @escaping (Draft) -> Void = { _ in }, send: @escaping (Draft) -> Void
     ) {
@@ -33,11 +37,11 @@ public final class ComposeViewModel {
         // A draft opened from the provider's Drafts is safe there until it changes.
         isRestored = !isNew && draft.savedDraft == nil
         var draft = draft
-        if isNew, let signature, !signature.isEmpty {
-            draft.body = MessageBody(html: nil, plain: "\n\n-- \n" + signature)
-        }
+        if isNew { draft.body = Self.startingBody(signature: signature(draft.accountID)) }
         self.draft = draft
         self.accountEmail = accountEmail
+        self.senders = senders
+        self.signature = signature
         toText = Self.text(draft.to)
         ccText = Self.text(draft.cc)
         bccText = Self.text(draft.bcc)
@@ -89,6 +93,27 @@ public final class ComposeViewModel {
     }
 
     public var canSaveDraft: Bool { saveAction != nil }
+
+    /// A new message can go from any account; a reply, forward or saved draft stays in its own.
+    public var canChangeSender: Bool {
+        senders.count > 1 && draft.threadID == nil && draft.savedDraft == nil
+    }
+
+    /// Sends from `account` instead. While the body is still as it started, its signature follows the account:
+    /// returns the new body to show then, `nil` when the writer's text stays.
+    public func changeSender(to account: Account, body: MessageBody) -> MessageBody? {
+        let untouched = (body.plain ?? "") == (draft.body.plain ?? "")
+        draft.accountID = account.id
+        accountEmail = account.email
+        guard untouched else { return nil }
+        draft.body = Self.startingBody(signature: signature(account.id))
+        return draft.body
+    }
+
+    private static func startingBody(signature: String?) -> MessageBody {
+        guard let signature, !signature.isEmpty else { return MessageBody(html: "", plain: "") }
+        return MessageBody(html: nil, plain: "\n\n-- \n" + signature)
+    }
 
     /// Keeps the message as written in the provider's Drafts.
     public func saveDraft(body: MessageBody) {
