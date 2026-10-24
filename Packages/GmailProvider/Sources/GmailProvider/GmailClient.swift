@@ -153,6 +153,48 @@ public struct GmailClient: MailProvider {
         }
     }
 
+    public func saveDraft(_ raw: Data, inThread threadID: String?, replacing: Message.ID?) async throws {
+        var draftID: String?
+        if let replacing { draftID = try await self.draftID(for: replacing) }
+        let path = draftID.map { "users/me/drafts/\($0)" } ?? "users/me/drafts"
+        let method = draftID == nil ? "POST" : "PUT"
+        var draft = GmailDraftBody(message: .init(threadId: threadID))
+        do {
+            if raw.count <= Self.jsonSendLimit {
+                draft.message.raw = raw.base64URLEncodedString()
+                let _: GmailThreadRef = try await send(path, method: method, body: draft)
+            } else {
+                let _: GmailThreadRef = try await upload(raw, metadata: draft, to: path, method: method)
+            }
+        } catch let error as GmailError where error.status == 400 {
+            throw ProviderError.rejected
+        } catch let error as GmailError where error.status == 404 {
+            throw ProviderError.notFound
+        }
+    }
+
+    public func deleteDraft(_ message: Message.ID) async throws {
+        guard let id = try await draftID(for: message) else { return }
+        do {
+            let _: GmailEmpty = try await send("users/me/drafts/\(id)", method: "DELETE")
+        } catch let error as GmailError where error.status == 404 {
+            return
+        }
+    }
+
+    /// Gmail addresses a draft by an ID of its own; this finds the draft holding `message`, if it still exists.
+    private func draftID(for message: Message.ID) async throws -> String? {
+        var pageToken: String?
+        repeat {
+            var items = [URLQueryItem(name: "maxResults", value: "500")]
+            if let pageToken { items.append(URLQueryItem(name: "pageToken", value: pageToken)) }
+            let page: GmailDraftList = try await get("users/me/drafts", query: items)
+            if let draft = page.drafts?.first(where: { $0.message.id == message.messageID }) { return draft.id }
+            pageToken = page.nextPageToken
+        } while pageToken != nil
+        return nil
+    }
+
     public func signature() async throws -> String {
         let list: GmailSendAsList = try await get("users/me/settings/sendAs")
         let addresses = list.sendAs ?? []
@@ -177,9 +219,9 @@ public struct GmailClient: MailProvider {
     }
 
     /// A media upload with its JSON metadata, as one `multipart/related` request.
-    private func upload<Response: Decodable>(_ raw: Data, metadata: [String: String], to path: String)
-        async throws -> Response
-    {
+    private func upload<Response: Decodable>(
+        _ raw: Data, metadata: some Encodable, to path: String, method: String = "POST"
+    ) async throws -> Response {
         let boundary = "goodmail-\(UUID().uuidString)"
         var body = Data("--\(boundary)\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n".utf8)
         body.append(try JSONEncoder().encode(metadata))
@@ -188,7 +230,7 @@ public struct GmailClient: MailProvider {
         body.append(Data("\r\n--\(boundary)--\r\n".utf8))
         let url = GmailConfiguration.uploadBaseURL.appending(path: path)
             .appending(queryItems: [URLQueryItem(name: "uploadType", value: "multipart")])
-        return try await send(url, method: "POST", payload: (body, "multipart/related; boundary=\(boundary)"))
+        return try await send(url, method: method, payload: (body, "multipart/related; boundary=\(boundary)"))
     }
 
     private func send<Response: Decodable>(_ url: URL, method: String, payload: (data: Data, type: String)?)
@@ -205,6 +247,7 @@ public struct GmailClient: MailProvider {
             }
             let (data, response) = try await http.data(for: request)
             if (200..<300).contains(response.statusCode) {
+                if data.isEmpty, let empty = GmailEmpty() as? Response { return empty }
                 return try JSONDecoder().decode(Response.self, from: data)
             }
             let error = GmailError(status: response.statusCode, body: String(decoding: data, as: UTF8.self))
@@ -225,6 +268,33 @@ struct GmailSendAsList: Decodable {
 
     let sendAs: [SendAs]?
 }
+
+/// A draft to create or replace; Gmail fills in the rest.
+struct GmailDraftBody: Encodable {
+    struct Message: Encodable {
+        var raw: String?
+        var threadId: String?
+    }
+
+    var message: Message
+}
+
+struct GmailDraftList: Decodable {
+    struct Draft: Decodable {
+        struct Message: Decodable {
+            let id: String
+        }
+
+        let id: String
+        let message: Message
+    }
+
+    let drafts: [Draft]?
+    let nextPageToken: String?
+}
+
+/// A reply with no body, as `drafts.delete` sends.
+struct GmailEmpty: Decodable {}
 
 /// The reply to `threads.modify`, `trash` and `untrash`; only its ID is read.
 struct GmailThreadRef: Decodable {

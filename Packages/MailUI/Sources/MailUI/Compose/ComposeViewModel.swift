@@ -15,19 +15,25 @@ public final class ComposeViewModel {
     /// The files going with the message.
     public private(set) var attachments: [DraftAttachment]
     @ObservationIgnored private let sendAction: (Draft) -> Void
+    @ObservationIgnored private let saveAction: ((Draft) -> Void)?
+    @ObservationIgnored private let deleteAction: (Draft) -> Void
     @ObservationIgnored private let suggest: (String) -> [Contact]
     /// A draft that comes back with text, after Undo or a failed send, holds work closing would lose.
     @ObservationIgnored let isRestored: Bool
 
-    /// `send` queues the finished draft; the composer closes right after. `suggest` finds people for what is typed.
-    /// A new draft starts with `signature` below the line being written.
+    /// `send` queues the finished draft; the composer closes right after. `saveDraft` keeps it in the provider's
+    /// Drafts and `deleteDraft` removes the copy it was opened from. `suggest` finds people for what is typed. A new
+    /// draft starts with `signature` below the line being written.
     public init(
         draft: Draft, accountEmail: String, signature: String? = nil,
-        suggest: @escaping (String) -> [Contact] = { _ in [] }, send: @escaping (Draft) -> Void
+        suggest: @escaping (String) -> [Contact] = { _ in [] }, saveDraft: ((Draft) -> Void)? = nil,
+        deleteDraft: @escaping (Draft) -> Void = { _ in }, send: @escaping (Draft) -> Void
     ) {
-        isRestored = !(draft.body.plain ?? "").isEmpty
+        let isNew = (draft.body.plain ?? "").isEmpty
+        // A draft opened from the provider's Drafts is safe there until it changes.
+        isRestored = !isNew && draft.savedDraft == nil
         var draft = draft
-        if !isRestored, let signature, !signature.isEmpty {
+        if isNew, let signature, !signature.isEmpty {
             draft.body = MessageBody(html: nil, plain: "\n\n-- \n" + signature)
         }
         self.draft = draft
@@ -38,6 +44,8 @@ public final class ComposeViewModel {
         subject = draft.subject
         attachments = draft.attachments
         sendAction = send
+        saveAction = saveDraft
+        deleteAction = deleteDraft
         self.suggest = suggest
     }
 
@@ -78,6 +86,18 @@ public final class ComposeViewModel {
     public func send(body: MessageBody) {
         guard canSend else { return }
         sendAction(finished(body: body))
+    }
+
+    public var canSaveDraft: Bool { saveAction != nil }
+
+    /// Keeps the message as written in the provider's Drafts.
+    public func saveDraft(body: MessageBody) {
+        saveAction?(finished(body: body))
+    }
+
+    /// Throws the message away, with the provider's copy when it was opened from one.
+    public func deleteDraft() {
+        deleteAction(draft)
     }
 
     func finished(body: MessageBody) -> Draft {

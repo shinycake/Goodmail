@@ -421,6 +421,17 @@
         }
       }
     },
+    "Edit Draft" : {
+      "comment" : "Opens a saved draft to finish it",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ערוך טיוטה"
+          }
+        }
+      }
+    },
     "File Too Large" : {
       "comment" : "Alert title",
       "localizations" : {
@@ -692,6 +703,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "דיווח כספאם"
+          }
+        }
+      }
+    },
+    "Save Draft" : {
+      "comment" : "Keeps the message in Drafts",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שמור טיוטה"
           }
         }
       }

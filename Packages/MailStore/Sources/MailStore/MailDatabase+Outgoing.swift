@@ -8,10 +8,12 @@ extension MailDatabase: OutgoingStore {
         try write { db in
             try db.execute(
                 sql: """
-                    INSERT OR REPLACE INTO outgoing (id, accountID, sendAt, failure, draft) VALUES (?, ?, ?, ?, ?)
+                    INSERT OR REPLACE INTO outgoing (id, accountID, purpose, sendAt, failure, draft)
+                    VALUES (?, ?, ?, ?, ?, ?)
                     """,
                 arguments: [
-                    message.id.uuidString, message.draft.accountID.rawValue, message.sendAt, message.failure, draft,
+                    message.id.uuidString, message.draft.accountID.rawValue, message.purpose.rawValue, message.sendAt,
+                    message.failure, draft,
                 ])
         }
     }
@@ -74,12 +76,16 @@ extension MailDatabase: OutgoingStore {
         -> [OutgoingMessage]
     {
         let decoder = JSONDecoder()
-        return try Row.fetchAll(db, sql: "SELECT sendAt, failure, draft FROM outgoing \(sql)", arguments: arguments)
-            .map { row in
-                let draft: String = row["draft"]
-                return OutgoingMessage(
-                    draft: try decoder.decode(Draft.self, from: Data(draft.utf8)), sendAt: row["sendAt"],
-                    failure: row["failure"])
-            }
+        let rows = try Row.fetchAll(
+            db, sql: "SELECT purpose, sendAt, failure, draft FROM outgoing \(sql)", arguments: arguments)
+        return try rows.map { row in
+            let draft: String = row["draft"]
+            // A purpose this build doesn't know is kept as a draft rather than sent.
+            let purpose: String = row["purpose"]
+            return OutgoingMessage(
+                draft: try decoder.decode(Draft.self, from: Data(draft.utf8)),
+                purpose: OutgoingMessage.Purpose(rawValue: purpose) ?? .saveDraft, sendAt: row["sendAt"],
+                failure: row["failure"])
+        }
     }
 }

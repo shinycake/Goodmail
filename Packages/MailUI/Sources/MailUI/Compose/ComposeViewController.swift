@@ -304,7 +304,21 @@ public final class ComposeViewController: UIViewController {
             UIAlertAction(
                 title: String(localized: "Delete Draft", bundle: .module, comment: "Discards the message"),
                 style: .destructive
-            ) { [weak self] _ in self?.dismiss(animated: true) })
+            ) { [weak self] _ in
+                self?.viewModel.deleteDraft()
+                self?.dismiss(animated: true)
+            })
+        if viewModel.canSaveDraft {
+            sheet.addAction(
+                UIAlertAction(
+                    title: String(localized: "Save Draft", bundle: .module, comment: "Keeps the message in Drafts"),
+                    style: .default
+                ) { [weak self] _ in
+                    guard let self else { return }
+                    viewModel.saveDraft(body: body)
+                    dismiss(animated: true)
+                })
+        }
         sheet.addAction(
             UIAlertAction(
                 title: String(localized: "Keep Editing", bundle: .module, comment: "Returns to the message"),

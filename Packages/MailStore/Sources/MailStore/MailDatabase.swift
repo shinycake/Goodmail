@@ -141,6 +141,11 @@ public final class MailDatabase: Sendable {
         migrator.registerMigration("v9-signature") { db in
             try db.alter(table: "account") { table in table.add(column: "signature", .text) }
         }
+        migrator.registerMigration("v10-outgoing-purpose") { db in
+            try db.alter(table: "outgoing") { table in
+                table.add(column: "purpose", .text).notNull().defaults(to: "send")
+            }
+        }
         return migrator
     }
 }
