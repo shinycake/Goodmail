@@ -11,12 +11,26 @@ public final class MailboxViewController: UIViewController {
     private var observation: Task<Void, Never>?
     private var swipes: SwipeActionsController!
     private let searchResults: SearchResultsController?
+    /// What an empty list shows.
+    private let empty: UIContentUnavailableConfiguration
+    private var emptyState: EmptyState?
+
+    private enum EmptyState {
+        /// Spam and Trash start empty while their first page is fetched.
+        case loading
+        case empty
+    }
     private var browsingToolbarItems: [UIBarButtonItem] = []
 
-    /// `searchResults`, when given, adds search to the toolbar.
-    public init(viewModel: MailboxViewModel, searchResults: SearchResultsController? = nil) {
+    /// `searchResults`, when given, adds search to the toolbar. `empty` is what an empty list shows: by default the
+    /// mailbox's symbol and "No Mail".
+    public init(
+        viewModel: MailboxViewModel, searchResults: SearchResultsController? = nil,
+        empty: UIContentUnavailableConfiguration? = nil
+    ) {
         self.viewModel = viewModel
         self.searchResults = searchResults
+        self.empty = empty ?? Self.noMail(in: viewModel.mailbox)
         super.init(nibName: nil, bundle: nil)
         title = viewModel.title
         navigationItem.largeTitleDisplayMode = .always
@@ -94,9 +108,31 @@ public final class MailboxViewController: UIViewController {
     public override func updateProperties() {
         super.updateProperties()
         applySections(viewModel.sections)
+        updateEmptyState()
         if !viewModel.isRefreshing, collectionView.refreshControl?.isRefreshing == true {
             collectionView.refreshControl?.endRefreshing()
         }
+    }
+
+    /// Only on a change: setting the configuration lays the view out again, which would run this again.
+    private func updateEmptyState() {
+        let state: EmptyState? =
+            !viewModel.hasLoaded || !viewModel.sections.isEmpty ? nil : viewModel.isLoadingOlder ? .loading : .empty
+        guard state != emptyState else { return }
+        emptyState = state
+        contentUnavailableConfiguration =
+            switch state {
+            case nil: nil
+            case .loading: UIContentUnavailableConfiguration.loading()
+            case .empty: empty
+            }
+    }
+
+    private static func noMail(in mailbox: Mailbox) -> UIContentUnavailableConfiguration {
+        var configuration = UIContentUnavailableConfiguration.empty()
+        configuration.image = UIImage(systemName: mailbox.symbol)
+        configuration.text = String(localized: "No Mail", bundle: .module, comment: "An empty mailbox")
+        return configuration
     }
 
     private func configureSwipes() {
