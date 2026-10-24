@@ -63,7 +63,7 @@ public final class ComposeViewModel {
     /// Adds the file unless it would take the message past what Gmail accepts. Returns whether it was added.
     @discardableResult
     public func attach(_ attachment: DraftAttachment) -> Bool {
-        guard attachments.reduce(attachment.data.count, { $0 + $1.data.count }) <= Self.attachmentLimit else {
+        guard attachments.reduce(attachment.size, { $0 + $1.size }) <= Self.attachmentLimit else {
             return false
         }
         attachments.append(attachment)

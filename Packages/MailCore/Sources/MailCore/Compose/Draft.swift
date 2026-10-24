@@ -100,14 +100,17 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
         )
     }
 
-    /// A forward of `message` to people yet to be chosen, in the same thread.
+    /// A forward of `message` to people yet to be chosen, in the same thread, with the files it carries.
     public static func forward(_ message: Message, locale: Locale = .current, timeZone: TimeZone = .current) -> Draft {
         Draft(
             accountID: message.id.accountID,
             subject: prefixed(message.subject, with: "Fwd:", recognizing: ["fwd:", "fw:"]),
             quote: forwardedQuote(of: message, locale: locale, timeZone: timeZone),
             threadID: message.threadID,
-            references: message.references + (message.internetMessageID.map { [$0] } ?? [])
+            references: message.references + (message.internetMessageID.map { [$0] } ?? []),
+            attachments: message.attachments.filter { !$0.isInline || $0.contentID == nil }.map {
+                DraftAttachment(filename: $0.filename, mimeType: $0.mimeType, content: .forwarded($0, in: message.id))
+            }
         )
     }
 
@@ -182,16 +185,62 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
 
 /// A file added to a message being written.
 public struct DraftAttachment: Identifiable, Hashable, Codable, Sendable {
+    public enum Content: Hashable, Codable, Sendable {
+        case data(Data)
+        /// A file on a message the provider holds, such as one being forwarded. Fetched when the message goes.
+        case forwarded(Attachment, in: Message.ID)
+    }
+
     public let id: UUID
     public var filename: String
     public var mimeType: String
-    public var data: Data
+    public var content: Content
 
-    public init(id: UUID = UUID(), filename: String, mimeType: String, data: Data) {
+    public init(id: UUID = UUID(), filename: String, mimeType: String, content: Content) {
         self.id = id
         self.filename = filename
         self.mimeType = mimeType
-        self.data = data
+        self.content = content
+    }
+
+    public init(id: UUID = UUID(), filename: String, mimeType: String, data: Data) {
+        self.init(id: id, filename: filename, mimeType: mimeType, content: .data(data))
+    }
+
+    /// The file's bytes once they are here.
+    public var data: Data? {
+        if case .data(let data) = content { data } else { nil }
+    }
+
+    public var size: Int {
+        switch content {
+        case .data(let data): data.count
+        case .forwarded(let attachment, _): attachment.size
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, filename, mimeType, content, data
+    }
+
+    /// Attachments queued before forwarding existed carry their bytes under `data`.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try container.decode(UUID.self, forKey: .id),
+            filename: try container.decode(String.self, forKey: .filename),
+            mimeType: try container.decode(String.self, forKey: .mimeType),
+            content: try container.decodeIfPresent(Data.self, forKey: .data).map(Content.data)
+                ?? container.decode(Content.self, forKey: .content)
+        )
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(filename, forKey: .filename)
+        try container.encode(mimeType, forKey: .mimeType)
+        try container.encode(content, forKey: .content)
     }
 }
 

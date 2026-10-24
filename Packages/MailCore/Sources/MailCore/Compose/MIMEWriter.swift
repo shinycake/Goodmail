@@ -24,8 +24,10 @@ public enum MIMEWriter {
         headers.append(("MIME-Version", "1.0"))
 
         var lines = headers.map { "\($0.0): \($0.1)" }
-        let alternative = draft.attachments.isEmpty ? boundary : "\(boundary)-alt"
-        if draft.attachments.isEmpty {
+        // Forwarded files are fetched before the message is written; any still missing are left out.
+        let files = draft.attachments.compactMap { attachment in attachment.data.map { (attachment, $0) } }
+        let alternative = files.isEmpty ? boundary : "\(boundary)-alt"
+        if files.isEmpty {
             lines += ["Content-Type: multipart/alternative; boundary=\"\(alternative)\"", ""]
         } else {
             lines += [
@@ -44,17 +46,17 @@ public enum MIMEWriter {
             ]
         }
         lines.append("--\(alternative)--")
-        for attachment in draft.attachments {
+        for (attachment, data) in files {
             lines += [
                 "--\(boundary)",
                 "Content-Type: \(attachment.mimeType); \(parameter("name", attachment.filename))",
                 "Content-Disposition: attachment; \(parameter("filename", attachment.filename))",
                 "Content-Transfer-Encoding: base64",
                 "",
-                base64(attachment.data),
+                base64(data),
             ]
         }
-        if !draft.attachments.isEmpty { lines.append("--\(boundary)--") }
+        if !files.isEmpty { lines.append("--\(boundary)--") }
         lines.append("")
         return Data(lines.joined(separator: "\r\n").utf8)
     }

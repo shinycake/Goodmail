@@ -51,6 +51,35 @@ struct DraftTests {
         #expect(Draft.reply(to: mine, all: false, accountEmail: me).to == [avi], "a reply to myself goes to them")
     }
 
+    @Test func forwardsCarryTheListedFilesButNotInlineImages() {
+        var original = message(from: dana, to: [avi])
+        original.attachments = [
+            Attachment(id: "2", filename: "plan.pdf", mimeType: "application/pdf", size: 900, fetchToken: "a"),
+            Attachment(
+                id: "3", filename: "logo.png", mimeType: "image/png", size: 40, contentID: "logo", isInline: true,
+                fetchToken: "b"),
+        ]
+        let draft = Draft.forward(original)
+        #expect(draft.attachments.map(\.filename) == ["plan.pdf"])
+        #expect(draft.attachments.first?.content == .forwarded(original.attachments[0], in: original.id))
+        #expect(draft.attachments.first?.size == 900)
+        #expect(Draft.reply(to: original, all: false, accountEmail: me).attachments.isEmpty)
+    }
+
+    @Test func attachmentsQueuedWithTheirBytesStillDecode() throws {
+        let json =
+            #"{"id":"6F9619FF-8B86-D011-B42D-00C04FC964FF","filename":"a.txt","mimeType":"text/plain","data":"aGk="}"#
+        let decoded = try JSONDecoder().decode(DraftAttachment.self, from: Data(json.utf8))
+        #expect(decoded.data == Data("hi".utf8))
+        let forwarded = DraftAttachment(
+            filename: "b", mimeType: "text/plain",
+            content: .forwarded(
+                Attachment(id: "1", filename: "b", mimeType: "text/plain", size: 1),
+                in: Message.ID(
+                    accountID: account, messageID: "m")))
+        #expect(try JSONDecoder().decode(DraftAttachment.self, from: JSONEncoder().encode(forwarded)) == forwarded)
+    }
+
     @Test func subjectsArentPrefixedTwice() {
         #expect(
             Draft.reply(to: message(from: dana, to: [], subject: "RE: Plan"), all: false, accountEmail: me)

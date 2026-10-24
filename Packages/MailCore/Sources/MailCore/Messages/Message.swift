@@ -75,7 +75,7 @@ public struct MessageBody: Hashable, Codable, Sendable {
 }
 
 /// A file carried by a message. Inline ones are images the HTML body shows through `cid:` URLs.
-public struct Attachment: Identifiable, Equatable, Codable, Sendable {
+public struct Attachment: Identifiable, Hashable, Codable, Sendable {
     /// The MIME part ID, stable for the life of the message.
     public let id: String
     public var filename: String
