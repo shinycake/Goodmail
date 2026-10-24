@@ -366,6 +366,17 @@
         }
       }
     },
+    "Clear Recent Searches" : {
+      "comment" : "Forgets the recent searches",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נקה חיפושים אחרונים"
+          }
+        }
+      }
+    },
     "Couldn't Send “%@”" : {
       "comment" : "A message failed to send",
       "localizations" : {
@@ -703,6 +714,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ספריית התמונות"
+          }
+        }
+      }
+    },
+    "Recent" : {
+      "comment" : "Header above the recent searches",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אחרונים"
           }
         }
       }

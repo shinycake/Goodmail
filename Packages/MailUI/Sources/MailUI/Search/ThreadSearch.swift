@@ -9,7 +9,8 @@ public final class ThreadSearch {
     private let local: Local
     private let remote: (String) async throws -> [ThreadSummary.ID]
     private let pause: Duration
-    private var text = ""
+    /// What is being searched for now.
+    public private(set) var text = ""
     private var continuation: AsyncThrowingStream<[ThreadSummary], any Error>.Continuation?
     private var following: Task<Void, Never>?
     private var asking: Task<Void, Never>?
