@@ -29,10 +29,11 @@ public final class ComposeViewModel {
         suggest: @escaping (String) -> [Contact] = { _ in [] }, saveDraft: ((Draft) -> Void)? = nil,
         deleteDraft: @escaping (Draft) -> Void = { _ in }, send: @escaping (Draft) -> Void
     ) {
+        let isNew = (draft.body.plain ?? "").isEmpty
         // A draft opened from the provider's Drafts is safe there until it changes.
-        isRestored = !(draft.body.plain ?? "").isEmpty && draft.savedDraft == nil
+        isRestored = !isNew && draft.savedDraft == nil
         var draft = draft
-        if !isRestored, let signature, !signature.isEmpty {
+        if isNew, let signature, !signature.isEmpty {
             draft.body = MessageBody(html: nil, plain: "\n\n-- \n" + signature)
         }
         self.draft = draft
