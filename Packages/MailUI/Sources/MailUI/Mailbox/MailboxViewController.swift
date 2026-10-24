@@ -11,6 +11,7 @@ public final class MailboxViewController: UIViewController {
     private var observation: Task<Void, Never>?
     private var swipes: SwipeActionsController!
     private let searchResults: SearchResultsController?
+    private var browsingToolbarItems: [UIBarButtonItem] = []
 
     /// `searchResults`, when given, adds search to the toolbar.
     public init(viewModel: MailboxViewModel, searchResults: SearchResultsController? = nil) {
@@ -19,6 +20,7 @@ public final class MailboxViewController: UIViewController {
         super.init(nibName: nil, bundle: nil)
         title = viewModel.title
         navigationItem.largeTitleDisplayMode = .always
+        if viewModel.actions != nil { navigationItem.rightBarButtonItem = selectItem() }
     }
 
     @available(*, unavailable)
@@ -38,6 +40,7 @@ public final class MailboxViewController: UIViewController {
         collectionView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         collectionView.accessibilityIdentifier = "mailbox"
         collectionView.delegate = self
+        collectionView.allowsMultipleSelectionDuringEditing = true
         collectionView.refreshControl = UIRefreshControl(
             frame: .zero,
             primaryAction: UIAction { [weak self] _ in
@@ -48,7 +51,7 @@ public final class MailboxViewController: UIViewController {
         view.addSubview(collectionView)
         configureDataSource()
         configureSwipes()
-        toolbarItems = [
+        browsingToolbarItems = [
             searchItem(),
             .flexibleSpace(),
             UIBarButtonItem(
@@ -56,6 +59,7 @@ public final class MailboxViewController: UIViewController {
                 image: UIImage(systemName: "square.and.pencil"),
                 primaryAction: UIAction { [weak self] _ in self?.viewModel.compose() }),
         ]
+        toolbarItems = browsingToolbarItems
 
         observation = Task { [viewModel] in await viewModel.observe() }
     }
@@ -98,7 +102,7 @@ public final class MailboxViewController: UIViewController {
     private func configureSwipes() {
         swipes = SwipeActionsController(collectionView: collectionView)
         swipes.actions = { [weak self] indexPath, edge in
-            guard let self, let id = dataSource.itemIdentifier(for: indexPath) else { return [] }
+            guard let self, !isEditing, let id = dataSource.itemIdentifier(for: indexPath) else { return [] }
             return swipeActions(for: id, leading: edge == .leading)
         }
     }
@@ -107,7 +111,7 @@ public final class MailboxViewController: UIViewController {
         guard let thread = threadsByID[id] else { return [] }
         return viewModel.swipeActions(for: thread, leading: leading).map { action in
             SwipeAction(title: action.title, symbol: action.symbol, isDestructive: action.isDestructive) {
-                [weak self] in self?.viewModel.perform(action, on: id)
+                [weak self] in self?.viewModel.perform(action, on: [id])
             }
         }
     }
@@ -116,6 +120,7 @@ public final class MailboxViewController: UIViewController {
         let row = UICollectionView.CellRegistration<UICollectionViewListCell, ThreadSummary.ID> {
             [weak self] cell, _, id in
             guard let self, let thread = threadsByID[id] else { return }
+            cell.accessories = [.multiselect(displayed: .whenEditing)]
             cell.contentConfiguration = ThreadRowConfiguration(
                 thread: thread,
                 dateText: viewModel.dateText(for: thread),
@@ -166,6 +171,8 @@ public final class MailboxViewController: UIViewController {
         sectionTitles = Dictionary(uniqueKeysWithValues: sections.map { ($0.id, $0.title) })
         if titlesChanged { snapshot.reloadSections(snapshot.sectionIdentifiers) }
         dataSource.apply(snapshot, animatingDifferences: view.window != nil)
+        // Selected threads may have left the list.
+        if isEditing { updateSelectionChrome() }
     }
 }
 
@@ -194,9 +201,93 @@ extension MailboxViewController: UICollectionViewDelegate {
     }
 
     public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        if isEditing { return updateSelectionChrome() }
         guard let id = dataSource.itemIdentifier(for: indexPath) else { return }
         // Search results sit outside the navigation stack, so they never see the reader close to deselect then.
         if navigationController == nil { collectionView.deselectItem(at: indexPath, animated: true) }
         viewModel.open(id)
+    }
+
+    public func collectionView(_ collectionView: UICollectionView, didDeselectItemAt indexPath: IndexPath) {
+        if isEditing { updateSelectionChrome() }
+    }
+}
+
+// MARK: - Selecting several threads
+
+extension MailboxViewController {
+    private func selectItem() -> UIBarButtonItem {
+        UIBarButtonItem(
+            title: String(localized: "Select", bundle: .module, comment: "Starts selecting several threads"),
+            primaryAction: UIAction { [weak self] _ in self?.setEditing(true, animated: true) })
+    }
+
+    public override func setEditing(_ editing: Bool, animated: Bool) {
+        super.setEditing(editing, animated: animated)
+        swipes.close(animated: animated)
+        collectionView.isEditing = editing
+        navigationItem.hidesBackButton = editing
+        navigationItem.rightBarButtonItem =
+            editing
+            ? UIBarButtonItem(
+                systemItem: .done,
+                primaryAction: UIAction { [weak self] _ in self?.setEditing(false, animated: true) })
+            : selectItem()
+        if editing {
+            updateSelectionChrome()
+        } else {
+            navigationItem.leftBarButtonItem = nil
+            title = viewModel.title
+            setToolbarItems(browsingToolbarItems, animated: animated)
+        }
+    }
+
+    private var selectedIDs: [ThreadSummary.ID] {
+        (collectionView.indexPathsForSelectedItems ?? []).compactMap(dataSource.itemIdentifier)
+    }
+
+    /// The title, Select All and the toolbar's actions, for what is selected now.
+    private func updateSelectionChrome() {
+        let ids = selectedIDs
+        let snapshot = dataSource.snapshot()
+        let allSelected = !ids.isEmpty && ids.count == snapshot.numberOfItems
+        title =
+            ids.isEmpty
+            ? viewModel.title
+            : String(localized: "\(ids.count) Selected", bundle: .module, comment: "Title while selecting threads")
+        navigationItem.leftBarButtonItem = UIBarButtonItem(
+            title: allSelected
+                ? String(localized: "Deselect All", bundle: .module, comment: "Clears the selection")
+                : String(localized: "Select All", bundle: .module, comment: "Selects every thread in the list"),
+            primaryAction: UIAction { [weak self] _ in self?.selectAll(!allSelected) })
+
+        // With nothing selected, show what the list as a whole allows, disabled, so the toolbar doesn't jump.
+        let threads = (ids.isEmpty ? snapshot.itemIdentifiers : ids).compactMap { threadsByID[$0] }
+        let actions = MailboxViewModel.bulkActions(for: threads)
+        let items = actions.map { action in
+            let item = UIBarButtonItem(
+                title: action.title, image: UIImage(systemName: action.symbol),
+                primaryAction: UIAction { [weak self] _ in self?.performOnSelection(action) })
+            item.isEnabled = !ids.isEmpty
+            return item
+        }
+        setToolbarItems(Array(items.prefix(1)) + [.flexibleSpace()] + items.dropFirst(), animated: false)
+    }
+
+    private func selectAll(_ select: Bool) {
+        for item in dataSource.snapshot().itemIdentifiers {
+            guard let indexPath = dataSource.indexPath(for: item) else { continue }
+            if select {
+                collectionView.selectItem(at: indexPath, animated: false, scrollPosition: [])
+            } else {
+                collectionView.deselectItem(at: indexPath, animated: false)
+            }
+        }
+        updateSelectionChrome()
+    }
+
+    private func performOnSelection(_ action: ThreadAction) {
+        viewModel.perform(action, on: selectedIDs)
+        setEditing(false, animated: true)
     }
 }

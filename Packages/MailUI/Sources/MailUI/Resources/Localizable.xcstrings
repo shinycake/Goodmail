@@ -1,6 +1,47 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%lld Selected" : {
+      "comment" : "Title while selecting threads",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Selected"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Selected"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld נבחר"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld נבחרו"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld archived" : {
       "comment" : "Toast after archiving threads",
       "localizations" : {
@@ -325,6 +366,17 @@
         }
       }
     },
+    "Deselect All" : {
+      "comment" : "Clears the selection",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ביטול הבחירה"
+          }
+        }
+      }
+    },
     "Drafts" : {
       "comment" : "Mailbox: unsent drafts",
       "localizations" : {
@@ -563,6 +615,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "חיפוש בדואר"
+          }
+        }
+      }
+    },
+    "Select" : {
+      "comment" : "Starts selecting several threads",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בחירה"
+          }
+        }
+      }
+    },
+    "Select All" : {
+      "comment" : "Selects every thread in the list",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בחירת הכול"
           }
         }
       }

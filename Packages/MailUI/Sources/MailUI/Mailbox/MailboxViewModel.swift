@@ -128,8 +128,19 @@ public final class MailboxViewModel {
         return thread.labelIDs.contains(SystemLabel.inbox) ? [.archive, .trash] : [.trash]
     }
 
-    public func perform(_ action: ThreadAction, on thread: ThreadSummary.ID) {
-        actions?.perform(action, on: [thread])
+    /// The toolbar's actions for the threads selected in edit mode: their reading state, then what takes all of
+    /// them out of the way here.
+    static func bulkActions(for threads: [ThreadSummary]) -> [ThreadAction] {
+        guard let first = threads.first else { return [] }
+        let common = threads.dropFirst().reduce(Self.trailingActions(for: first)) { common, thread in
+            let theirs = Self.trailingActions(for: thread)
+            return common.filter(theirs.contains)
+        }
+        return [.markRead(threads.contains(where: \.isUnread))] + common
+    }
+
+    public func perform(_ action: ThreadAction, on threads: [ThreadSummary.ID]) {
+        actions?.perform(action, on: threads)
     }
 
     public func dateText(for thread: ThreadSummary) -> String {
