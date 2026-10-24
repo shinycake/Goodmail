@@ -12,6 +12,8 @@ public final class MailboxViewModel {
     }
 
     public private(set) var sections: [Section] = []
+    /// Whether the store has answered at least once, so an empty list means an empty mailbox.
+    public private(set) var hasLoaded = false
     public private(set) var isRefreshing = false
     /// Whether older threads are being fetched for the bottom of the list.
     public private(set) var isLoadingOlder = false
@@ -61,6 +63,7 @@ public final class MailboxViewModel {
     public func observe() async {
         do {
             for try await threads in threads() {
+                hasLoaded = true
                 let now = now()
                 sections = TimeSection.group(threads, by: \.date, now: now, calendar: calendar).map {
                     Section(id: $0.section, title: $0.section.title(now: now, calendar: calendar), threads: $0.items)

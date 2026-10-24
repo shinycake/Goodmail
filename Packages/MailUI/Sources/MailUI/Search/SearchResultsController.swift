@@ -16,7 +16,8 @@ public final class SearchResultsController: UIViewController, UISearchResultsUpd
                 threads: { search.results() },
                 refresh: { try await search.refresh() },
                 navigate: navigate,
-                actions: actions))
+                actions: actions),
+            empty: .search())
         super.init(nibName: nil, bundle: nil)
     }
 
