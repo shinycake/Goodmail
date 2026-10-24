@@ -34,7 +34,7 @@ extension MailDatabase {
     /// The threads in `mailbox`, newest first. Emits now and after every change.
     public func threads(in mailbox: Mailbox) -> AsyncThrowingStream<[ThreadSummary], any Error> {
         // Signals from other processes re-run the query even when nothing it reads changed.
-        observe { db in try Self.fetchThreads(db, in: mailbox) }
+        observe { db in try Self.fetchThreads(db, query: Self.threadQuery(in: mailbox)) }
     }
 
     /// Follows a query on the main queue until the stream is dropped.
@@ -95,15 +95,16 @@ extension MailDatabase {
         return (sql, arguments)
     }
 
-    static func fetchThreads(_ db: Database, in mailbox: Mailbox) throws -> [ThreadSummary] {
-        let query = threadQuery(in: mailbox)
+    static func fetchThreads(_ db: Database, query: (sql: String, arguments: StatementArguments), limit: Int? = nil)
+        throws -> [ThreadSummary]
+    {
         let rows = try Row.fetchCursor(
             db,
             sql: """
                 SELECT thread.*,
                     (SELECT group_concat(labelID, char(31)) FROM threadLabel AS all_labels
                      WHERE all_labels.accountID = thread.accountID AND all_labels.threadID = thread.id) AS labelIDs
-                """ + "\n" + query.sql + " ORDER BY thread.date DESC",
+                """ + "\n" + query.sql + " ORDER BY thread.date DESC" + (limit.map { " LIMIT \($0)" } ?? ""),
             arguments: query.arguments
         )
         return try Array(

@@ -545,6 +545,28 @@
         }
       }
     },
+    "Search" : {
+      "comment" : "Title of the search results list",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חיפוש"
+          }
+        }
+      }
+    },
+    "Search Mail" : {
+      "comment" : "Placeholder of the search field",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חיפוש בדואר"
+          }
+        }
+      }
+    },
     "Send" : {
       "comment" : "Sends the message",
       "localizations" : {

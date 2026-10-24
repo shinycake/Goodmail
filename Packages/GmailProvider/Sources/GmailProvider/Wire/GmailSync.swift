@@ -62,9 +62,10 @@ struct GmailLabelList: Decodable {
 }
 
 extension ThreadQuery {
-    /// Gmail search terms for the date bounds. `after:` and `before:` accept epoch seconds.
+    /// Gmail search terms for the text and the date bounds. `after:` and `before:` accept epoch seconds.
     var gmailSearch: String? {
         let terms = [
+            text.flatMap { $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 },
             since.map { "after:\(Int($0.timeIntervalSince1970))" },
             before.map { "before:\(Int($0.timeIntervalSince1970))" },
         ]

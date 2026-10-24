@@ -54,6 +54,15 @@ public actor SyncEngine {
         return madeProgress && page.nextPageToken != nil
     }
 
+    /// Asks the provider for the first page of threads matching `text` and stores them. Returns their IDs, newest
+    /// first: the provider searches bodies and older mail the local index doesn't hold.
+    public func search(_ text: String) async throws -> [ThreadSummary.ID] {
+        let fetchedAt = now()
+        let page = try await provider.threads(matching: ThreadQuery(text: text), pageToken: nil)
+        try store.apply(StoreChanges(accountID: accountID, upserts: page.threads, fetchedAt: fetchedAt))
+        return page.threads.map(\.id)
+    }
+
     /// The resync's queries, in order: Inbox first so the list fills quickly.
     static func stages(startedAt: Date) -> [ThreadQuery] {
         let long = startedAt.addingTimeInterval(-longWindow)

@@ -176,6 +176,17 @@ struct SyncEngineTests {
         #expect(try await local("TRASH") == ["binned"])
     }
 
+    @Test func searchStoresTheProvidersMatchesAndReturnsThem() async throws {
+        seed(
+            thread("recent", daysAgo: 1), thread("old-invoice", daysAgo: 400, labels: []),
+            thread("new-invoice", daysAgo: 2), thread("binned-invoice", daysAgo: 3, labels: ["TRASH"])
+        )
+        let ids = try await engine().search("invoice")
+        #expect(ids.map(\.threadID) == ["new-invoice", "old-invoice"])
+        #expect(try allLocal() == ["new-invoice", "old-invoice"])
+        #expect(server.queries.last?.query == ThreadQuery(text: "invoice"))
+    }
+
     @Test func backfillSkipsAnotherAccountsLabel() async throws {
         seed(thread("t", daysAgo: 200, labels: ["Label_1"]))
         let other = Mailbox(labelID: "Label_1", accountID: AccountID(rawValue: "someone-else"))
