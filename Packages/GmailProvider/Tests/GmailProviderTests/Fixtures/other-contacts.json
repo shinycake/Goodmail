@@ -1,0 +1,5 @@
+{
+  "otherContacts": [
+    { "resourceName": "otherContacts/o1", "emailAddresses": [{ "value": "billing@shop.example" }] }
+  ]
+}
