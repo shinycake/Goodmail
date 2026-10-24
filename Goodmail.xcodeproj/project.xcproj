@@ -14,7 +14,23 @@
   "packages": [
     {
       "kind": "local",
-      "path": "Packages/GoodmailKit",
+      "path": "Packages/MailCore",
+    },
+    {
+      "kind": "local",
+      "path": "Packages/MailStore",
+    },
+    {
+      "kind": "local",
+      "path": "Packages/GmailProvider",
+    },
+    {
+      "kind": "local",
+      "path": "Packages/MailUI",
+    },
+    {
+      "kind": "local",
+      "path": "Packages/MailIntents",
     },
   ],
   "files": [
