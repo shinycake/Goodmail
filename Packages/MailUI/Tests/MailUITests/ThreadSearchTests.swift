@@ -66,3 +66,22 @@ struct ThreadSearchTests {
         await #expect(throws: Offline.self) { try await search.refresh() }
     }
 }
+
+@MainActor
+struct RecentSearchesTests {
+    private let defaults = UserDefaults(suiteName: "RecentSearchesTests-\(UUID().uuidString)")!
+
+    @Test func newestFirstOnceEachAndCapped() {
+        let recents = RecentSearches(defaults: defaults)
+        recents.record("  invoice ")
+        recents.record("dana")
+        recents.record("Invoice")
+        recents.record("   ")
+        #expect(recents.all == ["Invoice", "dana"])
+        for index in 0..<10 { recents.record("q\(index)") }
+        #expect(recents.all.count == RecentSearches.limit)
+        #expect(recents.all.first == "q9")
+        recents.clear()
+        #expect(recents.all.isEmpty)
+    }
+}
