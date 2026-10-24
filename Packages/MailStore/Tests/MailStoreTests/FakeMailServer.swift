@@ -70,7 +70,9 @@ final class FakeMailServer: MailProvider {
             }
             let matching = state.threads.values
                 .filter { thread in
-                    (query.label.map { thread.labelIDs.contains($0) } ?? true)
+                    // Like Gmail, a list without a label leaves Spam and Trash out.
+                    (query.label.map { thread.labelIDs.contains($0) }
+                        ?? thread.labelIDs.isDisjoint(with: [SystemLabel.spam, SystemLabel.trash]))
                         && (query.since.map { thread.date >= $0 } ?? true)
                         && (query.before.map { thread.date < $0 } ?? true)
                 }

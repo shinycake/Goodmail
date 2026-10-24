@@ -14,7 +14,7 @@ public final class MailboxViewController: UIViewController {
     public init(viewModel: MailboxViewModel) {
         self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
-        title = String(localized: "Inbox", bundle: .module, comment: "Mailbox title")
+        title = viewModel.title
         navigationItem.largeTitleDisplayMode = .always
     }
 

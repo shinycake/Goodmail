@@ -33,7 +33,13 @@ public struct GmailClient: MailProvider {
 
     public func threads(matching query: ThreadQuery, pageToken: String?) async throws -> ThreadPage {
         var items = [URLQueryItem(name: "maxResults", value: "\(pageSize)")]
-        if let label = query.label { items.append(URLQueryItem(name: "labelIds", value: label)) }
+        if let label = query.label {
+            items.append(URLQueryItem(name: "labelIds", value: label))
+            // Gmail leaves Spam and Trash out of lists unless asked.
+            if label == SystemLabel.spam || label == SystemLabel.trash {
+                items.append(URLQueryItem(name: "includeSpamTrash", value: "true"))
+            }
+        }
         if let search = query.gmailSearch { items.append(URLQueryItem(name: "q", value: search)) }
         if let pageToken { items.append(URLQueryItem(name: "pageToken", value: pageToken)) }
         let list: ThreadList = try await get("users/me/threads", query: items)

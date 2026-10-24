@@ -99,12 +99,12 @@ final class AppModel {
         }
     }
 
-    /// Fetches the next older page of `label` in every account. Returns whether any account may have more.
-    func loadOlder(label: String) async throws -> Bool {
+    /// Fetches the next older page of `mailbox` in each account it covers. Returns whether any may have more.
+    func loadOlder(_ mailbox: Mailbox) async throws -> Bool {
         let engines = accounts.map { engine(for: $0.id) }
         return try await withThrowingTaskGroup(of: Bool.self) { group in
             for engine in engines {
-                group.addTask { try await engine.backfill(label: label) }
+                group.addTask { try await engine.backfill(mailbox) }
             }
             var mayHaveMore = false
             for try await more in group { mayHaveMore = mayHaveMore || more }

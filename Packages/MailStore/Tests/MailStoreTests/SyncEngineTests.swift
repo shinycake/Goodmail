@@ -46,7 +46,7 @@ struct SyncEngineTests {
     }
 
     private func local(_ label: String = "INBOX") async throws -> [String] {
-        var iterator = database.threads(labeled: label).makeAsyncIterator()
+        var iterator = database.threads(in: Mailbox(labelID: label)).makeAsyncIterator()
         return try await iterator.next()?.map(\.id.threadID) ?? []
     }
 
@@ -158,12 +158,29 @@ struct SyncEngineTests {
         #expect(try await local() == ["recent"])
 
         // Pages of two, overlapping by the oldest local thread.
-        #expect(try await engine.backfill(label: "INBOX"))
+        #expect(try await engine.backfill(.inbox))
         #expect(try await local() == ["recent", "old1"])
-        #expect(try await engine.backfill(label: "INBOX"))
+        #expect(try await engine.backfill(.inbox))
         #expect(try await local() == ["recent", "old1", "old2"])
-        #expect(try await engine.backfill(label: "INBOX") == false)
+        #expect(try await engine.backfill(.inbox) == false)
         #expect(try await local() == ["recent", "old1", "old2", "old3"])
+    }
+
+    @Test func backfillFillsAMailboxTheResyncLeftOut() async throws {
+        seed(thread("inbox", daysAgo: 1), thread("binned", daysAgo: 2, labels: ["TRASH"]))
+        let engine = engine()
+        try await engine.sync()
+        #expect(try await local("TRASH") == [], "the resync's window skips Trash, as Gmail's lists do")
+
+        #expect(try await engine.backfill(.trash) == false, "one page held it all")
+        #expect(try await local("TRASH") == ["binned"])
+    }
+
+    @Test func backfillSkipsAnotherAccountsLabel() async throws {
+        seed(thread("t", daysAgo: 200, labels: ["Label_1"]))
+        let other = Mailbox(labelID: "Label_1", accountID: AccountID(rawValue: "someone-else"))
+        #expect(try await engine().backfill(other) == false)
+        #expect(server.queries.isEmpty)
     }
 }
 

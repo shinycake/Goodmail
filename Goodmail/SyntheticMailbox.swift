@@ -22,6 +22,13 @@
                 Account(id: AccountID(rawValue: "synthetic-2"), email: "work@example.com", color: .orange),
             ]
             for account in accounts { try database.save(account) }
+            try database.apply(
+                StoreChanges(
+                    accountID: accounts[0].id,
+                    labels: [
+                        MailLabel(id: "Label_1", name: "Receipts", kind: .user, color: "#16a765"),
+                        MailLabel(id: "Label_2", name: "Travel", kind: .user, color: "#4a86e8"),
+                    ]))
 
             let now = Date.now
             var threads: [ThreadSummary] = []
@@ -38,12 +45,27 @@
                         date: now.addingTimeInterval(-Double(index) * 1_200 - Double(index % 7) * 60),
                         isUnread: index % 4 == 0,
                         messageCount: 1 + index % 5,
-                        labelIDs: ["INBOX"]
+                        labelIDs: labels(for: index)
                     )
                 )
             }
             try database.upsert(threads)
             return try AppModel(database: database)
+        }
+
+        /// Mostly Inbox, with some of every other mailbox so each has something to show.
+        private static func labels(for index: Int) -> Set<String> {
+            switch index % 20 {
+            case 1, 11: ["INBOX", "STARRED"]
+            case 2, 12: ["SENT"]
+            case 3: []
+            case 4: ["INBOX", "Label_1"]
+            case 5: ["Label_2"]
+            case 6: ["TRASH"]
+            case 7: ["SPAM"]
+            case 8: ["DRAFT"]
+            default: ["INBOX"]
+            }
         }
 
         private static let senders = [

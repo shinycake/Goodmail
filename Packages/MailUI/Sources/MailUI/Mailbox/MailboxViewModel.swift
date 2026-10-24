@@ -19,6 +19,8 @@ public final class MailboxViewModel {
     public private(set) var refreshError: (any Error)?
     public let accountColors: [AccountID: AccountColor]
     public let actions: MailActions?
+    public let mailbox: Mailbox
+    public let title: String
     /// The account new messages come from: the first one, until the composer offers a choice.
     @ObservationIgnored private let composingAccount: AccountID?
 
@@ -31,6 +33,8 @@ public final class MailboxViewModel {
     @ObservationIgnored private let calendar: Calendar
 
     public init(
+        mailbox: Mailbox = .inbox,
+        title: String? = nil,
         accounts: [Account],
         threads: @escaping () -> AsyncThrowingStream<[ThreadSummary], any Error>,
         refresh: @escaping () async throws -> Void,
@@ -41,6 +45,8 @@ public final class MailboxViewModel {
         calendar: Calendar = .autoupdatingCurrent
     ) {
         self.actions = actions
+        self.mailbox = mailbox
+        self.title = title ?? mailbox.title(labels: [])
         composingAccount = accounts.first?.id
         accountColors = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0.color) })
         self.threads = threads
@@ -59,11 +65,17 @@ public final class MailboxViewModel {
                 sections = TimeSection.group(threads, by: \.date, now: now, calendar: calendar).map {
                     Section(id: $0.section, title: $0.section.title(now: now, calendar: calendar), threads: $0.items)
                 }
+                // A list too short to scroll never nears its end, so fetch older mail now: Spam and Trash start
+                // empty, and a quiet label may hold only a few threads in the window.
+                if threads.count < Self.shortList { Task { await loadOlderIfNeeded() } }
             }
         } catch {
             refreshError = error
         }
     }
+
+    /// Below this many threads, the list fetches older ones without waiting for a scroll.
+    static let shortList = 30
 
     public func refresh() async {
         guard !isRefreshing else { return }
@@ -99,14 +111,21 @@ public final class MailboxViewModel {
         navigate(.thread(id))
     }
 
-    /// The swipe actions for a row, edge-most first: reading state and star from the leading edge, archive and trash
-    /// from the trailing one.
+    /// The swipe actions for a row, edge-most first: reading state and star from the leading edge; from the
+    /// trailing one, what takes the thread out of the way here.
     func swipeActions(for thread: ThreadSummary, leading: Bool) -> [ThreadAction] {
         guard actions != nil else { return [] }
         if leading {
             return [.markRead(thread.isUnread), .star(!thread.labelIDs.contains(SystemLabel.starred))]
         }
-        return [.archive, .trash]
+        return Self.trailingActions(for: thread)
+    }
+
+    /// What takes `thread` out of the way, by where it is: out of Trash, out of Spam, or out of the Inbox.
+    static func trailingActions(for thread: ThreadSummary) -> [ThreadAction] {
+        if thread.labelIDs.contains(SystemLabel.trash) { return [.untrash] }
+        if thread.labelIDs.contains(SystemLabel.spam) { return [.moveToInbox, .trash] }
+        return thread.labelIDs.contains(SystemLabel.inbox) ? [.archive, .trash] : [.trash]
     }
 
     public func perform(_ action: ThreadAction, on thread: ThreadSummary.ID) {
