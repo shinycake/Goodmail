@@ -1,6 +1,15 @@
 import MailCore
 import UIKit
 
+extension UIBarButtonItem {
+    /// Opens the label picker.
+    static func changeLabels(_ handler: @escaping () -> Void) -> UIBarButtonItem {
+        UIBarButtonItem(
+            title: String(localized: "Change Labels", bundle: .module, comment: "Action: add or remove labels"),
+            image: UIImage(systemName: "tag"), primaryAction: UIAction { _ in handler() })
+    }
+}
+
 extension ThreadAction {
     private enum Kind {
         case archive, trash, untrash, spam, inbox, read, unread, star, unstar, labels

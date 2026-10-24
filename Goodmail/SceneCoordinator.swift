@@ -141,6 +141,19 @@ final class SceneCoordinator {
                 openURL: { url in UIApplication.shared.open(url) },
                 close: { [weak navigation] in navigation?.popViewController(animated: true) })
             navigation.pushViewController(reader, animated: true)
+        case .changeLabels(let ids):
+            let threads = ids.compactMap { try? model.database.thread($0) }
+            guard let account = threads.first?.id.accountID,
+                let labels = try? model.database.labels(for: account),
+                let presenter = topViewController()
+            else { return }
+            let actions = actions
+            let picker = LabelPickerViewController(labels: labels, threads: threads) { action in
+                actions.perform(action, on: ids)
+            }
+            let navigation = UINavigationController(rootViewController: picker)
+            navigation.sheetPresentationController?.detents = [.medium(), .large()]
+            presenter.present(navigation, animated: true)
         case .compose(let draft):
             guard let account = model.accounts.first(where: { $0.id == draft.accountID }),
                 let presenter = topViewController()
