@@ -4,13 +4,13 @@
 #
 #   scripts/record-fixtures            seed what's missing, then record every corpus thread
 #
-# The recorded JSON goes to Packages/GoodmailKit/Tests/GmailProviderTests/Fixtures/Recorded, with the
+# The recorded JSON goes to Packages/GmailProvider/Tests/GmailProviderTests/Fixtures/Recorded, with the
 # account's real address replaced by tester@example.com.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 simulator="${GOODMAIL_DEV_SIMULATOR:-iPhone 18 Pro}"
-out="$PWD/Packages/GoodmailKit/Tests/GmailProviderTests/Fixtures/Recorded"
+out="$PWD/Packages/GmailProvider/Tests/GmailProviderTests/Fixtures/Recorded"
 staging="$PWD/.build/recording"
 rm -rf "$staging"
 TestMail/generate.py

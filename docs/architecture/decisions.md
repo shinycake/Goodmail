@@ -55,8 +55,9 @@ The owner decided these on 2026-10-20 after talking through the options. Each en
 - **`MailUI`:** UIKit screens and components, theme with account colors, RTL helpers.
 - **Targets:** the app (thin wiring), the NSE (MailCore, MailStore, GmailProvider, never MailUI), widgets.
 - **Why:** the compiler enforces the boundaries, so Gmail code can't leak into the UI and only `MailStore` sees the database.
-- **Layout (M0):** one local package, `Packages/GoodmailKit`, with one target per module above. Targets enforce the boundaries just as separate packages would, and one package means one manifest, one dependency pin and one test scheme (`GoodmailKit-Package`).
-- **Rejected:** one target with folders (no enforcement); per-feature packages (premature); one package per module (five manifests for no extra enforcement).
+- **Layout (revised 2026-10-24, at the owner's request):** one local package per module under `Packages/` (`MailCore`, `MailStore`, `GmailProvider`, `MailUI`, `MailIntents`), each with its own manifest and tests. Dependencies between them are `path:` packages; only `MailStore` pins GRDB. A module's manifest states exactly what it may import, and each can be built and tested alone.
+- **Earlier layout (M0):** one `GoodmailKit` package with a target per module. Replaced because the owner wants each module standalone.
+- **Rejected:** one target with folders (no enforcement); per-feature packages (premature).
 
 ## ADR-006: Push backend is a TypeScript Worker with D1
 

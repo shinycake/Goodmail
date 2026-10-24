@@ -42,9 +42,14 @@ if [[ -z "$check_simulator" ]]; then
 fi
 DESTINATION="platform=iOS Simulator,id=$check_simulator"
 
-step "Package tests ($DESTINATION)"
-(cd Packages/GoodmailKit && xcodebuild test -quiet -scheme GoodmailKit-Package -destination "$DESTINATION" \
-    -derivedDataPath "$BUILD_DIR/DerivedData-Kit")
+# Each module is its own package (ADR-005); test every one that has tests.
+for package in Packages/*/; do
+    package=$(basename "$package")
+    [[ -d "Packages/$package/Tests" ]] || continue
+    step "$package tests ($DESTINATION)"
+    (cd "Packages/$package" && xcodebuild test -quiet -scheme "$package" -destination "$DESTINATION" \
+        -derivedDataPath "$BUILD_DIR/DerivedData-Packages")
+done
 
 step "App build and launch tests in English and Hebrew ($DESTINATION)"
 xcodebuild test -quiet -project Goodmail.xcodeproj -scheme Goodmail -destination "$DESTINATION" \
