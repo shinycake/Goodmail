@@ -55,6 +55,10 @@ public final class MailboxesViewModel {
         navigate(.mailbox(mailbox))
     }
 
+    public func openSettings() {
+        navigate(.settings)
+    }
+
     public func compose() {
         guard let composingAccount else { return }
         navigate(.compose(Draft(accountID: composingAccount)))

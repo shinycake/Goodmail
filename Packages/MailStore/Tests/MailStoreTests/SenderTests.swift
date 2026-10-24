@@ -146,4 +146,36 @@ struct SenderTests {
         #expect(await sender().flush().count == 1)
         #expect(try database.dueMessages(for: account, by: .distantFuture).isEmpty)
     }
+
+    @Test func removingAnAccountTakesEverythingItHadAndNothingElse() async throws {
+        let other = AccountID(rawValue: "a2")
+        try database.save(Account(id: other, email: "work@example.com", color: .orange))
+        for id in [account, other] {
+            try database.apply(
+                StoreChanges(
+                    accountID: id,
+                    upserts: [
+                        ThreadSummary(
+                            id: ThreadSummary.ID(accountID: id, threadID: "t1"), subject: "Hi", snippet: "",
+                            sender: Contact(name: nil, address: "dana@example.com"), date: .now, isUnread: true,
+                            messageCount: 1, labelIDs: ["INBOX"])
+                    ],
+                    labels: [MailLabel(id: "INBOX", name: "INBOX", kind: .system)], signature: "Me",
+                    state: .current(cursor: "1")))
+        }
+        _ = try commands().perform(.archive, on: [ThreadSummary.ID(accountID: account, threadID: "t1")])
+        try commands().send(draft(), after: .seconds(60))
+
+        try database.removeAccount(account)
+
+        #expect(try database.accounts().map(\.id) == [other])
+        let left = try await database.pool.read { db in
+            try ["thread", "threadLabel", "label", "syncState", "outbox", "outgoing"].map { table in
+                try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM \(table) WHERE accountID = ?", arguments: ["a1"])
+            }
+        }
+        #expect(left == [0, 0, 0, 0, 0, 0])
+        #expect(try database.thread(ThreadSummary.ID(accountID: other, threadID: "t1")) != nil)
+        #expect(try database.signature(for: other) == "Me")
+    }
 }

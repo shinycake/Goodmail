@@ -1,6 +1,17 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ and its mail are removed from this device. Nothing is deleted from Gmail." : {
+      "comment" : "Explains what removing an account does",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ והדואר שלו יוסרו מהמכשיר הזה. שום דבר לא יימחק מ-Gmail."
+          }
+        }
+      }
+    },
     "%lld Selected" : {
       "comment" : "Title while selecting threads",
       "localizations" : {
@@ -219,6 +230,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "(ללא נושא)"
+          }
+        }
+      }
+    },
+    "Accounts" : {
+      "comment" : "Settings section listing the accounts",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חשבונות"
+          }
+        }
+      }
+    },
+    "Add Account" : {
+      "comment" : "Signs in to another Gmail account",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הוסף חשבון"
           }
         }
       }
@@ -465,6 +498,17 @@
         }
       }
     },
+    "How long a sent message waits, so you can take it back." : {
+      "comment" : "Explains the Undo Send setting",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כמה זמן הודעה שנשלחה ממתינה, כדי שתוכל לבטל אותה."
+          }
+        }
+      }
+    },
     "Inbox" : {
       "comment" : "Mailbox title",
       "localizations" : {
@@ -674,6 +718,28 @@
         }
       }
     },
+    "Remove Account" : {
+      "comment" : "Removes an account from the device",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הסר חשבון"
+          }
+        }
+      }
+    },
+    "Remove Account?" : {
+      "comment" : "Asks before removing an account",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "להסיר את החשבון?"
+          }
+        }
+      }
+    },
     "Reply" : {
       "comment" : "Composer title for a reply",
       "localizations" : {
@@ -795,6 +861,17 @@
         }
       }
     },
+    "Settings" : {
+      "comment" : "Title of the settings screen",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הגדרות"
+          }
+        }
+      }
+    },
     "Show Quoted Text" : {
       "comment" : "Accessibility label of the fold",
       "localizations" : {
@@ -813,6 +890,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "חלקית"
+          }
+        }
+      }
+    },
+    "Something Went Wrong" : {
+      "comment" : "Title of a settings failure alert",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "משהו השתבש"
           }
         }
       }
@@ -956,6 +1044,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ביטול"
+          }
+        }
+      }
+    },
+    "Undo Send" : {
+      "comment" : "Setting for how long a sent message can be taken back",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ביטול שליחה"
+          }
+        }
+      }
+    },
+    "Undo Send: Off" : {
+      "comment" : "Undo Send is turned off",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כבוי"
           }
         }
       }

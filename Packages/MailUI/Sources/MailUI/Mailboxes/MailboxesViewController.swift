@@ -38,6 +38,10 @@ public final class MailboxesViewController: UIViewController {
         view.addSubview(collectionView)
         configureDataSource()
         toolbarItems = [
+            UIBarButtonItem(
+                title: String(localized: "Settings", bundle: .module, comment: "Title of the settings screen"),
+                image: UIImage(systemName: "gearshape"),
+                primaryAction: UIAction { [weak self] _ in self?.viewModel.openSettings() }),
             .flexibleSpace(),
             UIBarButtonItem(
                 title: String(localized: "New Message", bundle: .module, comment: "Composer title"),

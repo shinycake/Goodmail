@@ -14,6 +14,17 @@ extension MailDatabase {
         }
     }
 
+    /// Takes the account off the device with everything stored for it: mail, labels, sync state and queued work.
+    public func removeAccount(_ account: AccountID) throws {
+        try write { db in
+            for table in ["outbox", "outgoing"] {
+                try db.execute(sql: "DELETE FROM \(table) WHERE accountID = ?", arguments: [account.rawValue])
+            }
+            // Threads, their labels and messages, labels and sync state go with it (foreign keys cascade).
+            try db.execute(sql: "DELETE FROM account WHERE id = ?", arguments: [account.rawValue])
+        }
+    }
+
     /// The signature the account's provider adds to new mail, as plain text.
     public func signature(for account: AccountID) throws -> String? {
         try pool.read { db in
