@@ -117,8 +117,9 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
   - forwards carry the original's files, fetched when the message goes
   - the default send-as signature, read on each sync, in new drafts
   - drafts saved to Gmail through the send queue (Save Draft on close), with Edit Draft on a thread whose newest message is a draft; sending or deleting it removes Gmail's copy
+  - Google Contacts (People API connections and other contacts) in a daily local address book, suggested after the people who wrote in
 - **Still to do:**
-  - Contacts and People API suggestions
+  - the device's Contacts
   - a background `URLSession` for sends
   - the formatting controls
   - camera and scan attachments
@@ -143,7 +144,7 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
 
 **Evidence:** screenshots at a range of window sizes, and a resize recording.
 
-**Status:** M7.1 done: a Mailboxes screen (Inbox, Starred, Sent, Drafts, All Mail, Spam, Trash, and the account's labels with their Gmail colors and unread counts) as the navigation root, each mailbox a list with its own swipe actions, backfilled from Gmail when it opens. Still to do: several accounts in the UI, the iPad sidebar and columns, categories, windows and state restoration.
+**Status:** M7.1 done: a Mailboxes screen (Inbox, Starred, Sent, Drafts, All Mail, Spam, Trash, and the account's labels with their Gmail colors and unread counts) as the navigation root, each mailbox a list with its own swipe actions, backfilled from Gmail when it opens. Since then: adding and removing accounts in Settings, and a From menu on new messages. Still to do: the iPad sidebar and columns, categories, windows and state restoration.
 
 ### M8: Search
 
@@ -153,7 +154,7 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
 
 **Evidence:** search tests on fixtures (including Hebrew), and a recording of search working offline and online.
 
-**Status:** M8.1 done: a glass search button in each list's toolbar that expands into the field. Results come from a local FTS5 index (word prefixes over subject, sender and snippet, Hebrew included) as you type, then Gmail's own search, run once typing pauses, is stored and merged in. Gmail operators go to Gmail as typed; locally their values are searched. Still to do: tokens, recent searches, indexing cached bodies, and paging Gmail results past the first page.
+**Status:** M8.1 done: a glass search button in each list's toolbar that expands into the field. Results come from a local FTS5 index (word prefixes over subject, sender and snippet, Hebrew included) as you type, then Gmail's own search, run once typing pauses, is stored and merged in. Gmail operators go to Gmail as typed; locally their values are searched. Since then: recent searches (the last eight, on the device). Still to do: tokens, indexing cached bodies, and paging Gmail results past the first page.
 
 ### M9: System integration
 
