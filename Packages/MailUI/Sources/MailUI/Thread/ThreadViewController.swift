@@ -128,7 +128,8 @@ public final class ThreadViewController: UIViewController {
             ]))
         toolbarItems = [
             item(.archive, leaves: true), item(.trash, leaves: true), .flexibleSpace(),
-            item(.markRead(false), leaves: true), starItem, .fixedSpace(0), reply,
+            item(.markRead(false), leaves: true), starItem,
+            .changeLabels { [weak self] in self?.viewModel.changeLabels() }, .fixedSpace(0), reply,
         ]
     }
 

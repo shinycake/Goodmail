@@ -126,6 +126,11 @@ public final class ThreadViewModel {
     }
 
     /// Replies to the newest message, or forwards it.
+    /// Opens the label picker for this thread.
+    public func changeLabels() {
+        navigate(.changeLabels([thread.id]))
+    }
+
     public func reply(all: Bool) {
         guard let message = messages.last else { return }
         navigate(.compose(Draft.reply(to: message, all: all, accountEmail: accountEmail)))
