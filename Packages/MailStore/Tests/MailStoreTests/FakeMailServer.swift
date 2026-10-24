@@ -22,6 +22,7 @@ final class FakeMailServer: MailProvider {
         var failPerform: (any Error)?
         var sent: [(raw: Data, threadID: String?)] = []
         var failSend: (any Error)?
+        var signature: String? = ""
     }
 
     let pageSize: Int
@@ -151,5 +152,17 @@ extension FakeMailServer {
 
     func failSend(with error: (any Error)?) {
         state.withLock { $0.failSend = error }
+    }
+}
+
+extension FakeMailServer {
+    /// Fails like a missing settings scope when `nil`.
+    func signature() async throws -> String {
+        guard let signature = state.withLock(\.signature) else { throw URLError(.userAuthenticationRequired) }
+        return signature
+    }
+
+    func setSignature(_ signature: String?) {
+        state.withLock { $0.signature = signature }
     }
 }
