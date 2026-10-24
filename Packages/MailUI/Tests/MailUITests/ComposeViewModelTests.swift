@@ -11,6 +11,25 @@ struct ComposeViewModelTests {
         ComposeViewModel(draft: draft, accountEmail: "me@example.com", send: sent)
     }
 
+    @Test func suggestsForTheRecipientBeingTypedOnly() {
+        let dana = Contact(name: "Dana Levi", address: "dana@example.com")
+        let daniel = Contact(name: "Daniel, Jr.", address: "dan@example.com")
+        var asked: [String] = []
+        let model = ComposeViewModel(
+            draft: Draft(accountID: account), accountEmail: "me@example.com",
+            suggest: {
+                asked.append($0)
+                return [dana, daniel]
+            }, send: { _ in })
+        #expect(model.suggestions(for: "Dana Levi <dana@example.com>, da").map(\.address) == ["dan@example.com"])
+        #expect(model.suggestions(for: "\"Levi, Dana\" <x@example.com>, ").isEmpty, "nothing typed yet")
+        #expect(asked == ["da"])
+        #expect(
+            ComposeViewModel.completing("dana@example.com, da", with: daniel)
+                == "dana@example.com, \"Daniel, Jr.\" <dan@example.com>, ")
+        #expect(ComposeViewModel.completing("da", with: dana) == "Dana Levi <dana@example.com>, ")
+    }
+
     @Test func anUntouchedMessageClosesQuietly() {
         let reply = Draft(
             accountID: account, to: [Contact(name: "Dana", address: "dana@example.com")], subject: "Re: Lunch")
