@@ -104,7 +104,25 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
 
 **Evidence:** HTML serializer golden tests, including per-block `dir`. A recording of composing and sending a mixed Hebrew/English rich reply, and how it renders in Gmail web.
 
-**Status:** M5.1 done: new message, reply, reply all and forward, with the quote folded; a per-paragraph `dir="auto"` HTML serializer; a persisted send queue with a 10 s undo that reopens the draft; failed sends offered as Edit / Try Again / Delete; and the undo toast moved to the window so it shows over any screen. M5.2 (part): recipient autocomplete from the people who wrote in, most frequent first; attachments from Photos and Files (up to Gmail's limit), sent as `multipart/mixed`, through Gmail's upload endpoint when large. Still to do: forwarding the original's attachments, signatures, drafts synced to Gmail, Contacts and People API suggestions, a background `URLSession` for sends, and the formatting controls.
+**Status:**
+- **M5.1 (done):**
+  - new message, reply, reply all and forward, with the quote folded
+  - a per-paragraph `dir="auto"` HTML serializer
+  - a persisted send queue with a 10 s undo that reopens the draft
+  - failed sends offered as Edit / Try Again / Delete
+  - the undo toast moved to the window, so it shows over any screen
+- **M5.2 (done):**
+  - recipient autocomplete from the people who wrote in, most frequent first
+  - attachments from Photos and Files (up to Gmail's limit), sent as `multipart/mixed`, through Gmail's upload endpoint when large
+  - forwards carry the original's files, fetched when the message goes
+  - the default send-as signature, read on each sync, in new drafts
+  - drafts saved to Gmail through the send queue (Save Draft on close), with Edit Draft on a thread whose newest message is a draft; sending or deleting it removes Gmail's copy
+- **Still to do:**
+  - Contacts and People API suggestions
+  - a background `URLSession` for sends
+  - the formatting controls
+  - camera and scan attachments
+  - Bcc on reopened drafts
 
 ### M6: Push
 
@@ -157,6 +175,15 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
 - onboarding and empty states
 
 **Evidence:** recordings of each flow.
+
+**Status:**
+- **Done:**
+  - empty states for mailboxes and search
+  - a Settings form (from the Mailboxes toolbar) with the accounts, Add Account, Remove Account (signs out and takes the account's data off the device), and the Undo Send wait (Off to 30 s)
+- **Still to do:**
+  - snooze and scheduled send
+  - notification and display settings
+  - onboarding
 
 ### M11: Release quality
 
