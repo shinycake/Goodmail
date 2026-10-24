@@ -597,6 +597,17 @@
         }
       }
     },
+    "No Mail" : {
+      "comment" : "An empty mailbox",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אין דואר"
+          }
+        }
+      }
+    },
     "OK" : {
       "comment" : "Dismiss",
       "localizations" : {
