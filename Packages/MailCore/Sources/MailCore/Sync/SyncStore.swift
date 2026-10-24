@@ -54,6 +54,8 @@ public struct StoreChanges: Sendable {
     public var labels: [MailLabel]?
     /// Replaces the account's signature; empty clears it.
     public var signature: String?
+    /// Replaces the account's address book.
+    public var addressBook: AddressBook?
     /// Stamped on `upserts` during a resync.
     public var generation: Int?
     public var sweep: Sweep?
@@ -67,6 +69,7 @@ public struct StoreChanges: Sendable {
         deletions: [String] = [],
         labels: [MailLabel]? = nil,
         signature: String? = nil,
+        addressBook: AddressBook? = nil,
         generation: Int? = nil,
         sweep: Sweep? = nil,
         state: SyncState? = nil,
@@ -77,9 +80,21 @@ public struct StoreChanges: Sendable {
         self.deletions = deletions
         self.labels = labels
         self.signature = signature
+        self.addressBook = addressBook
         self.generation = generation
         self.sweep = sweep
         self.state = state
+        self.fetchedAt = fetchedAt
+    }
+}
+
+/// The people an account keeps contacts for, as fetched at one time.
+public struct AddressBook: Equatable, Sendable {
+    public var contacts: [Contact]
+    public var fetchedAt: Date
+
+    public init(contacts: [Contact], fetchedAt: Date) {
+        self.contacts = contacts
         self.fetchedAt = fetchedAt
     }
 }
@@ -91,4 +106,6 @@ public protocol SyncStore: Sendable {
     func apply(_ changes: StoreChanges) throws
     /// The date of the account's oldest stored thread in `mailbox`, where backfill continues from.
     func oldestThreadDate(in mailbox: Mailbox, account: AccountID) throws -> Date?
+    /// When the account's address book was last fetched, if ever.
+    func addressBookDate(for account: AccountID) throws -> Date?
 }

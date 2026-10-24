@@ -10,6 +10,8 @@ public enum GmailConfiguration {
     public static let apiBaseURL = URL(string: "https://gmail.googleapis.com/gmail/v1/")!
     /// Where requests carrying a whole message go, for messages too large to send as JSON.
     public static let uploadBaseURL = URL(string: "https://gmail.googleapis.com/upload/gmail/v1/")!
+    /// Google's People API, for the address book.
+    public static let peopleBaseURL = URL(string: "https://people.googleapis.com/v1/")!
     public static let scopes = [
         "https://www.googleapis.com/auth/gmail.modify",
         "https://www.googleapis.com/auth/gmail.settings.basic",

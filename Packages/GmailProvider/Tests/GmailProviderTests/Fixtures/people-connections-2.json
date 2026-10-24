@@ -1,0 +1,6 @@
+{
+  "connections": [
+    { "resourceName": "people/c3", "names": [{ "displayName": "יעל כהן" }], "emailAddresses": [{ "value": "yael@example.co.il" }] }
+  ],
+  "totalPeople": 3
+}

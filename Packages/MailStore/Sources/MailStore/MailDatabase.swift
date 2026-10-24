@@ -146,6 +146,15 @@ public final class MailDatabase: Sendable {
                 table.add(column: "purpose", .text).notNull().defaults(to: "send")
             }
         }
+        migrator.registerMigration("v11-address-book") { db in
+            try db.create(table: "addressBook") { table in
+                table.column("accountID", .text).notNull().references("account", onDelete: .cascade)
+                table.column("address", .text).notNull().collate(.nocase)
+                table.column("name", .text)
+                table.column("fetchedAt", .datetime).notNull()
+                table.primaryKey(["accountID", "address"])
+            }
+        }
         return migrator
     }
 }
