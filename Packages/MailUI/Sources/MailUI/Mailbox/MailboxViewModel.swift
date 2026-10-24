@@ -139,6 +139,11 @@ public final class MailboxViewModel {
         return [.markRead(threads.contains(where: \.isUnread))] + common
     }
 
+    /// Opens the label picker for these threads.
+    public func changeLabels(of threads: [ThreadSummary.ID]) {
+        navigate(.changeLabels(threads))
+    }
+
     public func perform(_ action: ThreadAction, on threads: [ThreadSummary.ID]) {
         actions?.perform(action, on: threads)
     }

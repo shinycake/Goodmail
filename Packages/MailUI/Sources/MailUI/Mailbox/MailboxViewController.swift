@@ -271,7 +271,15 @@ extension MailboxViewController {
             item.isEnabled = !ids.isEmpty
             return item
         }
-        setToolbarItems(Array(items.prefix(1)) + [.flexibleSpace()] + items.dropFirst(), animated: false)
+        // Labels belong to an account, so the picker opens for one account's threads at a time.
+        let labels = UIBarButtonItem.changeLabels { [weak self] in
+            guard let self else { return }
+            viewModel.changeLabels(of: selectedIDs)
+            setEditing(false, animated: true)
+        }
+        labels.isEnabled = Set(threads.map(\.id.accountID)).count == 1 && !ids.isEmpty
+        setToolbarItems(
+            Array(items.prefix(1)) + [labels, .flexibleSpace()] + items.dropFirst(), animated: false)
     }
 
     private func selectAll(_ select: Bool) {

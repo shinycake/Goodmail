@@ -564,6 +564,28 @@
         }
       }
     },
+    "Off" : {
+      "comment" : "VoiceOver: the threads lack this label",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא מסומן"
+          }
+        }
+      }
+    },
+    "On" : {
+      "comment" : "VoiceOver: the threads carry this label",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מסומן"
+          }
+        }
+      }
+    },
     "Reply" : {
       "comment" : "Composer title for a reply",
       "localizations" : {
@@ -681,6 +703,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "הצגת טקסט מצוטט"
+          }
+        }
+      }
+    },
+    "Some" : {
+      "comment" : "VoiceOver: some of the threads carry this label",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חלקית"
           }
         }
       }
