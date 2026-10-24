@@ -2,4 +2,6 @@
 /// and the scene coordinator is the only thing that acts on them.
 public enum Route: Hashable, Sendable {
     case thread(ThreadSummary.ID)
+    /// The composer, with a new message, reply or forward.
+    case compose(Draft)
 }

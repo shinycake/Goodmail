@@ -108,9 +108,27 @@ public final class ThreadViewController: UIViewController {
             guard let self else { return }
             viewModel.perform(.star(!viewModel.isStarred))
         }
+        let reply = UIBarButtonItem(
+            title: String(localized: "Reply", bundle: .module, comment: "Composer title for a reply"),
+            image: UIImage(systemName: "arrowshape.turn.up.left"),
+            primaryAction: UIAction { [weak self] _ in self?.viewModel.reply(all: false) },
+            menu: UIMenu(children: [
+                UIAction(
+                    title: String(localized: "Reply", bundle: .module, comment: "Composer title for a reply"),
+                    image: UIImage(systemName: "arrowshape.turn.up.left")
+                ) { [weak self] _ in self?.viewModel.reply(all: false) },
+                UIAction(
+                    title: String(localized: "Reply All", bundle: .module, comment: "Replies to everyone"),
+                    image: UIImage(systemName: "arrowshape.turn.up.left.2")
+                ) { [weak self] _ in self?.viewModel.reply(all: true) },
+                UIAction(
+                    title: String(localized: "Forward", bundle: .module, comment: "Forwards the message"),
+                    image: UIImage(systemName: "arrowshape.turn.up.right")
+                ) { [weak self] _ in self?.viewModel.forward() },
+            ]))
         toolbarItems = [
             item(.archive, leaves: true), item(.trash, leaves: true), .flexibleSpace(),
-            item(.markRead(false), leaves: true), starItem,
+            item(.markRead(false), leaves: true), starItem, .fixedSpace(0), reply,
         ]
     }
 

@@ -5,11 +5,14 @@
 # GOODMAIL_DEV_SIMULATOR picks the simulator (default: iPhone 18 Pro). Extra arguments go to the app.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# Build output lives on the external drive when it's mounted, to spare the internal disk.
+BUILD_DIR="${GOODMAIL_BUILD_DIR:-$([[ -d /Volumes/Idan1TB ]] && echo /Volumes/Idan1TB/Goodmail-build || echo "$PWD/.build")}"
+mkdir -p "$BUILD_DIR"
 
 simulator="${GOODMAIL_DEV_SIMULATOR:-iPhone 18 Pro}"
 xcrun simctl boot "$simulator" 2>/dev/null || true
 xcodebuild build -quiet -project Goodmail.xcodeproj -scheme Goodmail \
-    -destination "platform=iOS Simulator,name=$simulator" -derivedDataPath .build/dev
+    -destination "platform=iOS Simulator,name=$simulator" -derivedDataPath "$BUILD_DIR/dev"
 xcrun simctl terminate "$simulator" com.idanbirman.goodmail 2>/dev/null || true
-xcrun simctl install "$simulator" .build/dev/Build/Products/Debug-iphonesimulator/Goodmail.app
+xcrun simctl install "$simulator" "$BUILD_DIR/dev/Build/Products/Debug-iphonesimulator/Goodmail.app"
 xcrun simctl launch "$simulator" com.idanbirman.goodmail "$@"

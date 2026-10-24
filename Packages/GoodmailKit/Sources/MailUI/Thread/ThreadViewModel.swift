@@ -19,6 +19,7 @@ public final class ThreadViewModel {
     @ObservationIgnored private let loadAction: () async throws -> Void
     @ObservationIgnored let attachmentData: (Attachment, Message.ID) async throws -> Data
     @ObservationIgnored private let actions: MailActions?
+    @ObservationIgnored private let navigate: (Route) -> Void
     @ObservationIgnored private var hasMarkedRead = false
     @ObservationIgnored private let attachmentsDirectory: URL
     @ObservationIgnored private let now: () -> Date
@@ -32,11 +33,13 @@ public final class ThreadViewModel {
         load: @escaping () async throws -> Void,
         attachmentData: @escaping (Attachment, Message.ID) async throws -> Data,
         actions: MailActions? = nil,
+        navigate: @escaping (Route) -> Void = { _ in },
         attachmentsDirectory: URL = FileManager.default.temporaryDirectory.appending(path: "Attachments"),
         now: @escaping () -> Date = Date.init,
         calendar: Calendar = .autoupdatingCurrent
     ) {
         self.actions = actions
+        self.navigate = navigate
         self.attachmentsDirectory = attachmentsDirectory
         self.thread = thread
         self.accountEmail = accountEmail
@@ -120,6 +123,17 @@ public final class ThreadViewModel {
     public func perform(_ action: ThreadAction) -> Bool {
         actions?.perform(action, on: [thread.id])
         return action == .archive || action == .trash || action == .reportSpam
+    }
+
+    /// Replies to the newest message, or forwards it.
+    public func reply(all: Bool) {
+        guard let message = messages.last else { return }
+        navigate(.compose(Draft.reply(to: message, all: all, accountEmail: accountEmail)))
+    }
+
+    public func forward() {
+        guard let message = messages.last else { return }
+        navigate(.compose(Draft.forward(message)))
     }
 
     /// The first message the view scrolls to: the first unread one, or the newest.

@@ -10,19 +10,46 @@ public final class MailCommands: Sendable {
         public var isEmpty: Bool { intents.values.allSatisfy(\.isEmpty) }
     }
 
-    private let store: any OutboxStore
+    private let store: any OutboxStore & OutgoingStore
     private let replay: @Sendable (AccountID) -> Void
+    private let deliver: @Sendable (AccountID, Date) -> Void
     private let now: @Sendable () -> Date
 
-    /// `replay` is asked to drain an account's outbox after each change.
+    /// `replay` is asked to drain an account's outbox after each change; `deliver` to send its queued messages
+    /// once the given date passes.
     public init(
-        store: any OutboxStore,
+        store: any OutboxStore & OutgoingStore,
         replay: @escaping @Sendable (AccountID) -> Void,
+        deliver: @escaping @Sendable (AccountID, Date) -> Void = { _, _ in },
         now: @escaping @Sendable () -> Date = { .now }
     ) {
         self.store = store
         self.replay = replay
+        self.deliver = deliver
         self.now = now
+    }
+
+    /// Queues `draft` to send once `delay` passes; until then `cancelSend` takes it back.
+    public func send(_ draft: Draft, after delay: Duration) throws {
+        let sendAt = now().addingTimeInterval(Double(delay.components.seconds))
+        try store.enqueue(OutgoingMessage(draft: draft, sendAt: sendAt))
+        deliver(draft.accountID, sendAt)
+    }
+
+    /// Takes back a queued message that hasn't gone yet, returning its draft to edit. `nil` once it has gone.
+    public func cancelSend(_ id: Draft.ID) throws -> Draft? {
+        try store.cancel(id)?.draft
+    }
+
+    /// Sends a message that failed again, now.
+    public func retrySend(_ draft: Draft) throws {
+        try store.remove(draft.id)
+        try send(draft, after: .zero)
+    }
+
+    /// Forgets a message that failed to send.
+    public func discardSend(_ id: Draft.ID) throws {
+        try store.remove(id)
     }
 
     @discardableResult

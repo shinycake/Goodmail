@@ -19,6 +19,8 @@ public final class MailboxViewModel {
     public private(set) var refreshError: (any Error)?
     public let accountColors: [AccountID: AccountColor]
     public let actions: MailActions?
+    /// The account new messages come from: the first one, until the composer offers a choice.
+    @ObservationIgnored private let composingAccount: AccountID?
 
     @ObservationIgnored private let threads: () -> AsyncThrowingStream<[ThreadSummary], any Error>
     @ObservationIgnored private let refreshAction: () async throws -> Void
@@ -39,6 +41,7 @@ public final class MailboxViewModel {
         calendar: Calendar = .autoupdatingCurrent
     ) {
         self.actions = actions
+        composingAccount = accounts.first?.id
         accountColors = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0.color) })
         self.threads = threads
         refreshAction = refresh
@@ -85,6 +88,11 @@ public final class MailboxViewModel {
         } catch {
             mayHaveOlder = true
         }
+    }
+
+    public func compose() {
+        guard let composingAccount else { return }
+        navigate(.compose(Draft(accountID: composingAccount)))
     }
 
     public func open(_ id: ThreadSummary.ID) {

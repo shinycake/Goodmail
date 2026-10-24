@@ -125,6 +125,18 @@ public struct GmailClient: MailProvider {
         }
     }
 
+    public func send(_ raw: Data, inThread threadID: String?) async throws {
+        var body = ["raw": raw.base64URLEncodedString()]
+        if let threadID { body["threadId"] = threadID }
+        do {
+            let _: GmailThreadRef = try await send("users/me/messages/send", method: "POST", body: body)
+        } catch let error as GmailError where error.status == 400 {
+            throw ProviderError.rejected
+        } catch let error as GmailError where error.status == 404 {
+            throw ProviderError.notFound
+        }
+    }
+
     private func get<Response: Decodable>(_ path: String, query: [URLQueryItem] = []) async throws -> Response {
         try await send(path, query: query)
     }
