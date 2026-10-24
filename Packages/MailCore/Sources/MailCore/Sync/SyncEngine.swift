@@ -40,16 +40,17 @@ public actor SyncEngine {
         try await task.value
     }
 
-    /// Fetches the page of `label` threads just older than the oldest stored one.
-    /// Returns whether older threads may remain.
-    public func backfill(label: String) async throws -> Bool {
-        guard let oldest = try store.oldestThreadDate(labeled: label, account: accountID) else { return false }
+    /// Fetches the page of `mailbox` threads just older than the oldest stored one, or its newest page when none
+    /// are stored, as for Spam and Trash, which the resync leaves out. Returns whether older threads may remain.
+    public func backfill(_ mailbox: Mailbox) async throws -> Bool {
+        if let owner = mailbox.accountID, owner != accountID { return false }
+        let oldest = try store.oldestThreadDate(in: mailbox, account: accountID)
         // One second of overlap, so threads sharing the oldest timestamp aren't skipped; rewriting them is harmless.
         let fetchedAt = now()
         let page = try await provider.threads(
-            matching: ThreadQuery(label: label, before: oldest.addingTimeInterval(1)), pageToken: nil)
+            matching: ThreadQuery(label: mailbox.labelID, before: oldest?.addingTimeInterval(1)), pageToken: nil)
         try store.apply(StoreChanges(accountID: accountID, upserts: page.threads, fetchedAt: fetchedAt))
-        let madeProgress = page.threads.contains { $0.date < oldest }
+        let madeProgress = oldest.map { oldest in page.threads.contains { $0.date < oldest } } ?? !page.threads.isEmpty
         return madeProgress && page.nextPageToken != nil
     }
 

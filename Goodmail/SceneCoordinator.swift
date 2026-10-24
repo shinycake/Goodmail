@@ -72,30 +72,48 @@ final class SceneCoordinator {
         window.rootViewController = UINavigationController(rootViewController: welcome)
     }
 
+    /// The mailbox list at the root, with the Inbox open on top of it.
     private func showMailbox() {
         let model = model
-        let viewModel = MailboxViewModel(
-            accounts: model.accounts,
-            threads: { model.database.threads(labeled: "INBOX") },
-            refresh: { try await model.syncAll() },
-            loadOlder: { try await model.loadOlder(label: "INBOX") },
-            navigate: { [weak self] route in self?.handle(route) },
-            actions: actions
-        )
-        let mailbox = MailNavigationController(
-            rootViewController: MailboxViewController(viewModel: viewModel), actions: actions)
+        let mailboxes = MailboxesViewController(
+            viewModel: MailboxesViewModel(
+                accounts: model.accounts,
+                directory: { model.database.mailboxDirectory() },
+                navigate: { [weak self] route in self?.handle(route) }))
+        let navigation = MailNavigationController(rootViewController: mailboxes, actions: actions)
+        navigation.pushViewController(mailboxViewController(for: .inbox, title: nil), animated: false)
         if window.rootViewController == nil {
-            window.rootViewController = mailbox
+            window.rootViewController = navigation
         } else {
             UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve) {
-                self.window.rootViewController = mailbox
+                self.window.rootViewController = navigation
             }
         }
+    }
+
+    private func mailboxViewController(for mailbox: Mailbox, title: String?) -> MailboxViewController {
+        let model = model
+        return MailboxViewController(
+            viewModel: MailboxViewModel(
+                mailbox: mailbox,
+                title: title,
+                accounts: model.accounts,
+                threads: { model.database.threads(in: mailbox) },
+                refresh: { try await model.syncAll() },
+                loadOlder: { try await model.loadOlder(mailbox) },
+                navigate: { [weak self] route in self?.handle(route) },
+                actions: actions
+            ))
     }
 
     /// The one place navigation happens (ADR-011).
     func handle(_ route: Route) {
         switch route {
+        case .mailbox(let mailbox):
+            guard let navigation = window.rootViewController as? UINavigationController else { return }
+            let labels = (try? model.database.labels(for: mailbox.accountID ?? AccountID(rawValue: ""))) ?? []
+            let title = labels.first { $0.id == mailbox.labelID }?.name
+            navigation.pushViewController(mailboxViewController(for: mailbox, title: title), animated: true)
         case .thread(let id):
             guard let thread = try? model.database.thread(id),
                 let account = model.accounts.first(where: { $0.id == id.accountID }),

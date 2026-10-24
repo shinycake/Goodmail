@@ -44,17 +44,12 @@ extension MailDatabase: SyncStore {
         }
     }
 
-    public func oldestThreadDate(labeled label: String, account: AccountID) throws -> Date? {
-        try pool.read { db in
-            try Date.fetchOne(
-                db,
-                sql: """
-                    SELECT MIN(thread.date) FROM thread
-                    JOIN threadLabel ON threadLabel.accountID = thread.accountID AND threadLabel.threadID = thread.id
-                    WHERE thread.accountID = ? AND threadLabel.labelID = ?
-                    """,
-                arguments: [account.rawValue, label]
-            )
+    public func oldestThreadDate(in mailbox: Mailbox, account: AccountID) throws -> Date? {
+        var scoped = mailbox
+        scoped.accountID = account
+        let query = Self.threadQuery(in: scoped)
+        return try pool.read { db in
+            try Date.fetchOne(db, sql: "SELECT MIN(thread.date) " + query.sql, arguments: query.arguments)
         }
     }
 

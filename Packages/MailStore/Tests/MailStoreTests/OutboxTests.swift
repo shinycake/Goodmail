@@ -47,7 +47,7 @@ struct OutboxTests {
     }
 
     private func inbox() async throws -> [String] {
-        var iterator = database.threads(labeled: "INBOX").makeAsyncIterator()
+        var iterator = database.threads(in: .inbox).makeAsyncIterator()
         return try await iterator.next()?.map(\.id.threadID) ?? []
     }
 
