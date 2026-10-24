@@ -267,6 +267,17 @@
         }
       }
     },
+    "Attach" : {
+      "comment" : "Adds files to the message",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "צירוף"
+          }
+        }
+      }
+    },
     "Bcc:" : {
       "comment" : "Compose field label",
       "localizations" : {
@@ -307,6 +318,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "שינוי תוויות"
+          }
+        }
+      }
+    },
+    "Choose File" : {
+      "comment" : "Attach from Files",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בחירת קובץ"
           }
         }
       }
@@ -399,6 +421,17 @@
         }
       }
     },
+    "File Too Large" : {
+      "comment" : "Alert title",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הקובץ גדול מדי"
+          }
+        }
+      }
+    },
     "Forward" : {
       "comment" : "Forwards the message",
       "localizations" : {
@@ -406,6 +439,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "העבר"
+          }
+        }
+      }
+    },
+    "Gmail sends up to 25 MB of attachments in one message." : {
+      "comment" : "Alert explaining the attachment size limit",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‏Gmail שולח עד 25 MB של קבצים מצורפים בהודעה אחת."
           }
         }
       }
@@ -582,6 +626,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "מסומן"
+          }
+        }
+      }
+    },
+    "Photo Library" : {
+      "comment" : "Attach from Photos",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ספריית התמונות"
+          }
+        }
+      }
+    },
+    "Remove" : {
+      "comment" : "Takes a file off the message",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הסרה"
           }
         }
       }
