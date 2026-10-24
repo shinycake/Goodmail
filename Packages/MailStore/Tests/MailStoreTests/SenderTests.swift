@@ -96,6 +96,47 @@ struct SenderTests {
         #expect(try await failed.next()?.map(\.failure) == ["A forwarded attachment is no longer available."])
     }
 
+    @Test func savingADraftReplacesItsCopyAndSendingRemovesIt() async throws {
+        try await server.saveDraft(Data(), inThread: "t1", replacing: nil)
+        var draft = draft("Plan")
+        draft.savedDraft = Message.ID(accountID: account, messageID: "d1")
+
+        try commands().saveDraft(draft)
+        #expect(await sender().flush().count == 1)
+        #expect(Array(server.drafts.keys) == ["d2"], "d1 was replaced")
+        #expect(String(decoding: server.drafts["d2"]!.raw, as: UTF8.self).contains("Subject: Plan"))
+        #expect(server.sent.isEmpty)
+
+        draft.savedDraft = Message.ID(accountID: account, messageID: "d2")
+        try commands().send(draft, after: .zero)
+        #expect(await sender().flush().count == 1)
+        #expect(server.sent.count == 1)
+        #expect(server.drafts.isEmpty)
+    }
+
+    @Test func deletingADraftRemovesOnlyASavedOne() async throws {
+        try await server.saveDraft(Data(), inThread: nil, replacing: nil)
+        try commands().deleteDraft(draft())
+        #expect(try database.dueMessages(for: account, by: .distantFuture).isEmpty, "never saved: nothing to do")
+        var saved = draft()
+        saved.savedDraft = Message.ID(accountID: account, messageID: "d1")
+        try commands().deleteDraft(saved)
+        #expect(try database.dueMessages(for: account, by: .distantFuture).map(\.purpose) == [.deleteDraft])
+        await sender().flush()
+        #expect(server.drafts.isEmpty)
+        #expect(server.sent.isEmpty)
+    }
+
+    @Test func aFailedDraftSaveIsRetriedAsASave() async throws {
+        try database.enqueue(OutgoingMessage(draft: draft(), purpose: .saveDraft, sendAt: .now, failure: "Offline"))
+        var failures = database.failedMessages().makeAsyncIterator()
+        let failed = try #require(try await failures.next()?.first)
+        try commands().retrySend(failed)
+        await sender().flush()
+        #expect(server.drafts.count == 1)
+        #expect(server.sent.isEmpty)
+    }
+
     @Test func offlineMessagesStayQueued() async throws {
         server.failSend(with: URLError(.notConnectedToInternet))
         try commands().send(draft(), after: .zero)

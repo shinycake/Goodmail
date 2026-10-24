@@ -51,7 +51,7 @@ final class SceneCoordinator {
                 guard (try? commands.discardSend(message.id)) != nil else { return }
                 self?.handle(.compose(message.draft))
             },
-            retry: { try? commands.retrySend(message.draft) },
+            retry: { try? commands.retrySend(message) },
             delete: { try? commands.discardSend(message.id) })
         presenter.present(alert, animated: true)
     }
@@ -164,6 +164,7 @@ final class SceneCoordinator {
                     draft: draft, accountEmail: account.email,
                     signature: try? model.database.signature(for: account.id),
                     suggest: { [database = model.database] in (try? database.contacts(matching: $0)) ?? [] },
+                    saveDraft: { actions.saveDraft($0) }, deleteDraft: { actions.deleteDraft($0) },
                     send: { actions.send($0) }))
             let navigation = UINavigationController(rootViewController: composer)
             navigation.modalPresentationStyle = .pageSheet

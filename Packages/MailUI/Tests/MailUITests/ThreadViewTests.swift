@@ -65,6 +65,37 @@ struct ThreadViewModelTests {
         model.toggle(messages[0].id)
         #expect(model.expanded == [messages[0].id], "a thread always shows at least one card")
     }
+
+    @Test func aTrailingDraftIsEditedAndRepliesAnswerTheLastSentMessage() async {
+        var draft = message("2", unread: false, minutes: 2)
+        draft.labelIDs = [SystemLabel.draft]
+        let messages = [message("1", unread: false, minutes: 1), draft]
+        var routes: [Route] = []
+        let model = ThreadViewModel(
+            thread: ThreadSummary(
+                id: .init(accountID: account, threadID: "t"), subject: "Plan", snippet: "",
+                sender: messages[0].from, date: .now, isUnread: false, messageCount: 2, labelIDs: []),
+            accountEmail: "me@example.com", accountColor: .blue,
+            messages: {
+                AsyncThrowingStream {
+                    $0.yield(messages)
+                    $0.finish()
+                }
+            }, load: {}, attachmentData: { _, _ in Data() }, navigate: { routes.append($0) })
+        await model.observe()
+        #expect(model.draft?.id == draft.id)
+
+        model.editDraft()
+        model.reply(all: false)
+        guard case .compose(let edited) = routes.first, case .compose(let reply) = routes.last else {
+            Issue.record("both should open the composer")
+            return
+        }
+        #expect(edited.savedDraft == draft.id)
+        #expect(edited.body.plain == "2")
+        #expect(reply.savedDraft == nil)
+        #expect(reply.to.map(\.address) == ["dana@example.com"])
+    }
 }
 
 @MainActor

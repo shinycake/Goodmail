@@ -97,6 +97,49 @@ struct GmailSyncTests {
         #expect(body["raw"] == Data("Subject: Hi\r\n\r\nHello".utf8).base64URLEncodedString())
     }
 
+    @Test func aNewDraftIsCreatedInItsThread() async throws {
+        let (gmail, http) = try await client(["/gmail/v1/users/me/drafts": [.init(fixture: "draft")]])
+        try await gmail.saveDraft(Data("Subject: Hi".utf8), inThread: "18f0a1", replacing: nil)
+        let request = try #require(http.requests.last)
+        #expect(request.httpMethod == "POST")
+        let body = try JSONDecoder().decode(
+            [String: [String: String]].self, from: try #require(request.httpBody))
+        #expect(body["message"] == ["threadId": "18f0a1", "raw": Data("Subject: Hi".utf8).base64URLEncodedString()])
+    }
+
+    @Test func savingAgainReplacesTheDraftHoldingTheMessage() async throws {
+        let (gmail, http) = try await client([
+            "/gmail/v1/users/me/drafts": [.init(fixture: "drafts-list")],
+            "/gmail/v1/users/me/drafts/r-222": [.init(fixture: "draft")],
+        ])
+        let saved = Message.ID(accountID: AccountID(rawValue: "a"), messageID: "18f0b2")
+        try await gmail.saveDraft(Data("Subject: Hi".utf8), inThread: "18f0a1", replacing: saved)
+        #expect(http.requests.last?.httpMethod == "PUT")
+        #expect(http.requests.last?.url?.path() == "/gmail/v1/users/me/drafts/r-222")
+    }
+
+    @Test func aDraftThatIsGoneIsSavedAsNew() async throws {
+        let (gmail, http) = try await client([
+            "/gmail/v1/users/me/drafts": [.init(fixture: "drafts-list"), .init(fixture: "draft")]
+        ])
+        let gone = Message.ID(accountID: AccountID(rawValue: "a"), messageID: "18f0zz")
+        try await gmail.saveDraft(Data("Subject: Hi".utf8), inThread: nil, replacing: gone)
+        #expect(http.requests.last?.httpMethod == "POST")
+    }
+
+    @Test func deletingFindsTheDraftAndToleratesAnEmptyReply() async throws {
+        let (gmail, http) = try await client([
+            "/gmail/v1/users/me/drafts": [.init(fixture: "drafts-list")],
+            "/gmail/v1/users/me/drafts/r-111": [.init(fixture: "empty", status: 204)],
+        ])
+        try await gmail.deleteDraft(Message.ID(accountID: AccountID(rawValue: "a"), messageID: "18f0b1"))
+        #expect(http.requests.last?.httpMethod == "DELETE")
+        #expect(http.requests.last?.url?.path() == "/gmail/v1/users/me/drafts/r-111")
+        let before = http.requests.count
+        try await gmail.deleteDraft(Message.ID(accountID: AccountID(rawValue: "a"), messageID: "18f0zz"))
+        #expect(http.requests.count == before + 1, "only the lookup: nothing to delete")
+    }
+
     @Test func largeMessagesAreUploadedWithTheirThread() async throws {
         let (gmail, http) = try await client([
             "/upload/gmail/v1/users/me/messages/send": [.init(fixture: "message-sent")]

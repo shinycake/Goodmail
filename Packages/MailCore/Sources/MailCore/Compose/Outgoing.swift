@@ -1,16 +1,26 @@
 import Foundation
 
-/// A message queued to send. It waits out the undo window, then goes to the provider.
+/// A message queued for the provider: to send once the undo window closes, or to keep in its drafts.
 public struct OutgoingMessage: Identifiable, Equatable, Codable, Sendable {
+    public enum Purpose: String, Codable, Sendable {
+        case send
+        /// Saves the draft with the provider, replacing its earlier saved copy.
+        case saveDraft
+        /// Removes the draft's saved copy.
+        case deleteDraft
+    }
+
     public var id: Draft.ID { draft.id }
     public var draft: Draft
+    public var purpose: Purpose
     /// When the undo window closes and the message may go.
     public var sendAt: Date
     /// Why the last attempt failed for good, shown to the writer. `nil` while it is still to be sent.
     public var failure: String?
 
-    public init(draft: Draft, sendAt: Date, failure: String? = nil) {
+    public init(draft: Draft, purpose: Purpose = .send, sendAt: Date, failure: String? = nil) {
         self.draft = draft
+        self.purpose = purpose
         self.sendAt = sendAt
         self.failure = failure
     }
@@ -52,8 +62,8 @@ public actor Sender {
         self.now = now
     }
 
-    /// Sends what is due. A refused message is marked failed and kept, for the writer to fix; a network failure
-    /// leaves it queued for the next call. Returns the drafts that were sent.
+    /// Sends, saves or deletes what is due. A refused message is marked failed and kept, for the writer to fix; a
+    /// network failure leaves it queued for the next call. Returns the drafts the provider took.
     @discardableResult
     public func flush() async -> [Draft] {
         if let running { return await running.value }
@@ -79,7 +89,16 @@ public actor Sender {
                 for: draft, from: from, date: now(),
                 messageID: "\(message.id.uuidString.lowercased())@goodmail.app")
             do {
-                try await provider.send(raw, inThread: message.draft.threadID)
+                switch message.purpose {
+                case .send:
+                    try await provider.send(raw, inThread: draft.threadID)
+                    // A saved copy left behind is only a stale draft, not worth failing a sent message over.
+                    if let saved = draft.savedDraft { try? await provider.deleteDraft(saved) }
+                case .saveDraft:
+                    try await provider.saveDraft(raw, inThread: draft.threadID, replacing: draft.savedDraft)
+                case .deleteDraft:
+                    if let saved = draft.savedDraft { try await provider.deleteDraft(saved) }
+                }
                 try store.remove(message.id)
                 sent.append(message.draft)
             } catch ProviderError.rejected {
@@ -89,7 +108,7 @@ public actor Sender {
                 var draft = message.draft
                 draft.threadID = nil
                 try? store.remove(message.id)
-                try? store.enqueue(OutgoingMessage(draft: draft, sendAt: message.sendAt))
+                try? store.enqueue(OutgoingMessage(draft: draft, purpose: message.purpose, sendAt: message.sendAt))
             } catch {
                 return sent
             }

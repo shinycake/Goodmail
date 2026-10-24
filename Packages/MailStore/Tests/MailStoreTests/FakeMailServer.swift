@@ -23,6 +23,8 @@ final class FakeMailServer: MailProvider {
         var sent: [(raw: Data, threadID: String?)] = []
         var failSend: (any Error)?
         var signature: String? = ""
+        var drafts: [String: (raw: Data, threadID: String?)] = [:]
+        var nextDraft = 1
     }
 
     let pageSize: Int
@@ -169,4 +171,21 @@ extension FakeMailServer {
     func setSignature(_ signature: String?) {
         state.withLock { $0.signature = signature }
     }
+}
+
+extension FakeMailServer {
+    /// Keeps drafts by message ID; saving over one gives it a new ID, as Gmail does.
+    func saveDraft(_ raw: Data, inThread threadID: String?, replacing: Message.ID?) async throws {
+        state.withLock { state in
+            if let replacing { state.drafts[replacing.messageID] = nil }
+            state.drafts["d\(state.nextDraft)"] = (raw, threadID)
+            state.nextDraft += 1
+        }
+    }
+
+    func deleteDraft(_ message: Message.ID) async throws {
+        _ = state.withLock { $0.drafts.removeValue(forKey: message.messageID) }
+    }
+
+    var drafts: [String: (raw: Data, threadID: String?)] { state.withLock { $0.drafts } }
 }

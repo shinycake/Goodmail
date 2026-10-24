@@ -67,6 +67,24 @@ public final class MailActions {
         }
     }
 
+    /// Keeps `draft` in the provider's Drafts.
+    public func saveDraft(_ draft: Draft) {
+        do {
+            try commands.saveDraft(draft)
+        } catch {
+            self.error = error
+        }
+    }
+
+    /// Removes the provider's copy of a draft opened from it.
+    public func deleteDraft(_ draft: Draft) {
+        do {
+            try commands.deleteDraft(draft)
+        } catch {
+            self.error = error
+        }
+    }
+
     /// Queues a message to send after the undo window, with a toast to take it back.
     public func send(_ draft: Draft) {
         do {
