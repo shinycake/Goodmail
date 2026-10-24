@@ -112,6 +112,22 @@ final class AppModel {
         }
     }
 
+    /// Every account's provider matches for `text`, stored. Accounts that fail are left out, unless all of them do.
+    func search(_ text: String) async throws -> [ThreadSummary.ID] {
+        let engines = accounts.map { engine(for: $0.id) }
+        let results = await withTaskGroup(of: Result<[ThreadSummary.ID], any Error>.self) { group in
+            for engine in engines {
+                group.addTask { await Result { try await engine.search(text) } }
+            }
+            var results: [Result<[ThreadSummary.ID], any Error>] = []
+            for await result in group { results.append(result) }
+            return results
+        }
+        let found = results.compactMap { try? $0.get() }
+        if found.isEmpty, let failure = results.first { _ = try failure.get() }
+        return found.flatMap(\.self)
+    }
+
     /// Fetches a thread's messages with their bodies into the store, where the thread view reads them.
     func loadMessages(of thread: ThreadSummary.ID) async throws {
         let fetchedAt = Date.now

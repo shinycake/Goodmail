@@ -135,6 +135,8 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
 
 **Evidence:** search tests on fixtures (including Hebrew), and a recording of search working offline and online.
 
+**Status:** M8.1 done: a glass search button in each list's toolbar that expands into the field. Results come from a local FTS5 index (word prefixes over subject, sender and snippet, Hebrew included) as you type, then Gmail's own search, run once typing pauses, is stored and merged in. Gmail operators go to Gmail as typed; locally their values are searched. Still to do: tokens, recent searches, indexing cached bodies, and paging Gmail results past the first page.
+
 ### M9: System integration
 
 **Builds:**

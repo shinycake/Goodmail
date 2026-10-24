@@ -93,6 +93,11 @@ final class SceneCoordinator {
 
     private func mailboxViewController(for mailbox: Mailbox, title: String?) -> MailboxViewController {
         let model = model
+        let search = ThreadSearch(
+            local: { model.database.search($0, including: $1) }, remote: { try await model.search($0) })
+        let results = SearchResultsController(
+            search: search, accounts: model.accounts, navigate: { [weak self] route in self?.handle(route) },
+            actions: actions)
         return MailboxViewController(
             viewModel: MailboxViewModel(
                 mailbox: mailbox,
@@ -103,7 +108,8 @@ final class SceneCoordinator {
                 loadOlder: { try await model.loadOlder(mailbox) },
                 navigate: { [weak self] route in self?.handle(route) },
                 actions: actions
-            ))
+            ),
+            searchResults: results)
     }
 
     /// The one place navigation happens (ADR-011).

@@ -127,6 +127,17 @@ public final class MailDatabase: Sendable {
                 table.column("draft", .jsonText).notNull()
             }
         }
+        migrator.registerMigration("v8-search") { db in
+            // Kept in step with `thread` by triggers. Bodies aren't indexed: most mail is never opened here.
+            try db.create(virtualTable: "threadSearch", using: FTS5()) { table in
+                table.synchronize(withTable: "thread")
+                table.tokenizer = .unicode61()
+                table.column("subject")
+                table.column("senderName")
+                table.column("senderAddress")
+                table.column("snippet")
+            }
+        }
         return migrator
     }
 }
