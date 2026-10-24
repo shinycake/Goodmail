@@ -187,6 +187,20 @@ struct SyncEngineTests {
         #expect(server.queries.last?.query == ThreadQuery(text: "invoice"))
     }
 
+    @Test func syncKeepsTheSignatureAndAFailedReadLeavesItAlone() async throws {
+        server.setSignature("Dana\nGoodmail")
+        try await engine().sync()
+        #expect(try database.signature(for: account.id) == "Dana\nGoodmail")
+
+        server.setSignature(nil)
+        try await engine().sync()
+        #expect(try database.signature(for: account.id) == "Dana\nGoodmail", "mail syncs; the signature stays")
+
+        server.setSignature("")
+        try await engine().sync()
+        #expect(try database.signature(for: account.id) == nil)
+    }
+
     @Test func backfillSkipsAnotherAccountsLabel() async throws {
         seed(thread("t", daysAgo: 200, labels: ["Label_1"]))
         let other = Mailbox(labelID: "Label_1", accountID: AccountID(rawValue: "someone-else"))

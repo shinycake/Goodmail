@@ -1,0 +1,17 @@
+{
+  "sendAs": [
+    {
+      "sendAsEmail": "alias@example.com",
+      "displayName": "Alias",
+      "signature": "<div>Not this one</div>",
+      "isPrimary": false
+    },
+    {
+      "sendAsEmail": "tester@example.com",
+      "displayName": "Tester",
+      "signature": "<div dir=\"ltr\">Dana Levi<div>Goodmail &amp; Co.</div><div><br></div><div><a href=\"https://example.com\">example.com</a></div></div>",
+      "isPrimary": true,
+      "isDefault": true
+    }
+  ]
+}
