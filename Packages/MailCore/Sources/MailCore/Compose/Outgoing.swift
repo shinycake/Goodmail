@@ -66,8 +66,17 @@ public actor Sender {
     private func drain() async -> [Draft] {
         var sent: [Draft] = []
         while let message = (try? store.dueMessages(for: accountID, by: now()))?.first {
+            let draft: Draft
+            do {
+                draft = try await fetchingForwardedFiles(of: message.draft)
+            } catch ProviderError.notFound {
+                try? store.markFailed(message.id, reason: "A forwarded attachment is no longer available.")
+                continue
+            } catch {
+                return sent
+            }
             let raw = MIMEWriter.message(
-                for: message.draft, from: from, date: now(),
+                for: draft, from: from, date: now(),
                 messageID: "\(message.id.uuidString.lowercased())@goodmail.app")
             do {
                 try await provider.send(raw, inThread: message.draft.threadID)
@@ -86,5 +95,15 @@ public actor Sender {
             }
         }
         return sent
+    }
+
+    private func fetchingForwardedFiles(of draft: Draft) async throws -> Draft {
+        var draft = draft
+        for index in draft.attachments.indices {
+            if case .forwarded(let attachment, let message) = draft.attachments[index].content {
+                draft.attachments[index].content = .data(try await provider.data(for: attachment, in: message))
+            }
+        }
+        return draft
     }
 }

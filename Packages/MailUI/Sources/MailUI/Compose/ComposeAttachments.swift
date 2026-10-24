@@ -26,7 +26,7 @@ final class ComposeAttachmentsView: UIStackView {
             configuration.image = UIImage(systemName: AttachmentListView.symbol(for: attachment.mimeType))
             configuration.imagePadding = 8
             configuration.title = attachment.filename
-            configuration.subtitle = AttachmentListView.sizeText(attachment.data.count)
+            configuration.subtitle = AttachmentListView.sizeText(attachment.size)
             configuration.titleLineBreakMode = .byTruncatingMiddle
             configuration.baseForegroundColor = .label
             let button = UIButton(configuration: configuration)
@@ -38,7 +38,7 @@ final class ComposeAttachmentsView: UIStackView {
             ])
             button.showsMenuAsPrimaryAction = true
             button.accessibilityLabel =
-                "\(attachment.filename), \(AttachmentListView.sizeText(attachment.data.count))"
+                "\(attachment.filename), \(AttachmentListView.sizeText(attachment.size))"
             addArrangedSubview(button)
         }
         isHidden = attachments.isEmpty
