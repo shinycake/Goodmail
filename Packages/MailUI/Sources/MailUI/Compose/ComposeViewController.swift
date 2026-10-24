@@ -49,7 +49,7 @@ public final class ComposeViewController: UIViewController {
 
         bodyView.font = .preferredFont(forTextStyle: .body)
         if let font = bodyView.font, !(viewModel.draft.body.plain ?? "").isEmpty {
-            // A draft reopened after Undo or a failed send.
+            // A draft reopened after Undo or a failed send, or a new one with a signature.
             bodyView.attributedText = RichTextSerializer.attributedText(from: viewModel.draft.body, font: font)
             bodyView.typingAttributes = [.font: font]
         }
@@ -114,10 +114,9 @@ public final class ComposeViewController: UIViewController {
         super.viewDidAppear(animated)
         // Replies start in the body; new messages and forwards with who they're for.
         (viewModel.draft.to.isEmpty ? toField : bodyView as UIResponder).becomeFirstResponder()
-        // A fresh reply starts above the quote; a restored draft where the writer left off.
-        if !viewModel.draft.to.isEmpty {
-            bodyView.selectedRange = NSRange(location: bodyView.attributedText.length, length: 0)
-        }
+        // A fresh draft starts at the top, above any signature; a restored one where the writer left off.
+        let start = viewModel.isRestored ? bodyView.attributedText.length : 0
+        bodyView.selectedRange = NSRange(location: start, length: 0)
     }
 
     private func configureNavigation() {

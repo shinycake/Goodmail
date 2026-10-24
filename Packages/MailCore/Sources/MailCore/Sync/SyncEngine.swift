@@ -71,7 +71,10 @@ public actor SyncEngine {
     }
 
     private func performSync() async throws {
-        try store.apply(StoreChanges(accountID: accountID, labels: try await provider.labels()))
+        // A signature that can't be read never holds up mail; the last one stays.
+        async let signature = try? provider.signature()
+        let labels = try await provider.labels()
+        try store.apply(StoreChanges(accountID: accountID, labels: labels, signature: await signature))
         switch try store.syncState(for: accountID) {
         case nil:
             try await fillWindow(from: try await startResync())

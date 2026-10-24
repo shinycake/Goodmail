@@ -17,13 +17,19 @@ public final class ComposeViewModel {
     @ObservationIgnored private let sendAction: (Draft) -> Void
     @ObservationIgnored private let suggest: (String) -> [Contact]
     /// A draft that comes back with text, after Undo or a failed send, holds work closing would lose.
-    @ObservationIgnored private let isRestored: Bool
+    @ObservationIgnored let isRestored: Bool
 
     /// `send` queues the finished draft; the composer closes right after. `suggest` finds people for what is typed.
+    /// A new draft starts with `signature` below the line being written.
     public init(
-        draft: Draft, accountEmail: String, suggest: @escaping (String) -> [Contact] = { _ in [] },
-        send: @escaping (Draft) -> Void
+        draft: Draft, accountEmail: String, signature: String? = nil,
+        suggest: @escaping (String) -> [Contact] = { _ in [] }, send: @escaping (Draft) -> Void
     ) {
+        isRestored = !(draft.body.plain ?? "").isEmpty
+        var draft = draft
+        if !isRestored, let signature, !signature.isEmpty {
+            draft.body = MessageBody(html: nil, plain: "\n\n-- \n" + signature)
+        }
         self.draft = draft
         self.accountEmail = accountEmail
         toText = Self.text(draft.to)
@@ -33,7 +39,6 @@ public final class ComposeViewModel {
         attachments = draft.attachments
         sendAction = send
         self.suggest = suggest
-        isRestored = !(draft.body.plain ?? "").isEmpty
     }
 
     /// Every typed recipient looks like an address, and there is at least one.

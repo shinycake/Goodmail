@@ -13,6 +13,13 @@ extension MailDatabase {
             try AccountRecord.order(Column("createdAt")).fetchAll(db).compactMap(\.account)
         }
     }
+
+    /// The signature the account's provider adds to new mail, as plain text.
+    public func signature(for account: AccountID) throws -> String? {
+        try pool.read { db in
+            try String.fetchOne(db, sql: "SELECT signature FROM account WHERE id = ?", arguments: [account.rawValue])
+        }
+    }
 }
 
 struct AccountRecord: Codable, FetchableRecord, PersistableRecord {

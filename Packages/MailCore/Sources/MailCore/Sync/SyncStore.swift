@@ -52,6 +52,8 @@ public struct StoreChanges: Sendable {
     public var deletions: [String] = []
     /// Replaces the account's labels.
     public var labels: [MailLabel]?
+    /// Replaces the account's signature; empty clears it.
+    public var signature: String?
     /// Stamped on `upserts` during a resync.
     public var generation: Int?
     public var sweep: Sweep?
@@ -64,6 +66,7 @@ public struct StoreChanges: Sendable {
         upserts: [ThreadSummary] = [],
         deletions: [String] = [],
         labels: [MailLabel]? = nil,
+        signature: String? = nil,
         generation: Int? = nil,
         sweep: Sweep? = nil,
         state: SyncState? = nil,
@@ -73,6 +76,7 @@ public struct StoreChanges: Sendable {
         self.upserts = upserts
         self.deletions = deletions
         self.labels = labels
+        self.signature = signature
         self.generation = generation
         self.sweep = sweep
         self.state = state

@@ -31,6 +31,9 @@ public protocol MailProvider: Sendable {
     /// Sends an RFC 5322 message, in `threadID` when it answers one. Throws `ProviderError.rejected` for a message
     /// the service won't send.
     func send(_ raw: Data, inThread threadID: String?) async throws
+
+    /// The plain-text signature the service adds to new mail from this account; empty when there is none.
+    func signature() async throws -> String
 }
 
 public enum ProviderError: Error, Equatable {

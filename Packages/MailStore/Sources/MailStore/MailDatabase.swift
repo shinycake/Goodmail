@@ -138,6 +138,9 @@ public final class MailDatabase: Sendable {
                 table.column("snippet")
             }
         }
+        migrator.registerMigration("v9-signature") { db in
+            try db.alter(table: "account") { table in table.add(column: "signature", .text) }
+        }
         return migrator
     }
 }

@@ -31,6 +31,11 @@ extension MailDatabase: SyncStore {
                     try LabelRecord(label, accountID: account).insert(db)
                 }
             }
+            if let signature = changes.signature {
+                try db.execute(
+                    sql: "UPDATE account SET signature = ? WHERE id = ? AND signature IS NOT ?",
+                    arguments: [signature.isEmpty ? nil : signature, account, signature.isEmpty ? nil : signature])
+            }
             if let sweep = changes.sweep {
                 try Self.sweep(sweep, account: account, in: db)
             }

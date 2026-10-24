@@ -59,6 +59,24 @@ struct ComposeViewModelTests {
         #expect(model.hasChanges(body: MessageBody(plain: "")))
     }
 
+    @Test func aNewDraftStartsWithTheSignatureAndClosesQuietly() {
+        let model = ComposeViewModel(
+            draft: Draft(accountID: account), accountEmail: "me@example.com", signature: "Dana\nGoodmail",
+            send: { _ in })
+        #expect(model.draft.body.plain == "\n\n-- \nDana\nGoodmail")
+        #expect(!model.isRestored)
+        #expect(!model.hasChanges(body: model.draft.body))
+        #expect(model.hasChanges(body: MessageBody(plain: "Hi\n\n-- \nDana\nGoodmail")))
+    }
+
+    @Test func aRestoredDraftKeepsItsOwnSignature() {
+        let body = MessageBody(html: "<div>Hi</div>", plain: "Hi")
+        let model = ComposeViewModel(
+            draft: Draft(accountID: account, body: body), accountEmail: "me@example.com", signature: "Dana",
+            send: { _ in })
+        #expect(model.draft.body == body)
+    }
+
     @Test func aRestoredDraftAlwaysAsksBeforeClosing() {
         var draft = Draft(accountID: account, to: [Contact(name: nil, address: "dana@example.com")])
         draft.body = MessageBody(html: "<div dir=\"auto\">Hi</div>", plain: "Hi")

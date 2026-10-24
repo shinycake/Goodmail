@@ -162,6 +162,7 @@ final class SceneCoordinator {
             let composer = ComposeViewController(
                 viewModel: ComposeViewModel(
                     draft: draft, accountEmail: account.email,
+                    signature: try? model.database.signature(for: account.id),
                     suggest: { [database = model.database] in (try? database.contacts(matching: $0)) ?? [] },
                     send: { actions.send($0) }))
             let navigation = UINavigationController(rootViewController: composer)
