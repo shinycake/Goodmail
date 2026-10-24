@@ -132,13 +132,28 @@ public final class ThreadViewModel {
     }
 
     public func reply(all: Bool) {
-        guard let message = messages.last else { return }
+        guard let message = latestSent else { return }
         navigate(.compose(Draft.reply(to: message, all: all, accountEmail: accountEmail)))
     }
 
     public func forward() {
-        guard let message = messages.last else { return }
+        guard let message = latestSent else { return }
         navigate(.compose(Draft.forward(message)))
+    }
+
+    /// The newest message when it is a draft not yet sent, which the reader finishes rather than answers.
+    public var draft: Message? {
+        messages.last.flatMap { $0.labelIDs.contains(SystemLabel.draft) ? $0 : nil }
+    }
+
+    public func editDraft() {
+        guard let draft else { return }
+        navigate(.compose(Draft.editing(draft)))
+    }
+
+    /// Replies and forwards answer the newest message that went, never an unsent draft.
+    private var latestSent: Message? {
+        messages.last { !$0.labelIDs.contains(SystemLabel.draft) }
     }
 
     /// The first message the view scrolls to: the first unread one, or the newest.

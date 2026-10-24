@@ -20,6 +20,8 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
     public var references: [String]
     /// Files sent with the message, in the order they were added.
     public var attachments: [DraftAttachment]
+    /// The provider's saved copy of this draft, replaced when it is saved again and removed once it is sent.
+    public var savedDraft: Message.ID?
 
     public init(
         id: UUID = UUID(),
@@ -33,7 +35,8 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
         threadID: String? = nil,
         inReplyTo: String? = nil,
         references: [String] = [],
-        attachments: [DraftAttachment] = []
+        attachments: [DraftAttachment] = [],
+        savedDraft: Message.ID? = nil
     ) {
         self.id = id
         self.accountID = accountID
@@ -47,10 +50,12 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
         self.inReplyTo = inReplyTo
         self.references = references
         self.attachments = attachments
+        self.savedDraft = savedDraft
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, accountID, to, cc, bcc, subject, body, quote, threadID, inReplyTo, references, attachments
+        case id, accountID, to, cc, bcc, subject, body, quote, threadID, inReplyTo, references, attachments,
+            savedDraft
     }
 
     /// Drafts saved before attachments existed decode with none.
@@ -68,7 +73,8 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
             threadID: try container.decodeIfPresent(String.self, forKey: .threadID),
             inReplyTo: try container.decodeIfPresent(String.self, forKey: .inReplyTo),
             references: try container.decode([String].self, forKey: .references),
-            attachments: try container.decodeIfPresent([DraftAttachment].self, forKey: .attachments) ?? []
+            attachments: try container.decodeIfPresent([DraftAttachment].self, forKey: .attachments) ?? [],
+            savedDraft: try container.decodeIfPresent(Message.ID.self, forKey: .savedDraft)
         )
     }
 
@@ -108,10 +114,31 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
             quote: forwardedQuote(of: message, locale: locale, timeZone: timeZone),
             threadID: message.threadID,
             references: message.references + (message.internetMessageID.map { [$0] } ?? []),
-            attachments: message.attachments.filter { !$0.isInline || $0.contentID == nil }.map {
-                DraftAttachment(filename: $0.filename, mimeType: $0.mimeType, content: .forwarded($0, in: message.id))
-            }
+            attachments: forwardedFiles(of: message)
         )
+    }
+
+    /// A draft saved with the provider, reopened to edit and send. Its files stay with the provider until it goes.
+    public static func editing(_ message: Message) -> Draft {
+        Draft(
+            accountID: message.id.accountID,
+            to: message.to,
+            cc: message.cc,
+            subject: message.subject,
+            body: message.body,
+            threadID: message.threadID,
+            inReplyTo: message.references.last,
+            references: message.references,
+            attachments: forwardedFiles(of: message),
+            savedDraft: message.id
+        )
+    }
+
+    /// The files a reader lists for `message`, to send on without downloading them first.
+    private static func forwardedFiles(of message: Message) -> [DraftAttachment] {
+        message.attachments.filter { !$0.isInline || $0.contentID == nil }.map {
+            DraftAttachment(filename: $0.filename, mimeType: $0.mimeType, content: .forwarded($0, in: message.id))
+        }
     }
 
     private static func prefixed(_ subject: String, with prefix: String, recognizing known: [String]) -> String {

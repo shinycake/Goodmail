@@ -41,10 +41,27 @@ public final class MailCommands: Sendable {
         try store.cancel(id)?.draft
     }
 
-    /// Sends a message that failed again, now.
-    public func retrySend(_ draft: Draft) throws {
-        try store.remove(draft.id)
-        try send(draft, after: .zero)
+    /// Saves `draft` with the provider, replacing the copy it was opened from.
+    public func saveDraft(_ draft: Draft) throws {
+        try enqueueNow(draft, purpose: .saveDraft)
+    }
+
+    /// Removes the provider's copy of a draft opened from it. A draft never saved needs nothing.
+    public func deleteDraft(_ draft: Draft) throws {
+        guard draft.savedDraft != nil else { return }
+        try enqueueNow(draft, purpose: .deleteDraft)
+    }
+
+    /// Tries a message that failed again, now, for the same purpose.
+    public func retrySend(_ message: OutgoingMessage) throws {
+        try store.remove(message.id)
+        try enqueueNow(message.draft, purpose: message.purpose)
+    }
+
+    private func enqueueNow(_ draft: Draft, purpose: OutgoingMessage.Purpose) throws {
+        let date = now()
+        try store.enqueue(OutgoingMessage(draft: draft, purpose: purpose, sendAt: date))
+        deliver(draft.accountID, date)
     }
 
     /// Forgets a message that failed to send.

@@ -32,6 +32,13 @@ public protocol MailProvider: Sendable {
     /// the service won't send.
     func send(_ raw: Data, inThread threadID: String?) async throws
 
+    /// Saves an RFC 5322 message as a draft, in `threadID` when it answers one, in place of the saved draft
+    /// `replacing`. A `replacing` draft that is gone is not an error: the message is saved as a new one.
+    func saveDraft(_ raw: Data, inThread threadID: String?, replacing: Message.ID?) async throws
+
+    /// Removes a saved draft. One that is already gone is not an error.
+    func deleteDraft(_ message: Message.ID) async throws
+
     /// The plain-text signature the service adds to new mail from this account; empty when there is none.
     func signature() async throws -> String
 }

@@ -77,6 +77,25 @@ struct ComposeViewModelTests {
         #expect(model.draft.body == body)
     }
 
+    @Test func aDraftFromDraftsClosesQuietlyAndSavesOrDeletesItsCopy() {
+        var saved: Draft?
+        var deleted: Draft?
+        let draft = Draft(
+            accountID: account, subject: "Plan", body: MessageBody(html: "<div>Hi</div>", plain: "Hi"),
+            savedDraft: Message.ID(accountID: account, messageID: "d1"))
+        let model = ComposeViewModel(
+            draft: draft, accountEmail: "me@example.com", signature: "Dana", saveDraft: { saved = $0 },
+            deleteDraft: { deleted = $0 }, send: { _ in })
+        #expect(model.draft.body.plain == "Hi", "no second signature")
+        #expect(!model.hasChanges(body: draft.body))
+        #expect(model.canSaveDraft)
+        model.saveDraft(body: MessageBody(plain: "Hi there"))
+        #expect(saved?.body.plain == "Hi there")
+        #expect(saved?.savedDraft == draft.savedDraft)
+        model.deleteDraft()
+        #expect(deleted?.savedDraft == draft.savedDraft)
+    }
+
     @Test func aRestoredDraftAlwaysAsksBeforeClosing() {
         var draft = Draft(accountID: account, to: [Contact(name: nil, address: "dana@example.com")])
         draft.body = MessageBody(html: "<div dir=\"auto\">Hi</div>", plain: "Hi")

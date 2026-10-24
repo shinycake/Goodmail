@@ -9,6 +9,12 @@ public final class ThreadViewController: UIViewController {
     private let openURL: (URL) -> Void
     private let close: () -> Void
     private let starItem = UIBarButtonItem()
+    /// Reply, or Edit Draft while the newest message is an unsent draft.
+    private var replyItem = UIBarButtonItem()
+    private lazy var editDraftItem = UIBarButtonItem(
+        title: String(localized: "Edit Draft", bundle: .module, comment: "Opens a saved draft to finish it"),
+        image: UIImage(systemName: "square.and.pencil"),
+        primaryAction: UIAction { [weak self] _ in self?.viewModel.editDraft() })
     private let scrollView = UIScrollView()
     private let stack = UIStackView()
     private let subject = UILabel()
@@ -108,7 +114,7 @@ public final class ThreadViewController: UIViewController {
             guard let self else { return }
             viewModel.perform(.star(!viewModel.isStarred))
         }
-        let reply = UIBarButtonItem(
+        replyItem = UIBarButtonItem(
             title: String(localized: "Reply", bundle: .module, comment: "Composer title for a reply"),
             image: UIImage(systemName: "arrowshape.turn.up.left"),
             primaryAction: UIAction { [weak self] _ in self?.viewModel.reply(all: false) },
@@ -129,7 +135,7 @@ public final class ThreadViewController: UIViewController {
         toolbarItems = [
             item(.archive, leaves: true), item(.trash, leaves: true), .flexibleSpace(),
             item(.markRead(false), leaves: true), starItem,
-            .changeLabels { [weak self] in self?.viewModel.changeLabels() }, .fixedSpace(0), reply,
+            .changeLabels { [weak self] in self?.viewModel.changeLabels() }, .fixedSpace(0), replyItem,
         ]
     }
 
@@ -138,6 +144,11 @@ public final class ThreadViewController: UIViewController {
         let star: ThreadAction = .star(!viewModel.isStarred)
         starItem.image = UIImage(systemName: viewModel.isStarred ? "star.fill" : "star")
         starItem.accessibilityLabel = star.title
+        let answer = viewModel.draft == nil ? replyItem : editDraftItem
+        if var items = toolbarItems, let last = items.indices.last, items[last] !== answer {
+            items[last] = answer
+            toolbarItems = items
+        }
         let messages = viewModel.messages
         metadata.text = [viewModel.accountEmail, Self.countText(messages.count)]
             .filter { !$0.isEmpty }.joined(separator: " · ")
