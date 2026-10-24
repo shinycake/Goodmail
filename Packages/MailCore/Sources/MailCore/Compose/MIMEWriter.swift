@@ -1,7 +1,7 @@
 import Foundation
 
-/// Writes a draft as an RFC 5322 message: UTF-8 throughout, `multipart/alternative` with plain text and HTML,
-/// and the threading headers replies need.
+/// Writes a draft as an RFC 5322 message: UTF-8 throughout, `multipart/alternative` with plain text and HTML (inside
+/// `multipart/mixed` with the files, when there are any), and the threading headers replies need.
 public enum MIMEWriter {
     public static func message(
         for draft: Draft, from: Contact, date: Date, messageID: String,
@@ -22,25 +22,56 @@ public enum MIMEWriter {
             headers.append(("References", draft.references.map(angled).joined(separator: " ")))
         }
         headers.append(("MIME-Version", "1.0"))
-        headers.append(("Content-Type", "multipart/alternative; boundary=\"\(boundary)\""))
 
         var lines = headers.map { "\($0.0): \($0.1)" }
-        lines.append("")
+        let alternative = draft.attachments.isEmpty ? boundary : "\(boundary)-alt"
+        if draft.attachments.isEmpty {
+            lines += ["Content-Type: multipart/alternative; boundary=\"\(alternative)\"", ""]
+        } else {
+            lines += [
+                "Content-Type: multipart/mixed; boundary=\"\(boundary)\"", "",
+                "--\(boundary)",
+                "Content-Type: multipart/alternative; boundary=\"\(alternative)\"", "",
+            ]
+        }
         for (type, text) in [("text/plain", plainText(draft)), ("text/html", html(draft))] {
             lines += [
-                "--\(boundary)",
+                "--\(alternative)",
                 "Content-Type: \(type); charset=\"UTF-8\"",
                 "Content-Transfer-Encoding: base64",
                 "",
-                Data(text.utf8).base64EncodedString(options: [
-                    .lineLength76Characters, .endLineWithCarriageReturn,
-                    .endLineWithLineFeed,
-                ]),
+                base64(Data(text.utf8)),
             ]
         }
-        lines.append("--\(boundary)--")
+        lines.append("--\(alternative)--")
+        for attachment in draft.attachments {
+            lines += [
+                "--\(boundary)",
+                "Content-Type: \(attachment.mimeType); \(parameter("name", attachment.filename))",
+                "Content-Disposition: attachment; \(parameter("filename", attachment.filename))",
+                "Content-Transfer-Encoding: base64",
+                "",
+                base64(attachment.data),
+            ]
+        }
+        if !draft.attachments.isEmpty { lines.append("--\(boundary)--") }
         lines.append("")
         return Data(lines.joined(separator: "\r\n").utf8)
+    }
+
+    private static func base64(_ data: Data) -> String {
+        data.base64EncodedString(options: [.lineLength76Characters, .endLineWithCarriageReturn, .endLineWithLineFeed])
+    }
+
+    /// `name="value"`, or RFC 2231's `name*=UTF-8''…` for a value that isn't plain ASCII.
+    static func parameter(_ name: String, _ value: String) -> String {
+        if value.unicodeScalars.allSatisfy({ $0.isASCII && $0.value >= 0x20 && $0 != "\"" && $0 != "\\" }) {
+            return "\(name)=\"\(value)\""
+        }
+        let unreserved = CharacterSet(
+            charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
+        let encoded = value.addingPercentEncoding(withAllowedCharacters: unreserved) ?? value
+        return "\(name)*=UTF-8''\(encoded)"
     }
 
     static func plainText(_ draft: Draft) -> String {

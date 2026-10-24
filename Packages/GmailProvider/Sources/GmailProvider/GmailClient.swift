@@ -132,16 +132,25 @@ public struct GmailClient: MailProvider {
     }
 
     public func send(_ raw: Data, inThread threadID: String?) async throws {
-        var body = ["raw": raw.base64URLEncodedString()]
-        if let threadID { body["threadId"] = threadID }
+        var metadata: [String: String] = [:]
+        if let threadID { metadata["threadId"] = threadID }
         do {
-            let _: GmailThreadRef = try await send("users/me/messages/send", method: "POST", body: body)
+            if raw.count <= Self.jsonSendLimit {
+                metadata["raw"] = raw.base64URLEncodedString()
+                let _: GmailThreadRef = try await send("users/me/messages/send", method: "POST", body: metadata)
+            } else {
+                let _: GmailThreadRef = try await upload(raw, metadata: metadata, to: "users/me/messages/send")
+            }
         } catch let error as GmailError where error.status == 400 {
             throw ProviderError.rejected
         } catch let error as GmailError where error.status == 404 {
             throw ProviderError.notFound
         }
     }
+
+    /// Above this many bytes a message goes through the upload endpoint: as base64 inside JSON it grows by a third,
+    /// past what the JSON endpoint takes.
+    static let jsonSendLimit = 3_000_000
 
     private func get<Response: Decodable>(_ path: String, query: [URLQueryItem] = []) async throws -> Response {
         try await send(path, query: query)
@@ -151,14 +160,36 @@ public struct GmailClient: MailProvider {
         _ path: String, method: String = "GET", query: [URLQueryItem] = [], body: (any Encodable)? = nil
     ) async throws -> Response {
         let url = GmailConfiguration.apiBaseURL.appending(path: path).appending(queryItems: query)
+        return try await send(
+            url, method: method, payload: try body.map { (try JSONEncoder().encode($0), "application/json") })
+    }
+
+    /// A media upload with its JSON metadata, as one `multipart/related` request.
+    private func upload<Response: Decodable>(_ raw: Data, metadata: [String: String], to path: String)
+        async throws -> Response
+    {
+        let boundary = "goodmail-\(UUID().uuidString)"
+        var body = Data("--\(boundary)\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n".utf8)
+        body.append(try JSONEncoder().encode(metadata))
+        body.append(Data("\r\n--\(boundary)\r\nContent-Type: message/rfc822\r\n\r\n".utf8))
+        body.append(raw)
+        body.append(Data("\r\n--\(boundary)--\r\n".utf8))
+        let url = GmailConfiguration.uploadBaseURL.appending(path: path)
+            .appending(queryItems: [URLQueryItem(name: "uploadType", value: "multipart")])
+        return try await send(url, method: "POST", payload: (body, "multipart/related; boundary=\(boundary)"))
+    }
+
+    private func send<Response: Decodable>(_ url: URL, method: String, payload: (data: Data, type: String)?)
+        async throws -> Response
+    {
         var attempt = 0
         while true {
             var request = URLRequest(url: url)
             request.httpMethod = method
             request.setValue("Bearer \(try await session.validAccessToken())", forHTTPHeaderField: "Authorization")
-            if let body {
-                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-                request.httpBody = try JSONEncoder().encode(body)
+            if let payload {
+                request.setValue(payload.type, forHTTPHeaderField: "Content-Type")
+                request.httpBody = payload.data
             }
             let (data, response) = try await http.data(for: request)
             if (200..<300).contains(response.statusCode) {

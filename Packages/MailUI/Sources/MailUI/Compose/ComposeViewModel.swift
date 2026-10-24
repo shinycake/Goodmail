@@ -12,6 +12,8 @@ public final class ComposeViewModel {
     public var ccText: String
     public var bccText: String
     public var subject: String
+    /// The files going with the message.
+    public private(set) var attachments: [DraftAttachment]
     @ObservationIgnored private let sendAction: (Draft) -> Void
     @ObservationIgnored private let suggest: (String) -> [Contact]
     /// A draft that comes back with text, after Undo or a failed send, holds work closing would lose.
@@ -28,6 +30,7 @@ public final class ComposeViewModel {
         ccText = Self.text(draft.cc)
         bccText = Self.text(draft.bcc)
         subject = draft.subject
+        attachments = draft.attachments
         sendAction = send
         self.suggest = suggest
         isRestored = !(draft.body.plain ?? "").isEmpty
@@ -46,6 +49,24 @@ public final class ComposeViewModel {
         let edited = finished(body: body)
         return isRestored || edited.to != draft.to || edited.cc != draft.cc || edited.bcc != draft.bcc
             || edited.subject != draft.subject || (body.plain ?? "") != (draft.body.plain ?? "")
+            || edited.attachments != draft.attachments
+    }
+
+    /// Gmail refuses messages over 25 MB, and encoding the files adds a third.
+    static let attachmentLimit = 18_000_000
+
+    /// Adds the file unless it would take the message past what Gmail accepts. Returns whether it was added.
+    @discardableResult
+    public func attach(_ attachment: DraftAttachment) -> Bool {
+        guard attachments.reduce(attachment.data.count, { $0 + $1.data.count }) <= Self.attachmentLimit else {
+            return false
+        }
+        attachments.append(attachment)
+        return true
+    }
+
+    public func removeAttachment(_ id: DraftAttachment.ID) {
+        attachments.removeAll { $0.id == id }
     }
 
     /// Queues the message with `body` as written. Does nothing while `canSend` is false.
@@ -61,6 +82,7 @@ public final class ComposeViewModel {
         draft.bcc = Contact.list(parsing: bccText)
         draft.subject = subject
         draft.body = body
+        draft.attachments = attachments
         return draft
     }
 

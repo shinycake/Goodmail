@@ -18,6 +18,8 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
     /// `In-Reply-To` and `References`, so every mail client threads the reply.
     public var inReplyTo: String?
     public var references: [String]
+    /// Files sent with the message, in the order they were added.
+    public var attachments: [DraftAttachment]
 
     public init(
         id: UUID = UUID(),
@@ -30,7 +32,8 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
         quote: MessageBody? = nil,
         threadID: String? = nil,
         inReplyTo: String? = nil,
-        references: [String] = []
+        references: [String] = [],
+        attachments: [DraftAttachment] = []
     ) {
         self.id = id
         self.accountID = accountID
@@ -43,6 +46,30 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
         self.threadID = threadID
         self.inReplyTo = inReplyTo
         self.references = references
+        self.attachments = attachments
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, accountID, to, cc, bcc, subject, body, quote, threadID, inReplyTo, references, attachments
+    }
+
+    /// Drafts saved before attachments existed decode with none.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try container.decode(UUID.self, forKey: .id),
+            accountID: try container.decode(AccountID.self, forKey: .accountID),
+            to: try container.decode([Contact].self, forKey: .to),
+            cc: try container.decode([Contact].self, forKey: .cc),
+            bcc: try container.decode([Contact].self, forKey: .bcc),
+            subject: try container.decode(String.self, forKey: .subject),
+            body: try container.decode(MessageBody.self, forKey: .body),
+            quote: try container.decodeIfPresent(MessageBody.self, forKey: .quote),
+            threadID: try container.decodeIfPresent(String.self, forKey: .threadID),
+            inReplyTo: try container.decodeIfPresent(String.self, forKey: .inReplyTo),
+            references: try container.decode([String].self, forKey: .references),
+            attachments: try container.decodeIfPresent([DraftAttachment].self, forKey: .attachments) ?? []
+        )
     }
 
     public var recipients: [Contact] { to + cc + bcc }
@@ -150,6 +177,21 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
         if let html = message.body.html, !html.isEmpty { return HTMLText.bodyContent(of: html) }
         return (message.body.plain ?? "").split(separator: "\n", omittingEmptySubsequences: false)
             .map { $0.isEmpty ? "<br>" : "<div dir=\"auto\">\(HTMLText.escape(String($0)))</div>" }.joined()
+    }
+}
+
+/// A file added to a message being written.
+public struct DraftAttachment: Identifiable, Hashable, Codable, Sendable {
+    public let id: UUID
+    public var filename: String
+    public var mimeType: String
+    public var data: Data
+
+    public init(id: UUID = UUID(), filename: String, mimeType: String, data: Data) {
+        self.id = id
+        self.filename = filename
+        self.mimeType = mimeType
+        self.data = data
     }
 }
 

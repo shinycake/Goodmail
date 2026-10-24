@@ -88,6 +88,32 @@ struct GmailSyncTests {
         #expect(fields["maxResults"] == "50")
     }
 
+    @Test func smallMessagesGoAsJSONInTheirThread() async throws {
+        let (gmail, http) = try await client(["/gmail/v1/users/me/messages/send": [.init(fixture: "message-sent")]])
+        try await gmail.send(Data("Subject: Hi\r\n\r\nHello".utf8), inThread: "t1")
+        let request = try #require(http.requests.last)
+        let body = try JSONDecoder().decode([String: String].self, from: try #require(request.httpBody))
+        #expect(body["threadId"] == "t1")
+        #expect(body["raw"] == Data("Subject: Hi\r\n\r\nHello".utf8).base64URLEncodedString())
+    }
+
+    @Test func largeMessagesAreUploadedWithTheirThread() async throws {
+        let (gmail, http) = try await client([
+            "/upload/gmail/v1/users/me/messages/send": [.init(fixture: "message-sent")]
+        ])
+        let raw = Data(repeating: UInt8(ascii: "a"), count: GmailClient.jsonSendLimit + 1)
+        try await gmail.send(raw, inThread: "t1")
+        let request = try #require(http.requests.last)
+        #expect(request.url?.query() == "uploadType=multipart")
+        let type = try #require(request.value(forHTTPHeaderField: "Content-Type"))
+        #expect(type.hasPrefix("multipart/related; boundary="))
+        let body = try #require(request.httpBody)
+        let text = String(decoding: body.prefix(400), as: UTF8.self)
+        #expect(text.contains("Content-Type: application/json; charset=UTF-8\r\n\r\n{\"threadId\":\"t1\"}"))
+        #expect(text.contains("Content-Type: message/rfc822\r\n\r\naaaa"))
+        #expect(body.count > raw.count)
+    }
+
     @Test func searchTextLeadsTheQuery() {
         let query = ThreadQuery(before: Date(timeIntervalSince1970: 1_800_000_000), text: "from:dana invoice")
         #expect(query.gmailSearch == "from:dana invoice before:1800000000")
