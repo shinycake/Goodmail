@@ -55,10 +55,28 @@ struct SearchStoreTests {
         #expect(try await search("final") == ["t"])
     }
 
-    @Test func operatorsKeepTheirValueLocally() async throws {
-        try database.upsert([thread("dana", sender: "Dana Levi"), thread("other", subject: "from home")])
+    @Test func readsTheFiltersItKnows() async throws {
+        var unread = thread("unread", minutesAgo: 1, subject: "Dana's notes", sender: "Someone")
+        unread.isUnread = true
+        try database.upsert([
+            unread,
+            thread("dana", minutesAgo: 2, subject: "Plans", sender: "Dana Levi", labels: ["INBOX", "STARRED"]),
+            thread("other", minutesAgo: 3, subject: "from home"),
+        ])
         #expect(try await search("from:dana") == ["dana"])
-        #expect(MailDatabase.localTerms("from:dana has:attachment 10:30") == "dana attachment 10:30")
+        #expect(try await search("from:dana@example") == ["dana"], "the address is searched too")
+        #expect(try await search("subject:dana") == ["unread"])
+        #expect(try await search("is:unread") == ["unread"])
+        #expect(try await search("is:read dana") == ["dana"])
+        #expect(try await search("is:starred") == ["dana"])
+        #expect(try await search("from:\"dana levi\" plans") == ["dana"])
+    }
+
+    @Test func leavesWhatItCannotCheckToTheProvider() async throws {
+        try database.upsert([thread("attachment", subject: "attachment"), thread("sent", subject: "Plans")])
+        let provider = [ThreadSummary.ID(accountID: one.id, threadID: "sent")]
+        #expect(try await search("has:attachment") == [])
+        #expect(try await search("in:sent plans", including: provider) == ["sent"])
     }
 
     @Test func providerMatchesJoinTheLocalOnesWithoutSpamOrTrash() async throws {

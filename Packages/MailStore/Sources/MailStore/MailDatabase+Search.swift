@@ -24,9 +24,9 @@ extension MailDatabase {
     {
         var matches: [String] = []
         var arguments: StatementArguments = []
-        if let pattern = FTS5Pattern(matchingAllPrefixesIn: localTerms(text)) {
-            matches.append("thread.rowid IN (SELECT rowid FROM threadSearch WHERE threadSearch MATCH ?)")
-            arguments += [pattern]
+        if let local = localMatch(SearchQuery(text)) {
+            matches.append(local.sql)
+            arguments += local.arguments
         }
         if !ids.isEmpty {
             // Thread IDs are only unique per account, so match the pair.
@@ -46,15 +46,41 @@ extension MailDatabase {
         return (sql, arguments + [SystemLabel.spam, SystemLabel.trash])
     }
 
-    /// The words to look for locally: Gmail operators such as `from:` are left to the provider, keeping their value.
-    static func localTerms(_ text: String) -> String {
-        text.split(whereSeparator: \.isWhitespace)
-            .map { word in
-                guard let colon = word.firstIndex(of: ":"), word[..<colon].allSatisfy(\.isLetter) else {
-                    return word
-                }
-                return word[word.index(after: colon)...]
+    /// The condition for the threads matching `query` here, or nil when there is nothing to match or the query asks
+    /// for something only the provider knows, such as `has:attachment`: then its matches stand alone.
+    static func localMatch(_ query: SearchQuery) -> (sql: String, arguments: StatementArguments)? {
+        var words: [String] = []
+        var patterns: [String] = []
+        var conditions: [String] = []
+        var arguments: StatementArguments = []
+        for term in query.terms {
+            switch (term.name, term.value.lowercased()) {
+            case (nil, _): words.append(term.value)
+            case ("is", "unread"): conditions.append("thread.isUnread")
+            case ("is", "read"): conditions.append("NOT thread.isUnread")
+            case ("is", "starred"):
+                conditions.append(
+                    """
+                    EXISTS (SELECT 1 FROM threadLabel AS starred
+                        WHERE starred.accountID = thread.accountID AND starred.threadID = thread.id
+                        AND starred.labelID = ?)
+                    """)
+                arguments += [SystemLabel.starred]
+            case ("from", _), ("subject", _):
+                guard let pattern = FTS5Pattern(matchingAllPrefixesIn: term.value) else { return nil }
+                let columns = term.name == "from" ? "{senderName senderAddress}" : "subject"
+                patterns.append("\(columns) : (\(pattern.rawPattern))")
+            default: return nil
             }
-            .joined(separator: " ")
+        }
+        if let pattern = FTS5Pattern(matchingAllPrefixesIn: words.joined(separator: " ")) {
+            patterns.append(pattern.rawPattern)
+        }
+        if !patterns.isEmpty {
+            conditions.insert("thread.rowid IN (SELECT rowid FROM threadSearch WHERE threadSearch MATCH ?)", at: 0)
+            arguments = [patterns.map { "(\($0))" }.joined(separator: " AND ")] + arguments
+        }
+        guard !conditions.isEmpty else { return nil }
+        return ("(" + conditions.joined(separator: " AND ") + ")", arguments)
     }
 }
