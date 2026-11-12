@@ -45,6 +45,12 @@ done < <(git ls-files --cached --others --exclude-standard -- '*.swift' '*.ts' '
 
 [[ "${1:-}" == "--lint" ]] && exit 0
 
+# The push Worker (ADR-006): typecheck and tests, only where its dev tooling is installed (npm install in PushWorker/).
+if [[ -d PushWorker/node_modules ]]; then
+    step "PushWorker typecheck and tests"
+    (cd PushWorker && npm run --silent check)
+fi
+
 check_simulator=$(xcrun simctl list devices available | grep -m1 -F "$CHECK_NAME (" | grep -oE '[0-9A-F-]{36}' || true)
 if [[ -z "$check_simulator" ]]; then
     check_simulator=$(xcrun simctl create "$CHECK_NAME" "${GOODMAIL_SIMULATOR:-iPhone 18 Pro}")
