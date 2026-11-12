@@ -1,19 +1,31 @@
 import MailCore
 import UIKit
 
-/// The mailboxes, then the user's labels. The window's root; the Inbox opens on top of it at launch.
+/// The mailboxes, then the user's labels. In a narrow window it is the root, with the Inbox open on top of it at
+/// launch; in a wide one it is the sidebar, keeping the open mailbox selected.
 public final class MailboxesViewController: UIViewController {
+    public enum Style {
+        case list
+        case sidebar
+    }
+
     nonisolated private enum Section: Hashable {
         case standard, labels
     }
 
     private let viewModel: MailboxesViewModel
+    private let style: Style
+    /// The mailbox shown beside the sidebar, kept selected in it.
+    public var selectedMailbox: Mailbox? {
+        didSet { selectShownMailbox() }
+    }
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Section, MailboxesViewModel.Item>!
     private var observation: Task<Void, Never>?
 
-    public init(viewModel: MailboxesViewModel) {
+    public init(viewModel: MailboxesViewModel, style: Style = .list) {
         self.viewModel = viewModel
+        self.style = style
         super.init(nibName: nil, bundle: nil)
         title = String(localized: "Mailboxes", bundle: .module, comment: "Title of the list of mailboxes")
         navigationItem.largeTitleDisplayMode = .always
@@ -28,7 +40,7 @@ public final class MailboxesViewController: UIViewController {
 
     public override func viewDidLoad() {
         super.viewDidLoad()
-        var list = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
+        var list = UICollectionLayoutListConfiguration(appearance: style == .sidebar ? .sidebar : .insetGrouped)
         list.headerMode = .supplementary
         collectionView = UICollectionView(
             frame: view.bounds, collectionViewLayout: UICollectionViewCompositionalLayout.list(using: list))
@@ -53,8 +65,10 @@ public final class MailboxesViewController: UIViewController {
 
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        for indexPath in collectionView.indexPathsForSelectedItems ?? [] {
-            collectionView.deselectItem(at: indexPath, animated: animated)
+        if style == .list {
+            for indexPath in collectionView.indexPathsForSelectedItems ?? [] {
+                collectionView.deselectItem(at: indexPath, animated: animated)
+            }
         }
         navigationController?.setToolbarHidden(false, animated: animated)
         navigationController?.navigationBar.prefersLargeTitles = true
@@ -75,17 +89,27 @@ public final class MailboxesViewController: UIViewController {
             snapshot.appendItems(labels, toSection: .labels)
         }
         dataSource.apply(snapshot, animatingDifferences: collectionView.window != nil)
+        selectShownMailbox()
+    }
+
+    private func selectShownMailbox() {
+        guard style == .sidebar, let dataSource else { return }
+        let item = dataSource.snapshot().itemIdentifiers.first { $0.mailbox == selectedMailbox }
+        guard let indexPath = item.flatMap(dataSource.indexPath(for:)) else { return }
+        collectionView.selectItem(at: indexPath, animated: false, scrollPosition: [])
     }
 
     private func configureDataSource() {
+        let style = style
         let row = UICollectionView.CellRegistration<UICollectionViewListCell, MailboxesViewModel.Item> {
             cell, _, item in
-            var content = UIListContentConfiguration.cell()
+            var content =
+                style == .sidebar ? UIListContentConfiguration.sidebarCell() : UIListContentConfiguration.cell()
             content.text = item.title
             content.image = UIImage(systemName: item.mailbox.symbol)
             content.imageProperties.tintColor = UIColor(labelColor: item.color) ?? .tintColor
             cell.contentConfiguration = content
-            var accessories: [UICellAccessory] = [.disclosureIndicator()]
+            var accessories: [UICellAccessory] = style == .sidebar ? [] : [.disclosureIndicator()]
             if item.unreadCount > 0 {
                 accessories.insert(.label(text: item.unreadCount.formatted()), at: 0)
             }
