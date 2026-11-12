@@ -2,22 +2,24 @@ import Foundation
 import MailCore
 import Observation
 
+/// What a mailbox list shows: one list of threads, or the Inbox split into Gmail's categories with one of them shown.
+public enum MailboxSource {
+    case flat(() -> AsyncThrowingStream<[ThreadSummary], any Error>)
+    case categorised(InboxCategories, selected: InboxCategory)
+}
+
 /// Where the Inbox's categories come from: the threads under one, and the unread counts for the menu.
 public struct InboxCategories {
-    /// The category shown first.
-    let selected: InboxCategory
     let threads: (InboxCategory) -> AsyncThrowingStream<[ThreadSummary], any Error>
     let unreadCounts: () -> AsyncThrowingStream<[InboxCategory: Int], any Error>
     /// Told of each category the reader picks, so a rebuilt list can open on it.
     let didSelect: (InboxCategory) -> Void
 
     public init(
-        selected: InboxCategory = .primary,
         threads: @escaping (InboxCategory) -> AsyncThrowingStream<[ThreadSummary], any Error>,
         unreadCounts: @escaping () -> AsyncThrowingStream<[InboxCategory: Int], any Error>,
         didSelect: @escaping (InboxCategory) -> Void = { _ in }
     ) {
-        self.selected = selected
         self.threads = threads
         self.unreadCounts = unreadCounts
         self.didSelect = didSelect
@@ -46,16 +48,17 @@ public final class MailboxViewModel {
     public let mailbox: Mailbox
     public let title: String
     /// The category the list shows, or `nil` when the mailbox isn't split into categories.
-    public private(set) var category: InboxCategory?
+    public var category: InboxCategory? {
+        guard case .categorised(_, let selected) = source else { return nil }
+        return selected
+    }
     /// Unread threads per category, for the menu; categories with none are left out.
     public private(set) var categoryUnreadCounts: [InboxCategory: Int] = [:]
     /// The account new messages come from: the first one, until the composer offers a choice.
     @ObservationIgnored private let composingAccount: AccountID?
 
-    @ObservationIgnored private let threads: () -> AsyncThrowingStream<[ThreadSummary], any Error>
-    @ObservationIgnored private let categories: InboxCategories?
-    @ObservationIgnored private let selections: AsyncStream<InboxCategory>
-    @ObservationIgnored private let selectionsContinuation: AsyncStream<InboxCategory>.Continuation
+    /// Changed only by `select`.
+    private var source: MailboxSource
     @ObservationIgnored private let refreshAction: () async throws -> Void
     @ObservationIgnored private let loadOlderAction: () async throws -> Bool
     @ObservationIgnored private let navigate: (Route) -> Void
@@ -67,8 +70,7 @@ public final class MailboxViewModel {
         mailbox: Mailbox = .inbox,
         title: String? = nil,
         accounts: [Account],
-        threads: @escaping () -> AsyncThrowingStream<[ThreadSummary], any Error>,
-        categories: InboxCategories? = nil,
+        source: MailboxSource,
         refresh: @escaping () async throws -> Void,
         loadOlder: @escaping () async throws -> Bool = { false },
         navigate: @escaping (Route) -> Void = { _ in },
@@ -81,13 +83,7 @@ public final class MailboxViewModel {
         self.title = title ?? mailbox.title(labels: [])
         composingAccount = accounts.first?.id
         accountColors = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0.color) })
-        self.threads = threads
-        self.categories = categories
-        (selections, selectionsContinuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
-        if let categories {
-            category = categories.selected
-            selectionsContinuation.yield(categories.selected)
-        }
+        self.source = source
         refreshAction = refresh
         loadOlderAction = loadOlder
         self.navigate = navigate
@@ -97,23 +93,26 @@ public final class MailboxViewModel {
 
     /// Follows the store until the calling task is cancelled.
     public func observe() async {
-        guard let categories else { return await follow(threads()) }
-        async let counts: Void = followUnreadCounts()
-        // Each selection replaces the list it follows.
-        var following: Task<Void, Never>?
-        for await category in selections {
+        switch source {
+        case .flat(let threads):
+            await follow(threads())
+        case .categorised(let categories, _):
+            async let counts: Void = followUnreadCounts(categories)
+            // Each selection replaces the list it follows.
+            var following: Task<Void, Never>?
+            for await case let category? in Observations({ self.category }) {
+                following?.cancel()
+                following = Task { await follow(categories.threads(category)) }
+            }
             following?.cancel()
-            following = Task { await follow(categories.threads(category)) }
+            await counts
         }
-        following?.cancel()
-        await counts
     }
 
     /// Shows the threads under `category`.
     public func select(_ category: InboxCategory) {
-        guard let categories, category != self.category else { return }
-        self.category = category
-        selectionsContinuation.yield(category)
+        guard case .categorised(let categories, let selected) = source, category != selected else { return }
+        source = .categorised(categories, selected: category)
         categories.didSelect(category)
     }
 
@@ -123,8 +122,7 @@ public final class MailboxViewModel {
         return InboxCategory.allCases.first { $0 != category && categoryUnreadCounts[$0, default: 0] > 0 }
     }
 
-    private func followUnreadCounts() async {
-        guard let categories else { return }
+    private func followUnreadCounts(_ categories: InboxCategories) async {
         do {
             for try await counts in categories.unreadCounts() { categoryUnreadCounts = counts }
         } catch {}
@@ -141,8 +139,9 @@ public final class MailboxViewModel {
                     Section(id: $0.section, title: $0.section.title(now: now, calendar: calendar), threads: $0.items)
                 }
                 // A list too short to scroll never nears its end, so fetch older mail now: Spam and Trash start
-                // empty, and a quiet label may hold only a few threads in the window.
-                if threads.count < Self.shortList { Task { await loadOlderIfNeeded() } }
+                // empty, and a quiet label may hold only a few threads in the window. Not for one category: older
+                // pages are the whole Inbox's, and Forums may stay short however many of them come.
+                if case .flat = source, threads.count < Self.shortList { Task { await loadOlderIfNeeded() } }
             }
         } catch {
             if !Task.isCancelled { refreshError = error }

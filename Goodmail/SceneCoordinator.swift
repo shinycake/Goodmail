@@ -20,6 +20,7 @@ final class SceneCoordinator: NSObject {
         var mailbox = Mailbox.inbox
         var title: String?
         var thread: ThreadSummary.ID?
+        /// The Inbox's category, so a rebuilt Inbox opens on it.
         var category = InboxCategory.primary
     }
 
@@ -207,8 +208,7 @@ final class SceneCoordinator: NSObject {
                 mailbox: mailbox,
                 title: title,
                 accounts: model.accounts,
-                threads: { model.database.threads(in: mailbox) },
-                categories: categories(for: mailbox),
+                source: source(for: mailbox),
                 refresh: { try await model.syncAll() },
                 loadOlder: { try await model.loadOlder(mailbox) },
                 navigate: { [weak self] route in self?.handle(route) },
@@ -217,16 +217,19 @@ final class SceneCoordinator: NSObject {
             searchResults: results)
     }
 
-    /// Gmail's categories, for the Inbox when any account sorts it.
-    private func categories(for mailbox: Mailbox) -> InboxCategories? {
-        let unsorted = Preferences.unsortedInboxAccounts
-        guard mailbox == .inbox, model.accounts.contains(where: { !unsorted.contains($0.id) }) else { return nil }
+    /// The Inbox split into Gmail's categories when any account sorts it, opening on the one last shown; any other
+    /// mailbox as one list.
+    private func source(for mailbox: Mailbox) -> MailboxSource {
         let database = model.database
-        return InboxCategories(
-            selected: shown.category,
+        let unsorted = Preferences.unsortedInboxAccounts
+        guard mailbox == .inbox, model.accounts.contains(where: { !unsorted.contains($0.id) }) else {
+            return .flat { database.threads(in: mailbox) }
+        }
+        let categories = InboxCategories(
             threads: { database.threads(in: mailbox, category: $0, unsorted: unsorted) },
             unreadCounts: { database.categoryUnreadCounts(in: mailbox, unsorted: unsorted) },
             didSelect: { [weak self] in self?.shown.category = $0 })
+        return .categorised(categories, selected: shown.category)
     }
 
     /// The one place navigation happens (ADR-011).

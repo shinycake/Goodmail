@@ -18,19 +18,21 @@ struct InboxCategoryTests {
     /// A store with one thread per category, named after it, and these unread counts.
     private func viewModel(
         unread: [InboxCategory: Int] = [:], selected: InboxCategory = .primary,
-        didSelect: @escaping (InboxCategory) -> Void = { _ in }
+        didSelect: @escaping (InboxCategory) -> Void = { _ in },
+        loadOlder: @escaping () async throws -> Bool = { false }
     ) -> MailboxViewModel {
         MailboxViewModel(
             accounts: [account],
-            threads: { AsyncThrowingStream { _ in Issue.record("a split Inbox follows its categories") } },
-            categories: InboxCategories(
-                selected: selected,
-                threads: { [thread] category in
-                    AsyncThrowingStream { $0.yield(category == .forums ? [] : [thread(category.rawValue)]) }
-                },
-                unreadCounts: { AsyncThrowingStream { $0.yield(unread) } },
-                didSelect: didSelect),
-            refresh: {})
+            source: .categorised(
+                InboxCategories(
+                    threads: { [thread] category in
+                        AsyncThrowingStream { $0.yield(category == .forums ? [] : [thread(category.rawValue)]) }
+                    },
+                    unreadCounts: { AsyncThrowingStream { $0.yield(unread) } },
+                    didSelect: didSelect),
+                selected: selected),
+            refresh: {},
+            loadOlder: loadOlder)
     }
 
     private func shownThreads(_ viewModel: MailboxViewModel) -> [String] {
@@ -87,10 +89,43 @@ struct InboxCategoryTests {
         #expect(viewModel.categoryWithUnread == nil, "nothing unread outside Social")
     }
 
+    @Test func aShortCategoryDoesNotPageTheWholeInbox() async {
+        var pages = 0
+        let viewModel = viewModel(
+            selected: .forums,
+            loadOlder: {
+                pages += 1
+                return true
+            })
+        let observing = Task { await viewModel.observe() }
+        defer { observing.cancel() }
+        await waitUntil { viewModel.hasLoaded }
+        viewModel.select(.social)
+        await waitUntil { shownThreads(viewModel) == ["social"] }
+        for _ in 0..<100 { await Task.yield() }
+
+        #expect(pages == 0)
+        #expect(!viewModel.isLoadingOlder)
+    }
+
+    @Test func aShortUncategorisedListFetchesOlderMail() async {
+        var pages = 0
+        let viewModel = MailboxViewModel(
+            mailbox: .spam, accounts: [account], source: .flat { AsyncThrowingStream { $0.yield([]) } },
+            refresh: {},
+            loadOlder: {
+                pages += 1
+                return false
+            })
+        let observing = Task { await viewModel.observe() }
+        defer { observing.cancel() }
+        await waitUntil { pages == 1 }
+    }
+
     @Test func otherMailboxesHaveNoCategories() async {
         let viewModel = MailboxViewModel(
             mailbox: .starred, accounts: [account],
-            threads: { [thread] in
+            source: .flat { [thread] in
                 AsyncThrowingStream {
                     $0.yield([thread("starred")])
                     $0.finish()
