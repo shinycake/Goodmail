@@ -127,8 +127,8 @@ The owner decided these on 2026-10-20 after talking through the options. Each en
 
 - **Branching:** short-lived branches, one vertical slice per PR, squash-merged into `main`, linear history.
 - **The gate:** `scripts/check` runs format lint, the line cap, the build and the tests. A tracked pre-push hook (`.githooks`, `core.hooksPath`) runs it. Each PR description includes its output and other evidence (screenshots, recordings).
-- **Merging:** Claude merges its own PRs once the gate passes. The owner reviews evidence afterwards, and feedback becomes follow-up PRs.
-- **CI:** advisory only, on GitHub Actions Linux runners: format lint, the line cap, Worker tests. There are no required checks and no branch-protection gates. Xcode Cloud comes later, only for TestFlight builds.
+- **Merging:** superseded by ADR-016. PRs merge through the review pipeline, not by hand. The owner reviews evidence afterwards, and feedback becomes follow-up PRs.
+- **CI:** GitHub Actions Linux runners: format lint and the line cap. Xcode Cloud comes later, only for TestFlight builds.
 - **Merge-conflict hygiene:**
   - Code lives in local packages, and the app target uses Xcode synchronized (buildable) folders, so adding files doesn't edit `project.pbxproj`.
   - `swift format`, which ships with the toolchain, auto-formats.
@@ -149,3 +149,11 @@ The owner decided these on 2026-10-20 after talking through the options. Each en
   - Xcode 27.2 or later to create and convert projects. Projects in the new format still open in earlier Xcode 27 versions.
   - Apple's `xcode-project-format` Swift library is available for scripted edits if ever needed. It's a dependency, so it needs approval first.
 - **Note:** ADR-014's line-cap exemption for `project.pbxproj` applies to `project.xcproj` instead.
+
+## ADR-016: Claude review gates every merge
+
+- **Decision (owner, 2026-11-12):** every PR is reviewed on GitHub by Claude (`claude-code-action` in `.github/workflows/review.yml`) against [docs/review.md](../review.md). When the review approves and lint is green, the workflow squash-merges the exact commit it reviewed.
+- **Why:** a fully autonomous process where review findings are visible on GitHub, with a standard (no implicit state machines, the 1000-line cap, thermo-nuclear code quality) that doesn't depend on which session wrote the code.
+- **How it's enforced:** the repo is private on a free plan, so GitHub's branch protection and native auto-merge are unavailable. The workflow is the gate: the merge job runs only after both jobs pass, and `--match-head-commit` refuses to merge a commit that wasn't reviewed.
+- **Exceptions:** a `hold` label stops the merge; PRs that change `.github/` are merged by the owner, because they change the gate; drafts aren't reviewed. The Claude action enforces the first part itself: it refuses to run when a PR's `review.yml` differs from main's, so a PR can't rewrite its own reviewer.
+- **Setup:** the Claude GitHub app is installed on the repo, and the `CLAUDE_CODE_OAUTH_TOKEN` secret comes from `claude setup-token`.
