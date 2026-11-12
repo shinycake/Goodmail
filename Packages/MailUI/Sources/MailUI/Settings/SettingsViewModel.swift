@@ -12,6 +12,10 @@ public final class SettingsViewModel {
     public var undoSendSeconds: Int {
         didSet { Preferences.undoSendSeconds = undoSendSeconds }
     }
+    /// Accounts whose Inbox isn't split into categories.
+    public var unsortedInboxAccounts: Set<AccountID> {
+        didSet { Preferences.unsortedInboxAccounts = unsortedInboxAccounts }
+    }
 
     @ObservationIgnored private let add: () async throws -> Bool
     @ObservationIgnored private let remove: (AccountID) async throws -> Void
@@ -29,6 +33,7 @@ public final class SettingsViewModel {
     ) {
         self.accounts = accounts()
         undoSendSeconds = Preferences.undoSendSeconds
+        unsortedInboxAccounts = Preferences.unsortedInboxAccounts
         reload = accounts
         self.add = add
         self.remove = remove
@@ -53,6 +58,19 @@ public final class SettingsViewModel {
             self.error = error
         }
         accounts = reload()
+    }
+
+    /// Whether the account's Inbox is split into Gmail's categories.
+    func sortsInbox(_ account: AccountID) -> Bool {
+        !unsortedInboxAccounts.contains(account)
+    }
+
+    func setSortsInbox(_ sorts: Bool, for account: AccountID) {
+        if sorts {
+            unsortedInboxAccounts.remove(account)
+        } else {
+            unsortedInboxAccounts.insert(account)
+        }
     }
 
     func didClose() {

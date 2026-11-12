@@ -29,7 +29,7 @@ public final class SearchResultsController: UIViewController, UISearchResultsUpd
                 mailbox: .allMail,
                 title: String(localized: "Search", bundle: .module, comment: "Title of the search results list"),
                 accounts: accounts,
-                threads: { search.results() },
+                source: .flat { search.results() },
                 refresh: { try await search.refresh() },
                 // The search knows when its text has no more pages, but the text changes under this list, so the
                 // list never stops asking.

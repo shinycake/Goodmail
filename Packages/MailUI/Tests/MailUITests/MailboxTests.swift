@@ -85,7 +85,7 @@ struct MailboxTests {
         }
         let viewModel = MailboxViewModel(
             accounts: [account],
-            threads: {
+            source: .flat {
                 AsyncThrowingStream {
                     $0.yield(threads)
                     $0.finish()
@@ -107,7 +107,7 @@ struct MailboxTests {
         var fail = true
         let viewModel = MailboxViewModel(
             accounts: [],
-            threads: { AsyncThrowingStream { $0.finish() } },
+            source: .flat { AsyncThrowingStream { $0.finish() } },
             refresh: { if fail { throw Offline() } }
         )
         await viewModel.refresh()
@@ -124,7 +124,7 @@ struct MailboxTests {
         var replies: [Result<Bool, any Error>] = [.failure(Offline()), .success(true), .success(false)]
         let viewModel = MailboxViewModel(
             accounts: [],
-            threads: { AsyncThrowingStream { $0.finish() } },
+            source: .flat { AsyncThrowingStream { $0.finish() } },
             refresh: {},
             loadOlder: {
                 calls += 1

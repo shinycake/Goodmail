@@ -82,7 +82,7 @@ struct MailboxesTests {
         let viewModel = MailboxViewModel(
             mailbox: .trash,
             accounts: [account],
-            threads: {
+            source: .flat {
                 AsyncThrowingStream {
                     $0.yield([])
                     $0.finish()

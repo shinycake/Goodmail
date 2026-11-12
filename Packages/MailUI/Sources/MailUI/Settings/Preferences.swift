@@ -1,4 +1,5 @@
 import Foundation
+import MailCore
 
 /// The reader's choices, kept on this device.
 public enum Preferences {
@@ -11,6 +12,13 @@ public enum Preferences {
         set { defaults.set(newValue, forKey: undoSendKey) }
     }
 
+    /// Accounts whose Inbox isn't split into Gmail's categories: all of their Inbox shows as Primary.
+    public static var unsortedInboxAccounts: Set<AccountID> {
+        get { Set((defaults.stringArray(forKey: unsortedInboxKey) ?? []).map(AccountID.init(rawValue:))) }
+        set { defaults.set(newValue.map(\.rawValue).sorted(), forKey: unsortedInboxKey) }
+    }
+
     private static let undoSendKey = "undoSendSeconds"
+    private static let unsortedInboxKey = "unsortedInboxAccounts"
     nonisolated(unsafe) private static let defaults = UserDefaults.standard
 }

@@ -20,6 +20,8 @@ final class SceneCoordinator: NSObject {
         var mailbox = Mailbox.inbox
         var title: String?
         var thread: ThreadSummary.ID?
+        /// The Inbox's category, so a rebuilt Inbox opens on it.
+        var category = InboxCategory.primary
     }
 
     init(window: UIWindow, model: AppModel) {
@@ -72,6 +74,7 @@ final class SceneCoordinator: NSObject {
         guard let presenter = topViewController() else { return }
         let model = model
         let before = model.accounts.map(\.id)
+        let unsortedBefore = Preferences.unsortedInboxAccounts
         let viewModel = SettingsViewModel(
             accounts: { model.accounts },
             add: { [weak self] in
@@ -80,7 +83,9 @@ final class SceneCoordinator: NSObject {
             },
             remove: { try await model.removeAccount($0) },
             closed: { [weak self] in
-                guard let self, model.accounts.map(\.id) != before else { return }
+                guard let self,
+                    model.accounts.map(\.id) != before || Preferences.unsortedInboxAccounts != unsortedBefore
+                else { return }
                 model.accounts.isEmpty ? showWelcome() : showMailbox()
             })
         presenter.present(SettingsScreen.make(model: viewModel), animated: true)
@@ -207,13 +212,28 @@ final class SceneCoordinator: NSObject {
                 mailbox: mailbox,
                 title: title,
                 accounts: model.accounts,
-                threads: { model.database.threads(in: mailbox) },
+                source: source(for: mailbox),
                 refresh: { try await model.syncAll() },
                 loadOlder: { try await model.loadOlder(mailbox) },
                 navigate: { [weak self] route in self?.handle(route) },
                 actions: actions
             ),
             searchResults: results)
+    }
+
+    /// The Inbox split into Gmail's categories when any account sorts it, opening on the one last shown; any other
+    /// mailbox as one list.
+    private func source(for mailbox: Mailbox) -> MailboxSource {
+        let database = model.database
+        let unsorted = Preferences.unsortedInboxAccounts
+        guard mailbox == .inbox, model.accounts.contains(where: { !unsorted.contains($0.id) }) else {
+            return .flat { database.threads(in: mailbox) }
+        }
+        let categories = InboxCategories(
+            threads: { database.threads(in: mailbox, category: $0, unsorted: unsorted) },
+            unreadCounts: { database.categoryUnreadCounts(in: mailbox, unsorted: unsorted) },
+            didSelect: { [weak self] in self?.shown.category = $0 })
+        return .categorised(categories, selected: shown.category)
     }
 
     /// The one place navigation happens (ADR-011).
