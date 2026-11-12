@@ -36,19 +36,43 @@ export async function removeToken(db: D1Database, token: string): Promise<void> 
   await db.prepare("DELETE FROM devices WHERE device_token = ?1").bind(token).run();
 }
 
+/** A history ID recorded as the newest pushed for an account, and the one it replaced, so a failed send can undo it. */
+export interface HistoryClaim {
+  account: string;
+  historyId: string;
+  previous: string | null;
+}
+
 /**
- * Records `historyId` as the newest one pushed for `account`, in a single conditional write. Returns false when it
- * is a duplicate delivery or not newer than the last one recorded, so the caller drops it.
+ * Records `historyId` as the newest one pushed for `account`, in a single conditional write. Returns undefined when
+ * it is a duplicate delivery or not newer than the last one recorded, so the caller drops it.
  */
-export async function claimHistoryId(db: D1Database, account: string, historyId: string): Promise<boolean> {
+export async function claimHistoryId(db: D1Database, account: string, historyId: string): Promise<HistoryClaim | undefined> {
   const padded = historyId.padStart(20, "0");
-  const result = await db
-    .prepare(
-      `INSERT INTO deliveries (account, history_id) VALUES (?1, ?2)
-       ON CONFLICT (account) DO UPDATE SET history_id = excluded.history_id
-       WHERE excluded.history_id > deliveries.history_id`,
-    )
-    .bind(account, padded)
-    .run();
-  return result.meta.changes === 1;
+  const [before, write] = await db.batch<{ history_id: string }>([
+    db.prepare("SELECT history_id FROM deliveries WHERE account = ?1").bind(account),
+    db
+      .prepare(
+        `INSERT INTO deliveries (account, history_id) VALUES (?1, ?2)
+         ON CONFLICT (account) DO UPDATE SET history_id = excluded.history_id
+         WHERE excluded.history_id > deliveries.history_id`,
+      )
+      .bind(account, padded),
+  ]);
+  if (write?.meta.changes !== 1) return undefined;
+  return { account, historyId: padded, previous: before?.results[0]?.history_id ?? null };
+}
+
+/**
+ * Undoes a claim whose alert reached no device, so Pub/Sub's redelivery is sent instead of dropped. A newer claim
+ * made since is left alone.
+ */
+export async function releaseHistoryId(db: D1Database, claim: HistoryClaim): Promise<void> {
+  const statement =
+    claim.previous === null
+      ? db.prepare("DELETE FROM deliveries WHERE account = ?1 AND history_id = ?2").bind(claim.account, claim.historyId)
+      : db
+          .prepare("UPDATE deliveries SET history_id = ?3 WHERE account = ?1 AND history_id = ?2")
+          .bind(claim.account, claim.historyId, claim.previous);
+  await statement.run();
 }

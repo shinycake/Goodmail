@@ -1,8 +1,16 @@
-import { type ApnsEnvironment, ApnsSigner, newMailPayload, sendPush } from "./apns";
+import { type ApnsConfig, type ApnsEnvironment, ApnsSigner, newMailPayload, type PushOutcome, sendPush } from "./apns";
 import { base64Decode } from "./encoding";
 import type { Env } from "./env";
 import { GoogleKeys, TokenError, verifyIdToken, verifyPubSubToken } from "./google";
-import { accountId, claimHistoryId, devicesFor, registerDevice, removeToken, unregisterDevice } from "./store";
+import {
+  accountId,
+  claimHistoryId,
+  devicesFor,
+  registerDevice,
+  releaseHistoryId,
+  removeToken,
+  unregisterDevice,
+} from "./store";
 
 export type { Env } from "./env";
 
@@ -52,8 +60,8 @@ async function authenticateDevice(body: Record<string, unknown>, env: Env): Prom
 
 async function register(request: Request, env: Env): Promise<Response> {
   const body = await readJson(request);
-  const environment = body.environment as ApnsEnvironment;
-  if (!ENVIRONMENTS.includes(environment)) throw new BadRequest("environment must be sandbox or production");
+  const environment = ENVIRONMENTS.find((candidate) => candidate === body.environment);
+  if (!environment) throw new BadRequest("environment must be sandbox or production");
   const { account, token } = await authenticateDevice(body, env);
   await registerDevice(env.DB, account, { token, environment }, Date.now());
   return new Response(null, { status: 204 });
@@ -81,15 +89,29 @@ async function pubSubPush(request: Request, env: Env): Promise<Response> {
   const account = await accountId(emailAddress, env.EMAIL_HMAC_SECRET);
   const devices = await devicesFor(env.DB, account);
   if (devices.length === 0) return new Response(null, { status: 204 });
-  if (!(await claimHistoryId(env.DB, account, historyId))) return new Response(null, { status: 204 });
+  const claim = await claimHistoryId(env.DB, account, historyId);
+  if (!claim) return new Response(null, { status: 204 });
 
-  const signer = signerFor(env);
-  const payload = newMailPayload(emailAddress, historyId);
-  await Promise.all(
-    devices.map(async (device) => {
-      if ((await sendPush(signer, device, payload)) === "gone") await removeToken(env.DB, device.token);
-    }),
-  );
+  // Pub/Sub's redelivery is the only retry, so an alert that reached no device gives its claim back and asks for it.
+  let outcomes: PushOutcome[];
+  try {
+    const signer = signerFor(env);
+    const payload = newMailPayload(emailAddress, historyId);
+    outcomes = await Promise.all(
+      devices.map(async (device) => {
+        const outcome = await sendPush(signer, device, payload);
+        if (outcome === "gone") await removeToken(env.DB, device.token);
+        return outcome;
+      }),
+    );
+  } catch (error) {
+    await releaseHistoryId(env.DB, claim);
+    throw error;
+  }
+  if (outcomes.includes("failed") && !outcomes.includes("delivered")) {
+    await releaseHistoryId(env.DB, claim);
+    return new Response(null, { status: 503 });
+  }
   return new Response(null, { status: 204 });
 }
 
@@ -111,20 +133,14 @@ async function decodeNotification(request: Request): Promise<{ emailAddress: str
   }
 }
 
+/** The isolate's signer, rebuilt only when the APNs secrets change. */
 function signerFor(env: Env): ApnsSigner {
-  const config = {
+  const config: ApnsConfig = {
     keyId: env.APNS_KEY_ID,
     teamId: env.APNS_TEAM_ID,
     privateKey: env.APNS_PRIVATE_KEY,
     topic: env.APNS_TOPIC,
   };
-  const current = apnsSigner?.config;
-  const unchanged =
-    current &&
-    current.keyId === config.keyId &&
-    current.teamId === config.teamId &&
-    current.privateKey === config.privateKey &&
-    current.topic === config.topic;
-  if (!unchanged) apnsSigner = new ApnsSigner(config);
-  return apnsSigner as ApnsSigner;
+  if (!apnsSigner || JSON.stringify(apnsSigner.config) !== JSON.stringify(config)) apnsSigner = new ApnsSigner(config);
+  return apnsSigner;
 }

@@ -11,7 +11,7 @@ Goodmail's push backend (ADR-006): a Cloudflare Worker with D1 and no runtime de
 | `POST /v1/pubsub` | a Pub/Sub push with an OIDC bearer token | 204 acknowledges it |
 
 - **Registration:** `idToken` is the Google ID token from sign-in. It needs the `openid` and `email` scopes, and `aud` must be the iOS client ID. The Worker stores only HMAC-SHA256 of the address.
-- **Push:** the payload is `{"aps": {"alert": …, "mutable-content": 1}, "account": "<email>", "historyId": "<id>"}`. Duplicate deliveries and history IDs that aren't newer are dropped. APNs `410` and `BadDeviceToken` remove the token.
+- **Push:** the payload is `{"aps": {"alert": …, "mutable-content": 1}, "account": "<email>", "historyId": "<id>"}`. Duplicate deliveries and history IDs that aren't newer are dropped. APNs `410` and `BadDeviceToken` remove the token. When the alert reaches no device because sending failed or threw, the Worker gives back the history ID and answers 503, so Pub/Sub redelivers it.
 
 ## Development
 

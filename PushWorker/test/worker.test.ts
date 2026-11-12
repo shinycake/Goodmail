@@ -66,18 +66,21 @@ async function register(deviceToken = DEVICE, environment = "sandbox", email = E
 }
 
 async function pubSubPush(historyId: string | number, email = EMAIL, claims: Record<string, unknown> = {}) {
+  return worker.fetch(await pubSubPushRequest(historyId, email, claims), testEnv);
+}
+
+async function pubSubPushRequest(historyId: string | number, email = EMAIL, claims: Record<string, unknown> = {}) {
   const token = await signGoogleToken(google, {
     ...idTokenClaims(testEnv.PUBSUB_SERVICE_ACCOUNT, testEnv.PUBSUB_AUDIENCE, now()),
     ...claims,
   });
   const data = btoa(JSON.stringify({ emailAddress: email, historyId }));
   const body = JSON.stringify({ message: { data, messageId: "1", publishTime: "2026-11-12T00:00:00Z" }, subscription: "s" });
-  const request = new Request(testEnv.PUBSUB_AUDIENCE, {
+  return new Request(testEnv.PUBSUB_AUDIENCE, {
     method: "POST",
     headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
     body,
   });
-  return worker.fetch(request, testEnv);
 }
 
 async function storedDevices() {
@@ -214,6 +217,44 @@ describe("Pub/Sub push", () => {
     apnsReplies.set(DEVICE, Response.json({ reason: "TooManyRequests" }, { status: 429 }));
     await pubSubPush("9");
     expect(await storedDevices()).toHaveLength(1);
+  });
+
+  it("asks for redelivery when every send fails, and sends the redelivery", async () => {
+    await register(DEVICE);
+    apnsReplies.set(DEVICE, new Response(null, { status: 503 }));
+    expect((await pubSubPush("20")).status).toBe(503);
+    apnsReplies.clear();
+    expect((await pubSubPush("20")).status).toBe(204);
+    expect(apnsCalls.map((call) => (call.body as { historyId: string }).historyId)).toEqual(["20", "20"]);
+  });
+
+  it("sends the redelivery after signing or APNs throws", async () => {
+    await register(DEVICE);
+    const broken = { ...testEnv, APNS_PRIVATE_KEY: "not a key" };
+    const push = await pubSubPushRequest("21");
+    await expect(worker.fetch(push, broken)).rejects.toThrow();
+    expect((await pubSubPush("21")).status).toBe(204);
+    expect(apnsCalls).toHaveLength(1);
+  });
+
+  it("gives back the claim to the one it replaced, so older pushes still drop", async () => {
+    await register(DEVICE);
+    await pubSubPush("30");
+    apnsReplies.set(DEVICE, new Response(null, { status: 500 }));
+    expect((await pubSubPush("31")).status).toBe(503);
+    apnsReplies.clear();
+    await pubSubPush("30");
+    await pubSubPush("31");
+    expect(apnsCalls.map((call) => (call.body as { historyId: string }).historyId)).toEqual(["30", "31", "31"]);
+  });
+
+  it("keeps the claim when one device got the alert and another failed", async () => {
+    await register(DEVICE);
+    await register(OTHER_DEVICE);
+    apnsReplies.set(DEVICE, new Response(null, { status: 500 }));
+    expect((await pubSubPush("40")).status).toBe(204);
+    await pubSubPush("40");
+    expect(apnsCalls).toHaveLength(2);
   });
 
   it("rejects a push from another service account or audience, or without a token", async () => {
