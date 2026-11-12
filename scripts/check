@@ -19,6 +19,8 @@ if [[ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ]]; th
     CHECK_NAME="Goodmail Check $worktree"
 fi
 mkdir -p "$BUILD_DIR"
+# Git sets these for hooks; SwiftPM's own git calls would then act on this repository instead of package checkouts.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX
 
 SWIFT_ROOTS=(Goodmail GoodmailUITests NotificationService Widgets Packages)
 
