@@ -498,6 +498,17 @@
         }
       }
     },
+    "From %@" : {
+      "comment" : "Search suggestion: mail from a person",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מאת %@"
+          }
+        }
+      }
+    },
     "From:" : {
       "comment" : "Compose field label",
       "localizations" : {
@@ -527,6 +538,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "‏Gmail שולח עד 25 MB של קבצים מצורפים בהודעה אחת."
+          }
+        }
+      }
+    },
+    "Has Attachment" : {
+      "comment" : "Search filter for mail with files",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עם קובץ מצורף"
           }
         }
       }
@@ -850,6 +872,40 @@
         }
       }
     },
+    "Search.Starred" : {
+      "comment" : "Search filter for starred mail",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Starred"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מסומנים בכוכב"
+          }
+        }
+      }
+    },
+    "Search.Unread" : {
+      "comment" : "Search filter for unread mail",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unread"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא נקראו"
+          }
+        }
+      }
+    },
     "Select" : {
       "comment" : "Starts selecting several threads",
       "localizations" : {
@@ -982,6 +1038,17 @@
         }
       }
     },
+    "Subject contains “%@”" : {
+      "comment" : "Search suggestion: mail whose subject has the typed text",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הנושא מכיל “%@”"
+          }
+        }
+      }
+    },
     "Subject:" : {
       "comment" : "Compose field label",
       "localizations" : {
@@ -989,6 +1056,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "נושא:"
+          }
+        }
+      }
+    },
+    "Suggestions" : {
+      "comment" : "Header above the search filters offered for what is typed",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצעות"
           }
         }
       }

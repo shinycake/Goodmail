@@ -1,16 +1,23 @@
 import UIKit
 
-/// The recent searches, shown while the search field is empty. Choosing one searches for it again.
-final class RecentSearchesViewController: UIViewController, UICollectionViewDelegate {
+/// What search offers besides results: filters for what is typed, and while nothing is, the recent searches.
+final class SearchSuggestionsViewController: UIViewController, UICollectionViewDelegate {
+    nonisolated private enum Section: Hashable {
+        case filters
+        case recent
+    }
+
     nonisolated private enum Item: Hashable {
+        case filter(SearchFilter)
         case search(String)
         case clear
     }
 
+    var onFilter: ((SearchFilter) -> Void)?
     var onSelect: ((String) -> Void)?
     var onClear: (() -> Void)?
     private var collectionView: UICollectionView!
-    private var dataSource: UICollectionViewDiffableDataSource<Int, Item>!
+    private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -25,11 +32,16 @@ final class RecentSearchesViewController: UIViewController, UICollectionViewDele
 
         let cell = UICollectionView.CellRegistration<UICollectionViewListCell, Item> { cell, _, item in
             var content = UIListContentConfiguration.cell()
+            content.imageProperties.tintColor = .secondaryLabel
             switch item {
+            case .filter(let filter):
+                content.text = filter.label
+                content.secondaryText = filter.detail
+                content.secondaryTextProperties.color = .secondaryLabel
+                content.image = UIImage(systemName: filter.symbol)
             case .search(let text):
                 content.text = text
                 content.image = UIImage(systemName: "clock.arrow.circlepath")
-                content.imageProperties.tintColor = .secondaryLabel
             case .clear:
                 content.text = String(
                     localized: "Clear Recent Searches", bundle: .module, comment: "Forgets the recent searches")
@@ -39,9 +51,17 @@ final class RecentSearchesViewController: UIViewController, UICollectionViewDele
         }
         let header = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(
             elementKind: UICollectionView.elementKindSectionHeader
-        ) { header, _, _ in
+        ) { [weak self] header, _, indexPath in
             var content = UIListContentConfiguration.header()
-            content.text = String(localized: "Recent", bundle: .module, comment: "Header above the recent searches")
+            content.text =
+                switch self?.dataSource.sectionIdentifier(for: indexPath.section) {
+                case .recent:
+                    String(localized: "Recent", bundle: .module, comment: "Header above the recent searches")
+                default:
+                    String(
+                        localized: "Suggestions", bundle: .module,
+                        comment: "Header above the search filters offered for what is typed")
+                }
             header.contentConfiguration = content
         }
         dataSource = UICollectionViewDiffableDataSource(collectionView: collectionView) { view, indexPath, item in
@@ -52,19 +72,30 @@ final class RecentSearchesViewController: UIViewController, UICollectionViewDele
         }
     }
 
-    func show(_ searches: [String]) {
+    func show(filters: [SearchFilter], recents: [String]) {
         loadViewIfNeeded()
-        var snapshot = NSDiffableDataSourceSnapshot<Int, Item>()
-        if !searches.isEmpty {
-            snapshot.appendSections([0])
-            snapshot.appendItems(searches.map(Item.search) + [.clear])
+        var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
+        if !filters.isEmpty {
+            snapshot.appendSections([.filters])
+            snapshot.appendItems(filters.map(Item.filter))
+        }
+        if !recents.isEmpty {
+            snapshot.appendSections([.recent])
+            snapshot.appendItems(recents.map(Item.search) + [.clear])
         }
         dataSource.apply(snapshot, animatingDifferences: false)
+    }
+
+    /// The height of everything shown, for showing the suggestions above the results.
+    var contentHeight: CGFloat {
+        collectionView.layoutIfNeeded()
+        return collectionView.contentSize.height
     }
 
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         collectionView.deselectItem(at: indexPath, animated: true)
         switch dataSource.itemIdentifier(for: indexPath) {
+        case .filter(let filter): onFilter?(filter)
         case .search(let text): onSelect?(text)
         case .clear: onClear?()
         case nil: break

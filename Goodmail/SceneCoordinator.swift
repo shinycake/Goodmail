@@ -116,7 +116,7 @@ final class SceneCoordinator {
             local: { model.database.search($0, including: $1) }, remote: { try await model.search($0) })
         let results = SearchResultsController(
             search: search, accounts: model.accounts, navigate: { [weak self] route in self?.handle(route) },
-            actions: actions)
+            actions: actions, contacts: { (try? model.database.contacts(matching: $0, limit: 3)) ?? [] })
         return MailboxViewController(
             viewModel: MailboxViewModel(
                 mailbox: mailbox,
