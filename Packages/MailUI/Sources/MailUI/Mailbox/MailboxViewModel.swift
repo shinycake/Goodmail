@@ -2,6 +2,28 @@ import Foundation
 import MailCore
 import Observation
 
+/// Where the Inbox's categories come from: the threads under one, and the unread counts for the menu.
+public struct InboxCategories {
+    /// The category shown first.
+    let selected: InboxCategory
+    let threads: (InboxCategory) -> AsyncThrowingStream<[ThreadSummary], any Error>
+    let unreadCounts: () -> AsyncThrowingStream<[InboxCategory: Int], any Error>
+    /// Told of each category the reader picks, so a rebuilt list can open on it.
+    let didSelect: (InboxCategory) -> Void
+
+    public init(
+        selected: InboxCategory = .primary,
+        threads: @escaping (InboxCategory) -> AsyncThrowingStream<[ThreadSummary], any Error>,
+        unreadCounts: @escaping () -> AsyncThrowingStream<[InboxCategory: Int], any Error>,
+        didSelect: @escaping (InboxCategory) -> Void = { _ in }
+    ) {
+        self.selected = selected
+        self.threads = threads
+        self.unreadCounts = unreadCounts
+        self.didSelect = didSelect
+    }
+}
+
 /// One mailbox list: the threads grouped into time sections, and the refresh state.
 @Observable
 public final class MailboxViewModel {
@@ -23,10 +45,17 @@ public final class MailboxViewModel {
     public let actions: MailActions?
     public let mailbox: Mailbox
     public let title: String
+    /// The category the list shows, or `nil` when the mailbox isn't split into categories.
+    public private(set) var category: InboxCategory?
+    /// Unread threads per category, for the menu; categories with none are left out.
+    public private(set) var categoryUnreadCounts: [InboxCategory: Int] = [:]
     /// The account new messages come from: the first one, until the composer offers a choice.
     @ObservationIgnored private let composingAccount: AccountID?
 
     @ObservationIgnored private let threads: () -> AsyncThrowingStream<[ThreadSummary], any Error>
+    @ObservationIgnored private let categories: InboxCategories?
+    @ObservationIgnored private let selections: AsyncStream<InboxCategory>
+    @ObservationIgnored private let selectionsContinuation: AsyncStream<InboxCategory>.Continuation
     @ObservationIgnored private let refreshAction: () async throws -> Void
     @ObservationIgnored private let loadOlderAction: () async throws -> Bool
     @ObservationIgnored private let navigate: (Route) -> Void
@@ -39,6 +68,7 @@ public final class MailboxViewModel {
         title: String? = nil,
         accounts: [Account],
         threads: @escaping () -> AsyncThrowingStream<[ThreadSummary], any Error>,
+        categories: InboxCategories? = nil,
         refresh: @escaping () async throws -> Void,
         loadOlder: @escaping () async throws -> Bool = { false },
         navigate: @escaping (Route) -> Void = { _ in },
@@ -52,6 +82,12 @@ public final class MailboxViewModel {
         composingAccount = accounts.first?.id
         accountColors = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0.color) })
         self.threads = threads
+        self.categories = categories
+        (selections, selectionsContinuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
+        if let categories {
+            category = categories.selected
+            selectionsContinuation.yield(categories.selected)
+        }
         refreshAction = refresh
         loadOlderAction = loadOlder
         self.navigate = navigate
@@ -61,8 +97,44 @@ public final class MailboxViewModel {
 
     /// Follows the store until the calling task is cancelled.
     public func observe() async {
+        guard let categories else { return await follow(threads()) }
+        async let counts: Void = followUnreadCounts()
+        // Each selection replaces the list it follows.
+        var following: Task<Void, Never>?
+        for await category in selections {
+            following?.cancel()
+            following = Task { await follow(categories.threads(category)) }
+        }
+        following?.cancel()
+        await counts
+    }
+
+    /// Shows the threads under `category`.
+    public func select(_ category: InboxCategory) {
+        guard let categories, category != self.category else { return }
+        self.category = category
+        selectionsContinuation.yield(category)
+        categories.didSelect(category)
+    }
+
+    /// Another category with unread mail, for an empty list to point to.
+    public var categoryWithUnread: InboxCategory? {
+        guard let category else { return nil }
+        return InboxCategory.allCases.first { $0 != category && categoryUnreadCounts[$0, default: 0] > 0 }
+    }
+
+    private func followUnreadCounts() async {
+        guard let categories else { return }
         do {
-            for try await threads in threads() {
+            for try await counts in categories.unreadCounts() { categoryUnreadCounts = counts }
+        } catch {}
+    }
+
+    private func follow(_ threads: AsyncThrowingStream<[ThreadSummary], any Error>) async {
+        do {
+            for try await threads in threads {
+                // A list replaced by another category's may still hand over one last value.
+                if Task.isCancelled { return }
                 hasLoaded = true
                 let now = now()
                 sections = TimeSection.group(threads, by: \.date, now: now, calendar: calendar).map {
@@ -73,7 +145,7 @@ public final class MailboxViewModel {
                 if threads.count < Self.shortList { Task { await loadOlderIfNeeded() } }
             }
         } catch {
-            refreshError = error
+            if !Task.isCancelled { refreshError = error }
         }
     }
 

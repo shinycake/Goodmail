@@ -223,6 +223,17 @@
         }
       }
     },
+    "%lld unread" : {
+      "comment" : "Inbox category menu: unread threads in a category",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld שלא נקראו"
+          }
+        }
+      }
+    },
     "(No Subject)" : {
       "comment" : "Shown in place of an empty email subject",
       "localizations" : {
@@ -542,6 +553,17 @@
         }
       }
     },
+    "Go to %@" : {
+      "comment" : "Link from an empty Inbox category to another with unread mail",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מעבר אל %@"
+          }
+        }
+      }
+    },
     "Has Attachment" : {
       "comment" : "Search filter for mail with files",
       "localizations" : {
@@ -571,6 +593,113 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "דואר נכנס"
+          }
+        }
+      }
+    },
+    "Inbox Categories" : {
+      "comment" : "Settings section for Gmail's Inbox categories",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קטגוריות בדואר הנכנס"
+          }
+        }
+      }
+    },
+    "Inbox category: %@" : {
+      "comment" : "VoiceOver: the Inbox category menu, with the category shown",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קטגוריית דואר נכנס: %@"
+          }
+        }
+      }
+    },
+    "InboxCategory.Forums" : {
+      "comment" : "Inbox category: mailing lists and groups",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Forums"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פורומים"
+          }
+        }
+      }
+    },
+    "InboxCategory.Primary" : {
+      "comment" : "Inbox category: personal mail and anything Gmail didn't sort",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Primary"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ראשי"
+          }
+        }
+      }
+    },
+    "InboxCategory.Promotions" : {
+      "comment" : "Inbox category: deals and offers",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Promotions"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קידומי מכירות"
+          }
+        }
+      }
+    },
+    "InboxCategory.Social" : {
+      "comment" : "Inbox category: social networks",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Social"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "רשתות חברתיות"
+          }
+        }
+      }
+    },
+    "InboxCategory.Updates" : {
+      "comment" : "Inbox category: receipts, bills and notifications",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updates"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עדכונים"
           }
         }
       }
@@ -1018,6 +1147,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "משהו השתבש"
+          }
+        }
+      }
+    },
+    "Sorts the Inbox into Primary, Promotions, Social, Updates and Forums, as Gmail does." : {
+      "comment" : "Explains the Inbox Categories setting",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ממיין את הדואר הנכנס לראשי, קידומי מכירות, רשתות חברתיות, עדכונים ופורומים, כמו ב-Gmail."
           }
         }
       }

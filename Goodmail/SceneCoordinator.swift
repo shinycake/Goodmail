@@ -20,6 +20,7 @@ final class SceneCoordinator: NSObject {
         var mailbox = Mailbox.inbox
         var title: String?
         var thread: ThreadSummary.ID?
+        var category = InboxCategory.primary
     }
 
     init(window: UIWindow, model: AppModel) {
@@ -72,6 +73,7 @@ final class SceneCoordinator: NSObject {
         guard let presenter = topViewController() else { return }
         let model = model
         let before = model.accounts.map(\.id)
+        let unsortedBefore = Preferences.unsortedInboxAccounts
         let viewModel = SettingsViewModel(
             accounts: { model.accounts },
             add: { [weak self] in
@@ -80,7 +82,9 @@ final class SceneCoordinator: NSObject {
             },
             remove: { try await model.removeAccount($0) },
             closed: { [weak self] in
-                guard let self, model.accounts.map(\.id) != before else { return }
+                guard let self,
+                    model.accounts.map(\.id) != before || Preferences.unsortedInboxAccounts != unsortedBefore
+                else { return }
                 model.accounts.isEmpty ? showWelcome() : showMailbox()
             })
         presenter.present(SettingsScreen.make(model: viewModel), animated: true)
@@ -204,12 +208,25 @@ final class SceneCoordinator: NSObject {
                 title: title,
                 accounts: model.accounts,
                 threads: { model.database.threads(in: mailbox) },
+                categories: categories(for: mailbox),
                 refresh: { try await model.syncAll() },
                 loadOlder: { try await model.loadOlder(mailbox) },
                 navigate: { [weak self] route in self?.handle(route) },
                 actions: actions
             ),
             searchResults: results)
+    }
+
+    /// Gmail's categories, for the Inbox when any account sorts it.
+    private func categories(for mailbox: Mailbox) -> InboxCategories? {
+        let unsorted = Preferences.unsortedInboxAccounts
+        guard mailbox == .inbox, model.accounts.contains(where: { !unsorted.contains($0.id) }) else { return nil }
+        let database = model.database
+        return InboxCategories(
+            selected: shown.category,
+            threads: { database.threads(in: mailbox, category: $0, unsorted: unsorted) },
+            unreadCounts: { database.categoryUnreadCounts(in: mailbox, unsorted: unsorted) },
+            didSelect: { [weak self] in self?.shown.category = $0 })
     }
 
     /// The one place navigation happens (ADR-011).

@@ -39,6 +39,23 @@ struct SettingsTests {
         #expect(model.accounts == [personal])
     }
 
+    @Test func inboxCategoriesTurnOffPerAccountAndPersist() {
+        let saved = Preferences.unsortedInboxAccounts
+        defer { Preferences.unsortedInboxAccounts = saved }
+        Preferences.unsortedInboxAccounts = []
+        let model = SettingsViewModel(
+            accounts: { [personal, work] }, add: { true }, remove: { _ in }, closed: {})
+        #expect(model.sortsInbox(work.id), "categories are on by default")
+
+        model.setSortsInbox(false, for: work.id)
+        #expect(!model.sortsInbox(work.id))
+        #expect(model.sortsInbox(personal.id))
+        #expect(Preferences.unsortedInboxAccounts == [work.id])
+
+        model.setSortsInbox(true, for: work.id)
+        #expect(Preferences.unsortedInboxAccounts.isEmpty)
+    }
+
     @Test func undoSendTitlesReadAsDurations() {
         #expect(SettingsViewModel.undoSendTitle(0) == "Off")
         #expect(SettingsViewModel.undoSendTitle(10) == "10 seconds")

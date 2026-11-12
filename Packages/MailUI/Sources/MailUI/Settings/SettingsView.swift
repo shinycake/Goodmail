@@ -34,6 +34,22 @@ struct SettingsView: View {
             }
 
             Section {
+                ForEach(model.accounts) { account in
+                    Toggle(
+                        account.email,
+                        isOn: Binding(
+                            get: { model.sortsInbox(account.id) },
+                            set: { model.setSortsInbox($0, for: account.id) }))
+                }
+            } header: {
+                Text("Inbox Categories", bundle: .module, comment: "Settings section for Gmail's Inbox categories")
+            } footer: {
+                Text(
+                    "Sorts the Inbox into Primary, Promotions, Social, Updates and Forums, as Gmail does.",
+                    bundle: .module, comment: "Explains the Inbox Categories setting")
+            }
+
+            Section {
                 Picker(selection: $model.undoSendSeconds) {
                     ForEach(Preferences.undoSendChoices, id: \.self) { seconds in
                         Text(SettingsViewModel.undoSendTitle(seconds)).tag(seconds)

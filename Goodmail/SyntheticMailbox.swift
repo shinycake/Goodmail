@@ -43,7 +43,7 @@
                         sender: Contact(name: sender, address: "sender\(index % senders.count)@example.com"),
                         // Roughly one thread every 20 minutes, so 50k threads span about two years of sections.
                         date: now.addingTimeInterval(-Double(index) * 1_200 - Double(index % 7) * 60),
-                        isUnread: index % 4 == 0,
+                        isUnread: index % 4 == 0 || [9, 13].contains(index % 20),
                         messageCount: 1 + index % 5,
                         labelIDs: labels(for: index)
                     )
@@ -53,9 +53,15 @@
             return try AppModel(database: database)
         }
 
-        /// Mostly Inbox, with some of every other mailbox so each has something to show.
+        /// Mostly Inbox, with some of every other mailbox so each has something to show, and the Inbox spread over
+        /// Gmail's categories. Some Inbox threads have no category, as older Gmail mail can.
         private static func labels(for index: Int) -> Set<String> {
             switch index % 20 {
+            case 0, 10: ["INBOX", "CATEGORY_PERSONAL"]
+            case 9, 15: ["INBOX", "CATEGORY_PROMOTIONS"]
+            case 13: ["INBOX", "CATEGORY_SOCIAL"]
+            case 14, 17: ["INBOX", "CATEGORY_UPDATES"]
+            case 16: ["INBOX", "CATEGORY_FORUMS"]
             case 1, 11: ["INBOX", "STARRED"]
             case 2, 12: ["SENT"]
             case 3: []
