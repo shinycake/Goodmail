@@ -11,7 +11,16 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 # Build output lives on the external drive when it's mounted, to spare the internal disk.
 BUILD_DIR="${GOODMAIL_BUILD_DIR:-$([[ -d /Volumes/Idan1TB ]] && echo /Volumes/Idan1TB/Goodmail-build || echo "$PWD/.build")}"
+# A linked worktree checks with its own build folder and simulator, so checks in parallel worktrees can't collide.
+CHECK_NAME="Goodmail Check"
+if [[ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ]]; then
+    worktree=$(basename "$PWD")
+    BUILD_DIR="$BUILD_DIR/worktrees/$worktree"
+    CHECK_NAME="Goodmail Check $worktree"
+fi
 mkdir -p "$BUILD_DIR"
+# Git sets these for hooks; SwiftPM's own git calls would then act on this repository instead of package checkouts.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX
 
 SWIFT_ROOTS=(Goodmail GoodmailUITests NotificationService Widgets Packages)
 
@@ -36,11 +45,17 @@ done < <(git ls-files --cached --others --exclude-standard -- '*.swift' '*.ts' '
 
 [[ "${1:-}" == "--lint" ]] && exit 0
 
-check_simulator=$(xcrun simctl list devices available | grep -m1 "Goodmail Check (" | grep -oE '[0-9A-F-]{36}' || true)
+check_simulator=$(xcrun simctl list devices available | grep -m1 -F "$CHECK_NAME (" | grep -oE '[0-9A-F-]{36}' || true)
 if [[ -z "$check_simulator" ]]; then
-    check_simulator=$(xcrun simctl create "Goodmail Check" "${GOODMAIL_SIMULATOR:-iPhone 18 Pro}")
+    check_simulator=$(xcrun simctl create "$CHECK_NAME" "${GOODMAIL_SIMULATOR:-iPhone 18 Pro}")
 fi
+# Boot it up front: xcodebuild gives a booting simulator only 60 seconds, which a busy Mac can miss.
+xcrun simctl bootstatus "$check_simulator" -b >/dev/null
 DESTINATION="platform=iOS Simulator,id=$check_simulator"
+# Simulators live on the internal disk, so a worktree's own one goes when its check ends.
+if [[ "$CHECK_NAME" != "Goodmail Check" ]]; then
+    trap 'xcrun simctl shutdown "$check_simulator" >/dev/null 2>&1; xcrun simctl delete "$check_simulator" >/dev/null 2>&1' EXIT
+fi
 
 # Each module is its own package (ADR-005); test every one that has tests.
 for package in Packages/*/; do
