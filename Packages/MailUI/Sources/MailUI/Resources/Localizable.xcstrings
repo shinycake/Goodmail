@@ -718,6 +718,23 @@
         }
       }
     },
+    "No Message Selected" : {
+      "comment" : "Shown beside the message list when no conversation is open.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Message Selected"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא נבחרה הודעה"
+          }
+        }
+      }
+    },
     "OK" : {
       "comment" : "Dismiss",
       "localizations" : {

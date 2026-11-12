@@ -1,16 +1,18 @@
 import UIKit
 
-/// A window's navigation stack, with the undo toast floating over whichever screen shows, above the toolbar.
-/// Shaking undoes the last action from any screen.
-public final class MailNavigationController: UINavigationController {
+/// A window's mail screens: mailboxes, a mailbox's list and a thread side by side when the window is wide, one
+/// stack when it is narrow. The undo toast floats over them, above the toolbars, and shaking undoes the last action
+/// from any screen.
+public final class MailSplitViewController: UISplitViewController {
     private let actions: MailActions
     private let toast = UndoToastView()
     private var shownToast: MailActions.Toast.ID?
     private var toastBottom: NSLayoutConstraint!
 
-    public init(rootViewController: UIViewController, actions: MailActions) {
+    public init(actions: MailActions) {
         self.actions = actions
-        super.init(rootViewController: rootViewController)
+        super.init(style: .tripleColumn)
+        preferredSplitBehavior = .tile
     }
 
     @available(*, unavailable)
@@ -37,8 +39,15 @@ public final class MailNavigationController: UINavigationController {
 
     private func placeToast() {
         view.bringSubviewToFront(toast)
-        // The shown screen's safe area ends above the toolbar when there is one, else above the home indicator.
-        let inset = topViewController?.view.safeAreaInsets.bottom ?? view.safeAreaInsets.bottom
+        // A shown screen's safe area ends above its toolbar when there is one, else above the home indicator.
+        let columns: [Column] = isCollapsed ? [.compact] : [.primary, .supplementary, .secondary]
+        let insets = columns.compactMap { column -> CGFloat? in
+            let shown = viewController(for: column)
+            let top = (shown as? UINavigationController)?.topViewController ?? shown
+            guard let top, top.view.window != nil else { return nil }
+            return top.view.safeAreaInsets.bottom
+        }
+        let inset = insets.max() ?? view.safeAreaInsets.bottom
         let constant = -inset - 12
         if toastBottom.constant != constant { toastBottom.constant = constant }
     }
