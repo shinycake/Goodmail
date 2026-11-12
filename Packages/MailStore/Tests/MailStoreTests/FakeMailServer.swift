@@ -27,6 +27,9 @@ final class FakeMailServer: MailProvider {
         var contactRequests = 0
         var drafts: [String: (raw: Data, threadID: String?)] = [:]
         var nextDraft = 1
+        var messages: [String: [Message]] = [:]
+        var messageRequests: [String] = []
+        var failMessages: (any Error)?
     }
 
     let pageSize: Int
@@ -113,7 +116,13 @@ final class FakeMailServer: MailProvider {
         }
     }
 
-    func messages(inThread threadID: String) async throws -> [Message] { [] }
+    func messages(inThread threadID: String) async throws -> [Message] {
+        try state.withLock { state in
+            state.messageRequests.append(threadID)
+            if let failure = state.failMessages { throw failure }
+            return state.messages[threadID] ?? []
+        }
+    }
 
     /// The file's ID as its bytes; an attachment without a fetch token is gone.
     func data(for attachment: Attachment, in message: Message.ID) async throws -> Data {
@@ -207,4 +216,19 @@ extension FakeMailServer {
     }
 
     var contactRequests: Int { state.withLock(\.contactRequests) }
+}
+
+extension FakeMailServer {
+    /// What `messages(inThread:)` returns for the thread; none until set.
+    func setMessages(_ messages: [Message], inThread threadID: String) {
+        state.withLock { $0.messages[threadID] = messages }
+    }
+
+    /// The threads whose messages were asked for, in order.
+    var messageRequests: [String] { state.withLock(\.messageRequests) }
+
+    /// Makes every `messages(inThread:)` throw `error` until set back to `nil`.
+    func failMessages(with error: (any Error)?) {
+        state.withLock { $0.failMessages = error }
+    }
 }

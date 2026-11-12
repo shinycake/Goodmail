@@ -93,13 +93,18 @@ public final class ThreadViewModel {
     }
 
     /// A local copy of an attachment for Quick Look, named as the sender named it. Fetched once per message part.
+    /// Each use stamps the file's modification date: the cache cap evicts the least recently used first.
     public func file(for attachment: Attachment, in message: Message.ID) async throws -> URL {
         let folder =
             attachmentsDirectory
             .appending(path: message.accountID.rawValue, directoryHint: .isDirectory)
             .appending(path: "\(message.messageID)-\(attachment.id)", directoryHint: .isDirectory)
         let url = folder.appending(path: Self.safeFilename(attachment.filename))
-        if FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) { return url }
+        if FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) {
+            try? FileManager.default.setAttributes(
+                [.modificationDate: now()], ofItemAtPath: url.path(percentEncoded: false))
+            return url
+        }
         let data = try await attachmentData(attachment, message)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         try data.write(to: url, options: .atomic)
