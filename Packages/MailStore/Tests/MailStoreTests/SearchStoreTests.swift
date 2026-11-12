@@ -91,3 +91,104 @@ struct SearchStoreTests {
         #expect(try await search("", including: provider) == ["body-match"])
     }
 }
+
+/// Bodies cached when a thread is opened are searched too, through their own index.
+struct BodySearchStoreTests {
+    private let url = FileManager.default.temporaryDirectory
+        .appending(path: "BodySearchStoreTests-\(UUID().uuidString)")
+        .appending(path: "mail.sqlite")
+    private let database: MailDatabase
+    private let account = Account(id: AccountID(rawValue: "a1"), email: "one@example.com", color: .teal)
+
+    init() throws {
+        database = try MailDatabase(url: url)
+        try database.save(account)
+    }
+
+    private func id(_ thread: String) -> ThreadSummary.ID {
+        ThreadSummary.ID(accountID: account.id, threadID: thread)
+    }
+
+    private func thread(
+        _ id: String, minutesAgo: Double = 0, subject: String, sender: String = "Someone",
+        labels: Set<String> = ["INBOX"]
+    ) -> ThreadSummary {
+        ThreadSummary(
+            id: self.id(id), subject: subject, snippet: "", sender: Contact(name: sender, address: "x@example.com"),
+            date: Date(timeIntervalSince1970: 1_800_000_000 - minutesAgo * 60), isUnread: false, messageCount: 1,
+            labelIDs: labels)
+    }
+
+    private func message(_ id: String, in thread: String, _ body: MessageBody) -> Message {
+        Message(
+            id: Message.ID(accountID: account.id, messageID: id), threadID: thread,
+            from: Contact(name: nil, address: "x@example.com"), subject: "", date: .now, body: body)
+    }
+
+    private func search(_ text: String, in database: MailDatabase? = nil) async throws -> [String] {
+        var iterator = (database ?? self.database).search(text).makeAsyncIterator()
+        return try await iterator.next()?.map(\.id.threadID) ?? []
+    }
+
+    @Test func wordsInCachedBodiesFindTheirThreads() async throws {
+        try database.upsert([
+            thread("plain", minutesAgo: 1, subject: "Lunch", sender: "Dana Levi"),
+            thread("html", minutesAgo: 2, subject: "Newsletter"),
+            thread("hebrew", minutesAgo: 3, subject: "סיכום"),
+            thread("unopened", minutesAgo: 4, subject: "Quarterly report"),
+        ])
+        try database.save(
+            [message("p", in: "plain", MessageBody(plain: "The invoice is attached"))], inThread: id("plain"))
+        try database.save(
+            [message("h", in: "html", MessageBody(html: "<style>.invoice{}</style><p>Your <b>receipt</b></p>"))],
+            inThread: id("html"))
+        try database.save([message("he", in: "hebrew", MessageBody(plain: "נפגשים מחר בבוקר"))], inThread: id("hebrew"))
+        #expect(try await search("invo") == ["plain"], "the HTML's style is not its words")
+        #expect(try await search("receipt") == ["html"])
+        #expect(try await search("מחר") == ["hebrew"])
+        #expect(try await search("dana invoice") == ["plain"], "one word in the sender, one in the body")
+        #expect(try await search("lunch report") == [])
+        #expect(try await search("subject:invoice") == [], "a subject filter doesn't reach into bodies")
+        #expect(try await search("is:unread invoice") == [])
+    }
+
+    @Test func spamAndTrashBodiesStayOut() async throws {
+        try database.upsert([
+            thread("inbox", minutesAgo: 1, subject: "a"),
+            thread("spam", minutesAgo: 2, subject: "b", labels: ["SPAM"]),
+            thread("trash", minutesAgo: 3, subject: "c", labels: ["TRASH"]),
+        ])
+        for name in ["inbox", "spam", "trash"] {
+            try database.save([message(name, in: name, MessageBody(plain: "prize"))], inThread: id(name))
+        }
+        #expect(try await search("prize") == ["inbox"])
+    }
+
+    @Test func theIndexFollowsBodiesAsTheyChangeAndGo() async throws {
+        try database.upsert([thread("t", subject: "Plans")])
+        try database.save([message("m", in: "t", MessageBody(plain: "draft agenda"))], inThread: id("t"))
+        try database.save([message("m", in: "t", MessageBody(plain: "final agenda"))], inThread: id("t"))
+        #expect(try await search("draft") == [])
+        #expect(try await search("final") == ["t"])
+
+        try await database.pool.write { db in try db.execute(sql: "UPDATE message SET bodyText = 'moved venue'") }
+        #expect(try await search("final") == [])
+        #expect(try await search("venue") == ["t"])
+
+        try database.apply(StoreChanges(accountID: account.id, deletions: ["t"]))
+        #expect(try await search("venue") == [])
+        let indexed = try await database.pool.read { db in
+            try Int.fetchOne(db, sql: "SELECT count(*) FROM messageSearch")
+        }
+        #expect(indexed == 0)
+    }
+
+    @Test func bodiesCachedBeforeTheIndexAreFilledInOnOpen() async throws {
+        try database.upsert([thread("t", subject: "Plans")])
+        try database.save([message("m", in: "t", MessageBody(html: "<p>Old venue</p>"))], inThread: id("t"))
+        // As a body saved by a build without the index would be.
+        try await database.pool.write { db in try db.execute(sql: "UPDATE message SET bodyText = NULL") }
+        #expect(try await search("venue") == [])
+        #expect(try await search("venue", in: try MailDatabase(url: url)) == ["t"])
+    }
+}

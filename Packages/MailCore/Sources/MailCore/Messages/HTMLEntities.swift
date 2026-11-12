@@ -1,12 +1,12 @@
 import Foundation
 
 /// Gmail snippets are HTML-escaped text (`&#39;`, `&amp;`, `&quot;`…). This decodes the entities they use.
-enum HTMLEntities {
+public enum HTMLEntities {
     private static let named: [Substring: Character] = [
         "amp": "&", "lt": "<", "gt": ">", "quot": "\"", "apos": "'", "nbsp": "\u{00A0}",
     ]
 
-    static func decode(_ text: String) -> String {
+    public static func decode(_ text: String) -> String {
         guard text.contains("&") else { return text }
         var result = ""
         var rest = text[...]
@@ -38,10 +38,14 @@ enum HTMLEntities {
 }
 
 extension HTMLEntities {
-    /// The words and line breaks of an HTML fragment, such as a Gmail signature, for the plain-text composer.
-    static func plainText(fromHTML html: String) -> String {
+    /// The words and line breaks of HTML, such as a Gmail signature for the plain-text composer or a message body
+    /// for the search index. Styles, scripts, the head and comments are left out: they are not words of the mail.
+    public static func plainText(fromHTML html: String) -> String {
+        let visible =
+            html.contains("<")
+            ? html.replacing(/(?is)<!--.*?-->|<(style|script|head|title)\b[^>]*>.*?<\/\1\s*>/, with: "") : html
         // Each block starts a line; a `<br>` that only holds a block open, as in `<div><br></div>`, adds none.
-        let broken = html.replacing(/(?i)<br\s*\/?>\s*(?=<\/(div|p)>)/, with: "")
+        let broken = visible.replacing(/(?i)<br\s*\/?>\s*(?=<\/(div|p)>)/, with: "")
             .replacing(/(?i)<br\s*\/?>|<(div|p|li|tr|h\d)\b[^>]*>/, with: "\n")
         let text = decode(broken.replacing(/<[^>]*>/, with: ""))
         return text.split(separator: "\n", omittingEmptySubsequences: false)

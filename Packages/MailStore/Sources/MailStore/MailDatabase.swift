@@ -21,6 +21,7 @@ public final class MailDatabase: Sendable {
         configuration.busyMode = .timeout(5)
         let pool = try DatabasePool(path: url.path, configuration: configuration)
         try Self.migrator.migrate(pool)
+        try Self.fillMessageText(in: pool)
         self.pool = pool
         // Another process wrote: re-run this process's observations against the new data.
         signal = ChangeSignal {
@@ -153,6 +154,18 @@ public final class MailDatabase: Sendable {
                 table.column("name", .text)
                 table.column("fetchedAt", .datetime).notNull()
                 table.primaryKey(["accountID", "address"])
+            }
+        }
+        migrator.registerMigration("v12-message-search") { db in
+            // The words of each cached body, drawn from it as it is saved. NULL until then: bodies cached before
+            // this migration get theirs from `fillMessageText` on open, which the partial index finds quickly.
+            try db.alter(table: "message") { table in table.add(column: "bodyText", .text) }
+            try db.execute(sql: "CREATE INDEX message_withoutText ON message(accountID) WHERE bodyText IS NULL")
+            // Kept in step with `message` by triggers, so a thread's bodies leave the index with it.
+            try db.create(virtualTable: "messageSearch", using: FTS5()) { table in
+                table.synchronize(withTable: "message")
+                table.tokenizer = .unicode61()
+                table.column("bodyText")
             }
         }
         return migrator

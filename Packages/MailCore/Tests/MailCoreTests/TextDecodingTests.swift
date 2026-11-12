@@ -48,4 +48,22 @@ struct TextDecodingTests {
         #expect(content.body.plain == "first\n\nsecond")
         #expect(content.attachments.map(\.filename) == ["notes.txt"])
     }
+
+    @Test func signatureHTMLKeepsItsLines() {
+        #expect(HTMLEntities.plainText(fromHTML: "Dana<br>CEO<br/>  <b>Goodmail</b>") == "Dana\nCEO\nGoodmail")
+        #expect(HTMLEntities.plainText(fromHTML: "<p>One</p><p>Two</p>") == "One\nTwo")
+        #expect(HTMLEntities.plainText(fromHTML: "") == "")
+    }
+
+    @Test func bodyHTMLLosesWhatIsNotItsWords() {
+        let html = """
+            <html><head><title>Newsletter</title><style>p { color: red; }</style></head>
+            <body><!-- tracking --><p>שלום Dana</p><script>var x = 1;</script><p>See you</p></body></html>
+            """
+        #expect(HTMLEntities.plainText(fromHTML: html) == "שלום Dana\nSee you")
+    }
+
+    @Test func snippetEntitiesDecode() {
+        #expect(HTMLEntities.decode("a &lt;b&gt; &#x41; &#65; &unknown; & done") == "a <b> A A &unknown; & done")
+    }
 }
