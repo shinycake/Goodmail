@@ -168,6 +168,20 @@ public final class MailDatabase: Sendable {
                 table.column("bodyText")
             }
         }
+        migrator.registerMigration("v13-cache-cap") { db in
+            // What each cached body weighs (its JSON and its search text, in bytes) and when its thread was last
+            // read, which the cache cap evicts by. Bodies cached before this count as read when fetched.
+            try db.alter(table: "message") { table in
+                table.add(column: "size", .integer).notNull().defaults(to: 0)
+                table.add(column: "accessedAt", .datetime)
+            }
+            try db.execute(
+                sql: """
+                    UPDATE message
+                    SET size = length(CAST(content AS BLOB)) + length(CAST(COALESCE(bodyText, '') AS BLOB)),
+                        accessedAt = fetchedAt
+                    """)
+        }
         return migrator
     }
 }

@@ -76,6 +76,7 @@ The owner decided these on 2026-10-20 after talking through the options. Each en
   - Older mail is fetched on scroll or search.
 - **Bodies:** the newest ~500 threads prefetched on Wi-Fi, the rest on demand, under a 1 GB cap with least-recently-used eviction.
 - **Attachments:** on demand.
+- **Cap:** bodies and opened attachments share the 1 GB. A thread's bodies are evicted together, least recently read first; summaries stay, so lists and subject search keep working, and the body is fetched again on open. Threads with a draft or a queued action are never evicted. Prefetch runs only on a path that is neither expensive nor constrained, and dates what it fetches by the mail, so it never outranks what the reader opened.
 - **Search:** local FTS answers instantly, then Gmail server search fills in.
 - **Rejected:** mirroring everything (multi-GB, long first sync); user-configurable windows (not for v1).
 

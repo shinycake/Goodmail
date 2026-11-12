@@ -168,11 +168,12 @@ final class SceneCoordinator: NSObject {
             thread: thread,
             accountEmail: account.email,
             accountColor: account.color,
-            messages: { model.database.messages(inThread: id) },
+            messages: { model.messages(inThread: id) },
             load: { try await model.loadMessages(of: id) },
             attachmentData: { try await model.attachmentData($0, in: $1) },
             actions: actions,
-            navigate: { [weak self] route in self?.handle(route) }
+            navigate: { [weak self] route in self?.handle(route) },
+            attachmentsDirectory: model.attachmentsDirectory
         )
         return ThreadViewController(
             viewModel: viewModel,

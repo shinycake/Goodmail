@@ -128,6 +128,31 @@ struct AttachmentFileTests {
         #expect(try Data(contentsOf: first) == Data("%PDF".utf8))
     }
 
+    @Test func openingACachedAttachmentMarksItRecentlyUsed() async throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let account = AccountID(rawValue: "a")
+        let today = Date(timeIntervalSince1970: 1_800_000_000)
+        let model = ThreadViewModel(
+            thread: ThreadSummary(
+                id: .init(accountID: account, threadID: "t"), subject: "Quote", snippet: "",
+                sender: Contact(name: nil, address: "a@example.com"), date: today, isUnread: false, messageCount: 1,
+                labelIDs: []),
+            accountEmail: "me@example.com", accountColor: .blue,
+            messages: { AsyncThrowingStream { $0.finish() } }, load: {},
+            attachmentData: { _, _ in Data("%PDF".utf8) },
+            attachmentsDirectory: directory,
+            now: { today })
+        let attachment = Attachment(id: "1", filename: "Quote.pdf", mimeType: "application/pdf", size: 4)
+        let message = Message.ID(accountID: account, messageID: "m")
+        let url = try await model.file(for: attachment, in: message)
+        let path = url.path(percentEncoded: false)
+        try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSince1970: 0)], ofItemAtPath: path)
+
+        _ = try await model.file(for: attachment, in: message)
+        #expect(try FileManager.default.attributesOfItem(atPath: path)[.modificationDate] as? Date == today)
+    }
+
     @Test func inlineImagesTheBodyPlacesAreNotListed() {
         let message = Message(
             id: .init(accountID: AccountID(rawValue: "a"), messageID: "m"), threadID: "t",
