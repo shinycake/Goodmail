@@ -8,11 +8,45 @@ struct SwipeAction {
     var handler: () -> Void
 }
 
-/// Swiping a row reveals glass buttons over it while the row itself stays still. The buttons grow in one by one,
-/// following the finger. Releasing past halfway keeps them open; swiping far enough fires the edge-most action.
+/// Swiping a row reveals glass buttons over it while the row itself stays still. The buttons slide in from the
+/// row's edge, following the finger. Releasing past halfway keeps them open; swiping far enough fires the edge-most
+/// action.
 final class SwipeActionsController: NSObject {
     enum Edge {
         case leading, trailing
+    }
+
+    /// A row whose actions are on screen.
+    private struct Row {
+        let overlay: SwipeOverlayView
+        let indexPath: IndexPath
+        let feedback: UIImpactFeedbackGenerator
+    }
+
+    /// Where the swipe stands. Dragging a row that is already open starts from its fully revealed buttons.
+    private enum State {
+        /// No row shows its actions.
+        case idle
+        /// A drag is uncovering a row's actions from closed.
+        case revealing(Row)
+        /// A row's actions settled open; a drag on it continues from there.
+        case open(Row)
+
+        var row: Row? {
+            switch self {
+            case .idle: nil
+            case .revealing(let row), .open(let row): row
+            }
+        }
+
+        /// How far the buttons are revealed once the finger has moved `dx` from where the drag began.
+        func distance(dx: CGFloat) -> CGFloat? {
+            switch self {
+            case .idle: nil
+            case .revealing(let row): row.overlay.towardEdge * dx
+            case .open(let row): row.overlay.layout.revealWidth + row.overlay.towardEdge * dx
+            }
+        }
     }
 
     /// The actions for a row and edge, edge-most first. Empty means that edge has none.
@@ -20,13 +54,7 @@ final class SwipeActionsController: NSObject {
 
     private weak var collectionView: UICollectionView?
     private let pan = UIPanGestureRecognizer()
-    private var overlay: SwipeOverlayView?
-    private var indexPath: IndexPath?
-    private var isOpen = false
-    private var feedback: UIImpactFeedbackGenerator?
-
-    /// How far past the revealed buttons a swipe must travel, as a share of the row's width, to fire the first.
-    static let fullSwipeFraction: CGFloat = 0.55
+    private var state = State.idle
 
     init(collectionView: UICollectionView) {
         self.collectionView = collectionView
@@ -39,11 +67,9 @@ final class SwipeActionsController: NSObject {
     /// Hides any open actions, as when the list scrolls or another row is tapped. Returns whether any were open.
     @discardableResult
     func close(animated: Bool = true) -> Bool {
-        guard let overlay else { return false }
-        self.overlay = nil
-        indexPath = nil
-        isOpen = false
-        let hide = { overlay.setProgress(0, fullSwipe: false) }
+        guard let overlay = state.row?.overlay else { return false }
+        state = .idle
+        let hide = { overlay.reveal = .tracking(0) }
         if animated {
             UIView.animate(springDuration: 0.3, bounce: 0, animations: hide) { _ in overlay.removeFromSuperview() }
         } else {
@@ -60,15 +86,12 @@ final class SwipeActionsController: NSObject {
             // The translation is still zero when the pan begins; the velocity tells which way it's heading.
             begin(at: pan.location(in: collectionView), dx: pan.velocity(in: collectionView).x, in: collectionView)
         case .changed:
-            guard let overlay else { return }
-            let start = isOpen ? overlay.revealWidth : 0
-            update(distance: start + overlay.towardEdge * dx, overlay: overlay)
+            guard let row = state.row, let distance = state.distance(dx: dx) else { return }
+            update(distance: distance, row: row)
         case .ended, .cancelled, .failed:
-            guard let overlay else { return }
-            let start = isOpen ? overlay.revealWidth : 0
-            let distance = start + overlay.towardEdge * dx
-            let velocity = overlay.towardEdge * pan.velocity(in: collectionView).x
-            finish(distance: distance, velocity: velocity, overlay: overlay, cancelled: pan.state != .ended)
+            guard let row = state.row, let distance = state.distance(dx: dx) else { return }
+            let velocity = row.overlay.towardEdge * pan.velocity(in: collectionView).x
+            finish(distance: distance, velocity: velocity, row: row, cancelled: pan.state != .ended)
         default:
             break
         }
@@ -81,9 +104,7 @@ final class SwipeActionsController: NSObject {
         guard let target = collectionView.indexPathForItem(at: location),
             let cell = collectionView.cellForItem(at: target)
         else { return }
-        if let indexPath, indexPath == target, let overlay, isOpen,
-            (dx < 0) == (overlay.side == .right)
-        {
+        if case .open(let row) = state, row.indexPath == target, (dx < 0) == (row.overlay.side == .right) {
             return  // Dragging the open actions further or back.
         }
         close(animated: false)
@@ -101,41 +122,36 @@ final class SwipeActionsController: NSObject {
             action.handler()
         }
         collectionView.addSubview(overlay)
-        self.overlay = overlay
-        indexPath = target
-        feedback = UIImpactFeedbackGenerator(style: .medium, view: collectionView)
-        feedback?.prepare()
+        let feedback = UIImpactFeedbackGenerator(style: .medium, view: collectionView)
+        feedback.prepare()
+        state = .revealing(Row(overlay: overlay, indexPath: target, feedback: feedback))
     }
 
-    private func update(distance: CGFloat, overlay: SwipeOverlayView) {
-        let fullSwipe = isFullSwipe(distance, overlay: overlay)
-        if fullSwipe != overlay.isFullSwipe {
-            feedback?.impactOccurred()
-            UIView.animate(springDuration: 0.25, bounce: 0.2) {
-                overlay.setProgress(distance / overlay.revealWidth, fullSwipe: fullSwipe)
-            }
+    private func update(distance: CGFloat, row: Row) {
+        let overlay = row.overlay
+        let reveal = overlay.layout.reveal(at: distance)
+        if reveal.isFullSwipe != overlay.reveal.isFullSwipe {
+            row.feedback.impactOccurred()
+            UIView.animate(springDuration: 0.3, bounce: 0.2) { overlay.reveal = reveal }
         } else {
-            overlay.setProgress(distance / overlay.revealWidth, fullSwipe: fullSwipe)
+            overlay.reveal = reveal
         }
     }
 
-    private func finish(distance: CGFloat, velocity: CGFloat, overlay: SwipeOverlayView, cancelled: Bool) {
-        if !cancelled, isFullSwipe(distance, overlay: overlay), let first = overlay.actions.first {
+    private func finish(distance: CGFloat, velocity: CGFloat, row: Row, cancelled: Bool) {
+        let overlay = row.overlay
+        let layout = overlay.layout
+        if !cancelled, layout.reveal(at: distance).isFullSwipe, let first = overlay.actions.first {
             close()
             first.handler()
             return
         }
-        let opens = !cancelled && (distance + velocity * 0.15 > overlay.revealWidth / 2)
-        if opens {
-            isOpen = true
-            UIView.animate(springDuration: 0.35, bounce: 0.15) { overlay.setProgress(1, fullSwipe: false) }
+        if !cancelled, distance + velocity * 0.15 > layout.revealWidth / 2 {
+            state = .open(row)
+            UIView.animate(springDuration: 0.35, bounce: 0.15) { overlay.reveal = .tracking(layout.revealWidth) }
         } else {
             close()
         }
-    }
-
-    private func isFullSwipe(_ distance: CGFloat, overlay: SwipeOverlayView) -> Bool {
-        distance > max(overlay.revealWidth + 40, overlay.bounds.width * Self.fullSwipeFraction)
     }
 }
 
@@ -155,6 +171,66 @@ extension SwipeActionsController: UIGestureRecognizerDelegate {
     }
 }
 
+/// How far a swipe has gone: either revealing the buttons, or past the point where letting go fires the first.
+enum SwipeReveal: Equatable {
+    /// The finger has moved this far toward the edge; the buttons follow it.
+    case tracking(CGFloat)
+    /// The finger has moved this far, enough to fire the edge-most action on release.
+    case fullSwipe(CGFloat)
+
+    var isFullSwipe: Bool {
+        if case .fullSwipe = self { true } else { false }
+    }
+}
+
+/// Where each swipe button sits, measured inward from the row's edge, for a given reveal. Pure geometry, so the
+/// slide can be checked without a screen.
+struct SwipeLayout {
+    var count: Int
+    var rowWidth: CGFloat
+
+    static let diameter: CGFloat = 60
+    static let spacing: CGFloat = 12
+    static let inset: CGFloat = 16
+    /// How far past the revealed buttons a swipe must travel, as a share of the row's width, to fire the first.
+    static let fullSwipeFraction: CGFloat = 0.55
+
+    /// The swipe distance at which every button is fully shown.
+    var revealWidth: CGFloat {
+        Self.inset + CGFloat(count) * (Self.diameter + Self.spacing)
+    }
+
+    func reveal(at distance: CGFloat) -> SwipeReveal {
+        distance > max(revealWidth + 40, rowWidth * Self.fullSwipeFraction) ? .fullSwipe(distance) : .tracking(distance)
+    }
+
+    /// Where button `index` rests once fully shown, from the edge to its outer side.
+    func restingOffset(_ index: Int) -> CGFloat {
+        Self.inset + CGFloat(index) * (Self.diameter + Self.spacing)
+    }
+
+    /// Each button's distance from the edge to its outer side, and whether it shows.
+    ///
+    /// While tracking, every button starts just past the edge and slides to its resting place as the finger
+    /// uncovers the row, the inner ones travelling further, so the stack fans out from the edge. On a full swipe
+    /// the edge-most button rides along at the finger and the rest fall away.
+    func placements(for reveal: SwipeReveal) -> [(offset: CGFloat, isVisible: Bool)] {
+        (0..<count).map { index in
+            let rest = restingOffset(index)
+            switch reveal {
+            case .tracking(let distance):
+                let progress = min(1, max(0, distance / revealWidth))
+                let offset = -Self.diameter + (rest + Self.diameter) * progress
+                return (offset, offset > -Self.diameter)
+            case .fullSwipe(let distance):
+                guard index == 0 else { return (rest, false) }
+                let atFinger = distance - Self.diameter - Self.spacing
+                return (min(max(rest, atFinger), rowWidth - Self.diameter - Self.inset), true)
+            }
+        }
+    }
+}
+
 /// The glass buttons over one row, laid out from the side the swipe uncovers.
 final class SwipeOverlayView: UIView {
     enum Side {
@@ -164,21 +240,15 @@ final class SwipeOverlayView: UIView {
     let actions: [SwipeAction]
     let side: Side
     var onAction: ((SwipeAction) -> Void)?
-    private(set) var isFullSwipe = false
+    var reveal: SwipeReveal = .tracking(0) {
+        didSet { layoutButtons() }
+    }
     private var buttons: [GlassActionButton] = []
-    private var progress: CGFloat = 0
-
-    private static let diameter: CGFloat = 48
-    private static let spacing: CGFloat = 10
-    private static let inset: CGFloat = 16
 
     /// +1 when a rightward drag reveals more, −1 when a leftward one does.
     var towardEdge: CGFloat { side == .left ? 1 : -1 }
 
-    /// The swipe distance at which every button is fully shown.
-    var revealWidth: CGFloat {
-        Self.inset + CGFloat(actions.count) * (Self.diameter + Self.spacing)
-    }
+    var layout: SwipeLayout { SwipeLayout(count: actions.count, rowWidth: bounds.width) }
 
     init(actions: [SwipeAction], side: Side) {
         self.actions = actions
@@ -190,9 +260,10 @@ final class SwipeOverlayView: UIView {
                 // A plain `UIControl` sends touch events, not `.primaryActionTriggered`.
                 UIAction { [weak self] _ in self?.onAction?(action) }, for: .touchUpInside)
             buttons.append(button)
-            addSubview(button)
+            // The edge-most button stays on top, so the inner ones fan out from under it.
+            insertSubview(button, at: 0)
         }
-        setProgress(0, fullSwipe: false)
+        layoutButtons()
     }
 
     @available(*, unavailable)
@@ -200,7 +271,7 @@ final class SwipeOverlayView: UIView {
 
     /// Touches between the buttons fall through to the list, so a tap on the row still reaches it.
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
-        buttons.contains { !$0.isHidden && $0.frame.insetBy(dx: -4, dy: -4).contains(point) }
+        buttons.contains { $0.alpha > 0 && $0.frame.insetBy(dx: -4, dy: -4).contains(point) }
     }
 
     override func layoutSubviews() {
@@ -208,42 +279,27 @@ final class SwipeOverlayView: UIView {
         layoutButtons()
     }
 
-    /// `progress` 0 hides every button and 1 shows them all; between, each grows in from the edge in turn.
-    func setProgress(_ progress: CGFloat, fullSwipe: Bool) {
-        self.progress = max(0, progress)
-        isFullSwipe = fullSwipe
-        layoutButtons()
-    }
-
     private func layoutButtons() {
-        let count = CGFloat(buttons.count)
-        let y = bounds.midY - Self.diameter / 2
-        for (index, button) in buttons.enumerated() {
-            let offset = Self.inset + CGFloat(index) * (Self.diameter + Self.spacing)
-            let x = side == .right ? bounds.width - offset - Self.diameter : offset
-            button.bounds = CGRect(x: 0, y: 0, width: Self.diameter, height: Self.diameter)
-            button.center = CGPoint(x: x + Self.diameter / 2, y: y + Self.diameter / 2)
-            // The edge-most button leads; each next one starts once the one before is half grown.
-            let share = min(1, max(0, (progress * count - CGFloat(index)) / 1.0))
-            let appear = isFullSwipe ? (index == 0 ? 1 : 0) : share
-            let scale = isFullSwipe && index == 0 ? 1.25 : 0.5 + 0.5 * appear
-            let slide = (1 - appear) * 16 * (side == .right ? 1 : -1)
-            button.alpha = appear
-            button.transform = CGAffineTransform(translationX: slide, y: 0).scaledBy(x: scale, y: scale)
-            button.isHidden = appear == 0
+        let diameter = SwipeLayout.diameter
+        for (button, placement) in zip(buttons, layout.placements(for: reveal)) {
+            let x = side == .right ? bounds.width - placement.offset - diameter : placement.offset
+            button.frame = CGRect(x: x, y: bounds.midY - diameter / 2, width: diameter, height: diameter)
+            // Fading rather than hiding keeps the slide smooth inside the spring animations.
+            button.alpha = placement.isVisible ? 1 : 0
         }
     }
 }
 
-/// A round Liquid Glass button showing an action's symbol; destructive ones are tinted red.
+/// A round button of clear Liquid Glass showing an action's symbol, so the row shows through it; destructive ones
+/// are tinted red.
 final class GlassActionButton: UIControl {
     private let effectView: UIVisualEffectView
     private let imageView = UIImageView()
 
     init(action: SwipeAction) {
-        let glass = UIGlassEffect()
+        let glass = UIGlassEffect(style: .clear)
         glass.isInteractive = true
-        if action.isDestructive { glass.tintColor = .systemRed }
+        if action.isDestructive { glass.tintColor = .systemRed.withAlphaComponent(0.8) }
         effectView = UIVisualEffectView(effect: glass)
         super.init(frame: .zero)
         effectView.cornerConfiguration = .capsule()
@@ -252,7 +308,7 @@ final class GlassActionButton: UIControl {
         effectView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         addSubview(effectView)
         imageView.image = UIImage(systemName: action.symbol)
-        imageView.preferredSymbolConfiguration = UIImage.SymbolConfiguration(textStyle: .title3, scale: .medium)
+        imageView.preferredSymbolConfiguration = UIImage.SymbolConfiguration(textStyle: .title2, scale: .large)
         imageView.tintColor = action.isDestructive ? .white : .label
         imageView.contentMode = .center
         imageView.frame = bounds
