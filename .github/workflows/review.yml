@@ -1,0 +1,106 @@
+# The PR pipeline (ADR-016): lint, a Claude review against docs/review.md, then a squash merge of the exact commit
+# that passed both. Free private repos have no branch protection or native auto-merge, so this workflow is the gate.
+name: review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+# A new push cancels the review of the old one, so only the newest commit can merge.
+concurrency:
+  group: review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    container: swift:6.4
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Format and line cap
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          scripts/check --lint
+
+  claude:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+            BASE: origin/${{ github.event.pull_request.base.ref }}
+            HEAD SHA: ${{ github.event.pull_request.head.sha }}
+
+            You are the merge gate for this PR. Nothing merges unless you approve it.
+
+            1. Read CLAUDE.md and docs/review.md in full. docs/review.md is the standard you enforce.
+            2. Read the diff (`gh pr diff`, `git diff BASE...HEAD`) and the PR description, then read every changed
+               file in full, plus the code it calls and is called by, until you understand the change.
+            3. Review it against docs/review.md. Implicit state machines, files over 1000 lines, correctness bugs,
+               and the code-quality blockers listed there all block approval.
+            4. Post each blocking finding as an inline comment on the line it is about, written as prose that names
+               the problem, the evidence, and the remedy. Post non-blocking suggestions only if they are worth the
+               author's time.
+            5. Post one summary comment with `gh pr comment`. Start it with "**Claude review: approved**" or
+               "**Claude review: changes requested**", then list the blocking findings in a sentence each.
+            6. Return the verdict: "approve" only if there are no blocking findings.
+
+            If this PR changes docs/review.md, CLAUDE.md or .github/, review it against the standard on the base
+            branch (`git show BASE:docs/review.md`), not the PR's copy.
+          claude_args: |
+            --max-turns 60
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(wc:*),Read,Grep,Glob"
+            --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["approve","request_changes"]},"blocking_findings":{"type":"integer","minimum":0}},"required":["verdict","blocking_findings"]}'
+
+      - name: Enforce the verdict
+        env:
+          RESULT: ${{ steps.review.outputs.structured_output }}
+        run: |
+          verdict=$(jq -r '.verdict' <<<"$RESULT")
+          echo "Verdict: $verdict ($(jq -r '.blocking_findings' <<<"$RESULT") blocking findings)"
+          [[ "$verdict" == "approve" ]]
+
+  merge:
+    needs: [lint, claude]
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.number }}
+      SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Squash-merge the reviewed commit
+        run: |
+          labels=$(gh pr view "$PR" -R "$GITHUB_REPOSITORY" --json labels --jq '[.labels[].name] | join(",")')
+          if [[ ",$labels," == *",hold,"* ]]; then
+            echo "Labeled hold; leaving it for the owner."
+            exit 0
+          fi
+          if gh pr diff "$PR" -R "$GITHUB_REPOSITORY" --name-only | grep -q '^\.github/'; then
+            gh pr comment "$PR" -R "$GITHUB_REPOSITORY" \
+              --body "Approved and green, but this PR changes .github/, which controls the gate itself. The owner merges it."
+            exit 0
+          fi
+          gh pr merge "$PR" -R "$GITHUB_REPOSITORY" --squash --delete-branch --match-head-commit "$SHA"
