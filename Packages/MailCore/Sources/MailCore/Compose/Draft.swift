@@ -124,6 +124,7 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
             accountID: message.id.accountID,
             to: message.to,
             cc: message.cc,
+            bcc: message.bcc,
             subject: message.subject,
             body: message.body,
             threadID: message.threadID,

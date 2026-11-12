@@ -95,12 +95,15 @@ struct GmailThread: Decodable {
 extension GmailThread.Message {
     func message(accountID: AccountID, threadID: String) -> MailCore.Message {
         let content = payload?.mimePart.content() ?? (body: MessageBody(), attachments: [])
+        // Gmail's copy of a sent message keeps its Bcc header too, but only a draft is shown it again.
+        let isDraft = labelIds?.contains(SystemLabel.draft) == true
         return MailCore.Message(
             id: MailCore.Message.ID(accountID: accountID, messageID: id),
             threadID: threadID,
             from: Contact(parsing: header("From") ?? ""),
             to: Contact.list(parsing: header("To") ?? ""),
             cc: Contact.list(parsing: header("Cc") ?? ""),
+            bcc: isDraft ? Contact.list(parsing: header("Bcc") ?? "") : [],
             replyTo: Contact.list(parsing: header("Reply-To") ?? ""),
             subject: header("Subject") ?? "",
             date: date ?? .distantPast,

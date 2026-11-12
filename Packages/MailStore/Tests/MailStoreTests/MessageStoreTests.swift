@@ -47,6 +47,20 @@ struct MessageStoreTests {
         #expect(try await stored() == [earlier, later])
     }
 
+    @Test func aDraftsBccIsStoredAndReopens() async throws {
+        var draft = message("d1", minutes: 0, html: "<p>hi</p>")
+        draft.labelIDs = ["DRAFT"]
+        draft.to = [Contact(name: nil, address: "dana@example.com")]
+        draft.cc = [Contact(name: nil, address: "avi@example.com")]
+        draft.bcc = [Contact(name: "Boss", address: "boss@example.com")]
+        try database.save([draft], inThread: threadID)
+        let stored = try #require(try await stored().first)
+        #expect(stored.bcc == draft.bcc)
+        let reopened = Draft.editing(stored)
+        #expect(reopened.bcc == draft.bcc)
+        #expect(reopened.cc == draft.cc)
+    }
+
     @Test func savingAgainReplacesTheThreadsMessages() async throws {
         try database.save(
             [message("m1", minutes: 0, html: "a"), message("m2", minutes: 1, html: "b")], inThread: threadID)
