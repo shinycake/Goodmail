@@ -162,6 +162,14 @@ public final class MailboxViewController: UIViewController {
                 dateText: viewModel.dateText(for: thread),
                 accountColor: viewModel.accountColors[thread.id.accountID]?.uiColor ?? .tintColor
             )
+            // The open thread stays selected beside the list on iPad; a light tint keeps its text readable.
+            cell.configurationUpdateHandler = { cell, state in
+                var background = UIBackgroundConfiguration.listCell().updated(for: state)
+                if state.isSelected || state.isHighlighted {
+                    background.backgroundColor = .tintColor.withAlphaComponent(0.14)
+                }
+                cell.backgroundConfiguration = background
+            }
             // VoiceOver reaches the swipe actions through the rotor.
             cell.accessibilityCustomActions =
                 (swipeActions(for: id, leading: false)
