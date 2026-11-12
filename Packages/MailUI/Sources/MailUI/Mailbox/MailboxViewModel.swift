@@ -111,7 +111,7 @@ public final class MailboxViewModel {
     }
 
     public func open(_ id: ThreadSummary.ID) {
-        navigate(.thread(id))
+        navigate(.thread(id, in: mailbox))
     }
 
     /// The swipe actions for a row, edge-most first: reading state and star from the leading edge; from the
@@ -140,6 +140,11 @@ public final class MailboxViewModel {
             return common.filter(theirs.contains)
         }
         return [.markRead(threads.contains(where: \.isUnread))] + common
+    }
+
+    /// Opens the places these threads can move to from this mailbox.
+    public func move(_ threads: [ThreadSummary.ID]) {
+        navigate(.move(threads, from: mailbox))
     }
 
     /// Opens the label picker for these threads.

@@ -141,6 +141,67 @@
         }
       }
     },
+    "%lld moved to %@" : {
+      "comment" : "Toast after moving threads; the second value is the mailbox or label they went to",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@count@ to %2$@"
+          },
+          "substitutions" : {
+            "count" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "Moved"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg threads moved"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@count@ אל %2$@"
+          },
+          "substitutions" : {
+            "count" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "הועבר"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg שרשורים הועברו"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld moved to Trash" : {
       "comment" : "Toast after trashing threads",
       "localizations" : {
@@ -685,6 +746,17 @@
         }
       }
     },
+    "Move to…" : {
+      "comment" : "Action: move threads to another mailbox",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה אל…"
+          }
+        }
+      }
+    },
     "New Message" : {
       "comment" : "Composer title",
       "localizations" : {
@@ -764,6 +836,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "מסומן"
+          }
+        }
+      }
+    },
+    "Organize" : {
+      "comment" : "Button: move threads or change labels",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ארגון"
           }
         }
       }
@@ -1272,6 +1355,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "אני"
+          }
+        }
+      }
+    },
+    "move.archive" : {
+      "comment" : "Move destination: out of the Inbox, with no label",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archive"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ארכיון"
+          }
+        }
+      }
+    },
+    "move.title" : {
+      "comment" : "Title of the sheet that picks where threads move",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move To"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה אל"
           }
         }
       }

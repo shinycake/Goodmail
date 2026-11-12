@@ -6,6 +6,8 @@ import Observation
 @Observable
 public final class ThreadViewModel {
     public let thread: ThreadSummary
+    /// The mailbox the reader opened the thread from, which a move takes it out of.
+    public let mailbox: Mailbox
     public let accountEmail: String
     public let accountColor: AccountColor
     public private(set) var messages: [Message] = []
@@ -14,12 +16,20 @@ public final class ThreadViewModel {
     public private(set) var remoteContentAllowed: Set<Message.ID> = []
     public private(set) var isLoading = false
     public private(set) var loadError: (any Error)?
+    /// Whether the reader is still on the thread. It leaves once, when an action or a move takes the thread out of
+    /// `mailbox`, and closes then.
+    public enum Presence: Equatable, Sendable {
+        case reading
+        case left
+    }
+    public private(set) var presence: Presence = .reading
 
     @ObservationIgnored private let stream: () -> AsyncThrowingStream<[Message], any Error>
     @ObservationIgnored private let loadAction: () async throws -> Void
     @ObservationIgnored let attachmentData: (Attachment, Message.ID) async throws -> Data
     @ObservationIgnored private let actions: MailActions?
     @ObservationIgnored private let navigate: (Route) -> Void
+    @ObservationIgnored private let close: () -> Void
     @ObservationIgnored private var hasMarkedRead = false
     @ObservationIgnored private let attachmentsDirectory: URL
     @ObservationIgnored private let now: () -> Date
@@ -27,6 +37,7 @@ public final class ThreadViewModel {
 
     public init(
         thread: ThreadSummary,
+        mailbox: Mailbox,
         accountEmail: String,
         accountColor: AccountColor,
         messages: @escaping () -> AsyncThrowingStream<[Message], any Error>,
@@ -34,14 +45,17 @@ public final class ThreadViewModel {
         attachmentData: @escaping (Attachment, Message.ID) async throws -> Data,
         actions: MailActions? = nil,
         navigate: @escaping (Route) -> Void = { _ in },
+        close: @escaping () -> Void = {},
         attachmentsDirectory: URL = FileManager.default.temporaryDirectory.appending(path: "Attachments"),
         now: @escaping () -> Date = Date.init,
         calendar: Calendar = .autoupdatingCurrent
     ) {
         self.actions = actions
         self.navigate = navigate
+        self.close = close
         self.attachmentsDirectory = attachmentsDirectory
         self.thread = thread
+        self.mailbox = mailbox
         self.accountEmail = accountEmail
         self.accountColor = accountColor
         stream = messages
@@ -63,6 +77,11 @@ public final class ThreadViewModel {
             for try await messages in stream() {
                 if expanded.isEmpty { expanded = Self.initiallyExpanded(messages) }
                 self.messages = messages
+                if !messages.isEmpty, mailbox.contains(thread) {
+                    var now = thread
+                    now.labelIDs = messages.reduce(into: []) { $0.formUnion($1.labelIDs) }
+                    if !mailbox.contains(now) { leave() }
+                }
             }
         } catch {
             loadError = error
@@ -123,19 +142,31 @@ public final class ThreadViewModel {
         messages.contains { $0.labelIDs.contains(SystemLabel.starred) }
     }
 
-    /// Applies an action to the whole thread. Returns whether the thread leaves the mailbox, so the view closes.
-    @discardableResult
-    public func perform(_ action: ThreadAction) -> Bool {
+    /// Applies an action to the whole thread. Archive, Trash and Spam take it out of the mailbox, and Unread puts it
+    /// back for later, so the reader leaves after them.
+    public func perform(_ action: ThreadAction) {
         actions?.perform(action, on: [thread.id])
-        return action == .archive || action == .trash || action == .reportSpam
+        if [.archive, .trash, .reportSpam, .markRead(false)].contains(action) { leave() }
     }
 
-    /// Replies to the newest message, or forwards it.
+    /// The one transition out of the thread: the reader closes the first time, and never again.
+    private func leave() {
+        guard presence == .reading else { return }
+        presence = .left
+        close()
+    }
+
     /// Opens the label picker for this thread.
     public func changeLabels() {
         navigate(.changeLabels([thread.id]))
     }
 
+    /// Opens the places this thread can move to from its mailbox.
+    public func move() {
+        navigate(.move([thread.id], from: mailbox))
+    }
+
+    /// Replies to the newest message.
     public func reply(all: Bool) {
         guard let message = latestSent else { return }
         navigate(.compose(Draft.reply(to: message, all: all, accountEmail: accountEmail)))

@@ -140,7 +140,9 @@ final class SceneCoordinator: NSObject {
             UINavigationController(rootViewController: mailboxViewController(for: shown.mailbox, title: shown.title)),
             for: .supplementary)
         split.setViewController(
-            UINavigationController(rootViewController: shown.thread.flatMap(reader(for:)) ?? NoThreadViewController()),
+            UINavigationController(
+                rootViewController: shown.thread.flatMap { reader(for: $0, in: shown.mailbox) }
+                    ?? NoThreadViewController()),
             for: .secondary)
     }
 
@@ -150,7 +152,9 @@ final class SceneCoordinator: NSObject {
         let stack = UINavigationController(rootViewController: mailboxesViewController(style: .list))
         stack.delegate = self
         stack.pushViewController(mailboxViewController(for: shown.mailbox, title: shown.title), animated: false)
-        if let reader = shown.thread.flatMap(reader(for:)) { stack.pushViewController(reader, animated: false) }
+        if let reader = shown.thread.flatMap({ reader(for: $0, in: shown.mailbox) }) {
+            stack.pushViewController(reader, animated: false)
+        }
         split.setViewController(stack, for: .compact)
     }
 
@@ -158,14 +162,15 @@ final class SceneCoordinator: NSObject {
         split?.viewController(for: column) as? UINavigationController
     }
 
-    /// A reader for the thread, or nil when it is gone.
-    private func reader(for id: ThreadSummary.ID) -> ThreadViewController? {
+    /// A reader for the thread, opened from `mailbox`, or nil when it is gone.
+    private func reader(for id: ThreadSummary.ID, in mailbox: Mailbox) -> ThreadViewController? {
         guard let thread = try? model.database.thread(id),
             let account = model.accounts.first(where: { $0.id == id.accountID })
         else { return nil }
         let model = model
         let viewModel = ThreadViewModel(
             thread: thread,
+            mailbox: mailbox,
             accountEmail: account.email,
             accountColor: account.color,
             messages: { model.messages(inThread: id) },
@@ -173,12 +178,10 @@ final class SceneCoordinator: NSObject {
             attachmentData: { try await model.attachmentData($0, in: $1) },
             actions: actions,
             navigate: { [weak self] route in self?.handle(route) },
+            close: { [weak self] in self?.closeThread() },
             attachmentsDirectory: model.attachmentsDirectory
         )
-        return ThreadViewController(
-            viewModel: viewModel,
-            openURL: { url in UIApplication.shared.open(url) },
-            close: { [weak self] in self?.closeThread() })
+        return ThreadViewController(viewModel: viewModel, openURL: { url in UIApplication.shared.open(url) })
     }
 
     /// Leaves the open thread, after an action that takes it out of the mailbox.
@@ -231,8 +234,8 @@ final class SceneCoordinator: NSObject {
                     mailbox
                 split.show(.supplementary)
             }
-        case .thread(let id):
-            guard let split, let reader = reader(for: id) else { return }
+        case .thread(let id, let mailbox):
+            guard let split, let reader = reader(for: id, in: mailbox) else { return }
             shown.thread = id
             if split.isCollapsed {
                 navigation(for: .compact)?.pushViewController(reader, animated: true)
@@ -250,6 +253,15 @@ final class SceneCoordinator: NSObject {
             let picker = LabelPickerViewController(labels: labels, threads: threads) { action in
                 actions.perform(action, on: ids)
             }
+            let navigation = UINavigationController(rootViewController: picker)
+            navigation.sheetPresentationController?.detents = [.medium(), .large()]
+            presenter.present(navigation, animated: true)
+        case .move(let ids, let mailbox):
+            guard let presenter = topViewController() else { return }
+            let database = model.database
+            let picker = MoveViewController(
+                viewModel: MoveViewModel(
+                    threads: ids, from: mailbox, labels: { (try? database.labels(for: $0)) ?? [] }, actions: actions))
             let navigation = UINavigationController(rootViewController: picker)
             navigation.sheetPresentationController?.detents = [.medium(), .large()]
             presenter.present(navigation, animated: true)
