@@ -48,6 +48,25 @@ struct GmailClientTests {
         #expect(bare.subject == "")
     }
 
+    @Test func onlyADraftKeepsItsBcc() async throws {
+        let http = FixtureHTTPClient([
+            "/token": [.init(fixture: "token-exchange")],
+            "/gmail/v1/users/me/threads/18f0b1": [.init(fixture: "thread-18f0b1")],
+        ])
+        let messages = try await GmailClient(session: signedIn(http), http: http).messages(inThread: "18f0b1")
+
+        let sent = try #require(messages.first { $0.id.messageID == "s1" })
+        #expect(sent.bcc.isEmpty, "Gmail's sent copy has the header, but it isn't shown again")
+        let draft = try #require(messages.first { $0.id.messageID == "d1" })
+        #expect(draft.to == [Contact(name: "Dana Levi", address: "dana@example.com")])
+        #expect(draft.cc == [Contact(name: nil, address: "avi@example.com")])
+        #expect(
+            draft.bcc == [
+                Contact(name: "Cohen, Yael", address: "yael@example.co.il"),
+                Contact(name: nil, address: "boss@example.com"),
+            ])
+    }
+
     @Test func requestsAskForMetadataHeadersWithTheBearerToken() async throws {
         let http = FixtureHTTPClient(Self.inboxReplies)
         _ = try await GmailClient(session: try await signedIn(http), http: http)
