@@ -16,15 +16,36 @@ final class SwipeActionsController: NSObject {
         case leading, trailing
     }
 
-    /// The row whose actions are showing, and whether they had settled open before the current drag.
-    private struct Shown {
+    /// A row whose actions are on screen.
+    private struct Row {
         let overlay: SwipeOverlayView
         let indexPath: IndexPath
-        var isOpen: Bool
+        let feedback: UIImpactFeedbackGenerator
+    }
+
+    /// Where the swipe stands. Dragging a row that is already open starts from its fully revealed buttons.
+    private enum State {
+        /// No row shows its actions.
+        case idle
+        /// A drag is uncovering a row's actions from closed.
+        case revealing(Row)
+        /// A row's actions settled open; a drag on it continues from there.
+        case open(Row)
+
+        var row: Row? {
+            switch self {
+            case .idle: nil
+            case .revealing(let row), .open(let row): row
+            }
+        }
 
         /// How far the buttons are revealed once the finger has moved `dx` from where the drag began.
-        func distance(dx: CGFloat) -> CGFloat {
-            (isOpen ? overlay.layout.revealWidth : 0) + overlay.towardEdge * dx
+        func distance(dx: CGFloat) -> CGFloat? {
+            switch self {
+            case .idle: nil
+            case .revealing(let row): row.overlay.towardEdge * dx
+            case .open(let row): row.overlay.layout.revealWidth + row.overlay.towardEdge * dx
+            }
         }
     }
 
@@ -33,8 +54,7 @@ final class SwipeActionsController: NSObject {
 
     private weak var collectionView: UICollectionView?
     private let pan = UIPanGestureRecognizer()
-    private var shown: Shown?
-    private var feedback: UIImpactFeedbackGenerator?
+    private var state = State.idle
 
     init(collectionView: UICollectionView) {
         self.collectionView = collectionView
@@ -47,8 +67,8 @@ final class SwipeActionsController: NSObject {
     /// Hides any open actions, as when the list scrolls or another row is tapped. Returns whether any were open.
     @discardableResult
     func close(animated: Bool = true) -> Bool {
-        guard let overlay = shown?.overlay else { return false }
-        shown = nil
+        guard let overlay = state.row?.overlay else { return false }
+        state = .idle
         let hide = { overlay.reveal = .tracking(0) }
         if animated {
             UIView.animate(springDuration: 0.3, bounce: 0, animations: hide) { _ in overlay.removeFromSuperview() }
@@ -66,12 +86,12 @@ final class SwipeActionsController: NSObject {
             // The translation is still zero when the pan begins; the velocity tells which way it's heading.
             begin(at: pan.location(in: collectionView), dx: pan.velocity(in: collectionView).x, in: collectionView)
         case .changed:
-            guard let shown else { return }
-            update(distance: shown.distance(dx: dx), overlay: shown.overlay)
+            guard let row = state.row, let distance = state.distance(dx: dx) else { return }
+            update(distance: distance, row: row)
         case .ended, .cancelled, .failed:
-            guard let shown else { return }
-            let velocity = shown.overlay.towardEdge * pan.velocity(in: collectionView).x
-            finish(distance: shown.distance(dx: dx), velocity: velocity, cancelled: pan.state != .ended)
+            guard let row = state.row, let distance = state.distance(dx: dx) else { return }
+            let velocity = row.overlay.towardEdge * pan.velocity(in: collectionView).x
+            finish(distance: distance, velocity: velocity, row: row, cancelled: pan.state != .ended)
         default:
             break
         }
@@ -84,7 +104,7 @@ final class SwipeActionsController: NSObject {
         guard let target = collectionView.indexPathForItem(at: location),
             let cell = collectionView.cellForItem(at: target)
         else { return }
-        if let shown, shown.indexPath == target, shown.isOpen, (dx < 0) == (shown.overlay.side == .right) {
+        if case .open(let row) = state, row.indexPath == target, (dx < 0) == (row.overlay.side == .right) {
             return  // Dragging the open actions further or back.
         }
         close(animated: false)
@@ -102,23 +122,24 @@ final class SwipeActionsController: NSObject {
             action.handler()
         }
         collectionView.addSubview(overlay)
-        shown = Shown(overlay: overlay, indexPath: target, isOpen: false)
-        feedback = UIImpactFeedbackGenerator(style: .medium, view: collectionView)
-        feedback?.prepare()
+        let feedback = UIImpactFeedbackGenerator(style: .medium, view: collectionView)
+        feedback.prepare()
+        state = .revealing(Row(overlay: overlay, indexPath: target, feedback: feedback))
     }
 
-    private func update(distance: CGFloat, overlay: SwipeOverlayView) {
+    private func update(distance: CGFloat, row: Row) {
+        let overlay = row.overlay
         let reveal = overlay.layout.reveal(at: distance)
         if reveal.isFullSwipe != overlay.reveal.isFullSwipe {
-            feedback?.impactOccurred()
+            row.feedback.impactOccurred()
             UIView.animate(springDuration: 0.3, bounce: 0.2) { overlay.reveal = reveal }
         } else {
             overlay.reveal = reveal
         }
     }
 
-    private func finish(distance: CGFloat, velocity: CGFloat, cancelled: Bool) {
-        guard let overlay = shown?.overlay else { return }
+    private func finish(distance: CGFloat, velocity: CGFloat, row: Row, cancelled: Bool) {
+        let overlay = row.overlay
         let layout = overlay.layout
         if !cancelled, layout.reveal(at: distance).isFullSwipe, let first = overlay.actions.first {
             close()
@@ -126,7 +147,7 @@ final class SwipeActionsController: NSObject {
             return
         }
         if !cancelled, distance + velocity * 0.15 > layout.revealWidth / 2 {
-            shown?.isOpen = true
+            state = .open(row)
             UIView.animate(springDuration: 0.35, bounce: 0.15) { overlay.reveal = .tracking(layout.revealWidth) }
         } else {
             close()
