@@ -47,6 +47,8 @@ check_simulator=$(xcrun simctl list devices available | grep -m1 -F "$CHECK_NAME
 if [[ -z "$check_simulator" ]]; then
     check_simulator=$(xcrun simctl create "$CHECK_NAME" "${GOODMAIL_SIMULATOR:-iPhone 18 Pro}")
 fi
+# Boot it up front: xcodebuild gives a booting simulator only 60 seconds, which a busy Mac can miss.
+xcrun simctl bootstatus "$check_simulator" -b >/dev/null
 DESTINATION="platform=iOS Simulator,id=$check_simulator"
 # Simulators live on the internal disk, so a worktree's own one goes when its check ends.
 if [[ "$CHECK_NAME" != "Goodmail Check" ]]; then
