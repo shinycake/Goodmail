@@ -181,10 +181,27 @@ struct SyncEngineTests {
             thread("recent", daysAgo: 1), thread("old-invoice", daysAgo: 400, labels: []),
             thread("new-invoice", daysAgo: 2), thread("binned-invoice", daysAgo: 3, labels: ["TRASH"])
         )
-        let ids = try await engine().search("invoice")
-        #expect(ids.map(\.threadID) == ["new-invoice", "old-invoice"])
+        let page = try await engine().search("invoice")
+        #expect(page.ids.map(\.threadID) == ["new-invoice", "old-invoice"])
+        #expect(!page.hasMore)
         #expect(try allLocal() == ["new-invoice", "old-invoice"])
         #expect(server.queries.last?.query == ThreadQuery(text: "invoice"))
+    }
+
+    @Test func searchPagesOnFromTheTokenItGave() async throws {
+        seed(
+            thread("a-invoice", daysAgo: 1), thread("b-invoice", daysAgo: 2), thread("c-invoice", daysAgo: 3),
+            thread("other", daysAgo: 4))
+        let engine = engine()
+        let first = try await engine.search("invoice")
+        #expect(first.ids.map(\.threadID) == ["a-invoice", "b-invoice"], "the fake's pages hold two")
+        let token = try #require(first.next[account.id])
+
+        let second = try await engine.search("invoice", pageToken: token)
+        #expect(second.ids.map(\.threadID) == ["c-invoice"])
+        #expect(!second.hasMore)
+        #expect(server.queries.last == FakeMailServer.Query(query: ThreadQuery(text: "invoice"), pageToken: token))
+        #expect(try allLocal() == ["a-invoice", "b-invoice", "c-invoice"])
     }
 
     @Test func syncKeepsTheSignatureAndAFailedReadLeavesItAlone() async throws {

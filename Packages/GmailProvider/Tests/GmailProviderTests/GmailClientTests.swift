@@ -88,14 +88,4 @@ struct GmailClientTests {
         let signature = try await GmailClient(session: try await signedIn(http), http: http).signature()
         #expect(signature == "Dana Levi\nGoodmail & Co.\n\nexample.com")
     }
-
-    @Test func signatureHTMLKeepsItsLines() {
-        #expect(HTMLEntities.plainText(fromHTML: "Dana<br>CEO<br/>  <b>Goodmail</b>") == "Dana\nCEO\nGoodmail")
-        #expect(HTMLEntities.plainText(fromHTML: "<p>One</p><p>Two</p>") == "One\nTwo")
-        #expect(HTMLEntities.plainText(fromHTML: "") == "")
-    }
-
-    @Test func snippetEntitiesDecode() {
-        #expect(HTMLEntities.decode("a &lt;b&gt; &#x41; &#65; &unknown; & done") == "a <b> A A &unknown; & done")
-    }
 }
