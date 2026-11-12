@@ -15,12 +15,16 @@ public final class MailboxViewController: UIViewController {
     private let empty: UIContentUnavailableConfiguration
     private var emptyState: EmptyState?
 
-    private enum EmptyState {
+    private enum EmptyState: Equatable {
         /// Spam and Trash start empty while their first page is fetched.
         case loading
-        case empty
+        /// With another category that has unread mail to point to.
+        case empty(pointingTo: InboxCategory?)
     }
     private var browsingToolbarItems: [UIBarButtonItem] = []
+    /// The Inbox's category menu, when the list is split into categories.
+    private let categoryButton: UIButton?
+    private let categoryItem: UIBarButtonItem?
 
     /// `searchResults`, when given, adds search to the toolbar. `empty` is what an empty list shows: by default the
     /// mailbox's symbol and "No Mail".
@@ -31,9 +35,13 @@ public final class MailboxViewController: UIViewController {
         self.viewModel = viewModel
         self.searchResults = searchResults
         self.empty = empty ?? Self.noMail(in: viewModel.mailbox)
+        categoryButton = viewModel.category == nil ? nil : Self.categoryButton()
+        categoryItem = categoryButton.map { UIBarButtonItem(customView: $0) }
         super.init(nibName: nil, bundle: nil)
         title = viewModel.title
         navigationItem.largeTitleDisplayMode = .always
+        navigationItem.leftItemsSupplementBackButton = true
+        navigationItem.leftBarButtonItem = categoryItem
         if viewModel.actions != nil { navigationItem.rightBarButtonItem = selectItem() }
     }
 
@@ -109,6 +117,11 @@ public final class MailboxViewController: UIViewController {
         super.updateProperties()
         applySections(viewModel.sections)
         updateEmptyState()
+        if let categoryButton, let category = viewModel.category {
+            Self.update(categoryButton, selected: category, unreadCounts: viewModel.categoryUnreadCounts) {
+                [weak self] in self?.show($0)
+            }
+        }
         if !viewModel.isRefreshing, collectionView.refreshControl?.isRefreshing == true {
             collectionView.refreshControl?.endRefreshing()
         }
@@ -117,15 +130,38 @@ public final class MailboxViewController: UIViewController {
     /// Only on a change: setting the configuration lays the view out again, which would run this again.
     private func updateEmptyState() {
         let state: EmptyState? =
-            !viewModel.hasLoaded || !viewModel.sections.isEmpty ? nil : viewModel.isLoadingOlder ? .loading : .empty
+            !viewModel.hasLoaded || !viewModel.sections.isEmpty
+            ? nil
+            : viewModel.isLoadingOlder ? .loading : .empty(pointingTo: viewModel.categoryWithUnread)
         guard state != emptyState else { return }
         emptyState = state
         contentUnavailableConfiguration =
             switch state {
             case nil: nil
             case .loading: UIContentUnavailableConfiguration.loading()
-            case .empty: empty
+            case .empty(let other?): pointing(empty, to: other)
+            case .empty(nil): empty
             }
+    }
+
+    /// `configuration` with a link to another category that has unread mail.
+    private func pointing(_ configuration: UIContentUnavailableConfiguration, to category: InboxCategory)
+        -> UIContentUnavailableConfiguration
+    {
+        var configuration = configuration
+        var button = UIButton.Configuration.plain()
+        button.title = String(
+            localized: "Go to \(category.title)", bundle: .module,
+            comment: "Link from an empty Inbox category to another with unread mail")
+        configuration.button = button
+        configuration.buttonProperties.primaryAction = UIAction { [weak self] _ in self?.show(category) }
+        return configuration
+    }
+
+    /// Switches to `category`'s threads, from the top.
+    private func show(_ category: InboxCategory) {
+        viewModel.select(category)
+        collectionView.setContentOffset(CGPoint(x: 0, y: -collectionView.adjustedContentInset.top), animated: false)
     }
 
     private static func noMail(in mailbox: Mailbox) -> UIContentUnavailableConfiguration {
@@ -280,7 +316,7 @@ extension MailboxViewController {
         if editing {
             updateSelectionChrome()
         } else {
-            navigationItem.leftBarButtonItem = nil
+            navigationItem.leftBarButtonItem = categoryItem
             title = viewModel.title
             setToolbarItems(browsingToolbarItems, animated: animated)
         }
