@@ -6,6 +6,8 @@ import Observation
 @Observable
 public final class ThreadViewModel {
     public let thread: ThreadSummary
+    /// The mailbox the reader opened the thread from, which a move takes it out of.
+    public let mailbox: Mailbox
     public let accountEmail: String
     public let accountColor: AccountColor
     public private(set) var messages: [Message] = []
@@ -14,6 +16,8 @@ public final class ThreadViewModel {
     public private(set) var remoteContentAllowed: Set<Message.ID> = []
     public private(set) var isLoading = false
     public private(set) var loadError: (any Error)?
+    /// Whether the thread was in `mailbox` and has left it, as after a move: the reader closes.
+    public private(set) var hasLeftMailbox = false
 
     @ObservationIgnored private let stream: () -> AsyncThrowingStream<[Message], any Error>
     @ObservationIgnored private let loadAction: () async throws -> Void
@@ -27,6 +31,7 @@ public final class ThreadViewModel {
 
     public init(
         thread: ThreadSummary,
+        mailbox: Mailbox = .inbox,
         accountEmail: String,
         accountColor: AccountColor,
         messages: @escaping () -> AsyncThrowingStream<[Message], any Error>,
@@ -42,6 +47,7 @@ public final class ThreadViewModel {
         self.navigate = navigate
         self.attachmentsDirectory = attachmentsDirectory
         self.thread = thread
+        self.mailbox = mailbox
         self.accountEmail = accountEmail
         self.accountColor = accountColor
         stream = messages
@@ -63,6 +69,11 @@ public final class ThreadViewModel {
             for try await messages in stream() {
                 if expanded.isEmpty { expanded = Self.initiallyExpanded(messages) }
                 self.messages = messages
+                if !hasLeftMailbox, !messages.isEmpty, mailbox.contains(thread) {
+                    var now = thread
+                    now.labelIDs = messages.reduce(into: []) { $0.formUnion($1.labelIDs) }
+                    hasLeftMailbox = !mailbox.contains(now)
+                }
             }
         } catch {
             loadError = error
@@ -130,12 +141,17 @@ public final class ThreadViewModel {
         return action == .archive || action == .trash || action == .reportSpam
     }
 
-    /// Replies to the newest message, or forwards it.
     /// Opens the label picker for this thread.
     public func changeLabels() {
         navigate(.changeLabels([thread.id]))
     }
 
+    /// Opens the places this thread can move to from its mailbox.
+    public func move() {
+        navigate(.move([thread.id], from: mailbox))
+    }
+
+    /// Replies to the newest message.
     public func reply(all: Bool) {
         guard let message = latestSent else { return }
         navigate(.compose(Draft.reply(to: message, all: all, accountEmail: accountEmail)))

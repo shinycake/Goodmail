@@ -7,7 +7,8 @@ import UIKit
 public final class ThreadViewController: UIViewController {
     private let viewModel: ThreadViewModel
     private let openURL: (URL) -> Void
-    private let close: () -> Void
+    private let closeAction: () -> Void
+    private var hasClosed = false
     private let starItem = UIBarButtonItem()
     /// Reply, or Edit Draft while the newest message is an unsent draft.
     private var replyItem = UIBarButtonItem()
@@ -29,7 +30,7 @@ public final class ThreadViewController: UIViewController {
     public init(viewModel: ThreadViewModel, openURL: @escaping (URL) -> Void, close: @escaping () -> Void = {}) {
         self.viewModel = viewModel
         self.openURL = openURL
-        self.close = close
+        closeAction = close
         super.init(nibName: nil, bundle: nil)
         navigationItem.largeTitleDisplayMode = .never
     }
@@ -98,6 +99,13 @@ public final class ThreadViewController: UIViewController {
         navigationController?.setToolbarHidden(true, animated: animated)
     }
 
+    /// Leaves the thread once, whether a toolbar action or a move took it out of the mailbox.
+    private func close() {
+        guard !hasClosed else { return }
+        hasClosed = true
+        closeAction()
+    }
+
     /// Archive and Trash leave the thread; Unread leaves it too, as the reader is putting it back for later.
     private func configureToolbar() {
         func item(_ action: ThreadAction, leaves: Bool) -> UIBarButtonItem {
@@ -135,12 +143,17 @@ public final class ThreadViewController: UIViewController {
         toolbarItems = [
             item(.archive, leaves: true), item(.trash, leaves: true), .flexibleSpace(),
             item(.markRead(false), leaves: true), starItem,
-            .changeLabels { [weak self] in self?.viewModel.changeLabels() }, .fixedSpace(0), replyItem,
+            .organize(
+                move: { [weak self] in self?.viewModel.move() },
+                changeLabels: { [weak self] in self?.viewModel.changeLabels() }),
+            .fixedSpace(0), replyItem,
         ]
     }
 
     public override func updateProperties() {
         super.updateProperties()
+        // Out of the layout pass, so the pop doesn't run inside it.
+        if viewModel.hasLeftMailbox { Task { self.close() } }
         let star: ThreadAction = .star(!viewModel.isStarred)
         starItem.image = UIImage(systemName: viewModel.isStarred ? "star.fill" : "star")
         starItem.accessibilityLabel = star.title

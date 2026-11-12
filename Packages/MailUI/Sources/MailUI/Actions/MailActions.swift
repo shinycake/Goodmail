@@ -41,12 +41,27 @@ public final class MailActions {
     }
 
     public func perform(_ action: ThreadAction, on threads: [ThreadSummary.ID]) {
+        perform(action, on: threads, confirmation: Self.confirmation(for: action, count: threads.count))
+    }
+
+    /// Moves threads the reader sees in `mailbox` to `destination`, called `name` in the toast.
+    public func move(
+        _ threads: [ThreadSummary.ID], to destination: MoveDestination, named name: String, from mailbox: Mailbox
+    ) {
+        perform(
+            .move(to: destination, from: mailbox), on: threads,
+            confirmation: String(
+                localized: "\(threads.count) moved to \(name)", bundle: .module,
+                comment: "Toast after moving threads; the second value is the mailbox or label they went to"))
+    }
+
+    private func perform(_ action: ThreadAction, on threads: [ThreadSummary.ID], confirmation: String?) {
         do {
             let undo = try commands.perform(action, on: threads)
             guard !undo.isEmpty else { return }
             lastUndo = .actions(undo)
-            if let message = Self.confirmation(for: action, count: threads.count) {
-                show(Toast(message: message, undo: .actions(undo)), for: toastDuration)
+            if let confirmation {
+                show(Toast(message: confirmation, undo: .actions(undo)), for: toastDuration)
             }
         } catch {
             self.error = error

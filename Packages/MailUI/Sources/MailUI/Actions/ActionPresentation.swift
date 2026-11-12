@@ -8,6 +8,31 @@ extension UIBarButtonItem {
             title: String(localized: "Change Labels", bundle: .module, comment: "Action: add or remove labels"),
             image: UIImage(systemName: "tag"), primaryAction: UIAction { _ in handler() })
     }
+
+    /// Opens the list of places to move threads to.
+    static func move(_ handler: @escaping () -> Void) -> UIBarButtonItem {
+        UIBarButtonItem(
+            title: String(localized: "Move to…", bundle: .module, comment: "Action: move threads to another mailbox"),
+            image: UIImage(systemName: "folder"), primaryAction: UIAction { _ in handler() })
+    }
+
+    /// Move and Change Labels behind one button, for a toolbar with room for only one of them.
+    static func organize(move: @escaping () -> Void, changeLabels: @escaping () -> Void) -> UIBarButtonItem {
+        UIBarButtonItem(
+            title: String(localized: "Organize", bundle: .module, comment: "Button: move threads or change labels"),
+            image: UIImage(systemName: "folder"),
+            menu: UIMenu(children: [
+                UIAction(
+                    title: String(
+                        localized: "Move to…", bundle: .module, comment: "Action: move threads to another mailbox"),
+                    image: UIImage(systemName: "folder")
+                ) { _ in move() },
+                UIAction(
+                    title: String(localized: "Change Labels", bundle: .module, comment: "Action: add or remove labels"),
+                    image: UIImage(systemName: "tag")
+                ) { _ in changeLabels() },
+            ]))
+    }
 }
 
 extension ThreadAction {

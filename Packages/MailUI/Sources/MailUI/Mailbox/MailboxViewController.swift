@@ -322,8 +322,14 @@ extension MailboxViewController {
             setEditing(false, animated: true)
         }
         labels.isEnabled = Set(threads.map(\.id.accountID)).count == 1 && !ids.isEmpty
+        let move = UIBarButtonItem.move { [weak self] in
+            guard let self else { return }
+            viewModel.move(selectedIDs)
+            setEditing(false, animated: true)
+        }
+        move.isEnabled = !ids.isEmpty
         setToolbarItems(
-            Array(items.prefix(1)) + [labels, .flexibleSpace()] + items.dropFirst(), animated: false)
+            Array(items.prefix(1)) + [labels, move, .flexibleSpace()] + items.dropFirst(), animated: false)
     }
 
     private func selectAll(_ select: Bool) {
