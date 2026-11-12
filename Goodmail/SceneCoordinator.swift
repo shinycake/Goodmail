@@ -113,7 +113,7 @@ final class SceneCoordinator {
     private func mailboxViewController(for mailbox: Mailbox, title: String?) -> MailboxViewController {
         let model = model
         let search = ThreadSearch(
-            local: { model.database.search($0, including: $1) }, remote: { try await model.search($0) })
+            local: { model.database.search($0, including: $1) }, remote: { try await model.search($0, after: $1) })
         let results = SearchResultsController(
             search: search, accounts: model.accounts, navigate: { [weak self] route in self?.handle(route) },
             actions: actions, contacts: { (try? model.database.contacts(matching: $0, limit: 3)) ?? [] })

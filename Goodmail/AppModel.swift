@@ -123,20 +123,36 @@ final class AppModel {
         }
     }
 
-    /// Every account's provider matches for `text`, stored. Accounts that fail are left out, unless all of them do.
-    func search(_ text: String) async throws -> [ThreadSummary.ID] {
-        let engines = accounts.map { engine(for: $0.id) }
-        let results = await withTaskGroup(of: Result<[ThreadSummary.ID], any Error>.self) { group in
-            for engine in engines {
-                group.addTask { await Result { try await engine.search(text) } }
+    /// Every account's provider matches for `text`, stored: the first page, or after `page`, the next page of each
+    /// account it says has more. Accounts that fail are left out, unless all of them do; a failed next page keeps its
+    /// token, so the next approach to the end asks again.
+    func search(_ text: String, after page: SearchPage? = nil) async throws -> SearchPage {
+        // Each account to ask, with the page token to ask from: none for the first page.
+        let tokens: [AccountID: String?] =
+            page?.next.mapValues(Optional.some) ?? Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, nil) })
+        let requests = tokens.map { (engine: engine(for: $0.key), token: $0.value) }
+        let results = await withTaskGroup(of: (AccountID, Result<SearchPage, any Error>).self) { group in
+            for (engine, token) in requests {
+                group.addTask { (engine.accountID, await Result { try await engine.search(text, pageToken: token) }) }
             }
-            var results: [Result<[ThreadSummary.ID], any Error>] = []
+            var results: [(AccountID, Result<SearchPage, any Error>)] = []
             for await result in group { results.append(result) }
             return results
         }
-        let found = results.compactMap { try? $0.get() }
-        if found.isEmpty, let failure = results.first { _ = try failure.get() }
-        return found.flatMap(\.self)
+        var found = SearchPage()
+        var failures: [any Error] = []
+        for (account, result) in results {
+            do {
+                let page = try result.get()
+                found.ids += page.ids
+                found.next.merge(page.next) { first, _ in first }
+            } catch {
+                failures.append(error)
+                if let token = tokens[account] ?? nil { found.next[account] = token }
+            }
+        }
+        if failures.count == results.count, let failure = failures.first { throw failure }
+        return found
     }
 
     /// Fetches a thread's messages with their bodies into the store, where the thread view reads them.
