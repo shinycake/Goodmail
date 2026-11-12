@@ -58,6 +58,7 @@ struct ThreadViewModelTests {
             thread: ThreadSummary(
                 id: .init(accountID: account, threadID: "t"), subject: "Plan", snippet: "",
                 sender: messages[0].from, date: .now, isUnread: false, messageCount: 1, labelIDs: []),
+            mailbox: .inbox,
             accountEmail: "me@example.com", accountColor: .blue,
             messages: { AsyncThrowingStream { $0.finish() } }, load: {}, attachmentData: { _, _ in Data() })
         model.toggle(messages[0].id)
@@ -75,6 +76,7 @@ struct ThreadViewModelTests {
             thread: ThreadSummary(
                 id: .init(accountID: account, threadID: "t"), subject: "Plan", snippet: "",
                 sender: messages[0].from, date: .now, isUnread: false, messageCount: 2, labelIDs: []),
+            mailbox: .inbox,
             accountEmail: "me@example.com", accountColor: .blue,
             messages: {
                 AsyncThrowingStream {
@@ -110,6 +112,7 @@ struct AttachmentFileTests {
                 id: .init(accountID: account, threadID: "t"), subject: "Quote", snippet: "",
                 sender: Contact(name: nil, address: "a@example.com"), date: .now, isUnread: false, messageCount: 1,
                 labelIDs: []),
+            mailbox: .inbox,
             accountEmail: "me@example.com", accountColor: .blue,
             messages: { AsyncThrowingStream { $0.finish() } }, load: {},
             attachmentData: { _, _ in
@@ -138,6 +141,7 @@ struct AttachmentFileTests {
                 id: .init(accountID: account, threadID: "t"), subject: "Quote", snippet: "",
                 sender: Contact(name: nil, address: "a@example.com"), date: today, isUnread: false, messageCount: 1,
                 labelIDs: []),
+            mailbox: .inbox,
             accountEmail: "me@example.com", accountColor: .blue,
             messages: { AsyncThrowingStream { $0.finish() } }, load: {},
             attachmentData: { _, _ in Data("%PDF".utf8) },

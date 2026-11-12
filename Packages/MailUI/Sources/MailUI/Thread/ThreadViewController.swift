@@ -7,7 +7,6 @@ import UIKit
 public final class ThreadViewController: UIViewController {
     private let viewModel: ThreadViewModel
     private let openURL: (URL) -> Void
-    private let close: () -> Void
     private let starItem = UIBarButtonItem()
     /// Reply, or Edit Draft while the newest message is an unsent draft.
     private var replyItem = UIBarButtonItem()
@@ -25,11 +24,9 @@ public final class ThreadViewController: UIViewController {
     private var hasScrolledToFocus = false
     private var previewURL: URL?
 
-    /// `close` leaves the thread, after an action that takes it out of the mailbox.
-    public init(viewModel: ThreadViewModel, openURL: @escaping (URL) -> Void, close: @escaping () -> Void = {}) {
+    public init(viewModel: ThreadViewModel, openURL: @escaping (URL) -> Void) {
         self.viewModel = viewModel
         self.openURL = openURL
-        self.close = close
         super.init(nibName: nil, bundle: nil)
         navigationItem.largeTitleDisplayMode = .never
     }
@@ -98,17 +95,12 @@ public final class ThreadViewController: UIViewController {
         navigationController?.setToolbarHidden(true, animated: animated)
     }
 
-    /// Archive and Trash leave the thread; Unread leaves it too, as the reader is putting it back for later.
+    /// Archive, Trash and Unread close the reader through the view model, which leaves the thread once.
     private func configureToolbar() {
-        func item(_ action: ThreadAction, leaves: Bool) -> UIBarButtonItem {
-            let item = UIBarButtonItem(
+        func item(_ action: ThreadAction) -> UIBarButtonItem {
+            UIBarButtonItem(
                 title: action.title, image: UIImage(systemName: action.symbol),
-                primaryAction: UIAction { [weak self] _ in
-                    guard let self else { return }
-                    viewModel.perform(action)
-                    if leaves { close() }
-                })
-            return item
+                primaryAction: UIAction { [weak self] _ in self?.viewModel.perform(action) })
         }
         starItem.primaryAction = UIAction { [weak self] _ in
             guard let self else { return }
@@ -133,9 +125,12 @@ public final class ThreadViewController: UIViewController {
                 ) { [weak self] _ in self?.viewModel.forward() },
             ]))
         toolbarItems = [
-            item(.archive, leaves: true), item(.trash, leaves: true), .flexibleSpace(),
-            item(.markRead(false), leaves: true), starItem,
-            .changeLabels { [weak self] in self?.viewModel.changeLabels() }, .fixedSpace(0), replyItem,
+            item(.archive), item(.trash), .flexibleSpace(),
+            item(.markRead(false)), starItem,
+            .organize(
+                move: { [weak self] in self?.viewModel.move() },
+                changeLabels: { [weak self] in self?.viewModel.changeLabels() }),
+            .fixedSpace(0), replyItem,
         ]
     }
 

@@ -166,6 +166,27 @@ struct OutboxTests {
         #expect(try database.pendingIntents(for: account.id).isEmpty)
     }
 
+    @Test func aMoveFromALabelIsOneIntentAndUndoPutsItBack() async throws {
+        var labelled = thread("t1")
+        labelled.labelIDs = ["INBOX", "Label_1"]
+        try seed(labelled, thread("t2"))
+        let receipts = Mailbox(labelID: "Label_1", accountID: account.id)
+        let commands = commands()
+        let undo = try commands.perform(.move(to: .trash, from: receipts), on: [id("t1")])
+
+        #expect(try database.thread(id("t1"))?.labelIDs == ["TRASH"])
+        #expect(try await inbox() == ["t2"])
+        var trash = database.threads(in: .trash).makeAsyncIterator()
+        #expect(try await trash.next()?.map(\.id.threadID) == ["t1"])
+
+        try commands.undo(undo)
+        #expect(try database.thread(id("t1"))?.labelIDs == ["INBOX", "Label_1"])
+        try await outbox().flush()
+        #expect(server.performed.count == 3, "the move, then the undo's untrash and label change")
+        #expect(server.performed.first?.action == .move(to: .trash, from: receipts))
+        #expect(try database.pendingIntents(for: account.id).isEmpty)
+    }
+
     @Test func threadsThatArentStoredAreNotQueued() throws {
         let undo = try commands().perform(.archive, on: [id("missing")])
         #expect(undo.isEmpty)
