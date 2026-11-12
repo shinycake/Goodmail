@@ -1,10 +1,9 @@
-# Advisory only (ADR-013): nothing here blocks a merge. The local gate, scripts/check, is the real one.
+# Lint on main after merges. Pull requests get the same lint inside review.yml, where it gates the merge (ADR-016).
 name: check
 
 on:
   push:
     branches: [main]
-  pull_request:
 
 jobs:
   lint:
