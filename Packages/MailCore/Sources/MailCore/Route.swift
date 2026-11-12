@@ -2,7 +2,7 @@
 /// and the scene coordinator is the only thing that acts on them.
 public enum Route: Hashable, Sendable {
     /// A thread, read from `mailbox`, which a move takes it out of.
-    case thread(ThreadSummary.ID, in: Mailbox = .inbox)
+    case thread(ThreadSummary.ID, in: Mailbox)
     /// One mailbox's thread list.
     case mailbox(Mailbox)
     /// The composer, with a new message, reply or forward.

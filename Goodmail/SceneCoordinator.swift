@@ -178,12 +178,10 @@ final class SceneCoordinator: NSObject {
             attachmentData: { try await model.attachmentData($0, in: $1) },
             actions: actions,
             navigate: { [weak self] route in self?.handle(route) },
+            close: { [weak self] in self?.closeThread() },
             attachmentsDirectory: model.attachmentsDirectory
         )
-        return ThreadViewController(
-            viewModel: viewModel,
-            openURL: { url in UIApplication.shared.open(url) },
-            close: { [weak self] in self?.closeThread() })
+        return ThreadViewController(viewModel: viewModel, openURL: { url in UIApplication.shared.open(url) })
     }
 
     /// Leaves the open thread, after an action that takes it out of the mailbox.

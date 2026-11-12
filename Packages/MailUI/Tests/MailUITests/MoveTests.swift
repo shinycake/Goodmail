@@ -120,6 +120,7 @@ struct MoveViewModelTests {
                 date: .now, labelIDs: labels, body: MessageBody(plain: ""))
         }
         var routes: [Route] = []
+        var closes = 0
         let model = ThreadViewModel(
             thread: thread, mailbox: Mailbox(labelID: "Label_1", accountID: work), accountEmail: "me@example.com",
             accountColor: .blue,
@@ -128,12 +129,41 @@ struct MoveViewModelTests {
                     $0.yield([message(["Label_1"])])
                     $0.yield([message(["Label_1", "STARRED"])])
                     $0.yield([message(["Label_2"])])
+                    $0.yield([message(["Label_3"])])
                     $0.finish()
                 }
-            }, load: {}, attachmentData: { _, _ in Data() }, navigate: { routes.append($0) })
+            }, load: {}, attachmentData: { _, _ in Data() }, navigate: { routes.append($0) },
+            close: { closes += 1 })
         model.move()
         #expect(routes == [.move([id("t")], from: Mailbox(labelID: "Label_1", accountID: work))])
         await model.observe()
-        #expect(model.hasLeftMailbox)
+        #expect(model.presence == .left)
+        #expect(closes == 1, "The reader closes once, however many updates follow")
+        model.perform(.archive)
+        #expect(closes == 1)
+    }
+
+    @Test func leavingActionsCloseTheReaderOnceAndOthersDont() {
+        var closes = 0
+        let thread = ThreadSummary(
+            id: id("t"), subject: "Plan", snippet: "", sender: Contact(name: nil, address: "a@example.com"),
+            date: .now, isUnread: false, messageCount: 1, labelIDs: ["INBOX"])
+        func reader() -> ThreadViewModel {
+            ThreadViewModel(
+                thread: thread, mailbox: .inbox, accountEmail: "me@example.com", accountColor: .blue,
+                messages: { AsyncThrowingStream { $0.finish() } }, load: {}, attachmentData: { _, _ in Data() },
+                close: { closes += 1 })
+        }
+        let starring = reader()
+        starring.perform(.star(true))
+        #expect(starring.presence == .reading)
+        #expect(closes == 0)
+        for action in [ThreadAction.archive, .trash, .reportSpam, .markRead(false)] {
+            let model = reader()
+            model.perform(action)
+            model.perform(action)
+            #expect(model.presence == .left)
+        }
+        #expect(closes == 4)
     }
 }
