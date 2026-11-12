@@ -98,6 +98,27 @@ struct DraftTests {
         #expect(quote.plain?.hasSuffix("> Ship it?\n>\n> Dana") == true)
     }
 
+    @Test func reopeningASavedDraftRestoresItsRecipients() {
+        let boss = Contact(name: "Boss", address: "boss@example.com")
+        var saved = message(from: Contact(name: nil, address: me), to: [dana], cc: [avi])
+        saved.bcc = [boss]
+        let draft = Draft.editing(saved)
+        #expect(draft.to == [dana])
+        #expect(draft.cc == [avi])
+        #expect(draft.bcc == [boss])
+        #expect(draft.savedDraft == saved.id)
+    }
+
+    @Test func messagesCachedWithoutABccStillDecode() throws {
+        let saved = message(from: dana, to: [avi])
+        var json = try #require(
+            try JSONSerialization.jsonObject(with: JSONEncoder().encode(saved)) as? [String: Any])
+        #expect(json.removeValue(forKey: "bcc") != nil)
+        let decoded = try JSONDecoder().decode(Message.self, from: JSONSerialization.data(withJSONObject: json))
+        #expect(decoded == saved)
+        #expect(decoded.bcc.isEmpty)
+    }
+
     @Test func forwardsKeepTheThreadAndListTheOriginalHeaders() throws {
         let draft = Draft.forward(message(from: dana, to: [avi]), locale: english, timeZone: utc)
         #expect(draft.to.isEmpty)
@@ -138,6 +159,33 @@ struct MIMEWriterTests {
         #expect(headers.contains("In-Reply-To: <m2@example.com>"))
         #expect(headers.contains("References: <m1@example.com> <m2@example.com>"))
         #expect(headers.contains("Content-Type: multipart/alternative; boundary=\"B\""))
+    }
+
+    @Test func bccSurvivesWritingAndReadingTheHeaderBack() throws {
+        var draft = draft
+        draft.cc = [Contact(name: nil, address: "avi@example.com")]
+        draft.bcc = [
+            Contact(name: "Cohen, Yael", address: "yael@example.co.il"),
+            Contact(name: nil, address: "boss@example.com"),
+        ]
+        let text = String(
+            decoding: MIMEWriter.message(
+                for: draft, from: Contact(name: nil, address: "me@example.com"), date: Date(timeIntervalSince1970: 0),
+                messageID: "id1@goodmail.app", boundary: "B"),
+            as: UTF8.self)
+        let headers = text.components(separatedBy: "\r\n\r\n")[0].components(separatedBy: "\r\n")
+        func value(_ name: String) -> String? {
+            headers.first { $0.hasPrefix("\(name): ") }.map { String($0.dropFirst(name.count + 2)) }
+        }
+        #expect(Contact.list(parsing: try #require(value("Bcc"))) == draft.bcc)
+        #expect(Contact.list(parsing: try #require(value("Cc"))) == draft.cc)
+        #expect(value("Bcc")?.contains("avi@example.com") == false)
+
+        draft.bcc = []
+        let without = MIMEWriter.message(
+            for: draft, from: Contact(name: nil, address: "me@example.com"), date: Date(timeIntervalSince1970: 0),
+            messageID: "id1@goodmail.app", boundary: "B")
+        #expect(!String(decoding: without, as: UTF8.self).contains("Bcc:"))
     }
 
     @Test func encodedWordsRoundTripAndStayShort() throws {

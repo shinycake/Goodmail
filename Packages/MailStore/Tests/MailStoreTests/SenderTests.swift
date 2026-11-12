@@ -63,6 +63,28 @@ struct SenderTests {
         #expect(try database.dueMessages(for: account, by: .distantFuture).isEmpty, "not retried by itself")
     }
 
+    @Test func aFailedMessageKeepsItsBccForEditing() async throws {
+        var draft = draft()
+        draft.cc = [Contact(name: nil, address: "avi@example.com")]
+        draft.bcc = [Contact(name: "Boss", address: "boss@example.com")]
+        server.failSend(with: ProviderError.rejected)
+        try commands().send(draft, after: .zero)
+        await sender().flush()
+        var failed = database.failedMessages().makeAsyncIterator()
+        let reopened = try #require(try await failed.next()?.first?.draft)
+        #expect(reopened.bcc == draft.bcc)
+        #expect(reopened.cc == draft.cc)
+    }
+
+    @Test func savedDraftsCarryTheirBccToTheProvider() async throws {
+        var draft = draft()
+        draft.bcc = [Contact(name: nil, address: "boss@example.com")]
+        try commands().saveDraft(draft)
+        await sender().flush()
+        let raw = try #require(server.drafts.values.first?.raw)
+        #expect(String(decoding: raw, as: UTF8.self).contains("Bcc: boss@example.com"))
+    }
+
     @Test func forwardedFilesAreFetchedWhenTheMessageGoes() async throws {
         let original = Message.ID(accountID: account, messageID: "m1")
         var draft = draft()

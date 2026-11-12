@@ -1,0 +1,37 @@
+{
+  "id": "18f0b1",
+  "historyId": "9002",
+  "messages": [
+    {
+      "id": "s1",
+      "threadId": "18f0b1",
+      "labelIds": ["SENT"],
+      "snippet": "Quarterly numbers",
+      "internalDate": "1792490400000",
+      "payload": {
+        "headers": [
+          { "name": "From", "value": "Me <tester@example.com>" },
+          { "name": "To", "value": "Dana Levi <dana@example.com>" },
+          { "name": "Bcc", "value": "boss@example.com" },
+          { "name": "Subject", "value": "Numbers" }
+        ]
+      }
+    },
+    {
+      "id": "d1",
+      "threadId": "18f0b1",
+      "labelIds": ["DRAFT"],
+      "snippet": "Following up",
+      "internalDate": "1792501200000",
+      "payload": {
+        "headers": [
+          { "name": "From", "value": "Me <tester@example.com>" },
+          { "name": "To", "value": "Dana Levi <dana@example.com>" },
+          { "name": "Cc", "value": "avi@example.com" },
+          { "name": "Bcc", "value": "\"Cohen, Yael\" <yael@example.co.il>, boss@example.com" },
+          { "name": "Subject", "value": "Re: Numbers" }
+        ]
+      }
+    }
+  ]
+}
