@@ -13,6 +13,10 @@ final class AppModel {
     private(set) var accounts: [Account]
     private var clients: [AccountID: GmailClient] = [:]
     private var engines: [AccountID: SyncEngine] = [:]
+    private var prefetchers: [AccountID: BodyPrefetcher] = [:]
+    private let path = PathMonitor()
+    /// Where opened attachments are kept; they count toward the cache cap with the bodies.
+    let attachmentsDirectory = URL.cachesDirectory.appending(path: "Attachments", directoryHint: .isDirectory)
     private let outboxes: Outboxes
     private let senders: Senders
 
@@ -85,16 +89,21 @@ final class AppModel {
         try? await GmailSession(accountID: id).signOut()
         clients[id] = nil
         engines[id] = nil
+        await prefetchers[id]?.cancel()
+        prefetchers[id] = nil
         await outboxes.forget(id)
         senders.forget(id)
         try database.removeAccount(id)
+        try? FileManager.default.removeItem(at: attachmentsDirectory.appending(path: id.rawValue))
         accounts.removeAll { $0.id == id }
     }
 
     /// Sends queued actions, then syncs, every account at once. Each engine coalesces overlapping calls, so this is
-    /// safe to call often.
-    func syncAll() async throws {
+    /// safe to call often. With `prefetch`, each account then starts fetching bodies in the background (ADR-007);
+    /// a background refresh leaves that to the next time the app is open.
+    func syncAll(prefetch: Bool = true) async throws {
         let engines = accounts.map { engine(for: $0.id) }
+        let prefetchers = accounts.map { prefetcher(for: $0.id) }
         let outboxes = outboxes
         // Messages whose undo window closed while the app was away.
         for account in accounts { await senders.deliver(account.id, at: .now) }
@@ -108,6 +117,30 @@ final class AppModel {
             }
             try await group.waitForAll()
         }
+        if prefetch { for prefetcher in prefetchers { await prefetcher.start() } }
+        await trimCache()
+    }
+
+    /// Stops prefetching, as when the app leaves the foreground. The next sync picks up where it left off.
+    func cancelPrefetch() async {
+        for prefetcher in prefetchers.values { await prefetcher.cancel() }
+    }
+
+    /// Evicts the least recently read bodies and attachments when the cache is over its cap (ADR-007). Off the
+    /// main thread: it scans the attachments folder.
+    private func trimCache() async {
+        await Self.trim(database, attachments: attachmentsDirectory)
+    }
+
+    private nonisolated static func trim(_ database: MailDatabase, attachments: URL) async {
+        await Task.detached(priority: .utility) {
+            do {
+                try database.trimCache(attachments: attachments)
+            } catch {
+                Logger(subsystem: "com.idanbirman.goodmail", category: "cache")
+                    .error("Couldn't trim the cache: \(error, privacy: .public)")
+            }
+        }.value
     }
 
     /// Fetches the next older page of `mailbox` in each account it covers. Returns whether any may have more.
@@ -162,6 +195,12 @@ final class AppModel {
         try database.save(messages, inThread: thread, fetchedAt: fetchedAt)
     }
 
+    /// The thread's cached messages, which the reader follows. Opening a thread marks its bodies as read.
+    func messages(inThread id: ThreadSummary.ID) -> AsyncThrowingStream<[Message], any Error> {
+        try? database.touchMessages(inThread: id)
+        return database.messages(inThread: id)
+    }
+
     func attachmentData(_ attachment: Attachment, in message: Message.ID) async throws -> Data {
         try await client(for: message.accountID).data(for: attachment, in: message)
     }
@@ -171,6 +210,16 @@ final class AppModel {
         let client = GmailClient(session: GmailSession(accountID: id))
         clients[id] = client
         return client
+    }
+
+    private func prefetcher(for id: AccountID) -> BodyPrefetcher {
+        if let prefetcher = prefetchers[id] { return prefetcher }
+        let (database, attachments) = (database, attachmentsDirectory)
+        let prefetcher = BodyPrefetcher(
+            accountID: id, provider: client(for: id), store: database, path: path,
+            didFinish: { await Self.trim(database, attachments: attachments) })
+        prefetchers[id] = prefetcher
+        return prefetcher
     }
 
     private func engine(for id: AccountID) -> SyncEngine {

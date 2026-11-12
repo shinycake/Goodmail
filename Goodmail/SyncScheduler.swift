@@ -32,6 +32,7 @@ final class SyncScheduler {
             [weak self] _ in
             MainActor.assumeIsolated {
                 self?.foreground?.cancel()
+                if let model = self?.model { Task { await model.cancelPrefetch() } }
                 self?.scheduleBackgroundRefresh()
             }
         }
@@ -67,7 +68,7 @@ final class SyncScheduler {
         scheduleBackgroundRefresh()
         let sync = Task { [model, log] in
             do {
-                try await model.syncAll()
+                try await model.syncAll(prefetch: false)
                 task.setTaskCompleted(success: true)
             } catch {
                 log.error("Background sync failed: \(error, privacy: .public)")

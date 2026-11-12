@@ -4,8 +4,10 @@ import MailCore
 
 extension MailDatabase {
     /// Replaces the stored messages of `thread` with these. The thread must be stored. `fetchedAt` is when their
-    /// fetch began.
-    public func save(_ messages: [Message], inThread thread: ThreadSummary.ID, fetchedAt: Date = .now) throws {
+    /// fetch began; `accessedAt` is when the reader last wanted them, which the cache cap evicts by.
+    public func save(
+        _ messages: [Message], inThread thread: ThreadSummary.ID, fetchedAt: Date = .now, accessedAt: Date = .now
+    ) throws {
         let encoder = JSONEncoder()
         try write { db in
             try db.execute(
@@ -13,15 +15,16 @@ extension MailDatabase {
                 arguments: [thread.accountID.rawValue, thread.threadID]
             )
             for message in messages {
+                let content = String(decoding: try encoder.encode(message), as: UTF8.self)
+                let text = Self.searchText(of: message.body)
                 try db.execute(
                     sql: """
-                        INSERT INTO message (accountID, id, threadID, date, content, fetchedAt, bodyText)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO message (accountID, id, threadID, date, content, fetchedAt, bodyText, size, accessedAt)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                     arguments: [
                         thread.accountID.rawValue, message.id.messageID, thread.threadID, message.date,
-                        String(decoding: try encoder.encode(message), as: UTF8.self), fetchedAt,
-                        Self.searchText(of: message.body),
+                        content, fetchedAt, text, content.utf8.count + text.utf8.count, accessedAt,
                     ]
                 )
             }
@@ -51,9 +54,10 @@ extension MailDatabase {
                 let content: String = row["content"]
                 // A body this build can't read is still searchable by its thread; give it no words.
                 let message = try? decoder.decode(Message.self, from: Data(content.utf8))
+                let text = message.map { searchText(of: $0.body) } ?? ""
                 try db.execute(
-                    sql: "UPDATE message SET bodyText = ? WHERE rowid = ?",
-                    arguments: [message.map { searchText(of: $0.body) } ?? "", row["rowid"] as Int64])
+                    sql: "UPDATE message SET bodyText = ?, size = size + ? WHERE rowid = ?",
+                    arguments: [text, text.utf8.count, row["rowid"] as Int64])
             }
         }
     }
