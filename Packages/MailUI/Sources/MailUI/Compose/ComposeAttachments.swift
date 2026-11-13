@@ -120,11 +120,20 @@ extension ComposeViewController: PHPickerViewControllerDelegate, UIDocumentPicke
     }
 
     public func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
-        for url in urls {
-            guard let data = try? Data(contentsOf: url) else { continue }
-            add(
-                Self.attachment(
-                    data: data, filename: url.lastPathComponent, type: UTType(filenameExtension: url.pathExtension)))
+        // In order, as with photos.
+        Task {
+            for url in urls {
+                guard let data = await Self.contents(of: url) else { continue }
+                add(
+                    Self.attachment(
+                        data: data, filename: url.lastPathComponent, type: UTType(filenameExtension: url.pathExtension)
+                    ))
+            }
         }
+    }
+
+    /// Reads a picked file off the main actor: it can be tens of megabytes.
+    @concurrent private static func contents(of url: URL) async -> Data? {
+        try? Data(contentsOf: url)
     }
 }
