@@ -36,7 +36,9 @@ struct GraphTransport: Sendable {
     /// The raw reply, for requests whose answer isn't JSON or isn't read. Only Graph itself is sent the account's
     /// token: a URL that came back from elsewhere, such as a tampered page token, is refused.
     @discardableResult
-    func send(_ url: URL, method: String, payload: (data: Data, type: String)?) async throws -> Data {
+    func send(
+        _ url: URL, method: String, payload: (data: Data, type: String)?, replay: Replay = .safe
+    ) async throws -> Data {
         guard url.absoluteString.hasPrefix(Self.baseURL.absoluteString) else { throw ProviderError.rejected }
         var attempt = 0
         while true {
@@ -52,7 +54,7 @@ struct GraphTransport: Sendable {
             let (data, response) = try await http.data(for: request)
             if (200..<300).contains(response.statusCode) { return data }
             let error = GraphError(status: response.statusCode, body: String(decoding: data, as: UTF8.self))
-            guard error.isTransient, attempt < retryDelays.count else { throw error }
+            guard replay.allowsRetry(after: error.retryable), attempt < retryDelays.count else { throw error }
             try await Task.sleep(for: Self.wait(after: response, planned: retryDelays[attempt]))
             attempt += 1
         }
@@ -77,10 +79,11 @@ public struct GraphError: Error, Equatable {
     public let body: String
 
     /// Throttling and server errors, which Graph asks clients to retry after a wait.
-    var isTransient: Bool {
+    var retryable: RetryableFailure? {
         switch status {
-        case 429, 500, 502, 503, 504: true
-        default: false
+        case 429: .throttled
+        case 500, 502, 503, 504: .serverError
+        default: nil
         }
     }
 }
