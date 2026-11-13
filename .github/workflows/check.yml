@@ -1,17 +1,17 @@
-# Lint on main after merges. Pull requests get the same lint inside review.yml, where it gates the merge (ADR-016).
+# The Linux scripts/check on main after merges, to catch what two PRs that were each green break together. Pull
+# requests run the same check inside review.yml, where it gates the merge (ADR-016).
 name: check
 
 on:
   push:
     branches: [main]
 
+permissions: {}
+
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    container: swift:6.4
-    steps:
-      - uses: actions/checkout@v4
-      - name: Format and line cap
-        run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          scripts/check --lint
+  check:
+    uses: ./.github/workflows/linux-check.yml
+    permissions:
+      contents: read
+    secrets:
+      GOODMAIL_SDK_DEPLOY_KEY: ${{ secrets.GOODMAIL_SDK_DEPLOY_KEY }}
