@@ -364,8 +364,8 @@ public final class ComposeViewController: UIViewController {
 
     /// The times on offer now, then a picker for any other.
     private func sendLaterItems() -> [UIMenuElement] {
-        let choices = SendLaterChoice.choices(at: .now).map { choice in
-            UIAction(title: choice.title, image: UIImage(systemName: "clock")) { [weak self] _ in
+        let choices = LaterTime.sendChoices(at: .now).map { choice in
+            UIAction(title: choice.title, image: UIImage(systemName: choice.symbol)) { [weak self] _ in
                 self?.send(at: .at(choice.date))
             }
         }
@@ -381,12 +381,13 @@ public final class ComposeViewController: UIViewController {
     }
 
     private func pickSendTime() {
-        let picker = SendLaterPickerViewController { [weak self] date in
-            self?.dismiss(animated: true) { self?.send(at: .at(date)) }
-        }
-        let navigation = UINavigationController(rootViewController: picker)
-        navigation.sheetPresentationController?.detents = [.medium(), .large()]
-        present(navigation, animated: true)
+        LaterPickerViewController.present(
+            from: self,
+            title: String(localized: "Send Later", bundle: .module, comment: "Menu of times to send a message"),
+            actionTitle: String(
+                localized: "Schedule", bundle: .module, comment: "Schedules the message for the picked time"),
+            initial: LaterTime.sendChoices(at: .now).first?.date
+        ) { [weak self] date in self?.send(at: .at(date)) }
     }
 
     private func cancel() {

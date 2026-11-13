@@ -95,7 +95,7 @@ public final class ThreadViewController: UIViewController {
         navigationController?.setToolbarHidden(true, animated: animated)
     }
 
-    /// Archive, Trash and Unread close the reader through the view model, which leaves the thread once.
+    /// Archive, Trash, Snooze and Unread close the reader through the view model, which leaves the thread once.
     private func configureToolbar() {
         func item(_ action: ThreadAction) -> UIBarButtonItem {
             UIBarButtonItem(
@@ -125,7 +125,8 @@ public final class ThreadViewController: UIViewController {
                 ) { [weak self] _ in self?.viewModel.forward() },
             ]))
         toolbarItems = [
-            item(.archive), item(.trash), .flexibleSpace(),
+            item(.archive), item(.trash),
+            .snooze(from: self) { [weak self] in self?.viewModel.snooze(until: $0) }, .flexibleSpace(),
             item(.markRead(false)), starItem,
             .organize(
                 move: { [weak self] in self?.viewModel.move() },

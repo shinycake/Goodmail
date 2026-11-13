@@ -33,7 +33,7 @@ public struct Mailbox: Hashable, Codable, Sendable {
     }
 }
 
-/// The user's own labels, the unread counts and the scheduled messages the mailbox list shows.
+/// The user's own labels, the unread counts, and the scheduled messages and snoozed threads the mailbox list shows.
 public struct MailboxDirectory: Equatable, Sendable {
     public struct Label: Equatable, Sendable {
         public var mailbox: Mailbox
@@ -54,10 +54,15 @@ public struct MailboxDirectory: Equatable, Sendable {
     public var unreadCounts: [Mailbox: Int]
     /// Messages waiting to go at a time the writer picked, in every account.
     public var scheduledCount: Int
+    /// Threads snoozed out of the Inbox, in every account.
+    public var snoozedCount: Int
 
-    public init(labels: [Label] = [], unreadCounts: [Mailbox: Int] = [:], scheduledCount: Int = 0) {
+    public init(
+        labels: [Label] = [], unreadCounts: [Mailbox: Int] = [:], scheduledCount: Int = 0, snoozedCount: Int = 0
+    ) {
         self.labels = labels
         self.unreadCounts = unreadCounts
         self.scheduledCount = scheduledCount
+        self.snoozedCount = snoozedCount
     }
 }

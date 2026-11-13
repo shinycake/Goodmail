@@ -68,6 +68,28 @@ public final class MailActions {
         }
     }
 
+    /// Takes the threads out of the Inbox until `date`, with a toast to take that back.
+    public func snooze(_ threads: [ThreadSummary.ID], until date: Date) {
+        do {
+            let undo = try commands.snooze(threads, until: date)
+            lastUndo = .actions(undo)
+            show(
+                Toast(
+                    message: String(
+                        localized: "Snoozed until \(ScheduledTime.text(for: date))", bundle: .module,
+                        comment: "Toast after snoozing threads, with when they come back"),
+                    undo: .actions(undo)),
+                for: toastDuration)
+        } catch {
+            self.error = error
+        }
+    }
+
+    /// Puts snoozed threads back in the Inbox now.
+    public func unsnooze(_ threads: [ThreadSummary.ID]) {
+        perform(.moveToInbox, on: threads)
+    }
+
     /// Undoes the most recent action, from the toast or a shake. Does nothing when there is none.
     public func undoLast() {
         guard let undo = lastUndo else { return }

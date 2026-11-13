@@ -35,6 +35,49 @@ extension UIBarButtonItem {
     }
 }
 
+extension UIBarButtonItem {
+    /// Snooze, with the times on offer when it opens, then a picker for any other.
+    static func snooze(from presenter: UIViewController, until: @escaping (Date) -> Void) -> UIBarButtonItem {
+        UIBarButtonItem(
+            title: String(localized: "Snooze", bundle: .module, comment: "Hides threads until a later time"),
+            image: UIImage(systemName: "clock"),
+            menu: .snooze(from: presenter, until: until))
+    }
+}
+
+extension UIMenu {
+    static func snooze(from presenter: UIViewController, until: @escaping (Date) -> Void) -> UIMenu {
+        UIMenu(
+            title: String(localized: "Snooze Until", bundle: .module, comment: "Menu of times to snooze threads until"),
+            children: [
+                UIDeferredMenuElement.uncached { [weak presenter] completion in
+                    let choices = LaterTime.snoozeChoices(at: .now)
+                    let times: [UIMenuElement] = choices.map { choice in
+                        UIAction(title: choice.title, image: UIImage(systemName: choice.symbol)) { _ in
+                            until(choice.date)
+                        }
+                    }
+                    let pick = UIAction(
+                        title: String(
+                            localized: "Choose a Time…", bundle: .module, comment: "Picks when a message goes"),
+                        image: UIImage(systemName: "calendar")
+                    ) { _ in
+                        guard let presenter else { return }
+                        LaterPickerViewController.present(
+                            from: presenter,
+                            title: String(
+                                localized: "Snooze Until", bundle: .module,
+                                comment: "Menu of times to snooze threads until"),
+                            actionTitle: String(
+                                localized: "Snooze", bundle: .module, comment: "Hides threads until a later time"),
+                            initial: choices.first?.date, pick: until)
+                    }
+                    completion(times + [pick])
+                }
+            ])
+    }
+}
+
 extension ThreadAction {
     private enum Kind {
         case archive, trash, untrash, spam, inbox, read, unread, star, unstar, labels

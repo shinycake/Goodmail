@@ -20,19 +20,30 @@ struct SendLaterTests {
 
     @Test func tonightIsOfferedOnlyWithAnHourToGo() {
         #expect(
-            SendLaterChoice.choices(at: date(12, 10), calendar: calendar) == [
+            LaterTime.sendChoices(at: date(12, 10), calendar: calendar) == [
                 .tonight(date(12, 21)), .tomorrowMorning(date(13, 8)),
             ])
-        #expect(SendLaterChoice.choices(at: date(12, 20, 30), calendar: calendar) == [.tomorrowMorning(date(13, 8))])
+        #expect(LaterTime.sendChoices(at: date(12, 20, 30), calendar: calendar) == [.tomorrowMorning(date(13, 8))])
     }
 
     @Test func theEndOfTheWeekOffersTheMorningAfterTheWeekend() {
-        let friday = SendLaterChoice.choices(at: date(13, 22), calendar: calendar)
-        #expect(friday == [.tomorrowMorning(date(14, 8)), .nextWeekMorning(date(16, 8))])
-        let saturday = SendLaterChoice.choices(at: date(14, 9), calendar: calendar)
-        #expect(saturday == [.tonight(date(14, 21)), .tomorrowMorning(date(15, 8)), .nextWeekMorning(date(16, 8))])
-        let sunday = SendLaterChoice.choices(at: date(15, 22), calendar: calendar)
+        let friday = LaterTime.sendChoices(at: date(13, 22), calendar: calendar)
+        #expect(friday == [.tomorrowMorning(date(14, 8)), .nextWeek(date(16, 8))])
+        let saturday = LaterTime.sendChoices(at: date(14, 9), calendar: calendar)
+        #expect(saturday == [.tonight(date(14, 21)), .tomorrowMorning(date(15, 8)), .nextWeek(date(16, 8))])
+        let sunday = LaterTime.sendChoices(at: date(15, 22), calendar: calendar)
         #expect(sunday == [.tomorrowMorning(date(16, 8))], "tomorrow already starts the week")
+    }
+
+    @Test func snoozingOffersTheWeekendOnWeekdays() {
+        let thursday = LaterTime.snoozeChoices(at: date(12, 10), calendar: calendar)
+        #expect(
+            thursday == [
+                .thisEvening(date(12, 18)), .tomorrowMorning(date(13, 8)), .thisWeekend(date(14, 8)),
+                .nextWeek(date(16, 8)),
+            ])
+        let friday = LaterTime.snoozeChoices(at: date(13, 17, 30), calendar: calendar)
+        #expect(friday == [.tomorrowMorning(date(14, 8)), .nextWeek(date(16, 8))], "the weekend is tomorrow")
     }
 
     @Test func schedulingConfirmsAndCanBeTakenBack() throws {
@@ -56,7 +67,7 @@ struct SendLaterTests {
 }
 
 /// The send queue in memory.
-private final class OutgoingQueue: OutboxStore, OutgoingStore, @unchecked Sendable {
+private final class OutgoingQueue: MailCommands.Store, @unchecked Sendable {
     var messages: [OutgoingMessage] = []
 
     func enqueue(_ message: OutgoingMessage) throws {
@@ -77,4 +88,9 @@ private final class OutgoingQueue: OutboxStore, OutgoingStore, @unchecked Sendab
     func pendingIntents(for account: AccountID) throws -> [OutboxIntent] { [] }
     func markSent(_ id: OutboxIntent.ID, at date: Date) throws {}
     func removeIntent(_ id: OutboxIntent.ID) throws {}
+    func snoozes(of threads: [ThreadSummary.ID]) throws -> [ThreadSummary.ID: SnoozeState] { [:] }
+    func setSnoozes(_ snoozes: [ThreadSummary.ID: SnoozeState?]) throws {}
+    func dueSnoozes(by date: Date) throws -> [ThreadSummary.ID] { [] }
+    func nextWakeDate() throws -> Date? { nil }
+    func pruneSnoozes(at date: Date) throws {}
 }

@@ -182,6 +182,18 @@ public final class MailDatabase: Sendable {
                         accessedAt = fetchedAt
                     """)
         }
+        migrator.registerMigration("v14-snooze") { db in
+            // One row per snoozed thread: asleep until `wakeAt`, or woken at `wokeAt` once that is set.
+            try db.create(table: "snooze") { table in
+                table.column("accountID", .text).notNull().references("account", onDelete: .cascade)
+                table.column("threadID", .text).notNull()
+                table.column("wakeAt", .datetime)
+                table.column("wokeAt", .datetime)
+                table.primaryKey(["accountID", "threadID"])
+                table.check(sql: "(wakeAt IS NULL) != (wokeAt IS NULL)")
+            }
+            try db.create(index: "snooze_byWake", on: "snooze", columns: ["wakeAt"])
+        }
         return migrator
     }
 }

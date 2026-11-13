@@ -41,6 +41,7 @@ extension MailDatabase {
             try Int.fetchOne(
                 db, sql: "SELECT COUNT(*) FROM outgoing WHERE purpose = ? AND failure IS NULL",
                 arguments: [OutgoingMessage.Purpose.scheduledSend.rawValue]) ?? 0
+        let snoozed = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM snooze WHERE wakeAt IS NOT NULL") ?? 0
 
         return MailboxDirectory(
             labels: labels.map { record in
@@ -48,6 +49,6 @@ extension MailDatabase {
                     mailbox: Mailbox(labelID: record.id, accountID: AccountID(rawValue: record.accountID)),
                     name: record.name, color: record.color)
             },
-            unreadCounts: counts, scheduledCount: scheduled)
+            unreadCounts: counts, scheduledCount: scheduled, snoozedCount: snoozed)
     }
 }
