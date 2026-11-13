@@ -34,16 +34,38 @@ struct MailboxesTests {
 
         #expect(
             viewModel.standardItems.map(\.title) == ["Inbox", "Starred", "Sent", "Drafts", "All Mail", "Spam", "Trash"])
-        #expect(viewModel.standardItems.first?.unreadCount == 4)
-        #expect(viewModel.standardItems.first { $0.mailbox == .spam }?.unreadCount == 0, "Spam's unread isn't waiting")
-        #expect(viewModel.standardItems.first { $0.mailbox == .allMail }?.unreadCount == 0, "it repeats the rest")
+        #expect(viewModel.standardItems.first?.count == 4)
+        #expect(
+            viewModel.standardItems.first { $0.destination == .mailbox(.spam) }?.count == 0,
+            "Spam's unread isn't waiting")
+        #expect(
+            viewModel.standardItems.first { $0.destination == .mailbox(.allMail) }?.count == 0, "it repeats the rest")
         #expect(viewModel.labelItems.map(\.title) == ["Receipts"])
-        #expect(viewModel.labelItems.first?.unreadCount == 2)
+        #expect(viewModel.labelItems.first?.count == 2)
 
-        viewModel.open(receipts)
+        viewModel.open(.mailbox(receipts))
         viewModel.compose()
         #expect(routes.first == .mailbox(receipts))
         if case .compose(let draft) = routes.last { #expect(draft.accountID == account.id) } else { Issue.record() }
+    }
+
+    @Test func scheduledShowsAfterDraftsOnlyWhileAMessageWaits() async {
+        func items(scheduled: Int) async -> [MailboxesViewModel.Item] {
+            let viewModel = MailboxesViewModel(
+                accounts: [account],
+                directory: {
+                    AsyncThrowingStream {
+                        $0.yield(MailboxDirectory(scheduledCount: scheduled))
+                        $0.finish()
+                    }
+                })
+            await viewModel.observe()
+            return viewModel.standardItems
+        }
+        #expect(await items(scheduled: 0).contains { $0.destination == .scheduled } == false)
+        let shown = await items(scheduled: 2)
+        #expect(shown.map(\.title) == ["Inbox", "Starred", "Sent", "Drafts", "Scheduled", "All Mail", "Spam", "Trash"])
+        #expect(shown.first { $0.destination == .scheduled }?.count == 2)
     }
 
     @Test func aLabelsTitleIsItsName() {

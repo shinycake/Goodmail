@@ -12,6 +12,17 @@
         }
       }
     },
+    "%@, %@" : {
+      "comment" : "Send Later choice: the first morning after the weekend, as weekday and time",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$@"
+          }
+        }
+      }
+    },
     "%lld Selected" : {
       "comment" : "Title while selecting threads",
       "localizations" : {
@@ -438,6 +449,17 @@
         }
       }
     },
+    "Choose a Time…" : {
+      "comment" : "Picks when a message goes",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בחר שעה…"
+          }
+        }
+      }
+    },
     "Clear Recent Searches" : {
       "comment" : "Forgets the recent searches",
       "localizations" : {
@@ -621,6 +643,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "מעבר אל %@"
+          }
+        }
+      }
+    },
+    "Goodmail sends these from this device. One may go a little late if the device is off or offline at the time." : {
+      "comment" : "Explains that scheduled messages are sent by the device",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Goodmail שולח את ההודעות האלה מהמכשיר הזה. הודעה עשויה להישלח מעט באיחור אם המכשיר כבוי או לא מחובר באותה שעה."
           }
         }
       }
@@ -864,6 +897,17 @@
         }
       }
     },
+    "Move to Drafts" : {
+      "comment" : "Keeps a scheduled message in Drafts instead",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העבר לטיוטות"
+          }
+        }
+      }
+    },
     "Move to Inbox" : {
       "comment" : "Action: back to the Inbox",
       "localizations" : {
@@ -932,6 +976,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "לא נבחרה הודעה"
+          }
+        }
+      }
+    },
+    "No Subject" : {
+      "comment" : "Shown for a message without a subject",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ללא נושא"
+          }
+        }
+      }
+    },
+    "Nothing Scheduled" : {
+      "comment" : "Shown when no message waits to be sent later",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אין הודעות מתוזמנות"
           }
         }
       }
@@ -1079,6 +1145,39 @@
         }
       }
     },
+    "Schedule" : {
+      "comment" : "Schedules the message for the picked time",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תזמן"
+          }
+        }
+      }
+    },
+    "Scheduled" : {
+      "comment" : "Mailbox: messages waiting to be sent later",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מתוזמנים"
+          }
+        }
+      }
+    },
+    "Scheduled for %@" : {
+      "comment" : "Toast after scheduling a message, with when it goes",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מתוזמן ל%@"
+          }
+        }
+      }
+    },
     "Search" : {
       "comment" : "Title of the search results list",
       "localizations" : {
@@ -1164,6 +1263,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "שלח"
+          }
+        }
+      }
+    },
+    "Send Later" : {
+      "comment" : "Menu of times to send a message",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שלח מאוחר יותר"
           }
         }
       }
@@ -1373,6 +1483,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "אל:"
+          }
+        }
+      }
+    },
+    "Tomorrow, %@" : {
+      "comment" : "Send Later choice: tomorrow morning",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחר, %@"
+          }
+        }
+      }
+    },
+    "Tonight, %@" : {
+      "comment" : "Send Later choice: this evening",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הערב, %@"
+          }
+        }
+      }
+    },
+    "Touch and hold Send to pick when a message goes." : {
+      "comment" : "Explains how to schedule a message",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "געו ממושכות בכפתור השליחה כדי לבחור מתי ההודעה תישלח."
           }
         }
       }

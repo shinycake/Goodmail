@@ -103,7 +103,7 @@ struct MoveViewModelTests {
         let label = Mailbox(labelID: "Label_1", accountID: work)
         var routes: [Route] = []
         let list = MailboxViewModel(
-            mailbox: label, accounts: [], threads: { AsyncThrowingStream { $0.finish() } }, refresh: {},
+            mailbox: label, accounts: [], source: .flat { AsyncThrowingStream { $0.finish() } }, refresh: {},
             navigate: { routes.append($0) })
         list.open(id("t"))
         list.move([id("t")])

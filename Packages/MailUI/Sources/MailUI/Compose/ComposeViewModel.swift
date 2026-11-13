@@ -16,7 +16,7 @@ public final class ComposeViewModel {
     public var subject: String
     /// The files going with the message.
     public private(set) var attachments: [DraftAttachment]
-    @ObservationIgnored private let sendAction: (Draft) -> Void
+    @ObservationIgnored private let sendAction: (Draft, SendTime) -> Void
     @ObservationIgnored private let saveAction: ((Draft) -> Void)?
     @ObservationIgnored private let deleteAction: (Draft) -> Void
     @ObservationIgnored private let signature: (AccountID) -> String?
@@ -24,14 +24,14 @@ public final class ComposeViewModel {
     /// A draft that comes back with text, after Undo or a failed send, holds work closing would lose.
     @ObservationIgnored let isRestored: Bool
 
-    /// `send` queues the finished draft; the composer closes right after. `saveDraft` keeps it in the provider's
+    /// `send` queues the finished draft to go now or later; the composer closes right after. `saveDraft` keeps it in the provider's
     /// Drafts and `deleteDraft` removes the copy it was opened from. `suggest` finds people for what is typed. A new
     /// draft starts with its account's `signature` below the line being written.
     public init(
         draft: Draft, accountEmail: String, senders: [Account] = [],
         signature: @escaping (AccountID) -> String? = { _ in nil },
         suggest: @escaping (String) -> [Contact] = { _ in [] }, saveDraft: ((Draft) -> Void)? = nil,
-        deleteDraft: @escaping (Draft) -> Void = { _ in }, send: @escaping (Draft) -> Void
+        deleteDraft: @escaping (Draft) -> Void = { _ in }, send: @escaping (Draft, SendTime) -> Void
     ) {
         let isNew = (draft.body.plain ?? "").isEmpty
         // A draft opened from the provider's Drafts is safe there until it changes.
@@ -86,10 +86,10 @@ public final class ComposeViewModel {
         attachments.removeAll { $0.id == id }
     }
 
-    /// Queues the message with `body` as written. Does nothing while `canSend` is false.
-    public func send(body: MessageBody) {
+    /// Queues the message with `body` as written, to go at `time`. Does nothing while `canSend` is false.
+    public func send(body: MessageBody, at time: SendTime = .now) {
         guard canSend else { return }
-        sendAction(finished(body: body))
+        sendAction(finished(body: body), time)
     }
 
     public var canSaveDraft: Bool { saveAction != nil }
