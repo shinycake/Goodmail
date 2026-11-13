@@ -1,8 +1,7 @@
 # The PR pipeline (ADR-016): the Linux scripts/check, a Claude review against docs/review.md, then a squash merge of
 # the exact commit that passed both. If main moved after the check, the merge job checks the PR merged with the new
 # main itself, so a busy main never sends an approved PR back for another push. A push that only takes in main keeps
-# its approval, because the review is keyed on the PR's own changes. Free private repos have no branch protection or
-# native auto-merge, so this workflow is the gate.
+# its approval, because the review is keyed on the PR's own changes. This workflow is the gate.
 name: review
 
 on:
@@ -16,9 +15,12 @@ concurrency:
 
 permissions: {}
 
+# The repository is public. Pull requests from forks get no secrets, so they can't be checked against the SDK,
+# reviewed or merged; every job runs only for branches of this repository, which only the owner can push.
 jobs:
   # Lint, the iOS compile of everything, and the Linux tests, on the PR merged with main (linux-check.yml).
   check:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     uses: ./.github/workflows/linux-check.yml
     permissions:
       contents: read
@@ -26,7 +28,7 @@ jobs:
       GOODMAIL_SDK_DEPLOY_KEY: ${{ secrets.GOODMAIL_SDK_DEPLOY_KEY }}
 
   claude:
-    if: ${{ !github.event.pull_request.draft }}
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     permissions:
@@ -126,6 +128,8 @@ jobs:
       SHA: ${{ github.event.pull_request.head.sha }}
       TESTED_BASE: ${{ needs.check.outputs.base }}
       HAS_SDK_KEY: ${{ secrets.GOODMAIL_SDK_DEPLOY_KEY != '' }}
+      AUTHOR_ID: ${{ github.event.pull_request.user.id }}
+      AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}
     steps:
       - name: Tools
         run: apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q gh jq
@@ -152,7 +156,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
-      # Installed up front, so a move of main can be checked at once. A cache hit makes it quick.
+      # Installed up front, so a move of main can be checked at once.
       - if: steps.gate.outputs.merge == 'true'
         uses: ./goodmail/.github/actions/linux-toolchain
         with:
@@ -170,7 +174,8 @@ jobs:
             main=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
             if [[ "$main" == "$tested" ]]; then
               # From outside the checkout, so gh deletes only the remote branch.
-              (cd / && gh pr merge "$PR" -R "$GITHUB_REPOSITORY" --squash --delete-branch --match-head-commit "$SHA")
+              (cd / && gh pr merge "$PR" -R "$GITHUB_REPOSITORY" --squash --delete-branch --match-head-commit "$SHA" \
+                --author-email "$AUTHOR_ID+$AUTHOR_LOGIN@users.noreply.github.com")
               exit 0
             fi
             echo "▸ main moved from ${tested:0:7} to ${main:0:7}; checking the PR merged with it (attempt $attempt)"
