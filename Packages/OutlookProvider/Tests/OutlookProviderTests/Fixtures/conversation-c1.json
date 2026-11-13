@@ -1,0 +1,12 @@
+{
+  "value": [
+    {"id": "m3", "conversationId": "c1", "subject": "RE: Lunch plans", "bodyPreview": "Thursday works",
+     "from": {"emailAddress": {"name": "Dana Levi", "address": "dana@example.com"}},
+     "receivedDateTime": "2026-11-10T09:30:00Z", "isRead": false, "flag": {"flagStatus": "notFlagged"},
+     "parentFolderId": "AAInbox"},
+    {"id": "m1", "conversationId": "c1", "subject": "Lunch plans", "bodyPreview": "Are you free?",
+     "from": {"emailAddress": {"name": "Me", "address": "me@outlook.com"}},
+     "receivedDateTime": "2026-11-09T18:00:00.1234567Z", "isRead": true, "flag": {"flagStatus": "flagged"},
+     "parentFolderId": "AASent"}
+  ]
+}

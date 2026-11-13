@@ -1,0 +1,12 @@
+{
+  "value": [
+    {"id": "AAInbox", "displayName": "Inbox", "childFolderCount": 1},
+    {"id": "AASent", "displayName": "Sent Items", "childFolderCount": 0},
+    {"id": "AADrafts", "displayName": "Drafts", "childFolderCount": 0},
+    {"id": "AATrash", "displayName": "Deleted Items", "childFolderCount": 0},
+    {"id": "AAJunk", "displayName": "Junk Email", "childFolderCount": 0},
+    {"id": "AAArchive", "displayName": "Archive", "childFolderCount": 0},
+    {"id": "AAOutbox", "displayName": "Outbox", "childFolderCount": 0},
+    {"id": "AAReceipts", "displayName": "קבלות", "childFolderCount": 0}
+  ]
+}
