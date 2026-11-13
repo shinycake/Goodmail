@@ -141,6 +141,7 @@
         "GENERATE_INFOPLIST_FILE": "YES",
         "INFOPLIST_FILE": "Config/Goodmail-Info.plist",
         "INFOPLIST_KEY_CFBundleDisplayName": "Goodmail",
+        "INFOPLIST_KEY_NSCameraUsageDescription": "Goodmail uses the camera to take photos and scan documents you attach to a message.",
         "INFOPLIST_KEY_LSApplicationCategoryType": "public.app-category.productivity",
         "INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents": "YES",
         "INFOPLIST_KEY_UILaunchScreen_Generation": "YES",

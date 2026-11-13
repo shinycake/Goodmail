@@ -575,6 +575,17 @@
         }
       }
     },
+    "Couldn't Attach" : {
+      "comment" : "Alert title",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן לצרף"
+          }
+        }
+      }
+    },
     "Couldn't Send “%@”" : {
       "comment" : "A message failed to send",
       "localizations" : {
@@ -769,6 +780,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Goodmail"
+          }
+        }
+      }
+    },
+    "Goodmail couldn't prepare that for the message." : {
+      "comment" : "Alert when a photo or scan can't be turned into a file",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Goodmail לא הצליח להכין את הקובץ להודעה."
           }
         }
       }
@@ -1354,6 +1376,17 @@
         }
       }
     },
+    "Scan Document" : {
+      "comment" : "Attach a scanned document as a PDF",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סריקת מסמך"
+          }
+        }
+      }
+    },
     "Schedule" : {
       "comment" : "Schedules the message for the picked time",
       "localizations" : {
@@ -1703,6 +1736,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "הצעות"
+          }
+        }
+      }
+    },
+    "Take Photo" : {
+      "comment" : "Attach a picture from the camera",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "צילום תמונה"
           }
         }
       }
