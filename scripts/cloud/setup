@@ -9,15 +9,15 @@ cd "$(dirname "$0")/../.."
 
 SWIFT_VERSION=6.4.2
 XCODE_VERSION=27.2
-XTOOL_VERSION=1.24.0
+XTOOL_VERSION=1.24.0 # with the AppImage checksums below
 SDK_REPO="${GOODMAIL_SDK_REPO:-https://github.com/shinycake/goodmail-sdk.git}"
 SWIFT_DIR=/opt/swift
 XTOOL_DIR=/opt/xtool
 BUNDLE="$HOME/.swiftpm/swift-sdks/darwin.artifactbundle"
 
 case "$(uname -m)" in
-x86_64) docker_arch=amd64 ;;
-aarch64) docker_arch=arm64 ;;
+x86_64) docker_arch=amd64 xtool_sha256=dbfd9d7216f077c84c171b688c4173c37c23ca76bf7fd185d1a9ae8a53dab59f ;;
+aarch64) docker_arch=arm64 xtool_sha256=4bc0515fed71efb86e82564f358efa0c4c6d76bf1bcfd4c5f256727b53ec59c8 ;;
 *) echo "Unsupported architecture $(uname -m)" >&2 && exit 1 ;;
 esac
 
@@ -52,6 +52,7 @@ step "xtool $XTOOL_VERSION"
 if [[ "$(xtool --version 2>/dev/null)" != "xtool $XTOOL_VERSION" ]]; then
     curl -fsSL -o "$work/xtool.AppImage" \
         "https://github.com/xtool-org/xtool/releases/download/$XTOOL_VERSION/xtool-$(uname -m).AppImage"
+    sha256sum --check --quiet <<<"$xtool_sha256  $work/xtool.AppImage"
     chmod +x "$work/xtool.AppImage"
     # Containers have no FUSE to mount the AppImage, so run it unpacked.
     (cd "$work" && ./xtool.AppImage --appimage-extract >/dev/null)

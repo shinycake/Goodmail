@@ -9,6 +9,10 @@ public enum SharedContainer {
 
     /// The App Group directory, or `nil` when the process lacks the entitlement (e.g. unit tests).
     public static var directoryURL: URL? {
-        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID)
+        #if canImport(Darwin)
+            FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID)
+        #else
+            nil  // Linux test builds have no App Groups.
+        #endif
     }
 }

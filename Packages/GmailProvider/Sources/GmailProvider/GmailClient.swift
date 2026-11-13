@@ -1,6 +1,10 @@
 import Foundation
 import MailCore
 
+#if canImport(FoundationNetworking)
+    import FoundationNetworking  // URLSession on Linux
+#endif
+
 /// Gmail REST for one account, as a `MailProvider`. Wire types stay in this module; callers get `MailCore` types.
 public struct GmailClient: MailProvider {
     private let session: GmailSession

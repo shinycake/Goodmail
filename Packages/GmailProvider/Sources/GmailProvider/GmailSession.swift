@@ -1,6 +1,10 @@
 import Foundation
 import MailCore
 
+#if canImport(FoundationNetworking)
+    import FoundationNetworking  // URLSession on Linux
+#endif
+
 /// One signed-in Gmail account: keeps a fresh access token, refreshing it from the Keychain's refresh token.
 public actor GmailSession {
     public enum Failure: Error, Equatable {
@@ -13,8 +17,7 @@ public actor GmailSession {
     private var accessToken: (value: String, expiresAt: Date)?
     private var refreshing: Task<String, any Error>?
 
-    public init(accountID: AccountID, http: any HTTPClient = URLSession.shared, keychain: any SecretStore = Keychain())
-    {
+    public init(accountID: AccountID, http: any HTTPClient = URLSession.shared, keychain: any SecretStore) {
         self.accountID = accountID
         self.http = http
         self.keychain = keychain
@@ -27,7 +30,7 @@ public actor GmailSession {
         pkce: PKCE,
         accountID: @Sendable (_ email: String) -> AccountID = { _ in .generate() },
         http: any HTTPClient = URLSession.shared,
-        keychain: any SecretStore = Keychain()
+        keychain: any SecretStore
     ) async throws -> (session: GmailSession, email: String) {
         let (data, response) = try await http.data(for: GoogleOAuth.exchangeRequest(code: code, pkce: pkce))
         let tokens = try GoogleOAuth.tokens(from: data, status: response.statusCode, receivedAt: .now)
