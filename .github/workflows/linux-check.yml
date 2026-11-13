@@ -35,18 +35,11 @@ jobs:
       HOME: /root
       HAS_SDK_KEY: ${{ secrets.GOODMAIL_SDK_DEPLOY_KEY != '' }}
     steps:
-      # setup finds goodmail-sdk next to this repository, as in a cloud session.
+      # The toolchain action puts goodmail-sdk next to this repository, as in a cloud session.
       - uses: actions/checkout@v4
         with:
           path: goodmail
           fetch-depth: 2
-      - if: env.HAS_SDK_KEY == 'true'
-        uses: actions/checkout@v4
-        with:
-          repository: shinycake/goodmail-sdk
-          ssh-key: ${{ secrets.GOODMAIL_SDK_DEPLOY_KEY }}
-          path: goodmail-sdk
-
       # A pull request's checkout is its merge with main, whose first parent is the main it was tested against.
       - id: base
         working-directory: goodmail
@@ -58,21 +51,9 @@ jobs:
             echo "sha=$(git rev-parse HEAD)" >>"$GITHUB_OUTPUT"
           fi
 
-      # The Darwin SDK takes a minute and a half to build. setup's stamp rebuilds it when it's stale.
-      - if: env.HAS_SDK_KEY == 'true'
-        uses: actions/cache@v4
+      - uses: ./goodmail/.github/actions/linux-toolchain
         with:
-          path: /root/.swiftpm/swift-sdks
-          key: darwin-sdk-${{ runner.arch }}-${{ hashFiles('goodmail/scripts/cloud/setup') }}
-
-      - name: Toolchain (scripts/cloud/setup)
-        if: env.HAS_SDK_KEY == 'true'
-        working-directory: goodmail
-        run: |
-          apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q curl python3
-          # setup looks for its Swift under /opt/swift; point it at the image's.
-          mkdir -p /opt/swift && ln -sfn /usr /opt/swift/usr
-          scripts/cloud/setup
+          sdk-key: ${{ secrets.GOODMAIL_SDK_DEPLOY_KEY }}
 
       - name: scripts/check
         if: env.HAS_SDK_KEY == 'true'

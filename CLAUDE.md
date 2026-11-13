@@ -18,8 +18,8 @@ The process is autonomous. Nobody needs to approve routine work.
 1. Work on a short-lived branch, one vertical slice per PR. Pass `scripts/check` locally.
 2. Open a ready (not draft) PR with evidence: the `scripts/check` output, plus simulator screenshots or recordings for UI changes.
 3. `.github/workflows/review.yml` runs the Linux `scripts/check` on the PR merged with main, and a Claude review against [docs/review.md](docs/review.md). Its comments land on the PR.
-4. If the review approves, the check is green and main hasn't moved since the check, the workflow squash-merges the reviewed commit and deletes the branch. If main moved, merge main into the branch and push.
-5. If the review requests changes, fix them and push. Every push is reviewed again from scratch. If you believe a finding is wrong, justify the trade-off in the PR description before pushing the fix for the rest.
+4. If the review approves and the check is green, the workflow squash-merges the reviewed commit and deletes the branch. If main moved after the check, the merge job checks the PR merged with the new main itself before merging, so there's nothing to push. Merge main in yourself only when the workflow says the PR conflicts with main or fails on it. A push that only takes in main keeps the approval, because the review is keyed on the PR's own changes.
+5. If the review requests changes, fix them and push. Every push that changes the PR's own diff is reviewed again from scratch. If you believe a finding is wrong, justify the trade-off in the PR description before pushing the fix for the rest.
 
 Don't merge PRs by hand to get around the gate. Exceptions:
 

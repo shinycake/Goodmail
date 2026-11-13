@@ -1,6 +1,8 @@
 # The PR pipeline (ADR-016): the Linux scripts/check, a Claude review against docs/review.md, then a squash merge of
-# the exact commit that passed both, as long as main hasn't moved since the check. Free private repos have no branch
-# protection or native auto-merge, so this workflow is the gate.
+# the exact commit that passed both. If main moved after the check, the merge job checks the PR merged with the new
+# main itself, so a busy main never sends an approved PR back for another push. A push that only takes in main keeps
+# its approval, because the review is keyed on the PR's own changes. Free private repos have no branch protection or
+# native auto-merge, so this workflow is the gate.
 name: review
 
 on:
@@ -37,7 +39,27 @@ jobs:
         with:
           fetch-depth: 0
 
+      # An approval belongs to the PR's own changes: its diff from where it meets main, by `git patch-id`, which
+      # ignores line numbers. A push that only merges main in leaves that unchanged, so the earlier approval stands.
+      # Only this workflow's token posts the approval marker, as github-actions[bot].
+      - id: prior
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          changes=$(git diff "origin/$GITHUB_BASE_REF...$HEAD_SHA" | git patch-id --stable | cut -d' ' -f1)
+          echo "changes=$changes" >>"$GITHUB_OUTPUT"
+          [[ -n "$changes" ]] || exit 0
+          markers=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
+            --jq '.[] | select(.user.login == "github-actions[bot]") | .body')
+          if grep -qF "<!-- approved-changes: $changes -->" <<<"$markers"; then
+            echo "These changes were already approved; only main moved since. Skipping the review."
+            echo "approved=true" >>"$GITHUB_OUTPUT"
+          fi
+
       - id: review
+        if: steps.prior.outputs.approved != 'true'
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -69,27 +91,47 @@ jobs:
             --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["approve","request_changes"]},"blocking_findings":{"type":"integer","minimum":0}},"required":["verdict","blocking_findings"]}'
 
       - name: Enforce the verdict
+        if: steps.prior.outputs.approved != 'true'
         env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          CHANGES: ${{ steps.prior.outputs.changes }}
           RESULT: ${{ steps.review.outputs.structured_output }}
         run: |
           verdict=$(jq -r '.verdict' <<<"$RESULT")
           echo "Verdict: $verdict ($(jq -r '.blocking_findings' <<<"$RESULT") blocking findings)"
           [[ "$verdict" == "approve" ]]
+          if [[ -n "$CHANGES" ]]; then
+            gh pr comment "$PR" -R "$GITHUB_REPOSITORY" \
+              --body "Approval recorded for these changes. Merging main in won't need another review. <!-- approved-changes: $CHANGES -->"
+          fi
 
   merge:
     needs: [check, claude]
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
+    # The same image as the check, so it can check again when main moves.
+    container: swift:6.4.2-noble
+    timeout-minutes: 60
     permissions:
       contents: write
       pull-requests: write
+    defaults:
+      run:
+        shell: bash
     env:
+      HOME: /root
       GH_TOKEN: ${{ github.token }}
       PR: ${{ github.event.pull_request.number }}
       SHA: ${{ github.event.pull_request.head.sha }}
       TESTED_BASE: ${{ needs.check.outputs.base }}
+      HAS_SDK_KEY: ${{ secrets.GOODMAIL_SDK_DEPLOY_KEY != '' }}
     steps:
-      - name: Squash-merge the reviewed commit
+      - name: Tools
+        run: apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q gh jq
+
+      - id: gate
+        name: Hold and .github
         run: |
           labels=$(gh pr view "$PR" -R "$GITHUB_REPOSITORY" --json labels --jq '[.labels[].name] | join(",")')
           if [[ ",$labels," == *",hold,"* ]]; then
@@ -101,12 +143,52 @@ jobs:
               --body "Approved and green, but this PR changes .github/, which controls the gate itself. The owner merges it."
             exit 0
           fi
-          # The check ran on this PR merged with main at TESTED_BASE. If main moved since, that result says nothing
-          # about the merge that would land, so the PR has to take in main and run again.
-          main=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
-          if [[ "$main" != "$TESTED_BASE" ]]; then
-            moved="Approved, but main moved after the check ran (checked against ${TESTED_BASE:0:7}, main is now ${main:0:7})."
-            gh pr comment "$PR" -R "$GITHUB_REPOSITORY" --body "$moved Merge main into the branch and push to run it again."
-            exit 1
-          fi
-          gh pr merge "$PR" -R "$GITHUB_REPOSITORY" --squash --delete-branch --match-head-commit "$SHA"
+          echo "merge=true" >>"$GITHUB_OUTPUT"
+
+      - if: steps.gate.outputs.merge == 'true'
+        uses: actions/checkout@v4
+        with:
+          path: goodmail
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      # Installed up front, so a move of main can be checked at once. A cache hit makes it quick.
+      - if: steps.gate.outputs.merge == 'true'
+        uses: ./goodmail/.github/actions/linux-toolchain
+        with:
+          sdk-key: ${{ secrets.GOODMAIL_SDK_DEPLOY_KEY }}
+
+      # The check passed on this PR merged with main at TESTED_BASE. Merge only while main is still that commit. If
+      # main moved, check the PR merged with the new main here and try again, a few times, before giving up.
+      - if: steps.gate.outputs.merge == 'true'
+        name: Squash-merge the reviewed commit
+        working-directory: goodmail
+        run: |
+          git config --global --add safe.directory "$PWD"
+          tested="$TESTED_BASE"
+          for attempt in 1 2 3 4; do
+            main=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+            if [[ "$main" == "$tested" ]]; then
+              # From outside the checkout, so gh deletes only the remote branch.
+              (cd / && gh pr merge "$PR" -R "$GITHUB_REPOSITORY" --squash --delete-branch --match-head-commit "$SHA")
+              exit 0
+            fi
+            echo "▸ main moved from ${tested:0:7} to ${main:0:7}; checking the PR merged with it (attempt $attempt)"
+            git fetch -q origin main
+            git checkout -q --detach "$SHA"
+            if ! git -c user.name=review -c user.email=review@localhost merge -q --no-edit "$main"; then
+              gh pr comment "$PR" -R "$GITHUB_REPOSITORY" \
+                --body "Approved, but it conflicts with main at ${main:0:7}. Merge main into the branch and push."
+              exit 1
+            fi
+            if [[ "$HAS_SDK_KEY" == true ]]; then check=(scripts/check); else check=(scripts/check --lint); fi
+            if ! "${check[@]}"; then
+              gh pr comment "$PR" -R "$GITHUB_REPOSITORY" \
+                --body "Approved, but scripts/check fails on it merged with main at ${main:0:7}. See the merge job's log."
+              exit 1
+            fi
+            tested="$main"
+          done
+          gh pr comment "$PR" -R "$GITHUB_REPOSITORY" \
+            --body "Approved and green, but main kept moving during four checks. Push again, or rerun this job, to retry."
+          exit 1
