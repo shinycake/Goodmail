@@ -6,6 +6,12 @@
 set -euo pipefail
 [[ "${CLAUDE_CODE_REMOTE:-}" == "true" ]] || exit 0
 cd "$(dirname "$0")/../.."
+# Git hooks set these, and they would point setup's own git calls (such as cloning goodmail-sdk) at this repository's
+# index, so a commit in a fresh session would fail with the SDK's files in its tree.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX
+# Checks in parallel worktrees wait for one setup rather than replace the SDK under each other's builds.
+exec 9>/tmp/goodmail-cloud-setup.lock
+flock 9
 
 log=/tmp/goodmail-cloud-setup.log
 if ! scripts/cloud/setup >"$log" 2>&1; then

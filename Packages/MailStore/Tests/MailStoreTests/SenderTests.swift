@@ -36,10 +36,10 @@ struct SenderTests {
     }
 
     @Test func messagesWaitOutTheUndoWindow() async throws {
-        try commands().send(draft(), after: .seconds(10))
+        try await commands().send(draft(), after: .seconds(10))
         #expect(await sender().flush().isEmpty)
         #expect(server.sent.isEmpty)
-        try commands().send(draft("Now"), after: .zero)
+        try await commands().send(draft("Now"), after: .zero)
         #expect(await sender().flush().count == 1)
         #expect(server.sent.count == 1)
         #expect(server.sent.first?.threadID == "t1")
@@ -48,11 +48,11 @@ struct SenderTests {
 
     @Test func messagesGoUnderTheAccountsNameAtTheTimeTheyAreSent() async throws {
         let sender = sender()
-        try commands().send(draft("Before"), after: .zero)
+        try await commands().send(draft("Before"), after: .zero)
         await sender.flush()
         try database.update(
             Account(id: account, email: "me@example.com", color: .teal, service: .gmail, name: "Dana Levi"))
-        try commands().send(draft("After"), after: .zero)
+        try await commands().send(draft("After"), after: .zero)
         await sender.flush()
 
         let headers = server.sent.map { String(decoding: $0.raw, as: UTF8.self) }
@@ -61,7 +61,7 @@ struct SenderTests {
     }
 
     @Test func mailFromAnAccountThatCannotBeReadStaysQueued() async throws {
-        try commands().send(draft(), after: .zero)
+        try await commands().send(draft(), after: .zero)
         try await database.pool.write { db in try db.execute(sql: "DELETE FROM account") }
 
         #expect(await sender().flush().isEmpty)
@@ -71,15 +71,15 @@ struct SenderTests {
 
     @Test func undoTakesTheDraftBackBeforeItGoes() async throws {
         let draft = draft()
-        try commands().send(draft, after: .seconds(10))
-        #expect(try commands().cancelSend(draft.id) == draft)
-        #expect(try commands().cancelSend(draft.id) == nil)
+        try await commands().send(draft, after: .seconds(10))
+        #expect(try await commands().cancelSend(draft.id) == draft)
+        #expect(try await commands().cancelSend(draft.id) == nil)
         #expect(try database.nextSendDate(for: account) == nil)
     }
 
     @Test func refusedMessagesAreKeptForTheWriter() async throws {
         server.failSend(with: ProviderError.rejected)
-        try commands().send(draft(), after: .zero)
+        try await commands().send(draft(), after: .zero)
         await sender().flush()
         var failed = database.failedMessages().makeAsyncIterator()
         #expect(try await failed.next()?.map(\.draft.subject) == ["Hello"])
@@ -91,7 +91,7 @@ struct SenderTests {
         draft.cc = [Contact(name: nil, address: "avi@example.com")]
         draft.bcc = [Contact(name: "Boss", address: "boss@example.com")]
         server.failSend(with: ProviderError.rejected)
-        try commands().send(draft, after: .zero)
+        try await commands().send(draft, after: .zero)
         await sender().flush()
         var failed = database.failedMessages().makeAsyncIterator()
         let reopened = try #require(try await failed.next()?.first?.draft)
@@ -102,7 +102,7 @@ struct SenderTests {
     @Test func savedDraftsCarryTheirBccToTheProvider() async throws {
         var draft = draft()
         draft.bcc = [Contact(name: nil, address: "boss@example.com")]
-        try commands().saveDraft(draft)
+        try await commands().saveDraft(draft)
         await sender().flush()
         let raw = try #require(server.drafts.values.first?.raw)
         #expect(String(decoding: raw, as: UTF8.self).contains("Bcc: boss@example.com"))
@@ -119,7 +119,7 @@ struct SenderTests {
                         id: "2", filename: "plan.pdf", mimeType: "application/pdf", size: 5,
                         fetchToken: "att-1"), in: original))
         ]
-        try commands().send(draft, after: .zero)
+        try await commands().send(draft, after: .zero)
         #expect(await sender().flush().count == 1)
         let raw = String(decoding: server.sent[0].raw, as: UTF8.self)
         #expect(raw.contains(Data("m1/att-1".utf8).base64EncodedString()))
@@ -134,7 +134,7 @@ struct SenderTests {
                     Attachment(id: "2", filename: "plan.pdf", mimeType: "application/pdf", size: 5),
                     in: Message.ID(accountID: account, messageID: "m1")))
         ]
-        try commands().send(draft, after: .zero)
+        try await commands().send(draft, after: .zero)
         #expect(await sender().flush().isEmpty)
         #expect(server.sent.isEmpty)
         var failed = database.failedMessages().makeAsyncIterator()
@@ -146,14 +146,14 @@ struct SenderTests {
         var draft = draft("Plan")
         draft.savedDraft = Message.ID(accountID: account, messageID: "d1")
 
-        try commands().saveDraft(draft)
+        try await commands().saveDraft(draft)
         #expect(await sender().flush().count == 1)
         #expect(Array(server.drafts.keys) == ["d2"], "d1 was replaced")
         #expect(String(decoding: server.drafts["d2"]!.raw, as: UTF8.self).contains("Subject: Plan"))
         #expect(server.sent.isEmpty)
 
         draft.savedDraft = Message.ID(accountID: account, messageID: "d2")
-        try commands().send(draft, after: .zero)
+        try await commands().send(draft, after: .zero)
         #expect(await sender().flush().count == 1)
         #expect(server.sent.count == 1)
         #expect(server.drafts.isEmpty)
@@ -161,11 +161,11 @@ struct SenderTests {
 
     @Test func deletingADraftRemovesOnlyASavedOne() async throws {
         try await server.saveDraft(Data(), inThread: nil, replacing: nil)
-        try commands().deleteDraft(draft())
+        try await commands().deleteDraft(draft())
         #expect(try database.dueMessages(for: account, by: .distantFuture).isEmpty, "never saved: nothing to do")
         var saved = draft()
         saved.savedDraft = Message.ID(accountID: account, messageID: "d1")
-        try commands().deleteDraft(saved)
+        try await commands().deleteDraft(saved)
         #expect(try database.dueMessages(for: account, by: .distantFuture).map(\.purpose) == [.deleteDraft])
         await sender().flush()
         #expect(server.drafts.isEmpty)
@@ -176,14 +176,14 @@ struct SenderTests {
         try database.enqueue(OutgoingMessage(draft: draft(), purpose: .saveDraft, sendAt: .now, failure: .rejected))
         var failures = database.failedMessages().makeAsyncIterator()
         let failed = try #require(try await failures.next()?.first)
-        try commands().retrySend(failed)
+        try await commands().retrySend(failed)
         await sender().flush()
         #expect(server.drafts.count == 1)
         #expect(server.sent.isEmpty)
     }
 
     @Test func aFailureStoredAsASentenceByAnEarlierBuildReadsAsRefused() async throws {
-        try commands().send(draft(), after: .zero)
+        try await commands().send(draft(), after: .zero)
         try await database.pool.write { db in
             try db.execute(sql: "UPDATE outgoing SET failure = 'The server refused the message.'")
         }
@@ -193,7 +193,7 @@ struct SenderTests {
 
     @Test func offlineMessagesStayQueued() async throws {
         server.failSend(with: URLError(.notConnectedToInternet))
-        try commands().send(draft(), after: .zero)
+        try await commands().send(draft(), after: .zero)
         await sender().flush()
         #expect(try database.dueMessages(for: account, by: .distantFuture).count == 1)
         server.failSend(with: nil)
@@ -217,8 +217,8 @@ struct SenderTests {
                     labels: [MailLabel(id: "INBOX", name: "INBOX", kind: .system)], signature: "Me",
                     state: .current(cursor: "1")))
         }
-        _ = try commands().perform(.archive, on: [ThreadSummary.ID(accountID: account, threadID: "t1")])
-        try commands().send(draft(), after: .seconds(60))
+        _ = try await commands().perform(.archive, on: [ThreadSummary.ID(accountID: account, threadID: "t1")])
+        try await commands().send(draft(), after: .seconds(60))
 
         try database.removeAccount(account)
 

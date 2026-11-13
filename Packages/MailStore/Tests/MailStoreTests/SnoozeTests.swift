@@ -42,7 +42,7 @@ struct SnoozeTests {
 
     @Test func aSnoozedThreadLeavesTheInboxUntilItsTime() async throws {
         let wake = Self.start.addingTimeInterval(3 * 3600)
-        try commands(at: Self.start).snooze([id("t1")], until: wake)
+        try await commands(at: Self.start).snooze([id("t1")], until: wake)
 
         #expect(try await inbox() == ["t2"])
         var snoozed = database.snoozedThreads().makeAsyncIterator()
@@ -51,8 +51,8 @@ struct SnoozeTests {
         #expect(try await directory.next()?.snoozedCount == 1)
         #expect(try database.nextWakeDate() == wake)
 
-        #expect(try commands(at: wake.addingTimeInterval(-1)).wakeSnoozed().isEmpty)
-        #expect(try commands(at: wake).wakeSnoozed() == [id("t1")])
+        #expect(try await commands(at: wake.addingTimeInterval(-1)).wakeSnoozed().isEmpty)
+        #expect(try await commands(at: wake).wakeSnoozed() == [id("t1")])
         #expect(Set(try await inbox()) == ["t1", "t2"])
         #expect(try database.thread(id("t1"))?.isUnread == true, "it comes back unread")
         #expect(try database.snoozes(of: [id("t1")]) == [id("t1"): .woke(at: wake)])
@@ -61,29 +61,29 @@ struct SnoozeTests {
 
     @Test func undoPutsTheThreadBackAndForgetsTheSnooze() async throws {
         let commands = commands(at: Self.start)
-        let undo = try commands.snooze([id("t1")], until: Self.start.addingTimeInterval(3600))
-        try commands.undo(undo)
+        let undo = try await commands.snooze([id("t1")], until: Self.start.addingTimeInterval(3600))
+        try await commands.undo(undo)
         #expect(Set(try await inbox()) == ["t1", "t2"])
         #expect(try database.snoozes(of: [id("t1")]).isEmpty)
     }
 
-    @Test func movingASnoozedThreadToTheInboxEndsTheSnooze() throws {
+    @Test func movingASnoozedThreadToTheInboxEndsTheSnooze() async throws {
         let commands = commands(at: Self.start)
-        try commands.snooze([id("t1")], until: Self.start.addingTimeInterval(3600))
-        try commands.perform(.moveToInbox, on: [id("t1")])
-        #expect(try commands.wakeSnoozed().isEmpty)
+        try await commands.snooze([id("t1")], until: Self.start.addingTimeInterval(3600))
+        try await commands.perform(.moveToInbox, on: [id("t1")])
+        #expect(try await commands.wakeSnoozed().isEmpty)
         #expect(try database.snoozes(of: [id("t1")]).isEmpty)
     }
 
     @Test func unsnoozingReturnsTheThreadNowAndUndoSnoozesItAgain() async throws {
         let commands = commands(at: Self.start)
         let wakeAt = Self.start.addingTimeInterval(3600)
-        try commands.snooze([id("t1")], until: wakeAt)
-        let undo = try commands.unsnooze([id("t1")])
+        try await commands.snooze([id("t1")], until: wakeAt)
+        let undo = try await commands.unsnooze([id("t1")])
         #expect(Set(try await inbox()) == ["t1", "t2"])
         #expect(try database.snoozes(of: [id("t1")]).isEmpty)
 
-        try commands.undo(undo)
+        try await commands.undo(undo)
         #expect(try await inbox() == ["t2"])
         #expect(try database.snoozes(of: [id("t1")]) == [id("t1"): .asleep(until: wakeAt)])
     }
@@ -91,22 +91,22 @@ struct SnoozeTests {
     @Test(arguments: [ThreadAction.trash, .reportSpam])
     func aThreadThrownOutWhileAsleepStaysOut(_ action: ThreadAction) async throws {
         let commands = commands(at: Self.start)
-        try commands.snooze([id("t1")], until: Self.start)
-        try commands.perform(action, on: [id("t1")])
-        #expect(try commands.wakeSnoozed().isEmpty)
+        try await commands.snooze([id("t1")], until: Self.start)
+        try await commands.perform(action, on: [id("t1")])
+        #expect(try await commands.wakeSnoozed().isEmpty)
         #expect(try await inbox() == ["t2"])
         #expect(try database.snoozes(of: [id("t1")]).isEmpty)
     }
 
-    @Test func aWokenThreadIsForgottenAfterADay() throws {
-        try commands(at: Self.start).snooze([id("t1")], until: Self.start)
-        try commands(at: Self.start).wakeSnoozed()
-        try commands(at: Self.start.addingTimeInterval(MailDatabase.wokeShownFor + 1)).wakeSnoozed()
+    @Test func aWokenThreadIsForgottenAfterADay() async throws {
+        try await commands(at: Self.start).snooze([id("t1")], until: Self.start)
+        try await commands(at: Self.start).wakeSnoozed()
+        try await commands(at: Self.start.addingTimeInterval(MailDatabase.wokeShownFor + 1)).wakeSnoozed()
         #expect(try database.snoozes(of: [id("t1")]).isEmpty)
     }
 
-    @Test func removingTheAccountTakesItsSnoozes() throws {
-        try commands(at: Self.start).snooze([id("t1")], until: Self.start.addingTimeInterval(3600))
+    @Test func removingTheAccountTakesItsSnoozes() async throws {
+        try await commands(at: Self.start).snooze([id("t1")], until: Self.start.addingTimeInterval(3600))
         try database.removeAccount(account.id)
         #expect(try database.nextWakeDate() == nil)
     }
