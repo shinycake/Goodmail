@@ -88,6 +88,7 @@ public final class ThreadViewController: UIViewController {
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setToolbarHidden(false, animated: animated)
+        wear(.account(viewModel.accountColor))
     }
 
     public override func viewWillDisappear(_ animated: Bool) {

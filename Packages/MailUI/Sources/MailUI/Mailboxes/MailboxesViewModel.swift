@@ -2,9 +2,25 @@ import Foundation
 import MailCore
 import Observation
 
-/// The list of mailboxes: the standard ones, then the user's labels, each with its unread count.
+/// The list of mailboxes, each with its unread count. With one account: the standard mailboxes, then the user's
+/// labels. With several: the standard mailboxes blending every account, then each account's own Inbox and labels.
 @Observable
 public final class MailboxesViewModel {
+    /// A group of rows, under its own header.
+    nonisolated public enum Section: Hashable, Sendable {
+        /// The standard mailboxes, spanning every account.
+        case mailboxes
+        /// The only account's labels.
+        case labels
+        /// One of several accounts: its Inbox, then its labels.
+        case account(Account)
+    }
+
+    nonisolated public struct Group: Equatable, Sendable {
+        public let section: Section
+        public let items: [Item]
+    }
+
     nonisolated public struct Item: Hashable, Identifiable, Sendable {
         public var id: Mailbox { mailbox }
         public let mailbox: Mailbox
@@ -15,10 +31,12 @@ public final class MailboxesViewModel {
     }
 
     public private(set) var directory = MailboxDirectory()
+    /// The blend of every account's color, or the only account's.
+    public let theme: Theme
 
     @ObservationIgnored private let directoryStream: () -> AsyncThrowingStream<MailboxDirectory, any Error>
     @ObservationIgnored private let navigate: (Route) -> Void
-    @ObservationIgnored private let composingAccount: AccountID?
+    @ObservationIgnored private let accounts: [Account]
 
     public init(
         accounts: [Account],
@@ -27,15 +45,23 @@ public final class MailboxesViewModel {
     ) {
         directoryStream = directory
         self.navigate = navigate
-        composingAccount = accounts.first?.id
+        self.accounts = accounts
+        theme = Theme(accountID: nil, among: accounts)
     }
 
-    public var standardItems: [Item] {
-        Mailbox.standard.map { item(for: $0, color: nil) }
-    }
-
-    public var labelItems: [Item] {
-        directory.labels.map { item(for: $0.mailbox, color: $0.color) }
+    /// The groups to show, leaving out any with no rows.
+    public var groups: [Group] {
+        let mailboxes = Group(section: .mailboxes, items: Mailbox.standard.map { item(for: $0, color: nil) })
+        let labels = directory.labels.map { item(for: $0.mailbox, color: $0.color) }
+        guard accounts.count > 1 else {
+            return [mailboxes, Group(section: .labels, items: labels)].filter { !$0.items.isEmpty }
+        }
+        return [mailboxes]
+            + accounts.map { account in
+                let inbox = item(for: Mailbox(labelID: SystemLabel.inbox, accountID: account.id), color: nil)
+                return Group(
+                    section: .account(account), items: [inbox] + labels.filter { $0.mailbox.accountID == account.id })
+            }
     }
 
     private func item(for mailbox: Mailbox, color: String?) -> Item {
@@ -59,8 +85,9 @@ public final class MailboxesViewModel {
         navigate(.settings)
     }
 
+    /// A new message from the first account, until the composer offers a choice.
     public func compose() {
-        guard let composingAccount else { return }
-        navigate(.compose(Draft(accountID: composingAccount)))
+        guard let account = accounts.first else { return }
+        navigate(.compose(Draft(accountID: account.id)))
     }
 }

@@ -93,9 +93,7 @@ public final class MailboxViewController: UIViewController {
         }
         navigationController?.setToolbarHidden(false, animated: animated)
         navigationController?.navigationBar.prefersLargeTitles = true
-        navigationController?.navigationBar.largeTitleTextAttributes = [
-            .font: Typography.serif(.largeTitle, weight: .bold)
-        ]
+        wear(viewModel.theme)
     }
 
     /// Search as a glass button in the toolbar that expands into the field, or a gap when there is no search.
@@ -196,7 +194,7 @@ public final class MailboxViewController: UIViewController {
             cell.contentConfiguration = ThreadRowConfiguration(
                 thread: thread,
                 dateText: viewModel.dateText(for: thread),
-                accountColor: viewModel.accountColors[thread.id.accountID]?.uiColor ?? .tintColor
+                account: viewModel.rowAccount(for: thread)
             )
             // The open thread stays selected beside the list on iPad; a light tint keeps its text readable.
             cell.configurationUpdateHandler = { cell, state in
