@@ -1,6 +1,7 @@
 import UIKit
 
-/// A neutral gray circle with the sender's initials, and an optional account-colored badge on its top corner.
+/// A neutral gray circle with the sender's initials, and an optional account-colored badge on its top corner. Without
+/// the monogram, the badge stands alone in a narrow column.
 final class MonogramView: UIView {
     /// The account's mark: a dot for unread mail, or a quieter ring for read mail in a view spanning accounts.
     enum Badge: Equatable {
@@ -13,6 +14,17 @@ final class MonogramView: UIView {
 
     private let initials = UILabel()
     private let badge = UIView()
+    private var size: [NSLayoutConstraint] = []
+    /// The badge overhangs the monogram's corner by this much, and sits flush when it stands alone.
+    private static let badgeOverhang: CGFloat = 1
+    private lazy var badgeTop = badge.topAnchor.constraint(equalTo: topAnchor, constant: -Self.badgeOverhang)
+    private lazy var badgeTrailing = badge.trailingAnchor.constraint(
+        equalTo: trailingAnchor, constant: Self.badgeOverhang)
+
+    /// How wide the view is, with or without its monogram.
+    static func width(showingMonogram: Bool) -> CGFloat {
+        showingMonogram ? diameter : badgeDiameter
+    }
 
     init() {
         super.init(frame: .zero)
@@ -31,16 +43,18 @@ final class MonogramView: UIView {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
         }
-        NSLayoutConstraint.activate([
+        size = [
             widthAnchor.constraint(equalToConstant: Self.diameter),
             heightAnchor.constraint(equalToConstant: Self.diameter),
-            initials.centerXAnchor.constraint(equalTo: centerXAnchor),
-            initials.centerYAnchor.constraint(equalTo: centerYAnchor),
-            badge.widthAnchor.constraint(equalToConstant: Self.badgeDiameter),
-            badge.heightAnchor.constraint(equalToConstant: Self.badgeDiameter),
-            badge.topAnchor.constraint(equalTo: topAnchor, constant: -1),
-            badge.trailingAnchor.constraint(equalTo: trailingAnchor, constant: 1),
-        ])
+        ]
+        NSLayoutConstraint.activate(
+            size + [
+                badgeTop, badgeTrailing,
+                initials.centerXAnchor.constraint(equalTo: centerXAnchor),
+                initials.centerYAnchor.constraint(equalTo: centerYAnchor),
+                badge.widthAnchor.constraint(equalToConstant: Self.badgeDiameter),
+                badge.heightAnchor.constraint(equalToConstant: Self.badgeDiameter),
+            ])
         registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (view: MonogramView, _) in
             view.applyBadge()
         }
@@ -51,10 +65,23 @@ final class MonogramView: UIView {
 
     private var shownBadge: Badge?
 
-    func configure(name: String, badge: Badge?) {
+    func configure(name: String, badge: Badge?, showingMonogram: Bool = true) {
         initials.text = Monogram.initials(for: name)
         shownBadge = badge
+        applyMonogram(showingMonogram)
         applyBadge()
+    }
+
+    private func applyMonogram(_ shown: Bool) {
+        let side = Self.width(showingMonogram: shown)
+        for constraint in size { constraint.constant = side }
+        // A badge on its own fills the view rather than overhanging its corner.
+        let overhang = shown ? Self.badgeOverhang : 0
+        badgeTop.constant = -overhang
+        badgeTrailing.constant = overhang
+        layer.cornerRadius = side / 2
+        backgroundColor = shown ? .tertiarySystemFill : .clear
+        initials.isHidden = !shown
     }
 
     /// Layer colors don't follow the appearance, so they are resolved again when it changes.
