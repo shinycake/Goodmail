@@ -36,7 +36,7 @@ struct ScheduledSendTests {
 
     @Test func aScheduledMessageGoesOnlyOnceItsTimeComes() async throws {
         let sendAt = start.addingTimeInterval(3 * 3600)
-        try commands(at: start).schedule(draft("Later"), at: sendAt)
+        try await commands(at: start).schedule(draft("Later"), at: sendAt)
 
         #expect(await sender(at: sendAt.addingTimeInterval(-1)).flush().isEmpty)
         #expect(server.sent.isEmpty)
@@ -49,10 +49,10 @@ struct ScheduledSendTests {
 
     @Test func scheduledListsOnlyMessagesWaitingForAPickedTime() async throws {
         let commands = commands(at: start)
-        try commands.schedule(draft("Friday"), at: start.addingTimeInterval(86400))
-        try commands.schedule(draft("Tonight"), at: start.addingTimeInterval(3600))
-        try commands.send(draft("Undo window"), after: .seconds(10))
-        try commands.saveDraft(draft("Saved"))
+        try await commands.schedule(draft("Friday"), at: start.addingTimeInterval(86400))
+        try await commands.schedule(draft("Tonight"), at: start.addingTimeInterval(3600))
+        try await commands.send(draft("Undo window"), after: .seconds(10))
+        try await commands.saveDraft(draft("Saved"))
 
         var scheduled = database.scheduledMessages().makeAsyncIterator()
         #expect(try await scheduled.next()?.map(\.draft.subject) == ["Tonight", "Friday"])
@@ -62,8 +62,8 @@ struct ScheduledSendTests {
 
     @Test func unschedulingKeepsTheMessageInDrafts() async throws {
         let message = draft("Maybe")
-        try commands(at: start).schedule(message, at: start.addingTimeInterval(3600))
-        try commands(at: start).unschedule(message.id)
+        try await commands(at: start).schedule(message, at: start.addingTimeInterval(3600))
+        try await commands(at: start).unschedule(message.id)
 
         var scheduled = database.scheduledMessages().makeAsyncIterator()
         #expect(try await scheduled.next()?.isEmpty == true)
@@ -86,7 +86,7 @@ struct ScheduledSendTests {
 
     @Test func aRefusedScheduledMessageLeavesScheduledForFailures() async throws {
         server.failSend(with: ProviderError.rejected)
-        try commands(at: start).schedule(draft("Refused"), at: start)
+        try await commands(at: start).schedule(draft("Refused"), at: start)
         await sender(at: start).flush()
 
         var scheduled = database.scheduledMessages().makeAsyncIterator()

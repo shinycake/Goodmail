@@ -46,7 +46,7 @@ struct SendLaterTests {
         #expect(friday == [.tomorrowMorning(date(14, 8)), .nextWeek(date(16, 8))], "the weekend is tomorrow")
     }
 
-    @Test func schedulingConfirmsAndCanBeTakenBack() throws {
+    @Test func schedulingConfirmsAndCanBeTakenBack() async throws {
         let store = OutgoingQueue()
         let actions = MailActions(commands: MailCommands(store: store, replay: { _ in }), toastDuration: .seconds(60))
         var reopened: [Draft] = []
@@ -54,14 +54,17 @@ struct SendLaterTests {
         let draft = Draft(accountID: AccountID(rawValue: "a"), subject: "Later")
 
         actions.send(draft, at: .at(date(13, 8)))
+        await actions.settled()
         #expect(store.messages.map(\.purpose) == [.scheduledSend])
         #expect(actions.toast?.message.hasPrefix("Scheduled for") == true)
         actions.undoLast()
+        await actions.settled()
         #expect(store.messages.isEmpty)
         #expect(reopened == [draft])
 
         actions.send(draft, at: .at(date(13, 8)))
         actions.unschedule(draft.id)
+        await actions.settled()
         #expect(store.messages.map(\.purpose) == [.saveDraft], "kept in Drafts")
     }
 }
