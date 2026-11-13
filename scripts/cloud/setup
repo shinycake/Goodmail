@@ -40,7 +40,7 @@ fi
 
 step "Swift $SWIFT_VERSION"
 if [[ "$("$SWIFT_DIR/usr/bin/swift" --version 2>/dev/null)" != *"swift-$SWIFT_VERSION-RELEASE"* ]]; then
-    python3 -I scripts/cloud/fetch-docker-layer.py library/swift "$SWIFT_VERSION-noble" "$docker_arch" "$work/swift.tar.gz"
+    python3 -I scripts/cloud/fetch-docker-layer.py swift "$SWIFT_VERSION-noble" "$docker_arch" "$work/swift.tar.gz"
     rm -rf "$SWIFT_DIR"
     mkdir -p "$SWIFT_DIR"
     tar -xzf "$work/swift.tar.gz" -C "$SWIFT_DIR" usr
