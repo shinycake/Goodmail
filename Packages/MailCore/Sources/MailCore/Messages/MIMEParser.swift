@@ -118,8 +118,9 @@ private struct MIMEEntity {
         while lineStart < body.endIndex {
             let lineEnd = body[lineStart...].firstIndex(of: 0x0A) ?? body.endIndex
             let line = body[lineStart..<lineEnd]
-            if line.starts(with: delimiter) {
-                let rest = line.dropFirst(delimiter.count)
+            let rest = line.dropFirst(delimiter.count)
+            // A delimiter line holds the boundary, `--` when it closes, and only whitespace after (RFC 2046 §5.1.1).
+            if line.starts(with: delimiter), Self.isDelimiterTail(rest) {
                 if let start = partStart {
                     // The line break before a delimiter belongs to the delimiter (RFC 2046 §5.1.1).
                     parts.append(MIMEEntity(trimmingFinalLineBreak(body[start..<lineStart])))
@@ -132,6 +133,11 @@ private struct MIMEEntity {
         // A message cut off before its closing delimiter keeps the part it was in.
         if let start = partStart, start < body.endIndex { parts.append(MIMEEntity(body[start...])) }
         return parts
+    }
+
+    private static func isDelimiterTail(_ rest: ArraySlice<UInt8>) -> Bool {
+        let afterClose = rest.starts(with: [0x2D, 0x2D]) ? rest.dropFirst(2) : rest
+        return afterClose.allSatisfy { whitespace.contains($0) }
     }
 
     private static func trimmingFinalLineBreak(_ bytes: ArraySlice<UInt8>) -> ArraySlice<UInt8> {

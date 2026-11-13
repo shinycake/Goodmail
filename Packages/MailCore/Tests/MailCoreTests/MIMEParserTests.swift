@@ -100,6 +100,15 @@ struct MIMEParserTests {
         #expect(message.content().body.plain == "café")
     }
 
+    @Test func aLineThatOnlyStartsWithTheBoundaryIsContent() {
+        let message = parse([
+            "Content-Type: multipart/mixed; boundary=b", "", "--b", "Content-Type: text/plain", "",
+            "--bold claim", "--b--",
+        ])
+        #expect(message.parts.count == 1)
+        #expect(message.parts[0].data == Data("--bold claim".utf8))
+    }
+
     @Test func aMessageWithoutContentTypeIsPlainText() {
         let message = MIMEPart(parsing: Data("Subject: x\n\nhello\n".utf8))
         #expect(message.mimeType == "text/plain")

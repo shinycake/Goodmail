@@ -51,7 +51,8 @@ The owner decided these on 2026-10-20 after talking through the options. Each en
 
 - **`MailCore`:** domain types (Account, Thread, Message, Label, Mailbox), the provider protocol, the sync engine, the outbox. Pure Swift, no UIKit.
 - **`MailStore`:** GRDB schema, migrations, queries, cross-process change notices. Nothing else imports GRDB.
-- **`GmailProvider`:** Gmail REST and JSON, OAuth, history sync, watch renewal. It converts everything into `MailCore` types, and no Gmail wire type escapes it. `OutlookProvider` and `ICloudProvider` come later as siblings.
+- **`GmailProvider`:** Gmail REST and JSON, OAuth, history sync, watch renewal. It converts everything into `MailCore` types, and no Gmail wire type escapes it. `OutlookProvider` comes later as a sibling.
+- **`ICloudProvider`:** IMAP over TLS with an app-specific password. IMAP keeps messages in folders, so it derives thread IDs from References and In-Reply-To, keeps each message's thread in MailCore's `MessageIndexStore`, gives a message its folder's label (Archive none, `\Flagged` STARRED, no `\Seen` UNREAD), and takes every folder's STATUS as the cursor, reading changes with CONDSTORE and QRESYNC. No IMAP wire type escapes it.
 - **`MailUI`:** UIKit screens and components, theme with account colors, RTL helpers.
 - **Targets:** the app (thin wiring), the NSE (MailCore, MailStore, GmailProvider, never MailUI), widgets.
 - **Why:** the compiler enforces the boundaries, so Gmail code can't leak into the UI and only `MailStore` sees the database.
