@@ -69,7 +69,7 @@ extension OutlookClient {
         do {
             try await graph.send(
                 GraphTransport.baseURL.appending(path: path), method: "POST",
-                payload: (raw.base64EncodedData(), "text/plain"))
+                payload: (raw.base64EncodedData(), "text/plain"), replay: .onlyIfRefused)
         } catch let error as GraphError where error.status == 400 {
             throw ProviderError.rejected
         }
