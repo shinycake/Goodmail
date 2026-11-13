@@ -162,7 +162,7 @@ struct SenderTests {
 
     @Test func aFailureStoredAsASentenceByAnEarlierBuildReadsAsRefused() async throws {
         try commands().send(draft(), after: .zero)
-        try database.pool.write { db in
+        try await database.pool.write { db in
             try db.execute(sql: "UPDATE outgoing SET failure = 'The server refused the message.'")
         }
         var failed = database.failedMessages().makeAsyncIterator()
