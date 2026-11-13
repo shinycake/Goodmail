@@ -21,7 +21,8 @@
             guard let corpus else { return }
             Task {
                 do {
-                    let gmail = DebugGmail(session: GmailSession(accountID: account.id, keychain: Keychain()))
+                    let gmail = DebugGmail(
+                        session: OAuthSession(accountID: account.id, client: .gmail, keychain: Keychain()))
                     try await seed(corpus, into: gmail)
                     if let fixtures { try await record(corpus, into: fixtures, from: gmail) }
                     log.notice("done")
@@ -111,7 +112,7 @@
             let body: String
         }
 
-        let session: GmailSession
+        let session: OAuthSession
 
         func get(_ path: String, query: [String: String] = [:]) async throws -> Data {
             let url = GmailConfiguration.apiBaseURL.appending(path: path)

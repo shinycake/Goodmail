@@ -7,14 +7,14 @@ import MailCore
 
 /// Gmail REST for one account, as a `MailProvider`. Wire types stay in this module; callers get `MailCore` types.
 public struct GmailClient: MailProvider {
-    private let session: GmailSession
+    private let session: OAuthSession
     private let http: any HTTPClient
     private let retryDelays: [Duration]
     private let pageSize: Int
 
     /// `retryDelays` are the waits before each retry of a rate-limited or failed request.
     public init(
-        session: GmailSession,
+        session: OAuthSession,
         http: any HTTPClient = URLSession.shared,
         retryDelays: [Duration] = [.seconds(1), .seconds(2), .seconds(4)],
         pageSize: Int = 50

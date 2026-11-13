@@ -15,7 +15,8 @@ struct RecordedMessageTests {
             "/token": [.init(fixture: "token-exchange")],
             "/gmail/v1/users/me/threads/\(id)": [.init(fixture: "Recorded/\(thread)")],
         ])
-        let session = try await GmailSession.signIn(code: "4/abc", pkce: .generate(), http: http, keychain: keychain)
+        let session = try await OAuthSession.signIn(
+            client: .gmail, code: "4/abc", pkce: .generate(), http: http, keychain: keychain)
         let gmail = GmailClient(session: session.session, http: http, retryDelays: [])
         return (gmail, http, try await gmail.messages(inThread: id))
     }
@@ -76,8 +77,8 @@ struct RecordedMessageTests {
                     .init(fixture: "Recorded/inline-image-and-pdf-part-\(partID)")
                 ],
             ])
-            let session = try await GmailSession.signIn(
-                code: "4/abc", pkce: .generate(), http: http, keychain: keychain)
+            let session = try await OAuthSession.signIn(
+                client: .gmail, code: "4/abc", pkce: .generate(), http: http, keychain: keychain)
             let data = try await GmailClient(session: session.session, http: http).data(for: attachment, in: message.id)
             #expect(data.prefix(4) == signature)
             #expect(data.count == attachment.size)
