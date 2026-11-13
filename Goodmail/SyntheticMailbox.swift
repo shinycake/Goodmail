@@ -16,7 +16,7 @@
             let url = URL.cachesDirectory.appending(path: "Synthetic-\(threadCount)/mail.sqlite")
             let seeded = FileManager.default.fileExists(atPath: url.path())
             let database = try MailDatabase(url: url)
-            if seeded { return try AppModel(database: database) }
+            if seeded { return try model(of: database) }
             let accounts = [
                 Account(
                     id: AccountID(rawValue: "synthetic-1"), email: "you@example.com", color: .blue, service: .gmail),
@@ -57,6 +57,13 @@
                 )
             }
             try database.upsert(threads)
+            return try model(of: database)
+        }
+
+        private static func model(of database: MailDatabase) throws -> AppModel {
+            if let corpus = SyntheticCorpus.requestedFolder {
+                try SyntheticCorpus.file(corpus, into: database, account: AccountID(rawValue: "synthetic-1"))
+            }
             return try AppModel(database: database)
         }
 

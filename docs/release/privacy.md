@@ -23,7 +23,7 @@ Reviewed 2026-11-13, against `main` at 42720fc.
 | Recent searches (up to 8 query strings) | `UserDefaults.standard` | Default | None |
 | Diagnostics | Unified logging (`os.Logger`), MetricKit and Xcode Organizer | On device; leaves only in a sysdiagnose the user sends, or Apple's opt-in diagnostics sharing | Apple, if the user opts in |
 
-Debug builds also read a few launch arguments through `UserDefaults` (`GoodmailSyntheticThreads`, `GoodmailDeliverTestMessageAfter` and the test-mail tools). They are compiled out of Release.
+Debug builds also read a few launch arguments through `UserDefaults` (`GoodmailSyntheticThreads`, `GoodmailSyntheticCorpus`, `GoodmailDeliverTestMessageAfter` and the test-mail tools). They are compiled out of Release.
 
 Removing an account (`AppModel.removeAccount`) deletes its refresh token, its rows in the database and its opened attachments. Deleting the app removes everything above except Keychain items, which iOS keeps across reinstalls. Items that are `ThisDeviceOnly` never leave the device.
 
