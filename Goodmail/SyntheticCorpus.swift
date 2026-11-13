@@ -39,26 +39,14 @@
 
         private static func message(_ raw: Data, number: Int, in thread: ThreadSummary.ID) -> Message {
             let mime = MIMEPart(parsing: raw)
-            let (body, attachments) = mime.content()
-            func addresses(_ header: String) -> [Contact] { mime.header(header).map(Contact.list(parsing:)) ?? [] }
+            let plain = mime.content().body.plain ?? ""
             return Message(
                 id: Message.ID(accountID: thread.accountID, messageID: "\(thread.threadID)-\(number)"),
                 threadID: thread.threadID,
-                from: addresses("From").first ?? Contact(name: nil, address: ""),
-                to: addresses("To"),
-                cc: addresses("Cc"),
-                bcc: [],
-                replyTo: addresses("Reply-To"),
-                subject: mime.header("Subject") ?? "",
+                mime: mime,
                 date: mime.header("Date").flatMap(dateFormatter.date(from:)) ?? .distantPast,
-                snippet: String(
-                    (body.plain ?? "").split(whereSeparator: \.isWhitespace).joined(separator: " ").prefix(200)),
-                labelIDs: ["INBOX"],
-                body: body,
-                attachments: attachments,
-                internetMessageID: mime.header("Message-ID"),
-                references: mime.header("References").map { $0.split(whereSeparator: \.isWhitespace).map(String.init) }
-                    ?? [])
+                snippet: String(plain.split(whereSeparator: \.isWhitespace).joined(separator: " ").prefix(200)),
+                labelIDs: ["INBOX"])
         }
 
         private static func shifted(_ messages: [Message], endingAt latest: Date) -> [Message] {
