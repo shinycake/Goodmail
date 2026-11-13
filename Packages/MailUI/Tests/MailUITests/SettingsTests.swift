@@ -70,6 +70,9 @@ struct SettingsTests {
         model.rowDisplay.previewLines = 0
         model.rowDisplay.showsAvatars = false
         #expect(Preferences.rowDisplay == RowDisplay(previewLines: 0, showsAvatars: false))
+
+        Preferences.rowDisplay.previewLines = 7
+        #expect(Preferences.rowDisplay.previewLines == 2, "a length the picker doesn't offer reads as the standard")
     }
 
     @Test func previewTitlesReadAsLines() {

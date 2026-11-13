@@ -22,7 +22,10 @@ public enum Preferences {
     public static var rowDisplay: RowDisplay {
         get {
             RowDisplay(
-                previewLines: defaults.object(forKey: previewLinesKey) as? Int ?? RowDisplay.standard.previewLines,
+                // A stored length outside the choices, as from an older build, reads as the standard one.
+                previewLines: (defaults.object(forKey: previewLinesKey) as? Int)
+                    .flatMap { RowDisplay.previewLineChoices.contains($0) ? $0 : nil }
+                    ?? RowDisplay.standard.previewLines,
                 showsAvatars: defaults.object(forKey: showsAvatarsKey) as? Bool ?? RowDisplay.standard.showsAvatars)
         }
         set {
