@@ -3,7 +3,7 @@ import UIKit
 
 final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
-    private var coordinator: SceneCoordinator?
+    private(set) var coordinator: SceneCoordinator?
 
     func scene(
         _ scene: UIScene,
@@ -12,12 +12,14 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     ) {
         guard let windowScene = scene as? UIWindowScene else { return }
         let window = UIWindow(windowScene: windowScene)
-        let model = (UIApplication.shared.delegate as! AppDelegate).model
+        let app = UIApplication.shared.delegate as! AppDelegate
         // A handoff from another device wins over what this window showed when it was last saved.
         let restoring = (connectionOptions.userActivities + [session.stateRestorationActivity].compactMap(\.self))
             .lazy.compactMap(Self.windowState(in:)).first
-        coordinator = SceneCoordinator(window: window, model: model, restoring: restoring)
-        coordinator?.start()
+        let coordinator = SceneCoordinator(window: window, model: app.model, restoring: restoring)
+        self.coordinator = coordinator
+        coordinator.start()
+        if let route = app.intentRoutes.takeWaiting() { coordinator.handle(route) }
         window.makeKeyAndVisible()
         self.window = window
     }

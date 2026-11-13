@@ -13,7 +13,12 @@ public actor MailCommands {
     /// thread's snooze from before (`nil` for none).
     public struct Undo: Equatable, Sendable {
         public var intents: [AccountID: [OutboxIntent]]
-        public var snoozes: [ThreadSummary.ID: SnoozeState?] = [:]
+        public var snoozes: [ThreadSummary.ID: SnoozeState?]
+
+        public init(intents: [AccountID: [OutboxIntent]] = [:], snoozes: [ThreadSummary.ID: SnoozeState?] = [:]) {
+            self.intents = intents
+            self.snoozes = snoozes
+        }
 
         public var isEmpty: Bool { intents.values.allSatisfy(\.isEmpty) && snoozes.isEmpty }
     }

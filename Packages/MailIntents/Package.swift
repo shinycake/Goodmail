@@ -8,6 +8,9 @@ let package = Package(
     platforms: [.iOS("27.2")],
     products: [.library(name: "MailIntents", targets: ["MailIntents"])],
     dependencies: [.package(path: "../MailCore")],
-    targets: [.target(name: "MailIntents", dependencies: ["MailCore"])],
+    targets: [
+        .target(name: "MailIntents", dependencies: ["MailCore"]),
+        .testTarget(name: "MailIntentsTests", dependencies: ["MailIntents"]),
+    ],
     swiftLanguageModes: [.v6]
 )

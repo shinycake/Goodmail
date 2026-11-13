@@ -1,5 +1,9 @@
 import UIKit
 
+#if canImport(MailIntents)
+    import MailIntents
+#endif
+
 @main
 final class AppDelegate: UIResponder, UIApplicationDelegate {
     /// Shared by every window. Failing to open the database leaves nothing useful to show.
@@ -16,12 +20,17 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         }
     }()
     private lazy var syncScheduler = SyncScheduler(model: model)
+    /// Where intents send the app's windows.
+    let intentRoutes = IntentRoutes()
 
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
         syncScheduler.start()
+        #if canImport(MailIntents)
+            IntentsHost(database: model.database, commands: model.commands, routes: intentRoutes).register()
+        #endif
         #if DEBUG
             TestDelivery.scheduleIfRequested(model: model)
             TestMailTools.runIfRequested(model: model)

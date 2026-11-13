@@ -19,6 +19,10 @@ export SDKROOT= XCODE_EXTRA_PLATFORM_FOLDERS="$bundle/Developer/Platforms" PATH=
 # Git sets these for hooks; SwiftPM's own git calls would then act on this repository instead of package checkouts.
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX
 
+# Packages that use Apple's App Intents macros (`@AppEntity(schema:)`, `@AppIntent(schema:)`), which ship only as a
+# macOS compiler plugin. Linux can't build them; the Mac's scripts/check does, and the app type-checks without them.
+mac_only=(MailIntents)
+
 app_targets=false
 if (($# == 0)); then
     app_targets=true
@@ -26,6 +30,10 @@ if (($# == 0)); then
     set -- $(cd Packages && for manifest in */Package.swift; do echo "${manifest%/Package.swift}"; done)
 fi
 for package in "$@"; do
+    if [[ " ${mac_only[*]} " == *" $package "* ]]; then
+        printf '\n▸ %s skipped: Apple ships its App Intents macros for macOS only\n' "$package"
+        continue
+    fi
     tests=()
     if [[ -d "Packages/$package/Tests" ]]; then tests=(--build-tests); fi
     printf '\n▸ %s for iOS\n' "$package"

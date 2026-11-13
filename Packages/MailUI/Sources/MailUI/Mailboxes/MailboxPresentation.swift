@@ -2,8 +2,9 @@ import MailCore
 import UIKit
 
 extension Mailbox {
-    /// The mailbox's name: a standard one's, or the user label's from `labels`.
-    public func title(labels: [MailboxDirectory.Label]) -> String {
+    /// The mailbox's name: a standard one's, or the user label's from `labels`. A pure lookup, so intents can name
+    /// mailboxes off the main actor.
+    nonisolated public func title(labels: [MailboxDirectory.Label]) -> String {
         switch labelID {
         case nil:
             String(localized: "All Mail", bundle: .module, comment: "Mailbox: every thread outside Spam and Trash")
