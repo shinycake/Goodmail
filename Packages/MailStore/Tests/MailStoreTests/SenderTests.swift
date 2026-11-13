@@ -26,8 +26,7 @@ struct SenderTests {
 
     private func sender() -> Sender {
         Sender(
-            accountID: account, provider: server, store: database,
-            from: Contact(name: nil, address: "me@example.com"), now: clock.next)
+            accountID: account, provider: server, store: database, now: clock.next)
     }
 
     private func draft(_ subject: String = "Hello") -> Draft {
@@ -45,6 +44,29 @@ struct SenderTests {
         #expect(server.sent.count == 1)
         #expect(server.sent.first?.threadID == "t1")
         #expect(String(decoding: server.sent[0].raw, as: UTF8.self).contains("Subject: Now"))
+    }
+
+    @Test func messagesGoUnderTheAccountsNameAtTheTimeTheyAreSent() async throws {
+        let sender = sender()
+        try commands().send(draft("Before"), after: .zero)
+        await sender.flush()
+        try database.update(
+            Account(id: account, email: "me@example.com", color: .teal, service: .gmail, name: "Dana Levi"))
+        try commands().send(draft("After"), after: .zero)
+        await sender.flush()
+
+        let headers = server.sent.map { String(decoding: $0.raw, as: UTF8.self) }
+        #expect(headers[0].contains("From: me@example.com"))
+        #expect(headers[1].contains("From: Dana Levi <me@example.com>"))
+    }
+
+    @Test func mailFromAnAccountThatCannotBeReadStaysQueued() async throws {
+        try commands().send(draft(), after: .zero)
+        try await database.pool.write { db in try db.execute(sql: "DELETE FROM account") }
+
+        #expect(await sender().flush().isEmpty)
+        #expect(server.sent.isEmpty)
+        #expect(try database.dueMessages(for: account, by: .distantFuture).map(\.draft.subject) == ["Hello"])
     }
 
     @Test func undoTakesTheDraftBackBeforeItGoes() async throws {

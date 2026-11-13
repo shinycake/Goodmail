@@ -7,6 +7,15 @@ extension MailDatabase {
         try write { db in try AccountRecord(account).save(db) }
     }
 
+    /// Changes the account's name and color. Its mail and its place among the accounts stay as they are.
+    public func update(_ account: Account) throws {
+        try write { db in
+            try db.execute(
+                sql: "UPDATE account SET name = ?, color = ? WHERE id = ?",
+                arguments: [account.name, account.color.rawValue, account.id.rawValue])
+        }
+    }
+
     /// In the order they were added.
     public func accounts() throws -> [Account] {
         try pool.read { db in
@@ -40,6 +49,7 @@ struct AccountRecord: Codable, FetchableRecord, PersistableRecord {
     var email: String
     var color: String
     var service: String
+    var name: String?
     var createdAt: Date
 
     init(_ account: Account, createdAt: Date = .now) {
@@ -47,6 +57,7 @@ struct AccountRecord: Codable, FetchableRecord, PersistableRecord {
         email = account.email
         color = account.color.rawValue
         service = account.service.rawValue
+        name = account.name
         self.createdAt = createdAt
     }
 
@@ -55,6 +66,6 @@ struct AccountRecord: Codable, FetchableRecord, PersistableRecord {
         guard let color = AccountColor(rawValue: color), let service = MailService(rawValue: service) else {
             return nil
         }
-        return Account(id: AccountID(rawValue: id), email: email, color: color, service: service)
+        return Account(id: AccountID(rawValue: id), email: email, color: color, service: service, name: name)
     }
 }

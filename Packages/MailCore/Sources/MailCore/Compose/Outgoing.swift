@@ -47,6 +47,8 @@ public protocol OutgoingStore: Sendable {
     func nextSendDate(for account: AccountID) throws -> Date?
     func markFailed(_ id: Draft.ID, reason: SendFailure) throws
     func remove(_ id: Draft.ID) throws
+    /// Who the account's mail is from now. Throws when the account is gone.
+    func sender(for account: AccountID) throws -> Contact
 }
 
 /// Sends one account's due messages, oldest first.
@@ -54,7 +56,6 @@ public actor Sender {
     public nonisolated let accountID: AccountID
     private let provider: any MailProvider
     private let store: any OutgoingStore
-    private let from: Contact
     private let now: @Sendable () -> Date
     private var running: Task<[Draft], Never>?
 
@@ -62,18 +63,17 @@ public actor Sender {
         accountID: AccountID,
         provider: any MailProvider,
         store: any OutgoingStore,
-        from: Contact,
         now: @escaping @Sendable () -> Date = { .now }
     ) {
         self.accountID = accountID
         self.provider = provider
         self.store = store
-        self.from = from
         self.now = now
     }
 
     /// Sends, saves or deletes what is due. A refused message is marked failed and kept, for the writer to fix; a
-    /// network failure leaves it queued for the next call. Returns the drafts the provider took.
+    /// network failure, or an account that can't be read, leaves it queued for the next call. Who the mail is from is
+    /// read as each message goes, so a renamed account's next message carries the new name. Returns the drafts the provider took.
     @discardableResult
     public func flush() async -> [Draft] {
         if let running { return await running.value }
@@ -92,6 +92,12 @@ public actor Sender {
             } catch ProviderError.notFound {
                 try? store.markFailed(message.id, reason: .forwardedAttachmentMissing)
                 continue
+            } catch {
+                return sent
+            }
+            let from: Contact
+            do {
+                from = try store.sender(for: accountID)
             } catch {
                 return sent
             }
