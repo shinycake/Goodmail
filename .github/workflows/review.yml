@@ -171,14 +171,16 @@ jobs:
         run: |
           git config --global --add safe.directory "$PWD"
           tested="$TESTED_BASE"
+          head="$SHA" # the branch's head: the reviewed commit, or the squash of it once pushed there
           for attempt in 1 2 3 4; do
             main=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
             if [[ "$main" == "$tested" ]]; then
               # GitHub's own squash authors the commit with the PR author's default email, and its --author-email
               # takes only an address of the account that merges, which the workflow bot has none of. So the job
               # squashes the PR onto main itself, authored by the author's noreply address, puts that one commit
-              # on the branch (only if the branch is still the reviewed commit), and has GitHub rebase-merge it:
-              # the PR shows as merged, and public history never carries a personal email.
+              # on the branch (only if the branch is still the reviewed commit), and fast-forwards main to it. The
+              # push to main fails if main moved since it was read, so only the checked merge can land, and GitHub
+              # marks the PR merged once its head is on main. Public history never carries a personal email.
               git fetch -q origin main
               git checkout -q --detach "$main"
               git merge -q --squash "$SHA"
@@ -188,16 +190,14 @@ jobs:
                 GIT_COMMITTER_NAME="$AUTHOR_LOGIN" GIT_COMMITTER_EMAIL="$noreply" \
                 git commit -q -m "$title (#$PR)"
               squash=$(git rev-parse HEAD)
-              git push -q --force-with-lease="refs/heads/$HEAD_REF:$SHA" origin "$squash:refs/heads/$HEAD_REF"
-              # GitHub takes a moment to see the new head before it will merge it.
-              for wait in 5 10 20 40; do
-                sleep "$wait"
-                if gh api -X PUT "repos/$GITHUB_REPOSITORY/pulls/$PR/merge" -f merge_method=rebase -f sha="$squash"; then
-                  git push -q origin --delete "$HEAD_REF" || true
-                  exit 0
-                fi
-              done
-              exit 1
+              git push -q --force-with-lease="refs/heads/$HEAD_REF:$head" origin "$squash:refs/heads/$HEAD_REF"
+              head="$squash"
+              if git push -q origin "$squash:refs/heads/main"; then
+                git push -q origin --delete "$HEAD_REF" || true
+                exit 0
+              fi
+              # main moved after it was read: check against the new main, like any other move.
+              continue
             fi
             echo "▸ main moved from ${tested:0:7} to ${main:0:7}; checking the PR merged with it (attempt $attempt)"
             git fetch -q origin main
