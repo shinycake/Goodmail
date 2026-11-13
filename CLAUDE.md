@@ -9,7 +9,7 @@ A native iOS email client. Read [README.md](README.md) for the build and the gat
 - **Thermo-nuclear code quality.** Every PR is held to [docs/review.md](docs/review.md). Look for the restructuring that deletes complexity before you write code that adds it.
 - No third-party dependency without the owner's approval. GRDB is the only one.
 - Logic is developed test-first with Swift Testing.
-- Run `swift format format -i -r Packages Goodmail` before committing, and `scripts/check` before pushing (the pre-push hook does it).
+- Run `swift format format -i -r Packages Goodmail` before committing, and `scripts/check` before pushing (the pre-push hook does it). In a Linux cloud session, `scripts/check` compiles the packages and tests for iOS but can't run them ([docs/setup/cloud-builds.md](docs/setup/cloud-builds.md)).
 
 ## How work lands (ADR-016)
 

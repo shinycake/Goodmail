@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The local gate (ADR-013): format lint, the line cap (ADR-014), then package tests and the app's launch tests.
 #
-#   scripts/check          everything; the pre-push hook runs this
+#   scripts/check          everything; the pre-push hook runs this (on Linux: lint and the iOS compile, see scripts/ios-build)
 #   scripts/check --lint   format and line cap only; the pre-commit hook and Linux CI run this
 #
 # Tests run on a dedicated "Goodmail Check" simulator, created on first use, so the unsigned test build never
@@ -49,6 +49,14 @@ done < <(git ls-files --cached --others --exclude-standard -- '*.swift' '*.ts' '
 if [[ -d PushWorker/node_modules ]]; then
     step "PushWorker typecheck and tests"
     (cd PushWorker && npm run --silent check)
+fi
+
+# Linux cloud workers have no simulator: they compile every package and its tests for iOS, and the Mac runs the tests.
+if [[ "$(uname)" == Linux ]]; then
+    step "Packages and tests compiled for iOS (scripts/ios-build)"
+    scripts/ios-build
+    printf '\n✔ scripts/check passed on Linux: lint and the iOS compile. Tests run on the Mac.\n'
+    exit 0
 fi
 
 check_simulator=$(xcrun simctl list devices available | grep -m1 -F "$CHECK_NAME (" | grep -oE '[0-9A-F-]{36}' || true)
