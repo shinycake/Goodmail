@@ -7,19 +7,23 @@ import MailCore
 
 /// Microsoft Graph mail for one Outlook account. Outlook files each message in one folder and keeps Unread and
 /// Starred as flags; this client reads them as Gmail's labels, and a thread is a Graph conversation.
-public struct OutlookClient: Sendable {
-    private let graph: GraphTransport
+public struct OutlookClient: MailProvider {
+    let graph: GraphTransport
+    /// Which conversation each message is in, so a message Graph reports deleted names the thread to refetch.
+    let index: any MessageIndexStore
     private let folders = FolderCache()
     private let pageSize: Int
 
     /// `retryDelays` are the waits before each retry of a throttled or failed request.
     public init(
         session: OAuthSession,
+        index: any MessageIndexStore,
         http: any HTTPClient = URLSession.shared,
         retryDelays: [Duration] = [.seconds(1), .seconds(2), .seconds(4)],
         pageSize: Int = 50
     ) {
         graph = GraphTransport(session: session, http: http, retryDelays: retryDelays)
+        self.index = index
         self.pageSize = pageSize
     }
 
@@ -53,18 +57,20 @@ public struct OutlookClient: Sendable {
         let directory = try await folderDirectory()
         let accountID = graph.session.accountID
         var summaries: [String: ThreadSummary] = [:]
+        var entries: [MessageIndexEntry] = []
         for batch in ids.chunks(of: Self.concurrentRequests) {
-            try await withThrowingTaskGroup(of: (String, ThreadSummary?).self) { group in
+            try await withThrowingTaskGroup(of: (String, [GraphMessage]).self) { group in
                 for id in batch {
-                    group.addTask {
-                        let messages: [GraphMessage] = try await conversation(id, select: GraphMessage.summaryFields)
-                        let threadID = ThreadSummary.ID(accountID: accountID, threadID: id)
-                        return (id, ThreadSummary(conversation: threadID, messages: messages, folders: directory))
-                    }
+                    group.addTask { (id, try await conversation(id, select: GraphMessage.summaryFields)) }
                 }
-                for try await (id, summary) in group { summaries[id] = summary }
+                for try await (id, messages) in group {
+                    let threadID = ThreadSummary.ID(accountID: accountID, threadID: id)
+                    summaries[id] = ThreadSummary(conversation: threadID, messages: messages, folders: directory)
+                    entries += messages.map { MessageIndexEntry(key: $0.id, threadID: id) }
+                }
             }
         }
+        try index.record(entries, account: accountID)
         return ThreadFetch(found: ids.compactMap { summaries[$0] }, missing: ids.filter { summaries[$0] == nil })
     }
 
@@ -108,7 +114,7 @@ public struct OutlookClient: Sendable {
     }
 
     /// Every message in a conversation, in whatever folder. A conversation with none left is gone.
-    private func conversation<Item: Decodable>(_ id: String, select: String) async throws -> [Item] {
+    func conversation<Item: Decodable>(_ id: String, select: String) async throws -> [Item] {
         var messages: [Item] = []
         var next: URL? = GraphTransport.baseURL.appending(path: "me/messages").appending(queryItems: [
             URLQueryItem(name: "$filter", value: "conversationId eq \(Self.literal(id))"),
@@ -155,12 +161,12 @@ public struct OutlookClient: Sendable {
         return GraphTransport.baseURL.appending(path: path).appending(queryItems: items)
     }
 
-    private func folderDirectory() async throws -> FolderDirectory {
+    func folderDirectory() async throws -> FolderDirectory {
         try await folders.directory { [graph] in try await graph.folderDirectory() }
     }
 
     /// Before any mail, so a filter on the date can lead without leaving anything out.
-    private static let earliest = Date(timeIntervalSince1970: 0)
+    static let earliest = Date(timeIntervalSince1970: 0)
 
     /// An OData string literal, its quotes doubled.
     static func literal(_ text: String) -> String {
@@ -175,7 +181,7 @@ public struct OutlookClient: Sendable {
 
 extension Array {
     /// Consecutive runs of `size` elements, the last one shorter when they don't divide evenly.
-    fileprivate func chunks(of size: Int) -> [ArraySlice<Element>] {
+    func chunks(of size: Int) -> [ArraySlice<Element>] {
         stride(from: 0, to: count, by: size).map { self[$0..<Swift.min($0 + size, count)] }
     }
 }

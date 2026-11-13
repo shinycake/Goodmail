@@ -105,6 +105,47 @@
         }
       }
     },
+    "%lld lines" : {
+      "comment" : "Mailbox rows show this many lines of preview",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld line"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld lines"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "שורה אחת"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld שורות"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld messages" : {
       "comment" : "How many messages a thread holds",
       "localizations" : {
@@ -431,6 +472,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "צירוף"
+          }
+        }
+      }
+    },
+    "Avatars" : {
+      "comment" : "Setting for the sender's initials beside each row",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תמונות פרופיל"
           }
         }
       }
@@ -938,6 +990,17 @@
         }
       }
     },
+    "Mail List" : {
+      "comment" : "Settings section for how mailbox rows look",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "רשימת הדואר"
+          }
+        }
+      }
+    },
     "Mailboxes" : {
       "comment" : "Title of the list of mailboxes",
       "localizations" : {
@@ -1171,6 +1234,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ספריית התמונות"
+          }
+        }
+      }
+    },
+    "Preview" : {
+      "comment" : "Setting for how much of each message a mailbox row shows",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תצוגה מקדימה"
+          }
+        }
+      }
+    },
+    "Preview: None" : {
+      "comment" : "Mailbox rows show no preview",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ללא"
           }
         }
       }
@@ -1816,6 +1907,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "הסרת כוכב"
+          }
+        }
+      }
+    },
+    "Without avatars, a dot beside a row still marks unread mail." : {
+      "comment" : "Explains turning avatars off",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "גם בלי תמונות פרופיל, נקודה ליד שורה מסמנת דואר שלא נקרא."
           }
         }
       }

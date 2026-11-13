@@ -1,0 +1,7 @@
+{
+  "value": [
+    {"displayName": "Dana Levi", "scoredEmailAddresses": [{"address": "DANA@example.com", "relevanceScore": 9}]},
+    {"displayName": "Shop", "scoredEmailAddresses": [{"address": "shop@example.co.il", "relevanceScore": 3}]},
+    {"displayName": "Conference Room", "scoredEmailAddresses": []}
+  ]
+}

@@ -1,0 +1,4 @@
+{
+  "value": [{"id": "m9", "conversationId": "c7"}],
+  "@odata.deltaLink": "https://graph.microsoft.com/v1.0/me/mailFolders/AATrash/messages/delta?$deltatoken=d1"
+}

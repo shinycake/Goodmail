@@ -18,7 +18,25 @@ public enum Preferences {
         set { defaults.set(newValue.map(\.rawValue).sorted(), forKey: unsortedInboxKey) }
     }
 
+    /// How mailbox rows look.
+    public static var rowDisplay: RowDisplay {
+        get {
+            RowDisplay(
+                // A stored length outside the choices, as from an older build, reads as the standard one.
+                previewLines: (defaults.object(forKey: previewLinesKey) as? Int)
+                    .flatMap { RowDisplay.previewLineChoices.contains($0) ? $0 : nil }
+                    ?? RowDisplay.standard.previewLines,
+                showsAvatars: defaults.object(forKey: showsAvatarsKey) as? Bool ?? RowDisplay.standard.showsAvatars)
+        }
+        set {
+            defaults.set(newValue.previewLines, forKey: previewLinesKey)
+            defaults.set(newValue.showsAvatars, forKey: showsAvatarsKey)
+        }
+    }
+
     private static let undoSendKey = "undoSendSeconds"
+    private static let previewLinesKey = "previewLines"
+    private static let showsAvatarsKey = "showsAvatars"
     private static let unsortedInboxKey = "unsortedInboxAccounts"
-    nonisolated(unsafe) private static let defaults = UserDefaults.standard
+    private static let defaults = UserDefaults.standard
 }

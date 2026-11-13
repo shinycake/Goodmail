@@ -1,0 +1,29 @@
+From: Dana Levi <dana@example.com>
+To: Me <me@outlook.com>
+Cc: =?UTF-8?B?15nXldeh15k=?= <yossi@example.co.il>
+Subject: RE: Lunch plans
+Message-ID: <m3@example.com>
+In-Reply-To: <m1@outlook.com>
+References: <m1@outlook.com>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="outer"
+
+--outer
+Content-Type: multipart/alternative; boundary="alt"
+
+--alt
+Content-Type: text/plain; charset=utf-8
+
+Thursday works
+--alt
+Content-Type: text/html; charset=utf-8
+
+<p>Thursday works</p>
+--alt--
+--outer
+Content-Type: application/pdf; name="menu.pdf"
+Content-Disposition: attachment; filename="menu.pdf"
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjQK
+--outer--

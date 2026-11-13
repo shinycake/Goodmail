@@ -184,9 +184,10 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
   - scheduled send: touch and hold Send for tonight, tomorrow morning, the morning after the weekend, or any time. Messages wait under Scheduled, where one can be edited or moved to Drafts. The device sends them at their time, or at the first sync after it: best effort, since the Gmail API has no scheduled send
   - adding an account through one service chooser, on the welcome screen and in Settings > Add Account. Each `MailService` case is a row, and its sign-in plugs in at `SceneCoordinator.signIn(to:)`
   - snooze: from the reader's toolbar or for a selection in a list, until this evening, tomorrow morning, the weekend, next week, or any time. The thread is archived and listed under Snoozed (shown after Starred while any thread sleeps), where it can be read or moved back to the Inbox. The first sync after its time puts it back in the Inbox, unread, and background refresh is asked for by then. Undo works for both
+  - the mail list's look in Settings: preview lines (None to 3) and avatars on or off (the unread dot stays)
 - **Still to do:**
   - snooze follow-ups: a "back from snooze" section at the top of the Inbox, a notification at wake time, and a snooze swipe
-  - notification and display settings
+  - notification settings per account (All / Primary / None), which the notification service applies once push lands (M6)
   - onboarding
 
 ### M11: Release quality

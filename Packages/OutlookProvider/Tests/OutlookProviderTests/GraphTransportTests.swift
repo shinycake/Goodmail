@@ -57,6 +57,23 @@ struct GraphTransportTests {
         #expect(graph.graphRequests == 3)
     }
 
+    @Test(arguments: [500, 502, 503, 504])
+    func aRequestThatCreatesSomethingIsNotRepeatedAfterAServerError(status: Int) async throws {
+        let graph = ScriptedGraph([status])
+        let url = GraphTransport.baseURL.appending(path: "me/sendMail")
+        await #expect(throws: GraphError(status: status, body: "")) {
+            try await transport(graph, retries: 2).send(url, method: "POST", payload: nil, replay: .onlyIfRefused)
+        }
+        #expect(graph.graphRequests == 1)
+    }
+
+    @Test func aRequestThatCreatesSomethingIsRepeatedWhenThrottled() async throws {
+        let graph = ScriptedGraph([429])
+        let url = GraphTransport.baseURL.appending(path: "me/sendMail")
+        try await transport(graph, retries: 2).send(url, method: "POST", payload: nil, replay: .onlyIfRefused)
+        #expect(graph.graphRequests == 2)
+    }
+
     @Test(arguments: [400, 401, 403, 404])
     func aClientErrorIsThrownAtOnce(status: Int) async throws {
         let graph = ScriptedGraph([status])

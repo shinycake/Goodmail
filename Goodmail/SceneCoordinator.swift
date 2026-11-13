@@ -90,15 +90,12 @@ final class SceneCoordinator: NSObject {
             let presenter = topViewController(), !(presenter is UIAlertController)
         else { return }
         shownFailures.insert(message.id)
-        let commands = model.commands
+        let actions = actions
         let alert = SendFailureAlert.make(
             for: message,
-            edit: { [weak self] in
-                guard (try? commands.discardSend(message.id)) != nil else { return }
-                self?.handle(.compose(message.draft))
-            },
-            retry: { try? commands.retrySend(message) },
-            delete: { try? commands.discardSend(message.id) })
+            edit: { actions.discardSend(message, edit: true) },
+            retry: { actions.retrySend(message) },
+            delete: { actions.discardSend(message) })
         presenter.present(alert, animated: true)
     }
 
@@ -108,6 +105,7 @@ final class SceneCoordinator: NSObject {
         let model = model
         let before = model.accounts
         let unsortedBefore = Preferences.unsortedInboxAccounts
+        let displayBefore = Preferences.rowDisplay
         let viewModel = SettingsViewModel(
             accounts: { model.accounts },
             signIn: { [weak self] in try await self?.signIn(to: $0) ?? false },
@@ -116,6 +114,7 @@ final class SceneCoordinator: NSObject {
             closed: { [weak self] in
                 guard let self,
                     model.accounts != before || Preferences.unsortedInboxAccounts != unsortedBefore
+                        || Preferences.rowDisplay != displayBefore
                 else { return }
                 model.accounts.isEmpty ? showWelcome() : showMailbox()
             })

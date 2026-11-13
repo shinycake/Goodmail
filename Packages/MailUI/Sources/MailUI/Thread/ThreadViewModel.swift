@@ -72,7 +72,8 @@ public final class ThreadViewModel {
             hasMarkedRead = true
             actions?.perform(.markRead(true), on: [thread.id])
         }
-        Task { await load() }
+        // A child of the observation, so leaving the thread cancels the fetch with it.
+        async let loading: Void = load()
         do {
             for try await messages in stream() {
                 if expanded.isEmpty { expanded = Self.initiallyExpanded(messages) }
@@ -86,6 +87,7 @@ public final class ThreadViewModel {
         } catch {
             loadError = error
         }
+        await loading
     }
 
     public func load() async {

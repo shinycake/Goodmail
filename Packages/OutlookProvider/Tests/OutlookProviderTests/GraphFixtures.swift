@@ -65,9 +65,12 @@ extension FixtureGraph {
     }
 }
 
+/// A file under Fixtures: `name.json`, or the file itself when `name` has an extension, as `m1.eml` does.
 func fixture(_ name: String) throws -> Data {
-    try Data(
-        contentsOf: #require(Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "Fixtures")))
+    let parts = name.split(separator: ".", maxSplits: 1).map(String.init)
+    let (base, ext) = parts.count == 2 ? (parts[0], parts[1]) : (name, "json")
+    return try Data(
+        contentsOf: #require(Bundle.module.url(forResource: base, withExtension: ext, subdirectory: "Fixtures")))
 }
 
 extension URLRequest {
@@ -89,12 +92,12 @@ final class MemorySecretStore: SecretStore {
 
 extension OutlookClient {
     /// A client whose session already holds a token, answering from `graph`.
-    static func signedIn(to graph: FixtureGraph) async throws -> OutlookClient {
+    static func signedIn(to graph: FixtureGraph, index: MemoryIndex = MemoryIndex()) async throws -> OutlookClient {
         let keychain = MemorySecretStore()
         let session = OAuthSession(
             accountID: AccountID(rawValue: "o1"), client: .testing, http: graph, keychain: keychain)
         try keychain.set(Data("refresh".utf8), for: session.refreshTokenKey)
-        return OutlookClient(session: session, http: graph, retryDelays: [.zero])
+        return OutlookClient(session: session, index: index, http: graph, retryDelays: [.zero])
     }
 }
 
