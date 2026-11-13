@@ -14,52 +14,17 @@ final class SceneCoordinator: NSObject {
     private var shownFailures: Set<Draft.ID> = []
     /// The mail screens, once there is an account.
     private var split: MailSplitViewController?
-    /// What the mail screens show, kept so either arrangement can be rebuilt when the window changes width.
-    private var shown = Shown()
-
-    private struct Shown {
-        var list = List.mailbox(.inbox, title: nil, thread: nil)
-        /// The Inbox's category, so a rebuilt Inbox opens on it.
-        var category = InboxCategory.primary
-
-        /// The list beside the mailboxes, and the thread open from it.
-        enum List {
-            case mailbox(Mailbox, title: String?, thread: ThreadSummary.ID?)
-            case scheduled
-            /// Snoozed threads, read as in All Mail since they are out of the Inbox.
-            case snoozed(thread: ThreadSummary.ID?)
-        }
-
-        var destination: MailboxesViewModel.Destination {
-            switch list {
-            case .mailbox(let mailbox, _, _): .mailbox(mailbox)
-            case .scheduled: .scheduled
-            case .snoozed: .snoozed
-            }
-        }
-
-        /// The thread open from the shown list, and the mailbox it is read in.
-        var openThread: (id: ThreadSummary.ID, mailbox: Mailbox)? {
-            switch list {
-            case .mailbox(let mailbox, _, let thread?): (thread, mailbox)
-            case .snoozed(let thread?): (thread, .allMail)
-            case .mailbox, .scheduled, .snoozed: nil
-            }
-        }
-
-        /// Opens `thread` from the shown list, or `nil` closes it. Scheduled holds messages, not threads.
-        mutating func setThread(_ thread: ThreadSummary.ID?) {
-            switch list {
-            case .mailbox(let mailbox, let title, _): list = .mailbox(mailbox, title: title, thread: thread)
-            case .snoozed: list = .snoozed(thread: thread)
-            case .scheduled: break
-            }
-        }
+    /// What the mail screens show, kept so either arrangement can be rebuilt when the window changes width, and
+    /// saved for the system to restore the window or hand it off (`activity`).
+    private var shown: WindowState {
+        didSet { if shown != oldValue { publishActivity() } }
     }
 
-    init(window: UIWindow, model: AppModel) {
+    /// `restoring` is what the window showed when the system last saved it, or what another device handed off.
+    init(window: UIWindow, model: AppModel, restoring: WindowState?) {
         self.window = window
         self.model = model
+        shown = restoring?.keeping(model.accounts.map(\.id)) ?? WindowState()
         actions = MailActions(commands: model.commands)
         super.init()
         actions.reopen = { [weak self] draft in self?.handle(.compose(draft)) }
@@ -73,7 +38,7 @@ final class SceneCoordinator: NSObject {
         if model.accounts.isEmpty {
             showWelcome()
         } else {
-            showMailbox()
+            showMailbox(shown)
         }
         failures = Task { [weak self, database = model.database] in
             do {
@@ -163,12 +128,17 @@ final class SceneCoordinator: NSObject {
     private func showWelcome() {
         let adder = AccountAdder { [weak self] in try await self?.signIn(to: $0) ?? false }
         adder.onAdded = { [weak self] in self?.showMailbox() }
+        split = nil
         window.rootViewController = WelcomeScreen.make(adder: adder)
+        publishActivity()
     }
 
-    /// The Inbox, with the mailboxes beside it in a wide window or behind it in a narrow one.
-    private func showMailbox() {
-        shown = Shown()
+    /// `state`, the Inbox unless a restored window says otherwise, with the mailboxes beside it in a wide window or
+    /// behind it in a narrow one.
+    private func showMailbox(_ state: WindowState = WindowState()) {
+        shown = state
+        // A restored or handed-off thread may be gone from this device, or not on it yet.
+        if let thread = shown.openThread?.id, (try? model.database.thread(thread)) == nil { shown.setThread(nil) }
         let split = MailSplitViewController(actions: actions)
         split.delegate = self
         self.split = split
@@ -181,6 +151,7 @@ final class SceneCoordinator: NSObject {
                 self.window.rootViewController = split
             }
         }
+        publishActivity()
     }
 
     private func mailboxesViewController(style: MailboxesViewController.Style) -> MailboxesViewController {
@@ -382,9 +353,9 @@ final class SceneCoordinator: NSObject {
 
 extension SceneCoordinator {
     /// Shows `list` beside the mailboxes, with no thread open.
-    private func show(_ list: Shown.List) {
+    private func show(_ list: WindowState.List) {
         guard let split else { return }
-        shown = Shown(list: list)
+        shown = WindowState(list: list, category: shown.category)
         let controller = shownListViewController()
         if split.isCollapsed {
             navigation(for: .compact)?.pushViewController(controller, animated: true)
@@ -415,6 +386,41 @@ extension SceneCoordinator: UISplitViewControllerDelegate, UINavigationControlle
         if !navigationController.viewControllers.contains(where: { $0 is ThreadViewController }) {
             shown.setThread(nil)
         }
-        if navigationController.viewControllers.count == 1 { shown = Shown() }
+        if navigationController.viewControllers.count == 1 { shown = WindowState(category: shown.category) }
+    }
+}
+
+extension WindowState {
+    /// Where the mailboxes list marks the reader as being.
+    fileprivate var destination: MailboxesViewModel.Destination {
+        switch list {
+        case .mailbox(let mailbox, _, _): .mailbox(mailbox)
+        case .scheduled: .scheduled
+        case .snoozed: .snoozed
+        }
+    }
+}
+
+extension SceneCoordinator {
+    /// What the window shows, for the system to save with the scene and restore with it, and to offer to the
+    /// reader's other devices.
+    var activity: NSUserActivity? {
+        guard split != nil, let saved = try? shown.saved() else { return nil }
+        let activity = NSUserActivity(activityType: WindowState.activityType)
+        activity.userInfo = [WindowState.activityKey: saved]
+        activity.isEligibleForHandoff = true
+        return activity
+    }
+
+    /// Makes the window's activity current, so Handoff offers what it shows now.
+    private func publishActivity() {
+        window.windowScene?.userActivity = activity
+        window.windowScene?.userActivity?.becomeCurrent()
+    }
+
+    /// Shows what another device handed off, in this window.
+    func showHandedOff(_ state: WindowState) {
+        guard !model.accounts.isEmpty else { return }
+        showMailbox(state.keeping(model.accounts.map(\.id)))
     }
 }

@@ -2,7 +2,7 @@ import Foundation
 
 /// A conversation as the mailbox list shows it: who wrote last, about what, and when.
 public struct ThreadSummary: Identifiable, Equatable, Sendable {
-    public struct ID: Hashable, Sendable {
+    public struct ID: Hashable, Codable, Sendable {
         public let accountID: AccountID
         /// The provider's thread identifier, unique only within its account.
         public let threadID: String
