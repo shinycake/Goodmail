@@ -1,0 +1,8 @@
+{
+  "value": [
+    {"id": "m3", "conversationId": "c1"},
+    {"id": "m4", "conversationId": "c2"},
+    {"id": "m1", "conversationId": "c1"}
+  ],
+  "@odata.nextLink": "https://graph.microsoft.com/v1.0/me/mailFolders/AAInbox/messages?$skip=3"
+}

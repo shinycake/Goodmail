@@ -1,0 +1,8 @@
+{
+  "value": [
+    {"id": "m4", "conversationId": "c2", "subject": "קבלה", "bodyPreview": "תודה",
+     "from": {"emailAddress": {"name": "Shop", "address": "shop@example.co.il"}},
+     "receivedDateTime": "2026-11-08T07:00:00Z", "isRead": true, "flag": {"flagStatus": "notFlagged"},
+     "parentFolderId": "AAProjects"}
+  ]
+}
