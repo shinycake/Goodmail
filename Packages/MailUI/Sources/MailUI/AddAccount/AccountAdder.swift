@@ -50,6 +50,7 @@ extension MailService {
     var displayName: String {
         switch self {
         case .gmail: "Gmail"
+        case .icloud: "iCloud"
         }
     }
 
@@ -57,6 +58,7 @@ extension MailService {
     var symbol: String {
         switch self {
         case .gmail: "envelope.fill"
+        case .icloud: "icloud.fill"
         }
     }
 }
