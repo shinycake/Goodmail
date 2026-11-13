@@ -47,7 +47,7 @@ struct IMAPConnectionTests {
         #expect(await connection.state == .notAuthenticated)
 
         try await connection.login(user: "dana@icloud.com", password: "abcd-efgh-ijkl-mnop")
-        #expect(await connection.capabilities.isSuperset(of: ["CONDSTORE", "QRESYNC", "SPECIAL-USE"]))
+        #expect(await connection.capabilities?.isSuperset(of: ["CONDSTORE", "QRESYNC", "SPECIAL-USE"]) == true)
 
         let mailboxes = try await connection.mailboxes()
         #expect(mailboxes.map(\.role) == [.inbox, .sent, .trash, .junk, .drafts, .archive, nil])

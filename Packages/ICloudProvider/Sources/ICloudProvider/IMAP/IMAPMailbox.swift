@@ -98,3 +98,22 @@ struct IMAPFolderStatus: Equatable, Codable, Sendable {
         self.highestModSeq = highestModSeq
     }
 }
+
+/// Where a COPY or MOVE put the messages: `[COPYUID 38505 304,319:320 3956:3958]` (RFC 4315 §3).
+struct IMAPCopy: Equatable, Sendable {
+    /// The destination's UIDVALIDITY.
+    var uidValidity: UInt32
+    /// Each message's UID in the destination, by its UID in the source.
+    var uids: [UInt32: UInt32]
+
+    init?(status: IMAPStatus) {
+        guard let values = status.code("COPYUID"), values.count == 3, let uidValidity = values[0].number,
+            let sources = values[1].atom, let destinations = values[2].atom
+        else { return nil }
+        let from = IMAPCommand.uids(inSequenceSet: sources)
+        let to = IMAPCommand.uids(inSequenceSet: destinations)
+        guard from.count == to.count else { return nil }
+        self.uidValidity = uidValidity
+        uids = Dictionary(zip(from, to)) { first, _ in first }
+    }
+}

@@ -17,6 +17,12 @@ enum IMAPCommand: Equatable, Sendable {
     /// The selected mailbox's messages whose flags changed after `modSeq` (RFC 7162 §3.1.4), and with QRESYNC
     /// enabled, the UIDs expunged since (`VANISHED`, RFC 7162 §3.2.6).
     case uidFetchChanged(sinceModSeq: UInt64, vanished: Bool)
+    /// Adds or removes flags, without the server echoing them back.
+    case uidStore(uids: [UInt32], flags: Set<String>, add: Bool)
+    /// Files copies of messages in another mailbox; the originals stay.
+    case uidCopy(uids: [UInt32], mailbox: String)
+    /// Moves messages to another mailbox (RFC 6851).
+    case uidMove(uids: [UInt32], mailbox: String)
     case logout
 
     /// The UID, flags, dates, envelope and threading headers of a message, without marking it read.
@@ -42,6 +48,10 @@ enum IMAPCommand: Equatable, Sendable {
             case .uidFetch(let uids, let items): "UID FETCH \(Self.sequenceSet(uids)) \(items)"
             case .uidFetchChanged(let modSeq, let vanished):
                 "UID FETCH 1:* (UID FLAGS) (CHANGEDSINCE \(modSeq)\(vanished ? " VANISHED" : ""))"
+            case .uidStore(let uids, let flags, let add):
+                "UID STORE \(Self.sequenceSet(uids)) \(add ? "+" : "-")FLAGS.SILENT (\(flags.sorted().joined(separator: " ")))"
+            case .uidCopy(let uids, let mailbox): "UID COPY \(Self.sequenceSet(uids)) \(try Self.quoted(mailbox))"
+            case .uidMove(let uids, let mailbox): "UID MOVE \(Self.sequenceSet(uids)) \(try Self.quoted(mailbox))"
             case .logout: "LOGOUT"
             }
         }
