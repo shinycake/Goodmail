@@ -13,6 +13,11 @@ struct GraphTransport: Sendable {
     let http: any HTTPClient
     /// The waits before each retry of a throttled or failed request.
     let retryDelays: [Duration]
+    /// Graph lets an app run four requests at once against one mailbox and throttles the rest, so every request
+    /// for this account queues here. The provider is one per account, and so is its transport.
+    private let gate = RequestGate(limit: Self.concurrentRequests)
+
+    static let concurrentRequests = 4
 
     func get<Response: Decodable>(_ path: String, query: [URLQueryItem] = []) async throws -> Response {
         let url = Self.baseURL.appending(path: path)
@@ -51,7 +56,7 @@ struct GraphTransport: Sendable {
                 request.setValue(payload.type, forHTTPHeaderField: "Content-Type")
                 request.httpBody = payload.data
             }
-            let (data, response) = try await http.data(for: request)
+            let (data, response) = try await gate.run { [request] in try await http.data(for: request) }
             if (200..<300).contains(response.statusCode) { return data }
             let error = GraphError(status: response.statusCode, body: String(decoding: data, as: UTF8.self))
             guard replay.allowsRetry(after: error.retryable), attempt < retryDelays.count else { throw error }

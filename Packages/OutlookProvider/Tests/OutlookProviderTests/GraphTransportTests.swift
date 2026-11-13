@@ -94,6 +94,41 @@ struct GraphTransportTests {
         await #expect(throws: GraphError.self) { try await OutlookClient.signedIn(to: broken).labels() }
     }
 
+    /// Answers every Graph request after a short wait, noting the most that were ever in flight at once.
+    private final class SlowGraph: HTTPClient {
+        private let inFlight = Mutex((now: 0, most: 0))
+
+        var mostInFlight: Int { inFlight.withLock { $0.most } }
+
+        func data(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+            let reply = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            if request.url?.host() == "login.example.com" { return (try fixture("token"), reply) }
+            inFlight.withLock {
+                $0.now += 1
+                $0.most = max($0.most, $0.now)
+            }
+            defer { inFlight.withLock { $0.now -= 1 } }
+            try await Task.sleep(for: .milliseconds(20))
+            return (try fixture("empty-page"), reply)
+        }
+    }
+
+    @Test func noMoreRequestsRunAtOnceThanGraphAllowsPerMailbox() async throws {
+        let graph = SlowGraph()
+        let keychain = MemorySecretStore()
+        let session = OAuthSession(
+            accountID: AccountID(rawValue: "o1"), client: .testing, http: graph, keychain: keychain)
+        try keychain.set(Data("refresh".utf8), for: session.refreshTokenKey)
+        let transport = GraphTransport(session: session, http: graph, retryDelays: [])
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for _ in 0..<20 {
+                group.addTask { let _: GraphPage<GraphFolder> = try await transport.get("me/mailFolders") }
+            }
+            try await group.waitForAll()
+        }
+        #expect(graph.mostInFlight == GraphTransport.concurrentRequests)
+    }
+
     @Test func throttlingWaitsAsLongAsGraphAsksWithinAMinute() {
         func wait(_ retryAfter: String?, planned: Duration = .seconds(1)) -> Duration {
             let response = HTTPURLResponse(

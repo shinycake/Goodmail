@@ -14,23 +14,21 @@ extension OutlookClient {
         guard !listed.isEmpty else { throw ProviderError.notFound }
         let accountID = graph.session.accountID
         var messages: [Message] = []
-        for batch in listed.chunks(of: Self.concurrentRequests) {
-            try await withThrowingTaskGroup(of: Message?.self) { group in
-                for listing in batch {
-                    group.addTask {
-                        // A message deleted since the listing is simply left out.
-                        guard let mime = try await mime(of: listing.id) else { return nil }
-                        return Message(
-                            id: Message.ID(accountID: accountID, messageID: listing.id),
-                            threadID: threadID,
-                            mime: mime,
-                            date: listing.receivedDateTime ?? .distantPast,
-                            snippet: listing.bodyPreview ?? "",
-                            labelIDs: listing.labelIDs(in: directory))
-                    }
+        try await withThrowingTaskGroup(of: Message?.self) { group in
+            for listing in listed {
+                group.addTask {
+                    // A message deleted since the listing is simply left out.
+                    guard let mime = try await mime(of: listing.id) else { return nil }
+                    return Message(
+                        id: Message.ID(accountID: accountID, messageID: listing.id),
+                        threadID: threadID,
+                        mime: mime,
+                        date: listing.receivedDateTime ?? .distantPast,
+                        snippet: listing.bodyPreview ?? "",
+                        labelIDs: listing.labelIDs(in: directory))
                 }
-                for try await message in group { message.map { messages.append($0) } }
             }
+            for try await message in group { message.map { messages.append($0) } }
         }
         return messages.sorted { $0.date < $1.date }
     }

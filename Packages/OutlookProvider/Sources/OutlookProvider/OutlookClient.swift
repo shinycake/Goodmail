@@ -27,9 +27,6 @@ public struct OutlookClient: MailProvider {
         self.pageSize = pageSize
     }
 
-    /// Graph lets an app run four requests at once against one mailbox.
-    static let concurrentRequests = 4
-
     public func labels() async throws -> [MailLabel] {
         let directory = try await graph.folderDirectory()
         await folders.store(directory)
@@ -58,16 +55,14 @@ public struct OutlookClient: MailProvider {
         let accountID = graph.session.accountID
         var summaries: [String: ThreadSummary] = [:]
         var entries: [MessageIndexEntry] = []
-        for batch in ids.chunks(of: Self.concurrentRequests) {
-            try await withThrowingTaskGroup(of: (String, [GraphMessage]).self) { group in
-                for id in batch {
-                    group.addTask { (id, try await conversation(id, select: GraphMessage.summaryFields)) }
-                }
-                for try await (id, messages) in group {
-                    let threadID = ThreadSummary.ID(accountID: accountID, threadID: id)
-                    summaries[id] = ThreadSummary(conversation: threadID, messages: messages, folders: directory)
-                    entries += messages.map { MessageIndexEntry(key: $0.id, threadID: id) }
-                }
+        try await withThrowingTaskGroup(of: (String, [GraphMessage]).self) { group in
+            for id in ids {
+                group.addTask { (id, try await conversation(id, select: GraphMessage.summaryFields)) }
+            }
+            for try await (id, messages) in group {
+                let threadID = ThreadSummary.ID(accountID: accountID, threadID: id)
+                summaries[id] = ThreadSummary(conversation: threadID, messages: messages, folders: directory)
+                entries += messages.map { MessageIndexEntry(key: $0.id, threadID: id) }
             }
         }
         try index.record(entries, account: accountID)
@@ -86,15 +81,13 @@ public struct OutlookClient: MailProvider {
         } catch is GraphChange.Failure {
             throw ProviderError.rejected
         }
-        for batch in plan.filter({ !$0.changes.isEmpty }).chunks(of: Self.concurrentRequests) {
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                for message in batch {
-                    group.addTask {
-                        for change in message.changes { try await graph.apply(change, toMessage: message.messageID) }
-                    }
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for message in plan where !message.changes.isEmpty {
+                group.addTask {
+                    for change in message.changes { try await graph.apply(change, toMessage: message.messageID) }
                 }
-                try await group.waitForAll()
             }
+            try await group.waitForAll()
         }
     }
 
@@ -180,12 +173,5 @@ public struct OutlookClient: MailProvider {
     /// An OData date literal, in UTC.
     static func literal(_ date: Date) -> String {
         date.formatted(.iso8601)
-    }
-}
-
-extension Array {
-    /// Consecutive runs of `size` elements, the last one shorter when they don't divide evenly.
-    func chunks(of size: Int) -> [ArraySlice<Element>] {
-        stride(from: 0, to: count, by: size).map { self[$0..<Swift.min($0 + size, count)] }
     }
 }
