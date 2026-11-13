@@ -16,8 +16,7 @@ actor IMAPSession {
     private var state = State.disconnected
     private let credentials: Credentials
     private let connect: @Sendable () async throws -> any IMAPTransport
-    /// The operation running now; the next one waits for it.
-    private var tail: Task<Void, Never>?
+    private var queue = SerialQueue()
 
     init(credentials: Credentials, connect: @escaping @Sendable () async throws -> any IMAPTransport) {
         self.credentials = credentials
@@ -25,21 +24,22 @@ actor IMAPSession {
     }
 
     /// Runs `operation` after every operation started before it. Servers drop idle connections, so when the
-    /// connection turns out to be closed, `operation` runs once more on a new one; operations only read, or make
-    /// changes that are the same when made twice.
+    /// connection turns out to be closed, `operation` runs once more on a new one. Operations read, or make changes
+    /// that are the same when made twice, except COPY: a connection lost between the server's copy and its reply
+    /// files a second copy, which shows as one message, since threads count copies once.
     func run<T: Sendable>(_ operation: @escaping @Sendable (IMAPConnection) async throws -> T) async throws -> T {
-        let previous = tail
-        let task = Task {
-            await previous?.value
+        try await queue.run {
             do {
                 return try await operation(try await self.connection())
             } catch IMAPError.closed {
-                self.state = .disconnected
+                await self.disconnect()
                 return try await operation(try await self.connection())
             }
-        }
-        tail = Task { _ = await task.result }
-        return try await task.value
+        }.value
+    }
+
+    private func disconnect() {
+        state = .disconnected
     }
 
     private func connection() async throws -> IMAPConnection {
@@ -49,9 +49,9 @@ actor IMAPSession {
         if await connection.state == .notAuthenticated {
             try await connection.login(user: credentials.user, password: credentials.password)
         }
-        if await connection.capabilities.isEmpty { try await connection.refreshCapabilities() }
+        if await connection.capabilities == nil { try await connection.refreshCapabilities() }
         // QRESYNC names the messages expunged since a cursor (RFC 7162 §3.2.6).
-        if await connection.capabilities.contains("QRESYNC") { try await connection.enable("QRESYNC") }
+        if await connection.capabilities?.contains("QRESYNC") == true { try await connection.enable("QRESYNC") }
         state = .connected(connection)
         return connection
     }

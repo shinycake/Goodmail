@@ -92,10 +92,6 @@ public struct ICloudClient: MailProvider {
 
     // MARK: - Not yet supported
 
-    public func perform(_ action: ThreadAction, onThread threadID: String) async throws {
-        throw ICloudError.unsupported
-    }
-
     public func send(_ raw: Data, inThread threadID: String?) async throws {
         throw ICloudError.unsupported
     }

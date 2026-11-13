@@ -11,14 +11,14 @@ actor IMAPConnection {
     }
 
     private(set) var state: State
-    private(set) var capabilities: Set<String> = []
+    /// What the server supports, `nil` until it has said.
+    private(set) var capabilities: Set<String>?
     /// Extensions `enable(_:)` turned on, such as QRESYNC.
     private(set) var enabled: Set<String> = []
     private let transport: any IMAPTransport
     private var framer = IMAPFramer()
     private var nextTag = 1
-    /// The command running now; the next one waits for it.
-    private var tail: Task<Void, Never>?
+    private var queue = SerialQueue()
 
     /// Connects and reads the server's greeting.
     init(transport: any IMAPTransport) async throws {
@@ -149,6 +149,38 @@ actor IMAPConnection {
         }
     }
 
+    /// Adds `flags` to these messages of the selected mailbox, or removes them.
+    func store(_ flags: Set<String>, add: Bool, on uids: [UInt32]) async throws {
+        guard !uids.isEmpty, !flags.isEmpty else { return }
+        try await exclusively { connection in
+            try connection.requireSelected()
+            _ = try await connection.run(.uidStore(uids: uids, flags: flags, add: add))
+        }
+    }
+
+    /// Copies these messages of the selected mailbox to `mailbox`, or moves them there. Returns each message's UID
+    /// in `mailbox`, by its UID here, as the server's COPYUID names them (RFC 4315); `nil` when it doesn't say.
+    func transfer(_ uids: [UInt32], to mailbox: String, move: Bool) async throws -> IMAPCopy? {
+        guard !uids.isEmpty else { return nil }
+        return try await exclusively { connection in
+            try connection.requireSelected()
+            let command =
+                move ? IMAPCommand.uidMove(uids: uids, mailbox: mailbox) : .uidCopy(uids: uids, mailbox: mailbox)
+            let reply = try await connection.run(command)
+            return (reply.statuses + [reply.completion]).lazy.compactMap(IMAPCopy.init(status:)).first
+        }
+    }
+
+    /// Removes these messages of the selected mailbox for good.
+    func expunge(_ uids: [UInt32]) async throws {
+        guard !uids.isEmpty else { return }
+        try await exclusively { connection in
+            try connection.requireSelected()
+            _ = try await connection.run(.uidStore(uids: uids, flags: [#"\Deleted"#], add: true))
+            _ = try await connection.run(.uidExpunge(uids: uids))
+        }
+    }
+
     func logout() async throws {
         try await exclusively { connection in
             guard connection.state != .closed else { return }
@@ -163,13 +195,7 @@ actor IMAPConnection {
     private func exclusively<T: Sendable>(
         _ operation: @escaping @Sendable (isolated IMAPConnection) async throws -> T
     ) async throws -> T {
-        let previous = tail
-        let task = Task {
-            await previous?.value
-            return try await operation(self)
-        }
-        tail = Task { _ = await task.result }
-        return try await task.value
+        try await queue.run { try await operation(self) }.value
     }
 
     /// Sends `command` and reads up to its completion. Returns the untagged data that came with it.
