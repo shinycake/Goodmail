@@ -41,7 +41,7 @@ extension MailDatabase {
         if allMailUnread > 0 { counts[.allMail] = allMailUnread }
         let scheduled =
             try Int.fetchOne(
-                db, sql: "SELECT COUNT(*) FROM outgoing WHERE purpose = ? AND failure IS NULL",
+                db, sql: "SELECT COUNT(*) FROM outgoing WHERE purpose = ? AND failure IS NULL AND upload IS NULL",
                 arguments: [OutgoingMessage.Purpose.scheduledSend.rawValue]) ?? 0
         let snoozed = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM snooze WHERE wakeAt IS NOT NULL") ?? 0
 

@@ -121,9 +121,10 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
 - **M5.3 (done):**
   - formatting controls above the keyboard (bold, italic, underline, strikethrough, bulleted and numbered lists, quote, link, and each paragraph's direction), with the system Format panel limited to the styles and lists the message carries
   - the body modelled as `RichText`, written as email-safe HTML with `dir` per block and a direction on each list and quote, and read back for reopened drafts
+- **M5.4:**
+  - sends go over a background `URLSession`, uploaded from a file once the undo window closes, so a send carries on while the app is suspended or after it is killed; each queued message's delivery is an explicit state (queued, uploading, failed), and an upload that ends unheard is checked against Sent mail by its `Message-ID` rather than sent again
 - **Still to do:**
   - the device's Contacts
-  - a background `URLSession` for sends
   - camera and scan attachments
   - Bcc on reopened drafts
 

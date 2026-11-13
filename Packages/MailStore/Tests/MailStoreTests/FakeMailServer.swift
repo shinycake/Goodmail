@@ -2,6 +2,10 @@ import Foundation
 import MailCore
 import Synchronization
 
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
+
 /// An in-memory mail service with Gmail's sync semantics: a history counter, paged queries, and cursors that
 /// expire. Tests change its mail and check that the local store converges.
 final class FakeMailServer: MailProvider {
@@ -21,7 +25,9 @@ final class FakeMailServer: MailProvider {
         var performed: [(threadID: String, action: ThreadAction)] = []
         var failPerform: (any Error)?
         var sent: [(raw: Data, threadID: String?)] = []
-        var failSend: (any Error)?
+        var sendStatus: Int? = 200
+        var failPrepare: (any Error)?
+        var failLookup: (any Error)?
         var signature: String? = ""
         var contacts: [Contact]? = []
         var contactRequests = 0
@@ -32,11 +38,19 @@ final class FakeMailServer: MailProvider {
         var failMessages: (any Error)?
     }
 
+    /// How the fake takes sends: as Gmail's uploads, or over its own connection, as iCloud's SMTP.
+    enum SendPath {
+        case upload
+        case direct
+    }
+
     let pageSize: Int
+    private let sendPath: SendPath
     private let state = Mutex(State())
 
-    init(pageSize: Int = 2) {
+    init(pageSize: Int = 2, sendPath: SendPath = .upload) {
         self.pageSize = pageSize
+        self.sendPath = sendPath
     }
 
     var queries: [Query] { state.withLock { $0.queries } }
@@ -157,18 +171,81 @@ extension FakeMailServer {
     }
 }
 
-extension FakeMailServer {
-    func send(_ raw: Data, inThread threadID: String?) async throws {
+extension FakeMailServer: UploadSending {
+    var sending: Sending {
+        switch sendPath {
+        case .upload: .upload(self)
+        case .direct: .direct { [self] raw, threadID in try sendDirectly(raw, inThread: threadID) }
+        }
+    }
+
+    /// A direct send goes, or is refused when `answerSends` set a status outside 2xx.
+    private func sendDirectly(_ raw: Data, inThread threadID: String?) throws {
         try state.withLock { state in
-            if let failure = state.failSend { throw failure }
-            state.sent.append((raw, threadID))
+            if let failure = state.failPrepare { throw failure }
+            guard let status = state.sendStatus, !(200..<300).contains(status) else {
+                state.sent.append((raw, threadID))
+                return
+            }
+            throw status == 400 ? ProviderError.rejected : URLError(.badServerResponse)
+        }
+    }
+
+    func prepareSend(_ raw: Data, inThread threadID: String?) async throws -> PreparedSend {
+        try state.withLock { state in
+            if let failure = state.failPrepare { throw failure }
+            var request = URLRequest(url: URL(string: "https://mail.example/send")!)
+            request.setValue(threadID, forHTTPHeaderField: "Thread")
+            return PreparedSend(request: request, body: raw)
+        }
+    }
+
+    func answer(status: Int, body: Data) -> SendAnswer {
+        switch status {
+        case 200..<300: .sent
+        case 400: .rejected
+        case 404: .threadGone
+        case 500..<600: .unknown
+        case 401, 429: .turnedAway
+        default: .rejected
+        }
+    }
+
+    func hasSent(messageID: String) async throws -> Bool {
+        try state.withLock { state in
+            if let failure = state.failLookup { throw failure }
+            return state.sent.contains { String(decoding: $0.raw, as: UTF8.self).contains("<\(messageID)>") }
+        }
+    }
+
+    /// Takes in an upload the way Gmail would: the message goes, unless `answerSends` says otherwise. With no
+    /// answer set, the message goes but the answer is lost, as when the connection drops at the end.
+    func receive(_ request: URLRequest, body: Data) -> UploadOutcome {
+        state.withLock { state in
+            guard let status = state.sendStatus else {
+                state.sent.append((body, request.value(forHTTPHeaderField: "Thread")))
+                return .noResponse
+            }
+            if (200..<300).contains(status) { state.sent.append((body, request.value(forHTTPHeaderField: "Thread"))) }
+            return .response(status: status, body: Data("{}".utf8))
         }
     }
 
     var sent: [(raw: Data, threadID: String?)] { state.withLock { $0.sent } }
 
-    func failSend(with error: (any Error)?) {
-        state.withLock { $0.failSend = error }
+    /// The status uploads are answered with; `nil` delivers the message but loses the answer.
+    func answerSends(with status: Int?) {
+        state.withLock { $0.sendStatus = status }
+    }
+
+    /// Makes preparing a send throw `error`, as when the token can't be refreshed offline, until set back to `nil`.
+    func failPrepare(with error: (any Error)?) {
+        state.withLock { $0.failPrepare = error }
+    }
+
+    /// Makes `hasSent` throw `error` until set back to `nil`.
+    func failLookup(with error: (any Error)?) {
+        state.withLock { $0.failLookup = error }
     }
 }
 

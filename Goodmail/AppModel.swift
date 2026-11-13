@@ -31,9 +31,11 @@ final class AppModel {
             Outbox(accountID: id, provider: try providers.provider(for: id), store: database)
         }
         self.outboxes = outboxes
-        let senders = Senders { id in
+        let uploads = URL.applicationSupportDirectory.appending(path: "Uploads", directoryHint: .isDirectory)
+        let senders = Senders { id, transport in
             Sender(
-                accountID: id, provider: try providers.provider(for: id), store: database)
+                accountID: id, provider: try providers.provider(for: id), store: database, transport: transport,
+                uploads: uploads)
         }
         self.senders = senders
         commands = MailCommands(
@@ -48,6 +50,11 @@ final class AppModel {
                 try? await loadMessages(of: ThreadSummary.ID(accountID: id, threadID: threadID))
             }
         }
+    }
+
+    /// iOS launched or woke the app to hand over the outcomes of uploads that finished while it was away.
+    func handleBackgroundUploadEvents(_ completion: @escaping @MainActor () -> Void) {
+        senders.uploads.handleEvents(completion: completion)
     }
 
     /// The shared container's database, so the extensions see the same mail (ADR-002).
@@ -315,19 +322,25 @@ actor Outboxes {
     }
 }
 
-/// One sender per account. A message is sent once its undo window closes, with background time asked for so
-/// leaving the app in that window doesn't hold it back. One scheduled further ahead is left to the next sync after
-/// its time: the foreground sync while the app is open, or a background refresh.
+/// One sender per account, and the background session their sends go through. Each queued message is handed to
+/// it once its undo window closes, with background time asked for so leaving the app in that window doesn't hold
+/// it back; from then on the upload carries on even if the app is suspended or killed. One scheduled further ahead
+/// is left to the next sync after its time: the foreground sync while the app is open, or a background refresh.
 final class Senders {
     /// The longest wait held in background time; the longest undo window is 30 seconds.
     static let longestHeldWait: TimeInterval = 60
 
     var onSent: ((AccountID, [Draft]) async -> Void)?
-    private let make: (AccountID) throws -> Sender
+    private let make: (AccountID, any UploadTransport) throws -> Sender
     private var senders: [AccountID: Sender] = [:]
+    /// Made with the app model at launch, so iOS can hand over outcomes from earlier launches.
+    private(set) lazy var uploads = BackgroundUploads { [weak self] ticket, outcome in
+        await self?.complete(ticket, with: outcome)
+    }
 
-    init(make: @escaping (AccountID) throws -> Sender) {
+    init(make: @escaping (AccountID, any UploadTransport) throws -> Sender) {
         self.make = make
+        _ = uploads
     }
 
     func forget(_ id: AccountID) {
@@ -341,16 +354,28 @@ final class Senders {
         defer { if background != .invalid { application.endBackgroundTask(background) } }
         let wait = date.timeIntervalSinceNow
         if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
-        let sender: Sender
+        guard let sender = sender(for: id) else { return }
+        let went = await sender.flush()
+        if !went.isEmpty { await onSent?(id, went) }
+    }
+
+    private func complete(_ ticket: UploadTicket, with outcome: UploadOutcome) async {
+        guard let sender = sender(for: ticket.accountID),
+            let draft = await sender.complete(ticket.id, with: outcome)
+        else { return }
+        await onSent?(ticket.accountID, [draft])
+    }
+
+    private func sender(for id: AccountID) -> Sender? {
+        if let sender = senders[id] { return sender }
         do {
-            sender = try senders[id] ?? make(id)
+            let sender = try make(id, uploads)
+            senders[id] = sender
+            return sender
         } catch {
             Logger(subsystem: "com.idanbirman.goodmail", category: "send")
                 .error("No sender: \(error, privacy: .public)")
-            return
+            return nil
         }
-        senders[id] = sender
-        let sent = await sender.flush()
-        if !sent.isEmpty { await onSent?(id, sent) }
     }
 }

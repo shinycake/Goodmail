@@ -37,4 +37,12 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         #endif
         return true
     }
+
+    func application(
+        _ application: UIApplication, handleEventsForBackgroundURLSession identifier: String,
+        completionHandler: @escaping () -> Void
+    ) {
+        guard identifier == BackgroundUploads.identifier else { return completionHandler() }
+        model.handleBackgroundUploadEvents { @MainActor in completionHandler() }
+    }
 }

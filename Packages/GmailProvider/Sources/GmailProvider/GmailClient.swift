@@ -6,7 +6,7 @@ import MailCore
 #endif
 
 /// Gmail REST for one account, as a `MailProvider`. Wire types stay in this module; callers get `MailCore` types.
-public struct GmailClient: MailProvider {
+public struct GmailClient: MailProvider, UploadSending {
     private let session: OAuthSession
     private let http: any HTTPClient
     private let retryDelays: [Duration]
@@ -140,23 +140,47 @@ public struct GmailClient: MailProvider {
         }
     }
 
-    public func send(_ raw: Data, inThread threadID: String?) async throws {
-        var metadata: [String: String] = [:]
-        if let threadID { metadata["threadId"] = threadID }
-        do {
-            if raw.count <= Self.jsonSendLimit {
-                metadata["raw"] = raw.base64URLEncodedString()
-                let _: GmailThreadRef = try await send(
-                    "users/me/messages/send", method: "POST", body: metadata, replay: .onlyIfRefused)
-            } else {
-                let _: GmailThreadRef = try await upload(
-                    raw, metadata: metadata, to: "users/me/messages/send", replay: .onlyIfRefused)
-            }
-        } catch let error as GmailError where error.status == 400 {
-            throw ProviderError.rejected
-        } catch let error as GmailError where error.status == 404 {
-            throw ProviderError.notFound
+    /// Gmail's API takes a send as one upload, which a background session can carry while the app is gone.
+    public var sending: Sending { .upload(self) }
+
+    /// Every send goes through the upload endpoint, whatever its size: one request shape, with the message as its
+    /// own part, which a background upload can carry from a file.
+    public func prepareSend(_ raw: Data, inThread threadID: String?) async throws -> PreparedSend {
+        let upload = try Self.multipart(raw, metadata: GmailSendMetadata(threadId: threadID))
+        var request = URLRequest(url: Self.uploadURL("users/me/messages/send"))
+        request.httpMethod = "POST"
+        request.setValue(upload.type, forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(try await session.validAccessToken())", forHTTPHeaderField: "Authorization")
+        return PreparedSend(request: request, body: upload.body)
+    }
+
+    public func answer(status: Int, body: Data) -> SendAnswer {
+        switch status {
+        case 200..<300: return .sent
+        case 400: return .rejected
+        case 404: return .threadGone
+        default: break
         }
+        switch GmailError(status: status, body: String(decoding: body, as: UTF8.self)).retryable {
+        case .throttled: return .turnedAway
+        case .serverError: return .unknown
+        // An access token that expired while the upload waited to start was turned away unread, and the next
+        // upload is prepared with a fresh one. Any other refusal, such as a revoked scope or a message too large,
+        // would get the same answer again, so the writer is told.
+        case nil: return status == 401 ? .turnedAway : .rejected
+        }
+    }
+
+    public func hasSent(messageID: String) async throws -> Bool {
+        let list: GmailMessageList = try await get(
+            "users/me/messages",
+            query: [
+                URLQueryItem(name: "q", value: "rfc822msgid:\(messageID)"),
+                URLQueryItem(name: "labelIds", value: SystemLabel.sent),
+                URLQueryItem(name: "includeSpamTrash", value: "true"),
+                URLQueryItem(name: "maxResults", value: "1"),
+            ])
+        return !(list.messages ?? []).isEmpty
     }
 
     public func saveDraft(_ raw: Data, inThread threadID: String?, replacing: Message.ID?) async throws {
@@ -237,7 +261,7 @@ public struct GmailClient: MailProvider {
         return HTMLEntities.plainText(fromHTML: sender?.signature ?? "")
     }
 
-    /// Above this many bytes a message goes through the upload endpoint: as base64 inside JSON it grows by a third,
+    /// Above this many bytes a draft goes through the upload endpoint: as base64 inside JSON it grows by a third,
     /// past what the JSON endpoint takes.
     static let jsonSendLimit = 3_000_000
 
@@ -259,16 +283,24 @@ public struct GmailClient: MailProvider {
     private func upload<Response: Decodable>(
         _ raw: Data, metadata: some Encodable, to path: String, method: String = "POST", replay: Replay
     ) async throws -> Response {
+        let upload = try Self.multipart(raw, metadata: metadata)
+        return try await send(Self.uploadURL(path), method: method, payload: (upload.body, upload.type), replay: replay)
+    }
+
+    private static func uploadURL(_ path: String) -> URL {
+        GmailConfiguration.uploadBaseURL.appending(path: path)
+            .appending(queryItems: [URLQueryItem(name: "uploadType", value: "multipart")])
+    }
+
+    /// The body of a `multipart/related` upload: the JSON metadata, then the message.
+    private static func multipart(_ raw: Data, metadata: some Encodable) throws -> (body: Data, type: String) {
         let boundary = "goodmail-\(UUID().uuidString)"
         var body = Data("--\(boundary)\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n".utf8)
         body.append(try JSONEncoder().encode(metadata))
         body.append(Data("\r\n--\(boundary)\r\nContent-Type: message/rfc822\r\n\r\n".utf8))
         body.append(raw)
         body.append(Data("\r\n--\(boundary)--\r\n".utf8))
-        let url = GmailConfiguration.uploadBaseURL.appending(path: path)
-            .appending(queryItems: [URLQueryItem(name: "uploadType", value: "multipart")])
-        return try await send(
-            url, method: method, payload: (body, "multipart/related; boundary=\(boundary)"), replay: replay)
+        return (body, "multipart/related; boundary=\(boundary)")
     }
 
     private func send<Response: Decodable>(
@@ -305,6 +337,20 @@ struct GmailSendAsList: Decodable {
     }
 
     let sendAs: [SendAs]?
+}
+
+/// What a sent message's upload says besides the message: the thread it answers.
+struct GmailSendMetadata: Encodable {
+    let threadId: String?
+}
+
+/// One page of `messages.list`; only whether it holds any is read.
+struct GmailMessageList: Decodable {
+    struct Ref: Decodable {
+        let id: String
+    }
+
+    let messages: [Ref]?
 }
 
 /// A draft to create or replace; Gmail fills in the rest.

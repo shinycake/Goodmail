@@ -48,6 +48,10 @@ extension SendFailure {
             String(
                 localized: "The server refused the message.", bundle: .module,
                 comment: "Why a message failed to send: the mail server refused it")
+        case .unconfirmed:
+            String(
+                localized: "Goodmail couldn’t confirm it was sent. Check Sent before trying again.", bundle: .module,
+                comment: "Why a message failed to send: its upload ended without an answer and it isn't in Sent")
         }
     }
 }

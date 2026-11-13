@@ -6,31 +6,27 @@ import Testing
 
 /// A message scheduled for later waits, listed under Scheduled, until its time; taken back, it goes to Drafts.
 struct ScheduledSendTests {
-    private let database: MailDatabase
-    private let server = FakeMailServer()
-    private let account = AccountID(rawValue: "a1")
+    private let bench: SendBench
+    private var database: MailDatabase { bench.database }
+    private var server: FakeMailServer { bench.server }
     private let start = Date(timeIntervalSince1970: 1_800_000_000)
 
     init() throws {
-        let url = FileManager.default.temporaryDirectory
-            .appending(path: "ScheduledSendTests-\(UUID().uuidString)")
-            .appending(path: "mail.sqlite")
-        database = try MailDatabase(url: url)
-        try database.save(Account(id: account, email: "me@example.com", color: .teal, service: .gmail))
+        bench = try SendBench()
     }
 
     private func commands(at date: Date) -> MailCommands {
         MailCommands(store: database, replay: { _ in }, now: { date })
     }
 
-    private func sender(at date: Date) -> Sender {
-        Sender(
-            accountID: account, provider: server, store: database, now: { date })
+    @discardableResult
+    private func deliver(at date: Date) async throws -> [Draft] {
+        try await bench.deliver(with: bench.sender(at: date))
     }
 
     private func draft(_ subject: String) -> Draft {
         Draft(
-            accountID: account, to: [Contact(name: nil, address: "dana@example.com")], subject: subject,
+            accountID: bench.account, to: [Contact(name: nil, address: "dana@example.com")], subject: subject,
             body: MessageBody(html: nil, plain: "Hi"))
     }
 
@@ -38,11 +34,11 @@ struct ScheduledSendTests {
         let sendAt = start.addingTimeInterval(3 * 3600)
         try await commands(at: start).schedule(draft("Later"), at: sendAt)
 
-        #expect(await sender(at: sendAt.addingTimeInterval(-1)).flush().isEmpty)
+        #expect(try await deliver(at: sendAt.addingTimeInterval(-1)).isEmpty)
         #expect(server.sent.isEmpty)
         #expect(try database.nextSendDate() == sendAt)
 
-        #expect(await sender(at: sendAt).flush().map(\.subject) == ["Later"])
+        #expect(try await deliver(at: sendAt).map(\.subject) == ["Later"])
         #expect(server.sent.count == 1)
         #expect(try database.nextSendDate() == nil)
     }
@@ -67,7 +63,7 @@ struct ScheduledSendTests {
 
         var scheduled = database.scheduledMessages().makeAsyncIterator()
         #expect(try await scheduled.next()?.isEmpty == true)
-        #expect(await sender(at: start).flush().map(\.subject) == ["Maybe"])
+        #expect(try await deliver(at: start).map(\.subject) == ["Maybe"])
         #expect(server.sent.isEmpty)
         #expect(server.drafts.count == 1)
     }
@@ -75,19 +71,19 @@ struct ScheduledSendTests {
     @Test func unschedulingAMessageThatAlreadyWentDoesNothing() async throws {
         let message = draft("Gone")
         try await commands(at: start).schedule(message, at: start)
-        await sender(at: start).flush()
+        try await deliver(at: start)
         try await commands(at: start).unschedule(message.id)
 
         #expect(try database.requeue(message.id, as: .saveDraft, at: start) == nil)
-        #expect(await sender(at: start).flush().isEmpty)
+        #expect(try await deliver(at: start).isEmpty)
         #expect(server.sent.count == 1)
         #expect(server.drafts.isEmpty, "no draft of a sent message")
     }
 
     @Test func aRefusedScheduledMessageLeavesScheduledForFailures() async throws {
-        server.failSend(with: ProviderError.rejected)
+        server.answerSends(with: 400)
         try await commands(at: start).schedule(draft("Refused"), at: start)
-        await sender(at: start).flush()
+        try await deliver(at: start)
 
         var scheduled = database.scheduledMessages().makeAsyncIterator()
         #expect(try await scheduled.next()?.isEmpty == true)

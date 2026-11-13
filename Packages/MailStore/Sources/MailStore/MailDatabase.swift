@@ -218,6 +218,19 @@ public final class MailDatabase: Sendable {
             }
             try db.create(index: "snooze_byWake", on: "snooze", columns: ["wakeAt"])
         }
+        migrator.registerMigration("v18-outgoing-upload") { db in
+            // The upload a message was handed to (see `OutgoingMessage.Delivery`), and failures as a kind rather
+            // than English text, so the app can word them in the reader's language.
+            try db.alter(table: "outgoing") { table in table.add(column: "upload", .text) }
+            try db.execute(
+                sql: """
+                    UPDATE outgoing SET failure = CASE
+                        WHEN failure IN ('A forwarded attachment is no longer available.', 'forwardedAttachmentMissing')
+                            THEN 'forwardedAttachmentMissing'
+                        ELSE 'rejected' END
+                    WHERE failure IS NOT NULL
+                    """)
+        }
         return migrator
     }
 }

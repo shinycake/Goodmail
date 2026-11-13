@@ -11,6 +11,10 @@ extension OutlookClient {
     /// The largest message Graph takes as MIME: a request is capped at 4 MB, and base64 grows the message by a third.
     static let mimeLimit = 3_000_000
 
+    /// Graph's `sendMail` is sent over the client's own connection for now. A background upload, as Gmail does,
+    /// can follow once `answer(status:body:)` and `hasSent(messageID:)` are written for Graph.
+    public var sending: Sending { .direct { try await send($0, inThread: $1) } }
+
     /// Sends `raw`. Exchange files it in the conversation its `In-Reply-To` and `References` headers name, so the
     /// thread needs no ID of its own here.
     public func send(_ raw: Data, inThread threadID: String?) async throws {

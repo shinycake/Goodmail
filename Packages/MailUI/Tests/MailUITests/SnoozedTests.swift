@@ -54,10 +54,13 @@ private final class NoStore: MailCommands.Store, @unchecked Sendable {
     func cancel(_ id: Draft.ID) throws -> OutgoingMessage? { nil }
     func dueMessages(for account: AccountID, by date: Date) throws -> [OutgoingMessage] { [] }
     func nextSendDate(for account: AccountID) throws -> Date? { nil }
+    func uploadingMessages(for account: AccountID) throws -> [OutgoingMessage] { [] }
+    func update(_ id: Draft.ID, from expected: OutgoingMessage.Delivery, to message: OutgoingMessage?) throws -> Bool {
+        false
+    }
     func requeue(_ id: Draft.ID, as purpose: OutgoingMessage.Purpose, at date: Date) throws -> OutgoingMessage? {
         nil
     }
-    func markFailed(_ id: Draft.ID, reason: SendFailure) throws {}
     func remove(_ id: Draft.ID) throws {}
     func sender(for account: AccountID) throws -> Contact { Contact(name: nil, address: "") }
     func enqueue(_ intents: [OutboxIntent], account: AccountID) throws -> [String: Set<String>] { [:] }

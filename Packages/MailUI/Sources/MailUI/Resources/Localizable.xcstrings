@@ -880,6 +880,23 @@
         }
       }
     },
+    "Goodmail couldn’t confirm it was sent. Check Sent before trying again." : {
+      "comment" : "Why a message failed to send: its upload ended without an answer and it isn't in Sent",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Goodmail couldn’t confirm it was sent. Check Sent before trying again."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‏Goodmail לא הצליח לוודא שההודעה נשלחה. כדאי לבדוק ב„נשלחו” לפני שמנסים שוב."
+          }
+        }
+      }
+    },
     "Goodmail keeps your mail on this device and talks to your provider directly." : {
       "comment" : "Add Account: where mail is kept",
       "localizations" : {

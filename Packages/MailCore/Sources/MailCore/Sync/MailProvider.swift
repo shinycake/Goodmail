@@ -28,9 +28,8 @@ public protocol MailProvider: Sendable {
     /// Applies `action` to every message in the thread. Throws `ProviderError.notFound` when the thread is gone.
     func perform(_ action: ThreadAction, onThread threadID: String) async throws
 
-    /// Sends an RFC 5322 message, in `threadID` when it answers one. Throws `ProviderError.rejected` for a message
-    /// the service won't send.
-    func send(_ raw: Data, inThread threadID: String?) async throws
+    /// How this provider's messages are sent: over its own connection, or as an upload that outlives the app.
+    var sending: Sending { get }
 
     /// Saves an RFC 5322 message as a draft, in `threadID` when it answers one, in place of the saved draft
     /// `replacing`. A `replacing` draft that is gone is not an error: the message is saved as a new one.

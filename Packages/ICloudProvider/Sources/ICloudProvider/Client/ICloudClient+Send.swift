@@ -2,6 +2,9 @@ import Foundation
 import MailCore
 
 extension ICloudClient {
+    /// SMTP needs the app running, so iCloud sends go over its own connection.
+    public var sending: Sending { .direct { try await send($0, inThread: $1) } }
+
     /// Sends over SMTP, then files the message in Sent, unless iCloud already did. Filing never fails a send: the
     /// outbox would send the message again, and the next `changes(since:)` finds a copy iCloud filed late.
     public func send(_ raw: Data, inThread threadID: String?) async throws {
