@@ -11,6 +11,9 @@ public final class MailboxViewController: UIViewController {
     private var observation: Task<Void, Never>?
     private var swipes: SwipeActionsController!
     private let searchResults: SearchResultsController?
+    /// Search, while browsing. Selecting takes it away: its button would otherwise move up to the navigation bar and
+    /// stay there beside the toolbar's once selecting ends.
+    private var search: UISearchController?
     private let display: RowDisplay
     /// What an empty list shows.
     private let empty: UIContentUnavailableConfiguration
@@ -105,6 +108,7 @@ public final class MailboxViewController: UIViewController {
         search.searchResultsUpdater = searchResults
         search.searchBar.placeholder = String(
             localized: "Search Mail", bundle: .module, comment: "Placeholder of the search field")
+        self.search = search
         navigationItem.searchController = search
         navigationItem.preferredSearchBarPlacement = .integratedButton
         navigationItem.searchBarPlacementAllowsToolbarIntegration = true
@@ -308,6 +312,7 @@ extension MailboxViewController {
         swipes.close(animated: animated)
         collectionView.isEditing = editing
         navigationItem.hidesBackButton = editing
+        navigationItem.searchController = editing ? nil : search
         navigationItem.rightBarButtonItem =
             editing
             ? UIBarButtonItem(
