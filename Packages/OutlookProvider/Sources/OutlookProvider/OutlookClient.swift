@@ -53,9 +53,7 @@ public struct OutlookClient: Sendable {
         let directory = try await folderDirectory()
         let accountID = graph.session.accountID
         var summaries: [String: ThreadSummary] = [:]
-        for batch in stride(from: 0, to: ids.count, by: Self.concurrentRequests).map({
-            Array(ids[$0..<min($0 + Self.concurrentRequests, ids.count)])
-        }) {
+        for batch in ids.chunks(of: Self.concurrentRequests) {
             try await withThrowingTaskGroup(of: (String, ThreadSummary?).self) { group in
                 for id in batch {
                     group.addTask {
@@ -68,6 +66,45 @@ public struct OutlookClient: Sendable {
             }
         }
         return ThreadFetch(found: ids.compactMap { summaries[$0] }, missing: ids.filter { summaries[$0] == nil })
+    }
+
+    /// Applies `action` to every message in the conversation, sending only the changes each message still needs.
+    /// Throws `ProviderError.notFound` when the conversation is gone, and `ProviderError.rejected` for an action
+    /// Outlook can't express, such as filing into a folder that no longer exists.
+    public func perform(_ action: ThreadAction, onThread threadID: String) async throws {
+        let messages: [GraphMessage] = try await conversation(threadID, select: GraphMessage.stateFields)
+        guard !messages.isEmpty else { throw ProviderError.notFound }
+        let plan: [(id: String, changes: [GraphChange])]
+        do {
+            plan = try await self.plan(action, for: messages)
+        } catch is GraphChange.Failure {
+            throw ProviderError.rejected
+        }
+        for batch in plan.filter({ !$0.changes.isEmpty }).chunks(of: Self.concurrentRequests) {
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                for (id, changes) in batch {
+                    group.addTask { for change in changes { try await graph.apply(change, toMessage: id) } }
+                }
+                try await group.waitForAll()
+            }
+        }
+    }
+
+    /// Each message's changes. A folder the action names may be newer than the directory this client loaded, so a
+    /// missing one is looked up once more before the action is refused.
+    private func plan(
+        _ action: ThreadAction, for messages: [GraphMessage]
+    ) async throws -> [(id: String, changes: [GraphChange])] {
+        func plan(in directory: FolderDirectory) throws -> [(id: String, changes: [GraphChange])] {
+            try messages.map { ($0.id, try GraphChange.changes(for: action, to: $0, in: directory)) }
+        }
+        do {
+            return try plan(in: try await folderDirectory())
+        } catch GraphChange.Failure.noFolder {
+            let directory = try await graph.folderDirectory()
+            await folders.store(directory)
+            return try plan(in: directory)
+        }
     }
 
     /// Every message in a conversation, in whatever folder. A conversation with none left is gone.
@@ -133,5 +170,12 @@ public struct OutlookClient: Sendable {
     /// An OData date literal, in UTC.
     static func literal(_ date: Date) -> String {
         date.formatted(.iso8601)
+    }
+}
+
+extension Array {
+    /// Consecutive runs of `size` elements, the last one shorter when they don't divide evenly.
+    fileprivate func chunks(of size: Int) -> [ArraySlice<Element>] {
+        stride(from: 0, to: count, by: size).map { self[$0..<Swift.min($0 + size, count)] }
     }
 }
