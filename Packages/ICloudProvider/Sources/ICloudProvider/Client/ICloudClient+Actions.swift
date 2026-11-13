@@ -5,13 +5,21 @@ extension ICloudClient {
     /// Applies `action` to every copy of the thread's messages (`CopyPlan`): flags first, so moved copies carry them,
     /// then copies, then moves. Moved and copied messages get new UIDs, which the index learns from the server's
     /// COPYUID; a server that doesn't say leaves them to the next `changes(since:)`.
+    ///
+    /// A folder never gets a second copy of a message, so replaying an action changes nothing: a copy isn't filed
+    /// where the index already has one, and a copy that would move there is removed instead.
     public func perform(_ action: ThreadAction, onThread threadID: String) async throws {
         try await session.run { connection in
             let folders = Folders(try await connection.mailboxes())
-            let keys = try index.indexEntries(inThreads: [threadID], account: accountID).compactMap {
-                MessageKey(rawValue: $0.key)
-            }
+            let entries = try index.indexEntries(inThreads: [threadID], account: accountID)
+            let keys = entries.compactMap { MessageKey(rawValue: $0.key) }
             guard !keys.isEmpty else { throw ProviderError.notFound }
+            var filed = Set(
+                entries.compactMap { entry in
+                    entry.internetMessageID.flatMap { id in
+                        MessageKey(rawValue: entry.key).map { Filed(id, in: $0.folder) }
+                    }
+                })
             for (folder, keys) in Dictionary(grouping: keys, by: \.folder).sorted(by: { $0.key < $1.key })
             where folders.contains(folder) {
                 let selection = try await connection.select(folder)
@@ -36,16 +44,21 @@ extension ICloudClient {
                     }
                 }
                 for (target, headers) in copies.sorted(by: { $0.key < $1.key }) {
-                    let copy = try await connection.transfer(headers.map(\.uid), to: target, move: false)
-                    try record(copy, of: headers, in: target, threadID: threadID)
+                    let new = headers.filter { !filed.contains(Filed($0.messageID, in: target)) }
+                    let copy = try await connection.transfer(new.map(\.uid), to: target, move: false)
+                    try record(copy, of: new, in: target, threadID: threadID)
+                    filed.formUnion(new.compactMap { header in header.messageID.map { Filed($0, in: target) } })
                 }
                 for (target, headers) in moves.sorted(by: { $0.key < $1.key }) {
-                    let copy = try await connection.transfer(headers.map(\.uid), to: target, move: true)
-                    try record(copy, of: headers, in: target, threadID: threadID)
-                    let moved = headers.map {
+                    let (redundant, new) = headers.partitioned { filed.contains(Filed($0.messageID, in: target)) }
+                    try await connection.expunge(redundant.map(\.uid))
+                    let copy = try await connection.transfer(new.map(\.uid), to: target, move: true)
+                    try record(copy, of: new, in: target, threadID: threadID)
+                    filed.formUnion(new.compactMap { header in header.messageID.map { Filed($0, in: target) } })
+                    let gone = headers.map {
                         MessageKey(folder: folder, uidValidity: selection.uidValidity, uid: $0.uid).rawValue
                     }
-                    try index.forgetIndexEntries(withKeys: moved, account: accountID)
+                    try index.forgetIndexEntries(withKeys: gone, account: accountID)
                 }
             }
         }
@@ -73,5 +86,28 @@ extension ICloudClient {
             }
         }
         try index.record(entries, account: accountID)
+    }
+}
+
+/// A message, by its Message-ID, filed in a folder.
+private struct Filed: Hashable {
+    var messageID: String
+    var folder: String
+
+    init(_ messageID: String, in folder: String) {
+        self.messageID = messageID
+        self.folder = folder
+    }
+
+    /// A message without a Message-ID can't be matched with its copies, so it never counts as filed.
+    init(_ messageID: String?, in folder: String) {
+        self.init(messageID ?? "", in: folder)
+    }
+}
+
+extension Array {
+    /// The elements that match, and the rest, each in order.
+    fileprivate func partitioned(by matches: (Element) -> Bool) -> (matching: [Element], rest: [Element]) {
+        (filter(matches), filter { !matches($0) })
     }
 }

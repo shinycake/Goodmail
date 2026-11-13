@@ -87,6 +87,64 @@ struct ICloudActionTests {
         #expect(index.all.map(\.internetMessageID) == ["<a0@x>", "<a2@x>", "<s1@x>"])
     }
 
+    @Test func addingALabelTwiceFilesOneCopy() async throws {
+        let work = "&BeIF0QXVBdMF1A-"
+        let index = MemoryIndex([
+            MessageIndexEntry(
+                key: MessageKey(folder: "INBOX", uidValidity: 7, uid: 40).rawValue, threadID: "<a0@x>",
+                internetMessageID: "<a0@x>"),
+            MessageIndexEntry(
+                key: MessageKey(folder: work, uidValidity: 3, uid: 5).rawValue, threadID: "<a0@x>",
+                internetMessageID: "<a0@x>"),
+        ])
+        let fetch = { (tag: Int, uid: UInt32) in
+            "C: A\(tag) UID FETCH \(uid) (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES)])\n"
+                + ICloudClientTests.header(
+                    uid: uid, date: "1-Nov-2026 09:00:00 +0000", subject: "a", messageID: "<a0@x>")
+                + "\nS: A\(tag) OK"
+        }
+        let client = ICloudClientTests.client(
+            [
+                ICloudClientTests.login,
+                ICloudClientTests.select(work, tag: 4, uidValidity: 3), fetch(5, 5),
+                ICloudClientTests.select("INBOX", tag: 6), fetch(7, 40),
+            ].joined(separator: "\n"),
+            index: index)
+
+        try await client.perform(.modifyLabels(add: [work], remove: []), onThread: "<a0@x>")
+
+        #expect(index.all.count == 2, "the Work folder already holds the message, so nothing is copied")
+    }
+
+    @Test func aCopyMovingWhereTheMessageIsAlreadyFiledIsRemoved() async throws {
+        let trashKey = MessageKey(folder: "Deleted Messages", uidValidity: 2, uid: 9).rawValue
+        let index = MemoryIndex([
+            MessageIndexEntry(
+                key: MessageKey(folder: "INBOX", uidValidity: 7, uid: 40).rawValue, threadID: "<a0@x>",
+                internetMessageID: "<a0@x>"),
+            MessageIndexEntry(key: trashKey, threadID: "<a0@x>", internetMessageID: "<a0@x>"),
+        ])
+        let fetch = { (tag: Int, uid: UInt32) in
+            "C: A\(tag) UID FETCH \(uid) (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES)])\n"
+                + ICloudClientTests.header(
+                    uid: uid, date: "1-Nov-2026 09:00:00 +0000", subject: "a", messageID: "<a0@x>")
+                + "\nS: A\(tag) OK"
+        }
+        let client = ICloudClientTests.client(
+            [
+                ICloudClientTests.login,
+                ICloudClientTests.select("Deleted Messages", tag: 4, uidValidity: 2), fetch(5, 9),
+                ICloudClientTests.select("INBOX", tag: 6), fetch(7, 40),
+                #"C: A8 UID STORE 40 +FLAGS.SILENT (\Deleted)"#, "S: A8 OK",
+                "C: A9 UID EXPUNGE 40", "S: A9 OK",
+            ].joined(separator: "\n"),
+            index: index)
+
+        try await client.perform(.trash, onThread: "<a0@x>")
+
+        #expect(index.all.map(\.key) == [trashKey])
+    }
+
     @Test func aThreadTheIndexDoesntKnowIsNotFound() async throws {
         let client = ICloudClientTests.client(ICloudClientTests.login, index: MemoryIndex())
         await #expect(throws: ProviderError.notFound) { try await client.perform(.trash, onThread: "<gone@x>") }

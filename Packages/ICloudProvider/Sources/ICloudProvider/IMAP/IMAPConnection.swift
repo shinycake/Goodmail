@@ -171,6 +171,16 @@ actor IMAPConnection {
         }
     }
 
+    /// Removes these messages of the selected mailbox for good.
+    func expunge(_ uids: [UInt32]) async throws {
+        guard !uids.isEmpty else { return }
+        try await exclusively { connection in
+            try connection.requireSelected()
+            _ = try await connection.run(.uidStore(uids: uids, flags: [#"\Deleted"#], add: true))
+            _ = try await connection.run(.uidExpunge(uids: uids))
+        }
+    }
+
     func logout() async throws {
         try await exclusively { connection in
             guard connection.state != .closed else { return }

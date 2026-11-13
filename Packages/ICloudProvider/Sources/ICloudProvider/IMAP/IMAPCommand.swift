@@ -23,6 +23,8 @@ enum IMAPCommand: Equatable, Sendable {
     case uidCopy(uids: [UInt32], mailbox: String)
     /// Moves messages to another mailbox (RFC 6851).
     case uidMove(uids: [UInt32], mailbox: String)
+    /// Removes these messages for good, once they are flagged `\Deleted` (RFC 4315 §2.1).
+    case uidExpunge(uids: [UInt32])
     case logout
 
     /// The UID, flags, dates, envelope and threading headers of a message, without marking it read.
@@ -52,6 +54,7 @@ enum IMAPCommand: Equatable, Sendable {
                 "UID STORE \(Self.sequenceSet(uids)) \(add ? "+" : "-")FLAGS.SILENT (\(flags.sorted().joined(separator: " ")))"
             case .uidCopy(let uids, let mailbox): "UID COPY \(Self.sequenceSet(uids)) \(try Self.quoted(mailbox))"
             case .uidMove(let uids, let mailbox): "UID MOVE \(Self.sequenceSet(uids)) \(try Self.quoted(mailbox))"
+            case .uidExpunge(let uids): "UID EXPUNGE \(Self.sequenceSet(uids))"
             case .logout: "LOGOUT"
             }
         }
