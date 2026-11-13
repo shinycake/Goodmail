@@ -191,6 +191,20 @@ public final class MailDatabase: Sendable {
         migrator.registerMigration("v15-account-name") { db in
             try db.alter(table: "account") { table in table.add(column: "name", .text) }
         }
+        migrator.registerMigration("v16-message-index") { db in
+            // Which thread each message belongs to, for providers whose changes name messages (MessageIndexStore).
+            try db.create(table: "messageIndex") { table in
+                table.column("accountID", .text).notNull().references("account", onDelete: .cascade)
+                table.column("key", .text).notNull()
+                table.column("threadID", .text).notNull()
+                table.column("internetMessageID", .text)
+                table.primaryKey(["accountID", "key"])
+            }
+            try db.create(index: "messageIndex_thread", on: "messageIndex", columns: ["accountID", "threadID"])
+            try db.create(
+                index: "messageIndex_internetMessageID", on: "messageIndex",
+                columns: ["accountID", "internetMessageID"])
+        }
         return migrator
     }
 }
