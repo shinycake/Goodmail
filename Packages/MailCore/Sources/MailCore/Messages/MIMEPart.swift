@@ -34,6 +34,10 @@ public struct MIMEPart: Sendable {
         self.parts = parts
     }
 
+    /// A message with nothing in it: no headers, no body and no attachments, for a provider that returns a message
+    /// without its content.
+    public static let empty = MIMEPart(partID: "", mimeType: "multipart/mixed")
+
     public func header(_ name: String) -> String? {
         headers.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }?.value
     }
