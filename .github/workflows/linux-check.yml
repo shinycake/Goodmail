@@ -1,0 +1,67 @@
+# The Linux scripts/check (docs/setup/cloud-builds.md): lint, every package and its tests compiled for iOS, the app
+# and extension targets type-checked, and the Linux-testable packages' tests. review.yml gates merges on it, and
+# check.yml runs it on main. It needs the private goodmail-sdk repository, read with the GOODMAIL_SDK_DEPLOY_KEY secret.
+name: linux-check
+
+on:
+  workflow_call:
+    outputs:
+      base:
+        description: The main commit the checked tree was merged with, for the merge gate's up-to-date check.
+        value: ${{ jobs.check.outputs.base }}
+    secrets:
+      GOODMAIL_SDK_DEPLOY_KEY:
+        required: true
+
+permissions: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    # The image's Swift is the one Xcode ships with, so setup doesn't download its own.
+    container: swift:6.4.2-noble
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    outputs:
+      base: ${{ steps.base.outputs.sha }}
+    steps:
+      # setup finds goodmail-sdk next to this repository, as in a cloud session.
+      - uses: actions/checkout@v4
+        with:
+          path: goodmail
+          fetch-depth: 2
+      - uses: actions/checkout@v4
+        with:
+          repository: shinycake/goodmail-sdk
+          ssh-key: ${{ secrets.GOODMAIL_SDK_DEPLOY_KEY }}
+          path: goodmail-sdk
+
+      # A pull request's checkout is its merge with main, whose first parent is the main it was tested against.
+      - id: base
+        working-directory: goodmail
+        run: |
+          git config --global --add safe.directory "$PWD"
+          if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
+            echo "sha=$(git rev-parse HEAD^1)" >>"$GITHUB_OUTPUT"
+          else
+            echo "sha=$(git rev-parse HEAD)" >>"$GITHUB_OUTPUT"
+          fi
+
+      # The Darwin SDK takes a minute and a half to build. setup's stamp rebuilds it when it's stale.
+      - uses: actions/cache@v4
+        with:
+          path: /github/home/.swiftpm/swift-sdks
+          key: darwin-sdk-${{ runner.arch }}-${{ hashFiles('goodmail/scripts/cloud/setup') }}
+
+      - name: Toolchain (scripts/cloud/setup)
+        working-directory: goodmail
+        run: |
+          apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q curl python3
+          # setup looks for its Swift under /opt/swift; point it at the image's.
+          mkdir -p /opt/swift && ln -sfn /usr /opt/swift/usr
+          scripts/cloud/setup
+
+      - name: scripts/check
+        working-directory: goodmail
+        run: scripts/check
