@@ -13,7 +13,8 @@ struct GmailSyncTests {
         var replies = replies
         replies["/token"] = [.init(fixture: "token-exchange")]
         let http = FixtureHTTPClient(replies)
-        let session = try await GmailSession.signIn(code: "4/abc", pkce: .generate(), http: http, keychain: keychain)
+        let session = try await OAuthSession.signIn(
+            client: .gmail, code: "4/abc", pkce: .generate(), http: http, keychain: keychain)
         return (GmailClient(session: session.session, http: http, retryDelays: [.zero, .zero]), http)
     }
 

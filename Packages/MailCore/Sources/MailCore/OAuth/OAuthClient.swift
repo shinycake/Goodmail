@@ -4,15 +4,44 @@ import Foundation
     import FoundationNetworking  // URLSession on Linux
 #endif
 
-/// Google's OAuth 2.0 endpoints for an installed app: authorization code with PKCE, no client secret.
-public enum GoogleOAuth {
-    static let authorizationEndpoint = URL(string: "https://accounts.google.com/o/oauth2/v2/auth")!
-    static let tokenEndpoint = URL(string: "https://oauth2.googleapis.com/token")!
+/// A mail service's OAuth 2.0 client for an installed app: authorization code with PKCE, no client secret. Each
+/// provider registers one with its service and describes it here.
+public struct OAuthClient: Sendable {
+    /// Names the service in the Keychain, as in `gmail.refresh-token.<account>`.
+    public let name: String
+    public let authorizationEndpoint: URL
+    public let tokenEndpoint: URL
+    public let clientID: String
+    public let redirectURI: URL
+    public let scopes: [String]
+    /// Whether refreshing asks for the scopes again. Microsoft requires it; Google doesn't need it.
+    public let refreshesWithScopes: Bool
+
+    public init(
+        name: String,
+        authorizationEndpoint: URL,
+        tokenEndpoint: URL,
+        clientID: String,
+        redirectURI: URL,
+        scopes: [String],
+        refreshesWithScopes: Bool
+    ) {
+        self.name = name
+        self.authorizationEndpoint = authorizationEndpoint
+        self.tokenEndpoint = tokenEndpoint
+        self.clientID = clientID
+        self.redirectURI = redirectURI
+        self.scopes = scopes
+        self.refreshesWithScopes = refreshesWithScopes
+    }
+
+    /// The scheme the sign-in page redirects to, which the web authentication session listens for.
+    public var redirectScheme: String { redirectURI.scheme ?? "" }
 
     public struct Tokens: Sendable, Equatable {
         public let accessToken: String
         public let expiresAt: Date
-        /// Present on the first exchange only; refreshes reuse the stored one.
+        /// Present on the first exchange. A refresh may rotate it, and then carries the new one.
         public let refreshToken: String?
         /// The signed-in address, from the ID token. Present on the first exchange only.
         public let email: String?
@@ -24,12 +53,12 @@ public enum GoogleOAuth {
         case tokenEndpoint(status: Int, error: String?)
     }
 
-    public static func authorizationURL(pkce: PKCE, state: String, loginHint: String? = nil) -> URL {
+    public func authorizationURL(pkce: PKCE, state: String, loginHint: String? = nil) -> URL {
         var items = [
-            URLQueryItem(name: "client_id", value: GmailConfiguration.clientID),
-            URLQueryItem(name: "redirect_uri", value: GmailConfiguration.redirectURI.absoluteString),
+            URLQueryItem(name: "client_id", value: clientID),
+            URLQueryItem(name: "redirect_uri", value: redirectURI.absoluteString),
             URLQueryItem(name: "response_type", value: "code"),
-            URLQueryItem(name: "scope", value: GmailConfiguration.scopes.joined(separator: " ")),
+            URLQueryItem(name: "scope", value: scopes.joined(separator: " ")),
             URLQueryItem(name: "code_challenge", value: pkce.challenge),
             URLQueryItem(name: "code_challenge_method", value: "S256"),
             URLQueryItem(name: "state", value: state),
@@ -48,22 +77,24 @@ public enum GoogleOAuth {
         return code
     }
 
-    public static func exchangeRequest(code: String, pkce: PKCE) -> URLRequest {
+    public func exchangeRequest(code: String, pkce: PKCE) -> URLRequest {
         formRequest([
-            "client_id": GmailConfiguration.clientID,
-            "redirect_uri": GmailConfiguration.redirectURI.absoluteString,
+            "client_id": clientID,
+            "redirect_uri": redirectURI.absoluteString,
             "grant_type": "authorization_code",
             "code": code,
             "code_verifier": pkce.verifier,
         ])
     }
 
-    public static func refreshRequest(refreshToken: String) -> URLRequest {
-        formRequest([
-            "client_id": GmailConfiguration.clientID,
+    public func refreshRequest(refreshToken: String) -> URLRequest {
+        var fields = [
+            "client_id": clientID,
             "grant_type": "refresh_token",
             "refresh_token": refreshToken,
-        ])
+        ]
+        if refreshesWithScopes { fields["scope"] = scopes.joined(separator: " ") }
+        return formRequest(fields)
     }
 
     public static func tokens(from data: Data, status: Int, receivedAt: Date) throws -> Tokens {
@@ -80,14 +111,17 @@ public enum GoogleOAuth {
         )
     }
 
-    /// Reads the `email` claim. The token came straight from Google over TLS, so the signature isn't rechecked.
+    /// Reads the `email` claim, or Microsoft's `preferred_username` when the token leaves `email` out. The token came
+    /// straight from the service over TLS, so the signature isn't rechecked.
     static func email(fromIDToken token: String) -> String? {
         let parts = token.split(separator: ".")
-        guard parts.count == 3, let payload = Data(base64URLEncoded: String(parts[1])) else { return nil }
-        return (try? JSONDecoder().decode(IDTokenClaims.self, from: payload))?.email
+        guard parts.count == 3, let payload = Data(base64URLEncoded: String(parts[1])),
+            let claims = try? JSONDecoder().decode(IDTokenClaims.self, from: payload)
+        else { return nil }
+        return claims.email ?? claims.preferred_username
     }
 
-    private static func formRequest(_ fields: [String: String]) -> URLRequest {
+    private func formRequest(_ fields: [String: String]) -> URLRequest {
         var request = URLRequest(url: tokenEndpoint)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
@@ -109,7 +143,9 @@ public enum GoogleOAuth {
         let error: String
     }
 
+    // swift-format-ignore: AlwaysUseLowerCamelCase
     private struct IDTokenClaims: Decodable {
         let email: String?
+        let preferred_username: String?
     }
 }

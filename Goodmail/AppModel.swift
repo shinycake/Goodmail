@@ -60,14 +60,14 @@ final class AppModel {
     func addGmailAccount(using web: WebAuthentication) async throws -> Bool {
         let pkce = PKCE.generate()
         let state = UUID().uuidString
-        let url = GoogleOAuth.authorizationURL(pkce: pkce, state: state)
-        guard let redirect = try await web.authenticate(url: url, callbackScheme: GmailConfiguration.redirectScheme)
+        let url = OAuthClient.gmail.authorizationURL(pkce: pkce, state: state)
+        guard let redirect = try await web.authenticate(url: url, callbackScheme: OAuthClient.gmail.redirectScheme)
         else { return false }
 
-        let code = try GoogleOAuth.code(fromRedirect: redirect, expectedState: state)
+        let code = try OAuthClient.code(fromRedirect: redirect, expectedState: state)
         let existing = accounts
-        let (session, email) = try await GmailSession.signIn(
-            code: code, pkce: pkce,
+        let (session, email) = try await OAuthSession.signIn(
+            client: .gmail, code: code, pkce: pkce,
             accountID: { email in
                 existing.first { $0.email.caseInsensitiveCompare(email) == .orderedSame }?.id ?? .generate()
             },
