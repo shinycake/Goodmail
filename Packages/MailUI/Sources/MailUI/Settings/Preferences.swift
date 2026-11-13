@@ -38,5 +38,5 @@ public enum Preferences {
     private static let previewLinesKey = "previewLines"
     private static let showsAvatarsKey = "showsAvatars"
     private static let unsortedInboxKey = "unsortedInboxAccounts"
-    nonisolated(unsafe) private static let defaults = UserDefaults.standard
+    private static let defaults = UserDefaults.standard
 }

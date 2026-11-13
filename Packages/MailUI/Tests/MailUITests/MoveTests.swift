@@ -86,21 +86,24 @@ struct MoveViewModelTests {
         let model = model([id("t1"), id("t2")], from: .inbox, actions: actions)
 
         model.move(to: try #require(model.labels.first))
+        await actions.settled()
         #expect(store.labels == ["t1": ["Label_2", "Label_1"], "t2": ["Label_1"]])
         #expect(store.queued.map(\.action) == Array(repeating: .move(to: .label("Label_1"), from: .inbox), count: 2))
         #expect(actions.toast?.message == "2 threads moved to Clients")
 
         actions.undoLast()
+        await actions.settled()
         #expect(store.labels == ["t1": ["INBOX", "Label_2"], "t2": ["INBOX"]])
         #expect(actions.toast == nil)
     }
 
-    @Test func movingFromALabelTakesItAway() throws {
+    @Test func movingFromALabelTakesItAway() async throws {
         let store = LabelStore(["t": ["INBOX", "Label_1"]])
         let actions = MailActions(commands: MailCommands(store: store, replay: { _ in }), toastDuration: .seconds(60))
         let model = model([id("t")], from: Mailbox(labelID: "Label_1", accountID: work), actions: actions)
 
         model.move(to: try #require(model.places.first { $0.destination == .archive }))
+        await actions.settled()
         #expect(store.labels["t"] == [])
         #expect(actions.toast?.message == "Moved to Archive")
     }
