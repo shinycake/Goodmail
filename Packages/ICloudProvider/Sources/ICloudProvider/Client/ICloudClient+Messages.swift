@@ -81,9 +81,3 @@ extension Message {
             references: IMAPMessageHeader.messageIDs(in: mime.header("References") ?? ""))
     }
 }
-
-extension MIMEPart {
-    fileprivate func part(withID id: String) -> MIMEPart? {
-        partID == id ? self : parts.lazy.compactMap { $0.part(withID: id) }.first
-    }
-}
