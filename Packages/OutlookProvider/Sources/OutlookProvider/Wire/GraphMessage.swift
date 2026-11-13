@@ -39,7 +39,7 @@ struct GraphMessage: Decodable {
         var labels: Set<String> = []
         if let folder = parentFolderId, let label = folders.label(forFolder: folder) { labels.insert(label) }
         if isRead == false { labels.insert(SystemLabel.unread) }
-        if flag?.flagStatus == "flagged" { labels.insert(SystemLabel.starred) }
+        if isFlagged { labels.insert(SystemLabel.starred) }
         return labels
     }
 }

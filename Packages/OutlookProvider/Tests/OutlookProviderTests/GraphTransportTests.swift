@@ -68,11 +68,11 @@ struct GraphTransportTests {
 
     @Test func aMissingWellKnownFolderIsLeftOutButAnyOtherFailureFailsTheDirectory() async throws {
         // Conversation History 404s in the fixture mailbox, and only its label is missing.
-        let labels = try await OutlookClient.signedIn(to: FixtureGraph(OutlookReadTests.mailbox)).labels()
+        let labels = try await OutlookClient.signedIn(to: FixtureGraph(FixtureGraph.mailbox)).labels()
         #expect(labels.count == 9)
 
         let broken = FixtureGraph { request in
-            request.graphPath == "me/mailFolders/inbox" ? "status-403" : OutlookReadTests.mailbox(request)
+            request.graphPath == "me/mailFolders/inbox" ? "status-403" : FixtureGraph.mailbox(request)
         }
         await #expect(throws: GraphError.self) { try await OutlookClient.signedIn(to: broken).labels() }
     }
