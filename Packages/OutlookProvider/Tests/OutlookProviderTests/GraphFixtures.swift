@@ -37,6 +37,34 @@ final class FixtureGraph: HTTPClient {
     }
 }
 
+extension FixtureGraph {
+    /// A mailbox with every well-known folder but Conversation History, a user folder at the root and one in the
+    /// Inbox, and two conversations in the Inbox.
+    static func mailbox(_ request: URLRequest) -> String? {
+        let path = request.graphPath
+        if request.url!.host() == "login.example.com" { return "token" }
+        if let name = path.split(separator: "/").last, path.hasPrefix("me/mailFolders/"),
+            let folder = WellKnownFolder(rawValue: String(name)), folder != .conversationhistory
+        {
+            return "folder-\(name)"
+        }
+        switch path {
+        case "me/mailFolders": return "folders-root"
+        case "me/mailFolders/AAInbox/childFolders": return "folders-inbox-children"
+        case "me/mailFolders/AAInbox/messages":
+            return request.query("$skip") == nil ? "inbox-page1" : "empty-page"
+        case "me/mailFolders/AAProjects/childFolders": return "empty-page"
+        case "me/messages":
+            switch request.query("$filter") {
+            case "conversationId eq 'c1'": return "conversation-c1"
+            case "conversationId eq 'c2'": return "conversation-c2"
+            default: return "empty-page"
+            }
+        default: return nil
+        }
+    }
+}
+
 func fixture(_ name: String) throws -> Data {
     try Data(
         contentsOf: #require(Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "Fixtures")))
