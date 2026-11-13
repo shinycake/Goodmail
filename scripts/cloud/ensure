@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Makes sure a Claude cloud session has its iOS toolchain, whichever way the session started (docs/setup/cloud-builds.md).
+# The SessionStart hook runs this, but only when the session starts inside this repository. A session with several
+# repositories starts in their parent folder, so scripts/check and scripts/ios-build run it too. Outside cloud sessions,
+# and when everything is installed, it returns at once.
+set -euo pipefail
+[[ "${CLAUDE_CODE_REMOTE:-}" == "true" ]] || exit 0
+cd "$(dirname "$0")/../.."
+
+log=/tmp/goodmail-cloud-setup.log
+if ! scripts/cloud/setup >"$log" 2>&1; then
+    echo "scripts/cloud/setup failed, so the iOS toolchain is unavailable. Last lines of $log:" >&2
+    tail -n 15 "$log" >&2
+    exit 1
+fi
