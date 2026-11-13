@@ -71,13 +71,13 @@ struct IMAPConnectionTests {
         #expect(first.to == [Contact(name: nil, address: "me@icloud.com")])
         #expect(first.cc == [Contact(name: "Noa", address: "noa@example.com")])
         #expect(first.receivedAt == Date(timeIntervalSince1970: 1_792_476_845))
-        #expect(first.messageID == "<a1@example.com>")
+        #expect(first.messageID == "a1@example.com")
         #expect(first.references.isEmpty)
         #expect(!first.isUnread)
         let reply = headers[1]
         #expect(reply.isUnread)
-        #expect(reply.inReplyTo == "<a1@example.com>")
-        #expect(reply.references == ["<a0@example.com>", "<a1@example.com>"])
+        #expect(reply.inReplyTo == "a1@example.com")
+        #expect(reply.references == ["a0@example.com", "a1@example.com"])
         #expect(reply.receivedAt == Date(timeIntervalSince1970: 1_793_556_000))
 
         try await connection.logout()

@@ -49,18 +49,18 @@ struct ICloudActionTests {
         let inbox = { (uid: UInt32) in MessageKey(folder: "INBOX", uidValidity: 7, uid: uid).rawValue }
         let sent = MessageKey(folder: "Sent Messages", uidValidity: 9, uid: 3).rawValue
         let index = MemoryIndex([
-            MessageIndexEntry(key: inbox(40), threadID: "<a0@x>", internetMessageID: "<a0@x>"),
-            MessageIndexEntry(key: inbox(41), threadID: "<a0@x>", internetMessageID: "<a2@x>"),
-            MessageIndexEntry(key: sent, threadID: "<a0@x>", internetMessageID: "<s1@x>"),
+            MessageIndexEntry(key: inbox(40), threadID: "a0@x", internetMessageID: "a0@x"),
+            MessageIndexEntry(key: inbox(41), threadID: "a0@x", internetMessageID: "a2@x"),
+            MessageIndexEntry(key: sent, threadID: "a0@x", internetMessageID: "s1@x"),
         ])
         let client = ICloudClientTests.client(
             [
                 ICloudClientTests.login,
                 ICloudClientTests.select("INBOX", tag: 4),
                 "C: A5 UID FETCH 40:41 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES)])",
-                ICloudClientTests.header(uid: 40, date: "1-Nov-2026 09:00:00 +0000", subject: "a", messageID: "<a0@x>"),
+                ICloudClientTests.header(uid: 40, date: "1-Nov-2026 09:00:00 +0000", subject: "a", messageID: "a0@x"),
                 ICloudClientTests.header(
-                    uid: 41, flags: "", date: "2-Nov-2026 09:00:00 +0000", subject: "b", messageID: "<a2@x>"),
+                    uid: 41, flags: "", date: "2-Nov-2026 09:00:00 +0000", subject: "b", messageID: "a2@x"),
                 "S: A5 OK",
                 "C: A6 UID STORE 41 +FLAGS.SILENT (\\Seen)",
                 "S: A6 OK",
@@ -71,12 +71,12 @@ struct ICloudActionTests {
                 "S: A7 OK Move completed",
                 ICloudClientTests.select("Sent Messages", tag: 8, uidValidity: 9),
                 "C: A9 UID FETCH 3 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES)])",
-                ICloudClientTests.header(uid: 3, date: "1-Nov-2026 12:00:00 +0000", subject: "s", messageID: "<s1@x>"),
+                ICloudClientTests.header(uid: 3, date: "1-Nov-2026 12:00:00 +0000", subject: "s", messageID: "s1@x"),
                 "S: A9 OK",
             ].joined(separator: "\n"),
             index: index)
 
-        try await client.perform(.modifyLabels(add: [], remove: ["INBOX", "UNREAD"]), onThread: "<a0@x>")
+        try await client.perform(.modifyLabels(add: [], remove: ["INBOX", "UNREAD"]), onThread: "a0@x")
 
         #expect(
             index.all.map(\.key) == [
@@ -84,23 +84,23 @@ struct ICloudActionTests {
                 MessageKey(folder: "Archive", uidValidity: 5, uid: 101).rawValue,
                 sent,
             ])
-        #expect(index.all.map(\.internetMessageID) == ["<a0@x>", "<a2@x>", "<s1@x>"])
+        #expect(index.all.map(\.internetMessageID) == ["a0@x", "a2@x", "s1@x"])
     }
 
     @Test func addingALabelTwiceFilesOneCopy() async throws {
         let work = "&BeIF0QXVBdMF1A-"
         let index = MemoryIndex([
             MessageIndexEntry(
-                key: MessageKey(folder: "INBOX", uidValidity: 7, uid: 40).rawValue, threadID: "<a0@x>",
-                internetMessageID: "<a0@x>"),
+                key: MessageKey(folder: "INBOX", uidValidity: 7, uid: 40).rawValue, threadID: "a0@x",
+                internetMessageID: "a0@x"),
             MessageIndexEntry(
-                key: MessageKey(folder: work, uidValidity: 3, uid: 5).rawValue, threadID: "<a0@x>",
-                internetMessageID: "<a0@x>"),
+                key: MessageKey(folder: work, uidValidity: 3, uid: 5).rawValue, threadID: "a0@x",
+                internetMessageID: "a0@x"),
         ])
         let fetch = { (tag: Int, uid: UInt32) in
             "C: A\(tag) UID FETCH \(uid) (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES)])\n"
                 + ICloudClientTests.header(
-                    uid: uid, date: "1-Nov-2026 09:00:00 +0000", subject: "a", messageID: "<a0@x>")
+                    uid: uid, date: "1-Nov-2026 09:00:00 +0000", subject: "a", messageID: "a0@x")
                 + "\nS: A\(tag) OK"
         }
         let client = ICloudClientTests.client(
@@ -111,7 +111,7 @@ struct ICloudActionTests {
             ].joined(separator: "\n"),
             index: index)
 
-        try await client.perform(.modifyLabels(add: [work], remove: []), onThread: "<a0@x>")
+        try await client.perform(.modifyLabels(add: [work], remove: []), onThread: "a0@x")
 
         #expect(index.all.count == 2, "the Work folder already holds the message, so nothing is copied")
     }
@@ -120,14 +120,14 @@ struct ICloudActionTests {
         let trashKey = MessageKey(folder: "Deleted Messages", uidValidity: 2, uid: 9).rawValue
         let index = MemoryIndex([
             MessageIndexEntry(
-                key: MessageKey(folder: "INBOX", uidValidity: 7, uid: 40).rawValue, threadID: "<a0@x>",
-                internetMessageID: "<a0@x>"),
-            MessageIndexEntry(key: trashKey, threadID: "<a0@x>", internetMessageID: "<a0@x>"),
+                key: MessageKey(folder: "INBOX", uidValidity: 7, uid: 40).rawValue, threadID: "a0@x",
+                internetMessageID: "a0@x"),
+            MessageIndexEntry(key: trashKey, threadID: "a0@x", internetMessageID: "a0@x"),
         ])
         let fetch = { (tag: Int, uid: UInt32) in
             "C: A\(tag) UID FETCH \(uid) (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES)])\n"
                 + ICloudClientTests.header(
-                    uid: uid, date: "1-Nov-2026 09:00:00 +0000", subject: "a", messageID: "<a0@x>")
+                    uid: uid, date: "1-Nov-2026 09:00:00 +0000", subject: "a", messageID: "a0@x")
                 + "\nS: A\(tag) OK"
         }
         let client = ICloudClientTests.client(
@@ -140,13 +140,13 @@ struct ICloudActionTests {
             ].joined(separator: "\n"),
             index: index)
 
-        try await client.perform(.trash, onThread: "<a0@x>")
+        try await client.perform(.trash, onThread: "a0@x")
 
         #expect(index.all.map(\.key) == [trashKey])
     }
 
     @Test func aThreadTheIndexDoesntKnowIsNotFound() async throws {
         let client = ICloudClientTests.client(ICloudClientTests.login, index: MemoryIndex())
-        await #expect(throws: ProviderError.notFound) { try await client.perform(.trash, onThread: "<gone@x>") }
+        await #expect(throws: ProviderError.notFound) { try await client.perform(.trash, onThread: "gone@x") }
     }
 }

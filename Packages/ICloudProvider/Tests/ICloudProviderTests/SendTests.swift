@@ -93,7 +93,7 @@ struct ICloudSendTests {
             [
                 ICloudClientTests.login,
                 ICloudClientTests.select("Sent Messages", tag: 4, uidValidity: 9),
-                #"C: A5 UID SEARCH HEADER Message-ID "<m1@icloud.com>""#,
+                #"C: A5 UID SEARCH HEADER Message-ID "m1@icloud.com""#,
                 "S: * SEARCH",
                 "S: A5 OK",
                 #"C: A6 APPEND "Sent Messages" (\Seen) {\#(raw.utf8.count)}"#,
@@ -103,13 +103,13 @@ struct ICloudSendTests {
             ].joined(separator: "\n"),
             smtp: SMTPTests.submission, index: index)
 
-        try await client.send(Data(raw.utf8), inThread: "<a0@x>")
+        try await client.send(Data(raw.utf8), inThread: "a0@x")
 
         #expect(
             index.all == [
                 MessageIndexEntry(
-                    key: MessageKey(folder: "Sent Messages", uidValidity: 9, uid: 12).rawValue, threadID: "<a0@x>",
-                    internetMessageID: "<m1@icloud.com>")
+                    key: MessageKey(folder: "Sent Messages", uidValidity: 9, uid: 12).rawValue, threadID: "a0@x",
+                    internetMessageID: "m1@icloud.com")
             ])
     }
 
@@ -119,7 +119,7 @@ struct ICloudSendTests {
             [
                 ICloudClientTests.login,
                 ICloudClientTests.select("Sent Messages", tag: 4, uidValidity: 9),
-                #"C: A5 UID SEARCH HEADER Message-ID "<m1@icloud.com>""#,
+                #"C: A5 UID SEARCH HEADER Message-ID "m1@icloud.com""#,
                 "S: * SEARCH 12",
                 "S: A5 OK",
             ].joined(separator: "\n"),
@@ -130,7 +130,7 @@ struct ICloudSendTests {
 
     @Test func savingADraftReplacesTheOldOne() async throws {
         let index = MemoryIndex([
-            MessageIndexEntry(key: MessageKey(folder: "Drafts", uidValidity: 4, uid: 7).rawValue, threadID: "<d@x>")
+            MessageIndexEntry(key: MessageKey(folder: "Drafts", uidValidity: 4, uid: 7).rawValue, threadID: "d@x")
         ])
         let raw = "From: dana@icloud.com\r\nMessage-ID: <d2@x>\r\n\r\nhi"
         let client = ICloudClientTests.client(
@@ -155,9 +155,9 @@ struct ICloudSendTests {
         let old = Message.ID(
             accountID: ICloudClientTests.account,
             messageID: MessageKey(folder: "Drafts", uidValidity: 4, uid: 7).rawValue)
-        try await client.saveDraft(Data(raw.utf8), inThread: "<d@x>", replacing: old)
+        try await client.saveDraft(Data(raw.utf8), inThread: "d@x", replacing: old)
 
         #expect(index.all.map(\.key) == [MessageKey(folder: "Drafts", uidValidity: 4, uid: 8).rawValue])
-        #expect(index.all.map(\.threadID) == ["<d@x>"])
+        #expect(index.all.map(\.threadID) == ["d@x"])
     }
 }

@@ -10,6 +10,9 @@ import MailCore
 /// - takes every folder's STATUS as the cursor, and reads what changed since with CONDSTORE and QRESYNC;
 /// - sends over SMTP, and files sent mail and drafts with APPEND.
 public struct ICloudClient: MailProvider {
+    static let imapHost = "imap.mail.me.com"
+    static let smtpHost = "smtp.mail.me.com"
+
     let accountID: AccountID
     let session: IMAPSession
     let smtp: SMTPClient
@@ -24,8 +27,8 @@ public struct ICloudClient: MailProvider {
             let credentials = ICloudCredentials(user: email, password: appPassword)
             self.init(
                 accountID: accountID,
-                session: IMAPSession(credentials: credentials) { TLSTransport(host: "imap.mail.me.com", port: 993) },
-                smtp: SMTPClient(credentials: credentials) { StreamTransport(host: "smtp.mail.me.com", port: 587) },
+                session: IMAPSession(credentials: credentials) { TLSTransport(host: Self.imapHost, port: 993) },
+                smtp: SMTPClient(credentials: credentials) { StreamTransport(host: Self.smtpHost, port: 587) },
                 index: index)
         }
     #endif
