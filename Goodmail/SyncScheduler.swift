@@ -41,6 +41,7 @@ final class SyncScheduler {
     private func startForegroundSync() {
         foreground?.cancel()
         foreground = Task { [model, log] in
+            async let prefetch: Void = model.prefetchWhenConnectionAllows()
             while !Task.isCancelled {
                 do {
                     try await model.syncAll()
@@ -49,6 +50,7 @@ final class SyncScheduler {
                 }
                 try? await Task.sleep(for: Self.foregroundInterval)
             }
+            await prefetch
         }
     }
 }

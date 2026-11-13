@@ -174,6 +174,15 @@ final class AppModel {
         await trimCache()
     }
 
+    /// Starts prefetching again each time the connection turns cheap, as when Wi-Fi comes back, until the calling
+    /// task is cancelled. Sync starts prefetch too, but a sync may be a while off.
+    func prefetchWhenConnectionAllows() async {
+        for await _ in path.becameAllowed() {
+            // An account removed meanwhile has no prefetcher to start.
+            for account in accounts { await (try? prefetcher(for: account.id))?.start() }
+        }
+    }
+
     /// Stops prefetching, as when the app leaves the foreground. The next sync picks up where it left off.
     func cancelPrefetch() async {
         for prefetcher in prefetchers.values { await prefetcher.cancel() }

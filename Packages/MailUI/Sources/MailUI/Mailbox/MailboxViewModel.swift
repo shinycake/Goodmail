@@ -128,7 +128,9 @@ public final class MailboxViewModel {
     private func followUnreadCounts(_ categories: InboxCategories) async {
         do {
             for try await counts in categories.unreadCounts() { categoryUnreadCounts = counts }
-        } catch {}
+        } catch {
+            if !Task.isCancelled { refreshError = error }
+        }
     }
 
     private func follow(_ threads: AsyncThrowingStream<[ThreadSummary], any Error>) async {
