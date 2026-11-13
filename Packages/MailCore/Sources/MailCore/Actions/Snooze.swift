@@ -19,8 +19,8 @@ public protocol SnoozeStore: Sendable {
     func dueSnoozes(by date: Date) throws -> [ThreadSummary.ID]
     /// When the next asleep thread is due, in any account.
     func nextWakeDate() throws -> Date?
-    /// Forgets snoozes that no longer mean anything at `date`: asleep threads put back in the Inbox some other way,
-    /// and threads woken long enough ago.
+    /// Forgets snoozes that no longer mean anything at `date`: asleep threads put back in the Inbox some other way
+    /// or thrown out to Trash or Spam, and threads woken long enough ago.
     func pruneSnoozes(at date: Date) throws
 }
 
