@@ -25,6 +25,14 @@ struct GraphTransport: Sendable {
         return try JSONDecoder.graph.decode(Response.self, from: data)
     }
 
+    /// Sends `body` as JSON, its keys sorted so a request reads the same every time.
+    @discardableResult
+    func send(_ url: URL, method: String, json body: some Encodable) async throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        return try await send(url, method: method, payload: (try encoder.encode(body), "application/json"))
+    }
+
     /// The raw reply, for requests whose answer isn't JSON or isn't read. Only Graph itself is sent the account's
     /// token: a URL that came back from elsewhere, such as a tampered page token, is refused.
     @discardableResult

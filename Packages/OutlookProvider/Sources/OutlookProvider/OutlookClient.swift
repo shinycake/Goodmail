@@ -8,7 +8,7 @@ import MailCore
 /// Microsoft Graph mail for one Outlook account. Outlook files each message in one folder and keeps Unread and
 /// Starred as flags; this client reads them as Gmail's labels, and a thread is a Graph conversation.
 public struct OutlookClient: Sendable {
-    private let graph: GraphTransport
+    let graph: GraphTransport
     private let folders = FolderCache()
     private let pageSize: Int
 

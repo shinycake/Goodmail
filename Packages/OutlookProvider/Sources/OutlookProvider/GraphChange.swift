@@ -112,12 +112,6 @@ extension GraphTransport {
             throw ProviderError.rejected
         }
     }
-
-    private func send(_ url: URL, method: String, json body: some Encodable) async throws {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = .sortedKeys
-        try await send(url, method: method, payload: (try encoder.encode(body), "application/json"))
-    }
 }
 
 private struct ReadPatch: Encodable {
