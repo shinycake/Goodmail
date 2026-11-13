@@ -166,15 +166,13 @@ final class AppModel {
         await Self.trim(database, attachments: attachmentsDirectory)
     }
 
-    private nonisolated static func trim(_ database: MailDatabase, attachments: URL) async {
-        await Task.detached(priority: .utility) {
-            do {
-                try database.trimCache(attachments: attachments)
-            } catch {
-                Logger(subsystem: "com.idanbirman.goodmail", category: "cache")
-                    .error("Couldn't trim the cache: \(error, privacy: .public)")
-            }
-        }.value
+    @concurrent private static func trim(_ database: MailDatabase, attachments: URL) async {
+        do {
+            try database.trimCache(attachments: attachments)
+        } catch {
+            Logger(subsystem: "com.idanbirman.goodmail", category: "cache")
+                .error("Couldn't trim the cache: \(error, privacy: .public)")
+        }
     }
 
     /// Fetches the next older page of `mailbox` in each account it covers. Returns whether any may have more.
