@@ -181,8 +181,9 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
 - **Done:**
   - empty states for mailboxes and search
   - a Settings form (from the Mailboxes toolbar) with the accounts, Add Account, Remove Account (signs out and takes the account's data off the device), and the Undo Send wait (Off to 30 s)
+  - scheduled send: touch and hold Send for tonight, tomorrow morning, the morning after the weekend, or any time. Messages wait under Scheduled, where one can be edited or moved to Drafts. The device sends them at their time, or at the first sync after it: best effort, since the Gmail API has no scheduled send
 - **Still to do:**
-  - snooze and scheduled send
+  - snooze
   - notification and display settings
   - onboarding
 
