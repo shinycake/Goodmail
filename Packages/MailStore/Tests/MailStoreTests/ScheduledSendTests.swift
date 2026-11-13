@@ -72,6 +72,18 @@ struct ScheduledSendTests {
         #expect(server.drafts.count == 1)
     }
 
+    @Test func unschedulingAMessageThatAlreadyWentDoesNothing() async throws {
+        let message = draft("Gone")
+        try commands(at: start).schedule(message, at: start)
+        await sender(at: start).flush()
+        try commands(at: start).unschedule(message.id)
+
+        #expect(try database.requeue(message.id, as: .saveDraft, at: start) == nil)
+        #expect(await sender(at: start).flush().isEmpty)
+        #expect(server.sent.count == 1)
+        #expect(server.drafts.isEmpty, "no draft of a sent message")
+    }
+
     @Test func aRefusedScheduledMessageLeavesScheduledForFailures() async throws {
         server.failSend(with: ProviderError.rejected)
         try commands(at: start).schedule(draft("Refused"), at: start)
