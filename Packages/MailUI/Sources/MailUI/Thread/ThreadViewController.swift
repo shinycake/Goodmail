@@ -111,11 +111,9 @@ public final class ThreadViewController: UIViewController {
             title: String(localized: "Reply", bundle: .module, comment: "Composer title for a reply"),
             image: UIImage(systemName: "arrowshape.turn.up.left"),
             primaryAction: UIAction { [weak self] _ in self?.viewModel.reply(all: false) },
+            // The alternatives only: a tap is Reply, and a toolbar that overflows into More lists the primary action
+            // beside these, so a Reply here would show twice.
             menu: UIMenu(children: [
-                UIAction(
-                    title: String(localized: "Reply", bundle: .module, comment: "Composer title for a reply"),
-                    image: UIImage(systemName: "arrowshape.turn.up.left")
-                ) { [weak self] _ in self?.viewModel.reply(all: false) },
                 UIAction(
                     title: String(localized: "Reply All", bundle: .module, comment: "Replies to everyone"),
                     image: UIImage(systemName: "arrowshape.turn.up.left.2")
@@ -140,7 +138,8 @@ public final class ThreadViewController: UIViewController {
         super.updateProperties()
         let star: ThreadAction = .star(!viewModel.isStarred)
         starItem.image = UIImage(systemName: viewModel.isStarred ? "star.fill" : "star")
-        starItem.accessibilityLabel = star.title
+        // The title, not just an accessibility label: when the toolbar overflows into More, the menu shows it.
+        starItem.title = star.title
         let answer = viewModel.draft == nil ? replyItem : editDraftItem
         if var items = toolbarItems, let last = items.indices.last, items[last] !== answer {
             items[last] = answer
