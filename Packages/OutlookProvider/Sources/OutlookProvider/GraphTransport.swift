@@ -33,15 +33,6 @@ struct GraphTransport: Sendable {
         return try await send(url, method: method, payload: (try encoder.encode(body), "application/json"))
     }
 
-    /// Which failures a request may be sent again after.
-    enum Replay {
-        /// Sending it twice ends as sending it once: a read, a patch, a move or a delete.
-        case safe
-        /// Each send makes something new, such as a sent message or a draft. It is sent again only when Graph turned
-        /// it away unread, because after a server error Graph may already have made it.
-        case onlyIfRefused
-    }
-
     /// The raw reply, for requests whose answer isn't JSON or isn't read. Only Graph itself is sent the account's
     /// token: a URL that came back from elsewhere, such as a tampered page token, is refused.
     @discardableResult
@@ -63,7 +54,7 @@ struct GraphTransport: Sendable {
             let (data, response) = try await http.data(for: request)
             if (200..<300).contains(response.statusCode) { return data }
             let error = GraphError(status: response.statusCode, body: String(decoding: data, as: UTF8.self))
-            guard error.allowsRetry(of: replay), attempt < retryDelays.count else { throw error }
+            guard replay.allowsRetry(after: error.retryable), attempt < retryDelays.count else { throw error }
             try await Task.sleep(for: Self.wait(after: response, planned: retryDelays[attempt]))
             attempt += 1
         }
@@ -87,13 +78,12 @@ public struct GraphError: Error, Equatable {
     public let status: Int
     public let body: String
 
-    /// Whether a request that failed this way may be sent again after a wait. Graph asks clients to retry
-    /// throttling and server errors, but only throttling means it did nothing with the request.
-    func allowsRetry(of replay: GraphTransport.Replay) -> Bool {
-        switch (status, replay) {
-        case (429, _): true
-        case (500, .safe), (502, .safe), (503, .safe), (504, .safe): true
-        default: false
+    /// Throttling and server errors, which Graph asks clients to retry after a wait.
+    var retryable: RetryableFailure? {
+        switch status {
+        case 429: .throttled
+        case 500, 502, 503, 504: .serverError
+        default: nil
         }
     }
 }
