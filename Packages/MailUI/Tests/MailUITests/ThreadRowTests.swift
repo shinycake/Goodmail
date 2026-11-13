@@ -6,7 +6,7 @@ import UIKit
 
 @MainActor
 struct ThreadRowTests {
-    private func configuration(preview: Int) -> ThreadRowConfiguration {
+    private func configuration(preview: Int, avatars: Bool = true) -> ThreadRowConfiguration {
         ThreadRowConfiguration(
             thread: ThreadSummary(
                 id: ThreadSummary.ID(accountID: AccountID(rawValue: "a"), threadID: "t"),
@@ -16,7 +16,7 @@ struct ThreadRowTests {
             ),
             dateText: "9:41",
             account: .implied(.teal),
-            previewLines: preview
+            display: RowDisplay(previewLines: preview, showsAvatars: avatars)
         )
     }
 
@@ -28,6 +28,19 @@ struct ThreadRowTests {
         let cell = UICollectionViewListCell(frame: CGRect(x: 0, y: 0, width: 402, height: 44))
         cell.contentConfiguration = configuration(preview: 2)
         let size = cell.systemLayoutSizeFitting(
+            CGSize(width: 402, height: UIView.layoutFittingCompressedSize.height),
+            withHorizontalFittingPriority: .required,
+            verticalFittingPriority: .fittingSizeLevel
+        )
+        #expect(size.height > 50 && size.height < 200, "\(size)")
+    }
+
+    @Test func withoutAvatarsTheTextStartsNearerTheEdge() {
+        let withAvatars = ThreadRowMetrics.textLeadingInset(for: .standard)
+        let without = ThreadRowMetrics.textLeadingInset(for: RowDisplay(previewLines: 2, showsAvatars: false))
+        #expect(without < withAvatars)
+        let row = ThreadRowContentView(configuration: configuration(preview: 2, avatars: false))
+        let size = row.systemLayoutSizeFitting(
             CGSize(width: 402, height: UIView.layoutFittingCompressedSize.height),
             withHorizontalFittingPriority: .required,
             verticalFittingPriority: .fittingSizeLevel
