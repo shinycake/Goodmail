@@ -12,7 +12,7 @@ struct ComposeViewModelTests {
         ComposeViewModel(draft: draft, accountEmail: "me@example.com", send: { draft, _ in sent(draft) })
     }
 
-    @Test func suggestsForTheRecipientBeingTypedOnly() {
+    @Test func suggestsForTheRecipientBeingTypedOnly() async {
         let dana = Contact(name: "Dana Levi", address: "dana@example.com")
         let daniel = Contact(name: "Daniel, Jr.", address: "dan@example.com")
         var asked: [String] = []
@@ -22,13 +22,24 @@ struct ComposeViewModelTests {
                 asked.append($0)
                 return [dana, daniel]
             }, send: { _, _ in })
-        #expect(model.suggestions(for: "Dana Levi <dana@example.com>, da").map(\.address) == ["dan@example.com"])
-        #expect(model.suggestions(for: "\"Levi, Dana\" <x@example.com>, ").isEmpty, "nothing typed yet")
+        #expect(await model.suggestions(for: "Dana Levi <dana@example.com>, da").map(\.address) == ["dan@example.com"])
+        #expect(await model.suggestions(for: "\"Levi, Dana\" <x@example.com>, ").isEmpty, "nothing typed yet")
         #expect(asked == ["da"])
         #expect(
             ComposeViewModel.completing("dana@example.com, da", with: daniel)
                 == "dana@example.com, \"Daniel, Jr.\" <dan@example.com>, ")
         #expect(ComposeViewModel.completing("da", with: dana) == "Dana Levi <dana@example.com>, ")
+    }
+
+    @Test func neverSuggestsTheAccountsTheMessageCanGoFrom() async {
+        let me = Contact(name: "Me", address: "Me@Example.com")
+        let other = Contact(name: "Work", address: "work@example.com")
+        let dana = Contact(name: "Dana Levi", address: "dana@example.com")
+        let model = ComposeViewModel(
+            draft: Draft(accountID: account), accountEmail: "me@example.com",
+            senders: [Account(id: account, email: "me@example.com", color: .blue, service: .gmail)],
+            suggest: { _ in [me, other, dana] }, send: { _, _ in })
+        #expect(await model.suggestions(for: "m").map(\.address) == ["work@example.com", "dana@example.com"])
     }
 
     @Test func filesGoWithTheMessageWithinGmailsLimit() {

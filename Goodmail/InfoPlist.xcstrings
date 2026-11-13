@@ -54,6 +54,24 @@
           }
         }
       }
+    },
+    "NSContactsUsageDescription" : {
+      "comment" : "Why Goodmail asks to read the device's Contacts, shown in the system prompt the first time a recipient is typed.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Goodmail suggests people from your Contacts as you type a recipient. Contacts stay on this device."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Goodmail מציע אנשים מאנשי הקשר שלך בזמן שמקלידים נמען. אנשי הקשר נשארים במכשיר."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -340,11 +340,14 @@ final class SceneCoordinator: NSObject {
                 let presenter = topViewController()
             else { return }
             let actions = actions
+            let suggester = RecipientSuggester(
+                writtenIn: { [database = model.database] in try database.contacts(matching: $0) },
+                addressBook: SystemAddressBook())
             let composer = ComposeViewController(
                 viewModel: ComposeViewModel(
                     draft: draft, accountEmail: account.email, senders: model.accounts,
                     signature: { [database = model.database] in try? database.signature(for: $0) },
-                    suggest: { [database = model.database] in (try? database.contacts(matching: $0)) ?? [] },
+                    suggest: { await suggester.suggestions(for: $0) },
                     saveDraft: { actions.saveDraft($0) }, deleteDraft: { actions.deleteDraft($0) },
                     send: { actions.send($0, at: $1) }))
             let navigation = UINavigationController(rootViewController: composer)

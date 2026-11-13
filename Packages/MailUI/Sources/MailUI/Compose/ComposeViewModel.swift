@@ -20,7 +20,7 @@ public final class ComposeViewModel {
     @ObservationIgnored private let saveAction: ((Draft) -> Void)?
     @ObservationIgnored private let deleteAction: (Draft) -> Void
     @ObservationIgnored private let signature: (AccountID) -> String?
-    @ObservationIgnored private let suggest: (String) -> [Contact]
+    @ObservationIgnored private let suggest: (String) async -> [Contact]
     /// A draft that comes back with text, after Undo or a failed send, holds work closing would lose.
     @ObservationIgnored let isRestored: Bool
 
@@ -30,7 +30,7 @@ public final class ComposeViewModel {
     public init(
         draft: Draft, accountEmail: String, senders: [Account] = [],
         signature: @escaping (AccountID) -> String? = { _ in nil },
-        suggest: @escaping (String) -> [Contact] = { _ in [] }, saveDraft: ((Draft) -> Void)? = nil,
+        suggest: @escaping (String) async -> [Contact] = { _ in [] }, saveDraft: ((Draft) -> Void)? = nil,
         deleteDraft: @escaping (Draft) -> Void = { _ in }, send: @escaping (Draft, SendTime) -> Void
     ) {
         let isNew = (draft.body.plain ?? "").isEmpty
@@ -136,12 +136,16 @@ public final class ComposeViewModel {
         return draft
     }
 
-    /// People to offer for the recipient being typed at the end of `field`, leaving out those already in it.
-    public func suggestions(for field: String) -> [Contact] {
+    /// People to offer for the recipient being typed at the end of `field`, leaving out those already in it and the
+    /// accounts the message can go from.
+    public func suggestions(for field: String) async -> [Contact] {
         let typed = field[Self.lastEntryStart(in: field)...].trimmingCharacters(in: .whitespaces)
         guard !typed.isEmpty else { return [] }
-        let entered = Set(Contact.list(parsing: field).map { $0.address.lowercased() })
-        return suggest(typed).filter { !entered.contains($0.address.lowercased()) }
+        let excluded = Set(
+            (Contact.list(parsing: field).map(\.address) + senders.map(\.email) + [accountEmail]).map {
+                $0.lowercased()
+            })
+        return await suggest(typed).filter { !excluded.contains($0.address.lowercased()) }
     }
 
     /// `field` with the recipient being typed replaced by `contact`, ready for the next one.

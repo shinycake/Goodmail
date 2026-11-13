@@ -21,6 +21,8 @@ public final class ComposeViewController: UIViewController {
     private var fields: UIStackView!
     /// People matching the recipient being typed, shown under its field.
     private let suggestionList = UIStackView()
+    /// Looking up the people for the last keystroke; a newer keystroke replaces it.
+    private var suggestionLookup: Task<Void, Never>?
     private let attachmentsView = ComposeAttachmentsView()
     private let sendItem = UIBarButtonItem()
     private let fromButton = UIButton(configuration: .plain())
@@ -177,16 +179,30 @@ public final class ComposeViewController: UIViewController {
             }, for: .editingChanged)
         if isAddress {
             field.addAction(
-                UIAction { [weak self] _ in self?.suggestionList.isHidden = true }, for: .editingDidEnd)
+                UIAction { [weak self] _ in
+                    self?.suggestionLookup?.cancel()
+                    self?.suggestionList.isHidden = true
+                }, for: .editingDidEnd)
         }
     }
 
-    /// Lists the people matching what is being typed in `field` right under it. A tap completes the recipient.
+    /// Looks up the people matching what is being typed in `field` and lists them right under it.
     private func showSuggestions(for field: UITextField) {
+        suggestionLookup?.cancel()
+        let typed = field.text ?? ""
+        suggestionLookup = Task { [weak self, weak field] in
+            guard let self, let field else { return }
+            let contacts = await viewModel.suggestions(for: typed)
+            guard !Task.isCancelled else { return }
+            list(contacts, under: field)
+        }
+    }
+
+    /// Shows `contacts` under `field`. A tap completes the recipient.
+    private func list(_ contacts: [Contact], under field: UITextField) {
         for view in suggestionList.arrangedSubviews { view.removeFromSuperview() }
         suggestionList.removeFromSuperview()
         let row = [toField: toRow, ccField: ccRow, bccField: bccRow][field] ?? nil
-        let contacts = viewModel.suggestions(for: field.text ?? "")
         guard !contacts.isEmpty, let row, let index = fields.arrangedSubviews.firstIndex(of: row) else {
             suggestionList.isHidden = true
             return
