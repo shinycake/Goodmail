@@ -13,9 +13,6 @@
   },
   "enabledPlugins": {
     "pstack@pstack-claude": true,
-    "swiftui-expert@swiftui-expert-skill": true,
-    "swift-concurrency@swift-concurrency-agent-skill": true,
-    "swift-testing-expert@swift-testing-agent-skill": true,
     "core-data-expert@core-data-agent-skill": true,
     "xcode-build-skills@xcode-build-skills": true
   },
@@ -24,24 +21,6 @@
       "source": {
         "source": "github",
         "repo": "michael-denyer/pstack-claude"
-      }
-    },
-    "swiftui-expert-skill": {
-      "source": {
-        "source": "github",
-        "repo": "AvdLee/SwiftUI-Agent-Skill"
-      }
-    },
-    "swift-concurrency-agent-skill": {
-      "source": {
-        "source": "github",
-        "repo": "AvdLee/Swift-Concurrency-Agent-Skill"
-      }
-    },
-    "swift-testing-agent-skill": {
-      "source": {
-        "source": "github",
-        "repo": "AvdLee/Swift-Testing-Agent-Skill"
       }
     },
     "core-data-agent-skill": {
