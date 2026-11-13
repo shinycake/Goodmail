@@ -15,7 +15,11 @@ final class MonogramView: UIView {
     private let initials = UILabel()
     private let badge = UIView()
     private var size: [NSLayoutConstraint] = []
-    private var badgeOffset: [NSLayoutConstraint] = []
+    /// The badge overhangs the monogram's corner by this much, and sits flush when it stands alone.
+    private static let badgeOverhang: CGFloat = 1
+    private lazy var badgeTop = badge.topAnchor.constraint(equalTo: topAnchor, constant: -Self.badgeOverhang)
+    private lazy var badgeTrailing = badge.trailingAnchor.constraint(
+        equalTo: trailingAnchor, constant: Self.badgeOverhang)
 
     /// How wide the view is, with or without its monogram.
     static func width(showingMonogram: Bool) -> CGFloat {
@@ -40,12 +44,9 @@ final class MonogramView: UIView {
             widthAnchor.constraint(equalToConstant: Self.diameter),
             heightAnchor.constraint(equalToConstant: Self.diameter),
         ]
-        badgeOffset = [
-            badge.topAnchor.constraint(equalTo: topAnchor, constant: -1),
-            badge.trailingAnchor.constraint(equalTo: trailingAnchor, constant: 1),
-        ]
         NSLayoutConstraint.activate(
-            size + badgeOffset + [
+            size + [
+                badgeTop, badgeTrailing,
                 initials.centerXAnchor.constraint(equalTo: centerXAnchor),
                 initials.centerYAnchor.constraint(equalTo: centerYAnchor),
                 badge.widthAnchor.constraint(equalToConstant: Self.badgeDiameter),
@@ -72,8 +73,9 @@ final class MonogramView: UIView {
         let side = Self.width(showingMonogram: shown)
         for constraint in size { constraint.constant = side }
         // A badge on its own fills the view rather than overhanging its corner.
-        badgeOffset[0].constant = shown ? -1 : 0
-        badgeOffset[1].constant = shown ? 1 : 0
+        let overhang = shown ? Self.badgeOverhang : 0
+        badgeTop.constant = -overhang
+        badgeTrailing.constant = overhang
         layer.cornerRadius = side / 2
         backgroundColor = shown ? .tertiarySystemFill : .clear
         initials.isHidden = !shown
