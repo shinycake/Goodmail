@@ -46,6 +46,8 @@ public final class MailboxViewModel {
     /// The account's color in one account's mailbox; the blend of every account's in one that spans them.
     public let theme: Theme
     @ObservationIgnored private let accounts: [AccountID: Account]
+    /// Each account's service, which decides the actions its threads have.
+    var services: [AccountID: MailService] { accounts.mapValues(\.service) }
     public let actions: MailActions?
     public let mailbox: Mailbox
     public let title: String
@@ -207,15 +209,22 @@ public final class MailboxViewModel {
         return thread.labelIDs.contains(SystemLabel.inbox) ? [.archive, .trash] : [.trash]
     }
 
-    /// The toolbar's actions for the threads selected in edit mode: their reading state, then what takes all of
-    /// them out of the way here.
-    static func bulkActions(for threads: [ThreadSummary]) -> [ThreadAction] {
+    /// The toolbar's actions for the threads selected in edit mode: their reading state, what takes all of them out
+    /// of the way here, then Mute or Unmute when all of them allow it.
+    static func bulkActions(for threads: [ThreadSummary], services: [AccountID: MailService]) -> [ThreadAction] {
         guard let first = threads.first else { return [] }
         let common = threads.dropFirst().reduce(Self.trailingActions(for: first)) { common, thread in
             let theirs = Self.trailingActions(for: thread)
             return common.filter(theirs.contains)
         }
         return [.markRead(threads.contains(where: \.isUnread))] + common
+            + [muting(threads, services: services)].compactMap(\.self)
+    }
+
+    /// Mute or Unmute, when every thread is in an account whose service has it and all of them allow it.
+    private static func muting(_ threads: [ThreadSummary], services: [AccountID: MailService]) -> ThreadAction? {
+        let known = threads.compactMap { thread in services[thread.id.accountID].map { (thread.labelIDs, $0) } }
+        return known.count == threads.count ? ThreadAction.muting(known) : nil
     }
 
     /// Whether the threads can be snoozed together: only threads in the Inbox can, since snoozing takes them out

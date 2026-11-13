@@ -211,6 +211,9 @@ public final class MailActions {
             return String(
                 localized: "\(count) moved to Trash", bundle: .module, comment: "Toast after trashing threads")
         }
+        if action == .mute {
+            return String(localized: "\(count) muted", bundle: .module, comment: "Toast after muting threads")
+        }
         if action == .reportSpam {
             return String(
                 localized: "\(count) reported as spam", bundle: .module, comment: "Toast after reporting spam")

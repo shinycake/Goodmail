@@ -193,4 +193,51 @@ struct OutboxTests {
         #expect(undo.isEmpty)
         #expect(try database.pendingIntents(for: account.id).isEmpty)
     }
+
+    @Test func muteLeavesTheInboxKeepsTheMutedLabelAndReplaysOnce() async throws {
+        try seed(thread("t1"), thread("t2"))
+        let message = Message(
+            id: Message.ID(accountID: account.id, messageID: "m1"), threadID: "t1",
+            from: Contact(name: nil, address: "a@example.com"), subject: "", date: Self.now,
+            labelIDs: ["INBOX"], body: MessageBody(plain: "hi"))
+        try database.save([message], inThread: id("t1"))
+
+        try await commands().perform(.mute, on: [id("t1")])
+
+        #expect(try await inbox() == ["t2"])
+        #expect(try database.thread(id("t1"))?.labelIDs == ["MUTED"])
+        var messages = database.messages(inThread: id("t1")).makeAsyncIterator()
+        #expect(try await messages.next()?.first?.labelIDs == ["MUTED"])
+
+        try await outbox().flush()
+        #expect(server.performed.map(\.action) == [.mute])
+    }
+
+    @Test func aReplyFetchedBeforeTheMuteReplaysStaysOutOfTheInbox() async throws {
+        try seed(thread("t1"))
+        try await commands().perform(.mute, on: [id("t1")])
+
+        // The server hasn't heard of the mute yet: the fetch brings the thread back with a new, inboxed reply.
+        var replied = thread("t1")
+        replied.messageCount = 2
+        server.set("t1", replied)
+        let engine = SyncEngine(accountID: account.id, provider: server, store: database, now: clock.next)
+        try await engine.sync()
+        try await engine.sync()
+        #expect(try await inbox() == [])
+        #expect(try database.thread(id("t1"))?.labelIDs == ["MUTED"])
+        #expect(try database.thread(id("t1"))?.messageCount == 2, "the reply itself still arrives")
+    }
+
+    @Test func undoingAMuteBringsTheThreadBackToTheInbox() async throws {
+        try seed(thread("t1"))
+        let commands = commands()
+        let undo = try await commands.perform(.mute, on: [id("t1")])
+        try await commands.undo(undo)
+
+        #expect(try await inbox() == ["t1"])
+        #expect(try database.thread(id("t1"))?.labelIDs == ["INBOX"])
+        try await outbox().flush()
+        #expect(server.performed.map(\.action) == [.mute, .unmute])
+    }
 }

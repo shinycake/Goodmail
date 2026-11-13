@@ -349,7 +349,7 @@ extension MailboxViewController {
 
         // With nothing selected, show what the list as a whole allows, disabled, so the toolbar doesn't jump.
         let threads = (ids.isEmpty ? snapshot.itemIdentifiers : ids).compactMap { threadsByID[$0] }
-        let actions = MailboxViewModel.bulkActions(for: threads)
+        let actions = MailboxViewModel.bulkActions(for: threads, services: viewModel.services)
         let items = actions.map { action in
             let item = UIBarButtonItem(
                 title: action.title, image: UIImage(systemName: action.symbol),

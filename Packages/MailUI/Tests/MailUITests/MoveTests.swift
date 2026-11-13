@@ -135,7 +135,7 @@ struct MoveViewModelTests {
         var closes = 0
         let model = ThreadViewModel(
             thread: thread, mailbox: Mailbox(labelID: "Label_1", accountID: work), accountEmail: "me@example.com",
-            accountColor: .blue,
+            accountColor: .blue, accountService: .gmail,
             messages: {
                 AsyncThrowingStream {
                     $0.yield([message(["Label_1"])])
@@ -163,6 +163,7 @@ struct MoveViewModelTests {
         func reader() -> ThreadViewModel {
             ThreadViewModel(
                 thread: thread, mailbox: .inbox, accountEmail: "me@example.com", accountColor: .blue,
+                accountService: .gmail,
                 messages: { AsyncThrowingStream { $0.finish() } }, load: {}, attachmentData: { _, _ in Data() },
                 close: { closes += 1 })
         }

@@ -26,6 +26,14 @@ public enum MailService: String, CaseIterable, Codable, Hashable, Sendable {
         case .icloud, .outlook: false
         }
     }
+
+    /// Whether threads can be muted, keeping their replies out of the Inbox. Gmail has Mute; IMAP has no such thing.
+    public var hasMute: Bool {
+        switch self {
+        case .gmail: true
+        case .icloud, .outlook: false
+        }
+    }
 }
 
 public struct Account: Identifiable, Hashable, Sendable {

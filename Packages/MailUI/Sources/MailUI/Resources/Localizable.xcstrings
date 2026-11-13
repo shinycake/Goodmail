@@ -336,6 +336,47 @@
         }
       }
     },
+    "%lld muted" : {
+      "comment" : "Toast after muting threads",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Muted"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld threads muted"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "הושתק"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld שרשורים הושתקו"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld reported as spam" : {
       "comment" : "Toast after reporting spam",
       "localizations" : {
@@ -1195,6 +1236,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "העברה אל…"
+          }
+        }
+      }
+    },
+    "Mute" : {
+      "comment" : "Action: keep a thread's replies out of the Inbox",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השתקה"
+          }
+        }
+      }
+    },
+    "Muted" : {
+      "comment" : "VoiceOver: thread state",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מושתקת"
           }
         }
       }
@@ -2094,6 +2157,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "כבוי"
+          }
+        }
+      }
+    },
+    "Unmute" : {
+      "comment" : "Action: let a thread's replies reach the Inbox again",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ביטול השתקה"
           }
         }
       }

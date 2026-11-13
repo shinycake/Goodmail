@@ -153,20 +153,33 @@ struct MailboxesTests {
         #expect(MailboxViewModel.trailingActions(for: thread(labels: ["TRASH", "STARRED"])) == [.untrash])
     }
 
+    private func bulkActions(_ threads: [ThreadSummary], service: MailService = .gmail) -> [ThreadAction] {
+        MailboxViewModel.bulkActions(for: threads, services: [account.id: service])
+    }
+
     @Test func bulkActionsAreWhatEverySelectedThreadAllows() {
         var read = thread(labels: ["INBOX"])
         read.isUnread = false
-        #expect(MailboxViewModel.bulkActions(for: []) == [])
-        #expect(MailboxViewModel.bulkActions(for: [read]) == [.markRead(false), .archive, .trash])
+        #expect(bulkActions([]) == [])
+        #expect(bulkActions([read]) == [.markRead(false), .archive, .trash, .mute])
         #expect(
-            MailboxViewModel.bulkActions(for: [read, thread(labels: ["INBOX"])]) == [
-                .markRead(true), .archive, .trash,
+            bulkActions([read, thread(labels: ["INBOX"])]) == [
+                .markRead(true), .archive, .trash, .mute,
             ],
             "any unread one makes it Mark as Read")
         #expect(
-            MailboxViewModel.bulkActions(for: [read, thread(labels: ["Label_1"])]) == [.markRead(true), .trash],
+            bulkActions([read, thread(labels: ["Label_1"])]) == [.markRead(true), .trash, .mute],
             "archived mail can't be archived again")
-        #expect(MailboxViewModel.bulkActions(for: [read, thread(labels: ["TRASH"])]) == [.markRead(true)])
+        #expect(bulkActions([read, thread(labels: ["TRASH"])]) == [.markRead(true)])
+        #expect(
+            bulkActions([thread(labels: ["MUTED"]), thread(labels: ["MUTED", "Label_1"])])
+                == [.markRead(true), .trash, .unmute],
+            "muted threads offer Unmute")
+        #expect(
+            bulkActions([thread(labels: ["MUTED"]), thread(labels: ["INBOX"])])
+                == [.markRead(true), .trash],
+            "a mix of muted and unmuted offers neither")
+        #expect(bulkActions([read], service: .icloud) == [.markRead(false), .archive, .trash], "IMAP has no Mute")
     }
 
     @Test func onlyThreadsAllInTheInboxCanBeSnoozedTogether() {

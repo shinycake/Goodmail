@@ -229,6 +229,7 @@ final class SceneCoordinator: NSObject {
             mailbox: mailbox,
             accountEmail: account.email,
             accountColor: account.color,
+            accountService: account.service,
             messages: { model.database.messages(inThread: id) },
             load: { try await model.open(id) },
             attachmentData: { try await model.attachmentData($0, in: $1) },

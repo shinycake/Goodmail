@@ -10,6 +10,9 @@ public enum ThreadAction: Codable, Equatable, Sendable {
     public static let archive = modifyLabels(add: [], remove: [SystemLabel.inbox])
     public static let moveToInbox = modifyLabels(add: [SystemLabel.inbox], remove: [SystemLabel.spam])
     public static let reportSpam = modifyLabels(add: [SystemLabel.spam], remove: [SystemLabel.inbox])
+    /// Gmail's Mute: the thread leaves the Inbox, and replies skip it while `MUTED` stays on.
+    public static let mute = modifyLabels(add: [SystemLabel.muted], remove: [SystemLabel.inbox])
+    public static let unmute = modifyLabels(add: [SystemLabel.inbox], remove: [SystemLabel.muted])
 
     public static func markRead(_ read: Bool) -> ThreadAction {
         read
@@ -30,6 +33,19 @@ public enum ThreadAction: Codable, Equatable, Sendable {
         case .trash: labels.subtracting([SystemLabel.inbox]).union([SystemLabel.trash])
         case .untrash: labels.subtracting([SystemLabel.trash])
         }
+    }
+
+    /// The mute action all of these threads, given by their labels and their account's service, allow: Mute when
+    /// none is muted, Unmute when all are. `nil` for a mix, for none, for anything in Spam or Trash, where muting
+    /// means nothing, and for a service without Mute.
+    public static func muting(_ threads: [(labels: Set<String>, service: MailService)]) -> ThreadAction? {
+        guard !threads.isEmpty,
+            threads.allSatisfy({
+                $0.service.hasMute && $0.labels.isDisjoint(with: [SystemLabel.spam, SystemLabel.trash])
+            })
+        else { return nil }
+        if threads.allSatisfy({ !$0.labels.contains(SystemLabel.muted) }) { return .mute }
+        return threads.allSatisfy { $0.labels.contains(SystemLabel.muted) } ? .unmute : nil
     }
 
     /// The actions that put back a thread that carried `labels` before this one. Empty when this one changed nothing.
@@ -56,6 +72,9 @@ public enum SystemLabel {
     public static let spam = "SPAM"
     public static let sent = "SENT"
     public static let draft = "DRAFT"
+    /// Set by Gmail's Mute. Unlike the others it is not in `labels.list`, but `threads.modify` and fetched threads
+    /// carry it.
+    public static let muted = "MUTED"
 }
 
 /// One queued action: replayed to the provider in the order it was made, then removed.

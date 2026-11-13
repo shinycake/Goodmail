@@ -117,4 +117,18 @@ struct GmailClientTests {
         let signature = try await GmailClient(session: try await signedIn(http), http: http).signature()
         #expect(signature == "Dana Levi\nGoodmail & Co.\n\nexample.com")
     }
+
+    @Test func muteIsOneThreadsModifyThatAddsTheMutedLabelAndLeavesTheInbox() async throws {
+        let http = FixtureHTTPClient([
+            "/token": [.init(fixture: "token-exchange")],
+            "/gmail/v1/users/me/threads/18f0a1/modify": [.init(fixture: "thread-18f0a1")],
+        ])
+        try await GmailClient(session: try await signedIn(http), http: http).perform(.mute, onThread: "18f0a1")
+
+        let modify = try #require(http.requests.last)
+        #expect(modify.httpMethod == "POST")
+        let body = try #require(
+            try JSONSerialization.jsonObject(with: modify.httpBody ?? Data()) as? [String: [String]])
+        #expect(body == ["addLabelIds": ["MUTED"], "removeLabelIds": ["INBOX"]])
+    }
 }

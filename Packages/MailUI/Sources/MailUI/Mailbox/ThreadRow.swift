@@ -22,6 +22,7 @@ final class ThreadRowContentView: UIView, UIContentView {
     private let avatar = MonogramView()
     private let sender = UILabel()
     private let date = UILabel()
+    private let mutedMark = UIImageView(image: UIImage(systemName: "bell.slash.fill"))
     private let subject = UILabel()
     private let preview = UILabel()
 
@@ -71,7 +72,11 @@ final class ThreadRowContentView: UIView, UIContentView {
         preview.font = .preferredFont(forTextStyle: .subheadline)
         preview.textColor = .secondaryLabel
 
-        let header = UIStackView(arrangedSubviews: [sender, date])
+        mutedMark.tintColor = .secondaryLabel
+        mutedMark.preferredSymbolConfiguration = UIImage.SymbolConfiguration(textStyle: .caption1)
+        mutedMark.setContentHuggingPriority(.required, for: .horizontal)
+        mutedMark.setContentCompressionResistancePriority(.required, for: .horizontal)
+        let header = UIStackView(arrangedSubviews: [sender, mutedMark, date])
         header.spacing = 8
         header.stacksVerticallyAtAccessibilitySizes()
         let text = UIStackView(arrangedSubviews: [header, subject, preview])
@@ -106,6 +111,8 @@ final class ThreadRowContentView: UIView, UIContentView {
         sender.font = .preferredFont(forTextStyle: .body).withWeight(thread.isUnread ? .semibold : .regular)
         sender.setContentText(name, alignedToContent: false)
         date.text = current.dateText
+        let isMuted = thread.labelIDs.contains(SystemLabel.muted)
+        mutedMark.isHidden = !isMuted
         let subjectText = thread.subject.isEmpty ? ThreadRowMetrics.noSubject : thread.subject
         subject.setSubjectText(subjectText)
         preview.setContentText(thread.snippet)
@@ -117,6 +124,7 @@ final class ThreadRowContentView: UIView, UIContentView {
 
         accessibilityLabel = [
             thread.isUnread ? String(localized: "Unread", bundle: .module, comment: "VoiceOver: thread state") : nil,
+            isMuted ? String(localized: "Muted", bundle: .module, comment: "VoiceOver: thread state") : nil,
             current.account?.spokenAccount, name, subjectText, current.dateText,
             preview.isHidden ? nil : thread.snippet,
         ].compactMap(\.self).joined(separator: ", ")

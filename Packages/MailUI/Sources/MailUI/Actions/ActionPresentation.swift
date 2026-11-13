@@ -16,8 +16,12 @@ extension UIBarButtonItem {
             image: UIImage(systemName: "folder"), primaryAction: UIAction { _ in handler() })
     }
 
-    /// Move and Change Labels behind one button, for a toolbar with room for only one of them.
-    static func organize(move: @escaping () -> Void, changeLabels: @escaping () -> Void) -> UIBarButtonItem {
+    /// Move, Change Labels and, when it applies, Mute or Unmute behind one button. The menu asks for `mute` each
+    /// time it opens, so it follows the thread as it is then.
+    static func organize(
+        move: @escaping () -> Void, changeLabels: @escaping () -> Void, mute: @escaping () -> ThreadAction?,
+        perform: @escaping (ThreadAction) -> Void
+    ) -> UIBarButtonItem {
         UIBarButtonItem(
             title: String(localized: "Organize", bundle: .module, comment: "Button: move threads or change labels"),
             image: UIImage(systemName: "folder"),
@@ -31,6 +35,16 @@ extension UIBarButtonItem {
                     title: String(localized: "Change Labels", bundle: .module, comment: "Action: add or remove labels"),
                     image: UIImage(systemName: "tag")
                 ) { _ in changeLabels() },
+                UIDeferredMenuElement.uncached { completion in
+                    completion(
+                        mute().map { action in
+                            [
+                                UIAction(title: action.title, image: UIImage(systemName: action.symbol)) { _ in
+                                    perform(action)
+                                }
+                            ]
+                        } ?? [])
+                },
             ]))
     }
 }
@@ -80,7 +94,7 @@ extension UIMenu {
 
 extension ThreadAction {
     private enum Kind {
-        case archive, trash, untrash, spam, inbox, read, unread, star, unstar, labels
+        case archive, trash, untrash, spam, inbox, read, unread, star, unstar, mute, unmute, labels
     }
 
     private var kind: Kind {
@@ -91,6 +105,7 @@ extension ThreadAction {
             [
                 (ThreadAction.archive, Kind.archive), (.reportSpam, .spam), (.moveToInbox, .inbox),
                 (.markRead(true), .read), (.markRead(false), .unread), (.star(true), .star), (.star(false), .unstar),
+                (.mute, .mute), (.unmute, .unmute),
             ]
             .first { $0.0 == self }?.1 ?? .labels
         }
@@ -108,6 +123,11 @@ extension ThreadAction {
         case .unread: String(localized: "Mark as Unread", bundle: .module, comment: "Action")
         case .star: String(localized: "Star", bundle: .module, comment: "Action: star a thread")
         case .unstar: String(localized: "Unstar", bundle: .module, comment: "Action: remove a thread's star")
+        case .mute:
+            String(localized: "Mute", bundle: .module, comment: "Action: keep a thread's replies out of the Inbox")
+        case .unmute:
+            String(
+                localized: "Unmute", bundle: .module, comment: "Action: let a thread's replies reach the Inbox again")
         case .labels: String(localized: "Change Labels", bundle: .module, comment: "Action: add or remove labels")
         }
     }
@@ -122,6 +142,8 @@ extension ThreadAction {
         case .unread: "envelope.badge"
         case .star: "star"
         case .unstar: "star.slash"
+        case .mute: "bell.slash"
+        case .unmute: "bell"
         case .labels: "tag"
         }
     }

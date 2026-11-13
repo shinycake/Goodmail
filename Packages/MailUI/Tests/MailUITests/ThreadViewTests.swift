@@ -59,7 +59,7 @@ struct ThreadViewModelTests {
                 id: .init(accountID: account, threadID: "t"), subject: "Plan", snippet: "",
                 sender: messages[0].from, date: .now, isUnread: false, messageCount: 1, labelIDs: []),
             mailbox: .inbox,
-            accountEmail: "me@example.com", accountColor: .blue,
+            accountEmail: "me@example.com", accountColor: .blue, accountService: .gmail,
             messages: { AsyncThrowingStream { $0.finish() } }, load: {}, attachmentData: { _, _ in Data() })
         model.toggle(messages[0].id)
         #expect(model.expanded == [messages[0].id])
@@ -77,7 +77,7 @@ struct ThreadViewModelTests {
                 id: .init(accountID: account, threadID: "t"), subject: "Plan", snippet: "",
                 sender: messages[0].from, date: .now, isUnread: false, messageCount: 2, labelIDs: []),
             mailbox: .inbox,
-            accountEmail: "me@example.com", accountColor: .blue,
+            accountEmail: "me@example.com", accountColor: .blue, accountService: .gmail,
             messages: {
                 AsyncThrowingStream {
                     $0.yield(messages)
@@ -100,6 +100,55 @@ struct ThreadViewModelTests {
     }
 }
 
+extension ThreadViewModelTests {
+    @Test func muteIsOfferedFromTheThreadsCurrentLabelsAndClosesTheReader() async {
+        var inbox = message("1", unread: false, minutes: 1)
+        inbox.labelIDs = ["INBOX"]
+        var closes = 0
+        let model = ThreadViewModel(
+            thread: ThreadSummary(
+                id: .init(accountID: account, threadID: "t"), subject: "Plan", snippet: "",
+                sender: inbox.from, date: .now, isUnread: false, messageCount: 1, labelIDs: ["INBOX"]),
+            mailbox: .inbox,
+            accountEmail: "me@example.com", accountColor: .blue, accountService: .gmail,
+            messages: {
+                AsyncThrowingStream {
+                    $0.yield([inbox])
+                    $0.finish()
+                }
+            }, load: {}, attachmentData: { _, _ in Data() }, close: { closes += 1 })
+        #expect(model.muteAction == .mute, "before the messages load, the summary's labels decide")
+        await model.observe()
+        #expect(model.muteAction == .mute)
+
+        model.perform(.mute)
+        model.perform(.mute)
+        #expect(closes == 1, "muting takes the thread out of the way, once")
+    }
+
+    @Test func aMutedThreadOffersUnmuteAndStaysOpenAfterIt() async {
+        var muted = message("1", unread: false, minutes: 1)
+        muted.labelIDs = ["MUTED"]
+        var closes = 0
+        let model = ThreadViewModel(
+            thread: ThreadSummary(
+                id: .init(accountID: account, threadID: "t"), subject: "Plan", snippet: "",
+                sender: muted.from, date: .now, isUnread: false, messageCount: 1, labelIDs: ["MUTED"]),
+            mailbox: .allMail,
+            accountEmail: "me@example.com", accountColor: .blue, accountService: .gmail,
+            messages: {
+                AsyncThrowingStream {
+                    $0.yield([muted])
+                    $0.finish()
+                }
+            }, load: {}, attachmentData: { _, _ in Data() }, close: { closes += 1 })
+        await model.observe()
+        #expect(model.muteAction == .unmute)
+        model.perform(.unmute)
+        #expect(closes == 0)
+    }
+}
+
 @MainActor
 struct AttachmentFileTests {
     @Test func attachmentsDownloadOnceAndKeepTheirName() async throws {
@@ -113,7 +162,7 @@ struct AttachmentFileTests {
                 sender: Contact(name: nil, address: "a@example.com"), date: .now, isUnread: false, messageCount: 1,
                 labelIDs: []),
             mailbox: .inbox,
-            accountEmail: "me@example.com", accountColor: .blue,
+            accountEmail: "me@example.com", accountColor: .blue, accountService: .gmail,
             messages: { AsyncThrowingStream { $0.finish() } }, load: {},
             attachmentData: { _, _ in
                 fetches += 1
@@ -142,7 +191,7 @@ struct AttachmentFileTests {
                 sender: Contact(name: nil, address: "a@example.com"), date: today, isUnread: false, messageCount: 1,
                 labelIDs: []),
             mailbox: .inbox,
-            accountEmail: "me@example.com", accountColor: .blue,
+            accountEmail: "me@example.com", accountColor: .blue, accountService: .gmail,
             messages: { AsyncThrowingStream { $0.finish() } }, load: {},
             attachmentData: { _, _ in Data("%PDF".utf8) },
             attachmentsDirectory: directory,

@@ -10,6 +10,8 @@ public final class ThreadViewModel {
     public let mailbox: Mailbox
     public let accountEmail: String
     public let accountColor: AccountColor
+    /// The account's service, which decides the actions it has, such as Mute.
+    public let accountService: MailService
     public private(set) var messages: [Message] = []
     /// Messages shown as cards; the rest are one-line rows in the timeline.
     public private(set) var expanded: Set<Message.ID> = []
@@ -40,6 +42,7 @@ public final class ThreadViewModel {
         mailbox: Mailbox,
         accountEmail: String,
         accountColor: AccountColor,
+        accountService: MailService,
         messages: @escaping () -> AsyncThrowingStream<[Message], any Error>,
         load: @escaping () async throws -> Void,
         attachmentData: @escaping (Attachment, Message.ID) async throws -> Data,
@@ -58,6 +61,7 @@ public final class ThreadViewModel {
         self.mailbox = mailbox
         self.accountEmail = accountEmail
         self.accountColor = accountColor
+        self.accountService = accountService
         stream = messages
         loadAction = load
         self.attachmentData = attachmentData
@@ -144,11 +148,17 @@ public final class ThreadViewModel {
         messages.contains { $0.labelIDs.contains(SystemLabel.starred) }
     }
 
-    /// Applies an action to the whole thread. Archive, Trash and Spam take it out of the mailbox, and Unread puts it
-    /// back for later, so the reader leaves after them.
+    /// Mute or Unmute for the thread as it stands now, when it applies.
+    public var muteAction: ThreadAction? {
+        let labels = messages.reduce(into: Set<String>()) { $0.formUnion($1.labelIDs) }
+        return ThreadAction.muting([(messages.isEmpty ? thread.labelIDs : labels, accountService)])
+    }
+
+    /// Applies an action to the whole thread. Archive, Trash, Spam and Mute take it out of the mailbox, and Unread
+    /// puts it back for later, so the reader leaves after them.
     public func perform(_ action: ThreadAction) {
         actions?.perform(action, on: [thread.id])
-        if [.archive, .trash, .reportSpam, .markRead(false)].contains(action) { leave() }
+        if [.archive, .trash, .reportSpam, .mute, .markRead(false)].contains(action) { leave() }
     }
 
     /// Takes the thread out of the Inbox until `date`, and leaves it.
