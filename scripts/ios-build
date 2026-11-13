@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Compiles packages and their tests for iOS (arm64-apple-ios) on Linux, with the Darwin SDK that scripts/cloud/setup
+# installs (docs/setup/cloud-builds.md). It only compiles: Linux can't run iOS code, so the Mac's scripts/check still
+# runs the tests.
+#
+#   scripts/ios-build                  every package
+#   scripts/ios-build MailCore MailUI  only these
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+bundle="$HOME/.swiftpm/swift-sdks/darwin.artifactbundle"
+if [[ ! -f "$bundle/toolset-swb.json" ]]; then
+    echo "No Darwin SDK at $bundle. Run scripts/cloud/setup first." >&2
+    exit 1
+fi
+# What `xtool dev build` sets up for swift-build: the SDK's platforms and linker, and no SDKROOT from the host.
+export SDKROOT= XCODE_EXTRA_PLATFORM_FOLDERS="$bundle/Developer/Platforms" PATH="$bundle/toolset/bin:$PATH"
+# Git sets these for hooks; SwiftPM's own git calls would then act on this repository instead of package checkouts.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX
+
+(($# > 0)) || set -- $(cd Packages && ls -d -- */ | tr -d /)
+for package in "$@"; do
+    tests=()
+    if [[ -d "Packages/$package/Tests" ]]; then tests=(--build-tests); fi
+    printf '\n▸ %s for iOS\n' "$package"
+    swift build --package-path "Packages/$package" --build-system swiftbuild --triple arm64-apple-ios \
+        --toolset "$bundle/toolset-swb.json" "${tests[@]}"
+done

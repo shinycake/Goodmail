@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# Gives a Linux cloud worker what it needs to compile Goodmail for iOS (docs/setup/cloud-builds.md): the Swift
+# toolchain that matches Xcode, xtool, and xtool's Darwin SDK built from the Xcode subset kept in the private
+# goodmail-sdk repository. Every step is skipped when its result is already installed, so rerunning is cheap.
+#
+# GOODMAIL_SDK_REPO overrides where the Xcode subset is cloned from.
+set -euo pipefail
+cd "$(dirname "$0")/../.."
+
+SWIFT_VERSION=6.4.2
+XCODE_VERSION=27.2
+XTOOL_VERSION=1.24.0
+SDK_REPO="${GOODMAIL_SDK_REPO:-https://github.com/shinycake/goodmail-sdk.git}"
+SWIFT_DIR=/opt/swift
+XTOOL_DIR=/opt/xtool
+BUNDLE="$HOME/.swiftpm/swift-sdks/darwin.artifactbundle"
+
+case "$(uname -m)" in
+x86_64) docker_arch=amd64 ;;
+aarch64) docker_arch=arm64 ;;
+*) echo "Unsupported architecture $(uname -m)" >&2 && exit 1 ;;
+esac
+
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+
+step() { printf '\n▸ %s\n' "$1"; }
+
+step "System packages"
+packages=(binutils libc6-dev libcurl4-openssl-dev libedit2 libgcc-13-dev libncurses-dev libpython3-dev libsqlite3-0
+    libstdc++-13-dev libxml2-dev libz3-dev pkg-config tzdata zlib1g-dev zstd)
+missing=()
+for package in "${packages[@]}"; do
+    dpkg -s "$package" >/dev/null 2>&1 || missing+=("$package")
+done
+if ((${#missing[@]} > 0)); then
+    apt-get update -q
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -q "${missing[@]}"
+fi
+
+step "Swift $SWIFT_VERSION"
+if [[ "$("$SWIFT_DIR/usr/bin/swift" --version 2>/dev/null)" != *"swift-$SWIFT_VERSION-RELEASE"* ]]; then
+    python3 -I scripts/cloud/fetch-docker-layer.py library/swift "$SWIFT_VERSION-noble" "$docker_arch" "$work/swift.tar.gz"
+    rm -rf "$SWIFT_DIR"
+    mkdir -p "$SWIFT_DIR"
+    tar -xzf "$work/swift.tar.gz" -C "$SWIFT_DIR" usr
+fi
+install -m 755 scripts/cloud/xcstringstool "$SWIFT_DIR/usr/bin/xcstringstool"
+ln -sf "$SWIFT_DIR/usr/bin/swift" "$SWIFT_DIR/usr/bin/swiftc" /usr/local/bin/
+
+step "xtool $XTOOL_VERSION"
+if [[ "$(xtool --version 2>/dev/null)" != "xtool $XTOOL_VERSION" ]]; then
+    curl -fsSL -o "$work/xtool.AppImage" \
+        "https://github.com/xtool-org/xtool/releases/download/$XTOOL_VERSION/xtool-$(uname -m).AppImage"
+    chmod +x "$work/xtool.AppImage"
+    # Containers have no FUSE to mount the AppImage, so run it unpacked.
+    (cd "$work" && ./xtool.AppImage --appimage-extract >/dev/null)
+    rm -rf "$XTOOL_DIR"
+    mv "$work/squashfs-root" "$XTOOL_DIR"
+    ln -sf "$XTOOL_DIR/AppRun" /usr/local/bin/xtool
+fi
+
+step "Darwin SDK from Xcode $XCODE_VERSION"
+stamp="xcode=$XCODE_VERSION xtool=$XTOOL_VERSION setup=$(sha256sum "$0" | cut -c1-16)"
+if [[ "$(cat "$BUNDLE/goodmail-stamp" 2>/dev/null)" != "$stamp" ]]; then
+    git clone --quiet --depth 1 "$SDK_REPO" "$work/goodmail-sdk"
+    parts=("$work/goodmail-sdk/xcode-$XCODE_VERSION"/Xcode.tar.zst.*)
+    if [[ ! -f "${parts[0]}" ]]; then
+        echo "$SDK_REPO has no xcode-$XCODE_VERSION. Export it from the Mac with scripts/cloud/export-xcode-sdk." >&2
+        exit 1
+    fi
+    mkdir "$work/Xcode.app"
+    cat "${parts[@]}" | zstd -dcq | tar -x -C "$work/Xcode.app"
+    xtool sdk build "$work/Xcode.app" "$work/sdk" --arch "$(uname -m)"
+    xtool sdk install "$work/sdk/darwin.xtoolsdk"
+    # swift-build passes --strip-bitcode when it embeds Swift libraries in a test bundle, and fails without Apple's
+    # bitcode_strip. Bitcode no longer exists, so turn the step off.
+    for platform in iPhoneOS iPhoneSimulator MacOSX; do
+        python3 -I -c '
+import plistlib, sys
+path = sys.argv[1]
+with open(path, "rb") as file:
+    plist = plistlib.load(file)
+plist.setdefault("DefaultProperties", {})["SWIFT_STDLIB_TOOL_STRIP_BITCODE"] = "NO"
+with open(path, "wb") as file:
+    plistlib.dump(plist, file)
+' "$BUNDLE/Developer/Platforms/$platform.platform/Info.plist"
+    done
+    echo "$stamp" >"$BUNDLE/goodmail-stamp"
+fi
+
+printf '\n✔ Cloud iOS toolchain ready. Compile with scripts/ios-build.\n'

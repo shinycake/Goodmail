@@ -1,0 +1,26 @@
+#!/bin/sh
+# Linux stand-in for Apple's xcstringstool, which swift-build calls for String Catalogs (.xcstrings).
+# Cloud builds only compile, so catalogs stay uncompiled: `compile --dry-run` reports no outputs and the build skips
+# the step. `generate-symbols` writes an empty file, since Goodmail doesn't use generated string symbols.
+command="$1"
+shift
+case "$command" in
+compile) ;;
+generate-symbols)
+    output=
+    input=
+    while [ $# -gt 0 ]; do
+        case "$1" in
+        --output-directory) output="$2" && shift 2 ;;
+        --language) shift 2 ;;
+        -*) shift ;;
+        *) input="$1" && shift ;;
+        esac
+    done
+    mkdir -p "$output" && : >"$output/GeneratedStringSymbols_$(basename "$input" .xcstrings).swift"
+    ;;
+*)
+    echo "xcstringstool (Linux stand-in): unsupported command '$command'" >&2
+    exit 1
+    ;;
+esac
