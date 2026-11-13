@@ -41,6 +41,9 @@ public protocol OutgoingStore: Sendable {
     func enqueue(_ message: OutgoingMessage) throws
     /// Removes a message that hasn't gone yet. Returns it, or `nil` when it already went.
     func cancel(_ id: Draft.ID) throws -> OutgoingMessage?
+    /// Gives a message that hasn't gone yet a new purpose and time, in one write. Returns it changed, or `nil` when
+    /// it already went.
+    func requeue(_ id: Draft.ID, as purpose: OutgoingMessage.Purpose, at date: Date) throws -> OutgoingMessage?
     /// Messages due by `date` that haven't failed, oldest first.
     func dueMessages(for account: AccountID, by date: Date) throws -> [OutgoingMessage]
     /// The earliest time a waiting message falls due.
