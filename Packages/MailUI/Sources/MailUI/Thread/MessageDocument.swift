@@ -60,6 +60,7 @@ nonisolated enum MessageDocument {
         return "<!doctype html><html><head>\(head)</head><body>\(html)</body></html>"
     }
 
+    /// The quote fold draws a 22 pt pill, and its transparent border grows the tap area to 44 pt around it.
     private static let baseHead = """
         <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">\
         <style>\
@@ -68,9 +69,10 @@ nonisolated enum MessageDocument {
         img { max-width: 100%; height: auto; }\
         :where(body) { font: -apple-system-body; line-height: 1.4; }\
         :where(a) { color: #007aff; }\
-        details.goodmail-fold > summary { list-style: none; display: inline-block; margin: 8px 0; padding: 0 10px; \
-        border-radius: 10px; background: rgba(120,120,128,0.16); color: rgba(60,60,67,0.6); font: 600 15px/22px \
-        -apple-system; cursor: pointer; }\
+        details.goodmail-fold > summary { list-style: none; display: inline-block; margin: -3px 0; \
+        margin-inline-start: -11px; padding: 0 10px; border: 11px solid transparent; background-clip: padding-box; \
+        border-radius: 21px; background-color: rgba(120,120,128,0.16); color: rgba(60,60,67,0.6); \
+        font: 600 15px/22px -apple-system; cursor: pointer; }\
         details.goodmail-fold > summary::-webkit-details-marker { display: none; }\
         </style>
         """
