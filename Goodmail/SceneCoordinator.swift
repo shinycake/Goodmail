@@ -133,6 +133,8 @@ final class SceneCoordinator: NSObject {
     private func signIn(to service: MailService) async throws -> Bool {
         switch service {
         case .gmail: try await model.addGmailAccount(using: WebAuthentication(window: window))
+        // The iCloud sign-in form (address and app-specific password) comes with the iCloud work.
+        case .icloud: false
         }
     }
 
