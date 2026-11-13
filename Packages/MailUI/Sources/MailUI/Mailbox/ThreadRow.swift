@@ -1,11 +1,13 @@
 import MailCore
 import UIKit
 
-/// A mailbox row: sender and time, the subject in New York, then the preview. The account badge marks unread.
+/// A mailbox row: sender and time, the subject in New York, then the preview. The account badge marks unread mail,
+/// and in a view spanning accounts, which account the thread belongs to.
 struct ThreadRowConfiguration: UIContentConfiguration, Equatable {
     var thread: ThreadSummary
     var dateText: String
-    var accountColor: UIColor
+    /// `nil` while the thread's account is gone, as while it is being removed.
+    var account: RowAccount?
     var previewLines = 2
 
     func makeContentView() -> any UIView & UIContentView {
@@ -105,12 +107,28 @@ final class ThreadRowContentView: UIView, UIContentView {
         preview.setContentText(thread.snippet)
         preview.numberOfLines = current.previewLines
         preview.isHidden = current.previewLines == 0 || thread.snippet.isEmpty
-        avatar.configure(name: name, badge: thread.isUnread ? current.accountColor : nil)
+        avatar.configure(name: name, badge: current.account?.badge(unread: thread.isUnread))
 
         accessibilityLabel = [
             thread.isUnread ? String(localized: "Unread", bundle: .module, comment: "VoiceOver: thread state") : nil,
-            name, subjectText, current.dateText, preview.isHidden ? nil : thread.snippet,
+            current.account?.spokenAccount, name, subjectText, current.dateText,
+            preview.isHidden ? nil : thread.snippet,
         ].compactMap(\.self).joined(separator: ", ")
+    }
+}
+
+extension RowAccount {
+    func badge(unread: Bool) -> MonogramView.Badge? {
+        switch self {
+        case .implied(let color): unread ? .dot(color.uiColor) : nil
+        case .shown(let color, _): unread ? .dot(color.uiColor) : .ring(color.uiColor)
+        }
+    }
+
+    /// The account VoiceOver names, where the color alone says it.
+    var spokenAccount: String? {
+        guard case .shown(_, let email) = self else { return nil }
+        return email
     }
 }
 

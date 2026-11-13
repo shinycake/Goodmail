@@ -99,7 +99,7 @@ struct MailboxTests {
 
         #expect(viewModel.sections.map(\.title) == ["This morning", "Yesterday"])
         #expect(viewModel.sections.map { $0.threads.map(\.id.threadID) } == [["0"], ["1"]])
-        #expect(viewModel.accountColors == [account.id: .teal])
+        #expect(viewModel.theme == .account(.teal))
     }
 
     @Test func refreshFailureIsKeptUntilTheNextSuccess() async {

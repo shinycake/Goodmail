@@ -29,15 +29,20 @@
                         MailLabel(id: "Label_1", name: "Receipts", kind: .user, color: "#16a765"),
                         MailLabel(id: "Label_2", name: "Travel", kind: .user, color: "#4a86e8"),
                     ]))
+            try database.apply(
+                StoreChanges(
+                    accountID: accounts[1].id,
+                    labels: [MailLabel(id: "Label_3", name: "Clients", kind: .user, color: "#fb4c2f")]))
 
             let now = Date.now
             var threads: [ThreadSummary] = []
             threads.reserveCapacity(threadCount)
             for index in 0..<threadCount {
                 let sender = senders[index % senders.count]
+                let isWork = index % 3 == 0
                 threads.append(
                     ThreadSummary(
-                        id: ThreadSummary.ID(accountID: accounts[index % 3 == 0 ? 1 : 0].id, threadID: "t\(index)"),
+                        id: ThreadSummary.ID(accountID: accounts[isWork ? 1 : 0].id, threadID: "t\(index)"),
                         subject: subjects[index % subjects.count],
                         snippet: snippets[index % snippets.count],
                         sender: Contact(name: sender, address: "sender\(index % senders.count)@example.com"),
@@ -45,7 +50,7 @@
                         date: now.addingTimeInterval(-Double(index) * 1_200 - Double(index % 7) * 60),
                         isUnread: index % 4 == 0 || [9, 13].contains(index % 20),
                         messageCount: 1 + index % 5,
-                        labelIDs: labels(for: index)
+                        labelIDs: labels(for: index, isWork: isWork)
                     )
                 )
             }
@@ -54,8 +59,9 @@
         }
 
         /// Mostly Inbox, with some of every other mailbox so each has something to show, and the Inbox spread over
-        /// Gmail's categories. Some Inbox threads have no category, as older Gmail mail can.
-        private static func labels(for index: Int) -> Set<String> {
+        /// Gmail's categories. Some Inbox threads have no category, as older Gmail mail can. Each account has its own
+        /// user labels.
+        private static func labels(for index: Int, isWork: Bool) -> Set<String> {
             switch index % 20 {
             case 0, 10: ["INBOX", "CATEGORY_PERSONAL"]
             case 9, 15: ["INBOX", "CATEGORY_PROMOTIONS"]
@@ -65,8 +71,8 @@
             case 1, 11: ["INBOX", "STARRED"]
             case 2, 12: ["SENT"]
             case 3: []
-            case 4: ["INBOX", "Label_1"]
-            case 5: ["Label_2"]
+            case 4: ["INBOX", isWork ? "Label_3" : "Label_1"]
+            case 5: [isWork ? "Label_3" : "Label_2"]
             case 6: ["TRASH"]
             case 7: ["SPAM"]
             case 8: ["DRAFT"]

@@ -43,7 +43,9 @@ public final class MailboxViewModel {
     public private(set) var isLoadingOlder = false
     /// A refresh failure, for a quiet inline notice. Cleared by the next successful refresh.
     public private(set) var refreshError: (any Error)?
-    public let accountColors: [AccountID: AccountColor]
+    /// The account's color in one account's mailbox; the blend of every account's in one that spans them.
+    public let theme: Theme
+    @ObservationIgnored private let accounts: [AccountID: Account]
     public let actions: MailActions?
     public let mailbox: Mailbox
     public let title: String
@@ -54,7 +56,7 @@ public final class MailboxViewModel {
     }
     /// Unread threads per category, for the menu; categories with none are left out.
     public private(set) var categoryUnreadCounts: [InboxCategory: Int] = [:]
-    /// The account new messages come from: the first one, until the composer offers a choice.
+    /// The account new messages come from: the mailbox's own, or the first one in a mailbox spanning accounts.
     @ObservationIgnored private let composingAccount: AccountID?
 
     /// Changed only by `select`.
@@ -81,8 +83,9 @@ public final class MailboxViewModel {
         self.actions = actions
         self.mailbox = mailbox
         self.title = title ?? mailbox.title(labels: [])
-        composingAccount = accounts.first?.id
-        accountColors = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0.color) })
+        composingAccount = mailbox.accountID ?? accounts.first?.id
+        theme = Theme(accountID: mailbox.accountID, among: accounts)
+        self.accounts = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0) })
         self.source = source
         refreshAction = refresh
         loadOlderAction = loadOlder
@@ -225,6 +228,11 @@ public final class MailboxViewModel {
 
     public func perform(_ action: ThreadAction, on threads: [ThreadSummary.ID]) {
         actions?.perform(action, on: threads)
+    }
+
+    /// What `thread`'s row shows of its account, or `nil` while the account is gone.
+    func rowAccount(for thread: ThreadSummary) -> RowAccount? {
+        accounts[thread.id.accountID].map(theme.rowAccount)
     }
 
     public func dateText(for thread: ThreadSummary) -> String {
