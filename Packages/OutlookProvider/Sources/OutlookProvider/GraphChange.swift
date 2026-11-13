@@ -74,6 +74,12 @@ enum GraphChange: Equatable, Sendable {
     }
 }
 
+/// The changes one message of a conversation needs, empty when it already matches the action.
+struct MessagePlan: Sendable {
+    let messageID: String
+    let changes: [GraphChange]
+}
+
 extension ThreadAction {
     /// The labels the action adds and removes. Trash and untrash are label changes too, as `applied(to:)` reads them.
     fileprivate var labelChange: (add: Set<String>, remove: Set<String>) {
