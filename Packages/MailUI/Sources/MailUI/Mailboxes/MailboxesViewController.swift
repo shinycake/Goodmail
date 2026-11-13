@@ -1,16 +1,12 @@
 import MailCore
 import UIKit
 
-/// The mailboxes, then the user's labels. In a narrow window it is the root, with the Inbox open on top of it at
-/// launch; in a wide one it is the sidebar, keeping the open mailbox selected.
+/// The mailboxes, then the user's labels, or each account's when there are several. In a narrow window it is the root,
+/// with the Inbox open on top of it at launch; in a wide one it is the sidebar, keeping the open mailbox selected.
 public final class MailboxesViewController: UIViewController {
     public enum Style {
         case list
         case sidebar
-    }
-
-    nonisolated private enum Section: Hashable {
-        case standard, labels
     }
 
     private let viewModel: MailboxesViewModel
@@ -20,7 +16,7 @@ public final class MailboxesViewController: UIViewController {
         didSet { selectShownMailbox() }
     }
     private var collectionView: UICollectionView!
-    private var dataSource: UICollectionViewDiffableDataSource<Section, MailboxesViewModel.Item>!
+    private var dataSource: UICollectionViewDiffableDataSource<MailboxesViewModel.Section, MailboxesViewModel.Item>!
     private var observation: Task<Void, Never>?
 
     public init(viewModel: MailboxesViewModel, style: Style = .list) {
@@ -72,21 +68,16 @@ public final class MailboxesViewController: UIViewController {
         }
         navigationController?.setToolbarHidden(false, animated: animated)
         navigationController?.navigationBar.prefersLargeTitles = true
-        navigationController?.navigationBar.largeTitleTextAttributes = [
-            .font: Typography.serif(.largeTitle, weight: .bold)
-        ]
+        wear(viewModel.theme)
     }
 
     /// Called by UIKit whenever an observed view-model property changes.
     public override func updateProperties() {
         super.updateProperties()
-        var snapshot = NSDiffableDataSourceSnapshot<Section, MailboxesViewModel.Item>()
-        snapshot.appendSections([.standard])
-        snapshot.appendItems(viewModel.standardItems, toSection: .standard)
-        let labels = viewModel.labelItems
-        if !labels.isEmpty {
-            snapshot.appendSections([.labels])
-            snapshot.appendItems(labels, toSection: .labels)
+        var snapshot = NSDiffableDataSourceSnapshot<MailboxesViewModel.Section, MailboxesViewModel.Item>()
+        for group in viewModel.groups {
+            snapshot.appendSections([group.section])
+            snapshot.appendItems(group.items, toSection: group.section)
         }
         dataSource.apply(snapshot, animatingDifferences: collectionView.window != nil)
         selectShownMailbox()
@@ -116,16 +107,25 @@ public final class MailboxesViewController: UIViewController {
             cell.accessories = accessories
             cell.accessibilityIdentifier =
                 switch item.destination {
-                case .mailbox(let mailbox): "mailbox.\(mailbox.labelID ?? "all")"
+                case .mailbox(let mailbox):
+                    "mailbox.\(mailbox.labelID ?? "all")" + (mailbox.accountID.map { ".\($0.rawValue)" } ?? "")
                 case .scheduled: "mailbox.scheduled"
                 }
         }
         let header = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(
             elementKind: UICollectionView.elementKindSectionHeader
         ) { [weak self] header, _, indexPath in
-            var content = UIListContentConfiguration.header()
-            if self?.dataSource.sectionIdentifier(for: indexPath.section) == .labels {
+            var content = style == .sidebar ? UIListContentConfiguration.sidebarHeader() : .header()
+            switch self?.dataSource.sectionIdentifier(for: indexPath.section) {
+            case .mailboxes, nil: break
+            case .labels:
                 content.text = String(localized: "Labels", bundle: .module, comment: "Header above the user's labels")
+            case .account(let account):
+                // The account's own color, beside its address: the one place it shows in a view of every account.
+                content.text = account.email
+                content.image = UIImage(systemName: "circle.fill")
+                content.imageProperties.tintColor = account.color.uiColor
+                content.imageProperties.maximumSize = CGSize(width: 10, height: 10)
             }
             header.contentConfiguration = content
         }

@@ -13,7 +13,7 @@ public struct AccountID: RawRepresentable, Hashable, Codable, Sendable {
 }
 
 /// The mail service an account signs in to, which decides the provider that talks to it.
-public enum MailService: String, Codable, Sendable {
+public enum MailService: String, Codable, Hashable, Sendable {
     case gmail
 
     /// Whether the service sorts its Inbox into categories (Primary, Promotions and the rest).
@@ -24,7 +24,7 @@ public enum MailService: String, Codable, Sendable {
     }
 }
 
-public struct Account: Identifiable, Equatable, Sendable {
+public struct Account: Identifiable, Hashable, Sendable {
     public let id: AccountID
     public var email: String
     public var color: AccountColor

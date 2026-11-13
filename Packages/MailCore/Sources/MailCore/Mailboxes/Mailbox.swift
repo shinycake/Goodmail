@@ -50,7 +50,8 @@ public struct MailboxDirectory: Equatable, Sendable {
 
     /// Visible user labels, by name.
     public var labels: [Label]
-    /// Unread threads per mailbox; mailboxes with none are left out.
+    /// Unread threads per mailbox, both each account's and the blend of every account's; mailboxes with none are left
+    /// out.
     public var unreadCounts: [Mailbox: Int]
     /// Messages waiting to go at a time the writer picked, in every account.
     public var scheduledCount: Int

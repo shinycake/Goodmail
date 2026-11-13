@@ -87,7 +87,7 @@ final class MessageCardView: UIView {
     ) {
         sender.setContentText(message.from.displayName, alignedToContent: false)
         date.text = dateText
-        avatar.configure(name: message.from.displayName, badge: message.isUnread ? accountColor : nil)
+        avatar.configure(name: message.from.displayName, badge: message.isUnread ? .dot(accountColor) : nil)
         recipients.setContentText(Self.recipientsLine(message, accountEmail: accountEmail), alignedToContent: false)
         body.show(MessageWebView.Content(message: message, allowsRemoteContent: allowsRemoteContent))
         attachments.show(AttachmentListView.listed(in: message))

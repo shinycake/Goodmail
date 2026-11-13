@@ -25,8 +25,7 @@ struct ScheduledSendTests {
 
     private func sender(at date: Date) -> Sender {
         Sender(
-            accountID: account, provider: server, store: database,
-            from: Contact(name: nil, address: "me@example.com"), now: { date })
+            accountID: account, provider: server, store: database, now: { date })
     }
 
     private func draft(_ subject: String) -> Draft {
