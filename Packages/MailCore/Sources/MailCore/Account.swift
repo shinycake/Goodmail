@@ -39,9 +39,4 @@ public struct Account: Identifiable, Equatable, Sendable {
         self.service = service
         self.name = name
     }
-
-    /// What mail from this account says it is from.
-    public var sender: Contact {
-        Contact(name: name, address: email)
-    }
 }

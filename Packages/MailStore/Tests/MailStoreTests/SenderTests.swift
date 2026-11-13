@@ -26,10 +26,7 @@ struct SenderTests {
 
     private func sender() -> Sender {
         Sender(
-            accountID: account, provider: server, store: database,
-            from: { [database, account] in
-                (try? database.accounts().first { $0.id == account })?.sender ?? Contact(name: nil, address: "")
-            }, now: clock.next)
+            accountID: account, provider: server, store: database, now: clock.next)
     }
 
     private func draft(_ subject: String = "Hello") -> Draft {
@@ -61,6 +58,15 @@ struct SenderTests {
         let headers = server.sent.map { String(decoding: $0.raw, as: UTF8.self) }
         #expect(headers[0].contains("From: me@example.com"))
         #expect(headers[1].contains("From: Dana Levi <me@example.com>"))
+    }
+
+    @Test func mailFromAnAccountThatCannotBeReadStaysQueued() async throws {
+        try commands().send(draft(), after: .zero)
+        try await database.pool.write { db in try db.execute(sql: "DELETE FROM account") }
+
+        #expect(await sender().flush().isEmpty)
+        #expect(server.sent.isEmpty)
+        #expect(try database.dueMessages(for: account, by: .distantFuture).map(\.draft.subject) == ["Hello"])
     }
 
     @Test func undoTakesTheDraftBackBeforeItGoes() async throws {

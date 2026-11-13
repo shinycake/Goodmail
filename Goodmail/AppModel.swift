@@ -31,8 +31,7 @@ final class AppModel {
         self.outboxes = outboxes
         let senders = Senders { id in
             Sender(
-                accountID: id, provider: try providers.provider(for: id), store: database,
-                from: { (try? database.accounts().first { $0.id == id })?.sender ?? Contact(name: nil, address: "") })
+                accountID: id, provider: try providers.provider(for: id), store: database)
         }
         self.senders = senders
         commands = MailCommands(
