@@ -19,6 +19,7 @@ final class MessageCardView: UIView {
     private let remoteNotice = UIButton(configuration: .plain())
     private let body: MessageWebView
     private let attachments = AttachmentListView()
+    private let header = UIStackView()
 
     init(attachmentData: @escaping (Attachment, Message.ID) async throws -> Data) {
         body = MessageWebView(attachmentData: attachmentData)
@@ -51,14 +52,18 @@ final class MessageCardView: UIView {
 
         let names = UIStackView(arrangedSubviews: [sender, date])
         names.spacing = 8
-        names.alignment = .firstBaseline
+        names.stacksVerticallyAtAccessibilitySizes()
         let people = UIStackView(arrangedSubviews: [names, recipients])
         people.axis = .vertical
         people.spacing = 2
-        let header = UIStackView(arrangedSubviews: [avatar, people])
+        header.addArrangedSubview(avatar)
+        header.addArrangedSubview(people)
         header.spacing = 12
         header.alignment = .center
         header.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(toggle)))
+        // VoiceOver reads who and when as one button; double-tapping it taps the header, which folds the message.
+        header.isAccessibilityElement = true
+        header.accessibilityTraits = .button
 
         let noticeRow = UIStackView(arrangedSubviews: [remoteNotice, UIView()])
         let stack = UIStackView(arrangedSubviews: [header, noticeRow, body, attachments])
@@ -91,7 +96,8 @@ final class MessageCardView: UIView {
         recipients.setContentText(Self.recipientsLine(message, accountEmail: accountEmail), alignedToContent: false)
         body.show(MessageWebView.Content(message: message, allowsRemoteContent: allowsRemoteContent))
         attachments.show(AttachmentListView.listed(in: message))
-        accessibilityLabel = [message.from.displayName, dateText].joined(separator: ", ")
+        header.accessibilityLabel = [message.from.displayName, dateText, recipients.text]
+            .compactMap(\.self).joined(separator: ", ")
     }
 
     func setLoading(_ loading: Bool, for attachment: Attachment) {
