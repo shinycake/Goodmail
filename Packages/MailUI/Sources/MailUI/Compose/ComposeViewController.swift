@@ -136,6 +136,10 @@ public final class ComposeViewController: UIViewController {
             title: String(localized: "Send", bundle: .module, comment: "Sends the message"),
             image: UIImage(systemName: "arrow.up")
         ) { [weak self] _ in self?.send() }
+        // Touching and holding Send offers to send later.
+        sendItem.menu = UIMenu(children: [
+            UIDeferredMenuElement.uncached { [weak self] completion in completion(self?.sendLaterItems() ?? []) }
+        ])
         navigationItem.rightBarButtonItems = [sendItem, attachItem()]
     }
 
@@ -352,10 +356,37 @@ public final class ComposeViewController: UIViewController {
         updateSendEnabled()
     }
 
-    private func send() {
+    private func send(at time: SendTime = .now) {
         fieldChanged()
-        viewModel.send(body: body)
+        viewModel.send(body: body, at: time)
         dismiss(animated: true)
+    }
+
+    /// The times on offer now, then a picker for any other.
+    private func sendLaterItems() -> [UIMenuElement] {
+        let choices = SendLaterChoice.choices(at: .now).map { choice in
+            UIAction(title: choice.title, image: UIImage(systemName: "clock")) { [weak self] _ in
+                self?.send(at: .at(choice.date))
+            }
+        }
+        let pick = UIAction(
+            title: String(localized: "Choose a Time…", bundle: .module, comment: "Picks when a message goes"),
+            image: UIImage(systemName: "calendar")
+        ) { [weak self] _ in self?.pickSendTime() }
+        return [
+            UIMenu(
+                title: String(localized: "Send Later", bundle: .module, comment: "Menu of times to send a message"),
+                options: .displayInline, children: choices + [pick])
+        ]
+    }
+
+    private func pickSendTime() {
+        let picker = SendLaterPickerViewController { [weak self] date in
+            self?.dismiss(animated: true) { self?.send(at: .at(date)) }
+        }
+        let navigation = UINavigationController(rootViewController: picker)
+        navigation.sheetPresentationController?.detents = [.medium(), .large()]
+        present(navigation, animated: true)
     }
 
     private func cancel() {

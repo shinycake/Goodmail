@@ -36,6 +36,18 @@ public final class MailCommands: Sendable {
         deliver(draft.accountID, sendAt)
     }
 
+    /// Queues `draft` to send at `date`. It waits, listed under Scheduled, until then; `cancelSend` takes it back.
+    public func schedule(_ draft: Draft, at date: Date) throws {
+        try store.enqueue(OutgoingMessage(draft: draft, purpose: .scheduledSend, sendAt: date))
+        deliver(draft.accountID, date)
+    }
+
+    /// Takes a scheduled message out of the queue and keeps it in the provider's Drafts instead.
+    public func unschedule(_ id: Draft.ID) throws {
+        guard let draft = try store.cancel(id)?.draft else { return }
+        try saveDraft(draft)
+    }
+
     /// Takes back a queued message that hasn't gone yet, returning its draft to edit. `nil` once it has gone.
     public func cancelSend(_ id: Draft.ID) throws -> Draft? {
         try store.cancel(id)?.draft

@@ -182,6 +182,15 @@ public final class MailDatabase: Sendable {
                         accessedAt = fetchedAt
                     """)
         }
+        migrator.registerMigration("v14-account-service") { db in
+            // Every account added before this was a Gmail account.
+            try db.alter(table: "account") { table in
+                table.add(column: "service", .text).notNull().defaults(to: "gmail")
+            }
+        }
+        migrator.registerMigration("v15-account-name") { db in
+            try db.alter(table: "account") { table in table.add(column: "name", .text) }
+        }
         return migrator
     }
 }

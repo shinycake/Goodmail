@@ -14,8 +14,8 @@ struct CategoryStoreTests {
             .appending(path: "CategoryStoreTests-\(UUID().uuidString)")
             .appending(path: "mail.sqlite")
         database = try MailDatabase(url: url)
-        try database.save(Account(id: home, email: "home@example.com", color: .teal))
-        try database.save(Account(id: work, email: "work@example.com", color: .orange))
+        try database.save(Account(id: home, email: "home@example.com", color: .teal, service: .gmail))
+        try database.save(Account(id: work, email: "work@example.com", color: .orange, service: .gmail))
         try database.upsert([
             thread("personal", labels: ["INBOX", "CATEGORY_PERSONAL"]),
             thread("uncategorized", labels: ["INBOX"], isUnread: false),

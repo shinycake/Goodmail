@@ -11,8 +11,8 @@ public final class MailboxesViewController: UIViewController {
 
     private let viewModel: MailboxesViewModel
     private let style: Style
-    /// The mailbox shown beside the sidebar, kept selected in it.
-    public var selectedMailbox: Mailbox? {
+    /// What is shown beside the sidebar, kept selected in it.
+    public var selected: MailboxesViewModel.Destination? {
         didSet { selectShownMailbox() }
     }
     private var collectionView: UICollectionView!
@@ -85,7 +85,7 @@ public final class MailboxesViewController: UIViewController {
 
     private func selectShownMailbox() {
         guard style == .sidebar, let dataSource else { return }
-        let item = dataSource.snapshot().itemIdentifiers.first { $0.mailbox == selectedMailbox }
+        let item = dataSource.snapshot().itemIdentifiers.first { $0.destination == selected }
         guard let indexPath = item.flatMap(dataSource.indexPath(for:)) else { return }
         collectionView.selectItem(at: indexPath, animated: false, scrollPosition: [])
     }
@@ -97,16 +97,20 @@ public final class MailboxesViewController: UIViewController {
             var content =
                 style == .sidebar ? UIListContentConfiguration.sidebarCell() : UIListContentConfiguration.cell()
             content.text = item.title
-            content.image = UIImage(systemName: item.mailbox.symbol)
+            content.image = UIImage(systemName: item.symbol)
             content.imageProperties.tintColor = UIColor(labelColor: item.color) ?? .tintColor
             cell.contentConfiguration = content
             var accessories: [UICellAccessory] = style == .sidebar ? [] : [.disclosureIndicator()]
-            if item.unreadCount > 0 {
-                accessories.insert(.label(text: item.unreadCount.formatted()), at: 0)
+            if item.count > 0 {
+                accessories.insert(.label(text: item.count.formatted()), at: 0)
             }
             cell.accessories = accessories
             cell.accessibilityIdentifier =
-                "mailbox.\(item.mailbox.labelID ?? "all")" + (item.mailbox.accountID.map { ".\($0.rawValue)" } ?? "")
+                switch item.destination {
+                case .mailbox(let mailbox):
+                    "mailbox.\(mailbox.labelID ?? "all")" + (mailbox.accountID.map { ".\($0.rawValue)" } ?? "")
+                case .scheduled: "mailbox.scheduled"
+                }
         }
         let header = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(
             elementKind: UICollectionView.elementKindSectionHeader
@@ -138,6 +142,6 @@ public final class MailboxesViewController: UIViewController {
 extension MailboxesViewController: UICollectionViewDelegate {
     public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         guard let item = dataSource.itemIdentifier(for: indexPath) else { return }
-        viewModel.open(item.mailbox)
+        viewModel.open(item.destination)
     }
 }

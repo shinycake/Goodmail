@@ -39,6 +39,10 @@ extension MailDatabase {
                 db, sql: "SELECT COUNT(*) " + allMail.sql + " AND thread.isUnread", arguments: allMail.arguments)
             ?? 0
         if allMailUnread > 0 { counts[.allMail] = allMailUnread }
+        let scheduled =
+            try Int.fetchOne(
+                db, sql: "SELECT COUNT(*) FROM outgoing WHERE purpose = ? AND failure IS NULL",
+                arguments: [OutgoingMessage.Purpose.scheduledSend.rawValue]) ?? 0
 
         return MailboxDirectory(
             labels: labels.map { record in
@@ -46,6 +50,6 @@ extension MailDatabase {
                     mailbox: Mailbox(labelID: record.id, accountID: AccountID(rawValue: record.accountID)),
                     name: record.name, color: record.color)
             },
-            unreadCounts: counts)
+            unreadCounts: counts, scheduledCount: scheduled)
     }
 }

@@ -6,7 +6,8 @@ import Testing
 
 struct MessageStoreTests {
     private let database: MailDatabase
-    private let account = Account(id: AccountID(rawValue: "a1"), email: "tester@example.com", color: .teal)
+    private let account = Account(
+        id: AccountID(rawValue: "a1"), email: "tester@example.com", color: .teal, service: .gmail)
     private var threadID: ThreadSummary.ID { ThreadSummary.ID(accountID: account.id, threadID: "t1") }
 
     init() throws {

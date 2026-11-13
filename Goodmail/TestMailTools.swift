@@ -15,7 +15,7 @@
 
         static func runIfRequested(model: AppModel) {
             let defaults = UserDefaults.standard
-            guard let account = model.accounts.first else { return }
+            guard let account = model.accounts.first(where: { $0.service == .gmail }) else { return }
             let corpus = defaults.string(forKey: "GoodmailSeedTestMail").map { URL(filePath: $0) }
             let fixtures = defaults.string(forKey: "GoodmailRecordFixtures").map { URL(filePath: $0) }
             guard let corpus else { return }

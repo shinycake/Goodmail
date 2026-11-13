@@ -4,7 +4,12 @@ Claude cloud sessions run on Linux without Xcode. They compile every package and
 
 ## In a cloud session
 
-Nothing to do. Cloud sessions check out `goodmail-sdk` next to this repository, and the SessionStart hook (`.claude/hooks/session-start.sh`) runs `scripts/cloud/setup` and enables the tracked git hooks. Its first run in a fresh container takes about two minutes. Later runs find everything installed and return at once. The setup log is at `/tmp/goodmail-cloud-setup.log`.
+Nothing to do. Setup runs on its own, in two ways:
+
+- When a session starts inside this repository, the SessionStart hook (`.claude/hooks/session-start.sh`) runs it.
+- A session with several repositories attached, such as this one and `goodmail-sdk`, starts in their parent folder, and Claude Code doesn't load this repository's hooks there. So `scripts/check` and `scripts/ios-build` run `scripts/cloud/ensure` first, and that runs setup when something is missing.
+
+Setup also enables the tracked git hooks. Its first run in a fresh container takes about two minutes. Later runs find everything installed and return at once. The setup log is at `/tmp/goodmail-cloud-setup.log`. In a multi-repository session, run `scripts/check --lint` once before your first commit, so the git hooks are in place before you commit or push.
 
 - `scripts/ios-build [Package …]` compiles packages and their tests for iOS. With no arguments it compiles all of them.
 - `scripts/check` on Linux runs the lint, the line cap, `scripts/ios-build`, and `swift test` for MailCore, GmailProvider and MailStore. The pre-push hook runs it.

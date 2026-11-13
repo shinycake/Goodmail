@@ -7,6 +7,7 @@
 #   scripts/ios-build MailCore MailUI  only these
 set -euo pipefail
 cd "$(dirname "$0")/.."
+scripts/cloud/ensure
 
 bundle="$HOME/.swiftpm/swift-sdks/darwin.artifactbundle"
 if [[ ! -f "$bundle/toolset-swb.json" ]]; then

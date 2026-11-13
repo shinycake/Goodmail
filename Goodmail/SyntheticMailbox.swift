@@ -18,8 +18,10 @@
             let database = try MailDatabase(url: url)
             if seeded { return try AppModel(database: database) }
             let accounts = [
-                Account(id: AccountID(rawValue: "synthetic-1"), email: "you@example.com", color: .blue),
-                Account(id: AccountID(rawValue: "synthetic-2"), email: "work@example.com", color: .orange),
+                Account(
+                    id: AccountID(rawValue: "synthetic-1"), email: "you@example.com", color: .blue, service: .gmail),
+                Account(
+                    id: AccountID(rawValue: "synthetic-2"), email: "work@example.com", color: .orange, service: .gmail),
             ]
             for account in accounts { try database.save(account) }
             try database.apply(

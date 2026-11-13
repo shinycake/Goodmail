@@ -19,16 +19,18 @@ public final class SettingsViewModel {
 
     @ObservationIgnored private let add: () async throws -> Bool
     @ObservationIgnored private let remove: (AccountID) async throws -> Void
+    @ObservationIgnored private let update: (Account) throws -> Void
     @ObservationIgnored private let reload: () -> [Account]
     @ObservationIgnored private let closed: () -> Void
 
     /// `add` signs in another account and returns `false` if the reader cancelled; `remove` takes an account and
-    /// its mail off the device. `reload` reads the accounts back after either. `closed` runs once the screen is gone,
-    /// however it was dismissed.
+    /// its mail off the device; `update` stores an account's new name or color. `reload` reads the accounts back after
+    /// each. `closed` runs once the screen is gone, however it was dismissed.
     public init(
         accounts: @escaping () -> [Account],
         add: @escaping () async throws -> Bool,
         remove: @escaping (AccountID) async throws -> Void,
+        update: @escaping (Account) throws -> Void,
         closed: @escaping () -> Void
     ) {
         self.accounts = accounts()
@@ -37,6 +39,7 @@ public final class SettingsViewModel {
         reload = accounts
         self.add = add
         self.remove = remove
+        self.update = update
         self.closed = closed
     }
 
@@ -54,6 +57,30 @@ public final class SettingsViewModel {
     public func removeAccount(_ id: AccountID) async {
         do {
             try await remove(id)
+        } catch {
+            self.error = error
+        }
+        accounts = reload()
+    }
+
+    /// Sends the account's mail under `name`, without its surrounding spaces; a blank name sends the address alone.
+    func rename(_ id: AccountID, to name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        change(id) { $0.name = trimmed.isEmpty ? nil : trimmed }
+    }
+
+    func setColor(_ color: AccountColor, for id: AccountID) {
+        change(id) { $0.color = color }
+    }
+
+    /// Stores the change unless it leaves the account as it was.
+    private func change(_ id: AccountID, _ edit: (inout Account) -> Void) {
+        guard var account = accounts.first(where: { $0.id == id }) else { return }
+        let before = account
+        edit(&account)
+        guard account != before else { return }
+        do {
+            try update(account)
         } catch {
             self.error = error
         }

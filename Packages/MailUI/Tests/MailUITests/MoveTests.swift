@@ -31,6 +31,7 @@ private final class LabelStore: OutboxStore, OutgoingStore, @unchecked Sendable 
     func nextSendDate(for account: AccountID) throws -> Date? { nil }
     func markFailed(_ id: Draft.ID, reason: SendFailure) throws {}
     func remove(_ id: Draft.ID) throws {}
+    func sender(for account: AccountID) throws -> Contact { Contact(name: nil, address: "") }
 }
 
 @MainActor

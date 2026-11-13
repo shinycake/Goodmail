@@ -95,4 +95,7 @@ with open(path, "wb") as file:
     echo "$stamp" >"$BUNDLE/goodmail-stamp"
 fi
 
+# The pre-commit and pre-push hooks run scripts/check.
+git config core.hooksPath .githooks
+
 printf '\n✔ Cloud iOS toolchain ready. Compile with scripts/ios-build.\n'

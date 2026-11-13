@@ -31,8 +31,8 @@ struct ThemeTests {
         #expect(abs(tint.blue - (blue.blue + orange.blue) / 2) < 0.001)
     }
 
-    private let personal = Account(id: AccountID(rawValue: "p"), email: "me@example.com", color: .blue)
-    private let work = Account(id: AccountID(rawValue: "w"), email: "work@example.com", color: .orange)
+    private let personal = Account(id: AccountID(rawValue: "p"), email: "me@example.com", color: .blue, service: .gmail)
+    private let work = Account(id: AccountID(rawValue: "w"), email: "work@example.com", color: .orange, service: .gmail)
 
     @Test func aViewOfOneAccountWearsItsColor() {
         #expect(Theme(accountID: work.id, among: [personal, work]) == .account(.orange))

@@ -7,8 +7,8 @@ import Testing
 /// Mailboxes other than the Inbox: All Mail, per-account user labels, and the counts the mailbox list shows.
 struct MailboxStoreTests {
     private let database: MailDatabase
-    private let one = Account(id: AccountID(rawValue: "a1"), email: "one@example.com", color: .teal)
-    private let two = Account(id: AccountID(rawValue: "a2"), email: "two@example.com", color: .orange)
+    private let one = Account(id: AccountID(rawValue: "a1"), email: "one@example.com", color: .teal, service: .gmail)
+    private let two = Account(id: AccountID(rawValue: "a2"), email: "two@example.com", color: .orange, service: .gmail)
 
     init() throws {
         let url = FileManager.default.temporaryDirectory

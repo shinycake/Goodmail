@@ -103,22 +103,55 @@ public final class MailActions {
         }
     }
 
-    /// Queues a message to send after the undo window, with a toast to take it back.
-    public func send(_ draft: Draft) {
-        let delay = undoSendDelay()
+    /// Queues a message to go at `time`, with a toast to take it back: for the undo window when it goes now, or
+    /// for the usual toast time when it waits under Scheduled.
+    public func send(_ draft: Draft, at time: SendTime = .now) {
         do {
-            try commands.send(draft, after: delay)
-            guard delay > .zero else { return }
-            lastUndo = .send(draft.id)
-            show(
-                Toast(
-                    message: String(
-                        localized: "Sending…", bundle: .module, comment: "Toast while a message waits to go"),
-                    undo: .send(draft.id)),
-                for: delay)
+            switch time {
+            case .now:
+                let delay = undoSendDelay()
+                try commands.send(draft, after: delay)
+                guard delay > .zero else { return }
+                lastUndo = .send(draft.id)
+                show(
+                    Toast(
+                        message: String(
+                            localized: "Sending…", bundle: .module, comment: "Toast while a message waits to go"),
+                        undo: .send(draft.id)),
+                    for: delay)
+            case .at(let date):
+                try commands.schedule(draft, at: date)
+                lastUndo = .send(draft.id)
+                show(
+                    Toast(message: Self.scheduledConfirmation(for: date), undo: .send(draft.id)), for: toastDuration)
+            }
         } catch {
             self.error = error
         }
+    }
+
+    /// Takes a scheduled message back into the composer, out of the queue until it is sent again.
+    public func editScheduled(_ id: Draft.ID) {
+        do {
+            if let draft = try commands.cancelSend(id) { reopen?(draft) }
+        } catch {
+            self.error = error
+        }
+    }
+
+    /// Stops a scheduled message from going, keeping it in Drafts.
+    public func unschedule(_ id: Draft.ID) {
+        do {
+            try commands.unschedule(id)
+        } catch {
+            self.error = error
+        }
+    }
+
+    static func scheduledConfirmation(for date: Date) -> String {
+        String(
+            localized: "Scheduled for \(ScheduledTime.text(for: date))", bundle: .module,
+            comment: "Toast after scheduling a message, with when it goes")
     }
 
     public func dismissToast() {

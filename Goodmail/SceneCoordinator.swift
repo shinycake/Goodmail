@@ -17,11 +17,33 @@ final class SceneCoordinator: NSObject {
     private var shown = Shown()
 
     private struct Shown {
-        var mailbox = Mailbox.inbox
-        var title: String?
-        var thread: ThreadSummary.ID?
+        var list = List.mailbox(.inbox, title: nil, thread: nil)
         /// The Inbox's category, so a rebuilt Inbox opens on it.
         var category = InboxCategory.primary
+
+        /// The list beside the mailboxes, and the thread open from it.
+        enum List {
+            case mailbox(Mailbox, title: String?, thread: ThreadSummary.ID?)
+            case scheduled
+        }
+
+        var destination: MailboxesViewModel.Destination {
+            switch list {
+            case .mailbox(let mailbox, _, _): .mailbox(mailbox)
+            case .scheduled: .scheduled
+            }
+        }
+
+        /// Opens `thread` in the shown mailbox. A thread is opened only from a mailbox.
+        mutating func open(_ thread: ThreadSummary.ID) {
+            guard case .mailbox(let mailbox, let title, _) = list else { return }
+            list = .mailbox(mailbox, title: title, thread: thread)
+        }
+
+        mutating func closeThread() {
+            guard case .mailbox(let mailbox, let title, _) = list else { return }
+            list = .mailbox(mailbox, title: title, thread: nil)
+        }
     }
 
     init(window: UIWindow, model: AppModel) {
@@ -73,7 +95,7 @@ final class SceneCoordinator: NSObject {
     private func showSettings() {
         guard let presenter = topViewController() else { return }
         let model = model
-        let before = model.accounts.map(\.id)
+        let before = model.accounts
         let unsortedBefore = Preferences.unsortedInboxAccounts
         let viewModel = SettingsViewModel(
             accounts: { model.accounts },
@@ -82,9 +104,10 @@ final class SceneCoordinator: NSObject {
                 return try await model.addGmailAccount(using: WebAuthentication(window: window))
             },
             remove: { try await model.removeAccount($0) },
+            update: { try model.update($0) },
             closed: { [weak self] in
                 guard let self,
-                    model.accounts.map(\.id) != before || Preferences.unsortedInboxAccounts != unsortedBefore
+                    model.accounts != before || Preferences.unsortedInboxAccounts != unsortedBefore
                 else { return }
                 model.accounts.isEmpty ? showWelcome() : showMailbox()
             })
@@ -132,7 +155,7 @@ final class SceneCoordinator: NSObject {
                 directory: { model.database.mailboxDirectory() },
                 navigate: { [weak self] route in self?.handle(route) }),
             style: style)
-        mailboxes.selectedMailbox = shown.mailbox
+        mailboxes.selected = shown.destination
         return mailboxes
     }
 
@@ -142,13 +165,9 @@ final class SceneCoordinator: NSObject {
         split.setViewController(
             UINavigationController(rootViewController: mailboxesViewController(style: .sidebar)), for: .primary)
         split.setViewController(
-            UINavigationController(rootViewController: mailboxViewController(for: shown.mailbox, title: shown.title)),
-            for: .supplementary)
+            UINavigationController(rootViewController: shownListViewController()), for: .supplementary)
         split.setViewController(
-            UINavigationController(
-                rootViewController: shown.thread.flatMap { reader(for: $0, in: shown.mailbox) }
-                    ?? NoThreadViewController()),
-            for: .secondary)
+            UINavigationController(rootViewController: shownReader() ?? NoThreadViewController()), for: .secondary)
     }
 
     /// The narrow arrangement: one stack of the mailboxes, the shown mailbox's list and its open thread.
@@ -156,11 +175,29 @@ final class SceneCoordinator: NSObject {
         guard let split else { return }
         let stack = UINavigationController(rootViewController: mailboxesViewController(style: .list))
         stack.delegate = self
-        stack.pushViewController(mailboxViewController(for: shown.mailbox, title: shown.title), animated: false)
-        if let reader = shown.thread.flatMap({ reader(for: $0, in: shown.mailbox) }) {
-            stack.pushViewController(reader, animated: false)
-        }
+        stack.pushViewController(shownListViewController(), animated: false)
+        if let reader = shownReader() { stack.pushViewController(reader, animated: false) }
         split.setViewController(stack, for: .compact)
+    }
+
+    private func shownListViewController() -> UIViewController {
+        switch shown.list {
+        case .mailbox(let mailbox, let title, _): mailboxViewController(for: mailbox, title: title)
+        case .scheduled: scheduledViewController()
+        }
+    }
+
+    /// A reader for the thread open from the shown mailbox, if one is and it is still there.
+    private func shownReader() -> ThreadViewController? {
+        guard case .mailbox(let mailbox, _, let thread?) = shown.list else { return nil }
+        return reader(for: thread, in: mailbox)
+    }
+
+    private func scheduledViewController() -> ScheduledViewController {
+        let database = model.database
+        return ScheduledViewController(
+            viewModel: ScheduledViewModel(
+                accounts: model.accounts, messages: { database.scheduledMessages() }, actions: actions))
     }
 
     private func navigation(for column: UISplitViewController.Column) -> UINavigationController? {
@@ -192,7 +229,7 @@ final class SceneCoordinator: NSObject {
     /// Leaves the open thread, after an action that takes it out of the mailbox.
     private func closeThread() {
         guard let split else { return }
-        shown.thread = nil
+        shown.closeThread()
         if split.isCollapsed {
             navigation(for: .compact)?.popViewController(animated: true)
         } else {
@@ -241,23 +278,14 @@ final class SceneCoordinator: NSObject {
     func handle(_ route: Route) {
         switch route {
         case .mailbox(let mailbox):
-            guard let split else { return }
             let labels = (try? model.database.labels(for: mailbox.accountID ?? AccountID(rawValue: ""))) ?? []
             let title = labels.first { $0.id == mailbox.labelID }?.name
-            shown = Shown(mailbox: mailbox, title: title)
-            let list = mailboxViewController(for: mailbox, title: title)
-            if split.isCollapsed {
-                navigation(for: .compact)?.pushViewController(list, animated: true)
-            } else {
-                navigation(for: .supplementary)?.setViewControllers([list], animated: false)
-                navigation(for: .secondary)?.setViewControllers([NoThreadViewController()], animated: false)
-                (navigation(for: .primary)?.viewControllers.first as? MailboxesViewController)?.selectedMailbox =
-                    mailbox
-                split.show(.supplementary)
-            }
+            show(.mailbox(mailbox, title: title, thread: nil))
+        case .scheduled:
+            show(.scheduled)
         case .thread(let id, let mailbox):
             guard let split, let reader = reader(for: id, in: mailbox) else { return }
-            shown.thread = id
+            shown.open(id)
             if split.isCollapsed {
                 navigation(for: .compact)?.pushViewController(reader, animated: true)
             } else {
@@ -299,10 +327,28 @@ final class SceneCoordinator: NSObject {
                     signature: { [database = model.database] in try? database.signature(for: $0) },
                     suggest: { [database = model.database] in (try? database.contacts(matching: $0)) ?? [] },
                     saveDraft: { actions.saveDraft($0) }, deleteDraft: { actions.deleteDraft($0) },
-                    send: { actions.send($0) }))
+                    send: { actions.send($0, at: $1) }))
             let navigation = UINavigationController(rootViewController: composer)
             navigation.modalPresentationStyle = .pageSheet
             presenter.present(navigation, animated: true)
+        }
+    }
+}
+
+extension SceneCoordinator {
+    /// Shows `list` beside the mailboxes, with no thread open.
+    private func show(_ list: Shown.List) {
+        guard let split else { return }
+        shown = Shown(list: list)
+        let controller = shownListViewController()
+        if split.isCollapsed {
+            navigation(for: .compact)?.pushViewController(controller, animated: true)
+        } else {
+            navigation(for: .supplementary)?.setViewControllers([controller], animated: false)
+            navigation(for: .secondary)?.setViewControllers([NoThreadViewController()], animated: false)
+            (navigation(for: .primary)?.viewControllers.first as? MailboxesViewController)?.selected =
+                shown.destination
+            split.show(.supplementary)
         }
     }
 }
@@ -321,7 +367,7 @@ extension SceneCoordinator: UISplitViewControllerDelegate, UINavigationControlle
     func navigationController(
         _ navigationController: UINavigationController, didShow viewController: UIViewController, animated: Bool
     ) {
-        if !navigationController.viewControllers.contains(where: { $0 is ThreadViewController }) { shown.thread = nil }
+        if !navigationController.viewControllers.contains(where: { $0 is ThreadViewController }) { shown.closeThread() }
         if navigationController.viewControllers.count == 1 { shown = Shown() }
     }
 }
