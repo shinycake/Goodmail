@@ -13,6 +13,10 @@ public final class SettingsViewModel {
     public var undoSendSeconds: Int {
         didSet { Preferences.undoSendSeconds = undoSendSeconds }
     }
+    /// How mailbox rows look.
+    public var rowDisplay: RowDisplay {
+        didSet { Preferences.rowDisplay = rowDisplay }
+    }
     /// Accounts whose Inbox isn't split into categories.
     public var unsortedInboxAccounts: Set<AccountID> {
         didSet { Preferences.unsortedInboxAccounts = unsortedInboxAccounts }
@@ -36,17 +40,16 @@ public final class SettingsViewModel {
         self.accounts = accounts()
         adder = AccountAdder(signIn: signIn)
         undoSendSeconds = Preferences.undoSendSeconds
+        rowDisplay = Preferences.rowDisplay
         unsortedInboxAccounts = Preferences.unsortedInboxAccounts
         reload = accounts
         self.remove = remove
         self.update = update
         self.closed = closed
-        adder.onAdded = { [weak self] in self?.reloadAccounts() }
-    }
-
-    /// Reads the accounts back, as after one is added.
-    private func reloadAccounts() {
-        accounts = reload()
+        adder.onAdded = { [weak self] in
+            guard let self else { return }
+            self.accounts = self.reload()
+        }
     }
 
     public func removeAccount(_ id: AccountID) async {

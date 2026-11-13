@@ -11,6 +11,7 @@ public final class MailboxViewController: UIViewController {
     private var observation: Task<Void, Never>?
     private var swipes: SwipeActionsController!
     private let searchResults: SearchResultsController?
+    private let display: RowDisplay
     /// What an empty list shows.
     private let empty: UIContentUnavailableConfiguration
     private var emptyState: EmptyState?
@@ -27,12 +28,13 @@ public final class MailboxViewController: UIViewController {
     private let categoryItem: UIBarButtonItem?
 
     /// `searchResults`, when given, adds search to the toolbar. `empty` is what an empty list shows: by default the
-    /// mailbox's symbol and "No Mail".
+    /// mailbox's symbol and "No Mail". `display` is how its rows look.
     public init(
         viewModel: MailboxViewModel, searchResults: SearchResultsController? = nil,
-        empty: UIContentUnavailableConfiguration? = nil
+        empty: UIContentUnavailableConfiguration? = nil, display: RowDisplay = Preferences.rowDisplay
     ) {
         self.viewModel = viewModel
+        self.display = display
         self.searchResults = searchResults
         self.empty = empty ?? Self.noMail(in: viewModel.mailbox)
         categoryButton = viewModel.category == nil ? nil : Self.categoryButton()
@@ -56,7 +58,7 @@ public final class MailboxViewController: UIViewController {
         super.viewDidLoad()
         var list = UICollectionLayoutListConfiguration(appearance: .plain)
         list.headerMode = .supplementary
-        list.separatorConfiguration.bottomSeparatorInsets.leading = ThreadRowMetrics.textLeadingInset
+        list.separatorConfiguration.bottomSeparatorInsets.leading = ThreadRowMetrics.textLeadingInset(for: display)
         collectionView = UICollectionView(
             frame: view.bounds, collectionViewLayout: UICollectionViewCompositionalLayout.list(using: list))
         collectionView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -194,7 +196,8 @@ public final class MailboxViewController: UIViewController {
             cell.contentConfiguration = ThreadRowConfiguration(
                 thread: thread,
                 dateText: viewModel.dateText(for: thread),
-                account: viewModel.rowAccount(for: thread)
+                account: viewModel.rowAccount(for: thread),
+                display: display
             )
             // The open thread stays selected beside the list on iPad; a light tint keeps its text readable.
             cell.configurationUpdateHandler = { cell, state in
