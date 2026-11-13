@@ -7,7 +7,7 @@
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ והדואר שלו יוסרו מהמכשיר הזה. שום דבר לא יימחק מ-Gmail."
+            "value" : "‏%@ והדואר שלו יוסרו מהמכשיר הזה. שום דבר לא יימחק מ-Gmail."
           }
         }
       }
@@ -302,6 +302,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "(ללא נושא)"
+          }
+        }
+      }
+    },
+    "A forwarded attachment is no longer available." : {
+      "comment" : "Why a message failed to send: a file it forwards is gone",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קובץ מצורף שהועבר כבר לא זמין."
           }
         }
       }
@@ -1307,6 +1318,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "הצעות"
+          }
+        }
+      }
+    },
+    "The server refused the message." : {
+      "comment" : "Why a message failed to send: the mail server refused it",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השרת דחה את ההודעה."
           }
         }
       }

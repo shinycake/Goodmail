@@ -15,15 +15,23 @@ public struct OutgoingMessage: Identifiable, Equatable, Codable, Sendable {
     public var purpose: Purpose
     /// When the undo window closes and the message may go.
     public var sendAt: Date
-    /// Why the last attempt failed for good, shown to the writer. `nil` while it is still to be sent.
-    public var failure: String?
+    /// Why the last attempt failed for good. `nil` while it is still to be sent.
+    public var failure: SendFailure?
 
-    public init(draft: Draft, purpose: Purpose = .send, sendAt: Date, failure: String? = nil) {
+    public init(draft: Draft, purpose: Purpose = .send, sendAt: Date, failure: SendFailure? = nil) {
         self.draft = draft
         self.purpose = purpose
         self.sendAt = sendAt
         self.failure = failure
     }
+}
+
+/// Why a queued message failed for good. Stored as its raw value and worded by the UI in the reader's language.
+public enum SendFailure: String, Codable, Sendable {
+    /// A file forwarded from another message is gone from the server.
+    case forwardedAttachmentMissing
+    /// The server refused the message.
+    case rejected
 }
 
 /// The persistence the send queue needs. `MailStore` implements it.
@@ -35,7 +43,7 @@ public protocol OutgoingStore: Sendable {
     func dueMessages(for account: AccountID, by date: Date) throws -> [OutgoingMessage]
     /// The earliest time a waiting message falls due.
     func nextSendDate(for account: AccountID) throws -> Date?
-    func markFailed(_ id: Draft.ID, reason: String) throws
+    func markFailed(_ id: Draft.ID, reason: SendFailure) throws
     func remove(_ id: Draft.ID) throws
 }
 
@@ -80,7 +88,7 @@ public actor Sender {
             do {
                 draft = try await fetchingForwardedFiles(of: message.draft)
             } catch ProviderError.notFound {
-                try? store.markFailed(message.id, reason: "A forwarded attachment is no longer available.")
+                try? store.markFailed(message.id, reason: .forwardedAttachmentMissing)
                 continue
             } catch {
                 return sent
@@ -102,7 +110,7 @@ public actor Sender {
                 try store.remove(message.id)
                 sent.append(message.draft)
             } catch ProviderError.rejected {
-                try? store.markFailed(message.id, reason: "The server refused the message.")
+                try? store.markFailed(message.id, reason: .rejected)
             } catch ProviderError.notFound {
                 // The thread is gone; send it on its own.
                 var draft = message.draft
