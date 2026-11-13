@@ -60,7 +60,7 @@ struct MailboxesTests {
                 MailboxDirectory.Label(mailbox: clients, name: "Clients", color: nil),
                 MailboxDirectory.Label(mailbox: receipts, name: "Receipts", color: nil),
             ],
-            counts: [.inbox: 5, ownInbox: 2, workInbox: 3, clients: 1])
+            unreadCounts: [.inbox: 5, ownInbox: 2, workInbox: 3, clients: 1])
         let viewModel = MailboxesViewModel(
             accounts: [account, work],
             directory: {

@@ -16,7 +16,7 @@ struct ScheduledSendTests {
             .appending(path: "ScheduledSendTests-\(UUID().uuidString)")
             .appending(path: "mail.sqlite")
         database = try MailDatabase(url: url)
-        try database.save(Account(id: account, email: "me@example.com", color: .teal))
+        try database.save(Account(id: account, email: "me@example.com", color: .teal, service: .gmail))
     }
 
     private func commands(at date: Date) -> MailCommands {
@@ -25,8 +25,7 @@ struct ScheduledSendTests {
 
     private func sender(at date: Date) -> Sender {
         Sender(
-            accountID: account, provider: server, store: database,
-            from: Contact(name: nil, address: "me@example.com"), now: { date })
+            accountID: account, provider: server, store: database, now: { date })
     }
 
     private func draft(_ subject: String) -> Draft {
