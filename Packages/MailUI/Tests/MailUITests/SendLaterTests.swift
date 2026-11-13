@@ -73,6 +73,7 @@ private final class OutgoingQueue: OutboxStore, OutgoingStore, @unchecked Sendab
     func nextSendDate(for account: AccountID) throws -> Date? { nil }
     func markFailed(_ id: Draft.ID, reason: SendFailure) throws {}
     func remove(_ id: Draft.ID) throws { messages.removeAll { $0.id == id } }
+    func sender(for account: AccountID) throws -> Contact { Contact(name: nil, address: "") }
     func enqueue(_ intents: [OutboxIntent], account: AccountID) throws -> [String: Set<String>] { [:] }
     func pendingIntents(for account: AccountID) throws -> [OutboxIntent] { [] }
     func markSent(_ id: OutboxIntent.ID, at date: Date) throws {}
