@@ -79,7 +79,7 @@ struct OutlookReadTests {
         #expect(lunch.sender == Contact(name: "Dana Levi", address: "dana@example.com"))
         #expect(lunch.messageCount == 2)
         #expect(lunch.isUnread)
-        #expect(lunch.labelIDs == ["INBOX", "SENT", "UNREAD", "STARRED"])
+        #expect(lunch.labelIDs == ["INBOX", "SENT", "STARRED"])
         #expect(fetch.found[1].labelIDs == ["AAProjects"])
     }
 

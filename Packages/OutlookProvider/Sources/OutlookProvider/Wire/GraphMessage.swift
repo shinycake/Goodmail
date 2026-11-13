@@ -59,7 +59,8 @@ extension ThreadSummary {
             date: latest.receivedDateTime ?? .distantPast,
             isUnread: labels.contains(SystemLabel.unread),
             messageCount: ordered.count,
-            labelIDs: labels
+            // Unread is the summary's flag, not one of its labels, as in Gmail's summaries and the store.
+            labelIDs: labels.subtracting([SystemLabel.unread])
         )
     }
 }
