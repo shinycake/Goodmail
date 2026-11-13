@@ -62,10 +62,10 @@ public final class MailSplitViewController: UISplitViewController {
             toast.show(current.message)
             placeToast()
             view.layoutIfNeeded()
-            toast.transform = CGAffineTransform(translationX: 0, y: 20).scaledBy(x: 0.9, y: 0.9)
+            toast.transform = Motion.entrance(CGAffineTransform(translationX: 0, y: 20).scaledBy(x: 0.9, y: 0.9))
             UIAccessibility.post(notification: .announcement, argument: current.message)
         }
-        UIView.animate(springDuration: 0.35, bounce: 0.2) {
+        UIView.animate(springDuration: 0.35, bounce: Motion.bounce(0.2)) {
             self.toast.alpha = current == nil ? 0 : 1
             self.toast.transform = .identity
         }
