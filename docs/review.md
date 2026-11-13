@@ -10,8 +10,9 @@ Any one of these means "changes requested".
 2. **A file over 1000 lines** (ADR-014), counting fixtures as exempt. Splitting by responsibility is the fix; squeezing lines is not.
 3. **A correctness bug** the reviewer can name with a concrete scenario: wrong output, a crash, a race, data loss, a mail action that isn't idempotent or skips `MailCommands` and the outbox.
 4. **A broken architectural rule** from `docs/architecture/decisions.md`: GRDB imported outside `MailStore`, navigation outside `Route`, a new third-party dependency without the owner's approval, logic in a thin app target that belongs in a package.
-5. **Logic without tests.** New logic in a package needs Swift Testing coverage of its observable behavior.
-6. **A code-quality blocker** from the list below, unless the PR description justifies it convincingly.
+5. **A Swift Concurrency violation** of the vendored `swift-concurrency` skill (`.claude/skills/swift-concurrency/SKILL.md`; read it, and the reference it routes to, whenever the diff touches tasks, actors, `Sendable`, `@MainActor`, `nonisolated` or callbacks). Blocking cases: network, database or sync work that runs on the main actor; a `@MainActor` (or app-default-isolated) function handed to an API that calls it on another queue; `@unchecked Sendable`, `nonisolated(unsafe)`, `@preconcurrency` or `Task.detached` without a stated safety invariant; a `Task { }` nobody owns, whose errors are swallowed or that outlives its owner without cancellation; long-running loops that ignore cancellation; locks, semaphores or `DispatchQueue` used to guard state an `actor` or `Mutex` should own; `@MainActor` added as a blanket fix to silence a diagnostic.
+6. **Logic without tests.** New logic in a package needs Swift Testing coverage of its observable behavior.
+7. **A code-quality blocker** from the list below, unless the PR description justifies it convincingly.
 
 ## Code-quality blockers
 
@@ -23,6 +24,10 @@ Look for the "code judo" move: a restructuring that keeps the behavior and makes
 - **Muddy contracts.** Unneeded optionals, force casts, `Any`, or silent fallbacks that paper over an unclear invariant. Make the boundary explicit with a type.
 - **Wrong layer or duplicate helper.** Feature logic leaking into shared code, or a bespoke helper where the codebase already has the canonical one.
 - **Needless sequencing or half-applied updates.** Independent async work serialized for no reason, or related updates that can leave state half-applied when an atomic structure is obvious.
+
+## Skills the review applies
+
+Besides this standard, hold SwiftUI code to `.claude/skills/swiftui-expert-skill/SKILL.md` and tests to `.claude/skills/swift-testing-expert/SKILL.md`. A departure from them is a finding when it causes a concrete problem (wrong state ownership, needless view invalidation, a flaky or unclear test); cite the skill's section.
 
 ## What the review writes
 
