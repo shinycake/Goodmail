@@ -94,17 +94,22 @@ public final class MailboxesViewController: UIViewController {
         let style = style
         let row = UICollectionView.CellRegistration<UICollectionViewListCell, MailboxesViewModel.Item> {
             cell, _, item in
+            let count = item.count > 0 ? item.count.formatted() : nil
             var content =
-                style == .sidebar ? UIListContentConfiguration.sidebarCell() : UIListContentConfiguration.cell()
+                style == .sidebar ? UIListContentConfiguration.sidebarCell() : UIListContentConfiguration.valueCell()
             content.text = item.title
             content.image = UIImage(systemName: item.symbol)
             content.imageProperties.tintColor = UIColor(labelColor: item.color) ?? .tintColor
-            cell.contentConfiguration = content
-            var accessories: [UICellAccessory] = style == .sidebar ? [] : [.disclosureIndicator()]
-            if item.count > 0 {
-                accessories.insert(.label(text: item.count.formatted()), at: 0)
+            switch style {
+            case .sidebar:
+                cell.accessories = count.map { [.label(text: $0)] } ?? []
+            case .list:
+                // The count is the value cell's secondary text, not an accessory, so at accessibility sizes it moves
+                // under the name instead of squeezing it until words break.
+                content.secondaryText = count
+                cell.accessories = [.disclosureIndicator()]
             }
-            cell.accessories = accessories
+            cell.contentConfiguration = content
             cell.accessibilityIdentifier =
                 switch item.destination {
                 case .mailbox(let mailbox):
