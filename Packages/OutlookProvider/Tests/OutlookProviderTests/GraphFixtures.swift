@@ -92,12 +92,12 @@ final class MemorySecretStore: SecretStore {
 
 extension OutlookClient {
     /// A client whose session already holds a token, answering from `graph`.
-    static func signedIn(to graph: FixtureGraph) async throws -> OutlookClient {
+    static func signedIn(to graph: FixtureGraph, index: MemoryIndex = MemoryIndex()) async throws -> OutlookClient {
         let keychain = MemorySecretStore()
         let session = OAuthSession(
             accountID: AccountID(rawValue: "o1"), client: .testing, http: graph, keychain: keychain)
         try keychain.set(Data("refresh".utf8), for: session.refreshTokenKey)
-        return OutlookClient(session: session, http: graph, retryDelays: [.zero])
+        return OutlookClient(session: session, index: index, http: graph, retryDelays: [.zero])
     }
 }
 
