@@ -73,7 +73,7 @@ final class ThreadRowContentView: UIView, UIContentView {
 
         let header = UIStackView(arrangedSubviews: [sender, date])
         header.spacing = 8
-        header.alignment = .firstBaseline
+        header.stacksVerticallyAtAccessibilitySizes()
         let text = UIStackView(arrangedSubviews: [header, subject, preview])
         text.axis = .vertical
         text.spacing = 2
@@ -94,6 +94,10 @@ final class ThreadRowContentView: UIView, UIContentView {
             text.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -insets.bottom),
         ])
         isAccessibilityElement = true
+        // The labels' attributed text carries its font, which doesn't scale on its own; set it again at the new size.
+        registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (view: ThreadRowContentView, _) in
+            view.apply()
+        }
     }
 
     private func apply() {

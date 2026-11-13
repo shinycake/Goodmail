@@ -132,7 +132,7 @@ final class SwipeActionsController: NSObject {
         let reveal = overlay.layout.reveal(at: distance)
         if reveal.isFullSwipe != overlay.reveal.isFullSwipe {
             row.feedback.impactOccurred()
-            UIView.animate(springDuration: 0.3, bounce: 0.2) { overlay.reveal = reveal }
+            UIView.animate(springDuration: 0.3, bounce: Motion.bounce(0.2)) { overlay.reveal = reveal }
         } else {
             overlay.reveal = reveal
         }
@@ -148,7 +148,9 @@ final class SwipeActionsController: NSObject {
         }
         if !cancelled, distance + velocity * 0.15 > layout.revealWidth / 2 {
             state = .open(row)
-            UIView.animate(springDuration: 0.35, bounce: 0.15) { overlay.reveal = .tracking(layout.revealWidth) }
+            UIView.animate(springDuration: 0.35, bounce: Motion.bounce(0.15)) {
+                overlay.reveal = .tracking(layout.revealWidth)
+            }
         } else {
             close()
         }
@@ -321,7 +323,7 @@ final class GlassActionButton: UIControl {
 
     override var isHighlighted: Bool {
         didSet {
-            UIView.animate(springDuration: 0.2, bounce: 0.3) {
+            UIView.animate(springDuration: 0.2, bounce: Motion.bounce(0.3)) {
                 self.effectView.transform = self.isHighlighted ? CGAffineTransform(scaleX: 0.9, y: 0.9) : .identity
             }
         }

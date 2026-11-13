@@ -311,24 +311,32 @@ public final class ComposeViewController: UIViewController {
         configuration.title = "•••"
         configuration.buttonSize = .small
         quoteButton.configuration = configuration
-        quoteButton.accessibilityLabel = String(
-            localized: "Show Quoted Text", bundle: .module, comment: "Accessibility label of the fold")
         quoteLabel.text = viewModel.draft.quote?.plain
         quoteLabel.numberOfLines = 0
         quoteLabel.font = .preferredFont(forTextStyle: .subheadline)
         quoteLabel.textColor = .secondaryLabel
         quoteLabel.adjustsFontForContentSizeCategory = true
         quoteLabel.isHidden = true
+        updateQuoteButtonLabel()
         quoteButton.addAction(
             UIAction { [weak self] _ in
                 guard let self else { return }
                 UIView.animate(springDuration: 0.3) { self.quoteLabel.isHidden.toggle() }
+                updateQuoteButtonLabel()
             }, for: .primaryActionTriggered)
         let buttonRow = UIStackView(arrangedSubviews: [quoteButton, UIView()])
         let section = UIStackView(arrangedSubviews: [buttonRow, quoteLabel])
         section.axis = .vertical
         section.spacing = 10
         return section
+    }
+
+    /// The fold says what it will do next, since its "•••" reads the same either way.
+    private func updateQuoteButtonLabel() {
+        quoteButton.accessibilityLabel =
+            quoteLabel.isHidden
+            ? String(localized: "Show Quoted Text", bundle: .module, comment: "Accessibility label of the fold")
+            : String(localized: "Hide Quoted Text", bundle: .module, comment: "Accessibility label of the open fold")
     }
 
     private func fieldChanged() {

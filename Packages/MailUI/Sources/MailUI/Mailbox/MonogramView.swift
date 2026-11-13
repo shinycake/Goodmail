@@ -31,6 +31,9 @@ final class MonogramView: UIView {
         backgroundColor = .tertiarySystemFill
         layer.cornerRadius = Self.diameter / 2
 
+        // Decorative: the name sits beside it, so VoiceOver skips it, and the initials keep their size to fit the
+        // fixed circle.
+        accessibilityElementsHidden = true
         initials.font = UIFont.systemFont(ofSize: 15, weight: .semibold).rounded
         initials.textColor = .secondaryLabel
         initials.textAlignment = .center
