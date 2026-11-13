@@ -15,6 +15,13 @@ public struct AccountID: RawRepresentable, Hashable, Codable, Sendable {
 /// The mail service an account signs in to, which decides the provider that talks to it.
 public enum MailService: String, Codable, Sendable {
     case gmail
+
+    /// Whether the service sorts its Inbox into categories (Primary, Promotions and the rest).
+    public var hasInboxCategories: Bool {
+        switch self {
+        case .gmail: true
+        }
+    }
 }
 
 public struct Account: Identifiable, Equatable, Sendable {
@@ -22,11 +29,19 @@ public struct Account: Identifiable, Equatable, Sendable {
     public var email: String
     public var color: AccountColor
     public let service: MailService
+    /// The name mail from this account is sent under, such as "Dana Levi". `nil` sends the address alone.
+    public var name: String?
 
-    public init(id: AccountID, email: String, color: AccountColor, service: MailService) {
+    public init(id: AccountID, email: String, color: AccountColor, service: MailService, name: String? = nil) {
         self.id = id
         self.email = email
         self.color = color
         self.service = service
+        self.name = name
+    }
+
+    /// What mail from this account says it is from.
+    public var sender: Contact {
+        Contact(name: name, address: email)
     }
 }
