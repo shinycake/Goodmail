@@ -13,7 +13,7 @@ extension MailDatabase: OutgoingStore {
                     """,
                 arguments: [
                     message.id.uuidString, message.draft.accountID.rawValue, message.purpose.rawValue, message.sendAt,
-                    message.failure, draft,
+                    message.failure?.rawValue, draft,
                 ])
         }
     }
@@ -43,9 +43,10 @@ extension MailDatabase: OutgoingStore {
         }
     }
 
-    public func markFailed(_ id: Draft.ID, reason: String) throws {
+    public func markFailed(_ id: Draft.ID, reason: SendFailure) throws {
         try write { db in
-            try db.execute(sql: "UPDATE outgoing SET failure = ? WHERE id = ?", arguments: [reason, id.uuidString])
+            try db.execute(
+                sql: "UPDATE outgoing SET failure = ? WHERE id = ?", arguments: [reason.rawValue, id.uuidString])
         }
     }
 
@@ -82,10 +83,12 @@ extension MailDatabase: OutgoingStore {
             let draft: String = row["draft"]
             // A purpose this build doesn't know is kept as a draft rather than sent.
             let purpose: String = row["purpose"]
+            // A failure this build doesn't know, such as the English sentences earlier builds stored, still failed.
+            let failure: String? = row["failure"]
             return OutgoingMessage(
                 draft: try decoder.decode(Draft.self, from: Data(draft.utf8)),
                 purpose: OutgoingMessage.Purpose(rawValue: purpose) ?? .saveDraft, sendAt: row["sendAt"],
-                failure: row["failure"])
+                failure: failure.map { SendFailure(rawValue: $0) ?? .rejected })
         }
     }
 }

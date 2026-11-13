@@ -29,7 +29,7 @@ private final class LabelStore: OutboxStore, OutgoingStore, @unchecked Sendable 
     func cancel(_ id: Draft.ID) throws -> OutgoingMessage? { nil }
     func dueMessages(for account: AccountID, by date: Date) throws -> [OutgoingMessage] { [] }
     func nextSendDate(for account: AccountID) throws -> Date? { nil }
-    func markFailed(_ id: Draft.ID, reason: String) throws {}
+    func markFailed(_ id: Draft.ID, reason: SendFailure) throws {}
     func remove(_ id: Draft.ID) throws {}
 }
 

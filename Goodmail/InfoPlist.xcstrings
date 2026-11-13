@@ -28,6 +28,12 @@
             "state" : "new",
             "value" : "Goodmail"
           }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Goodmail"
+          }
         }
       }
     }
