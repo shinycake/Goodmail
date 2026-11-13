@@ -24,13 +24,16 @@ final class AppModel {
         self.database = database
         accounts = try database.accounts()
         let outboxes = Outboxes { id in
-            Outbox(accountID: id, provider: GmailClient(session: GmailSession(accountID: id)), store: database)
+            Outbox(
+                accountID: id, provider: GmailClient(session: GmailSession(accountID: id, keychain: Keychain())),
+                store: database)
         }
         self.outboxes = outboxes
         let senders = Senders { id in
             let email = (try? database.accounts().first { $0.id == id }?.email) ?? ""
             return Sender(
-                accountID: id, provider: GmailClient(session: GmailSession(accountID: id)), store: database,
+                accountID: id, provider: GmailClient(session: GmailSession(accountID: id, keychain: Keychain())),
+                store: database,
                 from: Contact(name: nil, address: email))
         }
         self.senders = senders
@@ -66,9 +69,12 @@ final class AppModel {
 
         let code = try GoogleOAuth.code(fromRedirect: redirect, expectedState: state)
         let existing = accounts
-        let (session, email) = try await GmailSession.signIn(code: code, pkce: pkce) { email in
-            existing.first { $0.email.caseInsensitiveCompare(email) == .orderedSame }?.id ?? .generate()
-        }
+        let (session, email) = try await GmailSession.signIn(
+            code: code, pkce: pkce,
+            accountID: { email in
+                existing.first { $0.email.caseInsensitiveCompare(email) == .orderedSame }?.id ?? .generate()
+            },
+            keychain: Keychain())
         clients[session.accountID] = GmailClient(session: session)
         engines[session.accountID] = nil
         if !accounts.contains(where: { $0.id == session.accountID }) {
@@ -86,7 +92,7 @@ final class AppModel {
 
     /// Signs the account out and takes it and its mail off the device. Nothing changes in Gmail.
     func removeAccount(_ id: AccountID) async throws {
-        try? await GmailSession(accountID: id).signOut()
+        try? await GmailSession(accountID: id, keychain: Keychain()).signOut()
         clients[id] = nil
         engines[id] = nil
         await prefetchers[id]?.cancel()
@@ -207,7 +213,7 @@ final class AppModel {
 
     private func client(for id: AccountID) -> GmailClient {
         if let client = clients[id] { return client }
-        let client = GmailClient(session: GmailSession(accountID: id))
+        let client = GmailClient(session: GmailSession(accountID: id, keychain: Keychain()))
         clients[id] = client
         return client
     }

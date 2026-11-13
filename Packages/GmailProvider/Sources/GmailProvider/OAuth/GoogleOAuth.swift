@@ -1,5 +1,9 @@
 import Foundation
 
+#if canImport(FoundationNetworking)
+    import FoundationNetworking  // URLSession on Linux
+#endif
+
 /// Google's OAuth 2.0 endpoints for an installed app: authorization code with PKCE, no client secret.
 public enum GoogleOAuth {
     static let authorizationEndpoint = URL(string: "https://accounts.google.com/o/oauth2/v2/auth")!

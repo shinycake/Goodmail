@@ -3,13 +3,20 @@ import Testing
 
 @testable import MailCore
 
+#if os(Linux)
+    private let isLinux = true
+#else
+    private let isLinux = false
+#endif
+
 struct TextDecodingTests {
     @Test func validUTF8WinsOverADeclaredLegacyCharset() {
         // What Gmail returns for a windows-1255 message: UTF-8 bytes, original label.
         #expect(TextDecoding.string(from: Data("שלום".utf8), declaredCharset: "windows-1255") == "שלום")
     }
 
-    @Test func legacyBytesUseTheDeclaredCharset() {
+    @Test(.disabled(if: isLinux, "Linux's Foundation has no windows-1255"))
+    func legacyBytesUseTheDeclaredCharset() {
         // What IMAP will return: the original bytes.
         let windows1255 = Data([0xF9, 0xEC, 0xE5, 0xED])
         #expect(TextDecoding.string(from: windows1255, declaredCharset: "windows-1255") == "שלום")

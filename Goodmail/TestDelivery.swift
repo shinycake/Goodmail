@@ -32,7 +32,7 @@
                 Inserted by Goodmail's test delivery at \(date).
                 """
                 .replacingOccurrences(of: "\n", with: "\r\n")
-            _ = try await DebugGmail(session: GmailSession(accountID: account.id))
+            _ = try await DebugGmail(session: GmailSession(accountID: account.id, keychain: Keychain()))
                 .insert(raw: Data(message.utf8), datedByHeader: false)
         }
     }

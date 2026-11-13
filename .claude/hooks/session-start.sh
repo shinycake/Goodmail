@@ -9,7 +9,7 @@ git config core.hooksPath .githooks
 log=/tmp/goodmail-cloud-setup.log
 # What the hook prints reaches the session's context, so keep it to the outcome and leave the details in the log.
 if scripts/cloud/setup >"$log" 2>&1; then
-    echo "Cloud iOS toolchain ready: scripts/ios-build compiles the packages for iOS; scripts/check runs lint and that."
+    echo "Cloud iOS toolchain ready: scripts/check runs lint, the iOS compile (scripts/ios-build) and the Linux tests."
 else
     echo "scripts/cloud/setup failed, so iOS builds are unavailable. Last lines of $log:"
     tail -n 15 "$log"

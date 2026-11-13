@@ -124,8 +124,14 @@ public enum TextDecoding {
     }
 
     private static func encoding(named name: String) -> String.Encoding? {
-        let cf = CFStringConvertIANACharSetNameToEncoding(name as CFString)
-        guard cf != kCFStringEncodingInvalidId else { return nil }
-        return String.Encoding(rawValue: CFStringConvertEncodingToNSStringEncoding(cf))
+        #if canImport(Darwin)
+            let cf = CFStringConvertIANACharSetNameToEncoding(name as CFString)
+            guard cf != kCFStringEncodingInvalidId else { return nil }
+            return String.Encoding(rawValue: CFStringConvertEncodingToNSStringEncoding(cf))
+        #else
+            // Linux test builds: swift-corelibs-foundation knows only the charsets `String.Encoding` names, so no
+            // windows-1255.
+            return String.Encoding(ianaName: name)
+        #endif
     }
 }
