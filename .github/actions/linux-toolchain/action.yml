@@ -1,0 +1,34 @@
+# The cloud toolchain (docs/setup/cloud-builds.md) in a swift:6.4.2-noble job whose repository is checked out at
+# goodmail/: goodmail-sdk beside it, and scripts/cloud/setup, which builds the Darwin SDK. Without the deploy key it does
+# nothing, and callers run only scripts/check --lint. The job sets HOME=/root, where xtool installs the SDK.
+name: Linux toolchain
+description: Installs xtool and the Darwin SDK so scripts/check can compile for iOS.
+
+inputs:
+  sdk-key:
+    description: The read-only deploy key of shinycake/goodmail-sdk (the GOODMAIL_SDK_DEPLOY_KEY secret).
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - if: inputs.sdk-key != ''
+      uses: actions/checkout@v4
+      with:
+        repository: shinycake/goodmail-sdk
+        ssh-key: ${{ inputs.sdk-key }}
+        path: goodmail-sdk
+
+    # The Darwin SDK is built fresh every run and never cached: the repository is public, and a pull request from a
+    # fork can restore main's caches, which would hand out Apple's SDK from the private goodmail-sdk repository.
+
+    - if: inputs.sdk-key != ''
+      name: Toolchain (scripts/cloud/setup)
+      shell: bash
+      working-directory: goodmail
+      run: |
+        apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q curl python3
+        # setup looks for its Swift under /opt/swift; point it at the image's.
+        mkdir -p /opt/swift && ln -sfn /usr /opt/swift/usr
+        scripts/cloud/setup
