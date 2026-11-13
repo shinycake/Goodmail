@@ -4,6 +4,10 @@ import Synchronization
 
 @testable import GmailProvider
 
+#if canImport(FoundationNetworking)
+    import FoundationNetworking  // URLSession on Linux
+#endif
+
 /// Replays fixture files by request path and records every request it receives.
 final class FixtureHTTPClient: HTTPClient {
     struct Reply: Sendable {

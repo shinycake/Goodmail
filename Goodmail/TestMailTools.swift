@@ -21,7 +21,7 @@
             guard let corpus else { return }
             Task {
                 do {
-                    let gmail = DebugGmail(session: GmailSession(accountID: account.id))
+                    let gmail = DebugGmail(session: GmailSession(accountID: account.id, keychain: Keychain()))
                     try await seed(corpus, into: gmail)
                     if let fixtures { try await record(corpus, into: fixtures, from: gmail) }
                     log.notice("done")

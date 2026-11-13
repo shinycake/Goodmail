@@ -1,5 +1,8 @@
-import CryptoKit
 import Foundation
+
+#if canImport(CryptoKit)
+    import CryptoKit
+#endif
 
 /// Proof Key for Code Exchange (RFC 7636), so the authorization code is useless to anyone who intercepts it.
 public struct PKCE: Sendable {
