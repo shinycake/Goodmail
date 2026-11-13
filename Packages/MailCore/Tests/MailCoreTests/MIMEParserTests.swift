@@ -109,6 +109,14 @@ struct MIMEParserTests {
         #expect(message.parts[0].data == Data("--bold claim".utf8))
     }
 
+    @Test func base64CutShortDecodesWhatItHas() {
+        // "שלום עולם" is 16 bytes, so 24 characters of base64; 21 of them end one character into a quantum.
+        let message = parse([
+            "Content-Type: text/plain; charset=utf-8", "Content-Transfer-Encoding: base64", "", "16nXnNeV150g16LXldec1",
+        ])
+        #expect(message.content().body.plain == "שלום עול")
+    }
+
     @Test func aMessageWithoutContentTypeIsPlainText() {
         let message = MIMEPart(parsing: Data("Subject: x\n\nhello\n".utf8))
         #expect(message.mimeType == "text/plain")

@@ -73,18 +73,12 @@ extension Message {
             replyTo: addresses("Reply-To"),
             subject: mime.header("Subject") ?? "",
             date: content.receivedAt,
-            snippet: Self.snippet(of: body),
+            snippet: body.snippet,
             labelIDs: labelIDs,
             body: body,
             attachments: attachments,
             internetMessageID: mime.header("Message-ID").flatMap { IMAPMessageHeader.messageIDs(in: $0).first },
             references: IMAPMessageHeader.messageIDs(in: mime.header("References") ?? ""))
-    }
-
-    /// The start of the body's words, as Gmail's snippets are.
-    private static func snippet(of body: MessageBody) -> String {
-        let text = body.plain ?? body.html.map(HTMLEntities.plainText(fromHTML:)) ?? ""
-        return String(text.split(whereSeparator: \.isWhitespace).joined(separator: " ").prefix(200))
     }
 }
 

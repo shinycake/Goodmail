@@ -91,7 +91,8 @@ final class AppModel {
 
     /// Checks the app-specific password by logging in to iCloud, then adds the account, or updates the password of
     /// the one already here. Throws `ICloudSignIn.Failure.wrongPassword` when iCloud refuses it.
-    func addICloudAccount(email: String, appPassword: String) async throws {
+    func addICloudAccount(email typed: String, appPassword: String) async throws {
+        let email = typed.trimmingCharacters(in: .whitespaces)
         let existing = accounts.first {
             $0.service == .icloud && $0.email.caseInsensitiveCompare(email) == .orderedSame
         }
@@ -101,7 +102,7 @@ final class AppModel {
         engines[id] = nil
         if existing == nil {
             let account = Account(
-                id: id, email: email.trimmingCharacters(in: .whitespaces),
+                id: id, email: email,
                 color: AccountColor.next(after: accounts.map(\.color)), service: .icloud)
             try database.save(account)
             accounts.append(account)
