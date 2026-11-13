@@ -9,6 +9,7 @@
 # GOODMAIL_SIMULATOR picks its device type (default: iPhone 18 Pro).
 set -euo pipefail
 cd "$(dirname "$0")/.."
+scripts/cloud/ensure  # a Claude cloud session's toolchain, if it doesn't have it yet
 # Build output lives on the external drive when it's mounted, to spare the internal disk.
 BUILD_DIR="${GOODMAIL_BUILD_DIR:-$([[ -d /Volumes/Idan1TB ]] && echo /Volumes/Idan1TB/Goodmail-build || echo "$PWD/.build")}"
 # A linked worktree checks with its own build folder and simulator, so checks in parallel worktrees can't collide.
