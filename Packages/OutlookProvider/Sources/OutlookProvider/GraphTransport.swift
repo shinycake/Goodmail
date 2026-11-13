@@ -25,9 +25,11 @@ struct GraphTransport: Sendable {
         return try JSONDecoder.graph.decode(Response.self, from: data)
     }
 
-    /// The raw reply, for requests whose answer isn't JSON or isn't read.
+    /// The raw reply, for requests whose answer isn't JSON or isn't read. Only Graph itself is sent the account's
+    /// token: a URL that came back from elsewhere, such as a tampered page token, is refused.
     @discardableResult
     func send(_ url: URL, method: String, payload: (data: Data, type: String)?) async throws -> Data {
+        guard url.absoluteString.hasPrefix(Self.baseURL.absoluteString) else { throw ProviderError.rejected }
         var attempt = 0
         while true {
             var request = URLRequest(url: url)
@@ -43,9 +45,22 @@ struct GraphTransport: Sendable {
             if (200..<300).contains(response.statusCode) { return data }
             let error = GraphError(status: response.statusCode, body: String(decoding: data, as: UTF8.self))
             guard error.isTransient, attempt < retryDelays.count else { throw error }
-            try await Task.sleep(for: retryDelays[attempt])
+            try await Task.sleep(for: Self.wait(after: response, planned: retryDelays[attempt]))
             attempt += 1
         }
+    }
+}
+
+extension GraphTransport {
+    /// The longest a throttled request waits for Graph's `Retry-After` before trying again.
+    static let longestWait = Duration.seconds(60)
+
+    /// The planned wait, or longer when Graph says in `Retry-After` how long its throttle lasts.
+    static func wait(after response: HTTPURLResponse, planned: Duration) -> Duration {
+        guard let seconds = response.value(forHTTPHeaderField: "Retry-After").flatMap(Int.init), seconds > 0 else {
+            return planned
+        }
+        return min(max(planned, .seconds(seconds)), longestWait)
     }
 }
 

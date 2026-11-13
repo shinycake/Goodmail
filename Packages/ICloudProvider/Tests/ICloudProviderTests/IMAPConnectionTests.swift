@@ -31,7 +31,7 @@ struct IMAPConnectionTests {
         C: A4 UID SEARCH SINCE 20-Oct-2026
         S: * SEARCH 41 40
         S: A4 OK SEARCH completed
-        C: A5 UID FETCH 40:41 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES)])
+        C: A5 UID FETCH 40:41 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES CONTENT-TYPE CONTENT-TRANSFER-ENCODING)] BODY.PEEK[TEXT]<0.2048>)
         S: * 1 FETCH (UID 40 FLAGS (\Seen) INTERNALDATE "20-Oct-2026 09:14:05 +0300" ENVELOPE ("Tue, 20 Oct 2026 09:14:01 +0300" "=?UTF-8?B?16nXnNeV150=?=" (("Dana Levi" NIL "dana" "example.com")) (("Dana Levi" NIL "dana" "example.com")) NIL ((NIL NIL "me" "icloud.com")) (("Noa" NIL "noa" "example.com")) NIL NIL "<a1@example.com>") BODY[HEADER.FIELDS (REFERENCES)] {2}\r\n\r\n)
         S: * 2 FETCH (UID 41 FLAGS () INTERNALDATE " 1-Nov-2026 18:00:00 +0000" ENVELOPE (NIL "Re: Lunch" ((NIL NIL "me" "icloud.com")) NIL NIL (("Dana Levi" NIL "dana" "example.com")) NIL NIL "<a1@example.com>" "<b2@icloud.com>") BODY[HEADER.FIELDS (REFERENCES)] {51}\r\nReferences: <a0@example.com>\r\n <a1@example.com>\r\n\r\n)
         S: A5 OK FETCH completed

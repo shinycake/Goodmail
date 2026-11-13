@@ -57,6 +57,8 @@ struct IMAPMessageHeader: Equatable, Sendable {
     var inReplyTo: String?
     /// The message IDs it answers, oldest first.
     var references: [String]
+    /// The start of its text, as the mailbox list shows it.
+    var snippet: String
 
     var isUnread: Bool { !flags.contains(#"\Seen"#) }
 
@@ -74,8 +76,11 @@ struct IMAPMessageHeader: Equatable, Sendable {
         cc = Self.addresses(envelope[6])
         inReplyTo = Self.text(envelope[8]).flatMap { Self.messageIDs(in: $0).first }
         messageID = Self.text(envelope[9]).flatMap { Self.messageIDs(in: $0).first }
-        let referencesHeader = fetch.item(prefixed: "BODY[HEADER.FIELDS").flatMap(\.bytes)
-        references = referencesHeader.map { Self.messageIDs(in: String(decoding: $0, as: UTF8.self)) } ?? []
+        let fields = fetch.item(prefixed: "BODY[HEADER.FIELDS").flatMap(\.bytes) ?? Data()
+        references = Self.messageIDs(in: String(decoding: fields, as: UTF8.self))
+        // The start of the text under the headers that say how to read it parses like a message cut short.
+        let text = fetch.item(prefixed: "BODY[TEXT]").flatMap(\.bytes)
+        snippet = text.map { MIMEPart(parsing: fields + $0).content().body.snippet } ?? ""
     }
 
     private static func text(_ value: IMAPValue) -> String? {
