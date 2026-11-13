@@ -25,7 +25,7 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OB
 
 SWIFT_ROOTS=(Goodmail GoodmailUITests NotificationService Widgets Packages)
 # Packages without UIKit or SwiftUI, whose tests also run on Linux (docs/setup/cloud-builds.md).
-LINUX_TESTED_PACKAGES=(MailCore GmailProvider MailStore)
+LINUX_TESTED_PACKAGES=(MailCore GmailProvider MailStore ICloudProvider)
 
 step() { printf '\n▸ %s\n' "$1"; }
 

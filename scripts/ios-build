@@ -22,7 +22,8 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OB
 app_targets=false
 if (($# == 0)); then
     app_targets=true
-    set -- $(cd Packages && ls -d -- */ | tr -d /)
+    # Every package; a folder without a manifest, such as one a branch switch left behind with only .build, isn't one.
+    set -- $(cd Packages && for manifest in */Package.swift; do echo "${manifest%/Package.swift}"; done)
 fi
 for package in "$@"; do
     tests=()
