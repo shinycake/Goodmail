@@ -36,6 +36,24 @@
           }
         }
       }
+    },
+    "NSCameraUsageDescription" : {
+      "comment" : "Shown when Goodmail first asks to use the camera, for taking a photo or scanning a document to attach",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Goodmail uses the camera to take photos and scan documents you attach to a message."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Goodmail משתמש במצלמה לצילום תמונות ולסריקת מסמכים שאתם מצרפים להודעה."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

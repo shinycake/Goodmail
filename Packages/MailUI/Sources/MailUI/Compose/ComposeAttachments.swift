@@ -51,16 +51,21 @@ extension ComposeViewController {
         UIBarButtonItem(
             title: String(localized: "Attach", bundle: .module, comment: "Adds files to the message"),
             image: UIImage(systemName: "paperclip"),
-            menu: UIMenu(children: [
-                UIAction(
-                    title: String(localized: "Photo Library", bundle: .module, comment: "Attach from Photos"),
-                    image: UIImage(systemName: "photo.on.rectangle")
-                ) { [weak self] _ in self?.choosePhotos() },
-                UIAction(
-                    title: String(localized: "Choose File", bundle: .module, comment: "Attach from Files"),
-                    image: UIImage(systemName: "folder")
-                ) { [weak self] _ in self?.chooseFiles() },
-            ]))
+            menu: UIMenu(
+                children: AttachmentSource.available(on: .current).map { source in
+                    UIAction(title: source.title, image: UIImage(systemName: source.symbol)) { [weak self] _ in
+                        self?.choose(source)
+                    }
+                }))
+    }
+
+    private func choose(_ source: AttachmentSource) {
+        switch source {
+        case .photoLibrary: choosePhotos()
+        case .file: chooseFiles()
+        case .camera: takePhoto()
+        case .scan: scanDocument()
+        }
     }
 
     private func choosePhotos() {
@@ -135,5 +140,29 @@ extension ComposeViewController: PHPickerViewControllerDelegate, UIDocumentPicke
     /// Reads a picked file off the main actor: it can be tens of megabytes.
     @concurrent private static func contents(of url: URL) async -> Data? {
         try? Data(contentsOf: url)
+    }
+}
+
+extension AttachmentSource {
+    var title: String {
+        switch self {
+        case .photoLibrary:
+            String(localized: "Photo Library", bundle: .module, comment: "Attach from Photos")
+        case .file:
+            String(localized: "Choose File", bundle: .module, comment: "Attach from Files")
+        case .camera:
+            String(localized: "Take Photo", bundle: .module, comment: "Attach a picture from the camera")
+        case .scan:
+            String(localized: "Scan Document", bundle: .module, comment: "Attach a scanned document as a PDF")
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .photoLibrary: "photo.on.rectangle"
+        case .file: "folder"
+        case .camera: "camera"
+        case .scan: "doc.viewfinder"
+        }
     }
 }
