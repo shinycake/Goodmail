@@ -90,6 +90,8 @@ jobs:
       PR: ${{ github.event.pull_request.number }}
       SHA: ${{ github.event.pull_request.head.sha }}
       TESTED_BASE: ${{ needs.check.outputs.base }}
+      AUTHOR_ID: ${{ github.event.pull_request.user.id }}
+      AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}
     steps:
       - name: Squash-merge the reviewed commit
         run: |
@@ -111,4 +113,7 @@ jobs:
             gh pr comment "$PR" -R "$GITHUB_REPOSITORY" --body "$moved Merge main into the branch and push to run it again."
             exit 1
           fi
-          gh pr merge "$PR" -R "$GITHUB_REPOSITORY" --squash --delete-branch --match-head-commit "$SHA"
+          # Author the squash commit with the PR author's noreply address, so a public history never carries the
+          # account's personal email, whatever its GitHub email settings.
+          gh pr merge "$PR" -R "$GITHUB_REPOSITORY" --squash --delete-branch --match-head-commit "$SHA" \
+            --author-email "$AUTHOR_ID+$AUTHOR_LOGIN@users.noreply.github.com"
