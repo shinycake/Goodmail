@@ -28,8 +28,8 @@ public final class MailActions {
     public private(set) var error: (any Error)?
     @ObservationIgnored private let commands: MailCommands
     @ObservationIgnored private var lastUndo: Undo?
-    /// The last action asked for; each waits for the one before it (`run`).
-    @ObservationIgnored private var queue: Task<Void, Never>?
+    /// Applies the actions in the order they were asked for (`run`).
+    @ObservationIgnored private let chain = TaskChain()
     @ObservationIgnored private let toastDuration: Duration
     @ObservationIgnored private let undoSendDelay: () -> Duration
 
@@ -155,7 +155,7 @@ public final class MailActions {
 
     /// Waits until every action asked for so far is applied, as a test does before it reads the store.
     public func settled() async {
-        await queue?.value
+        await chain.settled()
     }
 
     /// Makes one undoable change, keeps it as the last one, and confirms it with `confirmation` when there is one.
@@ -175,9 +175,7 @@ public final class MailActions {
     /// Runs `work` after everything asked for before it, so actions apply in the order the reader gave them even
     /// though each waits for the commands actor. A failure lands in `error`.
     private func run(_ work: @escaping (MailCommands) async throws -> Void) {
-        let previous = queue
-        queue = Task { [self] in
-            await previous?.value
+        chain.run { [self] in
             do {
                 try await work(commands)
             } catch {

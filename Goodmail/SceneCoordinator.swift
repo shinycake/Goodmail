@@ -110,7 +110,7 @@ final class SceneCoordinator: NSObject {
             accounts: { model.accounts },
             signIn: { [weak self] in try await self?.signIn(to: $0) ?? false },
             remove: { try await model.removeAccount($0) },
-            update: { try model.update($0) },
+            update: { try await model.update($0) },
             closed: { [weak self] in
                 guard let self,
                     model.accounts != before || Preferences.unsortedInboxAccounts != unsortedBefore
