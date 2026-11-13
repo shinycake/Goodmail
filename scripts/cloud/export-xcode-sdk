@@ -29,5 +29,6 @@ done
 rm -rf "$destination"
 mkdir -p "$destination"
 # GitHub refuses files over 100 MB, so the archive is stored in parts.
-(cd "$xcode" && tar -cf - --exclude prebuilt-modules "${present[@]}") | zstd -T0 -10 -q | split -b 90m - "$destination/Xcode.tar.zst."
+# COPYFILE_DISABLE keeps macOS tar from adding extended attributes as AppleDouble ._ files.
+(cd "$xcode" && COPYFILE_DISABLE=1 tar -cf - --exclude prebuilt-modules "${present[@]}") | zstd -T0 -10 -q | split -b 90m - "$destination/Xcode.tar.zst."
 echo "Xcode $version → $destination ($(du -sh "$destination" | cut -f1)). Commit and push goodmail-sdk."

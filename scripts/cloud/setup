@@ -3,7 +3,7 @@
 # toolchain that matches Xcode, xtool, and xtool's Darwin SDK built from the Xcode subset kept in the private
 # goodmail-sdk repository. Every step is skipped when its result is already installed, so rerunning is cheap.
 #
-# GOODMAIL_SDK_REPO overrides where the Xcode subset is cloned from.
+# Cloud sessions check goodmail-sdk out next to this repository. Without that checkout, setup clones GOODMAIL_SDK_REPO.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
@@ -63,14 +63,19 @@ fi
 step "Darwin SDK from Xcode $XCODE_VERSION"
 stamp="xcode=$XCODE_VERSION xtool=$XTOOL_VERSION setup=$(sha256sum "$0" | cut -c1-16)"
 if [[ "$(cat "$BUNDLE/goodmail-stamp" 2>/dev/null)" != "$stamp" ]]; then
-    git clone --quiet --depth 1 "$SDK_REPO" "$work/goodmail-sdk"
-    parts=("$work/goodmail-sdk/xcode-$XCODE_VERSION"/Xcode.tar.zst.*)
+    sdk_checkout="$(cd .. && pwd)/goodmail-sdk"
+    if [[ ! -d "$sdk_checkout/xcode-$XCODE_VERSION" ]]; then
+        sdk_checkout="$work/goodmail-sdk"
+        git clone --quiet --depth 1 "$SDK_REPO" "$sdk_checkout"
+    fi
+    parts=("$sdk_checkout/xcode-$XCODE_VERSION"/Xcode.tar.zst.*)
     if [[ ! -f "${parts[0]}" ]]; then
-        echo "$SDK_REPO has no xcode-$XCODE_VERSION. Export it from the Mac with scripts/cloud/export-xcode-sdk." >&2
+        echo "$sdk_checkout has no xcode-$XCODE_VERSION. Export it from the Mac with scripts/cloud/export-xcode-sdk." >&2
         exit 1
     fi
     mkdir "$work/Xcode.app"
-    cat "${parts[@]}" | zstd -dcq | tar -x -C "$work/Xcode.app"
+    # --exclude: macOS tar may have stored extended attributes as AppleDouble ._ files, which aren't valid headers.
+    cat "${parts[@]}" | zstd -dcq | tar -x --exclude '._*' -C "$work/Xcode.app"
     xtool sdk build "$work/Xcode.app" "$work/sdk" --arch "$(uname -m)"
     xtool sdk install "$work/sdk/darwin.xtoolsdk"
     # swift-build passes --strip-bitcode when it embeds Swift libraries in a test bundle, and fails without Apple's
