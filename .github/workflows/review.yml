@@ -18,9 +18,51 @@ permissions: {}
 # The repository is public. Pull requests from forks get no secrets, so they can't be checked against the SDK,
 # reviewed or merged; every job runs only for branches of this repository, which only the owner can push.
 jobs:
+  # The WIP limit (ADR-018): one ready PR per lane, and at most WIP_LIMIT ready PRs in all. A lane is the branch name
+  # up to its first `-` or `/`, or `claude/project-thread-<id>` for a cloud thread's branches, so each thread has one.
+  # A PR that would go over is turned back into a draft before anything runs on it. Pushes to a PR that is already in
+  # are always let through.
+  wip:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.number }}
+      ACTION: ${{ github.event.action }}
+      WIP_LIMIT: 6
+    outputs:
+      admitted: ${{ steps.limit.outputs.admitted }}
+    steps:
+      - id: limit
+        run: |
+          lane() { sed -E 's#^(claude/project-thread-[a-z0-9]+).*#\1#; t; s#^([^/-]+).*#\1#' <<<"$1"; }
+          if [[ "$ACTION" == synchronize ]]; then echo "admitted=true" >>"$GITHUB_OUTPUT"; exit 0; fi
+          open=$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&per_page=100" --paginate \
+            --jq '.[] | select(.draft | not) | "\(.number) \(.head.ref)"')
+          mine=$(lane "$(gh pr view "$PR" -R "$GITHUB_REPOSITORY" --json headRefName --jq .headRefName)")
+          others=$(awk -v pr="$PR" '$1 != pr' <<<"$open")
+          total=$(grep -c . <<<"$others" || true)
+          same=$(while read -r number ref; do
+            [[ -n "$number" && "$(lane "$ref")" == "$mine" ]] && echo "#$number"
+          done <<<"$others" | paste -sd' ' -)
+          if [[ -n "$same" ]]; then
+            reason="its lane \`$mine\` already has a ready PR ($same). Land that first"
+          elif ((total >= WIP_LIMIT)); then
+            reason="$total PRs are already ready, the limit is $WIP_LIMIT. Help land one of them first"
+          else
+            echo "admitted=true" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+          gh pr ready "$PR" -R "$GITHUB_REPOSITORY" --undo
+          gh pr comment "$PR" -R "$GITHUB_REPOSITORY" \
+            --body "Back to draft by the WIP limit (ADR-018): $reason, then mark this one ready again."
+
   # Lint, the iOS compile of everything, and the Linux tests, on the PR merged with main (linux-check.yml).
   check:
-    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    needs: wip
+    if: ${{ needs.wip.outputs.admitted == 'true' }}
     uses: ./.github/workflows/linux-check.yml
     permissions:
       contents: read
@@ -28,7 +70,8 @@ jobs:
       GOODMAIL_SDK_DEPLOY_KEY: ${{ secrets.GOODMAIL_SDK_DEPLOY_KEY }}
 
   claude:
-    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft }}
+    needs: wip
+    if: ${{ needs.wip.outputs.admitted == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     permissions:
