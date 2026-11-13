@@ -26,16 +26,15 @@ struct SettingsView: View {
                     .swipeActions { removeButton(account) }
                     .contextMenu { removeButton(account) }
                 }
-                Button {
-                    Task { await model.addAccount() }
+                NavigationLink {
+                    AddAccountView(model: model)
                 } label: {
                     Label {
-                        Text("Add Account", bundle: .module, comment: "Signs in to another Gmail account")
+                        Text("Add Account", bundle: .module, comment: "Adds another mail account")
                     } icon: {
                         Image(systemName: "plus")
                     }
                 }
-                .disabled(model.isAddingAccount)
             } header: {
                 Text("Accounts", bundle: .module, comment: "Settings section listing the accounts")
             }
