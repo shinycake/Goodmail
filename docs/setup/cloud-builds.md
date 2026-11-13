@@ -27,7 +27,7 @@ A new Apple-only import in these packages breaks the Linux tests in `scripts/che
 | Piece | Where from | Where to |
 | --- | --- | --- |
 | Swift 6.4.2, matching Xcode 27.2 | The official `swift:6.4.2-noble` image on Docker Hub, because cloud workers can't reach download.swift.org. `scripts/cloud/fetch-docker-layer.py` downloads the toolchain layer and checks its digest. | `/opt/swift`, plus `swift` and `swiftc` in `/usr/local/bin` |
-| xtool 1.24.0 | GitHub release AppImage, unpacked because containers have no FUSE | `/opt/xtool`, plus `xtool` in `/usr/local/bin` |
+| xtool 1.24.0 | GitHub release AppImage, checked against its pinned SHA-256 and unpacked because containers have no FUSE | `/opt/xtool`, plus `xtool` in `/usr/local/bin` |
 | Darwin SDK | Built by `xtool sdk build` from the Xcode subset in the private [`shinycake/goodmail-sdk`](https://github.com/shinycake/goodmail-sdk) repository: the checkout next to this one, or a fresh clone | `~/.swiftpm/swift-sdks/darwin.artifactbundle` |
 
 Two adjustments make swift-build work on Linux:
