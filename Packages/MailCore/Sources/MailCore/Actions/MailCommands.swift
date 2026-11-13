@@ -51,9 +51,11 @@ public actor MailCommands {
     }
 
     /// Takes a scheduled message out of the queue and keeps it in the provider's Drafts instead.
+    /// One write turns it into a draft save, so a failure can't leave it in neither place.
     public func unschedule(_ id: Draft.ID) throws {
-        guard let draft = try store.cancel(id)?.draft else { return }
-        try saveDraft(draft)
+        let date = now()
+        guard let message = try store.requeue(id, as: .saveDraft, at: date) else { return }
+        deliver(message.draft.accountID, date)
     }
 
     /// Takes back a queued message that hasn't gone yet, returning its draft to edit. `nil` once it has gone.

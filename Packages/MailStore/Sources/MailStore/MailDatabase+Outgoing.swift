@@ -38,6 +38,16 @@ extension MailDatabase: OutgoingStore {
         }
     }
 
+    public func requeue(_ id: Draft.ID, as purpose: OutgoingMessage.Purpose, at date: Date) throws -> OutgoingMessage? {
+        try write { db in
+            try db.execute(
+                sql: "UPDATE outgoing SET purpose = ?, sendAt = ? WHERE id = ? AND failure IS NULL",
+                arguments: [purpose.rawValue, date, id.uuidString])
+            guard db.changesCount > 0 else { return nil }
+            return try Self.outgoing(db, sql: "WHERE id = ?", arguments: [id.uuidString]).first
+        }
+    }
+
     public func dueMessages(for account: AccountID, by date: Date) throws -> [OutgoingMessage] {
         try pool.read { db in
             try Self.outgoing(

@@ -85,6 +85,12 @@ private final class OutgoingQueue: MailCommands.Store, @unchecked Sendable {
 
     func dueMessages(for account: AccountID, by date: Date) throws -> [OutgoingMessage] { [] }
     func nextSendDate(for account: AccountID) throws -> Date? { nil }
+    func requeue(_ id: Draft.ID, as purpose: OutgoingMessage.Purpose, at date: Date) throws -> OutgoingMessage? {
+        guard let index = messages.firstIndex(where: { $0.id == id }) else { return nil }
+        messages[index].purpose = purpose
+        messages[index].sendAt = date
+        return messages[index]
+    }
     func markFailed(_ id: Draft.ID, reason: SendFailure) throws {}
     func remove(_ id: Draft.ID) throws { messages.removeAll { $0.id == id } }
     func sender(for account: AccountID) throws -> Contact { Contact(name: nil, address: "me@example.com") }
