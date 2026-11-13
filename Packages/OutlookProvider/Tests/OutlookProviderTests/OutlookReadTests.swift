@@ -4,6 +4,10 @@ import Testing
 
 @testable import OutlookProvider
 
+#if canImport(FoundationNetworking)
+    import FoundationNetworking  // URLSession on Linux
+#endif
+
 struct OutlookReadTests {
     /// A mailbox with every well-known folder but Conversation History, a user folder at the root and one in the
     /// Inbox, and two conversations in the Inbox.
@@ -11,7 +15,7 @@ struct OutlookReadTests {
         let path = request.graphPath
         if request.url!.host() == "login.example.com" { return "token" }
         if let name = path.split(separator: "/").last, path.hasPrefix("me/mailFolders/"),
-            WellKnownFolder(rawValue: String(name)) != nil
+            let folder = WellKnownFolder(rawValue: String(name)), folder != .conversationhistory
         {
             return "folder-\(name)"
         }

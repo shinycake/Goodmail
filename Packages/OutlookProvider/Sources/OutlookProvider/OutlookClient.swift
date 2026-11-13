@@ -1,6 +1,10 @@
 import Foundation
 import MailCore
 
+#if canImport(FoundationNetworking)
+    import FoundationNetworking  // URLSession on Linux
+#endif
+
 /// Microsoft Graph mail for one Outlook account. Outlook files each message in one folder and keeps Unread and
 /// Starred as flags; this client reads them as Gmail's labels, and a thread is a Graph conversation.
 public struct OutlookClient: Sendable {
@@ -55,7 +59,7 @@ public struct OutlookClient: Sendable {
             try await withThrowingTaskGroup(of: (String, ThreadSummary?).self) { group in
                 for id in batch {
                     group.addTask {
-                        let messages = try await conversation(id, select: GraphMessage.summaryFields)
+                        let messages: [GraphMessage] = try await conversation(id, select: GraphMessage.summaryFields)
                         let threadID = ThreadSummary.ID(accountID: accountID, threadID: id)
                         return (id, ThreadSummary(conversation: threadID, messages: messages, folders: directory))
                     }

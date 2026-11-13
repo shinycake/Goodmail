@@ -5,6 +5,10 @@ import Testing
 
 @testable import OutlookProvider
 
+#if canImport(FoundationNetworking)
+    import FoundationNetworking  // URLSession on Linux
+#endif
+
 /// Answers Graph requests from fixture files, chosen per request by `route`, and records every request.
 final class FixtureGraph: HTTPClient {
     private let route: @Sendable (URLRequest) -> String?

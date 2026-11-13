@@ -1,6 +1,10 @@
 import Foundation
 import MailCore
 
+#if canImport(FoundationNetworking)
+    import FoundationNetworking  // URLSession on Linux
+#endif
+
 /// Authorized Microsoft Graph requests for one account, retried when Graph is throttling or briefly down.
 struct GraphTransport: Sendable {
     static let baseURL = URL(string: "https://graph.microsoft.com/v1.0/")!
@@ -11,7 +15,8 @@ struct GraphTransport: Sendable {
     let retryDelays: [Duration]
 
     func get<Response: Decodable>(_ path: String, query: [URLQueryItem] = []) async throws -> Response {
-        try await get(Self.baseURL.appending(path: path).appending(queryItems: query))
+        let url = Self.baseURL.appending(path: path)
+        return try await get(query.isEmpty ? url : url.appending(queryItems: query))
     }
 
     /// A URL Graph handed back whole, such as a page's `@odata.nextLink`.
