@@ -204,6 +204,29 @@ struct GmailSyncTests {
         #expect(http.requests.filter { $0.url!.path().hasSuffix("/profile") }.count == 3, "one try and two retries")
     }
 
+    @Test func sendingIsNotRepeatedAfterAServerErrorButIsWhenRateLimited() async throws {
+        let path = "/gmail/v1/users/me/messages/send"
+        let (failing, failed) = try await client([path: [.init(fixture: "rate-limited", status: 503)]])
+        await #expect(throws: GmailError.self) { try await failing.send(Data("Subject: Hi".utf8), inThread: nil) }
+        #expect(failed.requests.filter { $0.url!.path() == path }.count == 1, "Gmail may have sent it already")
+
+        let (throttled, retried) = try await client([
+            path: [.init(fixture: "rate-limited", status: 429), .init(fixture: "message-sent")]
+        ])
+        try await throttled.send(Data("Subject: Hi".utf8), inThread: nil)
+        #expect(retried.requests.filter { $0.url!.path() == path }.count == 2)
+    }
+
+    @Test func aNewDraftIsNotRepeatedAfterAServerError() async throws {
+        let (gmail, http) = try await client([
+            "/gmail/v1/users/me/drafts": [.init(fixture: "rate-limited", status: 502)]
+        ])
+        await #expect(throws: GmailError.self) {
+            try await gmail.saveDraft(Data("Subject: Hi".utf8), inThread: nil, replacing: nil)
+        }
+        #expect(http.requests.filter { $0.url!.path() == "/gmail/v1/users/me/drafts" }.count == 1)
+    }
+
     @Test func clientErrorsAreNotRetried() async throws {
         let (gmail, http) = try await client([
             "/gmail/v1/users/me/profile": [.init(fixture: "not-found", status: 400)]
