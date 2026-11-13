@@ -109,10 +109,7 @@ final class SceneCoordinator: NSObject {
         let unsortedBefore = Preferences.unsortedInboxAccounts
         let viewModel = SettingsViewModel(
             accounts: { model.accounts },
-            add: { [weak self] in
-                guard let self else { return false }
-                return try await model.addGmailAccount(using: WebAuthentication(window: window))
-            },
+            signIn: { [weak self] in try await self?.signIn(to: $0) ?? false },
             remove: { try await model.removeAccount($0) },
             update: { try model.update($0) },
             closed: { [weak self] in
@@ -130,14 +127,19 @@ final class SceneCoordinator: NSObject {
         return top
     }
 
-    private func showWelcome() {
-        let welcome = WelcomeViewController { [weak self] in
-            guard let self else { return }
-            if try await model.addGmailAccount(using: WebAuthentication(window: window)) {
-                showMailbox()
-            }
+    /// Signs in to `service` and adds its account, for the service chooser on the welcome screen and in Settings.
+    /// Returns `false` if the reader cancelled. A service whose sign-in is a web page goes through `AppModel`; one that
+    /// needs its own form presents it here, over the chooser.
+    private func signIn(to service: MailService) async throws -> Bool {
+        switch service {
+        case .gmail: try await model.addGmailAccount(using: WebAuthentication(window: window))
         }
-        window.rootViewController = UINavigationController(rootViewController: welcome)
+    }
+
+    private func showWelcome() {
+        let adder = AccountAdder { [weak self] in try await self?.signIn(to: $0) ?? false }
+        adder.onAdded = { [weak self] in self?.showMailbox() }
+        window.rootViewController = WelcomeScreen.make(adder: adder)
     }
 
     /// The Inbox, with the mailboxes beside it in a wide window or behind it in a narrow one.

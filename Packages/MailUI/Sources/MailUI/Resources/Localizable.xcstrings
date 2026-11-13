@@ -381,34 +381,12 @@
       }
     },
     "Add Account" : {
-      "comment" : "Signs in to another Gmail account",
+      "comment" : "Adds another mail account",
       "localizations" : {
         "he" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "הוסף חשבון"
-          }
-        }
-      }
-    },
-    "Add Gmail Account" : {
-      "comment" : "Button that starts sign-in",
-      "localizations" : {
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "הוספת חשבון Gmail"
-          }
-        }
-      }
-    },
-    "Add a Gmail account to get started." : {
-      "comment" : "Empty-state explanation shown before any mail account is added",
-      "localizations" : {
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "כדי להתחיל, יש להוסיף חשבון Gmail."
           }
         }
       }
@@ -622,6 +600,17 @@
         }
       }
     },
+    "Fast, simple mail. Add an account to get started." : {
+      "comment" : "Welcome screen: what the app is and what to do first",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דואר מהיר ופשוט. כדי להתחיל, מוסיפים חשבון."
+          }
+        }
+      }
+    },
     "File Too Large" : {
       "comment" : "Alert title",
       "localizations" : {
@@ -695,6 +684,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "מעבר אל %@"
+          }
+        }
+      }
+    },
+    "Goodmail" : {
+      "comment" : "The app's name, as the welcome screen's title",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Goodmail"
+          }
+        }
+      }
+    },
+    "Goodmail keeps your mail on this device and talks to your provider directly." : {
+      "comment" : "Add Account: where mail is kept",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Goodmail שומר את הדואר שלך במכשיר הזה ומתקשר ישירות עם ספק הדואר."
           }
         }
       }
@@ -989,17 +1000,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "הודעה חדשה"
-          }
-        }
-      }
-    },
-    "No Accounts" : {
-      "comment" : "Empty-state title shown before any mail account is added",
-      "localizations" : {
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "אין חשבונות"
           }
         }
       }
