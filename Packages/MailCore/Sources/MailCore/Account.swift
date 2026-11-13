@@ -17,12 +17,13 @@ public enum MailService: String, CaseIterable, Codable, Hashable, Sendable {
     case gmail
     /// iCloud Mail, over IMAP and SMTP with an app-specific password.
     case icloud
+    case outlook
 
     /// Whether the service sorts its Inbox into categories (Primary, Promotions and the rest).
     public var hasInboxCategories: Bool {
         switch self {
         case .gmail: true
-        case .icloud: false
+        case .icloud, .outlook: false
         }
     }
 }

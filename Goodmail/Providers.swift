@@ -2,6 +2,7 @@ import GmailProvider
 import ICloudProvider
 import MailCore
 import MailStore
+import OutlookProvider
 import Synchronization
 
 /// Each account's provider, made for the account's service on first use and shared by everything that talks to it:
@@ -44,6 +45,7 @@ nonisolated final class Providers: Sendable {
         switch account.service {
         case .gmail: try await OAuthSession(accountID: account.id, client: .gmail, keychain: Keychain()).signOut()
         case .icloud: try ICloudSignIn(secrets: Keychain()).signOut(account.id)
+        case .outlook: try await OAuthSession(accountID: account.id, client: .outlook, keychain: Keychain()).signOut()
         }
     }
 
@@ -54,6 +56,9 @@ nonisolated final class Providers: Sendable {
             ICloudClient(
                 accountID: account.id, email: account.email,
                 appPassword: try ICloudSignIn(secrets: Keychain()).appPassword(for: account.id), index: database)
+        case .outlook:
+            OutlookClient(
+                session: OAuthSession(accountID: account.id, client: .outlook, keychain: Keychain()), index: database)
         }
     }
 }
