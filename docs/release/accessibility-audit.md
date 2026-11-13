@@ -51,14 +51,21 @@ proposed as a follow-up.
 | Compose Cc/Bcc reveal and quote fold | ✅ | Springs without bounce that only resize the layout. |
 | Navigation, sheets, menus | ✅ | UIKit's own, which already follow the setting. |
 
-## Checks that need a device or simulator
+## Simulator pass (2026-11-13)
 
-Run each with the setting on, in English and Hebrew:
+Run on the iOS 27.2 simulator with the test-mail corpus filed into the Inbox (`-GoodmailSyntheticCorpus <repo>/TestMail`),
+in English and Hebrew, at the default size and AX5, with `performAccessibilityAudit` and the accessibility tree on each
+screen.
 
-1. VoiceOver: walk the Inbox, swipe actions through the Actions rotor, open a thread, fold a message from its header, open an attachment, compose a reply and fold the quote.
-2. Dynamic Type: AX5 on the Inbox, a long-named sender, a thread with several messages and attachments, compose. Change the size while each screen is open.
-3. Reduce Motion: archive a thread (toast), swipe past the full-swipe point, swipe open and release.
-4. Voice Control: "Show names" on the Inbox and a thread; every control should have a speakable name.
-5. Accessibility Inspector audit on each screen.
+| Area | Result |
+| --- | --- |
+| Inbox, thread, compose at AX5 | Text scales and wraps; nothing clipped except what truncates by design (long recipients and subjects in compose). |
+| Mailboxes list at AX5 | 🔧 Names broke mid-word beside the count. The count now moves under the name (#80). |
+| Thread toolbar More menu | 🔧 The star showed with no name, and Reply was listed three times (#82). |
+| Thread reader | Message header is one button, attachments read "name, size", the quote fold reads "Show Quoted Text". |
+| Quote fold in the reader | ⏭ About 41 × 23 pt, under the 44 pt target. |
+| Compose | Title, To, Cc/Bcc, Subject, attach and send are labelled; the reply mirrors correctly in Hebrew. |
+| Reduce Motion | ✅ by reading the code: `Motion` removes the bounce from swipes and the toast, and the toast fades in place. The simulator can't show how it feels. |
+| VoiceOver, Voice Control | Labels and traits checked through the accessibility tree. Gestures, the rotor and "Show names" can't be driven in the simulator. |
 
-Screenshots and notes from those runs belong in the PR that closes M11's accessibility item.
+What still needs a real iPhone is in [device-checklist.md](device-checklist.md).
