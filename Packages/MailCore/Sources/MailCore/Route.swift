@@ -13,6 +13,8 @@ public enum Route: Hashable, Sendable {
     case move([ThreadSummary.ID], from: Mailbox)
     /// The messages waiting to be sent later.
     case scheduled
+    /// The threads snoozed out of the Inbox until later.
+    case snoozed
     /// Accounts and preferences.
     case settings
 }

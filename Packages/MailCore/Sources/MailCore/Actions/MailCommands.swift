@@ -3,14 +3,19 @@ import Foundation
 /// The only way to change mail (ADR-011). Applies an action locally at once, queues it for the provider, and returns
 /// how to undo it.
 public final class MailCommands: Sendable {
-    /// What undoes one `perform`: per account, the actions that put each thread back.
+    /// Everything the commands change.
+    public typealias Store = OutboxStore & OutgoingStore & SnoozeStore
+
+    /// What undoes one `perform` or `snooze`: per account, the actions that put each thread back, and each snoozed
+    /// thread's snooze from before (`nil` for none).
     public struct Undo: Equatable, Sendable {
         public var intents: [AccountID: [OutboxIntent]]
+        public var snoozes: [ThreadSummary.ID: SnoozeState?] = [:]
 
-        public var isEmpty: Bool { intents.values.allSatisfy(\.isEmpty) }
+        public var isEmpty: Bool { intents.values.allSatisfy(\.isEmpty) && snoozes.isEmpty }
     }
 
-    private let store: any OutboxStore & OutgoingStore
+    private let store: any Store
     private let replay: @Sendable (AccountID) -> Void
     private let deliver: @Sendable (AccountID, Date) -> Void
     private let now: @Sendable () -> Date
@@ -18,7 +23,7 @@ public final class MailCommands: Sendable {
     /// `replay` is asked to drain an account's outbox after each change; `deliver` to send its queued messages
     /// once the given date passes.
     public init(
-        store: any OutboxStore & OutgoingStore,
+        store: any Store,
         replay: @escaping @Sendable (AccountID) -> Void,
         deliver: @escaping @Sendable (AccountID, Date) -> Void = { _, _ in },
         now: @escaping @Sendable () -> Date = { .now }
@@ -100,7 +105,41 @@ public final class MailCommands: Sendable {
         return undo
     }
 
+    /// Takes the threads out of the Inbox until `date`, when `wakeSnoozed` puts them back.
+    @discardableResult
+    public func snooze(_ threads: [ThreadSummary.ID], until date: Date) throws -> Undo {
+        let before = try store.snoozes(of: threads)
+        var undo = try perform(.archive, on: threads)
+        undo.snoozes = Dictionary(uniqueKeysWithValues: threads.map { ($0, before[$0]) })
+        try store.setSnoozes(Dictionary(uniqueKeysWithValues: threads.map { ($0, .asleep(until: date)) }))
+        return undo
+    }
+
+    /// Puts snoozed threads back in the Inbox now and ends their snooze; undo snoozes them again.
+    @discardableResult
+    public func unsnooze(_ threads: [ThreadSummary.ID]) throws -> Undo {
+        let before = try store.snoozes(of: threads)
+        var undo = try perform(.moveToInbox, on: threads)
+        undo.snoozes = Dictionary(uniqueKeysWithValues: threads.map { ($0, before[$0]) })
+        try store.setSnoozes(Dictionary(uniqueKeysWithValues: threads.map { ($0, nil) }))
+        return undo
+    }
+
+    /// Puts back in the Inbox, unread, every thread whose snooze is over, then forgets snoozes that are done.
+    /// Returns the threads it woke.
+    @discardableResult
+    public func wakeSnoozed() throws -> [ThreadSummary.ID] {
+        let date = now()
+        try store.pruneSnoozes(at: date)
+        let due = try store.dueSnoozes(by: date)
+        guard !due.isEmpty else { return [] }
+        try perform(.modifyLabels(add: [SystemLabel.inbox, SystemLabel.unread], remove: []), on: due)
+        try store.setSnoozes(Dictionary(uniqueKeysWithValues: due.map { ($0, .woke(at: date)) }))
+        return due
+    }
+
     public func undo(_ undo: Undo) throws {
+        if !undo.snoozes.isEmpty { try store.setSnoozes(undo.snoozes) }
         for (account, intents) in undo.intents where !intents.isEmpty {
             let date = now()
             _ = try store.enqueue(

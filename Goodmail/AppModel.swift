@@ -115,6 +115,8 @@ final class AppModel {
         let engines = try accounts.map { try engine(for: $0.id) }
         let prefetchers = try accounts.map { try prefetcher(for: $0.id) }
         let outboxes = outboxes
+        // Snoozed threads whose time came, queued before the replay below so the server hears of them now.
+        try commands.wakeSnoozed()
         // Messages whose undo window closed while the app was away.
         for account in accounts { await senders.deliver(account.id, at: .now) }
         try await withThrowingTaskGroup(of: Void.self) { group in

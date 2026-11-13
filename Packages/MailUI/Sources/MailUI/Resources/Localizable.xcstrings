@@ -13,7 +13,7 @@
       }
     },
     "%@, %@" : {
-      "comment" : "Send Later choice: the first morning after the weekend, as weekday and time",
+      "comment" : "Later choice: a morning on another day, as weekday and time",
       "localizations" : {
         "he" : {
           "stringUnit" : {
@@ -206,6 +206,47 @@
                       "value" : "%arg שרשורים הועברו"
                     }
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld moved to Inbox" : {
+      "comment" : "Toast after putting snoozed threads back in the Inbox",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Moved to Inbox"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld threads moved to Inbox"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "הועבר לדואר הנכנס"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld שרשורים הועברו לדואר הנכנס"
                 }
               }
             }
@@ -461,7 +502,7 @@
       }
     },
     "Choose a Time…" : {
-      "comment" : "Picks when a message goes",
+      "comment" : "Picks a later time from a calendar",
       "localizations" : {
         "he" : {
           "stringUnit" : {
@@ -1013,6 +1054,17 @@
         }
       }
     },
+    "Nothing Snoozed" : {
+      "comment" : "Shown when no thread is snoozed",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אין שרשורים במצב נודניק"
+          }
+        }
+      }
+    },
     "OK" : {
       "comment" : "Dismiss",
       "localizations" : {
@@ -1042,6 +1094,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "מסומן"
+          }
+        }
+      }
+    },
+    "Open" : {
+      "comment" : "Opens a snoozed thread to read it",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פתיחה"
           }
         }
       }
@@ -1333,6 +1396,72 @@
         }
       }
     },
+    "Snooze" : {
+      "comment" : "Hides threads until a later time",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נודניק"
+          }
+        }
+      }
+    },
+    "Snooze Until" : {
+      "comment" : "Menu of times to snooze threads until",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נודניק עד"
+          }
+        }
+      }
+    },
+    "Snooze a thread to have it come back to the Inbox later." : {
+      "comment" : "Explains what snoozing does",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אפשר להפעיל נודניק על שרשור כדי שיחזור לדואר הנכנס מאוחר יותר."
+          }
+        }
+      }
+    },
+    "Snoozed" : {
+      "comment" : "Mailbox: threads snoozed until later",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "במצב נודניק"
+          }
+        }
+      }
+    },
+    "Snoozed threads come back to the Inbox, unread, when Goodmail next checks for mail after their time." : {
+      "comment" : "Explains when snoozed threads come back",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שרשורים במצב נודניק חוזרים לדואר הנכנס כלא נקראו, בפעם הבאה ש-Goodmail בודק אם הגיע דואר אחרי המועד שלהם."
+          }
+        }
+      }
+    },
+    "Snoozed until %@" : {
+      "comment" : "Toast after snoozing threads, with when they come back",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נודניק עד %@"
+          }
+        }
+      }
+    },
     "Some" : {
       "comment" : "VoiceOver: some of the threads carry this label",
       "localizations" : {
@@ -1443,6 +1572,17 @@
         }
       }
     },
+    "This Evening, %@" : {
+      "comment" : "Later choice: this evening, with the time",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "היום בערב, %@"
+          }
+        }
+      }
+    },
     "This afternoon" : {
       "comment" : "Mailbox section header",
       "localizations" : {
@@ -1510,7 +1650,7 @@
       }
     },
     "Tomorrow, %@" : {
-      "comment" : "Send Later choice: tomorrow morning",
+      "comment" : "Later choice: tomorrow morning, with the time",
       "localizations" : {
         "he" : {
           "stringUnit" : {
@@ -1521,7 +1661,7 @@
       }
     },
     "Tonight, %@" : {
-      "comment" : "Send Later choice: this evening",
+      "comment" : "Later choice: tonight, with the time",
       "localizations" : {
         "he" : {
           "stringUnit" : {

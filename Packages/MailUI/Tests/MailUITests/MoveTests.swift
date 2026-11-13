@@ -5,7 +5,7 @@ import Testing
 @testable import MailUI
 
 /// Threads' labels in memory, changed by the actions queued on them.
-private final class LabelStore: OutboxStore, OutgoingStore, @unchecked Sendable {
+private final class LabelStore: MailCommands.Store, @unchecked Sendable {
     var labels: [String: Set<String>]
     var queued: [OutboxIntent] = []
 
@@ -32,6 +32,11 @@ private final class LabelStore: OutboxStore, OutgoingStore, @unchecked Sendable 
     func markFailed(_ id: Draft.ID, reason: SendFailure) throws {}
     func remove(_ id: Draft.ID) throws {}
     func sender(for account: AccountID) throws -> Contact { Contact(name: nil, address: "") }
+    func snoozes(of threads: [ThreadSummary.ID]) throws -> [ThreadSummary.ID: SnoozeState] { [:] }
+    func setSnoozes(_ snoozes: [ThreadSummary.ID: SnoozeState?]) throws {}
+    func dueSnoozes(by date: Date) throws -> [ThreadSummary.ID] { [] }
+    func nextWakeDate() throws -> Date? { nil }
+    func pruneSnoozes(at date: Date) throws {}
 }
 
 @MainActor
