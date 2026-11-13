@@ -31,6 +31,8 @@ jobs:
       run:
         shell: bash
     env:
+      # Actions sets HOME to /github/home, but xtool installs the SDK in the passwd home (/root), so align the two.
+      HOME: /root
       HAS_SDK_KEY: ${{ secrets.GOODMAIL_SDK_DEPLOY_KEY != '' }}
     steps:
       # setup finds goodmail-sdk next to this repository, as in a cloud session.
@@ -60,7 +62,7 @@ jobs:
       - if: env.HAS_SDK_KEY == 'true'
         uses: actions/cache@v4
         with:
-          path: /github/home/.swiftpm/swift-sdks
+          path: /root/.swiftpm/swift-sdks
           key: darwin-sdk-${{ runner.arch }}-${{ hashFiles('goodmail/scripts/cloud/setup') }}
 
       - name: Toolchain (scripts/cloud/setup)
