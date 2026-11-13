@@ -58,12 +58,8 @@ jobs:
             echo "sha=$(git rev-parse HEAD)" >>"$GITHUB_OUTPUT"
           fi
 
-      # The Darwin SDK takes a minute and a half to build. setup's stamp rebuilds it when it's stale.
-      - if: env.HAS_SDK_KEY == 'true'
-        uses: actions/cache@v4
-        with:
-          path: /root/.swiftpm/swift-sdks
-          key: darwin-sdk-${{ runner.arch }}-${{ hashFiles('goodmail/scripts/cloud/setup') }}
+      # The Darwin SDK is built fresh every run and never cached: the repository is public, and a pull request from
+      # a fork can restore main's caches, which would hand out Apple's SDK from the private goodmail-sdk repository.
 
       - name: Toolchain (scripts/cloud/setup)
         if: env.HAS_SDK_KEY == 'true'

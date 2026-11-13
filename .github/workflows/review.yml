@@ -1,6 +1,5 @@
 # The PR pipeline (ADR-016): the Linux scripts/check, a Claude review against docs/review.md, then a squash merge of
-# the exact commit that passed both, as long as main hasn't moved since the check. Free private repos have no branch
-# protection or native auto-merge, so this workflow is the gate.
+# the exact commit that passed both, as long as main hasn't moved since the check. This workflow is the gate.
 name: review
 
 on:
@@ -14,9 +13,12 @@ concurrency:
 
 permissions: {}
 
+# The repository is public. Pull requests from forks get no secrets, so they can't be checked against the SDK,
+# reviewed or merged; every job runs only for branches of this repository, which only the owner can push.
 jobs:
   # Lint, the iOS compile of everything, and the Linux tests, on the PR merged with main (linux-check.yml).
   check:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     uses: ./.github/workflows/linux-check.yml
     permissions:
       contents: read
@@ -24,7 +26,7 @@ jobs:
       GOODMAIL_SDK_DEPLOY_KEY: ${{ secrets.GOODMAIL_SDK_DEPLOY_KEY }}
 
   claude:
-    if: ${{ !github.event.pull_request.draft }}
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     permissions:
