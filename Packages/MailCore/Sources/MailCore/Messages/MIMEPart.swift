@@ -40,11 +40,7 @@ public struct MIMEPart: Sendable {
 
     /// The `charset` parameter of the Content-Type header.
     var charset: String? {
-        guard let contentType = header("Content-Type") else { return nil }
-        return contentType.split(separator: ";").dropFirst()
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .first { $0.lowercased().hasPrefix("charset=") }
-            .map { String($0.dropFirst("charset=".count)).trimmingCharacters(in: CharacterSet(charactersIn: "\"'")) }
+        header("Content-Type").flatMap { HeaderValue($0).parameters["charset"] }
     }
 
     var isAttachmentDisposition: Bool {
