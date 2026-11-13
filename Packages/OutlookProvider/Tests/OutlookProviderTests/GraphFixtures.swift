@@ -14,7 +14,7 @@ final class FixtureGraph: HTTPClient {
     private let route: @Sendable (URLRequest) -> String?
     private let log = Mutex<[URLRequest]>([])
 
-    /// `route` names the fixture for a request, or `nil` for a 404.
+    /// `route` names the fixture for a request, `status-<code>` for an error reply, or `nil` for a 404.
     init(_ route: @escaping @Sendable (URLRequest) -> String?) {
         self.route = route
     }
@@ -25,6 +25,9 @@ final class FixtureGraph: HTTPClient {
         log.withLock { $0.append(request) }
         guard let name = route(request) else {
             return (Data(#"{"error":{"code":"ErrorItemNotFound"}}"#.utf8), response(request, status: 404))
+        }
+        if let status = Int(name.trimmingPrefix("status-")), name.hasPrefix("status-") {
+            return (Data(#"{"error":{"code":"ErrorInvalidRequest"}}"#.utf8), response(request, status: status))
         }
         return (try fixture(name), response(request, status: 200))
     }
