@@ -132,7 +132,13 @@ final class SceneCoordinator: NSObject {
     /// needs its own form presents it here, over the chooser.
     private func signIn(to service: MailService) async throws -> Bool {
         switch service {
-        case .gmail: try await model.addGmailAccount(using: WebAuthentication(window: window))
+        case .gmail: return try await model.addGmailAccount(using: WebAuthentication(window: window))
+        case .icloud:
+            guard let presenter = topViewController(),
+                let credentials = await ICloudSignInPrompt.ask(from: presenter)
+            else { return false }
+            try await model.addICloudAccount(email: credentials.email, appPassword: credentials.appPassword)
+            return true
         }
     }
 
