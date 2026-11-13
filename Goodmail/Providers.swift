@@ -39,9 +39,9 @@ final class Providers: Sendable {
     }
 
     /// Forgets the account's credentials on the device. Nothing changes at the service.
-    static func signOut(_ account: Account) async throws {
+    static func signOut(_ account: Account) throws {
         switch account.service {
-        case .gmail: try await GmailSession(accountID: account.id, keychain: Keychain()).signOut()
+        case .gmail: try GmailSession(accountID: account.id, keychain: Keychain()).signOut()
         }
     }
 
