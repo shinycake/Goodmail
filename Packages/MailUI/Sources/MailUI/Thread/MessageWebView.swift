@@ -19,6 +19,8 @@ final class MessageWebView: UIView {
     private let cidHandler: CIDSchemeHandler
     private var heightConstraint: NSLayoutConstraint!
     private var content: Content?
+    /// Applies the latest `show`. A newer one cancels it, so a slow first rule compile can't load stale content.
+    private var loading: Task<Void, Never>?
     private static let world = WKContentWorld.world(name: "goodmail")
 
     /// `attachmentData` fetches a part a `cid:` URL names.
@@ -64,12 +66,14 @@ final class MessageWebView: UIView {
         guard content != self.content else { return }
         self.content = content
         cidHandler.message = content.message
-        Task {
+        loading?.cancel()
+        loading = Task {
+            var blocker: WKContentRuleList?
+            if !content.allowsRemoteContent { blocker = try? await RemoteContentBlocker.shared.ruleList() }
+            guard !Task.isCancelled else { return }
             let rules = webView.configuration.userContentController
             rules.removeAllContentRuleLists()
-            if !content.allowsRemoteContent, let blocker = try? await RemoteContentBlocker.shared.ruleList() {
-                rules.add(blocker)
-            }
+            if let blocker { rules.add(blocker) }
             webView.loadHTMLString(MessageDocument.html(for: content.message.body), baseURL: nil)
         }
     }

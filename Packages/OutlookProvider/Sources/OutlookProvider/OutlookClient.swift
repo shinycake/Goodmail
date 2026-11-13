@@ -108,7 +108,7 @@ public struct OutlookClient: Sendable {
     }
 
     /// Every message in a conversation, in whatever folder. A conversation with none left is gone.
-    private func conversation<Item: Decodable>(_ id: String, select: String) async throws -> [Item] {
+    func conversation<Item: Decodable>(_ id: String, select: String) async throws -> [Item] {
         var messages: [Item] = []
         var next: URL? = GraphTransport.baseURL.appending(path: "me/messages").appending(queryItems: [
             URLQueryItem(name: "$filter", value: "conversationId eq \(Self.literal(id))"),
@@ -155,7 +155,7 @@ public struct OutlookClient: Sendable {
         return GraphTransport.baseURL.appending(path: path).appending(queryItems: items)
     }
 
-    private func folderDirectory() async throws -> FolderDirectory {
+    func folderDirectory() async throws -> FolderDirectory {
         try await folders.directory { [graph] in try await graph.folderDirectory() }
     }
 
@@ -175,7 +175,7 @@ public struct OutlookClient: Sendable {
 
 extension Array {
     /// Consecutive runs of `size` elements, the last one shorter when they don't divide evenly.
-    fileprivate func chunks(of size: Int) -> [ArraySlice<Element>] {
+    func chunks(of size: Int) -> [ArraySlice<Element>] {
         stride(from: 0, to: count, by: size).map { self[$0..<Swift.min($0 + size, count)] }
     }
 }

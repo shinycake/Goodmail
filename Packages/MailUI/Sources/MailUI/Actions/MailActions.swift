@@ -3,7 +3,8 @@ import MailCore
 import Observation
 
 /// Performs the reader's actions through `MailCommands` and keeps the last one undoable, shared by every screen of
-/// a window so an archive in the thread view can be undone from the list it returns to.
+/// a window so an archive in the thread view can be undone from the list it returns to. The commands run on their
+/// own actor, never on the main actor, one after another in the order they were asked for.
 @Observable
 public final class MailActions {
     /// A confirmation with an Undo button, for actions that take a thread out of view.
@@ -27,6 +28,8 @@ public final class MailActions {
     public private(set) var error: (any Error)?
     @ObservationIgnored private let commands: MailCommands
     @ObservationIgnored private var lastUndo: Undo?
+    /// The last action asked for; each waits for the one before it (`run`).
+    @ObservationIgnored private var queue: Task<Void, Never>?
     @ObservationIgnored private let toastDuration: Duration
     @ObservationIgnored private let undoSendDelay: () -> Duration
 
@@ -41,36 +44,20 @@ public final class MailActions {
     }
 
     public func perform(_ action: ThreadAction, on threads: [ThreadSummary.ID]) {
-        perform(action, on: threads, confirmation: Self.confirmation(for: action, count: threads.count))
+        apply(confirmation: Self.confirmation(for: action, count: threads.count)) {
+            try await $0.perform(action, on: threads)
+        }
     }
 
     /// Moves threads the reader sees in `mailbox` to `destination`, called `name` in the toast.
     public func move(
         _ threads: [ThreadSummary.ID], to destination: MoveDestination, named name: String, from mailbox: Mailbox
     ) {
-        perform(
-            .move(to: destination, from: mailbox), on: threads,
+        apply(
             confirmation: String(
                 localized: "\(threads.count) moved to \(name)", bundle: .module,
-                comment: "Toast after moving threads; the second value is the mailbox or label they went to"))
-    }
-
-    private func perform(_ action: ThreadAction, on threads: [ThreadSummary.ID], confirmation: String?) {
-        apply(confirmation: confirmation) { try $0.perform(action, on: threads) }
-    }
-
-    /// Makes one undoable change, keeps it as the last one, and confirms it with `confirmation` when there is one.
-    private func apply(confirmation: String?, _ change: (MailCommands) throws -> MailCommands.Undo) {
-        do {
-            let undo = try change(commands)
-            guard !undo.isEmpty else { return }
-            lastUndo = .actions(undo)
-            if let confirmation {
-                show(Toast(message: confirmation, undo: .actions(undo)), for: toastDuration)
-            }
-        } catch {
-            self.error = error
-        }
+                comment: "Toast after moving threads; the second value is the mailbox or label they went to")
+        ) { try await $0.perform(.move(to: destination, from: mailbox), on: threads) }
     }
 
     /// Takes the threads out of the Inbox until `date`, with a toast to take that back.
@@ -79,7 +66,7 @@ public final class MailActions {
             confirmation: String(
                 localized: "Snoozed until \(ScheduledTime.text(for: date))", bundle: .module,
                 comment: "Toast after snoozing threads, with when they come back")
-        ) { try $0.snooze(threads, until: date) }
+        ) { try await $0.snooze(threads, until: date) }
     }
 
     /// Puts snoozed threads back in the Inbox now, with a toast to snooze them again.
@@ -88,52 +75,42 @@ public final class MailActions {
             confirmation: String(
                 localized: "\(threads.count) moved to Inbox", bundle: .module,
                 comment: "Toast after putting snoozed threads back in the Inbox")
-        ) { try $0.unsnooze(threads) }
+        ) { try await $0.unsnooze(threads) }
     }
 
     /// Undoes the most recent action, from the toast or a shake. Does nothing when there is none.
     public func undoLast() {
-        guard let undo = lastUndo else { return }
-        lastUndo = nil
-        toast = nil
-        do {
+        run { [self] commands in
+            guard let undo = lastUndo else { return }
+            lastUndo = nil
+            toast = nil
             switch undo {
             case .actions(let undo):
-                try commands.undo(undo)
+                try await commands.undo(undo)
             case .send(let id):
-                if let draft = try commands.cancelSend(id) { reopen?(draft) }
+                if let draft = try await commands.cancelSend(id) { reopen?(draft) }
             }
-        } catch {
-            self.error = error
         }
     }
 
     /// Keeps `draft` in the provider's Drafts.
     public func saveDraft(_ draft: Draft) {
-        do {
-            try commands.saveDraft(draft)
-        } catch {
-            self.error = error
-        }
+        run { try await $0.saveDraft(draft) }
     }
 
     /// Removes the provider's copy of a draft opened from it.
     public func deleteDraft(_ draft: Draft) {
-        do {
-            try commands.deleteDraft(draft)
-        } catch {
-            self.error = error
-        }
+        run { try await $0.deleteDraft(draft) }
     }
 
     /// Queues a message to go at `time`, with a toast to take it back: for the undo window when it goes now, or
     /// for the usual toast time when it waits under Scheduled.
     public func send(_ draft: Draft, at time: SendTime = .now) {
-        do {
+        run { [self] commands in
             switch time {
             case .now:
                 let delay = undoSendDelay()
-                try commands.send(draft, after: delay)
+                try await commands.send(draft, after: delay)
                 guard delay > .zero else { return }
                 lastUndo = .send(draft.id)
                 show(
@@ -143,31 +120,69 @@ public final class MailActions {
                         undo: .send(draft.id)),
                     for: delay)
             case .at(let date):
-                try commands.schedule(draft, at: date)
+                try await commands.schedule(draft, at: date)
                 lastUndo = .send(draft.id)
                 show(
                     Toast(message: Self.scheduledConfirmation(for: date), undo: .send(draft.id)), for: toastDuration)
             }
-        } catch {
-            self.error = error
         }
     }
 
     /// Takes a scheduled message back into the composer, out of the queue until it is sent again.
     public func editScheduled(_ id: Draft.ID) {
-        do {
-            if let draft = try commands.cancelSend(id) { reopen?(draft) }
-        } catch {
-            self.error = error
+        run { [self] commands in
+            if let draft = try await commands.cancelSend(id) { reopen?(draft) }
         }
     }
 
     /// Stops a scheduled message from going, keeping it in Drafts.
     public func unschedule(_ id: Draft.ID) {
-        do {
-            try commands.unschedule(id)
-        } catch {
-            self.error = error
+        run { try await $0.unschedule(id) }
+    }
+
+    /// Tries a message that failed to send again, now, for the same purpose.
+    public func retrySend(_ message: OutgoingMessage) {
+        run { try await $0.retrySend(message) }
+    }
+
+    /// Forgets a message that failed to send. With `edit`, opens its draft in the composer again.
+    public func discardSend(_ message: OutgoingMessage, edit: Bool = false) {
+        run { [self] commands in
+            try await commands.discardSend(message.id)
+            if edit { reopen?(message.draft) }
+        }
+    }
+
+    /// Waits until every action asked for so far is applied, as a test does before it reads the store.
+    public func settled() async {
+        await queue?.value
+    }
+
+    /// Makes one undoable change, keeps it as the last one, and confirms it with `confirmation` when there is one.
+    private func apply(
+        confirmation: String?, _ change: @escaping (MailCommands) async throws -> MailCommands.Undo
+    ) {
+        run { [self] commands in
+            let undo = try await change(commands)
+            guard !undo.isEmpty else { return }
+            lastUndo = .actions(undo)
+            if let confirmation {
+                show(Toast(message: confirmation, undo: .actions(undo)), for: toastDuration)
+            }
+        }
+    }
+
+    /// Runs `work` after everything asked for before it, so actions apply in the order the reader gave them even
+    /// though each waits for the commands actor. A failure lands in `error`.
+    private func run(_ work: @escaping (MailCommands) async throws -> Void) {
+        let previous = queue
+        queue = Task { [self] in
+            await previous?.value
+            do {
+                try await work(commands)
+            } catch {
+                self.error = error
+            }
         }
     }
 

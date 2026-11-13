@@ -65,9 +65,12 @@ extension FixtureGraph {
     }
 }
 
+/// A file under Fixtures: `name.json`, or the file itself when `name` has an extension, as `m1.eml` does.
 func fixture(_ name: String) throws -> Data {
-    try Data(
-        contentsOf: #require(Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "Fixtures")))
+    let parts = name.split(separator: ".", maxSplits: 1).map(String.init)
+    let (base, ext) = parts.count == 2 ? (parts[0], parts[1]) : (name, "json")
+    return try Data(
+        contentsOf: #require(Bundle.module.url(forResource: base, withExtension: ext, subdirectory: "Fixtures")))
 }
 
 extension URLRequest {

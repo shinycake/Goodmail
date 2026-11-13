@@ -138,7 +138,7 @@ final class AppModel {
         let prefetchers = try accounts.map { try prefetcher(for: $0.id) }
         let outboxes = outboxes
         // Snoozed threads whose time came, queued before the replay below so the server hears of them now.
-        try commands.wakeSnoozed()
+        try await commands.wakeSnoozed()
         // Messages whose undo window closed while the app was away.
         for account in accounts { await senders.deliver(account.id, at: .now) }
         try await withThrowingTaskGroup(of: Void.self) { group in
@@ -166,15 +166,13 @@ final class AppModel {
         await Self.trim(database, attachments: attachmentsDirectory)
     }
 
-    private nonisolated static func trim(_ database: MailDatabase, attachments: URL) async {
-        await Task.detached(priority: .utility) {
-            do {
-                try database.trimCache(attachments: attachments)
-            } catch {
-                Logger(subsystem: "com.idanbirman.goodmail", category: "cache")
-                    .error("Couldn't trim the cache: \(error, privacy: .public)")
-            }
-        }.value
+    @concurrent private static func trim(_ database: MailDatabase, attachments: URL) async {
+        do {
+            try database.trimCache(attachments: attachments)
+        } catch {
+            Logger(subsystem: "com.idanbirman.goodmail", category: "cache")
+                .error("Couldn't trim the cache: \(error, privacy: .public)")
+        }
     }
 
     /// Fetches the next older page of `mailbox` in each account it covers. Returns whether any may have more.

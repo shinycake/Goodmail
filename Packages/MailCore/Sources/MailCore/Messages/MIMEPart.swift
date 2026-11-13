@@ -38,6 +38,11 @@ public struct MIMEPart: Sendable {
         headers.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }?.value
     }
 
+    /// This part or the one below it with `partID`, as an attachment names its part.
+    public func part(withID partID: String) -> MIMEPart? {
+        self.partID == partID ? self : parts.lazy.compactMap { $0.part(withID: partID) }.first
+    }
+
     /// The `charset` parameter of the Content-Type header.
     var charset: String? {
         header("Content-Type").flatMap { HeaderValue($0).parameters["charset"] }
