@@ -23,3 +23,4 @@ Secrets.plist
 
 # Synced from Xcode by scripts/sync-xcode-skills.sh
 .claude/skills/xcode-*/
+__pycache__/
