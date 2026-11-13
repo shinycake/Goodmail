@@ -90,15 +90,12 @@ final class SceneCoordinator: NSObject {
             let presenter = topViewController(), !(presenter is UIAlertController)
         else { return }
         shownFailures.insert(message.id)
-        let commands = model.commands
+        let actions = actions
         let alert = SendFailureAlert.make(
             for: message,
-            edit: { [weak self] in
-                guard (try? commands.discardSend(message.id)) != nil else { return }
-                self?.handle(.compose(message.draft))
-            },
-            retry: { try? commands.retrySend(message) },
-            delete: { try? commands.discardSend(message.id) })
+            edit: { actions.discardSend(message, edit: true) },
+            retry: { actions.retrySend(message) },
+            delete: { actions.discardSend(message) })
         presenter.present(alert, animated: true)
     }
 
