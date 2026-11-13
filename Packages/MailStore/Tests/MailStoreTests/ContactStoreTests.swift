@@ -7,7 +7,7 @@ import Testing
 /// Recipient suggestions from the people who wrote in.
 struct ContactStoreTests {
     private let database: MailDatabase
-    private let account = Account(id: AccountID(rawValue: "a1"), email: "Me@example.com", color: .teal)
+    private let account = Account(id: AccountID(rawValue: "a1"), email: "Me@example.com", color: .teal, service: .gmail)
 
     init() throws {
         let url = FileManager.default.temporaryDirectory

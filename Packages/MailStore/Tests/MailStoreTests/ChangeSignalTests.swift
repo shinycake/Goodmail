@@ -12,7 +12,7 @@ struct ChangeSignalTests {
             .appending(path: "mail.sqlite")
         let app = try MailDatabase(url: url)
         let extensionProcess = try MailDatabase(url: url)
-        let account = Account(id: AccountID(rawValue: "a1"), email: "tester@example.com", color: .teal)
+        let account = Account(id: AccountID(rawValue: "a1"), email: "tester@example.com", color: .teal, service: .gmail)
         try app.save(account)
 
         var inbox = app.threads(in: .inbox).makeAsyncIterator()

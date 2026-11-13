@@ -7,8 +7,8 @@ import Testing
 /// Local search: word prefixes over subject, sender and snippet, merged with the provider's matches.
 struct SearchStoreTests {
     private let database: MailDatabase
-    private let one = Account(id: AccountID(rawValue: "a1"), email: "one@example.com", color: .teal)
-    private let two = Account(id: AccountID(rawValue: "a2"), email: "two@example.com", color: .orange)
+    private let one = Account(id: AccountID(rawValue: "a1"), email: "one@example.com", color: .teal, service: .gmail)
+    private let two = Account(id: AccountID(rawValue: "a2"), email: "two@example.com", color: .orange, service: .gmail)
 
     init() throws {
         let url = FileManager.default.temporaryDirectory
@@ -98,7 +98,8 @@ struct BodySearchStoreTests {
         .appending(path: "BodySearchStoreTests-\(UUID().uuidString)")
         .appending(path: "mail.sqlite")
     private let database: MailDatabase
-    private let account = Account(id: AccountID(rawValue: "a1"), email: "one@example.com", color: .teal)
+    private let account = Account(
+        id: AccountID(rawValue: "a1"), email: "one@example.com", color: .teal, service: .gmail)
 
     init() throws {
         database = try MailDatabase(url: url)

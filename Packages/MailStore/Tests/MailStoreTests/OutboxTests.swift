@@ -8,7 +8,8 @@ import Testing
 struct OutboxTests {
     private let database: MailDatabase
     private let server = FakeMailServer()
-    private let account = Account(id: AccountID(rawValue: "a1"), email: "tester@example.com", color: .teal)
+    private let account = Account(
+        id: AccountID(rawValue: "a1"), email: "tester@example.com", color: .teal, service: .gmail)
     private static let now = Date(timeIntervalSince1970: 1_800_000_000)
     /// One clock for fetches and sends, so which came first is clear.
     private let clock = TickingClock(start: Self.now)

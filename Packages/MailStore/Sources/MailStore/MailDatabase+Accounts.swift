@@ -39,17 +39,22 @@ struct AccountRecord: Codable, FetchableRecord, PersistableRecord {
     var id: String
     var email: String
     var color: String
+    var service: String
     var createdAt: Date
 
     init(_ account: Account, createdAt: Date = .now) {
         id = account.id.rawValue
         email = account.email
         color = account.color.rawValue
+        service = account.service.rawValue
         self.createdAt = createdAt
     }
 
-    /// `nil` if the stored color is no longer offered.
+    /// `nil` if the stored color is no longer offered, or the service isn't one this build knows.
     var account: Account? {
-        AccountColor(rawValue: color).map { Account(id: AccountID(rawValue: id), email: email, color: $0) }
+        guard let color = AccountColor(rawValue: color), let service = MailService(rawValue: service) else {
+            return nil
+        }
+        return Account(id: AccountID(rawValue: id), email: email, color: color, service: service)
     }
 }
