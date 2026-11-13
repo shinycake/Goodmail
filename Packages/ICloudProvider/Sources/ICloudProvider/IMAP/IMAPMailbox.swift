@@ -117,3 +117,9 @@ struct IMAPCopy: Equatable, Sendable {
         uids = Dictionary(zip(from, to)) { first, _ in first }
     }
 }
+
+/// Where a message landed: its mailbox's UIDVALIDITY and its UID there.
+struct MessageUID: Equatable, Sendable {
+    var uidValidity: UInt32
+    var uid: UInt32
+}

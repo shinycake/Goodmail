@@ -3,22 +3,17 @@ import Foundation
 /// The account's IMAP connection: opened and logged in on first use, opened again when the server has hung up, and
 /// lent to one operation at a time, since an operation selects a folder and then reads it.
 actor IMAPSession {
-    struct Credentials: Sendable {
-        var user: String
-        var password: String
-    }
-
     private enum State {
         case disconnected
         case connected(IMAPConnection)
     }
 
     private var state = State.disconnected
-    private let credentials: Credentials
+    private let credentials: ICloudCredentials
     private let connect: @Sendable () async throws -> any IMAPTransport
     private var queue = SerialQueue()
 
-    init(credentials: Credentials, connect: @escaping @Sendable () async throws -> any IMAPTransport) {
+    init(credentials: ICloudCredentials, connect: @escaping @Sendable () async throws -> any IMAPTransport) {
         self.credentials = credentials
         self.connect = connect
     }

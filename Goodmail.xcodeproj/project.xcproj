@@ -26,6 +26,10 @@
     },
     {
       "kind": "local",
+      "path": "Packages/ICloudProvider",
+    },
+    {
+      "kind": "local",
       "path": "Packages/MailUI",
     },
     {
@@ -106,6 +110,9 @@
       "package-product-members": [
         {
           "product-name": "GmailProvider",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "product-name": "ICloudProvider",
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "product-name": "MailCore",

@@ -15,11 +15,14 @@ public struct AccountID: RawRepresentable, Hashable, Codable, Sendable {
 /// The mail service an account signs in to, which decides the provider that talks to it.
 public enum MailService: String, CaseIterable, Codable, Hashable, Sendable {
     case gmail
+    /// iCloud Mail, over IMAP and SMTP with an app-specific password.
+    case icloud
 
     /// Whether the service sorts its Inbox into categories (Primary, Promotions and the rest).
     public var hasInboxCategories: Bool {
         switch self {
         case .gmail: true
+        case .icloud: false
         }
     }
 }

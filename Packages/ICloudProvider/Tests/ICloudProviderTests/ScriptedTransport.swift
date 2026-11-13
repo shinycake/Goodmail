@@ -4,7 +4,7 @@ import Foundation
 
 /// Replays an IMAP conversation: each command sent must be the next `C:` line, and each receive returns the server
 /// lines up to the next command, in chunks of `chunkSize` bytes to exercise framing.
-actor ScriptedTransport: IMAPTransport {
+actor ScriptedTransport: IMAPTransport, SMTPTransport {
     enum Step {
         case client(String)
         case server(String)
@@ -24,10 +24,10 @@ actor ScriptedTransport: IMAPTransport {
         self.chunkSize = chunkSize
     }
 
-    /// `C: ` and `S: ` lines, each sent or answered with CRLF. A server line may hold a literal's own CRLFs.
+    /// `C: ` and `S: ` lines, each sent or answered with CRLF. A line may hold more CRLFs, written `\r\n`.
     init(transcript: String, chunkSize: Int = .max) {
         let steps = transcript.split(separator: "\n", omittingEmptySubsequences: false).compactMap { line -> Step? in
-            if line.hasPrefix("C: ") { return .client(String(line.dropFirst(3))) }
+            if line.hasPrefix("C: ") { return .client(String(line.dropFirst(3)).replacing("\\r\\n", with: "\r\n")) }
             if line.hasPrefix("S: ") { return .server(String(line.dropFirst(3)).replacing("\\r\\n", with: "\r\n")) }
             return nil
         }
@@ -41,6 +41,11 @@ actor ScriptedTransport: IMAPTransport {
             throw Unexpected(description: "sent \(line.debugDescription), expected \(String(describing: steps.first))")
         }
         steps.removeFirst()
+    }
+
+    /// Expects a `C: <TLS>` step.
+    func startTLS() async throws {
+        try await send(Data("<TLS>\r\n".utf8))
     }
 
     func receive() async throws -> Data {

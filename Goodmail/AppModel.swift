@@ -1,5 +1,6 @@
 import Foundation
 import GmailProvider
+import ICloudProvider
 import MailCore
 import MailStore
 import OSLog
@@ -86,6 +87,26 @@ final class AppModel {
         }
         try await syncAll()
         return true
+    }
+
+    /// Checks the app-specific password by logging in to iCloud, then adds the account, or updates the password of
+    /// the one already here. Throws `ICloudSignIn.Failure.wrongPassword` when iCloud refuses it.
+    func addICloudAccount(email: String, appPassword: String) async throws {
+        let existing = accounts.first {
+            $0.service == .icloud && $0.email.caseInsensitiveCompare(email) == .orderedSame
+        }
+        let id = existing?.id ?? .generate()
+        try await ICloudSignIn(secrets: Keychain()).signIn(email: email, appPassword: appPassword, accountID: id)
+        providers.forget(id)
+        engines[id] = nil
+        if existing == nil {
+            let account = Account(
+                id: id, email: email.trimmingCharacters(in: .whitespaces),
+                color: AccountColor.next(after: accounts.map(\.color)), service: .icloud)
+            try database.save(account)
+            accounts.append(account)
+        }
+        try await syncAll()
     }
 
     /// Signs the account out and takes it and its mail off the device. Nothing changes at its service.
