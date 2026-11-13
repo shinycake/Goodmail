@@ -1,0 +1,7 @@
+{
+  "value": [
+    {"id": "m9", "@removed": {"reason": "deleted"}},
+    {"id": "m5", "conversationId": "c5"}
+  ],
+  "@odata.deltaLink": "https://graph.microsoft.com/v1.0/me/mailFolders/AATrash/messages/delta?$deltatoken=d2"
+}
