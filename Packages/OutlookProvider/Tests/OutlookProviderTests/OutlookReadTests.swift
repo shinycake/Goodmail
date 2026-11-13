@@ -9,34 +9,8 @@ import Testing
 #endif
 
 struct OutlookReadTests {
-    /// A mailbox with every well-known folder but Conversation History, a user folder at the root and one in the
-    /// Inbox, and two conversations in the Inbox.
-    private static func mailbox(_ request: URLRequest) -> String? {
-        let path = request.graphPath
-        if request.url!.host() == "login.example.com" { return "token" }
-        if let name = path.split(separator: "/").last, path.hasPrefix("me/mailFolders/"),
-            let folder = WellKnownFolder(rawValue: String(name)), folder != .conversationhistory
-        {
-            return "folder-\(name)"
-        }
-        switch path {
-        case "me/mailFolders": return "folders-root"
-        case "me/mailFolders/AAInbox/childFolders": return "folders-inbox-children"
-        case "me/mailFolders/AAInbox/messages":
-            return request.query("$skip") == nil ? "inbox-page1" : "empty-page"
-        case "me/mailFolders/AAProjects/childFolders": return "empty-page"
-        case "me/messages":
-            switch request.query("$filter") {
-            case "conversationId eq 'c1'": return "conversation-c1"
-            case "conversationId eq 'c2'": return "conversation-c2"
-            default: return "empty-page"
-            }
-        default: return nil
-        }
-    }
-
     @Test func foldersBecomeSystemLabelsAndTheUsersOwnByPath() async throws {
-        let outlook = try await OutlookClient.signedIn(to: FixtureGraph(Self.mailbox))
+        let outlook = try await OutlookClient.signedIn(to: FixtureGraph(FixtureGraph.mailbox))
         let labels = try await outlook.labels()
 
         #expect(
@@ -51,7 +25,7 @@ struct OutlookReadTests {
     }
 
     @Test func aPageListsEachConversationOnceNewestFirst() async throws {
-        let graph = FixtureGraph(Self.mailbox)
+        let graph = FixtureGraph(FixtureGraph.mailbox)
         let outlook = try await OutlookClient.signedIn(to: graph)
         let page = try await outlook.threads(matching: ThreadQuery(label: SystemLabel.inbox), pageToken: nil)
 
@@ -69,7 +43,7 @@ struct OutlookReadTests {
     }
 
     @Test func aConversationSummarizesAllItsMessagesWhateverTheirFolder() async throws {
-        let outlook = try await OutlookClient.signedIn(to: FixtureGraph(Self.mailbox))
+        let outlook = try await OutlookClient.signedIn(to: FixtureGraph(FixtureGraph.mailbox))
         let fetch = try await outlook.threads(withIDs: ["c1", "c2", "gone"])
 
         #expect(fetch.missing == ["gone"])
@@ -84,7 +58,7 @@ struct OutlookReadTests {
     }
 
     @Test func starredIsAFlagFilterAndACategoryHasNoOutlookMail() async throws {
-        let graph = FixtureGraph(Self.mailbox)
+        let graph = FixtureGraph(FixtureGraph.mailbox)
         let outlook = try await OutlookClient.signedIn(to: graph)
         let since = Date(timeIntervalSince1970: 1_800_000_000)
         _ = try await outlook.threads(matching: ThreadQuery(label: SystemLabel.starred, since: since), pageToken: nil)
@@ -96,7 +70,7 @@ struct OutlookReadTests {
     }
 
     @Test func aSearchTakesNoFilterOrOrder() async throws {
-        let graph = FixtureGraph(Self.mailbox)
+        let graph = FixtureGraph(FixtureGraph.mailbox)
         let outlook = try await OutlookClient.signedIn(to: graph)
         _ = try await outlook.threads(matching: ThreadQuery(text: #"from:dana "lunch""#), pageToken: nil)
         let search = try #require(graph.requests.last { $0.query("$search") != nil })
