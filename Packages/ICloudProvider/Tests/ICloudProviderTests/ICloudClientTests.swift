@@ -84,7 +84,7 @@ struct ICloudClientTests {
                 C: A5 UID SEARCH SINCE 31-Oct-2026
                 S: * SEARCH 40 41 42
                 S: A5 OK SEARCH completed
-                C: A6 UID FETCH 40:42 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES)])
+                C: A6 UID FETCH 40:42 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES CONTENT-TYPE CONTENT-TRANSFER-ENCODING)] BODY.PEEK[TEXT]<0.2048>)
                 """# + "\n"
                 + [
                     Self.header(
@@ -98,7 +98,7 @@ struct ICloudClientTests {
                         inReplyTo: "b0@example.com", messageID: "b1@example.com"),
                 ].joined(separator: "\n") + "\n" + "S: A6 OK FETCH completed\n"
                 + Self.select("Sent Messages", tag: 7, uidValidity: 9) + "\n"
-                + "C: A8 UID FETCH 3 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES)])\n"
+                + "C: A8 UID FETCH 3 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES CONTENT-TYPE CONTENT-TRANSFER-ENCODING)] BODY.PEEK[TEXT]<0.2048>)\n"
                 + Self.header(
                     uid: 3, date: "1-Nov-2026 12:00:00 +0000", subject: "Re: Lunch", from: "me",
                     inReplyTo: "a0@example.com", messageID: "s1@icloud.com", references: ["a0@example.com"])
@@ -131,7 +131,7 @@ struct ICloudClientTests {
                 C: A5 UID SEARCH ALL
                 S: * SEARCH 10 11 12
                 S: A5 OK SEARCH completed
-                C: A6 UID FETCH 11:12 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES)])
+                C: A6 UID FETCH 11:12 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES CONTENT-TYPE CONTENT-TRANSFER-ENCODING)] BODY.PEEK[TEXT]<0.2048>)
                 \(Self.header(uid: 11, date: "1-Nov-2026 09:00:00 +0000", subject: "b", messageID: "b@x"))
                 \(Self.header(uid: 12, date: "2-Nov-2026 09:00:00 +0000", subject: "c", messageID: "c@x"))
                 S: A6 OK FETCH completed
@@ -146,7 +146,7 @@ struct ICloudClientTests {
                 C: A5 UID SEARCH UID 1:10
                 S: * SEARCH 10
                 S: A5 OK SEARCH completed
-                C: A6 UID FETCH 10 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES)])
+                C: A6 UID FETCH 10 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES CONTENT-TYPE CONTENT-TRANSFER-ENCODING)] BODY.PEEK[TEXT]<0.2048>)
                 \(Self.header(uid: 10, date: "1-Oct-2026 09:00:00 +0000", subject: "a", messageID: "a@x"))
                 S: A6 OK FETCH completed
                 """, index: index, pageSize: 2)
@@ -189,7 +189,7 @@ struct ICloudClientTests {
                 S: * 2 FETCH (UID 31 FLAGS (\\Seen \\Flagged) MODSEQ (103))
                 S: * 3 FETCH (UID 32 FLAGS () MODSEQ (104))
                 S: A7 OK
-                C: A8 UID FETCH 31:32 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES)])
+                C: A8 UID FETCH 31:32 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES CONTENT-TYPE CONTENT-TRANSFER-ENCODING)] BODY.PEEK[TEXT]<0.2048>)
                 """,
                 Self.header(uid: 31, date: "1-Nov-2026 09:00:00 +0000", subject: "f", messageID: "flag@x"),
                 Self.header(

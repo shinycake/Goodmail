@@ -62,7 +62,9 @@ private struct MIMEEntity {
     var decodedBody: Data {
         switch header("Content-Transfer-Encoding")?.trimmingCharacters(in: .whitespaces).lowercased() {
         case "base64":
-            let text = String(decoding: body.filter { !Self.whitespace.contains($0) }, as: UTF8.self)
+            var text = String(decoding: body.filter { !Self.whitespace.contains($0) }, as: UTF8.self)
+            // A message cut short can end one character into a quantum, which holds no whole byte.
+            if text.count % 4 == 1 { text.removeLast() }
             let padded = text + String(repeating: "=", count: (4 - text.count % 4) % 4)
             return Data(base64Encoded: padded, options: .ignoreUnknownCharacters) ?? Data(body)
         case "quoted-printable":
