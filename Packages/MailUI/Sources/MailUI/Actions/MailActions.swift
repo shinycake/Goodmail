@@ -56,8 +56,13 @@ public final class MailActions {
     }
 
     private func perform(_ action: ThreadAction, on threads: [ThreadSummary.ID], confirmation: String?) {
+        apply(confirmation: confirmation) { try $0.perform(action, on: threads) }
+    }
+
+    /// Makes one undoable change, keeps it as the last one, and confirms it with `confirmation` when there is one.
+    private func apply(confirmation: String?, _ change: (MailCommands) throws -> MailCommands.Undo) {
         do {
-            let undo = try commands.perform(action, on: threads)
+            let undo = try change(commands)
             guard !undo.isEmpty else { return }
             lastUndo = .actions(undo)
             if let confirmation {
@@ -66,6 +71,24 @@ public final class MailActions {
         } catch {
             self.error = error
         }
+    }
+
+    /// Takes the threads out of the Inbox until `date`, with a toast to take that back.
+    public func snooze(_ threads: [ThreadSummary.ID], until date: Date) {
+        apply(
+            confirmation: String(
+                localized: "Snoozed until \(ScheduledTime.text(for: date))", bundle: .module,
+                comment: "Toast after snoozing threads, with when they come back")
+        ) { try $0.snooze(threads, until: date) }
+    }
+
+    /// Puts snoozed threads back in the Inbox now, with a toast to snooze them again.
+    public func unsnooze(_ threads: [ThreadSummary.ID]) {
+        apply(
+            confirmation: String(
+                localized: "\(threads.count) moved to Inbox", bundle: .module,
+                comment: "Toast after putting snoozed threads back in the Inbox")
+        ) { try $0.unsnooze(threads) }
     }
 
     /// Undoes the most recent action, from the toast or a shake. Does nothing when there is none.

@@ -182,8 +182,9 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
   - empty states for mailboxes and search
   - a Settings form (from the Mailboxes toolbar) with the accounts, Add Account, Remove Account (signs out and takes the account's data off the device), and the Undo Send wait (Off to 30 s)
   - scheduled send: touch and hold Send for tonight, tomorrow morning, the morning after the weekend, or any time. Messages wait under Scheduled, where one can be edited or moved to Drafts. The device sends them at their time, or at the first sync after it: best effort, since the Gmail API has no scheduled send
+  - snooze: from the reader's toolbar or for a selection in a list, until this evening, tomorrow morning, the weekend, next week, or any time. The thread is archived and listed under Snoozed (shown after Starred while any thread sleeps), where it can be read or moved back to the Inbox. The first sync after its time puts it back in the Inbox, unread, and background refresh is asked for by then. Undo works for both
 - **Still to do:**
-  - snooze
+  - snooze follow-ups: a "back from snooze" section at the top of the Inbox, a notification at wake time, and a snooze swipe
   - notification and display settings
   - onboarding
 

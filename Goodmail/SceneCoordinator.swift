@@ -25,24 +25,34 @@ final class SceneCoordinator: NSObject {
         enum List {
             case mailbox(Mailbox, title: String?, thread: ThreadSummary.ID?)
             case scheduled
+            /// Snoozed threads, read as in All Mail since they are out of the Inbox.
+            case snoozed(thread: ThreadSummary.ID?)
         }
 
         var destination: MailboxesViewModel.Destination {
             switch list {
             case .mailbox(let mailbox, _, _): .mailbox(mailbox)
             case .scheduled: .scheduled
+            case .snoozed: .snoozed
             }
         }
 
-        /// Opens `thread` in the shown mailbox. A thread is opened only from a mailbox.
-        mutating func open(_ thread: ThreadSummary.ID) {
-            guard case .mailbox(let mailbox, let title, _) = list else { return }
-            list = .mailbox(mailbox, title: title, thread: thread)
+        /// The thread open from the shown list, and the mailbox it is read in.
+        var openThread: (id: ThreadSummary.ID, mailbox: Mailbox)? {
+            switch list {
+            case .mailbox(let mailbox, _, let thread?): (thread, mailbox)
+            case .snoozed(let thread?): (thread, .allMail)
+            case .mailbox, .scheduled, .snoozed: nil
+            }
         }
 
-        mutating func closeThread() {
-            guard case .mailbox(let mailbox, let title, _) = list else { return }
-            list = .mailbox(mailbox, title: title, thread: nil)
+        /// Opens `thread` from the shown list, or `nil` closes it. Scheduled holds messages, not threads.
+        mutating func setThread(_ thread: ThreadSummary.ID?) {
+            switch list {
+            case .mailbox(let mailbox, let title, _): list = .mailbox(mailbox, title: title, thread: thread)
+            case .snoozed: list = .snoozed(thread: thread)
+            case .scheduled: break
+            }
         }
     }
 
@@ -184,20 +194,27 @@ final class SceneCoordinator: NSObject {
         switch shown.list {
         case .mailbox(let mailbox, let title, _): mailboxViewController(for: mailbox, title: title)
         case .scheduled: scheduledViewController()
+        case .snoozed: snoozedViewController()
         }
     }
 
-    /// A reader for the thread open from the shown mailbox, if one is and it is still there.
+    /// A reader for the thread open from the shown list, if one is and it is still there.
     private func shownReader() -> ThreadViewController? {
-        guard case .mailbox(let mailbox, _, let thread?) = shown.list else { return nil }
-        return reader(for: thread, in: mailbox)
+        shown.openThread.flatMap { reader(for: $0.id, in: $0.mailbox) }
     }
 
-    private func scheduledViewController() -> ScheduledViewController {
+    private func scheduledViewController() -> UIViewController {
         let database = model.database
-        return ScheduledViewController(
-            viewModel: ScheduledViewModel(
-                accounts: model.accounts, messages: { database.scheduledMessages() }, actions: actions))
+        return WaitingListViewController.scheduled(
+            ScheduledViewModel(accounts: model.accounts, messages: { database.scheduledMessages() }, actions: actions))
+    }
+
+    private func snoozedViewController() -> UIViewController {
+        let database = model.database
+        return WaitingListViewController.snoozed(
+            SnoozedViewModel(
+                accounts: model.accounts, threads: { database.snoozedThreads() }, actions: actions,
+                navigate: { [weak self] in self?.handle($0) }))
     }
 
     private func navigation(for column: UISplitViewController.Column) -> UINavigationController? {
@@ -229,7 +246,7 @@ final class SceneCoordinator: NSObject {
     /// Leaves the open thread, after an action that takes it out of the mailbox.
     private func closeThread() {
         guard let split else { return }
-        shown.closeThread()
+        shown.setThread(nil)
         if split.isCollapsed {
             navigation(for: .compact)?.popViewController(animated: true)
         } else {
@@ -283,9 +300,11 @@ final class SceneCoordinator: NSObject {
             show(.mailbox(mailbox, title: title, thread: nil))
         case .scheduled:
             show(.scheduled)
+        case .snoozed:
+            show(.snoozed(thread: nil))
         case .thread(let id, let mailbox):
             guard let split, let reader = reader(for: id, in: mailbox) else { return }
-            shown.open(id)
+            shown.setThread(id)
             if split.isCollapsed {
                 navigation(for: .compact)?.pushViewController(reader, animated: true)
             } else {
@@ -367,7 +386,9 @@ extension SceneCoordinator: UISplitViewControllerDelegate, UINavigationControlle
     func navigationController(
         _ navigationController: UINavigationController, didShow viewController: UIViewController, animated: Bool
     ) {
-        if !navigationController.viewControllers.contains(where: { $0 is ThreadViewController }) { shown.closeThread() }
+        if !navigationController.viewControllers.contains(where: { $0 is ThreadViewController }) {
+            shown.setThread(nil)
+        }
         if navigationController.viewControllers.count == 1 { shown = Shown() }
     }
 }

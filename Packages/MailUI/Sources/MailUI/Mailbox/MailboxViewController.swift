@@ -362,8 +362,14 @@ extension MailboxViewController {
             setEditing(false, animated: true)
         }
         move.isEnabled = !ids.isEmpty
+        let snooze = UIBarButtonItem.snooze(from: self) { [weak self] date in
+            guard let self else { return }
+            viewModel.snooze(selectedIDs, until: date)
+            setEditing(false, animated: true)
+        }
+        snooze.isEnabled = !ids.isEmpty && MailboxViewModel.canSnooze(threads)
         setToolbarItems(
-            Array(items.prefix(1)) + [labels, move, .flexibleSpace()] + items.dropFirst(), animated: false)
+            Array(items.prefix(1)) + [labels, move, snooze, .flexibleSpace()] + items.dropFirst(), animated: false)
     }
 
     private func selectAll(_ select: Bool) {

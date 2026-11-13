@@ -2,9 +2,9 @@ import Foundation
 import MailCore
 import Observation
 
-/// The list of mailboxes, each with its unread count. With one account: the standard mailboxes, with Scheduled while
-/// a message waits there, then the user's labels. With several: the standard mailboxes blending every account, then
-/// each account's own Inbox and labels.
+/// The list of mailboxes, each with its unread count. With one account: the standard mailboxes, with Snoozed while
+/// a thread sleeps and Scheduled while a message waits, then the user's labels. With several: the standard mailboxes
+/// blending every account, then each account's own Inbox and labels.
 @Observable
 public final class MailboxesViewModel {
     /// Where a row leads.
@@ -12,6 +12,8 @@ public final class MailboxesViewModel {
         case mailbox(Mailbox)
         /// The messages waiting to be sent later.
         case scheduled
+        /// The threads snoozed out of the Inbox.
+        case snoozed
     }
 
     /// A group of rows, under its own header.
@@ -34,7 +36,7 @@ public final class MailboxesViewModel {
         public let destination: Destination
         public let title: String
         public let symbol: String
-        /// The number beside it: unread threads, or messages waiting to go. Zero shows none.
+        /// The number beside it: unread threads, or threads or messages waiting. Zero shows none.
         public let count: Int
         /// `#rrggbb` for a user label with a color.
         public let color: String?
@@ -75,9 +77,17 @@ public final class MailboxesViewModel {
             }
     }
 
-    /// The standard mailboxes, with Scheduled after Drafts while a message waits there.
+    /// The standard mailboxes, with Snoozed after Starred while a thread sleeps and Scheduled after Drafts while a
+    /// message waits.
     private var standardItems: [Item] {
         var items = Mailbox.standard.map { item(for: $0, color: nil) }
+        if directory.snoozedCount > 0, let starred = items.firstIndex(where: { $0.destination == .mailbox(.starred) }) {
+            let snoozed = Item(
+                destination: .snoozed,
+                title: String(localized: "Snoozed", bundle: .module, comment: "Mailbox: threads snoozed until later"),
+                symbol: "moon.zzz", count: directory.snoozedCount, color: nil)
+            items.insert(snoozed, at: starred + 1)
+        }
         if directory.scheduledCount > 0, let drafts = items.firstIndex(where: { $0.destination == .mailbox(.drafts) }) {
             let scheduled = Item(
                 destination: .scheduled,
@@ -106,6 +116,7 @@ public final class MailboxesViewModel {
         switch destination {
         case .mailbox(let mailbox): navigate(.mailbox(mailbox))
         case .scheduled: navigate(.scheduled)
+        case .snoozed: navigate(.snoozed)
         }
     }
 

@@ -4,7 +4,7 @@ import OSLog
 import UIKit
 
 /// Decides when sync runs: on becoming active, every 30 seconds while active, and in background app refresh, which
-/// is asked for by the time the next scheduled message is due.
+/// is asked for by the time the next scheduled message or snoozed thread is due.
 /// Push replaces the polling in M6; until then it is how new mail shows up while the app is open.
 final class SyncScheduler {
     static let refreshTaskID = "com.idanbirman.goodmail.refresh"
@@ -56,10 +56,12 @@ final class SyncScheduler {
 
     private func scheduleBackgroundRefresh() {
         let request = BGAppRefreshTaskRequest(identifier: Self.refreshTaskID)
-        // A scheduled message due sooner asks for the refresh by its time; iOS still decides when it runs.
+        // A scheduled message or snoozed thread due sooner asks for the refresh by its time; iOS still decides when
+        // it runs.
         let regular = Date(timeIntervalSinceNow: Self.backgroundInterval)
-        let nextSend = (try? model.database.nextSendDate()).flatMap { $0 }
-        request.earliestBeginDate = min(regular, max(nextSend ?? regular, .now))
+        let database = model.database
+        let due = [try? database.nextSendDate(), try? database.nextWakeDate()].compactMap { $0 ?? nil }
+        request.earliestBeginDate = min(regular, max(due.min() ?? regular, .now))
         Task { [log] in
             do {
                 try await BGTaskScheduler.shared.submitTaskRequest(request)

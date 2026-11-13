@@ -149,6 +149,12 @@ public final class ThreadViewModel {
         if [.archive, .trash, .reportSpam, .markRead(false)].contains(action) { leave() }
     }
 
+    /// Takes the thread out of the Inbox until `date`, and leaves it.
+    public func snooze(until date: Date) {
+        actions?.snooze([thread.id], until: date)
+        leave()
+    }
+
     /// The one transition out of the thread: the reader closes the first time, and never again.
     private func leave() {
         guard presence == .reading else { return }

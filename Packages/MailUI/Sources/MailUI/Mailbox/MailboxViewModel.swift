@@ -216,6 +216,17 @@ public final class MailboxViewModel {
         return [.markRead(threads.contains(where: \.isUnread))] + common
     }
 
+    /// Whether the threads can be snoozed together: only threads in the Inbox can, since snoozing takes them out
+    /// of it.
+    static func canSnooze(_ threads: [ThreadSummary]) -> Bool {
+        !threads.isEmpty && threads.allSatisfy { $0.labelIDs.contains(SystemLabel.inbox) }
+    }
+
+    /// Takes the threads out of the Inbox until `date`.
+    public func snooze(_ threads: [ThreadSummary.ID], until date: Date) {
+        actions?.snooze(threads, until: date)
+    }
+
     /// Opens the places these threads can move to from this mailbox.
     public func move(_ threads: [ThreadSummary.ID]) {
         navigate(.move(threads, from: mailbox))

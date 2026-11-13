@@ -54,17 +54,19 @@ extension MailDatabase {
     }
 
     public func thread(_ id: ThreadSummary.ID) throws -> ThreadSummary? {
-        try pool.read { db in
-            guard
-                let record = try ThreadRecord.filter(
-                    Column("accountID") == id.accountID.rawValue && Column("id") == id.threadID
-                ).fetchOne(db)
-            else { return nil }
-            let labels = try String.fetchAll(
-                db, sql: "SELECT labelID FROM threadLabel WHERE accountID = ? AND threadID = ?",
-                arguments: [id.accountID.rawValue, id.threadID])
-            return record.summary(labelIDs: Set(labels))
-        }
+        try pool.read { db in try Self.thread(id, in: db) }
+    }
+
+    static func thread(_ id: ThreadSummary.ID, in db: Database) throws -> ThreadSummary? {
+        guard
+            let record = try ThreadRecord.filter(
+                Column("accountID") == id.accountID.rawValue && Column("id") == id.threadID
+            ).fetchOne(db)
+        else { return nil }
+        let labels = try String.fetchAll(
+            db, sql: "SELECT labelID FROM threadLabel WHERE accountID = ? AND threadID = ?",
+            arguments: [id.accountID.rawValue, id.threadID])
+        return record.summary(labelIDs: Set(labels))
     }
 
     /// `FROM … WHERE …` selecting the threads in `mailbox`.
