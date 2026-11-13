@@ -17,7 +17,7 @@ struct InboxCategoryTests {
 
     /// A store with one thread per category, named after it, and these unread counts.
     private func viewModel(
-        unread: [InboxCategory: Int] = [:], selected: InboxCategory = .primary,
+        unread: [InboxCategory: Int] = [:], countsFail: Bool = false, selected: InboxCategory = .primary,
         didSelect: @escaping (InboxCategory) -> Void = { _ in },
         loadOlder: @escaping () async throws -> Bool = { false }
     ) -> MailboxViewModel {
@@ -28,7 +28,11 @@ struct InboxCategoryTests {
                     threads: { [thread] category in
                         AsyncThrowingStream { $0.yield(category == .forums ? [] : [thread(category.rawValue)]) }
                     },
-                    unreadCounts: { AsyncThrowingStream { $0.yield(unread) } },
+                    unreadCounts: {
+                        AsyncThrowingStream {
+                            if countsFail { $0.finish(throwing: CountsFailed()) } else { $0.yield(unread) }
+                        }
+                    },
                     didSelect: didSelect),
                 selected: selected),
             refresh: {},
@@ -68,6 +72,17 @@ struct InboxCategoryTests {
         viewModel.select(.social)
         await waitUntil { shownThreads(viewModel) == ["social"] }
         #expect(picked == [.promotions, .social])
+    }
+
+    private struct CountsFailed: Error {}
+
+    @Test func unreadCountsThatFailShowTheRefreshNotice() async {
+        let viewModel = viewModel(countsFail: true)
+        let observing = Task { await viewModel.observe() }
+        defer { observing.cancel() }
+
+        await waitUntil { viewModel.refreshError is CountsFailed }
+        #expect(shownThreads(viewModel) == ["primary"])
     }
 
     @Test func aRebuiltListOpensOnTheCategoryLastShown() async {

@@ -5,7 +5,8 @@ import GRDB
 /// so every write is a short transaction and every process waits out the other's lock.
 public final class MailDatabase: Sendable {
     let pool: DatabasePool
-    private let signal: ChangeSignal
+    /// Tells both processes the mail changed; `write` posts it. Internal for writes that change nothing most times.
+    let signal: ChangeSignal
 
     /// Opens (creating if needed) the database at `url` and migrates it to the current schema.
     public init(url: URL) throws {

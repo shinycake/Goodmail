@@ -46,18 +46,38 @@ extension MailDatabase {
 
     /// Evicts the least recently read bodies (a thread's together) and attachment files until the cache fits
     /// `limit`. Threads with a draft or a queued action are never evicted, though they count toward the size.
+    ///
+    /// Bodies are chosen and deleted in one transaction, so a draft or an action queued meanwhile keeps its thread.
+    /// Attachment files go after it; one that can't be removed stays counted, and the next trim tries again.
     @discardableResult
     public func trimCache(to limit: Int = MailDatabase.cacheLimit, attachments: URL? = nil) throws -> CacheTrim {
-        let (usage, threads) = try pool.read { db in
-            (
-                try Int.fetchOne(db, sql: "SELECT COALESCE(SUM(size), 0) FROM message") ?? 0,
-                try Self.evictableThreads(in: db)
-            )
-        }
         let folders = Self.attachmentFolders(in: attachments)
-        var excess = usage + folders.reduce(0) { $0 + $1.size } - limit
-        guard excess > 0 else { return CacheTrim() }
+        let (threads, chosenFolders) = try pool.write { db in
+            let bodies = try Int.fetchOne(db, sql: "SELECT COALESCE(SUM(size), 0) FROM message") ?? 0
+            let excess = bodies + folders.reduce(0) { $0 + $1.size } - limit
+            guard excess > 0 else { return ([EvictableThread](), [AttachmentFolder]()) }
+            let plan = Self.evictionPlan(threads: try Self.evictableThreads(in: db), folders: folders, excess: excess)
+            for thread in plan.threads {
+                try db.execute(
+                    sql: "DELETE FROM message WHERE accountID = ? AND threadID = ?",
+                    arguments: [thread.accountID, thread.threadID])
+            }
+            return plan
+        }
+        if !threads.isEmpty { signal.post() }
 
+        var trim = CacheTrim(threads: threads.count, freedBytes: threads.reduce(0) { $0 + $1.size })
+        for folder in chosenFolders where (try? FileManager.default.removeItem(at: folder.url)) != nil {
+            trim.attachments += 1
+            trim.freedBytes += folder.size
+        }
+        return trim
+    }
+
+    /// The least recently read threads and attachment folders that together free at least `excess` bytes.
+    private static func evictionPlan(threads: [EvictableThread], folders: [AttachmentFolder], excess: Int) -> (
+        threads: [EvictableThread], folders: [AttachmentFolder]
+    ) {
         enum Candidate {
             case thread(EvictableThread)
             case attachment(AttachmentFolder)
@@ -67,37 +87,25 @@ extension MailDatabase {
                 case .attachment(let folder): folder.accessedAt
                 }
             }
-        }
-        let candidates = (threads.map(Candidate.thread) + folders.map(Candidate.attachment))
-            .sorted { $0.accessedAt < $1.accessedAt }
-
-        var trim = CacheTrim()
-        var evicted: [EvictableThread] = []
-        for candidate in candidates where excess > 0 {
-            switch candidate {
-            case .thread(let thread):
-                evicted.append(thread)
-                excess -= thread.size
-                trim.freedBytes += thread.size
-            case .attachment(let folder):
-                // A file that can't be removed stays counted: skip it, and the next trim tries again.
-                guard (try? FileManager.default.removeItem(at: folder.url)) != nil else { continue }
-                excess -= folder.size
-                trim.freedBytes += folder.size
-                trim.attachments += 1
-            }
-        }
-        trim.threads = evicted.count
-        if !evicted.isEmpty {
-            try write { db in
-                for thread in evicted {
-                    try db.execute(
-                        sql: "DELETE FROM message WHERE accountID = ? AND threadID = ?",
-                        arguments: [thread.accountID, thread.threadID])
+            var size: Int {
+                switch self {
+                case .thread(let thread): thread.size
+                case .attachment(let folder): folder.size
                 }
             }
         }
-        return trim
+        var plan: (threads: [EvictableThread], folders: [AttachmentFolder]) = ([], [])
+        var excess = excess
+        let candidates = (threads.map(Candidate.thread) + folders.map(Candidate.attachment))
+            .sorted { $0.accessedAt < $1.accessedAt }
+        for candidate in candidates where excess > 0 {
+            excess -= candidate.size
+            switch candidate {
+            case .thread(let thread): plan.threads.append(thread)
+            case .attachment(let folder): plan.folders.append(folder)
+            }
+        }
+        return plan
     }
 
     private struct EvictableThread {
