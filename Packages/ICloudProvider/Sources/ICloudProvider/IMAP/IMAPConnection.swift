@@ -37,8 +37,10 @@ actor IMAPConnection {
         try await exclusively { connection in
             guard connection.state == .notAuthenticated else { throw IMAPError.wrongState }
             do {
-                let reply = try await connection.run(.login(user: user, password: password))
-                connection.remember(capabilitiesIn: reply.completion)
+                _ = try await connection.run(.login(user: user, password: password))
+                // Capabilities change at login (RFC 3501 §6.2.3), and iCloud's login reply lists only the
+                // AUTH= ones, so the session asks again.
+                connection.capabilities = nil
             } catch IMAPError.refused(let status) where status.code("AUTHENTICATIONFAILED") != nil {
                 throw IMAPError.authenticationFailed
             }
@@ -66,7 +68,7 @@ actor IMAPConnection {
         }
     }
 
-    /// Asks for the server's capabilities, for a server that didn't list them in its greeting or login reply.
+    /// Asks for the server's capabilities, which the session does after login.
     func refreshCapabilities() async throws {
         try await exclusively { connection in
             let reply = try await connection.run(.capability)
@@ -80,10 +82,11 @@ actor IMAPConnection {
     func enable(_ capability: String) async throws {
         try await exclusively { connection in
             try connection.requireAuthenticated()
-            let reply = try await connection.run(.enable(capability))
-            for values in reply.data where values.first?.atom?.uppercased() == "ENABLED" {
-                connection.enabled.formUnion(values.dropFirst().compactMap { $0.atom?.uppercased() })
-            }
+            _ = try await connection.run(.enable(capability))
+            // A server ignores what it doesn't support and still says OK (RFC 5161 §3.1). iCloud also leaves out
+            // the `* ENABLED` line, so an advertised capability counts as on once ENABLE succeeds.
+            let name = capability.uppercased()
+            if connection.capabilities?.contains(name) == true { connection.enabled.insert(name) }
         }
     }
 

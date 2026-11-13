@@ -15,7 +15,7 @@ struct IMAPSearch: Equatable, Sendable {
     /// Received before this date's day.
     var before: Date?
     var flag: Flag?
-    /// Only the message with this RFC 5322 Message-ID.
+    /// Only the message with this RFC 5322 Message-ID, bare (without angle brackets).
     var messageID: String?
 
     /// Throws `IMAPError.unencodable` for a Message-ID a quoted string can't carry.
@@ -35,7 +35,9 @@ struct IMAPSearch: Equatable, Sendable {
             if let since { criteria.append("SINCE \(IMAPCommand.searchDate(since))") }
             if let before { criteria.append("BEFORE \(IMAPCommand.searchDate(before))") }
             if let flag { criteria.append(flag.rawValue) }
-            if let messageID { criteria.append("HEADER Message-ID \(try IMAPCommand.quoted(messageID))") }
+            // iCloud matches the header's whole value, angle brackets and all, where RFC 3501 asks for a substring; the
+            // bracketed ID satisfies both.
+            if let messageID { criteria.append("HEADER Message-ID \(try IMAPCommand.quoted("<\(messageID)>"))") }
             return criteria.isEmpty ? ["ALL"] : criteria
         }
     }

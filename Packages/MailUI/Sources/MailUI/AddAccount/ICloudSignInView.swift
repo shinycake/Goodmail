@@ -22,6 +22,11 @@ struct ICloudSignInView: View {
     @State private var email = ""
     @State private var appPassword = ""
     @State private var stage = Stage.editing(failure: nil)
+    @FocusState private var focusedField: Field?
+
+    private enum Field {
+        case email, appPassword
+    }
 
     private static let appPasswords = URL(string: "https://account.apple.com/account/manage/section/security")!
 
@@ -36,6 +41,7 @@ struct ICloudSignInView: View {
                 .keyboardType(.emailAddress)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
+                .focused($focusedField, equals: .email)
                 SecureField(
                     String(
                         localized: "App-Specific Password", bundle: .module,
@@ -43,6 +49,7 @@ struct ICloudSignInView: View {
                     text: $appPassword
                 )
                 .textContentType(.password)
+                .focused($focusedField, equals: .appPassword)
             } footer: {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(
@@ -53,15 +60,20 @@ struct ICloudSignInView: View {
                     }
                 }
             }
+            // Disabling the fields while checking leaves the secure field blank once it's enabled again, so they
+            // only stop taking touches.
+            .allowsHitTesting(stage != .checking)
             if case .editing(let failure?) = stage {
                 Section {
                     Text(failure).foregroundStyle(.red)
                 }
             }
         }
+        .onSubmit { if canSubmit { stage = .checking } }
+        // SwiftUI owns the check: it starts when the stage turns to checking and is cancelled if the form goes away.
+        .task(id: stage) { if stage == .checking { await check() } }
         .navigationTitle(Text(verbatim: MailService.icloud.displayName))
         .navigationBarTitleDisplayMode(.inline)
-        .disabled(stage == .checking)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button {
@@ -69,28 +81,35 @@ struct ICloudSignInView: View {
                 } label: {
                     Text("Cancel", bundle: .module, comment: "Closes the iCloud sign-in without adding the account")
                 }
+                .disabled(stage == .checking)
             }
             ToolbarItem(placement: .confirmationAction) {
                 if stage == .checking {
                     ProgressView()
                 } else {
                     Button {
-                        Task { await submit() }
+                        stage = .checking
                     } label: {
                         Text("Sign In", bundle: .module, comment: "Checks the iCloud address and password")
                     }
-                    .disabled(email.isEmpty || appPassword.isEmpty)
+                    .disabled(!canSubmit)
                 }
             }
         }
     }
 
-    private func submit() async {
-        stage = .checking
+    private var canSubmit: Bool {
+        stage != .checking && !email.isEmpty && !appPassword.isEmpty
+    }
+
+    private func check() async {
         do {
             try await signIn(email, appPassword)
             finished(true)
         } catch ICloudSignInFailure.wrongPassword {
+            // As Apple's own sign-ins do: the refused password goes, ready to be typed again.
+            appPassword = ""
+            focusedField = .appPassword
             stage = .editing(
                 failure: String(
                     localized:

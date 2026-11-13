@@ -302,10 +302,12 @@ final class SceneCoordinator: NSObject {
     }
 
     /// An Inbox split into Gmail's categories when any account in it sorts it, opening on the one last shown; any
-    /// other mailbox as one list.
+    /// other mailbox as one list. An account whose service has no categories counts as unsorted, so its whole Inbox
+    /// is in Primary.
     private func source(for mailbox: Mailbox) -> MailboxSource {
         let database = model.database
-        let unsorted = Preferences.unsortedInboxAccounts
+        let unsorted = Preferences.unsortedInboxAccounts.union(
+            model.accounts.filter { !$0.service.hasInboxCategories }.map(\.id))
         let accounts = model.accounts.filter { mailbox.accountID == nil || mailbox.accountID == $0.id }
         guard mailbox.labelID == SystemLabel.inbox, accounts.contains(where: { !unsorted.contains($0.id) }) else {
             return .flat { database.threads(in: mailbox) }

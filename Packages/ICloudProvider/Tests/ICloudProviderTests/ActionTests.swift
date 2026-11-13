@@ -56,23 +56,23 @@ struct ICloudActionTests {
         let client = ICloudClientTests.client(
             [
                 ICloudClientTests.login,
-                ICloudClientTests.select("INBOX", tag: 4),
-                "C: A5 UID FETCH 40:41 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES CONTENT-TYPE CONTENT-TRANSFER-ENCODING)] BODY.PEEK[TEXT]<0.2048>)",
+                ICloudClientTests.select("INBOX", tag: 5),
+                "C: A6 UID FETCH 40:41 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES CONTENT-TYPE CONTENT-TRANSFER-ENCODING)] BODY.PEEK[TEXT]<0.2048>)",
                 ICloudClientTests.header(uid: 40, date: "1-Nov-2026 09:00:00 +0000", subject: "a", messageID: "a0@x"),
                 ICloudClientTests.header(
                     uid: 41, flags: "", date: "2-Nov-2026 09:00:00 +0000", subject: "b", messageID: "a2@x"),
-                "S: A5 OK",
-                "C: A6 UID STORE 41 +FLAGS.SILENT (\\Seen)",
                 "S: A6 OK",
-                "C: A7 UID MOVE 40:41 \"Archive\"",
+                "C: A7 UID STORE 41 +FLAGS.SILENT (\\Seen)",
+                "S: A7 OK",
+                "C: A8 UID MOVE 40:41 \"Archive\"",
                 "S: * OK [COPYUID 5 40:41 100:101] Moved",
                 "S: * 1 EXPUNGE",
                 "S: * 1 EXPUNGE",
-                "S: A7 OK Move completed",
-                ICloudClientTests.select("Sent Messages", tag: 8, uidValidity: 9),
-                "C: A9 UID FETCH 3 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES CONTENT-TYPE CONTENT-TRANSFER-ENCODING)] BODY.PEEK[TEXT]<0.2048>)",
+                "S: A8 OK Move completed",
+                ICloudClientTests.select("Sent Messages", tag: 9, uidValidity: 9),
+                "C: A10 UID FETCH 3 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES CONTENT-TYPE CONTENT-TRANSFER-ENCODING)] BODY.PEEK[TEXT]<0.2048>)",
                 ICloudClientTests.header(uid: 3, date: "1-Nov-2026 12:00:00 +0000", subject: "s", messageID: "s1@x"),
-                "S: A9 OK",
+                "S: A10 OK",
             ].joined(separator: "\n"),
             index: index)
 
@@ -106,8 +106,8 @@ struct ICloudActionTests {
         let client = ICloudClientTests.client(
             [
                 ICloudClientTests.login,
-                ICloudClientTests.select(work, tag: 4, uidValidity: 3), fetch(5, 5),
-                ICloudClientTests.select("INBOX", tag: 6), fetch(7, 40),
+                ICloudClientTests.select(work, tag: 5, uidValidity: 3), fetch(6, 5),
+                ICloudClientTests.select("INBOX", tag: 7), fetch(8, 40),
             ].joined(separator: "\n"),
             index: index)
 
@@ -133,10 +133,10 @@ struct ICloudActionTests {
         let client = ICloudClientTests.client(
             [
                 ICloudClientTests.login,
-                ICloudClientTests.select("Deleted Messages", tag: 4, uidValidity: 2), fetch(5, 9),
-                ICloudClientTests.select("INBOX", tag: 6), fetch(7, 40),
-                #"C: A8 UID STORE 40 +FLAGS.SILENT (\Deleted)"#, "S: A8 OK",
-                "C: A9 UID EXPUNGE 40", "S: A9 OK",
+                ICloudClientTests.select("Deleted Messages", tag: 5, uidValidity: 2), fetch(6, 9),
+                ICloudClientTests.select("INBOX", tag: 7), fetch(8, 40),
+                #"C: A9 UID STORE 40 +FLAGS.SILENT (\Deleted)"#, "S: A9 OK",
+                "C: A10 UID EXPUNGE 40", "S: A10 OK",
             ].joined(separator: "\n"),
             index: index)
 

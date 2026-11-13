@@ -9,8 +9,11 @@ struct IMAPConnectionTests {
     static let inboxSession = #"""
         S: * OK [CAPABILITY IMAP4rev1 SASL-IR AUTH=PLAIN] iCloud IMAP ready
         C: A1 LOGIN "dana@icloud.com" "abcd-efgh-ijkl-mnop"
-        S: A1 OK [CAPABILITY IMAP4rev1 CONDSTORE QRESYNC IDLE UIDPLUS MOVE SPECIAL-USE] user dana@icloud.com authenticated
-        C: A2 LIST "" "*"
+        S: A1 OK [CAPABILITY IMAP4rev1 SASL-IR AUTH=PLAIN] user dana@icloud.com authenticated
+        C: A2 CAPABILITY
+        S: * CAPABILITY IMAP4rev1 CONDSTORE QRESYNC IDLE UIDPLUS MOVE SPECIAL-USE
+        S: A2 OK CAPABILITY completed
+        C: A3 LIST "" "*"
         S: * LIST (\HasNoChildren) "/" "INBOX"
         S: * LIST (\HasNoChildren \Sent) "/" "Sent Messages"
         S: * LIST (\HasNoChildren \Trash) "/" "Deleted Messages"
@@ -18,8 +21,8 @@ struct IMAPConnectionTests {
         S: * LIST (\HasNoChildren \Drafts) "/" "Drafts"
         S: * LIST (\HasNoChildren \Archive) "/" "Archive"
         S: * LIST (\HasNoChildren) "/" "&BeIF0QXVBdMF1A-"
-        S: A2 OK LIST completed
-        C: A3 SELECT "INBOX"
+        S: A3 OK LIST completed
+        C: A4 SELECT "INBOX"
         S: * FLAGS (\Answered \Flagged \Deleted \Seen \Draft $NotJunk)
         S: * OK [PERMANENTFLAGS (\Answered \Flagged \Deleted \Seen \Draft $NotJunk \*)] Flags permitted.
         S: * 2 EXISTS
@@ -27,17 +30,17 @@ struct IMAPConnectionTests {
         S: * OK [UIDVALIDITY 1729000001] UIDs valid.
         S: * OK [UIDNEXT 42] Predicted next UID.
         S: * OK [HIGHESTMODSEQ 90210] Highest
-        S: A3 OK [READ-WRITE] SELECT completed
-        C: A4 UID SEARCH SINCE 20-Oct-2026
+        S: A4 OK [READ-WRITE] SELECT completed
+        C: A5 UID SEARCH SINCE 20-Oct-2026
         S: * SEARCH 41 40
-        S: A4 OK SEARCH completed
-        C: A5 UID FETCH 40:41 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES CONTENT-TYPE CONTENT-TRANSFER-ENCODING)] BODY.PEEK[TEXT]<0.2048>)
+        S: A5 OK SEARCH completed
+        C: A6 UID FETCH 40:41 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES CONTENT-TYPE CONTENT-TRANSFER-ENCODING)] BODY.PEEK[TEXT]<0.2048>)
         S: * 1 FETCH (UID 40 FLAGS (\Seen) INTERNALDATE "20-Oct-2026 09:14:05 +0300" ENVELOPE ("Tue, 20 Oct 2026 09:14:01 +0300" "=?UTF-8?B?16nXnNeV150=?=" (("Dana Levi" NIL "dana" "example.com")) (("Dana Levi" NIL "dana" "example.com")) NIL ((NIL NIL "me" "icloud.com")) (("Noa" NIL "noa" "example.com")) NIL NIL "<a1@example.com>") BODY[HEADER.FIELDS (REFERENCES)] {2}\r\n\r\n)
         S: * 2 FETCH (UID 41 FLAGS () INTERNALDATE " 1-Nov-2026 18:00:00 +0000" ENVELOPE (NIL "Re: Lunch" ((NIL NIL "me" "icloud.com")) NIL NIL (("Dana Levi" NIL "dana" "example.com")) NIL NIL "<a1@example.com>" "<b2@icloud.com>") BODY[HEADER.FIELDS (REFERENCES)] {51}\r\nReferences: <a0@example.com>\r\n <a1@example.com>\r\n\r\n)
-        S: A5 OK FETCH completed
-        C: A6 LOGOUT
+        S: A6 OK FETCH completed
+        C: A7 LOGOUT
         S: * BYE Logging out
-        S: A6 OK LOGOUT completed
+        S: A7 OK LOGOUT completed
         """#
 
     @Test(arguments: [Int.max, 7])
@@ -47,6 +50,8 @@ struct IMAPConnectionTests {
         #expect(await connection.state == .notAuthenticated)
 
         try await connection.login(user: "dana@icloud.com", password: "abcd-efgh-ijkl-mnop")
+        #expect(await connection.capabilities == nil, "the greeting's list is from before login")
+        try await connection.refreshCapabilities()
         #expect(await connection.capabilities?.isSuperset(of: ["CONDSTORE", "QRESYNC", "SPECIAL-USE"]) == true)
 
         let mailboxes = try await connection.mailboxes()

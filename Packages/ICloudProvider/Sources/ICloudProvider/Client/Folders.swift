@@ -8,8 +8,23 @@ struct Folders: Sendable {
     let all: [IMAPMailbox]
 
     init(_ mailboxes: [IMAPMailbox]) {
-        all = mailboxes.filter(\.isSelectable)
+        let selectable = mailboxes.filter(\.isSelectable)
+        // iCloud marks only Sent and Trash with special-use attributes, so a role no folder claims goes to the folder
+        // with iCloud's name for it.
+        let claimed = Set(selectable.compactMap(\.role))
+        all = selectable.map { folder in
+            guard folder.role == nil, let role = Self.roles[folder.wireName.lowercased()], !claimed.contains(role)
+            else { return folder }
+            var named = folder
+            named.role = role
+            return named
+        }
     }
+
+    /// iCloud's names for its role folders.
+    private static let roles: [String: IMAPMailbox.Role] = [
+        "sent messages": .sent, "drafts": .drafts, "deleted messages": .trash, "junk": .junk, "archive": .archive,
+    ]
 
     static func label(of folder: IMAPMailbox) -> String? {
         switch folder.role {
