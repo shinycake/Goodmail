@@ -69,6 +69,12 @@ struct MIMEParserTests {
         #expect(message.parts[1].data == Data("%PDF-1.4 fake".utf8))
     }
 
+    @Test func anEmptyMessageHasNoBodyAndNoAttachments() {
+        let (body, attachments) = MIMEPart.empty.content()
+        #expect(body == MessageBody())
+        #expect(attachments.isEmpty)
+    }
+
     @Test func contentReadsTheBodyAndAttachments() {
         let (body, attachments) = parse(Self.mixed).content()
         #expect(body.html == #"<p dir="auto">שלום</p>"#)

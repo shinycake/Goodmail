@@ -97,7 +97,7 @@ extension GmailThread.Message {
         MailCore.Message(
             id: MailCore.Message.ID(accountID: accountID, messageID: id),
             threadID: threadID,
-            mime: payload?.mimePart ?? MIMEPart(partID: "", mimeType: "text/plain"),
+            mime: payload?.mimePart ?? .empty,
             date: date ?? .distantPast,
             snippet: HTMLEntities.decode(snippet ?? ""),
             labelIDs: Set(labelIds ?? [])

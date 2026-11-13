@@ -20,6 +20,14 @@ struct GmailClientTests {
         "/gmail/v1/users/me/threads/18f0a3": [.init(fixture: "thread-18f0a3")],
     ]
 
+    @Test func aMessageWithoutItsContentReadsAsEmptyWithNoPhantomAttachment() throws {
+        let thread = try JSONDecoder().decode(
+            GmailThread.self, from: Data(#"{"id":"t1","messages":[{"id":"m1","labelIds":["INBOX"]}]}"#.utf8))
+        let message = try #require(thread.messages(accountID: AccountID(rawValue: "a")).first)
+        #expect(message.body == MessageBody())
+        #expect(message.attachments.isEmpty)
+    }
+
     @Test func inboxThreadsKeepGmailsOrderAndMapToSummaries() async throws {
         let http = FixtureHTTPClient(Self.inboxReplies)
         let session = try await signedIn(http)
