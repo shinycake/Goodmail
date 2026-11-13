@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 import MailCore
 import Testing
 
@@ -115,7 +116,7 @@ struct SenderTests {
         #expect(await sender().flush().isEmpty)
         #expect(server.sent.isEmpty)
         var failed = database.failedMessages().makeAsyncIterator()
-        #expect(try await failed.next()?.map(\.failure) == ["A forwarded attachment is no longer available."])
+        #expect(try await failed.next()?.map(\.failure) == [.forwardedAttachmentMissing])
     }
 
     @Test func savingADraftReplacesItsCopyAndSendingRemovesIt() async throws {
@@ -150,13 +151,22 @@ struct SenderTests {
     }
 
     @Test func aFailedDraftSaveIsRetriedAsASave() async throws {
-        try database.enqueue(OutgoingMessage(draft: draft(), purpose: .saveDraft, sendAt: .now, failure: "Offline"))
+        try database.enqueue(OutgoingMessage(draft: draft(), purpose: .saveDraft, sendAt: .now, failure: .rejected))
         var failures = database.failedMessages().makeAsyncIterator()
         let failed = try #require(try await failures.next()?.first)
         try commands().retrySend(failed)
         await sender().flush()
         #expect(server.drafts.count == 1)
         #expect(server.sent.isEmpty)
+    }
+
+    @Test func aFailureStoredAsASentenceByAnEarlierBuildReadsAsRefused() async throws {
+        try commands().send(draft(), after: .zero)
+        try database.pool.write { db in
+            try db.execute(sql: "UPDATE outgoing SET failure = 'The server refused the message.'")
+        }
+        var failed = database.failedMessages().makeAsyncIterator()
+        #expect(try await failed.next()?.map(\.failure) == [.rejected])
     }
 
     @Test func offlineMessagesStayQueued() async throws {
