@@ -1,24 +1,31 @@
 import Foundation
-import MailCore
 
 #if canImport(FoundationNetworking)
     import FoundationNetworking  // URLSession on Linux
 #endif
 
-/// One signed-in Gmail account: keeps a fresh access token, refreshing it from the Keychain's refresh token.
-public actor GmailSession {
+/// One signed-in account at an OAuth service: keeps a fresh access token, refreshing it from the Keychain's refresh
+/// token.
+public actor OAuthSession {
     public enum Failure: Error, Equatable {
         case signedOut
     }
 
     public nonisolated let accountID: AccountID
+    public nonisolated let client: OAuthClient
     private let http: any HTTPClient
     private let keychain: any SecretStore
     private var accessToken: (value: String, expiresAt: Date)?
     private var refreshing: Task<String, any Error>?
 
-    public init(accountID: AccountID, http: any HTTPClient = URLSession.shared, keychain: any SecretStore) {
+    public init(
+        accountID: AccountID,
+        client: OAuthClient,
+        http: any HTTPClient = URLSession.shared,
+        keychain: any SecretStore
+    ) {
         self.accountID = accountID
+        self.client = client
         self.http = http
         self.keychain = keychain
     }
@@ -26,19 +33,19 @@ public actor GmailSession {
     /// Completes sign-in: stores the refresh token and keeps the access token for immediate use.
     /// `accountID` picks the account for the signed-in address, so re-authenticating keeps an account's ID.
     public static func signIn(
+        client: OAuthClient,
         code: String,
         pkce: PKCE,
         accountID: @Sendable (_ email: String) -> AccountID = { _ in .generate() },
         http: any HTTPClient = URLSession.shared,
         keychain: any SecretStore
-    ) async throws -> (session: GmailSession, email: String) {
-        let (data, response) = try await http.data(for: GoogleOAuth.exchangeRequest(code: code, pkce: pkce))
-        let tokens = try GoogleOAuth.tokens(from: data, status: response.statusCode, receivedAt: .now)
-        guard let refreshToken = tokens.refreshToken, let email = tokens.email else { throw Failure.signedOut }
+    ) async throws -> (session: OAuthSession, email: String) {
+        let (data, response) = try await http.data(for: client.exchangeRequest(code: code, pkce: pkce))
+        let tokens = try OAuthClient.tokens(from: data, status: response.statusCode, receivedAt: .now)
+        guard tokens.refreshToken != nil, let email = tokens.email else { throw Failure.signedOut }
 
-        let session = GmailSession(accountID: accountID(email), http: http, keychain: keychain)
-        try keychain.set(Data(refreshToken.utf8), for: session.refreshTokenKey)
-        await session.remember(tokens)
+        let session = OAuthSession(accountID: accountID(email), client: client, http: http, keychain: keychain)
+        try await session.remember(tokens)
         return (session, email)
     }
 
@@ -61,18 +68,22 @@ public actor GmailSession {
         try keychain.remove(refreshTokenKey)
     }
 
-    nonisolated var refreshTokenKey: String { "gmail.refresh-token.\(accountID.rawValue)" }
+    public nonisolated var refreshTokenKey: String { "\(client.name).refresh-token.\(accountID.rawValue)" }
 
     private func refresh() async throws -> String {
         guard let stored = try keychain.data(for: refreshTokenKey) else { throw Failure.signedOut }
-        let request = GoogleOAuth.refreshRequest(refreshToken: String(decoding: stored, as: UTF8.self))
+        let request = client.refreshRequest(refreshToken: String(decoding: stored, as: UTF8.self))
         let (data, response) = try await http.data(for: request)
-        let tokens = try GoogleOAuth.tokens(from: data, status: response.statusCode, receivedAt: .now)
-        remember(tokens)
+        let tokens = try OAuthClient.tokens(from: data, status: response.statusCode, receivedAt: .now)
+        try remember(tokens)
         return tokens.accessToken
     }
 
-    private func remember(_ tokens: GoogleOAuth.Tokens) {
+    /// Keeps the access token, and stores the refresh token when the service sent one, as a rotating service does.
+    private func remember(_ tokens: OAuthClient.Tokens) throws {
+        if let refreshToken = tokens.refreshToken {
+            try keychain.set(Data(refreshToken.utf8), for: refreshTokenKey)
+        }
         accessToken = (tokens.accessToken, tokens.expiresAt)
     }
 }
