@@ -54,7 +54,7 @@ struct OutboxTests {
 
     @Test func archiveLeavesTheInboxAtOnceAndReplaysOnce() async throws {
         try seed(thread("t1"), thread("t2"))
-        try commands().perform(.archive, on: [id("t1")])
+        try await commands().perform(.archive, on: [id("t1")])
 
         #expect(try await inbox() == ["t2"], "local first")
         #expect(server.performed.isEmpty)
@@ -74,7 +74,7 @@ struct OutboxTests {
             labelIDs: ["INBOX", "UNREAD"], body: MessageBody(plain: "hi"))
         try database.save([message], inThread: id("t1"))
 
-        try commands().perform(.markRead(true), on: [id("t1")])
+        try await commands().perform(.markRead(true), on: [id("t1")])
 
         #expect(try database.thread(id("t1"))?.isUnread == false)
         var messages = database.messages(inThread: id("t1")).makeAsyncIterator()
@@ -84,8 +84,8 @@ struct OutboxTests {
     @Test func undoQueuesTheInverse() async throws {
         try seed(thread("t1"))
         let commands = commands()
-        let undo = try commands.perform(.archive, on: [id("t1")])
-        try commands.undo(undo)
+        let undo = try await commands.perform(.archive, on: [id("t1")])
+        try await commands.undo(undo)
 
         #expect(try await inbox() == ["t1"])
         try await outbox().flush()
@@ -97,7 +97,7 @@ struct OutboxTests {
     @Test func aSyncBeforeReplayDoesNotBringTheThreadBack() async throws {
         try seed(thread("t1"))
         server.set("t1", thread("t1"))  // touched on the server, so the next sync refetches it
-        try commands().perform(.archive, on: [id("t1")])
+        try await commands().perform(.archive, on: [id("t1")])
 
         let engine = SyncEngine(accountID: account.id, provider: server, store: database, now: clock.next)
         try await engine.sync()
@@ -112,7 +112,7 @@ struct OutboxTests {
 
     @Test func aFetchThatBeganBeforeTheSendStillShowsTheAction() async throws {
         try seed(thread("t1"))
-        try commands().perform(.archive, on: [id("t1")])
+        try await commands().perform(.archive, on: [id("t1")])
         let staleFetch = clock.next()
         try await outbox().flush()
 
@@ -134,7 +134,7 @@ struct OutboxTests {
             id: Message.ID(accountID: account.id, messageID: "m1"), threadID: "t1",
             from: Contact(name: nil, address: "a@example.com"), subject: "", date: Self.now,
             labelIDs: ["INBOX", "UNREAD"], body: MessageBody(plain: "hi"))
-        try commands().perform(.markRead(true), on: [id("t1")])
+        try await commands().perform(.markRead(true), on: [id("t1")])
         let staleFetch = clock.next()
         try await outbox().flush()
         try database.save([message], inThread: id("t1"), fetchedAt: staleFetch)
@@ -146,7 +146,7 @@ struct OutboxTests {
 
     @Test func intentsForDeletedThreadsAreDropped() async throws {
         try seed(thread("t1"), thread("t2"))
-        try commands().perform(.trash, on: [id("t1"), id("t2")])
+        try await commands().perform(.trash, on: [id("t1"), id("t2")])
         server.set("t1", nil)
 
         try await outbox().flush()
@@ -156,7 +156,7 @@ struct OutboxTests {
 
     @Test func aFailureStopsTheDrainAndKeepsTheRest() async throws {
         try seed(thread("t1"), thread("t2"))
-        try commands().perform(.archive, on: [id("t1"), id("t2")])
+        try await commands().perform(.archive, on: [id("t1"), id("t2")])
         server.failPerform(with: URLError(.notConnectedToInternet))
 
         await #expect(throws: URLError.self) { try await outbox().flush() }
@@ -173,14 +173,14 @@ struct OutboxTests {
         try seed(labelled, thread("t2"))
         let receipts = Mailbox(labelID: "Label_1", accountID: account.id)
         let commands = commands()
-        let undo = try commands.perform(.move(to: .trash, from: receipts), on: [id("t1")])
+        let undo = try await commands.perform(.move(to: .trash, from: receipts), on: [id("t1")])
 
         #expect(try database.thread(id("t1"))?.labelIDs == ["TRASH"])
         #expect(try await inbox() == ["t2"])
         var trash = database.threads(in: .trash).makeAsyncIterator()
         #expect(try await trash.next()?.map(\.id.threadID) == ["t1"])
 
-        try commands.undo(undo)
+        try await commands.undo(undo)
         #expect(try database.thread(id("t1"))?.labelIDs == ["INBOX", "Label_1"])
         try await outbox().flush()
         #expect(server.performed.count == 3, "the move, then the undo's untrash and label change")
@@ -188,8 +188,8 @@ struct OutboxTests {
         #expect(try database.pendingIntents(for: account.id).isEmpty)
     }
 
-    @Test func threadsThatArentStoredAreNotQueued() throws {
-        let undo = try commands().perform(.archive, on: [id("missing")])
+    @Test func threadsThatArentStoredAreNotQueued() async throws {
+        let undo = try await commands().perform(.archive, on: [id("missing")])
         #expect(undo.isEmpty)
         #expect(try database.pendingIntents(for: account.id).isEmpty)
     }

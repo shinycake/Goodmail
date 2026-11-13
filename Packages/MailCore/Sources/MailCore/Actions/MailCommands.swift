@@ -2,7 +2,10 @@ import Foundation
 
 /// The only way to change mail (ADR-011). Applies an action locally at once, queues it for the provider, and returns
 /// how to undo it.
-public final class MailCommands: Sendable {
+///
+/// An actor, so a command's reads and writes never interleave with another's and never run on the main actor: a
+/// write can wait out another process's lock on the database (ADR-002).
+public actor MailCommands {
     /// Everything the commands change.
     public typealias Store = OutboxStore & OutgoingStore & SnoozeStore
 
