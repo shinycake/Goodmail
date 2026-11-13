@@ -1,5 +1,6 @@
-# The PR pipeline (ADR-016): lint, a Claude review against docs/review.md, then a squash merge of the exact commit
-# that passed both. Free private repos have no branch protection or native auto-merge, so this workflow is the gate.
+# The PR pipeline (ADR-016): the Linux scripts/check, a Claude review against docs/review.md, then a squash merge of
+# the exact commit that passed both, as long as main hasn't moved since the check. Free private repos have no branch
+# protection or native auto-merge, so this workflow is the gate.
 name: review
 
 on:
@@ -14,17 +15,13 @@ concurrency:
 permissions: {}
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    container: swift:6.4
+  # Lint, the iOS compile of everything, and the Linux tests, on the PR merged with main (linux-check.yml).
+  check:
+    uses: ./.github/workflows/linux-check.yml
     permissions:
       contents: read
-    steps:
-      - uses: actions/checkout@v4
-      - name: Format and line cap
-        run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          scripts/check --lint
+    secrets:
+      GOODMAIL_SDK_DEPLOY_KEY: ${{ secrets.GOODMAIL_SDK_DEPLOY_KEY }}
 
   claude:
     if: ${{ !github.event.pull_request.draft }}
@@ -80,7 +77,7 @@ jobs:
           [[ "$verdict" == "approve" ]]
 
   merge:
-    needs: [lint, claude]
+    needs: [check, claude]
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     permissions:
@@ -90,6 +87,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       PR: ${{ github.event.pull_request.number }}
       SHA: ${{ github.event.pull_request.head.sha }}
+      TESTED_BASE: ${{ needs.check.outputs.base }}
     steps:
       - name: Squash-merge the reviewed commit
         run: |
@@ -102,5 +100,13 @@ jobs:
             gh pr comment "$PR" -R "$GITHUB_REPOSITORY" \
               --body "Approved and green, but this PR changes .github/, which controls the gate itself. The owner merges it."
             exit 0
+          fi
+          # The check ran on this PR merged with main at TESTED_BASE. If main moved since, that result says nothing
+          # about the merge that would land, so the PR has to take in main and run again.
+          main=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          if [[ "$main" != "$TESTED_BASE" ]]; then
+            moved="Approved, but main moved after the check ran (checked against ${TESTED_BASE:0:7}, main is now ${main:0:7})."
+            gh pr comment "$PR" -R "$GITHUB_REPOSITORY" --body "$moved Merge main into the branch and push to run it again."
+            exit 1
           fi
           gh pr merge "$PR" -R "$GITHUB_REPOSITORY" --squash --delete-branch --match-head-commit "$SHA"

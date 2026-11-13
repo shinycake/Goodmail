@@ -15,6 +15,10 @@ Setup also enables the tracked git hooks. Its first run in a fresh container tak
 - `scripts/check` on Linux runs the lint, the line cap, `scripts/ios-build`, and `swift test` for MailCore, GmailProvider, ICloudProvider, OutlookProvider and MailStore. The pre-push hook runs it.
 - `swift test --package-path Packages/MailStore` runs one package's tests natively.
 
+## In CI
+
+`.github/workflows/linux-check.yml` runs the same `scripts/check` on an Ubuntu runner, inside the `swift:6.4.2-noble` image. It checks `goodmail-sdk` out next to this repository with the `GOODMAIL_SDK_DEPLOY_KEY` secret, a read-only deploy key on goodmail-sdk, and caches the built Darwin SDK. Without that secret it runs only `scripts/check --lint` and warns. To create it, on the Mac: `dir=$(mktemp -d) && ssh-keygen -q -t ed25519 -N "" -C goodmail-ci -f "$dir/key" && gh repo deploy-key add "$dir/key.pub" -R shinycake/goodmail-sdk --title "goodmail CI (read-only)" && gh secret set GOODMAIL_SDK_DEPLOY_KEY -R shinycake/goodmail < "$dir/key"; rm -rf "$dir"`. `review.yml` runs it on each PR merged with main and merges only when it passes and main hasn't moved since. `check.yml` runs it on main after each merge. After a Swift update, change the image tag along with `SWIFT_VERSION`.
+
 ## Keeping the logic packages Linux-testable
 
 MailCore, GmailProvider, ICloudProvider, OutlookProvider and MailStore stay free of UIKit and SwiftUI. Where they need an Apple-only API, it is fenced with `#if canImport(…)`, so Linux test builds compile without it:
