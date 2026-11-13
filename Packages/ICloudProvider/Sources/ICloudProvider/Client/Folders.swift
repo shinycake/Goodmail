@@ -31,6 +31,12 @@ struct Folders: Sendable {
         all.first { $0.wireName == wireName }.flatMap(Self.label)
     }
 
+    /// The folder a message moves to for `label`: Archive for none.
+    func folder(for label: String?) -> IMAPMailbox? {
+        guard let label else { return all.first { $0.role == .archive } }
+        return all.first { Self.label(of: $0) == label }
+    }
+
     /// The folders that hold `label`'s threads, and the flag that marks them there. `nil` is All Mail.
     func search(for label: String?) -> (folders: [IMAPMailbox], flag: IMAPSearch.Flag?) {
         switch label {
