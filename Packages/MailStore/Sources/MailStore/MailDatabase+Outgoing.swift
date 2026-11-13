@@ -3,6 +3,17 @@ import GRDB
 import MailCore
 
 extension MailDatabase: OutgoingStore {
+    /// An account that isn't on the device, as after it was removed.
+    public struct AccountMissing: Error, Equatable {
+        public let account: AccountID
+    }
+
+    public func sender(for account: AccountID) throws -> Contact {
+        let record = try pool.read { db in try AccountRecord.fetchOne(db, key: account.rawValue) }
+        guard let record else { throw AccountMissing(account: account) }
+        return Contact(name: record.name, address: record.email)
+    }
+
     public func enqueue(_ message: OutgoingMessage) throws {
         let draft = String(decoding: try JSONEncoder().encode(message.draft), as: UTF8.self)
         try write { db in
