@@ -146,9 +146,11 @@ public struct GmailClient: MailProvider {
         do {
             if raw.count <= Self.jsonSendLimit {
                 metadata["raw"] = raw.base64URLEncodedString()
-                let _: GmailThreadRef = try await send("users/me/messages/send", method: "POST", body: metadata)
+                let _: GmailThreadRef = try await send(
+                    "users/me/messages/send", method: "POST", body: metadata, replay: .onlyIfRefused)
             } else {
-                let _: GmailThreadRef = try await upload(raw, metadata: metadata, to: "users/me/messages/send")
+                let _: GmailThreadRef = try await upload(
+                    raw, metadata: metadata, to: "users/me/messages/send", replay: .onlyIfRefused)
             }
         } catch let error as GmailError where error.status == 400 {
             throw ProviderError.rejected
@@ -162,13 +164,15 @@ public struct GmailClient: MailProvider {
         if let replacing { draftID = try await self.draftID(for: replacing) }
         let path = draftID.map { "users/me/drafts/\($0)" } ?? "users/me/drafts"
         let method = draftID == nil ? "POST" : "PUT"
+        // Creating a draft twice leaves two; replacing one twice leaves the same draft.
+        let replay: Replay = draftID == nil ? .onlyIfRefused : .safe
         var draft = GmailDraftBody(message: .init(threadId: threadID))
         do {
             if raw.count <= Self.jsonSendLimit {
                 draft.message.raw = raw.base64URLEncodedString()
-                let _: GmailThreadRef = try await send(path, method: method, body: draft)
+                let _: GmailThreadRef = try await send(path, method: method, body: draft, replay: replay)
             } else {
-                let _: GmailThreadRef = try await upload(raw, metadata: draft, to: path, method: method)
+                let _: GmailThreadRef = try await upload(raw, metadata: draft, to: path, method: method, replay: replay)
             }
         } catch let error as GmailError where error.status == 400 {
             throw ProviderError.rejected
@@ -242,16 +246,18 @@ public struct GmailClient: MailProvider {
     }
 
     private func send<Response: Decodable>(
-        _ path: String, method: String = "GET", query: [URLQueryItem] = [], body: (any Encodable)? = nil
+        _ path: String, method: String = "GET", query: [URLQueryItem] = [], body: (any Encodable)? = nil,
+        replay: Replay = .safe
     ) async throws -> Response {
         let url = GmailConfiguration.apiBaseURL.appending(path: path).appending(queryItems: query)
         return try await send(
-            url, method: method, payload: try body.map { (try JSONEncoder().encode($0), "application/json") })
+            url, method: method, payload: try body.map { (try JSONEncoder().encode($0), "application/json") },
+            replay: replay)
     }
 
     /// A media upload with its JSON metadata, as one `multipart/related` request.
     private func upload<Response: Decodable>(
-        _ raw: Data, metadata: some Encodable, to path: String, method: String = "POST"
+        _ raw: Data, metadata: some Encodable, to path: String, method: String = "POST", replay: Replay
     ) async throws -> Response {
         let boundary = "goodmail-\(UUID().uuidString)"
         var body = Data("--\(boundary)\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n".utf8)
@@ -261,12 +267,13 @@ public struct GmailClient: MailProvider {
         body.append(Data("\r\n--\(boundary)--\r\n".utf8))
         let url = GmailConfiguration.uploadBaseURL.appending(path: path)
             .appending(queryItems: [URLQueryItem(name: "uploadType", value: "multipart")])
-        return try await send(url, method: method, payload: (body, "multipart/related; boundary=\(boundary)"))
+        return try await send(
+            url, method: method, payload: (body, "multipart/related; boundary=\(boundary)"), replay: replay)
     }
 
-    private func send<Response: Decodable>(_ url: URL, method: String, payload: (data: Data, type: String)?)
-        async throws -> Response
-    {
+    private func send<Response: Decodable>(
+        _ url: URL, method: String, payload: (data: Data, type: String)?, replay: Replay = .safe
+    ) async throws -> Response {
         var attempt = 0
         while true {
             var request = URLRequest(url: url)
@@ -282,7 +289,7 @@ public struct GmailClient: MailProvider {
                 return try JSONDecoder().decode(Response.self, from: data)
             }
             let error = GmailError(status: response.statusCode, body: String(decoding: data, as: UTF8.self))
-            guard error.isTransient, attempt < retryDelays.count else { throw error }
+            guard replay.allowsRetry(after: error.retryable), attempt < retryDelays.count else { throw error }
             try await Task.sleep(for: retryDelays[attempt])
             attempt += 1
         }
@@ -365,11 +372,12 @@ public struct GmailError: Error, Equatable {
     public let body: String
 
     /// Rate limits and server errors, which Google asks clients to retry with exponential backoff.
-    var isTransient: Bool {
+    var retryable: RetryableFailure? {
         switch status {
-        case 429, 500, 502, 503, 504: true
-        case 403: body.contains("rateLimitExceeded") || body.contains("userRateLimitExceeded")
-        default: false
+        case 429: .throttled
+        case 403 where body.contains("rateLimitExceeded") || body.contains("userRateLimitExceeded"): .throttled
+        case 500, 502, 503, 504: .serverError
+        default: nil
         }
     }
 }
