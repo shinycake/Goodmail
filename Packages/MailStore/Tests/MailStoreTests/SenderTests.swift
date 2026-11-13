@@ -17,7 +17,7 @@ struct SenderTests {
             .appending(path: "SenderTests-\(UUID().uuidString)")
             .appending(path: "mail.sqlite")
         database = try MailDatabase(url: url)
-        try database.save(Account(id: account, email: "me@example.com", color: .teal))
+        try database.save(Account(id: account, email: "me@example.com", color: .teal, service: .gmail))
     }
 
     private func commands() -> MailCommands {
@@ -181,7 +181,7 @@ struct SenderTests {
 
     @Test func removingAnAccountTakesEverythingItHadAndNothingElse() async throws {
         let other = AccountID(rawValue: "a2")
-        try database.save(Account(id: other, email: "work@example.com", color: .orange))
+        try database.save(Account(id: other, email: "work@example.com", color: .orange, service: .gmail))
         for id in [account, other] {
             try database.apply(
                 StoreChanges(

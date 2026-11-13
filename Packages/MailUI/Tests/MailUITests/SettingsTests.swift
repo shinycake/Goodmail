@@ -6,8 +6,8 @@ import Testing
 
 @MainActor
 struct SettingsTests {
-    private let personal = Account(id: AccountID(rawValue: "a"), email: "me@example.com", color: .blue)
-    private let work = Account(id: AccountID(rawValue: "b"), email: "work@example.com", color: .orange)
+    private let personal = Account(id: AccountID(rawValue: "a"), email: "me@example.com", color: .blue, service: .gmail)
+    private let work = Account(id: AccountID(rawValue: "b"), email: "work@example.com", color: .orange, service: .gmail)
 
     @Test func addingAndRemovingReadTheAccountsBack() async {
         var stored = [personal]

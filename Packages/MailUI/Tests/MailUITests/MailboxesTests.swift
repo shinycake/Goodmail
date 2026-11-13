@@ -6,7 +6,7 @@ import Testing
 
 @MainActor
 struct MailboxesTests {
-    private let account = Account(id: AccountID(rawValue: "a"), email: "a@example.com", color: .teal)
+    private let account = Account(id: AccountID(rawValue: "a"), email: "a@example.com", color: .teal, service: .gmail)
 
     private func thread(labels: Set<String>) -> ThreadSummary {
         ThreadSummary(
