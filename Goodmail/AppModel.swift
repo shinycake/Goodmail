@@ -82,7 +82,7 @@ final class AppModel {
                 color: AccountColor.next(after: accounts.map(\.color)),
                 service: .gmail
             )
-            try database.save(account)
+            try await Self.store { [database] in try database.save(account) }
             accounts.append(account)
         }
         try await syncAll()
@@ -104,7 +104,7 @@ final class AppModel {
             let account = Account(
                 id: id, email: email,
                 color: AccountColor.next(after: accounts.map(\.color)), service: .icloud)
-            try database.save(account)
+            try await Self.store { [database] in try database.save(account) }
             accounts.append(account)
         }
         try await syncAll()
@@ -119,7 +119,8 @@ final class AppModel {
         prefetchers[id] = nil
         await outboxes.forget(id)
         senders.forget(id)
-        try database.removeAccount(id)
+        // Takes every thread and body of the account with it, which can be most of the database.
+        try await Self.store { [database] in try database.removeAccount(id) }
         try? FileManager.default.removeItem(at: attachmentsDirectory.appending(path: id.rawValue))
         accounts.removeAll { $0.id == id }
     }
@@ -220,17 +221,24 @@ final class AppModel {
         return found
     }
 
+    /// What the reader does on opening a thread: marks its cached bodies as read, which the cache cap evicts by,
+    /// then fetches the latest.
+    func open(_ thread: ThreadSummary.ID) async throws {
+        try? await Self.store { [database] in try database.touchMessages(inThread: thread) }
+        try await loadMessages(of: thread)
+    }
+
     /// Fetches a thread's messages with their bodies into the store, where the thread view reads them.
     func loadMessages(of thread: ThreadSummary.ID) async throws {
         let fetchedAt = Date.now
         let messages = try await providers.provider(for: thread.accountID).messages(inThread: thread.threadID)
-        try database.save(messages, inThread: thread, fetchedAt: fetchedAt)
+        try await Self.store { [database] in try database.save(messages, inThread: thread, fetchedAt: fetchedAt) }
     }
 
-    /// The thread's cached messages, which the reader follows. Opening a thread marks its bodies as read.
-    func messages(inThread id: ThreadSummary.ID) -> AsyncThrowingStream<[Message], any Error> {
-        try? database.touchMessages(inThread: id)
-        return database.messages(inThread: id)
+    /// Runs a database write off the main actor. Any write can wait out another process's lock for seconds
+    /// (ADR-002), and the larger ones take long enough by themselves to drop frames.
+    @concurrent private static func store(_ write: @Sendable () throws -> Void) async throws {
+        try write()
     }
 
     func attachmentData(_ attachment: Attachment, in message: Message.ID) async throws -> Data {
