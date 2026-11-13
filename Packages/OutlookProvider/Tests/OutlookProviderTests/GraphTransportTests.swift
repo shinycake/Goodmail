@@ -76,4 +76,27 @@ struct GraphTransportTests {
         }
         await #expect(throws: GraphError.self) { try await OutlookClient.signedIn(to: broken).labels() }
     }
+
+    @Test func throttlingWaitsAsLongAsGraphAsksWithinAMinute() {
+        func wait(_ retryAfter: String?, planned: Duration = .seconds(1)) -> Duration {
+            let response = HTTPURLResponse(
+                url: GraphTransport.baseURL, statusCode: 429, httpVersion: nil,
+                headerFields: retryAfter.map { ["Retry-After": $0] })!
+            return GraphTransport.wait(after: response, planned: planned)
+        }
+        #expect(wait(nil) == .seconds(1))
+        #expect(wait("7") == .seconds(7))
+        #expect(wait("1", planned: .seconds(4)) == .seconds(4))
+        #expect(wait("3600") == .seconds(60))
+        #expect(wait("Wed, 21 Oct 2026 07:28:00 GMT") == .seconds(1))
+    }
+
+    @Test func aPageTokenThatIsntGraphsIsRefusedWithoutSendingTheToken() async throws {
+        let graph = FixtureGraph(FixtureGraph.mailbox)
+        let outlook = try await OutlookClient.signedIn(to: graph)
+        await #expect(throws: ProviderError.rejected) {
+            try await outlook.threads(matching: ThreadQuery(), pageToken: "https://evil.example.com/v1.0/me/messages")
+        }
+        #expect(!graph.requests.contains { $0.url?.host() == "evil.example.com" })
+    }
 }
