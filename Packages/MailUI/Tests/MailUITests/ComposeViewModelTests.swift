@@ -9,7 +9,7 @@ struct ComposeViewModelTests {
     private let account = AccountID(rawValue: "a")
 
     private func model(_ draft: Draft, sent: @escaping (Draft) -> Void = { _ in }) -> ComposeViewModel {
-        ComposeViewModel(draft: draft, accountEmail: "me@example.com", send: sent)
+        ComposeViewModel(draft: draft, accountEmail: "me@example.com", send: { draft, _ in sent(draft) })
     }
 
     @Test func suggestsForTheRecipientBeingTypedOnly() {
@@ -21,7 +21,7 @@ struct ComposeViewModelTests {
             suggest: {
                 asked.append($0)
                 return [dana, daniel]
-            }, send: { _ in })
+            }, send: { _, _ in })
         #expect(model.suggestions(for: "Dana Levi <dana@example.com>, da").map(\.address) == ["dan@example.com"])
         #expect(model.suggestions(for: "\"Levi, Dana\" <x@example.com>, ").isEmpty, "nothing typed yet")
         #expect(asked == ["da"])
@@ -62,7 +62,7 @@ struct ComposeViewModelTests {
     @Test func aNewDraftStartsWithTheSignatureAndClosesQuietly() {
         let model = ComposeViewModel(
             draft: Draft(accountID: account), accountEmail: "me@example.com", signature: { _ in "Dana\nGoodmail" },
-            send: { _ in })
+            send: { _, _ in })
         #expect(model.draft.body.plain == "\n\n-- \nDana\nGoodmail")
         #expect(!model.isRestored)
         #expect(!model.hasChanges(body: model.draft.body))
@@ -73,7 +73,7 @@ struct ComposeViewModelTests {
         let body = MessageBody(html: "<div>Hi</div>", plain: "Hi")
         let model = ComposeViewModel(
             draft: Draft(accountID: account, body: body), accountEmail: "me@example.com", signature: { _ in "Dana" },
-            send: { _ in })
+            send: { _, _ in })
         #expect(model.draft.body == body)
     }
 
@@ -85,7 +85,7 @@ struct ComposeViewModelTests {
             savedDraft: Message.ID(accountID: account, messageID: "d1"))
         let model = ComposeViewModel(
             draft: draft, accountEmail: "me@example.com", signature: { _ in "Dana" }, saveDraft: { saved = $0 },
-            deleteDraft: { deleted = $0 }, send: { _ in })
+            deleteDraft: { deleted = $0 }, send: { _, _ in })
         #expect(model.draft.body.plain == "Hi", "no second signature")
         #expect(!model.hasChanges(body: draft.body))
         #expect(model.canSaveDraft)
@@ -102,7 +102,7 @@ struct ComposeViewModelTests {
         let signatures = [personal.id: "Me", work.id: "Me, at work"]
         let model = ComposeViewModel(
             draft: Draft(accountID: personal.id), accountEmail: personal.email, senders: [personal, work],
-            signature: { signatures[$0] }, send: { _ in })
+            signature: { signatures[$0] }, send: { _, _ in })
         #expect(model.canChangeSender)
 
         let body = model.changeSender(to: work, body: model.draft.body)
@@ -120,7 +120,7 @@ struct ComposeViewModelTests {
         let work = Account(id: AccountID(rawValue: "w"), email: "me@work.example", color: .orange, service: .gmail)
         let model = ComposeViewModel(
             draft: Draft(accountID: personal.id, threadID: "t1"), accountEmail: personal.email,
-            senders: [personal, work], send: { _ in })
+            senders: [personal, work], send: { _, _ in })
         #expect(!model.canChangeSender)
     }
 

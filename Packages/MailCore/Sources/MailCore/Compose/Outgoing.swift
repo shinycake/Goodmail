@@ -4,6 +4,8 @@ import Foundation
 public struct OutgoingMessage: Identifiable, Equatable, Codable, Sendable {
     public enum Purpose: String, Codable, Sendable {
         case send
+        /// Sends at a time the writer picked, which may be days away. Listed under Scheduled until it goes.
+        case scheduledSend
         /// Saves the draft with the provider, replacing its earlier saved copy.
         case saveDraft
         /// Removes the draft's saved copy.
@@ -13,7 +15,7 @@ public struct OutgoingMessage: Identifiable, Equatable, Codable, Sendable {
     public var id: Draft.ID { draft.id }
     public var draft: Draft
     public var purpose: Purpose
-    /// When the undo window closes and the message may go.
+    /// When the message may go: when its undo window closes, or at its scheduled time.
     public var sendAt: Date
     /// Why the last attempt failed for good. `nil` while it is still to be sent.
     public var failure: SendFailure?
@@ -98,7 +100,7 @@ public actor Sender {
                 messageID: "\(message.id.uuidString.lowercased())@goodmail.app")
             do {
                 switch message.purpose {
-                case .send:
+                case .send, .scheduledSend:
                     try await provider.send(raw, inThread: draft.threadID)
                     // A saved copy left behind is only a stale draft, not worth failing a sent message over.
                     if let saved = draft.savedDraft { try? await provider.deleteDraft(saved) }
