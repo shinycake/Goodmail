@@ -173,10 +173,19 @@ jobs:
           for attempt in 1 2 3 4; do
             main=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
             if [[ "$main" == "$tested" ]]; then
+              # The squash commit is authored with a noreply address, so public history never carries a personal
+              # email. GitHub takes only an address of the account that merges: the PR author's noreply address
+              # works once that account keeps its email private, and this workflow's bot address always does.
+              # Merging without one would author the commit with the account's default email, so it never does.
               # From outside the checkout, so gh deletes only the remote branch.
-              (cd / && gh pr merge "$PR" -R "$GITHUB_REPOSITORY" --squash --delete-branch --match-head-commit "$SHA" \
-                --author-email "$AUTHOR_ID+$AUTHOR_LOGIN@users.noreply.github.com")
-              exit 0
+              for email in "$AUTHOR_ID+$AUTHOR_LOGIN@users.noreply.github.com" \
+                "41898282+github-actions[bot]@users.noreply.github.com"; do
+                if (cd / && gh pr merge "$PR" -R "$GITHUB_REPOSITORY" --squash --delete-branch \
+                  --match-head-commit "$SHA" --author-email "$email"); then
+                  exit 0
+                fi
+              done
+              exit 1
             fi
             echo "▸ main moved from ${tested:0:7} to ${main:0:7}; checking the PR merged with it (attempt $attempt)"
             git fetch -q origin main
