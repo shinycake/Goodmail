@@ -6,7 +6,8 @@ import Testing
 
 struct ThreadStoreTests {
     private let database: MailDatabase
-    private let account = Account(id: AccountID(rawValue: "a1"), email: "tester@example.com", color: .teal)
+    private let account = Account(
+        id: AccountID(rawValue: "a1"), email: "tester@example.com", color: .teal, service: .gmail)
 
     init() throws {
         let url = FileManager.default.temporaryDirectory
@@ -35,7 +36,7 @@ struct ThreadStoreTests {
     }
 
     @Test func accountsRoundTripInTheOrderAdded() throws {
-        let second = Account(id: AccountID(rawValue: "a2"), email: "two@example.com", color: .orange)
+        let second = Account(id: AccountID(rawValue: "a2"), email: "two@example.com", color: .orange, service: .gmail)
         try database.save(second)
         #expect(try database.accounts() == [account, second])
     }

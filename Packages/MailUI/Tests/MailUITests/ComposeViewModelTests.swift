@@ -97,8 +97,8 @@ struct ComposeViewModelTests {
     }
 
     @Test func theSignatureFollowsTheSenderUntilTheWriterTypes() {
-        let personal = Account(id: account, email: "me@example.com", color: .blue)
-        let work = Account(id: AccountID(rawValue: "w"), email: "me@work.example", color: .orange)
+        let personal = Account(id: account, email: "me@example.com", color: .blue, service: .gmail)
+        let work = Account(id: AccountID(rawValue: "w"), email: "me@work.example", color: .orange, service: .gmail)
         let signatures = [personal.id: "Me", work.id: "Me, at work"]
         let model = ComposeViewModel(
             draft: Draft(accountID: personal.id), accountEmail: personal.email, senders: [personal, work],
@@ -116,8 +116,8 @@ struct ComposeViewModelTests {
     }
 
     @Test func repliesStayInTheirAccount() {
-        let personal = Account(id: account, email: "me@example.com", color: .blue)
-        let work = Account(id: AccountID(rawValue: "w"), email: "me@work.example", color: .orange)
+        let personal = Account(id: account, email: "me@example.com", color: .blue, service: .gmail)
+        let work = Account(id: AccountID(rawValue: "w"), email: "me@work.example", color: .orange, service: .gmail)
         let model = ComposeViewModel(
             draft: Draft(accountID: personal.id, threadID: "t1"), accountEmail: personal.email,
             senders: [personal, work], send: { _ in })

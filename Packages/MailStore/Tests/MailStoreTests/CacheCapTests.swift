@@ -8,7 +8,8 @@ import Testing
 /// thread list and search as they were.
 struct CacheCapTests {
     private let database: MailDatabase
-    private let account = Account(id: AccountID(rawValue: "a1"), email: "tester@example.com", color: .teal)
+    private let account = Account(
+        id: AccountID(rawValue: "a1"), email: "tester@example.com", color: .teal, service: .gmail)
     private static let now = Date(timeIntervalSince1970: 1_800_000_000)
 
     init() throws {

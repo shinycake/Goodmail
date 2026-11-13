@@ -9,7 +9,7 @@
     enum TestDelivery {
         static func scheduleIfRequested(model: AppModel) {
             let delay = UserDefaults.standard.integer(forKey: "GoodmailDeliverTestMessageAfter")
-            guard delay > 0, let account = model.accounts.first else { return }
+            guard delay > 0, let account = model.accounts.first(where: { $0.service == .gmail }) else { return }
             Task {
                 do {
                     try await Task.sleep(for: .seconds(delay))
