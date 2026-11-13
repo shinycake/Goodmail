@@ -14,7 +14,9 @@ final class WebAuthentication: NSObject, ASWebAuthenticationPresentationContextP
     func authenticate(url: URL, callbackScheme: String) async throws -> URL? {
         defer { session = nil }
         return try await withCheckedThrowingContinuation { continuation in
-            let session = ASWebAuthenticationSession(url: url, callback: .customScheme(callbackScheme)) { url, error in
+            // `@Sendable`, so it isn't inferred main-actor: the session doesn't promise which queue calls it.
+            let session = ASWebAuthenticationSession(url: url, callback: .customScheme(callbackScheme)) {
+                @Sendable url, error in
                 if let url {
                     continuation.resume(returning: url)
                 } else if let error = error as? ASWebAuthenticationSessionError, error.code == .canceledLogin {
@@ -31,7 +33,8 @@ final class WebAuthentication: NSObject, ASWebAuthenticationPresentationContextP
         }
     }
 
-    nonisolated func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        MainActor.assumeIsolated { window }
+    /// The protocol is main-actor isolated, like this class.
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        window
     }
 }
