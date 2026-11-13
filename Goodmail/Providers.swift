@@ -5,7 +5,7 @@ import Synchronization
 
 /// Each account's provider, made for the account's service on first use and shared by everything that talks to it:
 /// sync, the outbox, sending and prefetch. The one place that knows which provider serves which service.
-final class Providers: Sendable {
+nonisolated final class Providers: Sendable {
     enum Failure: Error {
         /// No stored account has this ID, as when it was removed while work for it was queued.
         case unknownAccount
@@ -39,9 +39,9 @@ final class Providers: Sendable {
     }
 
     /// Forgets the account's credentials on the device. Nothing changes at the service.
-    static func signOut(_ account: Account) throws {
+    static func signOut(_ account: Account) async throws {
         switch account.service {
-        case .gmail: try GmailSession(accountID: account.id, keychain: Keychain()).signOut()
+        case .gmail: try await GmailSession(accountID: account.id, keychain: Keychain()).signOut()
         }
     }
 

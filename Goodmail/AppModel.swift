@@ -92,7 +92,7 @@ final class AppModel {
 
     /// Signs the account out and takes it and its mail off the device. Nothing changes at its service.
     func removeAccount(_ id: AccountID) async throws {
-        if let account = accounts.first(where: { $0.id == id }) { try? Providers.signOut(account) }
+        if let account = accounts.first(where: { $0.id == id }) { try? await Providers.signOut(account) }
         providers.forget(id)
         engines[id] = nil
         await prefetchers[id]?.cancel()
