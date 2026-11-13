@@ -16,7 +16,7 @@ public enum SendFailureAlert {
         let alert = UIAlertController(
             title: String(
                 localized: "Couldn't Send “\(subject)”", bundle: .module, comment: "A message failed to send"),
-            message: message.failure, preferredStyle: .alert)
+            message: message.failure?.explanation, preferredStyle: .alert)
         alert.addAction(
             UIAlertAction(
                 title: String(localized: "Edit", bundle: .module, comment: "Reopens a failed message"),
@@ -33,5 +33,21 @@ public enum SendFailureAlert {
                 style: .destructive
             ) { _ in delete() })
         return alert
+    }
+}
+
+extension SendFailure {
+    /// Why the message didn't go, in the reader's language.
+    var explanation: String {
+        switch self {
+        case .forwardedAttachmentMissing:
+            String(
+                localized: "A forwarded attachment is no longer available.", bundle: .module,
+                comment: "Why a message failed to send: a file it forwards is gone")
+        case .rejected:
+            String(
+                localized: "The server refused the message.", bundle: .module,
+                comment: "Why a message failed to send: the mail server refused it")
+        }
     }
 }
