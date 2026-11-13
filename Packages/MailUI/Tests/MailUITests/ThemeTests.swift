@@ -42,7 +42,13 @@ struct ThemeTests {
     @Test func aViewSpanningAccountsWearsTheirBlend() {
         let theme = Theme(accountID: nil, among: [personal, work])
         #expect(theme == .blend(AccountBlend([.blue, .orange])))
-        #expect(theme.tint == AccountBlend([.blue, .orange]).tint)
+        // The blend's tint is a dynamic color made afresh each time, so compare what it resolves to.
+        for style in [UIUserInterfaceStyle.light, .dark] {
+            let traits = UITraitCollection(userInterfaceStyle: style)
+            #expect(
+                theme.tint.resolvedColor(with: traits)
+                    == AccountBlend([.blue, .orange]).tint.resolvedColor(with: traits))
+        }
     }
 
     @Test func aGoneAccountsViewWearsTheSystemTint() {
