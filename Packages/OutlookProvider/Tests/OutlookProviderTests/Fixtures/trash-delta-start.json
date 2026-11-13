@@ -1,0 +1,4 @@
+{
+  "value": [{"id": "m8", "conversationId": "c6"}],
+  "@odata.nextLink": "https://graph.microsoft.com/v1.0/me/mailFolders/AATrash/messages/delta?$skiptoken=s1"
+}
