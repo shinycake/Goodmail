@@ -110,6 +110,7 @@ public final class MailboxesViewController: UIViewController {
                 case .mailbox(let mailbox):
                     "mailbox.\(mailbox.labelID ?? "all")" + (mailbox.accountID.map { ".\($0.rawValue)" } ?? "")
                 case .scheduled: "mailbox.scheduled"
+                case .snoozed: "mailbox.snoozed"
                 }
         }
         let header = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(

@@ -111,23 +111,31 @@ struct MailboxesTests {
         #expect(senders == [work.id, account.id], "the mailbox's own account, else the first")
     }
 
+    private func standardItems(_ directory: MailboxDirectory) async -> [MailboxesViewModel.Item] {
+        let viewModel = MailboxesViewModel(
+            accounts: [account],
+            directory: {
+                AsyncThrowingStream {
+                    $0.yield(directory)
+                    $0.finish()
+                }
+            })
+        await viewModel.observe()
+        return viewModel.groups[0].items
+    }
+
     @Test func scheduledShowsAfterDraftsOnlyWhileAMessageWaits() async {
-        func items(scheduled: Int) async -> [MailboxesViewModel.Item] {
-            let viewModel = MailboxesViewModel(
-                accounts: [account],
-                directory: {
-                    AsyncThrowingStream {
-                        $0.yield(MailboxDirectory(scheduledCount: scheduled))
-                        $0.finish()
-                    }
-                })
-            await viewModel.observe()
-            return viewModel.groups[0].items
-        }
-        #expect(await items(scheduled: 0).contains { $0.destination == .scheduled } == false)
-        let shown = await items(scheduled: 2)
+        #expect(await standardItems(MailboxDirectory()).contains { $0.destination == .scheduled } == false)
+        let shown = await standardItems(MailboxDirectory(scheduledCount: 2))
         #expect(shown.map(\.title) == ["Inbox", "Starred", "Sent", "Drafts", "Scheduled", "All Mail", "Spam", "Trash"])
         #expect(shown.first { $0.destination == .scheduled }?.count == 2)
+    }
+
+    @Test func snoozedShowsAfterStarredOnlyWhileAThreadSleeps() async {
+        #expect(await standardItems(MailboxDirectory()).contains { $0.destination == .snoozed } == false)
+        let shown = await standardItems(MailboxDirectory(snoozedCount: 3))
+        #expect(shown.map(\.title) == ["Inbox", "Starred", "Snoozed", "Sent", "Drafts", "All Mail", "Spam", "Trash"])
+        #expect(shown.first { $0.destination == .snoozed }?.count == 3)
     }
 
     @Test func aLabelsTitleIsItsName() {
@@ -159,6 +167,14 @@ struct MailboxesTests {
             MailboxViewModel.bulkActions(for: [read, thread(labels: ["Label_1"])]) == [.markRead(true), .trash],
             "archived mail can't be archived again")
         #expect(MailboxViewModel.bulkActions(for: [read, thread(labels: ["TRASH"])]) == [.markRead(true)])
+    }
+
+    @Test func onlyThreadsAllInTheInboxCanBeSnoozedTogether() {
+        #expect(MailboxViewModel.canSnooze([]) == false)
+        #expect(MailboxViewModel.canSnooze([thread(labels: ["INBOX"]), thread(labels: ["INBOX", "STARRED"])]))
+        #expect(
+            MailboxViewModel.canSnooze([thread(labels: ["INBOX"]), thread(labels: ["Label_1"])]) == false,
+            "an archived thread has no Inbox to leave")
     }
 
     @Test func aShortListFetchesOlderMailWithoutAScroll() async {
