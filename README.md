@@ -16,11 +16,11 @@ Requires Xcode 27.2 / Swift 6.4.
 
 ## Building and the gate
 
-- Open `Goodmail.xcodeproj` (JSON project format). Code lives in local packages, one per module, under `Packages/` (`MailCore`, `MailStore`, `GmailProvider`, `MailUI`, `MailIntents`); the app, `NotificationService` and `Widgets` targets are thin.
+- Open `Goodmail.xcodeproj` (JSON project format). Code lives in local packages, one per module, under `Packages/` (`MailCore`, `MailStore`, `GmailProvider`, `ICloudProvider`, `MailUI`, `MailIntents`); the app, `NotificationService` and `Widgets` targets are thin.
 - `scripts/check` is the gate: swift-format lint, the 1000-line cap, package tests and the app's English/Hebrew launch tests. `scripts/check --lint` runs only the fast part. Its tests run on a separate "Goodmail Check" simulator.
 - `scripts/record-fixtures` files the `TestMail` corpus into the signed-in test account and records Gmail's responses as fixtures (ADR-010). `TestMail/generate.py` writes the corpus.
 - `scripts/run` builds the signed Debug app and installs it on the dev simulator, keeping its Gmail sign-in. Arguments pass through to the app, e.g. `scripts/run -AppleLanguages "(he)"`.
-- Claude cloud sessions (Linux) compile the packages and their tests for iOS with xtool (`scripts/ios-build`) and run the MailCore, GmailProvider and MailStore tests natively; `scripts/check` does both there. Setup is automatic: see [docs/setup/cloud-builds.md](docs/setup/cloud-builds.md).
+- Claude cloud sessions (Linux) compile the packages and their tests for iOS with xtool (`scripts/ios-build`) and run the MailCore, GmailProvider, ICloudProvider and MailStore tests natively; `scripts/check` does both there. Setup is automatic: see [docs/setup/cloud-builds.md](docs/setup/cloud-builds.md).
 - After cloning, enable the tracked hooks (pre-commit runs `--lint`, pre-push runs everything):
 
   ```bash

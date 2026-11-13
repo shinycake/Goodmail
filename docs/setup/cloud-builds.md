@@ -1,6 +1,6 @@
 # iOS builds on Linux cloud workers
 
-Claude cloud sessions run on Linux without Xcode. They compile every package and its tests for iOS (`arm64-apple-ios`) with [xtool](https://github.com/xtool-org/xtool)'s Darwin SDK, so package work can leave the Mac (ADR-017). Linux has no iOS simulator, and xtool doesn't have one either. So cloud sessions run the tests of the packages that also build for Linux, natively: MailCore, GmailProvider and MailStore. The Mac's `scripts/check` runs everything, including MailUI's tests and the app's launch tests.
+Claude cloud sessions run on Linux without Xcode. They compile every package and its tests for iOS (`arm64-apple-ios`) with [xtool](https://github.com/xtool-org/xtool)'s Darwin SDK, so package work can leave the Mac (ADR-017). Linux has no iOS simulator, and xtool doesn't have one either. So cloud sessions run the tests of the packages that also build for Linux, natively: MailCore, GmailProvider, ICloudProvider and MailStore. The Mac's `scripts/check` runs everything, including MailUI's tests and the app's launch tests.
 
 ## In a cloud session
 
@@ -12,17 +12,18 @@ Nothing to do. Setup runs on its own, in two ways:
 Setup also enables the tracked git hooks. Its first run in a fresh container takes about two minutes. Later runs find everything installed and return at once. The setup log is at `/tmp/goodmail-cloud-setup.log`. In a multi-repository session, run `scripts/check --lint` once before your first commit, so the git hooks are in place before you commit or push.
 
 - `scripts/ios-build [Package …]` compiles packages and their tests for iOS. With no arguments it compiles all of them, then type-checks the Xcode targets that SwiftPM can't build (the app, NotificationService and WidgetsExtension) against those package builds. The type-check uses the project's Debug Swift settings, which are listed in the script, so update them there when the project's settings change. It catches compile errors, but it doesn't link, compile assets or String Catalogs, or check entitlements. Only the Mac's build does those.
-- `scripts/check` on Linux runs the lint, the line cap, `scripts/ios-build`, and `swift test` for MailCore, GmailProvider and MailStore. The pre-push hook runs it.
+- `scripts/check` on Linux runs the lint, the line cap, `scripts/ios-build`, and `swift test` for MailCore, GmailProvider, ICloudProvider and MailStore. The pre-push hook runs it.
 - `swift test --package-path Packages/MailStore` runs one package's tests natively.
 
 ## Keeping the logic packages Linux-testable
 
-MailCore, GmailProvider and MailStore stay free of UIKit and SwiftUI. Where they need an Apple-only API, it is fenced with `#if canImport(…)`, so Linux test builds compile without it:
+MailCore, GmailProvider, ICloudProvider and MailStore stay free of UIKit and SwiftUI. Where they need an Apple-only API, it is fenced with `#if canImport(…)`, so Linux test builds compile without it:
 
 - `Keychain` exists only where Security does. Callers pass a `SecretStore`, which tests replace with memory.
 - Charset lookup uses CoreFoundation on Apple platforms. Linux's Foundation has no windows-1255, so that one test is skipped there.
 - `SharedContainer.directoryURL` is `nil` on Linux, because there are no App Groups.
 - GmailProvider imports `FoundationNetworking` for `URLSession`. It falls back to a small SHA-256 for PKCE, because CryptoKit doesn't exist on Linux.
+- ICloudProvider's TLS transport uses the Network framework. Its IMAP code talks to an `IMAPTransport`, which the tests replay transcripts through, so it builds and tests on Linux without the transport.
 - `ChangeSignal` uses Darwin notifications between processes. On Linux it signals within the process only, which is what the tests exercise.
 
 A new Apple-only import in these packages breaks the Linux tests in `scripts/check`, which catches the regression in a cloud session.
