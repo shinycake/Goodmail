@@ -1,0 +1,8 @@
+{
+  "value": [
+    {"displayName": "Dana Levi", "emailAddresses": [{"name": "Dana Levi", "address": "dana@example.com"},
+                                                   {"name": "Dana (work)", "address": "dana@work.example.com"}]},
+    {"displayName": "No Address", "emailAddresses": []}
+  ],
+  "@odata.nextLink": "https://graph.microsoft.com/v1.0/me/contacts?$skip=2"
+}
