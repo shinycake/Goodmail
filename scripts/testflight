@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Archive a signed Release build and upload it to TestFlight.
+# The "Internal" TestFlight group has access to all builds, so its testers get each build once Apple processes it.
+#
+# Needs: Xcode signed in to the team (automatic signing creates the distribution certificate and profiles),
+# and `asc` authenticated with an App Store Connect API key (`asc auth status`).
+# Pass --wait to block until App Store Connect finishes processing the build.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+BUILD_DIR="${GOODMAIL_BUILD_DIR:-$([[ -d /Volumes/Idan1TB ]] && echo /Volumes/Idan1TB/Goodmail-build || echo "$PWD/.build")}/testflight"
+APP=com.idanbirman.goodmail
+
+if [[ -n "$(git status --porcelain)" ]]; then
+    echo "error: commit or stash your changes first, so the build matches a commit." >&2
+    exit 1
+fi
+
+build_number="$(asc builds next-build-number --app "$APP" --platform IOS --output json | python3 -c 'import json, sys; print(json.load(sys.stdin)["nextBuildNumber"])')"
+echo "Archiving build $build_number of $(git rev-parse --short HEAD)"
+rm -rf "$BUILD_DIR/Goodmail.xcarchive" "$BUILD_DIR/export"
+mkdir -p "$BUILD_DIR"
+
+xcodebuild archive -quiet -project Goodmail.xcodeproj -scheme Goodmail -configuration Release \
+    -destination 'generic/platform=iOS' -archivePath "$BUILD_DIR/Goodmail.xcarchive" \
+    -derivedDataPath "$BUILD_DIR/derived" -allowProvisioningUpdates CURRENT_PROJECT_VERSION="$build_number"
+xcodebuild -exportArchive -quiet -archivePath "$BUILD_DIR/Goodmail.xcarchive" \
+    -exportOptionsPlist Config/ExportOptions.plist -exportPath "$BUILD_DIR/export" -allowProvisioningUpdates
+
+asc builds upload --app "$APP" --ipa "$BUILD_DIR/export/Goodmail.ipa" --verify-timeout 2m "$@"

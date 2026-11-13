@@ -21,6 +21,7 @@ Requires Xcode 27.2 / Swift 6.4.
 - `scripts/record-fixtures` files the `TestMail` corpus into the signed-in test account and records Gmail's responses as fixtures (ADR-010). `TestMail/generate.py` writes the corpus.
 - `scripts/run` builds the signed Debug app and installs it on the dev simulator, keeping its Gmail sign-in. Arguments pass through to the app, e.g. `scripts/run -AppleLanguages "(he)"`.
 - Claude cloud sessions (Linux) compile the packages and their tests for iOS with xtool (`scripts/ios-build`) and run the MailCore, GmailProvider, ICloudProvider, OutlookProvider and MailStore tests natively; `scripts/check` does both there. Setup is automatic: see [docs/setup/cloud-builds.md](docs/setup/cloud-builds.md).
+- `scripts/testflight` archives a signed Release build of the current commit and uploads it with `asc`, the App Store Connect CLI. App Store Connect picks the build number. Every build goes to the internal "Internal" TestFlight group, which has access to all builds. It needs Xcode signed in to the team and `asc auth status` showing an API key.
 - After cloning, enable the tracked hooks (pre-commit runs `--lint`, pre-push runs everything):
 
   ```bash
