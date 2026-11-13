@@ -144,8 +144,8 @@ final class AppModel {
     }
 
     /// Stores the account's new name or color.
-    func update(_ account: Account) throws {
-        try database.update(account)
+    func update(_ account: Account) async throws {
+        try await Self.store { [database] in try database.update(account) }
         accounts = accounts.map { $0.id == account.id ? account : $0 }
     }
 

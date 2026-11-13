@@ -23,7 +23,11 @@ public final class SettingsViewModel {
     }
 
     @ObservationIgnored private let remove: (AccountID) async throws -> Void
-    @ObservationIgnored private let update: (Account) throws -> Void
+    @ObservationIgnored private let update: (Account) async throws -> Void
+    /// Stores name and color changes in the order the reader made them (`change`).
+    @ObservationIgnored private let changes = TaskChain()
+    /// The changes not stored yet, oldest first. The screen shows the stored accounts with these applied.
+    @ObservationIgnored private var pending: [Change] = []
     @ObservationIgnored private let reload: () -> [Account]
     @ObservationIgnored private let closed: () -> Void
 
@@ -34,7 +38,7 @@ public final class SettingsViewModel {
         accounts: @escaping () -> [Account],
         signIn: @escaping (MailService) async throws -> Bool,
         remove: @escaping (AccountID) async throws -> Void,
-        update: @escaping (Account) throws -> Void,
+        update: @escaping (Account) async throws -> Void,
         closed: @escaping () -> Void
     ) {
         self.accounts = accounts()
@@ -46,10 +50,7 @@ public final class SettingsViewModel {
         self.remove = remove
         self.update = update
         self.closed = closed
-        adder.onAdded = { [weak self] in
-            guard let self else { return }
-            self.accounts = self.reload()
-        }
+        adder.onAdded = { [weak self] in self?.refresh() }
     }
 
     public func removeAccount(_ id: AccountID) async {
@@ -58,7 +59,7 @@ public final class SettingsViewModel {
         } catch {
             self.error = error
         }
-        accounts = reload()
+        refresh()
     }
 
     /// Sends the account's mail under `name`, without its surrounding spaces; a blank name sends the address alone.
@@ -71,18 +72,52 @@ public final class SettingsViewModel {
         change(id) { $0.color = color }
     }
 
-    /// Stores the change unless it leaves the account as it was.
-    private func change(_ id: AccountID, _ edit: (inout Account) -> Void) {
-        guard var account = accounts.first(where: { $0.id == id }) else { return }
-        let before = account
-        edit(&account)
-        guard account != before else { return }
-        do {
-            try update(account)
-        } catch {
-            self.error = error
+    /// One edit of one account's name or color.
+    private struct Change {
+        let id: AccountID
+        let edit: (inout Account) -> Void
+
+        func apply(to accounts: inout [Account]) {
+            guard let index = accounts.firstIndex(where: { $0.id == id }) else { return }
+            edit(&accounts[index])
         }
-        accounts = reload()
+    }
+
+    /// Shows the change at once and stores it after any change before it. Each one is applied, when its turn
+    /// comes, to the account as stored, so a rename and a color change made in quick succession both stick, and
+    /// one that fails is shown and carried by no later change.
+    private func change(_ id: AccountID, _ edit: @escaping (inout Account) -> Void) {
+        pending.append(Change(id: id, edit: edit))
+        refresh()
+        changes.run { [self] in
+            // The chain runs changes in the order they were appended, so this one is first. It stays pending, and
+            // shown, until it is stored or has failed.
+            let change = pending[0]
+            var stored = reload()
+            let before = stored.first { $0.id == change.id }
+            change.apply(to: &stored)
+            if let account = stored.first(where: { $0.id == change.id }), account != before {
+                do {
+                    try await update(account)
+                } catch {
+                    self.error = error
+                }
+            }
+            pending.removeFirst()
+            refresh()
+        }
+    }
+
+    /// Shows the stored accounts with the changes that aren't stored yet.
+    private func refresh() {
+        var shown = reload()
+        for change in pending { change.apply(to: &shown) }
+        accounts = shown
+    }
+
+    /// Waits until the changes made so far are stored.
+    func settled() async {
+        await changes.settled()
     }
 
     /// Whether the account's Inbox is split into Gmail's categories.
@@ -98,8 +133,9 @@ public final class SettingsViewModel {
         }
     }
 
+    /// Runs `closed` once the changes made so far are stored, so it sees them.
     func didClose() {
-        closed()
+        changes.run { [closed] in closed() }
     }
 
     /// "Off", or the wait as a short duration.

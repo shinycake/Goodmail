@@ -29,7 +29,68 @@ struct SettingsTests {
         await model.removeAccount(personal.id)
         #expect(model.accounts == [work])
         model.didClose()
+        await model.settled()
         #expect(closed)
+    }
+
+    @Test func quickChangesAreAllStoredInOrderBeforeTheScreenCloses() async {
+        var stored = [personal]
+        var events: [String] = []
+        let model = SettingsViewModel(
+            accounts: { stored }, signIn: { _ in true }, remove: { _ in },
+            update: { account in
+                // A slow write, so the next change is made before this one is stored.
+                try await Task.sleep(for: .milliseconds(20))
+                stored = [account]
+                events.append("stored \(account.name ?? "-") \(account.color)")
+            },
+            closed: { events.append("closed") })
+
+        model.rename(personal.id, to: "  Me  ")
+        model.setColor(.green, for: personal.id)
+        #expect(model.accounts.first?.name == "Me", "shown at once")
+        #expect(model.accounts.first?.color == .green)
+        model.didClose()
+        await model.settled()
+
+        #expect(events == ["stored Me blue", "stored Me green", "closed"])
+        #expect(stored.first?.name == "Me", "the color change didn't overwrite the rename")
+        #expect(stored.first?.color == .green)
+    }
+
+    @Test func aFailedRenameIsNotStoredByTheColorChangeAfterIt() async {
+        struct Refused: Error {}
+        var stored = [personal]
+        let model = SettingsViewModel(
+            accounts: { stored }, signIn: { _ in true }, remove: { _ in },
+            update: { account in
+                try await Task.sleep(for: .milliseconds(20))
+                if account.name != personal.name { throw Refused() }
+                stored = [account]
+            },
+            closed: {})
+
+        model.rename(personal.id, to: "Me")
+        model.setColor(.green, for: personal.id)
+        #expect(model.accounts.first?.name == "Me", "both shown while they wait")
+        #expect(model.accounts.first?.color == .green)
+        await model.settled()
+
+        #expect(model.error is Refused)
+        #expect(stored.first?.name == personal.name, "the failed rename stays unstored")
+        #expect(stored.first?.color == .green)
+        #expect(model.accounts == stored, "the screen shows what is stored")
+    }
+
+    @Test func aFailedChangeIsShownAndTheAccountReadsBackAsStored() async {
+        struct Refused: Error {}
+        let model = SettingsViewModel(
+            accounts: { [personal] }, signIn: { _ in true }, remove: { _ in }, update: { _ in throw Refused() },
+            closed: {})
+        model.setColor(.green, for: personal.id)
+        await model.settled()
+        #expect(model.error is Refused)
+        #expect(model.accounts == [personal])
     }
 
     @Test func aFailedSignInIsShownAndChangesNothing() async {
