@@ -1,4 +1,5 @@
 import GmailProvider
+import ICloudProvider
 import MailCore
 import MailStore
 import Synchronization
@@ -21,7 +22,7 @@ nonisolated final class Providers: Sendable {
     func provider(for id: AccountID) throws -> any MailProvider {
         if let provider = made.withLock({ $0[id] }) { return provider }
         guard let account = try database.accounts().first(where: { $0.id == id }) else { throw Failure.unknownAccount }
-        let provider = Self.make(for: account)
+        let provider = try make(for: account)
         return made.withLock { made in
             if let existing = made[id] { return existing }
             made[id] = provider
@@ -42,12 +43,17 @@ nonisolated final class Providers: Sendable {
     static func signOut(_ account: Account) async throws {
         switch account.service {
         case .gmail: try await OAuthSession(accountID: account.id, client: .gmail, keychain: Keychain()).signOut()
+        case .icloud: try ICloudSignIn(secrets: Keychain()).signOut(account.id)
         }
     }
 
-    private static func make(for account: Account) -> any MailProvider {
+    private func make(for account: Account) throws -> any MailProvider {
         switch account.service {
         case .gmail: GmailClient(session: OAuthSession(accountID: account.id, client: .gmail, keychain: Keychain()))
+        case .icloud:
+            ICloudClient(
+                accountID: account.id, email: account.email,
+                appPassword: try ICloudSignIn(secrets: Keychain()).appPassword(for: account.id), index: database)
         }
     }
 }

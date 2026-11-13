@@ -25,6 +25,9 @@ enum IMAPCommand: Equatable, Sendable {
     case uidMove(uids: [UInt32], mailbox: String)
     /// Removes these messages for good, once they are flagged `\Deleted` (RFC 4315 §2.1).
     case uidExpunge(uids: [UInt32])
+    /// Adds a message to a mailbox. The line announces the message as a literal of `size` bytes, which follows
+    /// once the server asks for it.
+    case append(mailbox: String, flags: Set<String>, size: Int)
     case logout
 
     /// The UID, flags, dates, envelope and threading headers of a message, without marking it read.
@@ -46,7 +49,7 @@ enum IMAPCommand: Equatable, Sendable {
             case .select(let mailbox): "SELECT \(try Self.quoted(mailbox))"
             case .enable(let capability): "ENABLE \(capability)"
             case .status(let mailbox): "STATUS \(try Self.quoted(mailbox)) (MESSAGES UIDNEXT UIDVALIDITY HIGHESTMODSEQ)"
-            case .uidSearch(let search): "UID SEARCH \(search.criteria)"
+            case .uidSearch(let search): "UID SEARCH \(try search.criteria)"
             case .uidFetch(let uids, let items): "UID FETCH \(Self.sequenceSet(uids)) \(items)"
             case .uidFetchChanged(let modSeq, let vanished):
                 "UID FETCH 1:* (UID FLAGS) (CHANGEDSINCE \(modSeq)\(vanished ? " VANISHED" : ""))"
@@ -55,6 +58,8 @@ enum IMAPCommand: Equatable, Sendable {
             case .uidCopy(let uids, let mailbox): "UID COPY \(Self.sequenceSet(uids)) \(try Self.quoted(mailbox))"
             case .uidMove(let uids, let mailbox): "UID MOVE \(Self.sequenceSet(uids)) \(try Self.quoted(mailbox))"
             case .uidExpunge(let uids): "UID EXPUNGE \(Self.sequenceSet(uids))"
+            case .append(let mailbox, let flags, let size):
+                "APPEND \(try Self.quoted(mailbox)) (\(flags.sorted().joined(separator: " "))) {\(size)}"
             case .logout: "LOGOUT"
             }
         }

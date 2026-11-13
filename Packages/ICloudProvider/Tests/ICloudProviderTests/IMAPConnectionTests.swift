@@ -71,13 +71,13 @@ struct IMAPConnectionTests {
         #expect(first.to == [Contact(name: nil, address: "me@icloud.com")])
         #expect(first.cc == [Contact(name: "Noa", address: "noa@example.com")])
         #expect(first.receivedAt == Date(timeIntervalSince1970: 1_792_476_845))
-        #expect(first.messageID == "<a1@example.com>")
+        #expect(first.messageID == "a1@example.com")
         #expect(first.references.isEmpty)
         #expect(!first.isUnread)
         let reply = headers[1]
         #expect(reply.isUnread)
-        #expect(reply.inReplyTo == "<a1@example.com>")
-        #expect(reply.references == ["<a0@example.com>", "<a1@example.com>"])
+        #expect(reply.inReplyTo == "a1@example.com")
+        #expect(reply.references == ["a0@example.com", "a1@example.com"])
         #expect(reply.receivedAt == Date(timeIntervalSince1970: 1_793_556_000))
 
         try await connection.logout()
@@ -147,12 +147,12 @@ struct IMAPConnectionTests {
         #expect(IMAPCommand.uids(inSequenceSet: "41,43:45,9:8") == [41, 43, 44, 45, 8, 9])
     }
 
-    @Test func searchesWriteEveryCriterion() {
-        #expect(IMAPSearch().criteria == "ALL")
+    @Test func searchesWriteEveryCriterion() throws {
+        #expect(try IMAPSearch().criteria == "ALL")
         let search = IMAPSearch(
             uids: 32...UInt32.max, since: Date(timeIntervalSince1970: 1_792_500_000),
             before: Date(timeIntervalSince1970: 1_792_600_000), flag: .unseen)
-        #expect(search.criteria == "UID 32:* SINCE 20-Oct-2026 BEFORE 21-Oct-2026 UNSEEN")
-        #expect(IMAPSearch(uids: 1...9).criteria == "UID 1:9")
+        #expect(try search.criteria == "UID 32:* SINCE 20-Oct-2026 BEFORE 21-Oct-2026 UNSEEN")
+        #expect(try IMAPSearch(uids: 1...9).criteria == "UID 1:9")
     }
 }

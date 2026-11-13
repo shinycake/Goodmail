@@ -20,6 +20,7 @@ struct ICloudClientTests {
         S: * LIST (\HasNoChildren \Sent) "/" "Sent Messages"
         S: * LIST (\HasNoChildren \Trash) "/" "Deleted Messages"
         S: * LIST (\HasNoChildren \Junk) "/" "Junk"
+        S: * LIST (\HasNoChildren \Drafts) "/" "Drafts"
         S: * LIST (\HasNoChildren \Archive) "/" "Archive"
         S: * LIST (\Noselect \HasChildren) "/" "Projects"
         S: * LIST (\HasNoChildren) "/" "&BeIF0QXVBdMF1A-"
@@ -41,25 +42,32 @@ struct ICloudClientTests {
         uid: UInt32, flags: String = #"\Seen"#, date: String, subject: String, from: String = "dana",
         inReplyTo: String? = nil, messageID: String, references: [String] = []
     ) -> String {
-        let referencesHeader = references.isEmpty ? "" : "References: \(references.joined(separator: " "))\\r\\n"
+        let referencesHeader =
+            references.isEmpty ? "" : "References: \(references.map { "<\($0)>" }.joined(separator: " "))\\r\\n"
         let literal = referencesHeader.replacing("\\r\\n", with: "\r\n") + "\r\n"
-        let replyTo = inReplyTo.map { "\"\($0)\"" } ?? "NIL"
+        let replyTo = inReplyTo.map { "\"<\($0)>\"" } ?? "NIL"
         return
-            #"S: * \#(uid) FETCH (UID \#(uid) FLAGS (\#(flags)) INTERNALDATE "\#(date)" ENVELOPE (NIL "\#(subject)" (("\#(from)" NIL "\#(from)" "example.com")) NIL NIL NIL NIL NIL \#(replyTo) "\#(messageID)") BODY[HEADER.FIELDS (REFERENCES)] {\#(literal.utf8.count)}\r\n\#(referencesHeader)\r\n)"#
+            #"S: * \#(uid) FETCH (UID \#(uid) FLAGS (\#(flags)) INTERNALDATE "\#(date)" ENVELOPE (NIL "\#(subject)" (("\#(from)" NIL "\#(from)" "example.com")) NIL NIL NIL NIL NIL \#(replyTo) "<\#(messageID)>") BODY[HEADER.FIELDS (REFERENCES)] {\#(literal.utf8.count)}\r\n\#(referencesHeader)\r\n)"#
     }
 
-    static func client(_ transcripts: String..., index: MemoryIndex, pageSize: Int = 50) -> ICloudClient {
+    static let credentials = ICloudCredentials(user: "dana@icloud.com", password: "abcd-efgh-ijkl-mnop")
+
+    static func client(
+        _ transcripts: String..., smtp: String = "", index: MemoryIndex, pageSize: Int = 50
+    ) -> ICloudClient {
         let transports = Transports(transcripts.map { ScriptedTransport(transcript: $0) })
-        let session = IMAPSession(credentials: .init(user: "dana@icloud.com", password: "abcd-efgh-ijkl-mnop")) {
-            try await transports.next()
-        }
-        return ICloudClient(accountID: account, session: session, index: index, pageSize: pageSize)
+        let session = IMAPSession(credentials: credentials) { try await transports.next() }
+        let smtpTransport = ScriptedTransport(transcript: smtp)
+        return ICloudClient(
+            accountID: account, session: session, smtp: SMTPClient(credentials: credentials) { smtpTransport },
+            index: index, pageSize: pageSize)
     }
 
     @Test func foldersBecomeLabels() async throws {
         let client = Self.client(Self.login, index: MemoryIndex())
         let labels = try await client.labels()
-        #expect(labels.map(\.id) == ["INBOX", "SENT", "TRASH", "SPAM", "&BeIF0QXVBdMF1A-", "STARRED", "UNREAD"])
+        #expect(
+            labels.map(\.id) == ["INBOX", "SENT", "TRASH", "SPAM", "DRAFT", "&BeIF0QXVBdMF1A-", "STARRED", "UNREAD"])
         #expect(labels.first { $0.kind == .user }?.name == "עבודה")
         #expect(labels.filter { $0.kind == .user }.count == 1, "Archive is no label, and Projects holds no mail")
     }
@@ -68,7 +76,7 @@ struct ICloudClientTests {
         // The Sent reply was read before, so the index knows it.
         let sentKey = MessageKey(folder: "Sent Messages", uidValidity: 9, uid: 3).rawValue
         let index = MemoryIndex([
-            MessageIndexEntry(key: sentKey, threadID: "<a0@example.com>", internetMessageID: "<s1@icloud.com>")
+            MessageIndexEntry(key: sentKey, threadID: "a0@example.com", internetMessageID: "s1@icloud.com")
         ])
         let client = Self.client(
             Self.login + "\n" + Self.select("INBOX", tag: 4) + #"""
@@ -80,20 +88,20 @@ struct ICloudClientTests {
                 """# + "\n"
                 + [
                     Self.header(
-                        uid: 40, date: "1-Nov-2026 09:00:00 +0000", subject: "Lunch", messageID: "<a0@example.com>"),
+                        uid: 40, date: "1-Nov-2026 09:00:00 +0000", subject: "Lunch", messageID: "a0@example.com"),
                     Self.header(
                         uid: 41, flags: "", date: "2-Nov-2026 09:00:00 +0000", subject: "Re: Lunch", from: "noa",
-                        inReplyTo: "<s1@icloud.com>", messageID: "<a2@example.com>",
-                        references: ["<a0@example.com>", "<s1@icloud.com>"]),
+                        inReplyTo: "s1@icloud.com", messageID: "a2@example.com",
+                        references: ["a0@example.com", "s1@icloud.com"]),
                     Self.header(
                         uid: 42, flags: #"\Seen \Flagged"#, date: "3-Nov-2026 09:00:00 +0000", subject: "Re: Hi",
-                        inReplyTo: "<b0@example.com>", messageID: "<b1@example.com>"),
+                        inReplyTo: "b0@example.com", messageID: "b1@example.com"),
                 ].joined(separator: "\n") + "\n" + "S: A6 OK FETCH completed\n"
                 + Self.select("Sent Messages", tag: 7, uidValidity: 9) + "\n"
                 + "C: A8 UID FETCH 3 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES)])\n"
                 + Self.header(
                     uid: 3, date: "1-Nov-2026 12:00:00 +0000", subject: "Re: Lunch", from: "me",
-                    inReplyTo: "<a0@example.com>", messageID: "<s1@icloud.com>", references: ["<a0@example.com>"])
+                    inReplyTo: "a0@example.com", messageID: "s1@icloud.com", references: ["a0@example.com"])
                 + "\nS: A8 OK FETCH completed",
             index: index)
 
@@ -101,7 +109,7 @@ struct ICloudClientTests {
             matching: ThreadQuery(label: "INBOX", since: Date(timeIntervalSince1970: 1_793_491_200)), pageToken: nil)
 
         #expect(page.nextPageToken == nil)
-        #expect(page.threads.map(\.id.threadID) == ["<b0@example.com>", "<a0@example.com>"])
+        #expect(page.threads.map(\.id.threadID) == ["b0@example.com", "a0@example.com"])
         let lunch = try #require(page.threads.last)
         #expect(lunch.messageCount == 3)
         #expect(lunch.subject == "Lunch")
@@ -112,7 +120,7 @@ struct ICloudClientTests {
         #expect(hi.labelIDs == ["INBOX", "STARRED"], "a reply whose parent isn't known threads on the parent's ID")
         #expect(
             index.all.map(\.threadID).sorted()
-                == ["<a0@example.com>", "<a0@example.com>", "<a0@example.com>", "<b0@example.com>"])
+                == ["a0@example.com", "a0@example.com", "a0@example.com", "b0@example.com"])
     }
 
     @Test func pagesWalkEachFolderNewestFirst() async throws {
@@ -124,8 +132,8 @@ struct ICloudClientTests {
                 S: * SEARCH 10 11 12
                 S: A5 OK SEARCH completed
                 C: A6 UID FETCH 11:12 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES)])
-                \(Self.header(uid: 11, date: "1-Nov-2026 09:00:00 +0000", subject: "b", messageID: "<b@x>"))
-                \(Self.header(uid: 12, date: "2-Nov-2026 09:00:00 +0000", subject: "c", messageID: "<c@x>"))
+                \(Self.header(uid: 11, date: "1-Nov-2026 09:00:00 +0000", subject: "b", messageID: "b@x"))
+                \(Self.header(uid: 12, date: "2-Nov-2026 09:00:00 +0000", subject: "c", messageID: "c@x"))
                 S: A6 OK FETCH completed
                 """, index: index, pageSize: 2)
         let page = try await first.threads(matching: ThreadQuery(), pageToken: nil)
@@ -139,7 +147,7 @@ struct ICloudClientTests {
                 S: * SEARCH 10
                 S: A5 OK SEARCH completed
                 C: A6 UID FETCH 10 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES)])
-                \(Self.header(uid: 10, date: "1-Oct-2026 09:00:00 +0000", subject: "a", messageID: "<a@x>"))
+                \(Self.header(uid: 10, date: "1-Oct-2026 09:00:00 +0000", subject: "a", messageID: "a@x"))
                 S: A6 OK FETCH completed
                 """, index: index, pageSize: 2)
         let next = try await second.threads(matching: ThreadQuery(), pageToken: token)
@@ -151,12 +159,14 @@ struct ICloudClientTests {
     @Test func changesNameTheThreadsOfNewChangedAndExpungedMessages() async throws {
         let key = { (uid: UInt32) in MessageKey(folder: "INBOX", uidValidity: 7, uid: uid).rawValue }
         let index = MemoryIndex([
-            MessageIndexEntry(key: key(30), threadID: "<gone@x>", internetMessageID: "<gone@x>"),
-            MessageIndexEntry(key: key(31), threadID: "<flag@x>", internetMessageID: "<flag@x>"),
+            MessageIndexEntry(key: key(30), threadID: "gone@x", internetMessageID: "gone@x"),
+            MessageIndexEntry(key: key(31), threadID: "flag@x", internetMessageID: "flag@x"),
         ])
         let unchanged = IMAPFolderStatus(uidValidity: 9, uidNext: 4, messageCount: 1, highestModSeq: 5)
         var folders = Dictionary(
-            uniqueKeysWithValues: ["Sent Messages", "Deleted Messages", "Junk", "Archive", "&BeIF0QXVBdMF1A-"].map {
+            uniqueKeysWithValues: [
+                "Sent Messages", "Deleted Messages", "Junk", "Drafts", "Archive", "&BeIF0QXVBdMF1A-",
+            ].map {
                 ($0, unchanged)
             })
         folders["INBOX"] = IMAPFolderStatus(uidValidity: 7, uidNext: 32, messageCount: 2, highestModSeq: 100)
@@ -181,22 +191,23 @@ struct ICloudClientTests {
                 S: A7 OK
                 C: A8 UID FETCH 31:32 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES)])
                 """,
-                Self.header(uid: 31, date: "1-Nov-2026 09:00:00 +0000", subject: "f", messageID: "<flag@x>"),
+                Self.header(uid: 31, date: "1-Nov-2026 09:00:00 +0000", subject: "f", messageID: "flag@x"),
                 Self.header(
-                    uid: 32, flags: "", date: "4-Nov-2026 09:00:00 +0000", subject: "n", messageID: "<new@x>"),
+                    uid: 32, flags: "", date: "4-Nov-2026 09:00:00 +0000", subject: "n", messageID: "new@x"),
                 "S: A8 OK",
                 status(9, "Sent Messages", unchangedLine),
                 status(10, "Deleted Messages", unchangedLine),
                 status(11, "Junk", unchangedLine),
-                status(12, "Archive", unchangedLine),
-                status(13, "&BeIF0QXVBdMF1A-", unchangedLine),
+                status(12, "Drafts", unchangedLine),
+                status(13, "Archive", unchangedLine),
+                status(14, "&BeIF0QXVBdMF1A-", unchangedLine),
             ].joined(separator: "\n"),
             index: index)
 
         let changes = try await client.changes(since: cursor)
 
-        #expect(changes.threadIDs == ["<gone@x>", "<flag@x>", "<new@x>"])
-        #expect(index.all.map(\.threadID) == ["<flag@x>", "<new@x>"], "the expunged message leaves the index")
+        #expect(changes.threadIDs == ["gone@x", "flag@x", "new@x"])
+        #expect(index.all.map(\.threadID) == ["flag@x", "new@x"], "the expunged message leaves the index")
         let next = try ICloudCursor(changes.cursor)
         #expect(
             next.folders["INBOX"] == IMAPFolderStatus(uidValidity: 7, uidNext: 33, messageCount: 2, highestModSeq: 104))
@@ -212,7 +223,7 @@ struct ICloudClientTests {
             try await Self.client(Self.login, index: MemoryIndex()).changes(since: "not a cursor")
         }
 
-        let names = ["INBOX", "Sent Messages", "Deleted Messages", "Junk", "Archive", "&BeIF0QXVBdMF1A-"]
+        let names = ["INBOX", "Sent Messages", "Deleted Messages", "Junk", "Drafts", "Archive", "&BeIF0QXVBdMF1A-"]
         let everyFolder = ICloudCursor(folders: Dictionary(uniqueKeysWithValues: names.map { ($0, status) }))
         let rebuilt = """
             C: A4 STATUS "INBOX" (MESSAGES UIDNEXT UIDVALIDITY HIGHESTMODSEQ)
@@ -232,7 +243,7 @@ struct ICloudClientTests {
         ].joined(separator: "\r\n")
         let index = MemoryIndex([
             MessageIndexEntry(
-                key: MessageKey(folder: "INBOX", uidValidity: 7, uid: 40).rawValue, threadID: "<a0@example.com>")
+                key: MessageKey(folder: "INBOX", uidValidity: 7, uid: 40).rawValue, threadID: "a0@example.com")
         ])
         let client = Self.client(
             Self.login + "\n" + Self.select("INBOX", tag: 4) + """
@@ -241,14 +252,14 @@ struct ICloudClientTests {
                 S: * 1 FETCH (UID 40 FLAGS () INTERNALDATE "1-Nov-2026 09:00:00 +0000" BODY[] {\(raw.utf8.count)}\\r\\n\(raw.replacing("\r\n", with: "\\r\\n")))
                 S: A5 OK
                 """, index: index)
-        let messages = try await client.messages(inThread: "<a0@example.com>")
+        let messages = try await client.messages(inThread: "a0@example.com")
         let message = try #require(messages.first)
         #expect(message.subject == "שלום")
         #expect(message.from == Contact(name: "Dana", address: "dana@example.com"))
         #expect(message.body.plain == "Lunch at noon?")
         #expect(message.snippet == "Lunch at noon?")
         #expect(message.labelIDs == ["INBOX", "UNREAD"])
-        #expect(message.internetMessageID == "<a0@example.com>")
+        #expect(message.internetMessageID == "a0@example.com")
         #expect(message.id.messageID == "INBOX\n7\n40")
     }
 
@@ -256,7 +267,7 @@ struct ICloudClientTests {
         let client = Self.client(
             "S: * OK ready\nC: A1 LOGIN \"dana@icloud.com\" \"abcd-efgh-ijkl-mnop\"\nS: A1 OK [CAPABILITY IMAP4rev1] ok\nC: A2 LIST \"\" \"*\"\nS: * BYE idle too long",
             Self.login, index: MemoryIndex())
-        #expect(try await client.labels().count == 7)
+        #expect(try await client.labels().count == 8)
     }
 }
 
