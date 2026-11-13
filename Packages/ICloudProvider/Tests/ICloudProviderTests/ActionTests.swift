@@ -57,7 +57,7 @@ struct ICloudActionTests {
             [
                 ICloudClientTests.login,
                 ICloudClientTests.select("INBOX", tag: 4),
-                "C: A5 UID FETCH 40:41 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES)])",
+                "C: A5 UID FETCH 40:41 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES CONTENT-TYPE CONTENT-TRANSFER-ENCODING)] BODY.PEEK[TEXT]<0.2048>)",
                 ICloudClientTests.header(uid: 40, date: "1-Nov-2026 09:00:00 +0000", subject: "a", messageID: "a0@x"),
                 ICloudClientTests.header(
                     uid: 41, flags: "", date: "2-Nov-2026 09:00:00 +0000", subject: "b", messageID: "a2@x"),
@@ -70,7 +70,7 @@ struct ICloudActionTests {
                 "S: * 1 EXPUNGE",
                 "S: A7 OK Move completed",
                 ICloudClientTests.select("Sent Messages", tag: 8, uidValidity: 9),
-                "C: A9 UID FETCH 3 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES)])",
+                "C: A9 UID FETCH 3 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES CONTENT-TYPE CONTENT-TRANSFER-ENCODING)] BODY.PEEK[TEXT]<0.2048>)",
                 ICloudClientTests.header(uid: 3, date: "1-Nov-2026 12:00:00 +0000", subject: "s", messageID: "s1@x"),
                 "S: A9 OK",
             ].joined(separator: "\n"),
@@ -98,7 +98,7 @@ struct ICloudActionTests {
                 internetMessageID: "a0@x"),
         ])
         let fetch = { (tag: Int, uid: UInt32) in
-            "C: A\(tag) UID FETCH \(uid) (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES)])\n"
+            "C: A\(tag) UID FETCH \(uid) (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES CONTENT-TYPE CONTENT-TRANSFER-ENCODING)] BODY.PEEK[TEXT]<0.2048>)\n"
                 + ICloudClientTests.header(
                     uid: uid, date: "1-Nov-2026 09:00:00 +0000", subject: "a", messageID: "a0@x")
                 + "\nS: A\(tag) OK"
@@ -125,7 +125,7 @@ struct ICloudActionTests {
             MessageIndexEntry(key: trashKey, threadID: "a0@x", internetMessageID: "a0@x"),
         ])
         let fetch = { (tag: Int, uid: UInt32) in
-            "C: A\(tag) UID FETCH \(uid) (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES)])\n"
+            "C: A\(tag) UID FETCH \(uid) (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES CONTENT-TYPE CONTENT-TRANSFER-ENCODING)] BODY.PEEK[TEXT]<0.2048>)\n"
                 + ICloudClientTests.header(
                     uid: uid, date: "1-Nov-2026 09:00:00 +0000", subject: "a", messageID: "a0@x")
                 + "\nS: A\(tag) OK"
