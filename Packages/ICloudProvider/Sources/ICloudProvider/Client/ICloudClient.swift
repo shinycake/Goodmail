@@ -7,10 +7,12 @@ import MailCore
 /// - groups messages into threads by their headers (`threadIDs(for:)`) and remembers each message's thread in the
 ///   `MessageIndexStore`, because IMAP reports changes by message;
 /// - gives a message its folder's label (`Folders`), STARRED for `\Flagged` and UNREAD without `\Seen`;
-/// - takes every folder's STATUS as the cursor, and reads what changed since with CONDSTORE and QRESYNC.
+/// - takes every folder's STATUS as the cursor, and reads what changed since with CONDSTORE and QRESYNC;
+/// - sends over SMTP, and files sent mail and drafts with APPEND.
 public struct ICloudClient: MailProvider {
     let accountID: AccountID
     let session: IMAPSession
+    let smtp: SMTPClient
     let index: any MessageIndexStore
     /// Messages per page of threads.
     let pageSize: Int
@@ -19,17 +21,21 @@ public struct ICloudClient: MailProvider {
         /// `email` is the iCloud address; `appPassword` one made at account.apple.com, since iCloud's IMAP doesn't
         /// take the Apple Account password.
         public init(accountID: AccountID, email: String, appPassword: String, index: any MessageIndexStore) {
-            let credentials = IMAPSession.Credentials(user: email, password: appPassword)
+            let credentials = ICloudCredentials(user: email, password: appPassword)
             self.init(
                 accountID: accountID,
                 session: IMAPSession(credentials: credentials) { TLSTransport(host: "imap.mail.me.com", port: 993) },
+                smtp: SMTPClient(credentials: credentials) { StreamTransport(host: "smtp.mail.me.com", port: 587) },
                 index: index)
         }
     #endif
 
-    init(accountID: AccountID, session: IMAPSession, index: any MessageIndexStore, pageSize: Int = 50) {
+    init(
+        accountID: AccountID, session: IMAPSession, smtp: SMTPClient, index: any MessageIndexStore, pageSize: Int = 50
+    ) {
         self.accountID = accountID
         self.session = session
+        self.smtp = smtp
         self.index = index
         self.pageSize = pageSize
     }
@@ -90,20 +96,6 @@ public struct ICloudClient: MailProvider {
         }
     }
 
-    // MARK: - Not yet supported
-
-    public func send(_ raw: Data, inThread threadID: String?) async throws {
-        throw ICloudError.unsupported
-    }
-
-    public func saveDraft(_ raw: Data, inThread threadID: String?, replacing: Message.ID?) async throws {
-        throw ICloudError.unsupported
-    }
-
-    public func deleteDraft(_ message: Message.ID) async throws {
-        throw ICloudError.unsupported
-    }
-
     /// iCloud keeps contacts in CardDAV, not in mail. The address book still learns the people who wrote.
     public func contacts() async throws -> [Contact] { [] }
 
@@ -111,7 +103,7 @@ public struct ICloudClient: MailProvider {
     public func signature() async throws -> String { "" }
 }
 
-/// What the iCloud client can't do yet. Sign-in doesn't offer iCloud until it can.
+/// What the iCloud client can't do yet: search by text.
 public enum ICloudError: Error, Equatable {
     case unsupported
 }

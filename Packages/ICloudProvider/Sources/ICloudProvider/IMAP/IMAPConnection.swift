@@ -181,6 +181,19 @@ actor IMAPConnection {
         }
     }
 
+    /// Adds `message` to `mailbox` with `flags`. Returns its UID there when the server says (APPENDUID, RFC 4315).
+    func append(_ message: Data, to mailbox: String, flags: Set<String>) async throws -> MessageUID? {
+        try await exclusively { connection in
+            try connection.requireAuthenticated()
+            let reply = try await connection.run(
+                .append(mailbox: mailbox, flags: flags, size: message.count), literal: message)
+            guard let code = reply.completion.code("APPENDUID"), code.count == 2, let uidValidity = code[0].number,
+                let uid = code[1].number
+            else { return nil }
+            return MessageUID(uidValidity: uidValidity, uid: uid)
+        }
+    }
+
     func logout() async throws {
         try await exclusively { connection in
             guard connection.state != .closed else { return }
@@ -198,8 +211,9 @@ actor IMAPConnection {
         try await queue.run { try await operation(self) }.value
     }
 
-    /// Sends `command` and reads up to its completion. Returns the untagged data that came with it.
-    private func run(_ command: IMAPCommand) async throws -> IMAPReply {
+    /// Sends `command` and reads up to its completion. Returns the untagged data that came with it. A command that
+    /// announces a literal sends `literal` when the server asks for it.
+    private func run(_ command: IMAPCommand, literal: Data? = nil) async throws -> IMAPReply {
         guard state != .closed else { throw IMAPError.closed }
         let tag = "A\(nextTag)"
         nextTag += 1
@@ -220,8 +234,11 @@ actor IMAPConnection {
             case .status(let status):
                 remember(capabilitiesIn: status)
                 reply.statuses.append(status)
-            case .completion, .continuation:
-                // Nothing Goodmail sends waits for a continuation, and no other command is in flight.
+            case .continuation:
+                guard let literal else { throw IMAPError.invalid(IMAPStatus(condition: .bad, text: "Unexpected +")) }
+                try await transport.send(literal + Data("\r\n".utf8))
+            case .completion:
+                // No other command is in flight.
                 continue
             }
         }

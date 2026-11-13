@@ -15,16 +15,28 @@ struct IMAPSearch: Equatable, Sendable {
     /// Received before this date's day.
     var before: Date?
     var flag: Flag?
+    /// Only the message with this RFC 5322 Message-ID.
+    var messageID: String?
 
+    /// Throws `IMAPError.unencodable` for a Message-ID a quoted string can't carry.
     var criteria: String {
-        var criteria: [String] = []
-        if let uids {
-            let upper = uids.upperBound == .max ? "*" : "\(uids.upperBound)"
-            criteria.append("UID \(uids.lowerBound):\(upper)")
+        get throws {
+            try criteriaList.joined(separator: " ")
         }
-        if let since { criteria.append("SINCE \(IMAPCommand.searchDate(since))") }
-        if let before { criteria.append("BEFORE \(IMAPCommand.searchDate(before))") }
-        if let flag { criteria.append(flag.rawValue) }
-        return criteria.isEmpty ? "ALL" : criteria.joined(separator: " ")
+    }
+
+    private var criteriaList: [String] {
+        get throws {
+            var criteria: [String] = []
+            if let uids {
+                let upper = uids.upperBound == .max ? "*" : "\(uids.upperBound)"
+                criteria.append("UID \(uids.lowerBound):\(upper)")
+            }
+            if let since { criteria.append("SINCE \(IMAPCommand.searchDate(since))") }
+            if let before { criteria.append("BEFORE \(IMAPCommand.searchDate(before))") }
+            if let flag { criteria.append(flag.rawValue) }
+            if let messageID { criteria.append("HEADER Message-ID \(try IMAPCommand.quoted(messageID))") }
+            return criteria.isEmpty ? ["ALL"] : criteria
+        }
     }
 }

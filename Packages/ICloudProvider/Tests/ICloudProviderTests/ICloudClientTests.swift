@@ -20,6 +20,7 @@ struct ICloudClientTests {
         S: * LIST (\HasNoChildren \Sent) "/" "Sent Messages"
         S: * LIST (\HasNoChildren \Trash) "/" "Deleted Messages"
         S: * LIST (\HasNoChildren \Junk) "/" "Junk"
+        S: * LIST (\HasNoChildren \Drafts) "/" "Drafts"
         S: * LIST (\HasNoChildren \Archive) "/" "Archive"
         S: * LIST (\Noselect \HasChildren) "/" "Projects"
         S: * LIST (\HasNoChildren) "/" "&BeIF0QXVBdMF1A-"
@@ -48,18 +49,24 @@ struct ICloudClientTests {
             #"S: * \#(uid) FETCH (UID \#(uid) FLAGS (\#(flags)) INTERNALDATE "\#(date)" ENVELOPE (NIL "\#(subject)" (("\#(from)" NIL "\#(from)" "example.com")) NIL NIL NIL NIL NIL \#(replyTo) "\#(messageID)") BODY[HEADER.FIELDS (REFERENCES)] {\#(literal.utf8.count)}\r\n\#(referencesHeader)\r\n)"#
     }
 
-    static func client(_ transcripts: String..., index: MemoryIndex, pageSize: Int = 50) -> ICloudClient {
+    static let credentials = ICloudCredentials(user: "dana@icloud.com", password: "abcd-efgh-ijkl-mnop")
+
+    static func client(
+        _ transcripts: String..., smtp: String = "", index: MemoryIndex, pageSize: Int = 50
+    ) -> ICloudClient {
         let transports = Transports(transcripts.map { ScriptedTransport(transcript: $0) })
-        let session = IMAPSession(credentials: .init(user: "dana@icloud.com", password: "abcd-efgh-ijkl-mnop")) {
-            try await transports.next()
-        }
-        return ICloudClient(accountID: account, session: session, index: index, pageSize: pageSize)
+        let session = IMAPSession(credentials: credentials) { try await transports.next() }
+        let smtpTransport = ScriptedTransport(transcript: smtp)
+        return ICloudClient(
+            accountID: account, session: session, smtp: SMTPClient(credentials: credentials) { smtpTransport },
+            index: index, pageSize: pageSize)
     }
 
     @Test func foldersBecomeLabels() async throws {
         let client = Self.client(Self.login, index: MemoryIndex())
         let labels = try await client.labels()
-        #expect(labels.map(\.id) == ["INBOX", "SENT", "TRASH", "SPAM", "&BeIF0QXVBdMF1A-", "STARRED", "UNREAD"])
+        #expect(
+            labels.map(\.id) == ["INBOX", "SENT", "TRASH", "SPAM", "DRAFT", "&BeIF0QXVBdMF1A-", "STARRED", "UNREAD"])
         #expect(labels.first { $0.kind == .user }?.name == "עבודה")
         #expect(labels.filter { $0.kind == .user }.count == 1, "Archive is no label, and Projects holds no mail")
     }
@@ -156,7 +163,9 @@ struct ICloudClientTests {
         ])
         let unchanged = IMAPFolderStatus(uidValidity: 9, uidNext: 4, messageCount: 1, highestModSeq: 5)
         var folders = Dictionary(
-            uniqueKeysWithValues: ["Sent Messages", "Deleted Messages", "Junk", "Archive", "&BeIF0QXVBdMF1A-"].map {
+            uniqueKeysWithValues: [
+                "Sent Messages", "Deleted Messages", "Junk", "Drafts", "Archive", "&BeIF0QXVBdMF1A-",
+            ].map {
                 ($0, unchanged)
             })
         folders["INBOX"] = IMAPFolderStatus(uidValidity: 7, uidNext: 32, messageCount: 2, highestModSeq: 100)
@@ -188,8 +197,9 @@ struct ICloudClientTests {
                 status(9, "Sent Messages", unchangedLine),
                 status(10, "Deleted Messages", unchangedLine),
                 status(11, "Junk", unchangedLine),
-                status(12, "Archive", unchangedLine),
-                status(13, "&BeIF0QXVBdMF1A-", unchangedLine),
+                status(12, "Drafts", unchangedLine),
+                status(13, "Archive", unchangedLine),
+                status(14, "&BeIF0QXVBdMF1A-", unchangedLine),
             ].joined(separator: "\n"),
             index: index)
 
@@ -212,7 +222,7 @@ struct ICloudClientTests {
             try await Self.client(Self.login, index: MemoryIndex()).changes(since: "not a cursor")
         }
 
-        let names = ["INBOX", "Sent Messages", "Deleted Messages", "Junk", "Archive", "&BeIF0QXVBdMF1A-"]
+        let names = ["INBOX", "Sent Messages", "Deleted Messages", "Junk", "Drafts", "Archive", "&BeIF0QXVBdMF1A-"]
         let everyFolder = ICloudCursor(folders: Dictionary(uniqueKeysWithValues: names.map { ($0, status) }))
         let rebuilt = """
             C: A4 STATUS "INBOX" (MESSAGES UIDNEXT UIDVALIDITY HIGHESTMODSEQ)
@@ -256,7 +266,7 @@ struct ICloudClientTests {
         let client = Self.client(
             "S: * OK ready\nC: A1 LOGIN \"dana@icloud.com\" \"abcd-efgh-ijkl-mnop\"\nS: A1 OK [CAPABILITY IMAP4rev1] ok\nC: A2 LIST \"\" \"*\"\nS: * BYE idle too long",
             Self.login, index: MemoryIndex())
-        #expect(try await client.labels().count == 7)
+        #expect(try await client.labels().count == 8)
     }
 }
 

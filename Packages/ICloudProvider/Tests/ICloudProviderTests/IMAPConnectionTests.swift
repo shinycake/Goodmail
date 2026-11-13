@@ -147,12 +147,12 @@ struct IMAPConnectionTests {
         #expect(IMAPCommand.uids(inSequenceSet: "41,43:45,9:8") == [41, 43, 44, 45, 8, 9])
     }
 
-    @Test func searchesWriteEveryCriterion() {
-        #expect(IMAPSearch().criteria == "ALL")
+    @Test func searchesWriteEveryCriterion() throws {
+        #expect(try IMAPSearch().criteria == "ALL")
         let search = IMAPSearch(
             uids: 32...UInt32.max, since: Date(timeIntervalSince1970: 1_792_500_000),
             before: Date(timeIntervalSince1970: 1_792_600_000), flag: .unseen)
-        #expect(search.criteria == "UID 32:* SINCE 20-Oct-2026 BEFORE 21-Oct-2026 UNSEEN")
-        #expect(IMAPSearch(uids: 1...9).criteria == "UID 1:9")
+        #expect(try search.criteria == "UID 32:* SINCE 20-Oct-2026 BEFORE 21-Oct-2026 UNSEEN")
+        #expect(try IMAPSearch(uids: 1...9).criteria == "UID 1:9")
     }
 }
