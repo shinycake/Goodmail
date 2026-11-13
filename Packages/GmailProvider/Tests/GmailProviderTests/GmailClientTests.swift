@@ -7,8 +7,9 @@ import Testing
 struct GmailClientTests {
     private let keychain = InMemorySecretStore()
 
-    private func signedIn(_ http: FixtureHTTPClient) async throws -> GmailSession {
-        try await GmailSession.signIn(code: "4/abc", pkce: .generate(), http: http, keychain: keychain).session
+    private func signedIn(_ http: FixtureHTTPClient) async throws -> OAuthSession {
+        try await OAuthSession.signIn(client: .gmail, code: "4/abc", pkce: .generate(), http: http, keychain: keychain)
+            .session
     }
 
     private static let inboxReplies: [String: [FixtureHTTPClient.Reply]] = [
@@ -84,7 +85,7 @@ struct GmailClientTests {
 
     @Test func expiredAccessTokenIsRefreshedOnceForConcurrentCallers() async throws {
         let http = FixtureHTTPClient(["/token": [.init(fixture: "token-refresh")]])
-        let session = GmailSession(accountID: .generate(), http: http, keychain: keychain)
+        let session = OAuthSession(accountID: .generate(), client: .gmail, http: http, keychain: keychain)
         try keychain.set(Data("1//stored".utf8), for: session.refreshTokenKey)
 
         async let first = session.validAccessToken()
@@ -95,8 +96,9 @@ struct GmailClientTests {
     }
 
     @Test func signedOutSessionThrows() async throws {
-        let session = GmailSession(accountID: .generate(), http: FixtureHTTPClient([:]), keychain: keychain)
-        await #expect(throws: GmailSession.Failure.signedOut) { try await session.validAccessToken() }
+        let session = OAuthSession(
+            accountID: .generate(), client: .gmail, http: FixtureHTTPClient([:]), keychain: keychain)
+        await #expect(throws: OAuthSession.Failure.signedOut) { try await session.validAccessToken() }
     }
 
     @Test func signatureIsTheDefaultAddresssAsPlainText() async throws {
