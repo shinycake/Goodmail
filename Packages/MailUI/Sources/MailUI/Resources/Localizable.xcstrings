@@ -732,6 +732,17 @@
         }
       }
     },
+    "Hide Quoted Text" : {
+      "comment" : "Accessibility label of the open fold",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הסתרת טקסט מצוטט"
+          }
+        }
+      }
+    },
     "How long a sent message waits, so you can take it back." : {
       "comment" : "Explains the Undo Send setting",
       "localizations" : {
