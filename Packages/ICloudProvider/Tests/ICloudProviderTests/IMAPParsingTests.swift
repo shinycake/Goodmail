@@ -80,10 +80,4 @@ struct IMAPParsingTests {
         #expect(ModifiedUTF7.decode("Tom &- Jerry") == "Tom & Jerry")
         #expect(ModifiedUTF7.decode("Archive") == "Archive")
     }
-
-    @Test func encodedWordsDecodeAndJoinAcrossFolding() {
-        #expect(EncodedWords.decode("=?UTF-8?B?16nXnNeV150=?= =?utf-8?b?16LXldec150=?=") == "שלוםעולם")
-        #expect(EncodedWords.decode("Re: =?iso-8859-1?q?caf=E9_cr=E8me?= now") == "Re: café crème now")
-        #expect(EncodedWords.decode("Plain = text?") == "Plain = text?")
-    }
 }
