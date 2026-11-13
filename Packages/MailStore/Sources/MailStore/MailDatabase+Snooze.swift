@@ -62,9 +62,12 @@ extension MailDatabase: SnoozeStore {
                     OR (wakeAt IS NOT NULL AND EXISTS (
                         SELECT 1 FROM threadLabel
                         WHERE threadLabel.accountID = snooze.accountID AND threadLabel.threadID = snooze.threadID
-                        AND threadLabel.labelID = ?))
+                        AND threadLabel.labelID IN (?, ?, ?)))
                     """,
-                arguments: [date.addingTimeInterval(-Self.wokeShownFor), SystemLabel.inbox])
+                arguments: [
+                    date.addingTimeInterval(-Self.wokeShownFor), SystemLabel.inbox, SystemLabel.trash,
+                    SystemLabel.spam,
+                ])
         }
     }
 

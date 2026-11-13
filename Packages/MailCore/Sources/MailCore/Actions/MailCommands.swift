@@ -138,8 +138,9 @@ public final class MailCommands: Sendable {
         return due
     }
 
+    /// Puts the labels back before the snoozes, so a snooze restored as asleep never meets its thread still in the
+    /// Inbox, which would end it.
     public func undo(_ undo: Undo) throws {
-        if !undo.snoozes.isEmpty { try store.setSnoozes(undo.snoozes) }
         for (account, intents) in undo.intents where !intents.isEmpty {
             let date = now()
             _ = try store.enqueue(
@@ -147,6 +148,7 @@ public final class MailCommands: Sendable {
                 account: account)
             replay(account)
         }
+        if !undo.snoozes.isEmpty { try store.setSnoozes(undo.snoozes) }
     }
 }
 

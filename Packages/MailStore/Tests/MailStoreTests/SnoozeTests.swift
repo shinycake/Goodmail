@@ -88,6 +88,16 @@ struct SnoozeTests {
         #expect(try database.snoozes(of: [id("t1")]) == [id("t1"): .asleep(until: wakeAt)])
     }
 
+    @Test(arguments: [ThreadAction.trash, .reportSpam])
+    func aThreadThrownOutWhileAsleepStaysOut(_ action: ThreadAction) async throws {
+        let commands = commands(at: Self.start)
+        try commands.snooze([id("t1")], until: Self.start)
+        try commands.perform(action, on: [id("t1")])
+        #expect(try commands.wakeSnoozed().isEmpty)
+        #expect(try await inbox() == ["t2"])
+        #expect(try database.snoozes(of: [id("t1")]).isEmpty)
+    }
+
     @Test func aWokenThreadIsForgottenAfterADay() throws {
         try commands(at: Self.start).snooze([id("t1")], until: Self.start)
         try commands(at: Self.start).wakeSnoozed()
