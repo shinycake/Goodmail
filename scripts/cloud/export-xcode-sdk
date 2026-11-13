@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Copies the part of Xcode that xtool's Darwin SDK is built from (SDKs, Swift and clang resources, testing frameworks)
+# into a checkout of the private goodmail-sdk repository, for scripts/cloud/setup to clone. Run it on the Mac after
+# each Xcode update, then commit and push goodmail-sdk (docs/setup/cloud-builds.md). Needs zstd (brew install zstd).
+#
+#   scripts/cloud/export-xcode-sdk /Applications/Xcode-27.2.0.app ../goodmail-sdk
+set -euo pipefail
+
+xcode="${1:?usage: export-xcode-sdk <Xcode.app> <goodmail-sdk checkout>}"
+checkout="${2:?usage: export-xcode-sdk <Xcode.app> <goodmail-sdk checkout>}"
+version=$(python3 -I -c 'import plistlib, sys; print(plistlib.load(open(sys.argv[1], "rb"))["CFBundleShortVersionString"])' \
+    "$xcode/Contents/version.plist")
+# xtool builds from the first two version components, matching XCODE_VERSION in scripts/cloud/setup.
+destination="$checkout/xcode-$(cut -d. -f1-2 <<<"$version")"
+
+# The same selection xtool makes from a full Xcode (SDKEntry.wanted in xtool's SDKBuilder.swift).
+toolchain=Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib
+paths=(Contents/Info.plist Contents/version.plist "$toolchain/swift" "$toolchain/swift_static" "$toolchain/clang")
+for platform in iPhoneOS iPhoneSimulator MacOSX; do
+    developer="Contents/Developer/Platforms/$platform.platform/Developer"
+    paths+=("Contents/Developer/Platforms/$platform.platform/Info.plist" "$developer/SDKs"
+        "$developer/Library/Frameworks" "$developer/Library/PrivateFrameworks" "$developer/usr/lib")
+done
+present=()
+for path in "${paths[@]}"; do
+    if [[ -e "$xcode/$path" ]]; then present+=("$path"); fi
+done
+
+rm -rf "$destination"
+mkdir -p "$destination"
+# GitHub refuses files over 100 MB, so the archive is stored in parts.
+# COPYFILE_DISABLE keeps macOS tar from adding extended attributes as AppleDouble ._ files.
+(cd "$xcode" && COPYFILE_DISABLE=1 tar -cf - --exclude prebuilt-modules "${present[@]}") | zstd -T0 -10 -q | split -b 90m - "$destination/Xcode.tar.zst."
+echo "Xcode $version → $destination ($(du -sh "$destination" | cut -f1)). Commit and push goodmail-sdk."

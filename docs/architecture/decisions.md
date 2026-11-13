@@ -158,3 +158,9 @@ The owner decided these on 2026-10-20 after talking through the options. Each en
 - **How it's enforced:** the repo is private on a free plan, so GitHub's branch protection and native auto-merge are unavailable. The workflow is the gate: the merge job runs only after both jobs pass, and `--match-head-commit` refuses to merge a commit that wasn't reviewed.
 - **Exceptions:** a `hold` label stops the merge; PRs that change `.github/` are merged by the owner, because they change the gate; drafts aren't reviewed. The Claude action enforces the first part itself: it refuses to run when a PR's `review.yml` differs from main's, so a PR can't rewrite its own reviewer.
 - **Setup:** the Claude GitHub app is installed on the repo, and the `CLAUDE_CODE_OAUTH_TOKEN` secret comes from `claude setup-token`.
+
+## ADR-017: Cloud workers compile for iOS with xtool
+
+- **Decision (owner, 2026-11-13):** Claude cloud sessions (Linux, no Xcode) compile every package and its tests for `arm64-apple-ios` with [xtool](https://github.com/xtool-org/xtool)'s Darwin SDK. A SessionStart hook installs everything ([docs/setup/cloud-builds.md](../setup/cloud-builds.md)). On Linux, `scripts/check` runs the lint and that compile. Tests and the app still run on the Mac.
+- **Why:** parallel simulator builds overload the Mac. Package and logic work can move to cloud threads only if they catch compile errors before pushing.
+- **The SDK:** it is built from the Mac's own Xcode, so cloud builds use the same SDK as Mac builds and never need an Apple sign-in. The SDK lives in the private `shinycake/goodmail-sdk` repository, because Apple's license doesn't allow redistributing it and a separate repository keeps it out of this repository's clones.
