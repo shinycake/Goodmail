@@ -92,14 +92,14 @@ struct ICloudSendTests {
         let client = ICloudClientTests.client(
             [
                 ICloudClientTests.login,
-                ICloudClientTests.select("Sent Messages", tag: 4, uidValidity: 9),
-                #"C: A5 UID SEARCH HEADER Message-ID "m1@icloud.com""#,
+                ICloudClientTests.select("Sent Messages", tag: 5, uidValidity: 9),
+                #"C: A6 UID SEARCH HEADER Message-ID "<m1@icloud.com>""#,
                 "S: * SEARCH",
-                "S: A5 OK",
-                #"C: A6 APPEND "Sent Messages" (\Seen) {\#(raw.utf8.count)}"#,
+                "S: A6 OK",
+                #"C: A7 APPEND "Sent Messages" (\Seen) {\#(raw.utf8.count)}"#,
                 "S: + Ready for literal data",
                 "C: " + raw.replacing("\r\n", with: "\\r\\n"),
-                "S: A6 OK [APPENDUID 9 12] APPEND completed",
+                "S: A7 OK [APPENDUID 9 12] APPEND completed",
             ].joined(separator: "\n"),
             smtp: SMTPTests.submission, index: index)
 
@@ -118,10 +118,10 @@ struct ICloudSendTests {
         let client = ICloudClientTests.client(
             [
                 ICloudClientTests.login,
-                ICloudClientTests.select("Sent Messages", tag: 4, uidValidity: 9),
-                #"C: A5 UID SEARCH HEADER Message-ID "m1@icloud.com""#,
+                ICloudClientTests.select("Sent Messages", tag: 5, uidValidity: 9),
+                #"C: A6 UID SEARCH HEADER Message-ID "<m1@icloud.com>""#,
                 "S: * SEARCH 12",
-                "S: A5 OK",
+                "S: A6 OK",
             ].joined(separator: "\n"),
             smtp: SMTPTests.submission, index: index)
         try await client.send(Data(SMTPTests.message.utf8), inThread: nil)
@@ -136,19 +136,19 @@ struct ICloudSendTests {
         let client = ICloudClientTests.client(
             [
                 ICloudClientTests.login,
-                #"C: A4 APPEND "Drafts" (\Draft \Seen) {\#(raw.utf8.count)}"#,
+                #"C: A5 APPEND "Drafts" (\Draft \Seen) {\#(raw.utf8.count)}"#,
                 "S: + go",
                 "C: " + raw.replacing("\r\n", with: "\\r\\n"),
-                "S: A4 OK [APPENDUID 4 8] APPEND completed",
-                #"C: A5 LIST "" "*""#,
+                "S: A5 OK [APPENDUID 4 8] APPEND completed",
+                #"C: A6 LIST "" "*""#,
                 #"S: * LIST (\HasNoChildren \Drafts) "/" "Drafts""#,
-                "S: A5 OK",
-                ICloudClientTests.select("Drafts", tag: 6, uidValidity: 4),
-                #"C: A7 UID STORE 7 +FLAGS.SILENT (\Deleted)"#,
-                "S: A7 OK",
-                "C: A8 UID EXPUNGE 7",
-                "S: * 1 EXPUNGE",
+                "S: A6 OK",
+                ICloudClientTests.select("Drafts", tag: 7, uidValidity: 4),
+                #"C: A8 UID STORE 7 +FLAGS.SILENT (\Deleted)"#,
                 "S: A8 OK",
+                "C: A9 UID EXPUNGE 7",
+                "S: * 1 EXPUNGE",
+                "S: A9 OK",
             ].joined(separator: "\n"),
             index: index)
 
