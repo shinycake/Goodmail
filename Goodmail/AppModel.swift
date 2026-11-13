@@ -4,6 +4,7 @@ import ICloudProvider
 import MailCore
 import MailStore
 import OSLog
+import OutlookProvider
 import UIKit
 
 /// The composition root, shared by every window: the database, the accounts, each account's sync engine, and the
@@ -59,28 +60,45 @@ final class AppModel {
     /// Signs in with Google and adds the account, or re-authenticates it if it's already here.
     /// Returns `false` if the user cancelled.
     func addGmailAccount(using web: WebAuthentication) async throws -> Bool {
+        try await addAccount(.gmail, signingInWith: .gmail, using: web) { GmailClient(session: $0) }
+    }
+
+    /// Signs in with Microsoft and adds the Outlook account, or re-authenticates it if it's already here.
+    /// Returns `false` if the user cancelled.
+    func addOutlookAccount(using web: WebAuthentication) async throws -> Bool {
+        try await addAccount(.outlook, signingInWith: .outlook, using: web) { [database] in
+            OutlookClient(session: $0, index: database)
+        }
+    }
+
+    /// The web sign-in every OAuth service shares: the service's page, the code exchange, then the account, kept
+    /// under the ID it already had when this address at this service is here.
+    private func addAccount(
+        _ service: MailService, signingInWith client: OAuthClient, using web: WebAuthentication,
+        provider: (OAuthSession) -> any MailProvider
+    ) async throws -> Bool {
         let pkce = PKCE.generate()
         let state = UUID().uuidString
-        let url = OAuthClient.gmail.authorizationURL(pkce: pkce, state: state)
-        guard let redirect = try await web.authenticate(url: url, callbackScheme: OAuthClient.gmail.redirectScheme)
+        let url = client.authorizationURL(pkce: pkce, state: state)
+        guard let redirect = try await web.authenticate(url: url, callbackScheme: client.redirectScheme)
         else { return false }
 
         let code = try OAuthClient.code(fromRedirect: redirect, expectedState: state)
-        let existing = accounts
+        let existing = accounts.filter { $0.service == service }
         let (session, email) = try await OAuthSession.signIn(
-            client: .gmail, code: code, pkce: pkce,
+            client: client, code: code, pkce: pkce,
             accountID: { email in
                 existing.first { $0.email.caseInsensitiveCompare(email) == .orderedSame }?.id ?? .generate()
             },
             keychain: Keychain())
-        providers.use(GmailClient(session: session), for: session.accountID)
+        providers.use(provider(session), for: session.accountID)
         engines[session.accountID] = nil
         if !accounts.contains(where: { $0.id == session.accountID }) {
             let account = Account(
                 id: session.accountID,
                 email: email,
                 color: AccountColor.next(after: accounts.map(\.color)),
-                service: .gmail
+                service: service
             )
             try await Self.store { [database] in try database.save(account) }
             accounts.append(account)

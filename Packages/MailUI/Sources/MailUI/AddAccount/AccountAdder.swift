@@ -51,6 +51,7 @@ extension MailService {
         switch self {
         case .gmail: "Gmail"
         case .icloud: "iCloud"
+        case .outlook: "Outlook"
         }
     }
 
@@ -59,6 +60,7 @@ extension MailService {
         switch self {
         case .gmail: "envelope.fill"
         case .icloud: "icloud.fill"
+        case .outlook: "tray.full.fill"
         }
     }
 }

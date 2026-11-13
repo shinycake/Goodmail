@@ -134,6 +134,7 @@ final class SceneCoordinator: NSObject {
         switch service {
         case .gmail: try await model.addGmailAccount(using: WebAuthentication(window: window))
         case .icloud: await signInToICloud()
+        case .outlook: try await model.addOutlookAccount(using: WebAuthentication(window: window))
         }
     }
 

@@ -30,6 +30,10 @@
     },
     {
       "kind": "local",
+      "path": "Packages/OutlookProvider",
+    },
+    {
+      "kind": "local",
       "path": "Packages/MailUI",
     },
     {
@@ -122,6 +126,9 @@
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "product-name": "MailUI",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "product-name": "OutlookProvider",
           "build-phase": { "build-phase": "frameworks" },
         },
       ],
