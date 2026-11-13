@@ -1,6 +1,7 @@
 # The Linux scripts/check (docs/setup/cloud-builds.md): lint, every package and its tests compiled for iOS, the app
 # and extension targets type-checked, and the Linux-testable packages' tests. review.yml gates merges on it, and
 # check.yml runs it on main. It needs the private goodmail-sdk repository, read with the GOODMAIL_SDK_DEPLOY_KEY secret.
+# Until that secret exists, it runs only the lint and the line cap (scripts/check --lint).
 name: linux-check
 
 on:
@@ -11,7 +12,7 @@ on:
         value: ${{ jobs.check.outputs.base }}
     secrets:
       GOODMAIL_SDK_DEPLOY_KEY:
-        required: true
+        required: false
 
 permissions: {}
 
@@ -25,13 +26,20 @@ jobs:
       contents: read
     outputs:
       base: ${{ steps.base.outputs.sha }}
+    # The image's default shell is sh; scripts and these steps expect bash.
+    defaults:
+      run:
+        shell: bash
+    env:
+      HAS_SDK_KEY: ${{ secrets.GOODMAIL_SDK_DEPLOY_KEY != '' }}
     steps:
       # setup finds goodmail-sdk next to this repository, as in a cloud session.
       - uses: actions/checkout@v4
         with:
           path: goodmail
           fetch-depth: 2
-      - uses: actions/checkout@v4
+      - if: env.HAS_SDK_KEY == 'true'
+        uses: actions/checkout@v4
         with:
           repository: shinycake/goodmail-sdk
           ssh-key: ${{ secrets.GOODMAIL_SDK_DEPLOY_KEY }}
@@ -49,12 +57,14 @@ jobs:
           fi
 
       # The Darwin SDK takes a minute and a half to build. setup's stamp rebuilds it when it's stale.
-      - uses: actions/cache@v4
+      - if: env.HAS_SDK_KEY == 'true'
+        uses: actions/cache@v4
         with:
           path: /github/home/.swiftpm/swift-sdks
           key: darwin-sdk-${{ runner.arch }}-${{ hashFiles('goodmail/scripts/cloud/setup') }}
 
       - name: Toolchain (scripts/cloud/setup)
+        if: env.HAS_SDK_KEY == 'true'
         working-directory: goodmail
         run: |
           apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q curl python3
@@ -63,5 +73,13 @@ jobs:
           scripts/cloud/setup
 
       - name: scripts/check
+        if: env.HAS_SDK_KEY == 'true'
         working-directory: goodmail
         run: scripts/check
+
+      - name: scripts/check --lint (no GOODMAIL_SDK_DEPLOY_KEY secret yet, so no iOS compile or tests)
+        if: env.HAS_SDK_KEY != 'true'
+        working-directory: goodmail
+        run: |
+          echo "::warning::GOODMAIL_SDK_DEPLOY_KEY isn't set, so this ran only the lint. See docs/setup/cloud-builds.md."
+          scripts/check --lint
