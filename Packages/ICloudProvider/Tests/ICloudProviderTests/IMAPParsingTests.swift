@@ -80,4 +80,21 @@ struct IMAPParsingTests {
         #expect(ModifiedUTF7.decode("Tom &- Jerry") == "Tom & Jerry")
         #expect(ModifiedUTF7.decode("Archive") == "Archive")
     }
+
+    @Test func aSnippetComesFromTheStartOfTheText() throws {
+        let fields = "Content-Type: multipart/alternative; boundary=b\r\nContent-Transfer-Encoding: 7bit\r\n\r\n"
+        let text =
+            "--b\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nSee   you\r\nat =\r\nnoon caf=C3=A9 and mo"
+        let line =
+            #"* 1 FETCH (UID 4 FLAGS () INTERNALDATE "1-Nov-2026 09:00:00 +0000" ENVELOPE (NIL "Hi" NIL NIL NIL NIL NIL NIL NIL "<a@x>") "#
+            + "BODY[HEADER.FIELDS (REFERENCES CONTENT-TYPE CONTENT-TRANSFER-ENCODING)] {\(fields.utf8.count)}\r\n\(fields) "
+            + "BODY[TEXT]<0> {\(text.utf8.count)}\r\n\(text))\r\n"
+        guard case .data(let values) = try IMAPParser.response(from: Data(line.utf8)) else {
+            Issue.record("not data")
+            return
+        }
+        let header = try #require(IMAPFetch(response: values).flatMap(IMAPMessageHeader.init(fetch:)))
+        #expect(header.snippet == "See you at noon café and mo")
+        #expect(header.messageID == "a@x")
+    }
 }

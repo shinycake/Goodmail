@@ -1,3 +1,4 @@
+import ICloudProvider
 import MailCore
 import MailStore
 import MailUI
@@ -133,8 +134,29 @@ final class SceneCoordinator: NSObject {
     private func signIn(to service: MailService) async throws -> Bool {
         switch service {
         case .gmail: try await model.addGmailAccount(using: WebAuthentication(window: window))
-        // The iCloud sign-in form (address and app-specific password) comes with the iCloud work.
-        case .icloud: false
+        case .icloud: await signInToICloud()
+        }
+    }
+
+    /// Presents the iCloud form over the chooser, and returns whether it added the account.
+    private func signInToICloud() async -> Bool {
+        await withCheckedContinuation { continuation in
+            weak var presented: UIViewController?
+            let screen = ICloudSignInScreen.make(
+                signIn: { [model] email, appPassword in
+                    do {
+                        try await model.addICloudAccount(email: email, appPassword: appPassword)
+                    } catch ICloudSignIn.Failure.wrongPassword {
+                        throw ICloudSignInFailure.wrongPassword
+                    }
+                },
+                finished: { added in
+                    presented?.dismiss(animated: true)
+                    continuation.resume(returning: added)
+                })
+            presented = screen
+            guard let top = topViewController() else { return continuation.resume(returning: false) }
+            top.present(screen, animated: true)
         }
     }
 

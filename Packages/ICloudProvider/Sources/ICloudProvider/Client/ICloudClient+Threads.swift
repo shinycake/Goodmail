@@ -97,7 +97,7 @@ extension ICloudClient {
 
 extension ThreadSummary {
     /// A thread as the mailbox list shows it. A message filed in two folders, as mail to yourself is in the Inbox and
-    /// in Sent, counts once and gives the thread both labels. Snippets need the body, so IMAP summaries have none yet.
+    /// in Sent, counts once and gives the thread both labels.
     fileprivate init?(threadID: String, accountID: AccountID, _ messages: [FolderMessage]) {
         let ordered = messages.sorted { $0.header.receivedAt < $1.header.receivedAt }
         guard let first = ordered.first, let latest = ordered.last else { return nil }
@@ -105,7 +105,7 @@ extension ThreadSummary {
         self.init(
             id: ID(accountID: accountID, threadID: threadID),
             subject: first.header.subject,
-            snippet: "",
+            snippet: latest.header.snippet,
             sender: latest.header.from.first ?? Contact(name: nil, address: ""),
             date: latest.header.receivedAt,
             isUnread: ordered.contains { $0.header.isUnread },
