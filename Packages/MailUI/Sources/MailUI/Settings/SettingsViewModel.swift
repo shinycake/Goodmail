@@ -6,8 +6,9 @@ import Observation
 @Observable
 public final class SettingsViewModel {
     public private(set) var accounts: [Account]
-    public private(set) var isAddingAccount = false
-    /// The last add or remove that failed, for the view to show.
+    /// Adds accounts from the Add Account screen.
+    public let adder: AccountAdder
+    /// The last remove or change that failed, for the view to show.
     public var error: (any Error)?
     public var undoSendSeconds: Int {
         didSet { Preferences.undoSendSeconds = undoSendSeconds }
@@ -17,40 +18,34 @@ public final class SettingsViewModel {
         didSet { Preferences.unsortedInboxAccounts = unsortedInboxAccounts }
     }
 
-    @ObservationIgnored private let add: () async throws -> Bool
     @ObservationIgnored private let remove: (AccountID) async throws -> Void
     @ObservationIgnored private let update: (Account) throws -> Void
     @ObservationIgnored private let reload: () -> [Account]
     @ObservationIgnored private let closed: () -> Void
 
-    /// `add` signs in another account and returns `false` if the reader cancelled; `remove` takes an account and
-    /// its mail off the device; `update` stores an account's new name or color. `reload` reads the accounts back after
-    /// each. `closed` runs once the screen is gone, however it was dismissed.
+    /// `signIn` signs in to a service and adds its account, returning `false` if the reader cancelled; `remove`
+    /// takes an account and its mail off the device; `update` stores an account's new name or color. `accounts`
+    /// reads them back after each. `closed` runs once the screen is gone, however it was dismissed.
     public init(
         accounts: @escaping () -> [Account],
-        add: @escaping () async throws -> Bool,
+        signIn: @escaping (MailService) async throws -> Bool,
         remove: @escaping (AccountID) async throws -> Void,
         update: @escaping (Account) throws -> Void,
         closed: @escaping () -> Void
     ) {
         self.accounts = accounts()
+        adder = AccountAdder(signIn: signIn)
         undoSendSeconds = Preferences.undoSendSeconds
         unsortedInboxAccounts = Preferences.unsortedInboxAccounts
         reload = accounts
-        self.add = add
         self.remove = remove
         self.update = update
         self.closed = closed
+        adder.onAdded = { [weak self] in self?.reloadAccounts() }
     }
 
-    public func addAccount() async {
-        isAddingAccount = true
-        defer { isAddingAccount = false }
-        do {
-            _ = try await add()
-        } catch {
-            self.error = error
-        }
+    /// Reads the accounts back, as after one is added.
+    private func reloadAccounts() {
         accounts = reload()
     }
 

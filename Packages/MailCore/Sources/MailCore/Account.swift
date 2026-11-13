@@ -13,7 +13,7 @@ public struct AccountID: RawRepresentable, Hashable, Codable, Sendable {
 }
 
 /// The mail service an account signs in to, which decides the provider that talks to it.
-public enum MailService: String, Codable, Hashable, Sendable {
+public enum MailService: String, CaseIterable, Codable, Hashable, Sendable {
     case gmail
 
     /// Whether the service sorts its Inbox into categories (Primary, Promotions and the rest).
