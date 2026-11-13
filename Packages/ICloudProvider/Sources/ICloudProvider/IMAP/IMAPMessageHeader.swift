@@ -23,6 +23,25 @@ struct IMAPFetch: Equatable, Sendable {
     }
 }
 
+/// One whole message, as `BODY.PEEK[]` returns it, with the flags and date IMAP keeps outside it.
+struct IMAPMessageContent: Equatable, Sendable {
+    var uid: UInt32
+    var flags: Set<String>
+    var receivedAt: Date
+    /// The RFC 5322 message.
+    var raw: Data
+
+    init?(fetch: IMAPFetch) {
+        guard let uid = fetch.items["UID"]?.number, let raw = fetch.items["BODY[]"]?.bytes,
+            let received = fetch.items["INTERNALDATE"]?.bytes.flatMap(IMAPMessageHeader.internalDate)
+        else { return nil }
+        self.uid = uid
+        flags = Set(fetch.items["FLAGS"]?.list?.compactMap(\.atom) ?? [])
+        receivedAt = received
+        self.raw = raw
+    }
+}
+
 /// What the mailbox list and threading need from one message, fetched without its body.
 struct IMAPMessageHeader: Equatable, Sendable {
     var uid: UInt32

@@ -60,7 +60,7 @@ struct IMAPConnectionTests {
         #expect(selection.messageCount == 2)
         #expect(await connection.state == .selected(selection))
 
-        let uids = try await connection.searchUIDs(since: Date(timeIntervalSince1970: 1_792_500_000))
+        let uids = try await connection.searchUIDs(IMAPSearch(since: Date(timeIntervalSince1970: 1_792_500_000)))
         #expect(uids == [40, 41])
 
         let headers = try await connection.headers(of: uids)
@@ -144,5 +144,15 @@ struct IMAPConnectionTests {
         #expect(throws: IMAPError.unencodable) { try IMAPCommand.select("Line\r\nBreak").line(tag: "A1") }
         #expect(IMAPCommand.sequenceSet([7, 1, 2, 3, 9, 8, 12]) == "1:3,7:9,12")
         #expect(IMAPCommand.searchDate(Date(timeIntervalSince1970: 1_792_500_000)) == "20-Oct-2026")
+        #expect(IMAPCommand.uids(inSequenceSet: "41,43:45,9:8") == [41, 43, 44, 45, 8, 9])
+    }
+
+    @Test func searchesWriteEveryCriterion() {
+        #expect(IMAPSearch().criteria == "ALL")
+        let search = IMAPSearch(
+            uids: 32...UInt32.max, since: Date(timeIntervalSince1970: 1_792_500_000),
+            before: Date(timeIntervalSince1970: 1_792_600_000), flag: .unseen)
+        #expect(search.criteria == "UID 32:* SINCE 20-Oct-2026 BEFORE 21-Oct-2026 UNSEEN")
+        #expect(IMAPSearch(uids: 1...9).criteria == "UID 1:9")
     }
 }

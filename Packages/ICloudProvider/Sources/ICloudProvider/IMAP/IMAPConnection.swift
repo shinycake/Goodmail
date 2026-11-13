@@ -12,6 +12,8 @@ actor IMAPConnection {
 
     private(set) var state: State
     private(set) var capabilities: Set<String> = []
+    /// Extensions `enable(_:)` turned on, such as QRESYNC.
+    private(set) var enabled: Set<String> = []
     private let transport: any IMAPTransport
     private var framer = IMAPFramer()
     private var nextTag = 1
@@ -64,14 +66,49 @@ actor IMAPConnection {
         }
     }
 
-    /// The UIDs of the selected mailbox's messages received on or after `since`'s day, ascending.
-    func searchUIDs(since: Date) async throws -> [UInt32] {
+    /// Asks for the server's capabilities, for a server that didn't list them in its greeting or login reply.
+    func refreshCapabilities() async throws {
+        try await exclusively { connection in
+            let reply = try await connection.run(.capability)
+            for values in reply.data where values.first?.atom?.uppercased() == "CAPABILITY" {
+                connection.capabilities = Set(values.dropFirst().compactMap { $0.atom?.uppercased() })
+            }
+        }
+    }
+
+    /// Turns on `capability` for the rest of the session (RFC 5161).
+    func enable(_ capability: String) async throws {
+        try await exclusively { connection in
+            try connection.requireAuthenticated()
+            let reply = try await connection.run(.enable(capability))
+            for values in reply.data where values.first?.atom?.uppercased() == "ENABLED" {
+                connection.enabled.formUnion(values.dropFirst().compactMap { $0.atom?.uppercased() })
+            }
+        }
+    }
+
+    /// A mailbox's counters, without selecting it.
+    func status(of mailbox: String) async throws -> IMAPFolderStatus {
+        try await exclusively { connection in
+            try connection.requireAuthenticated()
+            let reply = try await connection.run(.status(mailbox))
+            guard let status = reply.data.lazy.compactMap(IMAPFolderStatus.init(statusResponse:)).first else {
+                throw IMAPError.invalid(reply.completion)
+            }
+            return status
+        }
+    }
+
+    /// The UIDs of the selected mailbox's messages that match `search`, ascending.
+    func searchUIDs(_ search: IMAPSearch) async throws -> [UInt32] {
         try await exclusively { connection in
             try connection.requireSelected()
-            return try await connection.run(.uidSearch(since: since)).data.flatMap { values -> [UInt32] in
+            let found = try await connection.run(.uidSearch(search)).data.flatMap { values -> [UInt32] in
                 guard values.first?.atom?.uppercased() == "SEARCH" else { return [] }
                 return values.dropFirst().compactMap(\.number)
-            }.sorted()
+            }
+            // `n:*` always matches the last message, even when its UID is below n (RFC 3501 §6.4.8).
+            return found.filter { search.uids?.contains($0) ?? true }.sorted()
         }
     }
 
@@ -82,6 +119,33 @@ actor IMAPConnection {
             try connection.requireSelected()
             let reply = try await connection.run(.uidFetch(uids: uids, items: IMAPCommand.headerItems))
             return reply.data.compactMap { IMAPFetch(response: $0).flatMap(IMAPMessageHeader.init(fetch:)) }
+        }
+    }
+
+    /// These messages of the selected mailbox, whole. Messages that are gone are left out.
+    func messages(_ uids: [UInt32]) async throws -> [IMAPMessageContent] {
+        guard !uids.isEmpty else { return [] }
+        return try await exclusively { connection in
+            try connection.requireSelected()
+            let reply = try await connection.run(.uidFetch(uids: uids, items: IMAPCommand.messageItems))
+            return reply.data.compactMap { IMAPFetch(response: $0).flatMap(IMAPMessageContent.init(fetch:)) }
+        }
+    }
+
+    /// What changed in the selected mailbox after `modSeq`: the UIDs whose flags changed, and when QRESYNC is
+    /// enabled, the UIDs expunged. Without QRESYNC, `expunged` is `nil`: the server can't say.
+    func changes(sinceModSeq modSeq: UInt64) async throws -> (flagged: [UInt32], expunged: [UInt32]?) {
+        try await exclusively { connection in
+            try connection.requireSelected()
+            let vanished = connection.enabled.contains("QRESYNC")
+            let reply = try await connection.run(.uidFetchChanged(sinceModSeq: modSeq, vanished: vanished))
+            let flagged = reply.data.compactMap { IMAPFetch(response: $0)?.items["UID"]?.number }
+            guard vanished else { return (flagged, nil) }
+            let expunged = reply.data.flatMap { values -> [UInt32] in
+                guard values.first?.atom?.uppercased() == "VANISHED", let set = values.last?.atom else { return [] }
+                return IMAPCommand.uids(inSequenceSet: set)
+            }
+            return (flagged, expunged)
         }
     }
 
