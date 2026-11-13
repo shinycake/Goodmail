@@ -11,6 +11,8 @@ public enum Route: Hashable, Sendable {
     case changeLabels([ThreadSummary.ID])
     /// Where to move these threads, which the reader sees in `mailbox`.
     case move([ThreadSummary.ID], from: Mailbox)
+    /// The messages waiting to be sent later.
+    case scheduled
     /// Accounts and preferences.
     case settings
 }

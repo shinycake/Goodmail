@@ -254,9 +254,13 @@ actor Outboxes {
     }
 }
 
-/// One sender per account. Each queued message is sent once its undo window closes, with background time asked
-/// for so leaving the app in that window doesn't hold it back.
+/// One sender per account. A message is sent once its undo window closes, with background time asked for so
+/// leaving the app in that window doesn't hold it back. One scheduled further ahead is left to the next sync after
+/// its time: the foreground sync while the app is open, or a background refresh.
 final class Senders {
+    /// The longest wait held in background time; the longest undo window is 30 seconds.
+    static let longestHeldWait: TimeInterval = 60
+
     var onSent: ((AccountID, [Draft]) async -> Void)?
     private let make: (AccountID) throws -> Sender
     private var senders: [AccountID: Sender] = [:]
@@ -270,6 +274,7 @@ final class Senders {
     }
 
     func deliver(_ id: AccountID, at date: Date) async {
+        guard date.timeIntervalSinceNow <= Self.longestHeldWait else { return }
         let application = UIApplication.shared
         let background = application.beginBackgroundTask(withName: "Send")
         defer { if background != .invalid { application.endBackgroundTask(background) } }
