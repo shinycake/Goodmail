@@ -11,7 +11,7 @@ final class AppModel {
     let database: MailDatabase
     let commands: MailCommands
     private(set) var accounts: [Account]
-    private var clients: [AccountID: GmailClient] = [:]
+    private let providers: Providers
     private var engines: [AccountID: SyncEngine] = [:]
     private var prefetchers: [AccountID: BodyPrefetcher] = [:]
     private let path = PathMonitor()
@@ -23,17 +23,16 @@ final class AppModel {
     init(database: MailDatabase) throws {
         self.database = database
         accounts = try database.accounts()
+        let providers = Providers(database: database)
+        self.providers = providers
         let outboxes = Outboxes { id in
-            Outbox(
-                accountID: id, provider: GmailClient(session: GmailSession(accountID: id, keychain: Keychain())),
-                store: database)
+            Outbox(accountID: id, provider: try providers.provider(for: id), store: database)
         }
         self.outboxes = outboxes
         let senders = Senders { id in
             let email = (try? database.accounts().first { $0.id == id }?.email) ?? ""
             return Sender(
-                accountID: id, provider: GmailClient(session: GmailSession(accountID: id, keychain: Keychain())),
-                store: database,
+                accountID: id, provider: try providers.provider(for: id), store: database,
                 from: Contact(name: nil, address: email))
         }
         self.senders = senders
@@ -75,13 +74,14 @@ final class AppModel {
                 existing.first { $0.email.caseInsensitiveCompare(email) == .orderedSame }?.id ?? .generate()
             },
             keychain: Keychain())
-        clients[session.accountID] = GmailClient(session: session)
+        providers.use(GmailClient(session: session), for: session.accountID)
         engines[session.accountID] = nil
         if !accounts.contains(where: { $0.id == session.accountID }) {
             let account = Account(
                 id: session.accountID,
                 email: email,
-                color: AccountColor.next(after: accounts.map(\.color))
+                color: AccountColor.next(after: accounts.map(\.color)),
+                service: .gmail
             )
             try database.save(account)
             accounts.append(account)
@@ -90,10 +90,10 @@ final class AppModel {
         return true
     }
 
-    /// Signs the account out and takes it and its mail off the device. Nothing changes in Gmail.
+    /// Signs the account out and takes it and its mail off the device. Nothing changes at its service.
     func removeAccount(_ id: AccountID) async throws {
-        try? await GmailSession(accountID: id, keychain: Keychain()).signOut()
-        clients[id] = nil
+        if let account = accounts.first(where: { $0.id == id }) { try? Providers.signOut(account) }
+        providers.forget(id)
         engines[id] = nil
         await prefetchers[id]?.cancel()
         prefetchers[id] = nil
@@ -108,8 +108,8 @@ final class AppModel {
     /// safe to call often. With `prefetch`, each account then starts fetching bodies in the background (ADR-007);
     /// a background refresh leaves that to the next time the app is open.
     func syncAll(prefetch: Bool = true) async throws {
-        let engines = accounts.map { engine(for: $0.id) }
-        let prefetchers = accounts.map { prefetcher(for: $0.id) }
+        let engines = try accounts.map { try engine(for: $0.id) }
+        let prefetchers = try accounts.map { try prefetcher(for: $0.id) }
         let outboxes = outboxes
         // Messages whose undo window closed while the app was away.
         for account in accounts { await senders.deliver(account.id, at: .now) }
@@ -151,7 +151,7 @@ final class AppModel {
 
     /// Fetches the next older page of `mailbox` in each account it covers. Returns whether any may have more.
     func loadOlder(_ mailbox: Mailbox) async throws -> Bool {
-        let engines = accounts.map { engine(for: $0.id) }
+        let engines = try accounts.map { try engine(for: $0.id) }
         return try await withThrowingTaskGroup(of: Bool.self) { group in
             for engine in engines {
                 group.addTask { try await engine.backfill(mailbox) }
@@ -169,7 +169,7 @@ final class AppModel {
         // Each account to ask, with the page token to ask from: none for the first page.
         let tokens: [AccountID: String?] =
             page?.next.mapValues(Optional.some) ?? Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, nil) })
-        let requests = tokens.map { (engine: engine(for: $0.key), token: $0.value) }
+        let requests = try tokens.map { (engine: try engine(for: $0.key), token: $0.value) }
         let results = await withTaskGroup(of: (AccountID, Result<SearchPage, any Error>).self) { group in
             for (engine, token) in requests {
                 group.addTask { (engine.accountID, await Result { try await engine.search(text, pageToken: token) }) }
@@ -197,7 +197,7 @@ final class AppModel {
     /// Fetches a thread's messages with their bodies into the store, where the thread view reads them.
     func loadMessages(of thread: ThreadSummary.ID) async throws {
         let fetchedAt = Date.now
-        let messages = try await client(for: thread.accountID).messages(inThread: thread.threadID)
+        let messages = try await providers.provider(for: thread.accountID).messages(inThread: thread.threadID)
         try database.save(messages, inThread: thread, fetchedAt: fetchedAt)
     }
 
@@ -208,29 +208,22 @@ final class AppModel {
     }
 
     func attachmentData(_ attachment: Attachment, in message: Message.ID) async throws -> Data {
-        try await client(for: message.accountID).data(for: attachment, in: message)
+        try await providers.provider(for: message.accountID).data(for: attachment, in: message)
     }
 
-    private func client(for id: AccountID) -> GmailClient {
-        if let client = clients[id] { return client }
-        let client = GmailClient(session: GmailSession(accountID: id, keychain: Keychain()))
-        clients[id] = client
-        return client
-    }
-
-    private func prefetcher(for id: AccountID) -> BodyPrefetcher {
+    private func prefetcher(for id: AccountID) throws -> BodyPrefetcher {
         if let prefetcher = prefetchers[id] { return prefetcher }
         let (database, attachments) = (database, attachmentsDirectory)
         let prefetcher = BodyPrefetcher(
-            accountID: id, provider: client(for: id), store: database, path: path,
+            accountID: id, provider: try providers.provider(for: id), store: database, path: path,
             didFinish: { await Self.trim(database, attachments: attachments) })
         prefetchers[id] = prefetcher
         return prefetcher
     }
 
-    private func engine(for id: AccountID) -> SyncEngine {
+    private func engine(for id: AccountID) throws -> SyncEngine {
         if let engine = engines[id] { return engine }
-        let engine = SyncEngine(accountID: id, provider: client(for: id), store: database)
+        let engine = SyncEngine(accountID: id, provider: try providers.provider(for: id), store: database)
         engines[id] = engine
         return engine
     }
@@ -238,10 +231,10 @@ final class AppModel {
 
 /// One outbox per account, made on first use. Failed drains stay queued until the next flush.
 actor Outboxes {
-    private let make: @Sendable (AccountID) -> Outbox
+    private let make: @Sendable (AccountID) throws -> Outbox
     private var outboxes: [AccountID: Outbox] = [:]
 
-    init(make: @escaping @Sendable (AccountID) -> Outbox) {
+    init(make: @escaping @Sendable (AccountID) throws -> Outbox) {
         self.make = make
     }
 
@@ -250,9 +243,9 @@ actor Outboxes {
     }
 
     func flush(_ id: AccountID) async {
-        let outbox = outboxes[id] ?? make(id)
-        outboxes[id] = outbox
         do {
+            let outbox = try outboxes[id] ?? make(id)
+            outboxes[id] = outbox
             try await outbox.flush()
         } catch {
             Logger(subsystem: "com.idanbirman.goodmail", category: "outbox")
@@ -265,10 +258,10 @@ actor Outboxes {
 /// for so leaving the app in that window doesn't hold it back.
 final class Senders {
     var onSent: ((AccountID, [Draft]) async -> Void)?
-    private let make: (AccountID) -> Sender
+    private let make: (AccountID) throws -> Sender
     private var senders: [AccountID: Sender] = [:]
 
-    init(make: @escaping (AccountID) -> Sender) {
+    init(make: @escaping (AccountID) throws -> Sender) {
         self.make = make
     }
 
@@ -282,7 +275,14 @@ final class Senders {
         defer { if background != .invalid { application.endBackgroundTask(background) } }
         let wait = date.timeIntervalSinceNow
         if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
-        let sender = senders[id] ?? make(id)
+        let sender: Sender
+        do {
+            sender = try senders[id] ?? make(id)
+        } catch {
+            Logger(subsystem: "com.idanbirman.goodmail", category: "send")
+                .error("No sender: \(error, privacy: .public)")
+            return
+        }
         senders[id] = sender
         let sent = await sender.flush()
         if !sent.isEmpty { await onSent?(id, sent) }
