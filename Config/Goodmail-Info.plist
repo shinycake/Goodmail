@@ -6,6 +6,10 @@
 	<array>
 		<string>com.idanbirman.goodmail.refresh</string>
 	</array>
+	<key>NSUserActivityTypes</key>
+	<array>
+		<string>com.idanbirman.goodmail.window</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

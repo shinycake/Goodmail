@@ -144,7 +144,7 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
 
 **Evidence:** screenshots at a range of window sizes, and a resize recording.
 
-**Status:** M7.1 done: a Mailboxes screen (Inbox, Starred, Sent, Drafts, All Mail, Spam, Trash, and the account's labels with their Gmail colors and unread counts) as the navigation root, each mailbox a list with its own swipe actions, backfilled from Gmail when it opens. Since then: adding and removing accounts in Settings, and a From menu on new messages. Still to do: the iPad sidebar and columns, categories, windows and state restoration.
+**Status:** M7.1 done: a Mailboxes screen (Inbox, Starred, Sent, Drafts, All Mail, Spam, Trash, and the account's labels with their Gmail colors and unread counts) as the navigation root, each mailbox a list with its own swipe actions, backfilled from Gmail when it opens. Since then: adding and removing accounts in Settings, and a From menu on new messages. Each window now restores what it showed (its list, open thread and Inbox category) and offers it to the reader's other devices through Handoff. Still to do: the iPad sidebar and columns, categories, Open in New Window, and the notification and `mailto:` routes.
 
 ### M8: Search
 
