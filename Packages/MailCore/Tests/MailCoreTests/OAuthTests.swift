@@ -4,6 +4,10 @@ import Testing
 
 @testable import MailCore
 
+#if canImport(FoundationNetworking)
+    import FoundationNetworking  // URLSession on Linux
+#endif
+
 struct OAuthTests {
     private let client = OAuthClient(
         name: "example",
