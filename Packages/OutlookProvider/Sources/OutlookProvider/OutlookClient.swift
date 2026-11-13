@@ -80,7 +80,7 @@ public struct OutlookClient: MailProvider {
     public func perform(_ action: ThreadAction, onThread threadID: String) async throws {
         let messages: [GraphMessage] = try await conversation(threadID, select: GraphMessage.stateFields)
         guard !messages.isEmpty else { throw ProviderError.notFound }
-        let plan: [(id: String, changes: [GraphChange])]
+        let plan: [MessagePlan]
         do {
             plan = try await self.plan(action, for: messages)
         } catch is GraphChange.Failure {
@@ -88,8 +88,10 @@ public struct OutlookClient: MailProvider {
         }
         for batch in plan.filter({ !$0.changes.isEmpty }).chunks(of: Self.concurrentRequests) {
             try await withThrowingTaskGroup(of: Void.self) { group in
-                for (id, changes) in batch {
-                    group.addTask { for change in changes { try await graph.apply(change, toMessage: id) } }
+                for message in batch {
+                    group.addTask {
+                        for change in message.changes { try await graph.apply(change, toMessage: message.messageID) }
+                    }
                 }
                 try await group.waitForAll()
             }
@@ -100,9 +102,11 @@ public struct OutlookClient: MailProvider {
     /// missing one is looked up once more before the action is refused.
     private func plan(
         _ action: ThreadAction, for messages: [GraphMessage]
-    ) async throws -> [(id: String, changes: [GraphChange])] {
-        func plan(in directory: FolderDirectory) throws -> [(id: String, changes: [GraphChange])] {
-            try messages.map { ($0.id, try GraphChange.changes(for: action, to: $0, in: directory)) }
+    ) async throws -> [MessagePlan] {
+        func plan(in directory: FolderDirectory) throws -> [MessagePlan] {
+            try messages.map {
+                MessagePlan(messageID: $0.id, changes: try GraphChange.changes(for: action, to: $0, in: directory))
+            }
         }
         do {
             return try plan(in: try await folderDirectory())

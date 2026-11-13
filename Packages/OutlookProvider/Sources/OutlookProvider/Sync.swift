@@ -139,8 +139,11 @@ struct OutlookCursor: Codable, Equatable {
     var rawValue: String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
-        // A date, IDs and a URL always encode.
-        return String(decoding: (try? encoder.encode(self)) ?? Data(), as: UTF8.self)
+        do {
+            return String(decoding: try encoder.encode(self), as: UTF8.self)
+        } catch {
+            preconditionFailure("A date, message IDs and a URL always encode as JSON: \(error)")
+        }
     }
 
     /// Whether `message` changed after this cursor.
