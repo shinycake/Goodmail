@@ -15,7 +15,7 @@ struct ThreadRowTests {
                 date: .now, isUnread: true, messageCount: 1, labelIDs: ["INBOX"]
             ),
             dateText: "9:41",
-            accountColor: .systemTeal,
+            account: .implied(.teal),
             previewLines: preview
         )
     }

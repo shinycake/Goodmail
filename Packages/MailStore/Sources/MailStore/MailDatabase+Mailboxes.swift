@@ -27,9 +27,11 @@ extension MailDatabase {
                 """)
         for row in rows {
             let own = Mailbox(labelID: row["labelID"], accountID: AccountID(rawValue: row["accountID"]))
-            // A user label counts in its own account; a system label blends every account.
-            let mailbox = userLabels.contains(own) ? own : Mailbox(labelID: own.labelID)
-            counts[mailbox, default: 0] += row["unread"] as Int
+            let unread: Int = row["unread"]
+            // A user label counts in its own account; a system label counts in its account and in the blend of every
+            // account's.
+            counts[own, default: 0] += unread
+            if !userLabels.contains(own) { counts[Mailbox(labelID: own.labelID), default: 0] += unread }
         }
         let allMail = threadQuery(in: .allMail)
         let allMailUnread =
