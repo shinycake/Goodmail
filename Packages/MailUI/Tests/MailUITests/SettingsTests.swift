@@ -59,6 +59,25 @@ struct SettingsTests {
         #expect(Preferences.unsortedInboxAccounts.isEmpty)
     }
 
+    @Test func theMailListsLookPersists() {
+        let saved = Preferences.rowDisplay
+        defer { Preferences.rowDisplay = saved }
+        Preferences.rowDisplay = .standard
+        let model = SettingsViewModel(
+            accounts: { [personal] }, signIn: { _ in true }, remove: { _ in }, update: { _ in }, closed: {})
+        #expect(model.rowDisplay == RowDisplay(previewLines: 2, showsAvatars: true), "two lines and avatars at first")
+
+        model.rowDisplay.previewLines = 0
+        model.rowDisplay.showsAvatars = false
+        #expect(Preferences.rowDisplay == RowDisplay(previewLines: 0, showsAvatars: false))
+    }
+
+    @Test func previewTitlesReadAsLines() {
+        #expect(RowDisplay.previewTitle(0) == "None")
+        #expect(RowDisplay.previewTitle(1) == "1 line")
+        #expect(RowDisplay.previewTitle(3) == "3 lines")
+    }
+
     @Test func renamingTrimsTheNameAndABlankOneClearsIt() {
         var stored = [personal, work]
         var updates = 0

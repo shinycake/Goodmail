@@ -8,7 +8,7 @@ struct ThreadRowConfiguration: UIContentConfiguration, Equatable {
     var dateText: String
     /// `nil` while the thread's account is gone, as while it is being removed.
     var account: RowAccount?
-    var previewLines = 2
+    var display = RowDisplay.standard
 
     func makeContentView() -> any UIView & UIContentView {
         ThreadRowContentView(configuration: self)
@@ -105,9 +105,11 @@ final class ThreadRowContentView: UIView, UIContentView {
         let subjectText = thread.subject.isEmpty ? ThreadRowMetrics.noSubject : thread.subject
         subject.setSubjectText(subjectText)
         preview.setContentText(thread.snippet)
-        preview.numberOfLines = current.previewLines
-        preview.isHidden = current.previewLines == 0 || thread.snippet.isEmpty
-        avatar.configure(name: name, badge: current.account?.badge(unread: thread.isUnread))
+        preview.numberOfLines = current.display.previewLines
+        preview.isHidden = current.display.previewLines == 0 || thread.snippet.isEmpty
+        avatar.configure(
+            name: name, badge: current.account?.badge(unread: thread.isUnread),
+            showingMonogram: current.display.showsAvatars)
 
         accessibilityLabel = [
             thread.isUnread ? String(localized: "Unread", bundle: .module, comment: "VoiceOver: thread state") : nil,
@@ -136,7 +138,9 @@ enum ThreadRowMetrics {
     static let insets = NSDirectionalEdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16)
     static let avatarSpacing: CGFloat = 12
     /// Where separators start, so they line up with the text rather than the avatar.
-    static var textLeadingInset: CGFloat { insets.leading + MonogramView.diameter + avatarSpacing }
+    static func textLeadingInset(for display: RowDisplay) -> CGFloat {
+        insets.leading + MonogramView.width(showingMonogram: display.showsAvatars) + avatarSpacing
+    }
     static var noSubject: String {
         String(localized: "(No Subject)", bundle: .module, comment: "Shown in place of an empty email subject")
     }

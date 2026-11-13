@@ -107,6 +107,7 @@ final class SceneCoordinator: NSObject {
         let model = model
         let before = model.accounts
         let unsortedBefore = Preferences.unsortedInboxAccounts
+        let displayBefore = Preferences.rowDisplay
         let viewModel = SettingsViewModel(
             accounts: { model.accounts },
             signIn: { [weak self] in try await self?.signIn(to: $0) ?? false },
@@ -115,6 +116,7 @@ final class SceneCoordinator: NSObject {
             closed: { [weak self] in
                 guard let self,
                     model.accounts != before || Preferences.unsortedInboxAccounts != unsortedBefore
+                        || Preferences.rowDisplay != displayBefore
                 else { return }
                 model.accounts.isEmpty ? showWelcome() : showMailbox()
             })

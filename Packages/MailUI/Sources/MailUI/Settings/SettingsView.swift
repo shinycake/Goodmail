@@ -1,7 +1,7 @@
 import MailCore
 import SwiftUI
 
-/// Accounts and sending, as a system form.
+/// Accounts, the mail list and sending, as a system form.
 struct SettingsView: View {
     @Bindable var model: SettingsViewModel
     @State private var removing: Account?
@@ -37,6 +37,26 @@ struct SettingsView: View {
                 }
             } header: {
                 Text("Accounts", bundle: .module, comment: "Settings section listing the accounts")
+            }
+
+            Section {
+                Picker(selection: $model.rowDisplay.previewLines) {
+                    ForEach(RowDisplay.previewLineChoices, id: \.self) { lines in
+                        Text(RowDisplay.previewTitle(lines)).tag(lines)
+                    }
+                } label: {
+                    Text(
+                        "Preview", bundle: .module, comment: "Setting for how much of each message a mailbox row shows")
+                }
+                Toggle(isOn: $model.rowDisplay.showsAvatars) {
+                    Text("Avatars", bundle: .module, comment: "Setting for the sender's initials beside each row")
+                }
+            } header: {
+                Text("Mail List", bundle: .module, comment: "Settings section for how mailbox rows look")
+            } footer: {
+                Text(
+                    "Without avatars, a dot beside a row still marks unread mail.", bundle: .module,
+                    comment: "Explains turning avatars off")
             }
 
             Section {
