@@ -74,9 +74,9 @@ struct ScheduledSendTests {
 
     @Test func unschedulingAMessageThatAlreadyWentDoesNothing() async throws {
         let message = draft("Gone")
-        try commands(at: start).schedule(message, at: start)
+        try await commands(at: start).schedule(message, at: start)
         await sender(at: start).flush()
-        try commands(at: start).unschedule(message.id)
+        try await commands(at: start).unschedule(message.id)
 
         #expect(try database.requeue(message.id, as: .saveDraft, at: start) == nil)
         #expect(await sender(at: start).flush().isEmpty)
