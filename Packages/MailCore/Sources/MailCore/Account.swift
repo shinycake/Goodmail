@@ -16,10 +16,18 @@ public struct Account: Identifiable, Equatable, Sendable {
     public let id: AccountID
     public var email: String
     public var color: AccountColor
+    /// The name mail from this account is sent under, such as "Dana Levi". `nil` sends the address alone.
+    public var name: String?
 
-    public init(id: AccountID, email: String, color: AccountColor) {
+    public init(id: AccountID, email: String, color: AccountColor, name: String? = nil) {
         self.id = id
         self.email = email
         self.color = color
+        self.name = name
+    }
+
+    /// What mail from this account says it is from.
+    public var sender: Contact {
+        Contact(name: name, address: email)
     }
 }

@@ -11,10 +11,17 @@ struct SettingsView: View {
         Form {
             Section {
                 ForEach(model.accounts) { account in
-                    Label {
-                        Text(account.email)
-                    } icon: {
-                        Circle().fill(Color(account.color.uiColor)).frame(width: 12, height: 12)
+                    NavigationLink(value: account.id) {
+                        Label {
+                            VStack(alignment: .leading) {
+                                Text(account.name ?? account.email)
+                                if account.name != nil {
+                                    Text(account.email).font(.footnote).foregroundStyle(.secondary)
+                                }
+                            }
+                        } icon: {
+                            Circle().fill(Color(account.color.uiColor)).frame(width: 12, height: 12)
+                        }
                     }
                     .swipeActions { removeButton(account) }
                     .contextMenu { removeButton(account) }
@@ -34,22 +41,6 @@ struct SettingsView: View {
             }
 
             Section {
-                ForEach(model.accounts) { account in
-                    Toggle(
-                        account.email,
-                        isOn: Binding(
-                            get: { model.sortsInbox(account.id) },
-                            set: { model.setSortsInbox($0, for: account.id) }))
-                }
-            } header: {
-                Text("Inbox Categories", bundle: .module, comment: "Settings section for Gmail's Inbox categories")
-            } footer: {
-                Text(
-                    "Sorts the Inbox into Primary, Promotions, Social, Updates and Forums, as Gmail does.",
-                    bundle: .module, comment: "Explains the Inbox Categories setting")
-            }
-
-            Section {
                 Picker(selection: $model.undoSendSeconds) {
                     ForEach(Preferences.undoSendChoices, id: \.self) { seconds in
                         Text(SettingsViewModel.undoSendTitle(seconds)).tag(seconds)
@@ -63,6 +54,7 @@ struct SettingsView: View {
                     comment: "Explains the Undo Send setting")
             }
         }
+        .navigationDestination(for: AccountID.self) { AccountSettingsView(model: model, accountID: $0) }
         .onDisappear { model.didClose() }
         .navigationTitle(Text("Settings", bundle: .module, comment: "Title of the settings screen"))
         .toolbar {

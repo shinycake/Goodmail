@@ -19,6 +19,7 @@ struct SettingsTests {
                 return true
             },
             remove: { id in stored.removeAll { $0.id == id } },
+            update: { _ in },
             closed: { closed = true })
         #expect(model.accounts == [personal])
         await model.addAccount()
@@ -33,7 +34,7 @@ struct SettingsTests {
     @Test func aFailedSignInIsShownAndChangesNothing() async {
         struct Denied: Error {}
         let model = SettingsViewModel(
-            accounts: { [personal] }, add: { throw Denied() }, remove: { _ in }, closed: {})
+            accounts: { [personal] }, add: { throw Denied() }, remove: { _ in }, update: { _ in }, closed: {})
         await model.addAccount()
         #expect(model.error is Denied)
         #expect(model.accounts == [personal])
@@ -44,7 +45,7 @@ struct SettingsTests {
         defer { Preferences.unsortedInboxAccounts = saved }
         Preferences.unsortedInboxAccounts = []
         let model = SettingsViewModel(
-            accounts: { [personal, work] }, add: { true }, remove: { _ in }, closed: {})
+            accounts: { [personal, work] }, add: { true }, remove: { _ in }, update: { _ in }, closed: {})
         #expect(model.sortsInbox(work.id), "categories are on by default")
 
         model.setSortsInbox(false, for: work.id)
@@ -54,6 +55,53 @@ struct SettingsTests {
 
         model.setSortsInbox(true, for: work.id)
         #expect(Preferences.unsortedInboxAccounts.isEmpty)
+    }
+
+    @Test func renamingTrimsTheNameAndABlankOneClearsIt() {
+        var stored = [personal, work]
+        var updates = 0
+        let model = SettingsViewModel(
+            accounts: { stored }, add: { true }, remove: { _ in },
+            update: { account in
+                updates += 1
+                stored = stored.map { $0.id == account.id ? account : $0 }
+            },
+            closed: {})
+
+        model.rename(work.id, to: "  Dana Levi \n")
+        #expect(model.accounts[1].name == "Dana Levi")
+        #expect(model.accounts[0].name == nil, "other accounts keep theirs")
+
+        model.rename(work.id, to: "   ")
+        #expect(model.accounts[1].name == nil)
+        #expect(updates == 2)
+    }
+
+    @Test func recoloringStoresOnlyARealChange() {
+        var stored = [personal]
+        var updates = 0
+        let model = SettingsViewModel(
+            accounts: { stored }, add: { true }, remove: { _ in },
+            update: { account in
+                updates += 1
+                stored = [account]
+            },
+            closed: {})
+
+        model.setColor(.blue, for: personal.id)
+        #expect(updates == 0, "the color it already has")
+        model.setColor(.mint, for: personal.id)
+        #expect(model.accounts[0].color == .mint)
+        #expect(updates == 1)
+    }
+
+    @Test func aFailedUpdateIsShownAndChangesNothing() {
+        struct Locked: Error {}
+        let model = SettingsViewModel(
+            accounts: { [personal] }, add: { true }, remove: { _ in }, update: { _ in throw Locked() }, closed: {})
+        model.setColor(.mint, for: personal.id)
+        #expect(model.error is Locked)
+        #expect(model.accounts == [personal])
     }
 
     @Test func undoSendTitlesReadAsDurations() {

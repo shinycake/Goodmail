@@ -73,7 +73,7 @@ final class SceneCoordinator: NSObject {
     private func showSettings() {
         guard let presenter = topViewController() else { return }
         let model = model
-        let before = model.accounts.map(\.id)
+        let before = model.accounts
         let unsortedBefore = Preferences.unsortedInboxAccounts
         let viewModel = SettingsViewModel(
             accounts: { model.accounts },
@@ -82,9 +82,10 @@ final class SceneCoordinator: NSObject {
                 return try await model.addGmailAccount(using: WebAuthentication(window: window))
             },
             remove: { try await model.removeAccount($0) },
+            update: { try model.update($0) },
             closed: { [weak self] in
                 guard let self,
-                    model.accounts.map(\.id) != before || Preferences.unsortedInboxAccounts != unsortedBefore
+                    model.accounts != before || Preferences.unsortedInboxAccounts != unsortedBefore
                 else { return }
                 model.accounts.isEmpty ? showWelcome() : showMailbox()
             })

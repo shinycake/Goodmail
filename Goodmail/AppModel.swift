@@ -28,10 +28,9 @@ final class AppModel {
         }
         self.outboxes = outboxes
         let senders = Senders { id in
-            let email = (try? database.accounts().first { $0.id == id }?.email) ?? ""
-            return Sender(
+            Sender(
                 accountID: id, provider: GmailClient(session: GmailSession(accountID: id)), store: database,
-                from: Contact(name: nil, address: email))
+                from: { (try? database.accounts().first { $0.id == id })?.sender ?? Contact(name: nil, address: "") })
         }
         self.senders = senders
         commands = MailCommands(
@@ -96,6 +95,12 @@ final class AppModel {
         try database.removeAccount(id)
         try? FileManager.default.removeItem(at: attachmentsDirectory.appending(path: id.rawValue))
         accounts.removeAll { $0.id == id }
+    }
+
+    /// Stores the account's new name or color.
+    func update(_ account: Account) throws {
+        try database.update(account)
+        accounts = accounts.map { $0.id == account.id ? account : $0 }
     }
 
     /// Sends queued actions, then syncs, every account at once. Each engine coalesces overlapping calls, so this is

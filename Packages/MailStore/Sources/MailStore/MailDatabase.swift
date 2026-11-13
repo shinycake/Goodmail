@@ -182,6 +182,9 @@ public final class MailDatabase: Sendable {
                         accessedAt = fetchedAt
                     """)
         }
+        migrator.registerMigration("v14-account-name") { db in
+            try db.alter(table: "account") { table in table.add(column: "name", .text) }
+        }
         return migrator
     }
 }

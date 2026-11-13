@@ -44,7 +44,8 @@ public actor Sender {
     public nonisolated let accountID: AccountID
     private let provider: any MailProvider
     private let store: any OutgoingStore
-    private let from: Contact
+    /// Who the mail is from, read as each message goes, so a renamed account's next message carries the new name.
+    private let from: @Sendable () -> Contact
     private let now: @Sendable () -> Date
     private var running: Task<[Draft], Never>?
 
@@ -52,7 +53,7 @@ public actor Sender {
         accountID: AccountID,
         provider: any MailProvider,
         store: any OutgoingStore,
-        from: Contact,
+        from: @escaping @Sendable () -> Contact,
         now: @escaping @Sendable () -> Date = { .now }
     ) {
         self.accountID = accountID
@@ -86,7 +87,7 @@ public actor Sender {
                 return sent
             }
             let raw = MIMEWriter.message(
-                for: draft, from: from, date: now(),
+                for: draft, from: from(), date: now(),
                 messageID: "\(message.id.uuidString.lowercased())@goodmail.app")
             do {
                 switch message.purpose {
