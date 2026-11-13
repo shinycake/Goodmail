@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Compiles packages and their tests for iOS (arm64-apple-ios) on Linux, with the Darwin SDK that scripts/cloud/setup
-# installs (docs/setup/cloud-builds.md). It only compiles: Linux can't run iOS code, so the Mac's scripts/check still
-# runs the tests.
+# installs (docs/setup/cloud-builds.md), then type-checks the app and its extensions against them. It only compiles:
+# Linux can't run iOS code, so the Mac's scripts/check still runs the tests.
 #
-#   scripts/ios-build                  every package
-#   scripts/ios-build MailCore MailUI  only these
+#   scripts/ios-build                  every package, then the app targets
+#   scripts/ios-build MailCore MailUI  only these packages
 set -euo pipefail
 cd "$(dirname "$0")/.."
 scripts/cloud/ensure
@@ -19,7 +19,11 @@ export SDKROOT= XCODE_EXTRA_PLATFORM_FOLDERS="$bundle/Developer/Platforms" PATH=
 # Git sets these for hooks; SwiftPM's own git calls would then act on this repository instead of package checkouts.
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX
 
-(($# > 0)) || set -- $(cd Packages && ls -d -- */ | tr -d /)
+app_targets=false
+if (($# == 0)); then
+    app_targets=true
+    set -- $(cd Packages && ls -d -- */ | tr -d /)
+fi
 for package in "$@"; do
     tests=()
     if [[ -d "Packages/$package/Tests" ]]; then tests=(--build-tests); fi
@@ -27,3 +31,27 @@ for package in "$@"; do
     swift build --package-path "Packages/$package" --build-system swiftbuild --triple arm64-apple-ios \
         --toolset "$bundle/toolset-swb.json" "${tests[@]}"
 done
+$app_targets || exit 0
+
+# SwiftPM can't build the Xcode targets, so type-check their sources against the package modules built above. The
+# flags mirror Goodmail.xcodeproj's Debug settings: Swift 6, approachable concurrency, member import visibility, and
+# the app's MainActor default isolation. Change them here when the project's Swift settings change.
+deployment_target=$(grep -oE '"IPHONEOS_DEPLOYMENT_TARGET": "[0-9.]+"' Goodmail.xcodeproj/project.xcproj | grep -oE '[0-9.]+')
+module_paths=()
+for package in Packages/*/; do module_paths+=(-I "$package.build/out/Products/Debug-iphoneos"); done
+grdb_sqlite=Packages/MailStore/.build/checkouts/GRDB.swift/Sources/GRDBSQLite/module.modulemap
+typecheck() {
+    local target="$1" sources="$2"
+    shift 2
+    printf '\n▸ %s target for iOS (type-check)\n' "$target"
+    swiftc -typecheck -target "arm64-apple-ios$deployment_target" \
+        -sdk "$bundle/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk" \
+        -resource-dir "$bundle/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift" \
+        -swift-version 6 -D DEBUG -enable-upcoming-feature NonisolatedNonsendingByDefault \
+        -enable-upcoming-feature InferIsolatedConformances -enable-upcoming-feature MemberImportVisibility \
+        "${module_paths[@]}" -Xcc -fmodule-map-file="$grdb_sqlite" "$@" "$sources"/*.swift
+    echo "Type-check complete."
+}
+typecheck Goodmail Goodmail -default-isolation MainActor
+typecheck NotificationService NotificationService
+typecheck WidgetsExtension Widgets

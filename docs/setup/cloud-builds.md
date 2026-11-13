@@ -11,7 +11,7 @@ Nothing to do. Setup runs on its own, in two ways:
 
 Setup also enables the tracked git hooks. Its first run in a fresh container takes about two minutes. Later runs find everything installed and return at once. The setup log is at `/tmp/goodmail-cloud-setup.log`. In a multi-repository session, run `scripts/check --lint` once before your first commit, so the git hooks are in place before you commit or push.
 
-- `scripts/ios-build [Package …]` compiles packages and their tests for iOS. With no arguments it compiles all of them.
+- `scripts/ios-build [Package …]` compiles packages and their tests for iOS. With no arguments it compiles all of them, then type-checks the Xcode targets that SwiftPM can't build (the app, NotificationService and WidgetsExtension) against those package builds. The type-check uses the project's Debug Swift settings, which are listed in the script, so update them there when the project's settings change. It catches compile errors, but it doesn't link, compile assets or String Catalogs, or check entitlements. Only the Mac's build does those.
 - `scripts/check` on Linux runs the lint, the line cap, `scripts/ios-build`, and `swift test` for MailCore, GmailProvider and MailStore. The pre-push hook runs it.
 - `swift test --package-path Packages/MailStore` runs one package's tests natively.
 
