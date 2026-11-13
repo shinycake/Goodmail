@@ -61,11 +61,11 @@ public final class ComposeViewModel {
 
     public var isReply: Bool { draft.inReplyTo != nil }
 
-    /// Whether closing would lose anything the writer did.
+    /// Whether closing would lose anything the writer did, formatting included.
     public func hasChanges(body: MessageBody) -> Bool {
         let edited = finished(body: body)
         return isRestored || edited.to != draft.to || edited.cc != draft.cc || edited.bcc != draft.bcc
-            || edited.subject != draft.subject || (body.plain ?? "") != (draft.body.plain ?? "")
+            || edited.subject != draft.subject || RichText(body) != RichText(draft.body)
             || edited.attachments != draft.attachments
     }
 
@@ -102,7 +102,7 @@ public final class ComposeViewModel {
     /// Sends from `account` instead. While the body is still as it started, its signature follows the account:
     /// returns the new body to show then, `nil` when the writer's text stays.
     public func changeSender(to account: Account, body: MessageBody) -> MessageBody? {
-        let untouched = (body.plain ?? "") == (draft.body.plain ?? "")
+        let untouched = RichText(body) == RichText(draft.body)
         draft.accountID = account.id
         accountEmail = account.email
         guard untouched else { return nil }

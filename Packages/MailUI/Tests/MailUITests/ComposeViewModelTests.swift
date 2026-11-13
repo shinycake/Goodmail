@@ -88,6 +88,9 @@ struct ComposeViewModelTests {
             deleteDraft: { deleted = $0 }, send: { _, _ in })
         #expect(model.draft.body.plain == "Hi", "no second signature")
         #expect(!model.hasChanges(body: draft.body))
+        #expect(
+            model.hasChanges(body: MessageBody(html: "<div dir=\"auto\"><b>Hi</b></div>", plain: "Hi")),
+            "formatting alone counts as a change")
         #expect(model.canSaveDraft)
         model.saveDraft(body: MessageBody(plain: "Hi there"))
         #expect(saved?.body.plain == "Hi there")

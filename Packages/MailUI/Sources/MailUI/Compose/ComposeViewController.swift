@@ -10,7 +10,9 @@ public final class ComposeViewController: UIViewController {
     private let ccField = UITextField()
     private let bccField = UITextField()
     private let subjectField = UITextField()
-    private let bodyView = UITextView(usingTextLayoutManager: true)
+    let bodyView = UITextView(usingTextLayoutManager: true)
+    let formattingBar = FormattingBar()
+    let quoteLayout = QuoteLayout()
     private let quoteButton = UIButton(configuration: .gray())
     private let quoteLabel = UILabel()
     private var ccRow: UIView!
@@ -54,15 +56,15 @@ public final class ComposeViewController: UIViewController {
         toField.accessibilityIdentifier = "compose.to"
         subjectField.accessibilityIdentifier = "compose.subject"
 
-        bodyView.font = .preferredFont(forTextStyle: .body)
-        if let font = bodyView.font, !(viewModel.draft.body.plain ?? "").isEmpty {
+        bodyView.font = bodyFont
+        if !(viewModel.draft.body.plain ?? "").isEmpty {
             // A draft reopened after Undo or a failed send, or a new one with a signature.
-            bodyView.attributedText = RichTextSerializer.attributedText(from: viewModel.draft.body, font: font)
-            bodyView.typingAttributes = [.font: font]
+            show(viewModel.draft.body)
         }
         bodyView.adjustsFontForContentSizeCategory = true
         bodyView.isScrollEnabled = false
         bodyView.allowsEditingTextAttributes = true
+        configureFormatting()
         bodyView.textContainerInset = UIEdgeInsets(top: 12, left: 0, bottom: 12, right: 0)
         bodyView.textContainer.lineFragmentPadding = 0
         bodyView.delegate = self
@@ -310,9 +312,8 @@ public final class ComposeViewController: UIViewController {
     }
 
     private func changeSender(to account: Account) {
-        if let body = viewModel.changeSender(to: account, body: body), let font = bodyView.font {
-            bodyView.attributedText = RichTextSerializer.attributedText(from: body, font: font)
-            bodyView.typingAttributes = [.font: font]
+        if let body = viewModel.changeSender(to: account, body: body) {
+            show(body)
             bodyView.selectedRange = NSRange(location: 0, length: 0)
         }
         updateFrom()
@@ -361,14 +362,19 @@ public final class ComposeViewController: UIViewController {
         updateSendEnabled()
     }
 
-    private func updateSendEnabled() {
+    private func show(_ body: MessageBody) {
+        bodyView.attributedText = RichText(body).attributedString(font: bodyFont)
+        bodyView.typingAttributes = [.font: bodyFont]
+    }
+
+    func updateSendEnabled() {
         sendItem.isEnabled = viewModel.canSend
         // A swipe down asks before losing what was written.
         navigationController?.isModalInPresentation = viewModel.hasChanges(body: body)
     }
 
     private var body: MessageBody {
-        RichTextSerializer.body(from: bodyView.attributedText ?? NSAttributedString())
+        RichText(bodyView.attributedText ?? NSAttributedString()).messageBody
     }
 
     /// Adds a picked file, or explains why it can't go.
@@ -447,6 +453,21 @@ public final class ComposeViewController: UIViewController {
 extension ComposeViewController: UITextViewDelegate, UIAdaptivePresentationControllerDelegate {
     public func textViewDidChange(_ textView: UITextView) {
         updateSendEnabled()
+    }
+
+    public func textView(
+        _ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String
+    ) -> Bool {
+        guard text == "\n",
+            let command = FormattingCommand.onReturn(
+                in: textView.textStorage, selection: range, typingAttributes: textView.typingAttributes)
+        else { return true }
+        applyFormatting(command)
+        return false
+    }
+
+    public func textViewDidChangeSelection(_ textView: UITextView) {
+        showFormatting()
     }
 
     public func presentationControllerDidAttemptToDismiss(_ presentationController: UIPresentationController) {

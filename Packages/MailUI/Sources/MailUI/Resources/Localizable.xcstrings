@@ -476,6 +476,17 @@
         }
       }
     },
+    "Automatic" : {
+      "comment" : "Text direction: follows what is typed",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אוטומטי"
+          }
+        }
+      }
+    },
     "Avatars" : {
       "comment" : "Setting for the sender's initials beside each row",
       "localizations" : {
@@ -498,8 +509,30 @@
         }
       }
     },
+    "Bold" : {
+      "comment" : "Formatting: bold text",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מודגש"
+          }
+        }
+      }
+    },
+    "Bulleted List" : {
+      "comment" : "Formatting: a bulleted list",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "רשימה עם תבליטים"
+          }
+        }
+      }
+    },
     "Cancel" : {
-      "comment" : "Closes the iCloud sign-in without adding the account",
+      "comment" : "Closes the link prompt",
       "localizations" : {
         "he" : {
           "stringUnit" : {
@@ -648,6 +681,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ביטול הבחירה"
+          }
+        }
+      }
+    },
+    "Done" : {
+      "comment" : "Applies the link",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סיום"
           }
         }
       }
@@ -968,6 +1012,17 @@
         }
       }
     },
+    "Italic" : {
+      "comment" : "Formatting: italic text",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נטוי"
+          }
+        }
+      }
+    },
     "Keep Editing" : {
       "comment" : "Returns to the message",
       "localizations" : {
@@ -997,6 +1052,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "בשבוע שעבר"
+          }
+        }
+      }
+    },
+    "Left to Right" : {
+      "comment" : "Text direction",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "משמאל לימין"
+          }
+        }
+      }
+    },
+    "Link" : {
+      "comment" : "Formatting: links the selection",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קישור"
+          }
+        }
+      }
+    },
+    "List" : {
+      "comment" : "Formatting: the list menu",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "רשימה"
           }
         }
       }
@@ -1183,6 +1271,17 @@
         }
       }
     },
+    "Numbered List" : {
+      "comment" : "Formatting: a numbered list",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "רשימה ממוספרת"
+          }
+        }
+      }
+    },
     "OK" : {
       "comment" : "Dismiss",
       "localizations" : {
@@ -1288,6 +1387,17 @@
         }
       }
     },
+    "Quote" : {
+      "comment" : "Formatting: quotes the paragraph",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ציטוט"
+          }
+        }
+      }
+    },
     "Recent" : {
       "comment" : "Header above the recent searches",
       "localizations" : {
@@ -1332,6 +1442,17 @@
         }
       }
     },
+    "Remove Link" : {
+      "comment" : "Formatting: unlinks the text",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הסרת קישור"
+          }
+        }
+      }
+    },
     "Reply" : {
       "comment" : "Composer title for a reply",
       "localizations" : {
@@ -1361,6 +1482,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "דיווח כספאם"
+          }
+        }
+      }
+    },
+    "Right to Left" : {
+      "comment" : "Text direction",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מימין לשמאל"
           }
         }
       }
@@ -1707,6 +1839,17 @@
         }
       }
     },
+    "Strikethrough" : {
+      "comment" : "Formatting: struck-through text",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קו חוצה"
+          }
+        }
+      }
+    },
     "Subject contains “%@”" : {
       "comment" : "Search suggestion: mail whose subject has the typed text",
       "localizations" : {
@@ -1747,6 +1890,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "צילום תמונה"
+          }
+        }
+      }
+    },
+    "Text Direction" : {
+      "comment" : "Formatting: the paragraph direction menu",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כיוון טקסט"
           }
         }
       }
@@ -1890,6 +2044,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "נסה שוב"
+          }
+        }
+      }
+    },
+    "Underline" : {
+      "comment" : "Formatting: underlined text",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קו תחתון"
           }
         }
       }

@@ -118,10 +118,12 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
   - the default send-as signature, read on each sync, in new drafts
   - drafts saved to Gmail through the send queue (Save Draft on close), with Edit Draft on a thread whose newest message is a draft; sending or deleting it removes Gmail's copy
   - Google Contacts (People API connections and other contacts) in a daily local address book, suggested after the people who wrote in
+- **M5.3 (done):**
+  - formatting controls above the keyboard (bold, italic, underline, strikethrough, bulleted and numbered lists, quote, link, and each paragraph's direction), with the system Format panel limited to the styles and lists the message carries
+  - the body modelled as `RichText`, written as email-safe HTML with `dir` per block and a direction on each list and quote, and read back for reopened drafts
 - **Still to do:**
   - the device's Contacts
   - a background `URLSession` for sends
-  - the formatting controls
   - camera and scan attachments
   - Bcc on reopened drafts
 
