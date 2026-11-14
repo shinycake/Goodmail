@@ -9,7 +9,7 @@ import UserNotifications
 /// One per window (ADR-011): decides what the window shows and owns the flows that change it.
 final class SceneCoordinator: NSObject {
     private let window: UIWindow
-    private let model: AppModel
+    let model: AppModel
     private let actions: MailActions
     private var failures: Task<Void, Never>?
     /// The launch check for a Gmail sign-in that can't delete forever, then signing that account in again.
@@ -142,28 +142,37 @@ final class SceneCoordinator: NSObject {
         case .gmail: try await model.addGmailAccount(using: WebAuthentication(window: window))
         case .icloud: await signInToICloud()
         case .outlook: try await model.addOutlookAccount(using: WebAuthentication(window: window))
+        case .imap: await signInToOtherAccount()
         }
     }
 
     /// Presents the iCloud form over the chooser, and returns whether it added the account.
     private func signInToICloud() async -> Bool {
-        await withCheckedContinuation { continuation in
-            weak var presented: UIViewController?
-            let screen = ICloudSignInScreen.make(
-                signIn: { [model] email, appPassword in
+        await presentSignIn { [model] finished in
+            ICloudSignInScreen.make(
+                signIn: { email, appPassword in
                     do {
                         try await model.addICloudAccount(email: email, appPassword: appPassword)
                     } catch ICloudSignIn.Failure.wrongPassword {
                         throw ICloudSignInFailure.wrongPassword
                     }
                 },
-                finished: { added in
-                    presented?.dismiss(animated: true)
-                    continuation.resume(returning: added)
-                })
-            presented = screen
+                finished: finished)
+        }
+    }
+
+    /// Presents a sign-in form `screen` makes over the chooser, and returns what the form finished with: whether it
+    /// added the account. The form calls `finished` once.
+    func presentSignIn(_ screen: (_ finished: @escaping (Bool) -> Void) -> UIViewController) async -> Bool {
+        await withCheckedContinuation { continuation in
+            weak var presented: UIViewController?
+            let form = screen { added in
+                presented?.dismiss(animated: true)
+                continuation.resume(returning: added)
+            }
+            presented = form
             guard let top = topViewController() else { return continuation.resume(returning: false) }
-            top.present(screen, animated: true)
+            top.present(form, animated: true)
         }
     }
 

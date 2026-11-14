@@ -102,3 +102,12 @@ public struct IMAPLogin: Codable, Hashable, Sendable {
         self.password = password
     }
 }
+
+#if canImport(Network)
+    extension IMAPClient {
+        /// The account a sign-in kept the login of.
+        public init(accountID: AccountID, login: IMAPLogin, index: any MessageIndexStore) {
+            self.init(accountID: accountID, settings: login.settings, password: login.password, index: index)
+        }
+    }
+#endif

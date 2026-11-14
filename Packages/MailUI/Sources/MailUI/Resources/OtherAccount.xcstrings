@@ -1,0 +1,226 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Cancel" : {
+      "comment" : "Closes the other account sign-in without adding the account",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ביטול"
+          }
+        }
+      }
+    },
+    "Couldn’t connect to the incoming server. Check its host name, port and security." : {
+      "comment" : "Other account: the IMAP server didn't answer",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן להתחבר לשרת הדואר הנכנס. בדוק את שם המארח, הפורט והאבטחה."
+          }
+        }
+      }
+    },
+    "Couldn’t connect to the outgoing server. Check its host name, port and security." : {
+      "comment" : "Other account: the SMTP server didn't answer",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן להתחבר לשרת הדואר היוצא. בדוק את שם המארח, הפורט והאבטחה."
+          }
+        }
+      }
+    },
+    "Email" : {
+      "comment" : "Other account: the address field",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דוא״ל"
+          }
+        }
+      }
+    },
+    "Goodmail couldn’t find this provider’s servers. Enter them as your provider gives them." : {
+      "comment" : "Other account: the lookup found no servers for the address",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‏Goodmail לא מצא את השרתים של הספק הזה. הזן אותם כפי שהספק מפרסם אותם."
+          }
+        }
+      }
+    },
+    "Goodmail looks up your provider’s servers. If your provider asks for an app password, use one here." : {
+      "comment" : "Other account: what happens with the address and password",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Goodmail מאתר את השרתים של ספק הדואר שלך. אם הספק דורש סיסמה ייעודית ליישום, השתמש בה כאן."
+          }
+        }
+      }
+    },
+    "Host Name" : {
+      "comment" : "Other account: a server's host name, such as imap.example.com",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שם מארח"
+          }
+        }
+      }
+    },
+    "Incoming Mail Server (IMAP)" : {
+      "comment" : "Other account: the section for the IMAP server",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שרת דואר נכנס (IMAP)"
+          }
+        }
+      }
+    },
+    "Name" : {
+      "comment" : "Other account: the name mail is sent under",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שם"
+          }
+        }
+      }
+    },
+    "Next" : {
+      "comment" : "Looks up the servers for the address and signs in",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הבא"
+          }
+        }
+      }
+    },
+    "Outgoing Mail Server (SMTP)" : {
+      "comment" : "Other account: the section for the SMTP server",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שרת דואר יוצא (SMTP)"
+          }
+        }
+      }
+    },
+    "Password" : {
+      "comment" : "Other account: the password field",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סיסמה"
+          }
+        }
+      }
+    },
+    "Port" : {
+      "comment" : "Other account: a server's port",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פורט"
+          }
+        }
+      }
+    },
+    "Security" : {
+      "comment" : "Other account: how the connection to a server is encrypted",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אבטחה"
+          }
+        }
+      }
+    },
+    "Sign In" : {
+      "comment" : "Signs in to the servers as typed",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "התחבר"
+          }
+        }
+      }
+    },
+    "The incoming server doesn’t offer a secure connection on this port, so your password wasn’t sent." : {
+      "comment" : "Other account: the IMAP server won't use TLS",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שרת הדואר הנכנס לא מציע חיבור מאובטח בפורט הזה, ולכן הסיסמה שלך לא נשלחה."
+          }
+        }
+      }
+    },
+    "The outgoing server doesn’t offer a secure connection on this port, so your password wasn’t sent." : {
+      "comment" : "Other account: the SMTP server won't use TLS",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שרת הדואר היוצא לא מציע חיבור מאובטח בפורט הזה, ולכן הסיסמה שלך לא נשלחה."
+          }
+        }
+      }
+    },
+    "The server didn’t accept this user name and password." : {
+      "comment" : "Other account: the IMAP or SMTP server refused the login",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השרת לא קיבל את שם המשתמש והסיסמה."
+          }
+        }
+      }
+    },
+    "User Name" : {
+      "comment" : "Other account: the name both servers log in with",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שם משתמש"
+          }
+        }
+      }
+    },
+    "Usually your email address, or the part before the @." : {
+      "comment" : "Other account: what the user name usually is",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בדרך כלל כתובת הדוא״ל שלך, או החלק שלפני ה־@."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

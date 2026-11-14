@@ -18,12 +18,14 @@ public enum MailService: String, CaseIterable, Codable, Hashable, Sendable {
     /// iCloud Mail, over IMAP and SMTP with an app-specific password.
     case icloud
     case outlook
+    /// Any other mail account, on the IMAP and SMTP servers of its `MailServerSettings`.
+    case imap
 
     /// Whether the service sorts its Inbox into categories (Primary, Promotions and the rest).
     public var hasInboxCategories: Bool {
         switch self {
         case .gmail: true
-        case .icloud, .outlook: false
+        case .icloud, .outlook, .imap: false
         }
     }
 
@@ -31,7 +33,7 @@ public enum MailService: String, CaseIterable, Codable, Hashable, Sendable {
     public var hasMute: Bool {
         switch self {
         case .gmail: true
-        case .icloud, .outlook: false
+        case .icloud, .outlook, .imap: false
         }
     }
 
@@ -40,7 +42,7 @@ public enum MailService: String, CaseIterable, Codable, Hashable, Sendable {
     public var syncsSignature: Bool {
         switch self {
         case .gmail: true
-        case .icloud, .outlook: false
+        case .icloud, .outlook, .imap: false
         }
     }
 }

@@ -50,8 +50,8 @@ final class NotificationService: UNNotificationServiceExtension {
                 OutlookClient(
                     session: OAuthSession(accountID: account.id, client: .outlook, keychain: Keychain()),
                     index: database)
-            // iCloud has no push.
-            case .icloud: throw NewMailFetch.Failure.unknownAccount
+            // IMAP has no push.
+            case .icloud, .imap: throw NewMailFetch.Failure.unknownAccount
             }
         }
     }

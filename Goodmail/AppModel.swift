@@ -138,19 +138,31 @@ final class AppModel {
 
     /// Checks the app-specific password by logging in to iCloud, then adds the account, or updates the password of
     /// the one already here. Throws `ICloudSignIn.Failure.wrongPassword` when iCloud refuses it.
-    func addICloudAccount(email typed: String, appPassword: String) async throws {
+    func addICloudAccount(email: String, appPassword: String) async throws {
+        try await addPasswordAccount(.icloud, email: email) { email, id in
+            try await ICloudSignIn(secrets: Keychain()).signIn(email: email, appPassword: appPassword, accountID: id)
+        }
+    }
+
+    /// The sign-in every password service shares: `signIn` checks and keeps the login under the account's ID, the
+    /// one this address at this service already has when it's here. Then the account is added, with `name` to send
+    /// under, or its new login is used.
+    func addPasswordAccount(
+        _ service: MailService, email typed: String, name: String? = nil,
+        signIn: (_ email: String, _ id: AccountID) async throws -> Void
+    ) async throws {
         let email = typed.trimmingCharacters(in: .whitespaces)
         let existing = accounts.first {
-            $0.service == .icloud && $0.email.caseInsensitiveCompare(email) == .orderedSame
+            $0.service == service && $0.email.caseInsensitiveCompare(email) == .orderedSame
         }
         let id = existing?.id ?? .generate()
-        try await ICloudSignIn(secrets: Keychain()).signIn(email: email, appPassword: appPassword, accountID: id)
+        try await signIn(email, id)
         providers.forget(id)
         engines[id] = nil
         if existing == nil {
             let account = Account(
                 id: id, email: email,
-                color: AccountColor.next(after: accounts.map(\.color)), service: .icloud)
+                color: AccountColor.next(after: accounts.map(\.color)), service: service, name: name)
             try await Self.store { [database] in try database.save(account) }
             accounts.append(account)
         }

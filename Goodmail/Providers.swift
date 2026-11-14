@@ -46,6 +46,7 @@ nonisolated final class Providers: Sendable {
         case .gmail: try await OAuthSession(accountID: account.id, client: .gmail, keychain: Keychain()).signOut()
         case .icloud: try ICloudSignIn(secrets: Keychain()).signOut(account.id)
         case .outlook: try await OAuthSession(accountID: account.id, client: .outlook, keychain: Keychain()).signOut()
+        case .imap: try IMAPSignIn(secrets: Keychain()).signOut(account.id)
         }
     }
 
@@ -59,6 +60,10 @@ nonisolated final class Providers: Sendable {
         case .outlook:
             OutlookClient(
                 session: OAuthSession(accountID: account.id, client: .outlook, keychain: Keychain()), index: database)
+        case .imap:
+            IMAPClient(
+                accountID: account.id, login: try IMAPSignIn(secrets: Keychain()).login(for: account.id),
+                index: database)
         }
     }
 }

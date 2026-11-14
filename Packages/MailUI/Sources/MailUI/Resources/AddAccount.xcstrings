@@ -67,6 +67,17 @@
         }
       }
     },
+    "Other Mail Account" : {
+      "comment" : "The service chooser's choice for an account on any IMAP and SMTP server",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חשבון דואר אחר"
+          }
+        }
+      }
+    },
     "Sign In" : {
       "comment" : "Checks the iCloud address and password",
       "localizations" : {

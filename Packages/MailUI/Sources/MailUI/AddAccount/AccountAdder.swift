@@ -46,12 +46,16 @@ public final class AccountAdder {
 }
 
 extension MailService {
-    /// The service's name, as its own brand writes it.
+    /// The service's name, as its own brand writes it, or for any other server what Mail calls it.
     var displayName: String {
         switch self {
         case .gmail: "Gmail"
         case .icloud: "iCloud"
         case .outlook: "Outlook"
+        case .imap:
+            String(
+                localized: "Other Mail Account", table: "AddAccount", bundle: .module,
+                comment: "The service chooser's choice for an account on any IMAP and SMTP server")
         }
     }
 
@@ -61,6 +65,7 @@ extension MailService {
         case .gmail: "envelope.fill"
         case .icloud: "icloud.fill"
         case .outlook: "tray.full.fill"
+        case .imap: "at"
         }
     }
 }

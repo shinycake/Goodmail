@@ -62,7 +62,7 @@ extension MailService {
     public var pushesNewMail: Bool {
         switch self {
         case .gmail, .outlook: true
-        case .icloud: false
+        case .icloud, .imap: false
         }
     }
 }
