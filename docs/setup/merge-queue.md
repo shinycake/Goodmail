@@ -4,7 +4,7 @@
 
 ## How a PR lands
 
-1. A ready PR gets a `review` run: the WIP limit, `scripts/check` on the PR merged with main, and the Claude review.
+1. A ready PR gets a `review` run: `scripts/check` on the PR merged with main, and the Claude review.
 2. When that run ends, a merge-queue sweep starts. It also starts every 10 minutes, and again after each sweep that merged a PR or found why one can't merge.
 3. The sweep's `plan` job looks at every ready PR from this repository, oldest first, and puts its place in the queue on the PR's **`merge-queue` status**, in the PR's checks list. The first PR that is approved and green is next.
 4. The `verify` job squashes that PR onto the current main. If the tree is the one the review run checked, it's done; if main moved since, it runs `scripts/check` on the squash, and once more if that fails, in case a test is flaky. This job runs the PR's code, so it has read access only.
@@ -20,7 +20,7 @@ The `merge-queue` status says it in one line, and each sweep's run summary has a
 | State | Status | What it means |
 |---|---|---|
 | ready | pending, "next to merge" or "queued behind #N" | Approved and green; it merges in turn. |
-| waiting | pending | The queue is waiting on something that needs nobody's action: a run in progress, a rerun, the `hold` label, the WIP limit, or the owner (a PR that changes `.github/`). |
+| waiting | pending | The queue is waiting on something that needs nobody's action: a run in progress, a rerun, the `hold` label, or the owner (a PR that changes `.github/`). |
 | stuck | failure | The author has to act. The queue also comments once on the PR. |
 
 A PR is stuck when:

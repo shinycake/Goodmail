@@ -18,7 +18,7 @@ A native iOS email client. Read [README.md](README.md) for the build and the gat
 The process is autonomous. Nobody needs to approve routine work.
 
 1. Work on a short-lived branch, one small vertical slice per PR. Pass `scripts/check` locally.
-   - **WIP limit (ADR-018):** one ready PR per thread, and six in all. The `wip` job turns a PR over the limit back into a draft. Land your open PR, by fixing its findings and failing checks first, before you open the next one. Keep later slices on local branches until then.
+   - **One ready PR per thread (ADR-018):** land your open PR, by fixing its findings and failing checks first, before you open the next one. Keep later slices on local branches until then.
    - New code goes in new files. Don't grow a central file every feature touches (coordinators, registries, shared string tables): give each feature its own file or table.
 2. Open a ready (not draft) PR with evidence: the `scripts/check` output, plus simulator screenshots or recordings for UI changes.
 3. `.github/workflows/review.yml` runs the Linux `scripts/check` on the PR merged with main, and a Claude review against [docs/review.md](docs/review.md). Its comments land on the PR.

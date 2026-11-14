@@ -67,7 +67,7 @@ assess() {
             [[ "$checked" == - ]] || tree=$(gh api "repos/$R/git/commits/$checked" --jq .tree.sha 2>/dev/null || true)
             printf 'ready\tApproved and green.\t%s\n' "$tree"
         else
-            printf 'waiting\tThe WIP limit held it back. Mark it ready again once its lane has room.\n'
+            printf 'waiting\tIts review run skipped the check or the review. Push, or mark it ready again, to run them.\n'
         fi
         return
     fi
