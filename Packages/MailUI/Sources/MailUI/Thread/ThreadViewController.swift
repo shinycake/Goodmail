@@ -39,6 +39,8 @@ public final class ThreadViewController: UIViewController {
     private lazy var unsubscribeBanner = UnsubscribeBanner()
     /// The reader's request to leave the list, cancelled if the reader leaves first.
     private var unsubscribing: Task<Void, Never>?
+    /// Print and Share as PDF, from the Reply button's menu.
+    private lazy var exporter = ConversationExporter(presenter: self)
 
     public init(
         viewModel: ThreadViewModel, openURL: @escaping (URL) -> Void, unsubscribeOffer: UnsubscribeOffer? = nil
@@ -219,6 +221,15 @@ public final class ThreadViewController: UIViewController {
                     image: UIImage(systemName: "arrowshape.turn.up.right")
                 ) { [weak self] _ in self?.viewModel.forward() },
             ]))
+        replyItem.menu = replyItem.menu?.replacingChildren(
+            (replyItem.menu?.children ?? [])
+                + [
+                    UIMenu(
+                        options: .displayInline,
+                        children: exporter.menuElements(anchor: replyItem) { [weak self] in
+                            self?.exportedConversation
+                        })
+                ])
         let deleteForever = UIBarButtonItem(
             title: ThreadAction.deleteForever.title, image: UIImage(systemName: ThreadAction.deleteForever.symbol),
             primaryAction: UIAction { [weak self] _ in
@@ -291,6 +302,14 @@ public final class ThreadViewController: UIViewController {
             }
         }
         present(alert, animated: true)
+    }
+
+    /// The conversation as it is now, for Print and Share as PDF.
+    private var exportedConversation: ConversationExporter.Conversation {
+        ConversationExporter.Conversation(
+            subject: viewModel.thread.subject.isEmpty ? ThreadRowMetrics.noSubject : viewModel.thread.subject,
+            messages: viewModel.messages, allowsRemoteContent: viewModel.remoteContentAllowed,
+            attachmentData: viewModel.attachmentData)
     }
 
     /// Cards for the open messages and one-line rows for the rest.

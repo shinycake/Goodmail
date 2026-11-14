@@ -1,0 +1,105 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Cc:" : {
+      "comment" : "Printed header label",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עותק:"
+          }
+        }
+      }
+    },
+    "Conversation" : {
+      "comment" : "PDF file name, no subject",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שיחה"
+          }
+        }
+      }
+    },
+    "Couldn’t Make a PDF" : {
+      "comment" : "Alert title when laying out the conversation for print or PDF fails",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן היה ליצור PDF"
+          }
+        }
+      }
+    },
+    "Date:" : {
+      "comment" : "Printed header label",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תאריך:"
+          }
+        }
+      }
+    },
+    "From:" : {
+      "comment" : "Printed header label",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מאת:"
+          }
+        }
+      }
+    },
+    "OK" : {
+      "comment" : "Dismiss",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אישור"
+          }
+        }
+      }
+    },
+    "Print…" : {
+      "comment" : "Prints the conversation",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הדפסה…"
+          }
+        }
+      }
+    },
+    "Share as PDF…" : {
+      "comment" : "Shares the conversation as a PDF file",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שיתוף כ־PDF…"
+          }
+        }
+      }
+    },
+    "To:" : {
+      "comment" : "Printed header label",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אל:"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
