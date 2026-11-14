@@ -126,7 +126,7 @@ struct ICloudSignInView: View {
                     table: "AddAccount", bundle: .module, comment: "iCloud sign-in: the address or password was refused"
                 ))
         } catch {
-            stage = .editing(failure: error.localizedDescription)
+            stage = .editing(failure: FailureReason.message(for: error))
         }
     }
 }

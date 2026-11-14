@@ -132,7 +132,7 @@ final class AppModel {
             accounts.append(account)
             didAddAccount?()
         }
-        try await syncAll()
+        await syncAfterAdding()
         return true
     }
 
@@ -166,7 +166,18 @@ final class AppModel {
             try await Self.store { [database] in try database.save(account) }
             accounts.append(account)
         }
-        try await syncAll()
+        await syncAfterAdding()
+    }
+
+    /// Syncs every account once one was added. The account is already here, so a failed sync doesn't undo it or say
+    /// the sign-in failed, least of all when it's another account that can't sync. The next sync tries again.
+    private func syncAfterAdding() async {
+        do {
+            try await syncAll()
+        } catch {
+            Logger(subsystem: "com.idanbirman.goodmail", category: "sync")
+                .error("The sync after adding an account failed: \(error, privacy: .public)")
+        }
     }
 
     /// Signs the account out and takes it and its mail off the device. Nothing changes at its service.

@@ -1,0 +1,83 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Goodmail couldn’t make a secure connection to the server, so nothing was sent." : {
+      "comment" : "Failure: TLS to the mail server failed",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Goodmail לא הצליח ליצור חיבור מאובטח לשרת, ולכן לא נשלח דבר."
+          }
+        }
+      }
+    },
+    "Goodmail couldn’t reach the server. Check your connection and try again." : {
+      "comment" : "Failure: the mail server couldn't be found or reached",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Goodmail לא הצליח להגיע לשרת. בדוק את החיבור ונסה שוב."
+          }
+        }
+      }
+    },
+    "Something went wrong. Try again." : {
+      "comment" : "Failure: an error with no better explanation",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "משהו השתבש. נסה שוב."
+          }
+        }
+      }
+    },
+    "The connection to the server was lost. Try again." : {
+      "comment" : "Failure: an open connection to the mail server broke",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "החיבור לשרת נותק. נסה שוב."
+          }
+        }
+      }
+    },
+    "The server took too long to answer. Try again in a moment." : {
+      "comment" : "Failure: the mail server didn't answer in time",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השרת לא ענה בזמן. נסה שוב בעוד רגע."
+          }
+        }
+      }
+    },
+    "The sign-in didn’t finish. Try signing in again." : {
+      "comment" : "Failure: the provider didn't complete or refused the sign-in",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ההתחברות לא הושלמה. נסה להתחבר שוב."
+          }
+        }
+      }
+    },
+    "You’re offline. Connect to the internet and try again." : {
+      "comment" : "Failure: the device has no internet connection",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אין חיבור לאינטרנט. התחבר לאינטרנט ונסה שוב."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

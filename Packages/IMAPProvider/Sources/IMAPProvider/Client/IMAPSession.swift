@@ -24,15 +24,18 @@ actor IMAPSession {
         self.connect = connect
     }
 
-    /// Runs `operation` after every operation started before it. Servers drop idle connections, so when the
-    /// connection turns out to be closed, `operation` runs once more on a new one. Operations read, or make changes
-    /// that are the same when made twice, except COPY: a connection lost between the server's copy and its reply
-    /// files a second copy, which shows as one message, since threads count copies once.
+    /// Runs `operation` after every operation started before it. Servers drop idle connections, saying BYE, ending
+    /// the stream or leaving a socket that fails on the next write; whichever way, the connection closes, and
+    /// `operation` runs once more on a new one. Operations read, or make changes that are the same when made twice,
+    /// except COPY: a connection lost between the server's copy and its reply files a second copy, which shows as one
+    /// message, since threads count copies once.
     func run<T: Sendable>(_ operation: @escaping @Sendable (IMAPConnection) async throws -> T) async throws -> T {
         try await queue.run {
+            let connection = try await self.connection()
             do {
-                return try await operation(try await self.connection())
-            } catch IMAPError.closed {
+                return try await operation(connection)
+            } catch {
+                guard await connection.state == .closed, !Task.isCancelled else { throw error }
                 await self.disconnect()
                 return try await operation(try await self.connection())
             }

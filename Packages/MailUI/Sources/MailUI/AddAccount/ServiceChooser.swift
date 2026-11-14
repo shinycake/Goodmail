@@ -36,7 +36,7 @@ extension View {
             isPresented: Binding(get: { adder.error != nil }, set: { if !$0 { adder.error = nil } })
         ) {
         } message: {
-            Text(adder.error?.localizedDescription ?? "")
+            Text(adder.error.map(FailureReason.message(for:)) ?? "")
         }
     }
 }

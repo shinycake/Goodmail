@@ -293,6 +293,24 @@ struct IMAPClientTests {
             Self.login, index: MemoryIndex())
         #expect(try await client.labels().count == 8)
     }
+
+    /// A socket the server dropped while the app was away throws on the next write instead of ending the stream. The
+    /// session opens a new connection then too, so one idle account doesn't fail every later sync, or the sign-in of
+    /// another account that syncs everything.
+    @Test func aSocketDroppedWhileIdleIsOpenedAgain() async throws {
+        let client = Self.client(Self.login + "\n-- dropped", Self.login, index: MemoryIndex())
+        #expect(try await client.labels().count == 8)
+        #expect(try await client.labels().count == 8)
+    }
+
+    /// When the new connection fails too, the socket's own error comes out, so the reader can be told why.
+    @Test func aSocketThatFailsAgainSaysWhy() async throws {
+        let client = Self.client(
+            Self.login + "\n-- dropped", "S: * OK [CAPABILITY IMAP4rev1] ready\n-- dropped", index: MemoryIndex())
+        _ = try await client.labels()
+        let error = await #expect(throws: NSError.self) { try await client.labels() }
+        #expect(error == ScriptedTransport.notConnected)
+    }
 }
 
 /// Hands out one transport per connection, in order.

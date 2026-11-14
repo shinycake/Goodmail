@@ -42,8 +42,8 @@ actor IMAPConnection {
         }
     }
 
-    /// Closes the connection without logging out, as when it's being replaced. Commands then throw
-    /// `IMAPError.closed`.
+    /// Closes the connection without logging out, as when it's being replaced or its socket failed. Commands then
+    /// throw `IMAPError.closed`.
     func close() async {
         state = .closed
         await transport.close()
@@ -278,7 +278,7 @@ actor IMAPConnection {
         let tag = "A\(nextTag)"
         nextTag += 1
         var parts = try command.parts(tag: tag)[...]
-        try await transport.send(parts.removeFirst())
+        try await send(parts.removeFirst())
         var reply = IMAPReply()
         while true {
             switch try await nextResponse() {
@@ -299,7 +299,7 @@ actor IMAPConnection {
                 guard let next = parts.popFirst() else {
                     throw IMAPError.invalid(IMAPStatus(condition: .bad, text: "Unexpected +"))
                 }
-                try await transport.send(next)
+                try await send(next)
             case .completion:
                 // No other command is in flight.
                 continue
@@ -310,12 +310,34 @@ actor IMAPConnection {
     private func nextResponse() async throws -> IMAPResponse {
         while true {
             if let response = framer.next() { return try IMAPParser.response(from: response) }
-            let bytes = try await transport.receive()
+            let bytes = try await receive()
             guard !bytes.isEmpty else {
                 await close()
                 throw IMAPError.closed
             }
             framer.append(bytes)
+        }
+    }
+
+    /// Writes to the socket. A socket that fails has lost the connection, as one the server dropped while it was idle
+    /// does, so the connection closes and its owner opens a new one. The socket's error, such as `Network.NWError`
+    /// 57, goes on up to say why.
+    private func send(_ data: Data) async throws {
+        do {
+            try await transport.send(data)
+        } catch {
+            await close()
+            throw error
+        }
+    }
+
+    /// Reads from the socket, closing the connection when the socket fails, as `send(_:)` does.
+    private func receive() async throws -> Data {
+        do {
+            return try await transport.receive()
+        } catch {
+            await close()
+            throw error
         }
     }
 
