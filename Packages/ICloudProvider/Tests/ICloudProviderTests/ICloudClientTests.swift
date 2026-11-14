@@ -126,6 +126,26 @@ struct ICloudClientTests {
                 == ["a0@example.com", "a0@example.com", "a0@example.com", "b0@example.com"])
     }
 
+    @Test func textSearchAsksTheServerWordByWord() async throws {
+        let client = Self.client(
+            Self.login + "\n" + Self.select("INBOX", tag: 5) + """
+
+                C: A6 UID SEARCH CHARSET UTF-8 TEXT {10}
+                S: + go
+                C: ארוחת TEXT {5}
+                S: + go
+                C: lunch
+                S: * SEARCH 11
+                S: A6 OK SEARCH completed
+                C: A7 UID FETCH 11 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES CONTENT-TYPE CONTENT-TRANSFER-ENCODING)] BODY.PEEK[TEXT]<0.2048>)
+                \(Self.header(uid: 11, date: "1-Nov-2026 09:00:00 +0000", subject: "Lunch", messageID: "b@x"))
+                S: A7 OK FETCH completed
+                """, index: MemoryIndex())
+        let page = try await client.threads(
+            matching: ThreadQuery(label: SystemLabel.inbox, text: "ארוחת lunch"), pageToken: nil)
+        #expect(page.threads.map(\.subject) == ["Lunch"])
+    }
+
     @Test func pagesWalkEachFolderNewestFirst() async throws {
         let index = MemoryIndex()
         let first = Self.client(

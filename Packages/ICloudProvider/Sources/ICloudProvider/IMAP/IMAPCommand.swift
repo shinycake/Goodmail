@@ -1,6 +1,6 @@
 import Foundation
 
-/// The commands Goodmail sends, each written as one line (RFC 3501 §6).
+/// The commands Goodmail sends (RFC 3501 §6).
 enum IMAPCommand: Equatable, Sendable {
     case capability
     case login(user: String, password: String)
@@ -27,7 +27,7 @@ enum IMAPCommand: Equatable, Sendable {
     case uidExpunge(uids: [UInt32])
     /// Adds a message to a mailbox. The line announces the message as a literal of `size` bytes, which follows
     /// once the server asks for it.
-    case append(mailbox: String, flags: Set<String>, size: Int)
+    case append(mailbox: String, flags: Set<String>, message: Data)
     case logout
 
     /// The UID, flags, dates, envelope and threading headers of a message, and the start of its text with the headers
@@ -40,37 +40,64 @@ enum IMAPCommand: Equatable, Sendable {
     /// The whole message, without marking it read.
     static let messageItems = "(UID FLAGS INTERNALDATE BODY.PEEK[])"
 
-    /// The command's line. Throws `IMAPError.unencodable` for an argument a quoted string can't carry.
-    func line(tag: String) throws -> Data {
-        Data("\(tag) \(try arguments)\r\n".utf8)
+    /// A piece of a command: text as it goes on the line, or bytes sent as a literal (RFC 3501 §4.3).
+    enum Argument: Equatable, Sendable {
+        case text(String)
+        case literal(Data)
     }
 
-    private var arguments: String {
+    /// What goes on the wire: the first part, then one more each time the server answers `+` to a literal.
+    /// Throws `IMAPError.unencodable` for an argument a quoted string can't carry.
+    func parts(tag: String) throws -> [Data] {
+        var parts: [Data] = []
+        var current = Data("\(tag)".utf8)
+        for argument in try arguments {
+            switch argument {
+            case .text(let text): current += Data(" \(text)".utf8)
+            case .literal(let bytes):
+                parts.append(current + Data(" {\(bytes.count)}\r\n".utf8))
+                current = bytes
+            }
+        }
+        return parts + [current + Data("\r\n".utf8)]
+    }
+
+    private var arguments: [Argument] {
         get throws {
             switch self {
-            case .capability: "CAPABILITY"
-            case .login(let user, let password): "LOGIN \(try Self.quoted(user)) \(try Self.quoted(password))"
-            case .list: #"LIST "" "*""#
-            case .select(let mailbox): "SELECT \(try Self.quoted(mailbox))"
-            case .enable(let capability): "ENABLE \(capability)"
-            case .status(let mailbox): "STATUS \(try Self.quoted(mailbox)) (MESSAGES UIDNEXT UIDVALIDITY HIGHESTMODSEQ)"
-            case .uidSearch(let search): "UID SEARCH \(try search.criteria)"
-            case .uidFetch(let uids, let items): "UID FETCH \(Self.sequenceSet(uids)) \(items)"
+            case .capability: [.text("CAPABILITY")]
+            case .login(let user, let password): [.text("LOGIN \(try Self.quoted(user)) \(try Self.quoted(password))")]
+            case .list: [.text(#"LIST "" "*""#)]
+            case .select(let mailbox): [.text("SELECT \(try Self.quoted(mailbox))")]
+            case .enable(let capability): [.text("ENABLE \(capability)")]
+            case .status(let mailbox):
+                [.text("STATUS \(try Self.quoted(mailbox)) (MESSAGES UIDNEXT UIDVALIDITY HIGHESTMODSEQ)")]
+            case .uidSearch(let search): [.text("UID SEARCH")] + (try search.criteria)
+            case .uidFetch(let uids, let items): [.text("UID FETCH \(Self.sequenceSet(uids)) \(items)")]
             case .uidFetchChanged(let modSeq, let vanished):
-                "UID FETCH 1:* (UID FLAGS) (CHANGEDSINCE \(modSeq)\(vanished ? " VANISHED" : ""))"
+                [.text("UID FETCH 1:* (UID FLAGS) (CHANGEDSINCE \(modSeq)\(vanished ? " VANISHED" : ""))")]
             case .uidStore(let uids, let flags, let add):
-                "UID STORE \(Self.sequenceSet(uids)) \(add ? "+" : "-")FLAGS.SILENT (\(flags.sorted().joined(separator: " ")))"
-            case .uidCopy(let uids, let mailbox): "UID COPY \(Self.sequenceSet(uids)) \(try Self.quoted(mailbox))"
-            case .uidMove(let uids, let mailbox): "UID MOVE \(Self.sequenceSet(uids)) \(try Self.quoted(mailbox))"
-            case .uidExpunge(let uids): "UID EXPUNGE \(Self.sequenceSet(uids))"
-            case .append(let mailbox, let flags, let size):
-                "APPEND \(try Self.quoted(mailbox)) (\(flags.sorted().joined(separator: " "))) {\(size)}"
-            case .logout: "LOGOUT"
+                [
+                    .text(
+                        "UID STORE \(Self.sequenceSet(uids)) \(add ? "+" : "-")FLAGS.SILENT (\(flags.sorted().joined(separator: " ")))"
+                    )
+                ]
+            case .uidCopy(let uids, let mailbox):
+                [.text("UID COPY \(Self.sequenceSet(uids)) \(try Self.quoted(mailbox))")]
+            case .uidMove(let uids, let mailbox):
+                [.text("UID MOVE \(Self.sequenceSet(uids)) \(try Self.quoted(mailbox))")]
+            case .uidExpunge(let uids): [.text("UID EXPUNGE \(Self.sequenceSet(uids))")]
+            case .append(let mailbox, let flags, let message):
+                [
+                    .text("APPEND \(try Self.quoted(mailbox)) (\(flags.sorted().joined(separator: " ")))"),
+                    .literal(message),
+                ]
+            case .logout: [.text("LOGOUT")]
             }
         }
     }
 
-    /// A quoted string (RFC 3501 §4.3). Line breaks and non-ASCII would need a literal, which nothing sends yet.
+    /// A quoted string (RFC 3501 §4.3). Line breaks and non-ASCII need a literal instead.
     static func quoted(_ text: String) throws -> String {
         guard text.unicodeScalars.allSatisfy({ $0.isASCII && $0 != "\r" && $0 != "\n" }) else {
             throw IMAPError.unencodable

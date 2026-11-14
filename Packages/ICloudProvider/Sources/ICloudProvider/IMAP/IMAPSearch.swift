@@ -17,15 +17,24 @@ struct IMAPSearch: Equatable, Sendable {
     var flag: Flag?
     /// Only the message with this RFC 5322 Message-ID, bare (without angle brackets).
     var messageID: String?
+    /// Only messages with every word somewhere in their headers or body.
+    var text: String?
 
     /// Throws `IMAPError.unencodable` for a Message-ID a quoted string can't carry.
-    var criteria: String {
+    var criteria: [IMAPCommand.Argument] {
         get throws {
-            try criteriaList.joined(separator: " ")
+            let words = text?.split(whereSeparator: \.isWhitespace) ?? []
+            let other = try otherCriteria
+            var criteria: [IMAPCommand.Argument] = []
+            if !words.isEmpty { criteria.append(.text("CHARSET UTF-8")) }
+            if !other.isEmpty { criteria.append(.text(other.joined(separator: " "))) }
+            // Each word goes as a UTF-8 literal, which carries any script and any punctuation.
+            for word in words { criteria += [.text("TEXT"), .literal(Data(word.utf8))] }
+            return criteria.isEmpty ? [.text("ALL")] : criteria
         }
     }
 
-    private var criteriaList: [String] {
+    private var otherCriteria: [String] {
         get throws {
             var criteria: [String] = []
             if let uids {
@@ -38,7 +47,7 @@ struct IMAPSearch: Equatable, Sendable {
             // iCloud matches the header's whole value, angle brackets and all, where RFC 3501 asks for a substring; the
             // bracketed ID satisfies both.
             if let messageID { criteria.append("HEADER Message-ID \(try IMAPCommand.quoted("<\(messageID)>"))") }
-            return criteria.isEmpty ? ["ALL"] : criteria
+            return criteria
         }
     }
 }

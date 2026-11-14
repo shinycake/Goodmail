@@ -41,8 +41,8 @@ extension ICloudClient {
         _ raw: Data, as label: String, flags: Set<String>, inThread threadID: String?, unlessFiled: Bool
     ) async throws {
         let headers = MIMEPart(parsing: raw)
-        let messageID = headers.header("Message-ID").flatMap { IMAPMessageHeader.messageIDs(in: $0).first }
-        let references = IMAPMessageHeader.messageIDs(in: headers.header("References") ?? "")
+        let messageID = headers.header("Message-ID").flatMap { Message.messageIDs(in: $0).first }
+        let references = Message.messageIDs(in: headers.header("References") ?? "")
         try await session.run { connection in
             guard let folder = Folders(try await connection.mailboxes()).folder(for: label) else { return }
             if unlessFiled, let messageID {

@@ -17,12 +17,14 @@ extension ICloudClient {
                 let uids = keys.filter { $0.uidValidity == selection.uidValidity }.map(\.uid)
                 let label = folders.label(ofFolderNamed: folder)
                 messages += try await connection.messages(uids).map { content in
-                    Message(
-                        content,
-                        key: MessageKey(folder: folder, uidValidity: selection.uidValidity, uid: content.uid),
-                        threadID: threadID,
-                        labelIDs: Folders.labelIDs(folderLabel: label, flags: content.flags),
-                        accountID: accountID)
+                    let key = MessageKey(folder: folder, uidValidity: selection.uidValidity, uid: content.uid)
+                    var message = Message(
+                        id: Message.ID(accountID: accountID, messageID: key.rawValue), threadID: threadID,
+                        mime: MIMEPart(parsing: content.raw), date: content.receivedAt, snippet: "",
+                        labelIDs: Folders.labelIDs(folderLabel: label, flags: content.flags))
+                    // IMAP keeps no snippet, so it comes from the body the message was just read with.
+                    message.snippet = message.body.snippet
+                    return message
                 }
             }
             guard !messages.isEmpty else { throw ProviderError.notFound }
@@ -53,31 +55,5 @@ extension ICloudClient {
             byID[id, default: message].labelIDs.formUnion(message.labelIDs)
         }
         return order.compactMap { byID[$0] }
-    }
-}
-
-extension Message {
-    fileprivate init(
-        _ content: IMAPMessageContent, key: MessageKey, threadID: String, labelIDs: Set<String>, accountID: AccountID
-    ) {
-        let mime = MIMEPart(parsing: content.raw)
-        let (body, attachments) = mime.content()
-        func addresses(_ header: String) -> [Contact] { mime.header(header).map(Contact.list(parsing:)) ?? [] }
-        self.init(
-            id: ID(accountID: accountID, messageID: key.rawValue),
-            threadID: threadID,
-            from: addresses("From").first ?? Contact(name: nil, address: ""),
-            to: addresses("To"),
-            cc: addresses("Cc"),
-            bcc: addresses("Bcc"),
-            replyTo: addresses("Reply-To"),
-            subject: mime.header("Subject") ?? "",
-            date: content.receivedAt,
-            snippet: body.snippet,
-            labelIDs: labelIDs,
-            body: body,
-            attachments: attachments,
-            internetMessageID: mime.header("Message-ID").flatMap { IMAPMessageHeader.messageIDs(in: $0).first },
-            references: IMAPMessageHeader.messageIDs(in: mime.header("References") ?? ""))
     }
 }

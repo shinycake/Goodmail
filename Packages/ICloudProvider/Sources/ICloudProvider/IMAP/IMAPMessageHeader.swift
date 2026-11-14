@@ -74,10 +74,10 @@ struct IMAPMessageHeader: Equatable, Sendable {
         from = Self.addresses(envelope[2])
         to = Self.addresses(envelope[5])
         cc = Self.addresses(envelope[6])
-        inReplyTo = Self.text(envelope[8]).flatMap { Self.messageIDs(in: $0).first }
-        messageID = Self.text(envelope[9]).flatMap { Self.messageIDs(in: $0).first }
+        inReplyTo = Self.text(envelope[8]).flatMap { Message.messageIDs(in: $0).first }
+        messageID = Self.text(envelope[9]).flatMap { Message.messageIDs(in: $0).first }
         let fields = fetch.item(prefixed: "BODY[HEADER.FIELDS").flatMap(\.bytes) ?? Data()
-        references = Self.messageIDs(in: String(decoding: fields, as: UTF8.self))
+        references = Message.messageIDs(in: String(decoding: fields, as: UTF8.self))
         // The start of the text under the headers that say how to read it parses like a message cut short.
         let text = fetch.item(prefixed: "BODY[TEXT]").flatMap(\.bytes)
         snippet = text.map { MIMEPart(parsing: fields + $0).content().body.snippet } ?? ""
@@ -95,12 +95,6 @@ struct IMAPMessageHeader: Equatable, Sendable {
             let name = text(parts[0]).flatMap { $0.isEmpty ? nil : $0 }
             return Contact(name: name, address: "\(mailbox)@\(host)")
         }
-    }
-
-    /// Every `<...>` in a header, without its angle brackets, as Goodmail keeps message IDs for every provider.
-    /// Folding and stray comments don't matter.
-    static func messageIDs(in header: String) -> [String] {
-        header.matches(of: /<([^<>\s]+)>/).map { String($0.output.1) }
     }
 
     /// `17-Jul-1996 02:44:25 -0700`, with the day sometimes padded by a space.

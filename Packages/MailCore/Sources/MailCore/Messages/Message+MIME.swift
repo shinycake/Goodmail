@@ -28,7 +28,7 @@ extension Message {
     }
 
     /// Every `<...>` in a header, without its brackets, so folding, missing spaces and stray comments don't matter.
-    static func messageIDs(in header: String) -> [String] {
+    public static func messageIDs(in header: String) -> [String] {
         header.matches(of: /<([^<>\s]+)>/).map { String($0.output.1) }
     }
 }

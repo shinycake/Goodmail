@@ -188,8 +188,7 @@ actor IMAPConnection {
     func append(_ message: Data, to mailbox: String, flags: Set<String>) async throws -> MessageUID? {
         try await exclusively { connection in
             try connection.requireAuthenticated()
-            let reply = try await connection.run(
-                .append(mailbox: mailbox, flags: flags, size: message.count), literal: message)
+            let reply = try await connection.run(.append(mailbox: mailbox, flags: flags, message: message))
             guard let code = reply.completion.code("APPENDUID"), code.count == 2, let uidValidity = code[0].number,
                 let uid = code[1].number
             else { return nil }
@@ -214,13 +213,14 @@ actor IMAPConnection {
         try await queue.run { try await operation(self) }.value
     }
 
-    /// Sends `command` and reads up to its completion. Returns the untagged data that came with it. A command that
-    /// announces a literal sends `literal` when the server asks for it.
-    private func run(_ command: IMAPCommand, literal: Data? = nil) async throws -> IMAPReply {
+    /// Sends `command` and reads up to its completion. Returns the untagged data that came with it. A command with
+    /// literals sends each one when the server asks for it.
+    private func run(_ command: IMAPCommand) async throws -> IMAPReply {
         guard state != .closed else { throw IMAPError.closed }
         let tag = "A\(nextTag)"
         nextTag += 1
-        try await transport.send(try command.line(tag: tag))
+        var parts = try command.parts(tag: tag)[...]
+        try await transport.send(parts.removeFirst())
         var reply = IMAPReply()
         while true {
             switch try await nextResponse() {
@@ -238,8 +238,10 @@ actor IMAPConnection {
                 remember(capabilitiesIn: status)
                 reply.statuses.append(status)
             case .continuation:
-                guard let literal else { throw IMAPError.invalid(IMAPStatus(condition: .bad, text: "Unexpected +")) }
-                try await transport.send(literal + Data("\r\n".utf8))
+                guard let next = parts.popFirst() else {
+                    throw IMAPError.invalid(IMAPStatus(condition: .bad, text: "Unexpected +"))
+                }
+                try await transport.send(next)
             case .completion:
                 // No other command is in flight.
                 continue

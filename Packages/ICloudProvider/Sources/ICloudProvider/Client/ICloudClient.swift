@@ -57,10 +57,9 @@ public struct ICloudClient: MailProvider {
         }
     }
 
-    /// Reads the query's folders in turn, newest UID first, so a page holds one folder's messages. Text search
-    /// isn't supported yet.
+    /// Reads the query's folders in turn, newest UID first, so a page holds one folder's messages. Text matches
+    /// every word anywhere in a message, as iCloud's server search finds it.
     public func threads(matching query: ThreadQuery, pageToken: String?) async throws -> ThreadPage {
-        guard query.text == nil else { throw ICloudError.unsupported }
         let token = try pageToken.map(ICloudPageToken.init) ?? ICloudPageToken(folder: 0, position: nil)
         return try await session.run { connection in
             let folders = Folders(try await connection.mailboxes())
@@ -106,11 +105,6 @@ public struct ICloudClient: MailProvider {
     public func signature() async throws -> String { "" }
 }
 
-/// What the iCloud client can't do yet: search by text.
-public enum ICloudError: Error, Equatable {
-    case unsupported
-}
-
 extension ThreadQuery {
     /// IMAP dates are days in the server's time zone, so the search takes a day either side and `contains(_:)` cuts
     /// the result to the exact times.
@@ -120,7 +114,8 @@ extension ThreadQuery {
             uids: below.map { 1...($0 - 1) },
             since: since?.addingTimeInterval(-day),
             before: before?.addingTimeInterval(day),
-            flag: flag)
+            flag: flag,
+            text: text)
     }
 
     fileprivate func contains(_ header: IMAPMessageHeader) -> Bool {
