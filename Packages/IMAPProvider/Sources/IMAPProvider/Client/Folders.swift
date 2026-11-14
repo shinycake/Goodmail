@@ -1,6 +1,6 @@
 import MailCore
 
-/// The account's folders as Goodmail's labels. iCloud files each message in one folder, so the folder gives it its
+/// The account's folders as Goodmail's labels. IMAP files each message in one folder, so the folder gives it its
 /// one label: a role folder its `SystemLabel`, Archive none (archived mail is only in All Mail), and any other folder
 /// its wire name. STARRED and UNREAD are flags, so they span folders.
 struct Folders: Sendable {
@@ -9,21 +9,33 @@ struct Folders: Sendable {
 
     init(_ mailboxes: [IMAPMailbox]) {
         let selectable = mailboxes.filter(\.isSelectable)
-        // iCloud marks only Sent and Trash with special-use attributes, so a role no folder claims goes to the folder
-        // with iCloud's name for it.
-        let claimed = Set(selectable.compactMap(\.role))
+        // Servers without special-use attributes (RFC 6154), and iCloud for all but Sent and Trash, leave roles
+        // unmarked. A role no folder claims goes to the first folder with a usual name for it.
+        var claimed = Set(selectable.compactMap(\.role))
         all = selectable.map { folder in
-            guard folder.role == nil, let role = Self.roles[folder.wireName.lowercased()], !claimed.contains(role)
+            guard folder.role == nil, let role = Self.role(named: folder.wireName), !claimed.contains(role)
             else { return folder }
+            claimed.insert(role)
             var named = folder
             named.role = role
             return named
         }
     }
 
-    /// iCloud's names for its role folders.
+    /// The role a folder's name gives it, as iCloud, Exchange, Dovecot, Yahoo and the rest name their role
+    /// folders. Courier and some Dovecot setups keep every folder inside INBOX, as `INBOX.Sent`.
+    private static func role(named wireName: String) -> IMAPMailbox.Role? {
+        let name = wireName.lowercased()
+        let top = ["inbox.", "inbox/"].first(where: name.hasPrefix).map { String(name.dropFirst($0.count)) } ?? name
+        return roles[top]
+    }
+
     private static let roles: [String: IMAPMailbox.Role] = [
-        "sent messages": .sent, "drafts": .drafts, "deleted messages": .trash, "junk": .junk, "archive": .archive,
+        "sent messages": .sent, "sent": .sent, "sent items": .sent, "sent mail": .sent,
+        "drafts": .drafts, "draft": .drafts,
+        "deleted messages": .trash, "trash": .trash, "deleted items": .trash, "deleted": .trash,
+        "junk": .junk, "spam": .junk, "junk e-mail": .junk, "junk email": .junk, "bulk mail": .junk,
+        "archive": .archive, "archives": .archive,
     ]
 
     static func label(of folder: IMAPMailbox) -> String? {

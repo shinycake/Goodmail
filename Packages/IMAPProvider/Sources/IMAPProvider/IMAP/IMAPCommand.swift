@@ -12,8 +12,8 @@ enum IMAPCommand: Equatable, Sendable {
     case select(String)
     /// Turns on an extension, such as QRESYNC (RFC 5161).
     case enable(String)
-    /// A mailbox's counters without selecting it.
-    case status(String)
+    /// A mailbox's counters without selecting it, with its HIGHESTMODSEQ when the server has CONDSTORE (RFC 7162).
+    case status(String, modSeq: Bool)
     case uidSearch(IMAPSearch)
     case uidFetch(uids: [UInt32], items: String)
     /// The selected mailbox's messages whose flags changed after `modSeq` (RFC 7162 §3.1.4), and with QRESYNC
@@ -27,6 +27,8 @@ enum IMAPCommand: Equatable, Sendable {
     case uidMove(uids: [UInt32], mailbox: String)
     /// Removes these messages for good, once they are flagged `\Deleted` (RFC 4315 §2.1).
     case uidExpunge(uids: [UInt32])
+    /// Removes every message of the selected mailbox flagged `\Deleted`, for a server without UIDPLUS.
+    case expunge
     /// Adds a message to a mailbox. The line announces the message as a literal of `size` bytes, which follows
     /// once the server asks for it.
     case append(mailbox: String, flags: Set<String>, message: Data)
@@ -73,8 +75,12 @@ enum IMAPCommand: Equatable, Sendable {
             case .list: [.text(#"LIST "" "*""#)]
             case .select(let mailbox): [.text("SELECT \(try Self.quoted(mailbox))")]
             case .enable(let capability): [.text("ENABLE \(capability)")]
-            case .status(let mailbox):
-                [.text("STATUS \(try Self.quoted(mailbox)) (MESSAGES UIDNEXT UIDVALIDITY HIGHESTMODSEQ)")]
+            case .status(let mailbox, let modSeq):
+                [
+                    .text(
+                        "STATUS \(try Self.quoted(mailbox)) (MESSAGES UIDNEXT UIDVALIDITY\(modSeq ? " HIGHESTMODSEQ" : ""))"
+                    )
+                ]
             case .uidSearch(let search): [.text("UID SEARCH")] + (try search.criteria)
             case .uidFetch(let uids, let items): [.text("UID FETCH \(Self.sequenceSet(uids)) \(items)")]
             case .uidFetchChanged(let modSeq, let vanished):
@@ -90,6 +96,7 @@ enum IMAPCommand: Equatable, Sendable {
             case .uidMove(let uids, let mailbox):
                 [.text("UID MOVE \(Self.sequenceSet(uids)) \(try Self.quoted(mailbox))")]
             case .uidExpunge(let uids): [.text("UID EXPUNGE \(Self.sequenceSet(uids))")]
+            case .expunge: [.text("EXPUNGE")]
             case .append(let mailbox, let flags, let message):
                 [
                     .text("APPEND \(try Self.quoted(mailbox)) (\(flags.sorted().joined(separator: " ")))"),

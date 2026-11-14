@@ -33,4 +33,16 @@ struct FoldersTests {
         #expect(folders.all.map(\.role) == [nil, .drafts])
         #expect(folders.folder(for: SystemLabel.draft)?.wireName == "Brouillons")
     }
+
+    @Test func otherServersRoleFoldersAreFoundByTheirUsualNames() throws {
+        let folders = Folders(
+            try ["INBOX", "Sent Items", "Deleted Items", "Junk E-mail", "Drafts", "Archive", "Sent", "Receipts"]
+                .map { try mailbox($0) })
+        #expect(folders.all.map(\.role) == [.inbox, .sent, .trash, .junk, .drafts, .archive, nil, nil])
+
+        let nested = Folders(try ["INBOX", "INBOX.Sent", "INBOX.Trash", "INBOX.spam"].map { try mailbox($0) })
+        #expect(nested.folder(for: SystemLabel.sent)?.wireName == "INBOX.Sent")
+        #expect(nested.folder(for: SystemLabel.trash)?.wireName == "INBOX.Trash")
+        #expect(nested.folder(for: SystemLabel.spam)?.wireName == "INBOX.spam")
+    }
 }

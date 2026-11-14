@@ -2,8 +2,8 @@ import Foundation
 
 /// A mailbox as `LIST` names it.
 struct IMAPMailbox: Equatable, Sendable {
-    /// What a mailbox is for, from its special-use attribute (RFC 6154), or for INBOX its name. `Folders` names the
-    /// roles iCloud leaves unmarked.
+    /// What a mailbox is for, from its special-use attribute (RFC 6154), or for INBOX its name. `Folders` gives the
+    /// unmarked ones a role by their names.
     enum Role: Equatable, Sendable {
         case inbox, sent, drafts, trash, junk, archive
     }

@@ -123,7 +123,8 @@ actor IMAPConnection {
     func status(of mailbox: String) async throws -> IMAPFolderStatus {
         try await exclusively { connection in
             try connection.requireAuthenticated()
-            let reply = try await connection.run(.status(mailbox))
+            let modSeq = connection.capabilities?.contains("CONDSTORE") == true
+            let reply = try await connection.run(.status(mailbox, modSeq: modSeq))
             guard let status = reply.data.lazy.compactMap(IMAPFolderStatus.init(statusResponse:)).first else {
                 throw IMAPError.invalid(reply.completion)
             }
@@ -192,14 +193,22 @@ actor IMAPConnection {
 
     /// Copies these messages of the selected mailbox to `mailbox`, or moves them there. Returns each message's UID
     /// in `mailbox`, by its UID here, as the server's COPYUID names them (RFC 4315); `nil` when it doesn't say.
+    ///
+    /// A move is a MOVE (RFC 6851), tried even when the server doesn't advertise it, as iCloud doesn't. A server
+    /// that doesn't know the command answers BAD and has done nothing, so the messages are copied, then expunged.
     func transfer(_ uids: [UInt32], to mailbox: String, move: Bool) async throws -> IMAPCopy? {
         guard !uids.isEmpty else { return nil }
         return try await exclusively { connection in
             try connection.requireSelected()
-            let command =
-                move ? IMAPCommand.uidMove(uids: uids, mailbox: mailbox) : .uidCopy(uids: uids, mailbox: mailbox)
-            let reply = try await connection.run(command)
-            return (reply.statuses + [reply.completion]).lazy.compactMap(IMAPCopy.init(status:)).first
+            guard move else { return try await connection.copy(uids, to: mailbox) }
+            do {
+                let reply = try await connection.run(.uidMove(uids: uids, mailbox: mailbox))
+                return (reply.statuses + [reply.completion]).lazy.compactMap(IMAPCopy.init(status:)).first
+            } catch IMAPError.invalid where connection.capabilities?.contains("MOVE") != true {
+                let copy = try await connection.copy(uids, to: mailbox)
+                try await connection.markDeletedAndExpunge(uids)
+                return copy
+            }
         }
     }
 
@@ -208,9 +217,20 @@ actor IMAPConnection {
         guard !uids.isEmpty else { return }
         try await exclusively { connection in
             try connection.requireSelected()
-            _ = try await connection.run(.uidStore(uids: uids, flags: [#"\Deleted"#], add: true))
-            _ = try await connection.run(.uidExpunge(uids: uids))
+            try await connection.markDeletedAndExpunge(uids)
         }
+    }
+
+    private func copy(_ uids: [UInt32], to mailbox: String) async throws -> IMAPCopy? {
+        let reply = try await run(.uidCopy(uids: uids, mailbox: mailbox))
+        return (reply.statuses + [reply.completion]).lazy.compactMap(IMAPCopy.init(status:)).first
+    }
+
+    /// Flags these messages `\Deleted` and expunges them. Without UIDPLUS (RFC 4315) EXPUNGE can't name them, so it
+    /// also removes whatever else in the mailbox was flagged `\Deleted`, as every IMAP client's EXPUNGE does.
+    private func markDeletedAndExpunge(_ uids: [UInt32]) async throws {
+        _ = try await run(.uidStore(uids: uids, flags: [#"\Deleted"#], add: true))
+        _ = try await run(capabilities?.contains("UIDPLUS") == true ? .uidExpunge(uids: uids) : .expunge)
     }
 
     /// Adds `message` to `mailbox` with `flags`. Returns its UID there when the server says (APPENDUID, RFC 4315).
