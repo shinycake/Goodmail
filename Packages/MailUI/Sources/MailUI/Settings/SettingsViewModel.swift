@@ -17,6 +17,10 @@ public final class SettingsViewModel {
     public var rowDisplay: RowDisplay {
         didSet { Preferences.rowDisplay = rowDisplay }
     }
+    /// Which actions sit on each side of a mailbox row.
+    public var swipeArrangement: SwipeArrangement {
+        didSet { Preferences.swipeArrangement = swipeArrangement }
+    }
     /// How conversations open.
     public var conversationLayout: ConversationLayout {
         didSet { Preferences.conversationLayout = conversationLayout }
@@ -59,6 +63,7 @@ public final class SettingsViewModel {
         adder = AccountAdder(signIn: signIn)
         undoSendSeconds = Preferences.undoSendSeconds
         rowDisplay = Preferences.rowDisplay
+        swipeArrangement = Preferences.swipeArrangement
         conversationLayout = Preferences.conversationLayout
         unsortedInboxAccounts = Preferences.unsortedInboxAccounts
         combinedTheme = Preferences.combinedTheme

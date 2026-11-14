@@ -57,6 +57,11 @@ struct SettingsView: View {
                         "Avatars", tableName: "Settings", bundle: .module,
                         comment: "Setting for the sender's initials beside each row")
                 }
+                NavigationLink {
+                    SwipeSettingsView(model: model)
+                } label: {
+                    Text(SwipeSettingsView.title)
+                }
             } header: {
                 Text(
                     "Mail List", tableName: "Settings", bundle: .module,

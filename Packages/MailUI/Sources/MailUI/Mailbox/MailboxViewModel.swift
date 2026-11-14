@@ -242,22 +242,15 @@ public final class MailboxViewModel {
     }
 
     /// What a swipe button does: act on the thread at once, or ask until when to snooze it.
-    enum Swipe: Equatable {
+    nonisolated enum Swipe: Equatable {
         case perform(ThreadAction)
         case snooze
     }
 
-    /// The swipe actions for a row, edge-most first: reading state and star from the leading edge; from the
-    /// trailing one, what takes the thread out of the way here, with snooze after archive in the Inbox.
+    /// The swipe actions for a row, edge-most first, as the reader arranged them.
     func swipeActions(for thread: ThreadSummary, leading: Bool) -> [Swipe] {
         guard actions != nil else { return [] }
-        if leading {
-            return [.markRead(thread.isUnread), .star(!thread.labelIDs.contains(SystemLabel.starred))].map(
-                Swipe.perform)
-        }
-        var swipes = Self.trailingActions(for: thread).map(Swipe.perform)
-        if Self.canSnooze([thread]) { swipes.insert(.snooze, at: 1) }
-        return swipes
+        return Preferences.swipeArrangement.swipes(for: thread, on: leading ? .leading : .trailing)
     }
 
     /// What takes `thread` out of the way, by where it is: out of Trash, or gone for good from it, out of Spam, or out
@@ -288,7 +281,7 @@ public final class MailboxViewModel {
 
     /// Whether the threads can be snoozed together: only threads in the Inbox can, since snoozing takes them out
     /// of it.
-    static func canSnooze(_ threads: [ThreadSummary]) -> Bool {
+    nonisolated static func canSnooze(_ threads: [ThreadSummary]) -> Bool {
         !threads.isEmpty && threads.allSatisfy { $0.labelIDs.contains(SystemLabel.inbox) }
     }
 

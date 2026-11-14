@@ -5,7 +5,7 @@ import UIKit
 
 @MainActor
 struct SwipeLayoutTests {
-    private let layout = SwipeLayout(count: 2, rowWidth: 402)
+    private let layout = SwipeLayout(count: 2, rowWidth: 402, rowHeight: 110)
 
     @Test func buttonsWaitPastTheEdgeBeforeTheSwipe() {
         let placements = layout.placements(for: .tracking(0))
@@ -28,17 +28,28 @@ struct SwipeLayoutTests {
         }
     }
 
-    @Test func aFullSwipeCarriesTheEdgeMostButtonWithTheFinger() {
+    @Test func aFullSwipeGrowsTheEdgeMostButtonToTheFinger() {
         let distance: CGFloat = 300
         #expect(layout.reveal(at: distance) == .fullSwipe(distance))
         let placements = layout.placements(for: .fullSwipe(distance))
-        #expect(placements[0].isVisible && !placements[1].isVisible)
-        #expect(placements[0].offset == distance - SwipeLayout.diameter - SwipeLayout.spacing)
+        #expect(!placements[1].isVisible)
+        #expect(
+            placements[0]
+                == SwipePlacement(
+                    offset: SwipeLayout.inset, width: distance - SwipeLayout.inset - SwipeLayout.spacing,
+                    height: 110 - 2 * SwipeLayout.verticalInset, isVisible: true))
     }
 
-    @Test func aFullSwipeKeepsTheButtonOnTheRow() {
+    @Test func aFullSwipeCoversTheRowWithoutLeavingIt() {
         let placements = layout.placements(for: .fullSwipe(1000))
-        #expect(placements[0].offset == 402 - SwipeLayout.diameter - SwipeLayout.inset)
+        #expect(placements[0].offset == SwipeLayout.inset)
+        #expect(placements[0].width == 402 - 2 * SwipeLayout.inset)
+    }
+
+    @Test func aFullSwipeNeverShrinksTheButtonInAShortRow() {
+        let short = SwipeLayout(count: 1, rowWidth: 402, rowHeight: 50)
+        let placement = short.placements(for: .fullSwipe(250))[0]
+        #expect(placement.height == SwipeLayout.diameter)
     }
 
     @Test func aShortSwipeOnlyTracks() {

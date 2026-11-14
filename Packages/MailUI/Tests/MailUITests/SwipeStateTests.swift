@@ -9,7 +9,7 @@ struct SwipeStateTests {
         let side: SwipeSide
     }
 
-    private let layout = SwipeLayout(count: 2, rowWidth: 402)
+    private let layout = SwipeLayout(count: 2, rowWidth: 402, rowHeight: 110)
     /// Row "a" revealing its right side, as a leftward drag does.
     private let a = Row(id: "a", side: .right)
 

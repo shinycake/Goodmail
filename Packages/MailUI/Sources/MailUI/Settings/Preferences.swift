@@ -57,7 +57,27 @@ public enum Preferences {
         }
     }
 
+    /// Which actions sit on each side of a mailbox row. A side never set reads as the standard one; one the reader
+    /// emptied stays empty.
+    public static var swipeArrangement: SwipeArrangement {
+        get {
+            func side(_ key: String, standard: [SwipeChoice]) -> [SwipeChoice] {
+                // A choice this build doesn't know, as from a newer one, is skipped.
+                (defaults.stringArray(forKey: key)?.compactMap(SwipeChoice.init(rawValue:))) ?? standard
+            }
+            return SwipeArrangement(
+                leading: side(swipeLeadingKey, standard: SwipeArrangement.standard.leading),
+                trailing: side(swipeTrailingKey, standard: SwipeArrangement.standard.trailing))
+        }
+        set {
+            defaults.set(newValue.leading.map(\.rawValue), forKey: swipeLeadingKey)
+            defaults.set(newValue.trailing.map(\.rawValue), forKey: swipeTrailingKey)
+        }
+    }
+
     private static let undoSendKey = "undoSendSeconds"
+    private static let swipeLeadingKey = "swipeLeadingActions"
+    private static let swipeTrailingKey = "swipeTrailingActions"
     private static let previewLinesKey = "previewLines"
     private static let showsAvatarsKey = "showsAvatars"
     private static let unsortedInboxKey = "unsortedInboxAccounts"

@@ -224,15 +224,25 @@ nonisolated enum SwipeReveal: Equatable {
     }
 }
 
-/// Where each swipe button sits, measured inward from the row's edge, for a given reveal. Pure geometry, so the
-/// slide can be checked without a screen.
+/// Where a swipe button sits, measured inward from the row's edge to its outer side, and its size.
+nonisolated struct SwipePlacement: Equatable {
+    var offset: CGFloat
+    var width = SwipeLayout.diameter
+    var height = SwipeLayout.diameter
+    var isVisible: Bool
+}
+
+/// Where each swipe button sits for a given reveal. Pure geometry, so the slide can be checked without a screen.
 nonisolated struct SwipeLayout {
     var count: Int
     var rowWidth: CGFloat
+    var rowHeight: CGFloat
 
     static let diameter: CGFloat = 60
     static let spacing: CGFloat = 12
     static let inset: CGFloat = 16
+    /// The gap a full swipe's grown button leaves above and below it.
+    static let verticalInset: CGFloat = 8
     /// How far past the revealed buttons a swipe must travel, as a share of the row's width, to fire the first.
     static let fullSwipeFraction: CGFloat = 0.55
 
@@ -250,23 +260,25 @@ nonisolated struct SwipeLayout {
         Self.inset + CGFloat(index) * (Self.diameter + Self.spacing)
     }
 
-    /// Each button's distance from the edge to its outer side, and whether it shows.
+    /// Each button's place and size, and whether it shows.
     ///
     /// While tracking, every button starts just past the edge and slides to its resting place as the finger
     /// uncovers the row, the inner ones travelling further, so the stack fans out from the edge. On a full swipe
-    /// the edge-most button rides along at the finger and the rest fall away.
-    func placements(for reveal: SwipeReveal) -> [(offset: CGFloat, isVisible: Bool)] {
+    /// the edge-most button grows into a capsule as tall as the row allows, stretching from the edge to the finger
+    /// until it covers the row, and the rest fall away.
+    func placements(for reveal: SwipeReveal) -> [SwipePlacement] {
         (0..<count).map { index in
             let rest = restingOffset(index)
             switch reveal {
             case .tracking(let distance):
                 let progress = min(1, max(0, distance / revealWidth))
                 let offset = -Self.diameter + (rest + Self.diameter) * progress
-                return (offset, offset > -Self.diameter)
+                return SwipePlacement(offset: offset, isVisible: offset > -Self.diameter)
             case .fullSwipe(let distance):
-                guard index == 0 else { return (rest, false) }
-                let atFinger = distance - Self.diameter - Self.spacing
-                return (min(max(rest, atFinger), rowWidth - Self.diameter - Self.inset), true)
+                guard index == 0 else { return SwipePlacement(offset: rest, isVisible: false) }
+                let width = min(max(Self.diameter, distance - Self.inset - Self.spacing), rowWidth - 2 * Self.inset)
+                let height = max(Self.diameter, rowHeight - 2 * Self.verticalInset)
+                return SwipePlacement(offset: Self.inset, width: width, height: height, isVisible: true)
             }
         }
     }
@@ -283,7 +295,9 @@ final class SwipeOverlayView: UIView {
     /// One for each action, in the same order.
     private(set) var buttons: [GlassActionButton] = []
 
-    var layout: SwipeLayout { SwipeLayout(count: actions.count, rowWidth: bounds.width) }
+    var layout: SwipeLayout {
+        SwipeLayout(count: actions.count, rowWidth: bounds.width, rowHeight: bounds.height)
+    }
 
     init(actions: [SwipeAction], side: SwipeSide) {
         self.actions = actions
@@ -315,27 +329,37 @@ final class SwipeOverlayView: UIView {
     }
 
     private func layoutButtons() {
-        let diameter = SwipeLayout.diameter
         for (button, placement) in zip(buttons, layout.placements(for: reveal)) {
-            let x = side == .right ? bounds.width - placement.offset - diameter : placement.offset
-            button.frame = CGRect(x: x, y: bounds.midY - diameter / 2, width: diameter, height: diameter)
+            let x = side == .right ? bounds.width - placement.offset - placement.width : placement.offset
+            button.frame = CGRect(
+                x: x, y: bounds.midY - placement.height / 2, width: placement.width, height: placement.height)
             // Fading rather than hiding keeps the slide smooth inside the spring animations.
             button.alpha = placement.isVisible ? 1 : 0
+            button.isCommitted = reveal.isFullSwipe && placement.isVisible
+            // Lays the symbol and title out now, inside any animation, so they move with the button's shape.
+            button.layoutIfNeeded()
         }
     }
 }
 
 /// A round button of clear Liquid Glass showing an action's symbol, so the row shows through it; destructive ones
-/// are tinted red.
+/// are tinted red. Stretched wide, as on a full swipe, it names the action beside the symbol.
 final class GlassActionButton: UIControl {
-    private let effectView: UIVisualEffectView
+    private let isDestructive: Bool
+    private let effectView = UIVisualEffectView()
     private let imageView = UIImageView()
+    private let titleLabel = UILabel()
+    /// How wide the button must be to name its action.
+    private static let titledWidth: CGFloat = 160
+
+    /// Whether letting go fires this action, as on a full swipe: the glass fills with the action's color, so it
+    /// reads as solid over the row it covers.
+    var isCommitted = false {
+        didSet { if isCommitted != oldValue { applyGlass() } }
+    }
 
     init(action: SwipeAction) {
-        let glass = UIGlassEffect(style: .clear)
-        glass.isInteractive = true
-        if action.isDestructive { glass.tintColor = .systemRed.withAlphaComponent(0.8) }
-        effectView = UIVisualEffectView(effect: glass)
+        isDestructive = action.isDestructive
         super.init(frame: .zero)
         effectView.cornerConfiguration = .capsule()
         effectView.isUserInteractionEnabled = false
@@ -344,14 +368,54 @@ final class GlassActionButton: UIControl {
         addSubview(effectView)
         imageView.image = UIImage(systemName: action.symbol)
         imageView.preferredSymbolConfiguration = UIImage.SymbolConfiguration(textStyle: .title2, scale: .large)
-        imageView.tintColor = action.isDestructive ? .white : .label
         imageView.contentMode = .center
-        imageView.frame = bounds
-        imageView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         effectView.contentView.addSubview(imageView)
+        titleLabel.text = action.title
+        titleLabel.font = .preferredFont(forTextStyle: .headline)
+        titleLabel.adjustsFontForContentSizeCategory = true
+        titleLabel.alpha = 0
+        effectView.contentView.addSubview(titleLabel)
         isAccessibilityElement = true
         accessibilityLabel = action.title
         accessibilityTraits = .button
+        applyGlass()
+    }
+
+    override func tintColorDidChange() {
+        super.tintColorDidChange()
+        applyGlass()
+    }
+
+    /// Clear glass, tinted red for a destructive action and with the theme's color once committed.
+    private func applyGlass() {
+        let glass = UIGlassEffect(style: .clear)
+        glass.isInteractive = true
+        let fill: UIColor? = isDestructive ? .systemRed : isCommitted ? tintColor : nil
+        glass.tintColor = fill?.withAlphaComponent(isCommitted ? 0.9 : 0.8)
+        effectView.effect = glass
+        imageView.tintColor = fill == nil ? .label : .white
+        titleLabel.textColor = imageView.tintColor
+    }
+
+    /// The symbol alone in the middle; once wide enough, the symbol and title side by side, centered together.
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let symbol = imageView.intrinsicContentSize
+        let titled = bounds.width >= Self.titledWidth
+        let title = titleLabel.intrinsicContentSize
+        let gap: CGFloat = 8
+        let available = bounds.width - 2 * SwipeLayout.spacing - symbol.width - gap
+        let titleWidth = titled ? min(title.width, max(0, available)) : 0
+        let total = symbol.width + (titled ? gap + titleWidth : 0)
+        let start = (bounds.width - total) / 2
+        let isRightToLeft = effectiveUserInterfaceLayoutDirection == .rightToLeft
+        let symbolX = isRightToLeft ? start + total - symbol.width : start
+        imageView.frame = CGRect(
+            x: symbolX, y: (bounds.height - symbol.height) / 2, width: symbol.width, height: symbol.height)
+        titleLabel.frame = CGRect(
+            x: isRightToLeft ? start : symbolX + symbol.width + gap, y: (bounds.height - title.height) / 2,
+            width: titleWidth, height: title.height)
+        titleLabel.alpha = titled ? 1 : 0
     }
 
     /// Swaps the symbol for a drawn `kind` box whose lid can open, in the symbol's color.

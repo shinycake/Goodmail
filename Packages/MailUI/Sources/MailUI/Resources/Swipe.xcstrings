@@ -1,0 +1,182 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "A full swipe does the first action on its side. Each side fits up to three." : {
+      "comment" : "Explains the swipe settings",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "החלקה מלאה מבצעת את הפעולה הראשונה בצד שלה. בכל צד יש מקום לעד שלוש פעולות."
+          }
+        }
+      }
+    },
+    "Add %@" : {
+      "comment" : "Adds a swipe action",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הוספת %@"
+          }
+        }
+      }
+    },
+    "Add to %@" : {
+      "comment" : "Adds a swipe action to a side; the argument is that side, as Swipe Left",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הוספה ל%@"
+          }
+        }
+      }
+    },
+    "Archive" : {
+      "comment" : "Swipe action choice: take a thread out of the Inbox, Spam or Trash",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה לארכיון"
+          }
+        }
+      }
+    },
+    "Full Swipe" : {
+      "comment" : "Marks the swipe action a full swipe fires",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "החלקה מלאה"
+          }
+        }
+      }
+    },
+    "More Actions" : {
+      "comment" : "Swipe actions on neither side, waiting to be added",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פעולות נוספות"
+          }
+        }
+      }
+    },
+    "None" : {
+      "comment" : "A swipe side with no actions",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אין"
+          }
+        }
+      }
+    },
+    "Read or Unread" : {
+      "comment" : "Swipe action choice: mark a thread read, or unread if it is read",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נקרא או לא נקרא"
+          }
+        }
+      }
+    },
+    "Report Spam" : {
+      "comment" : "Swipe action choice",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דיווח כספאם"
+          }
+        }
+      }
+    },
+    "Restore Defaults" : {
+      "comment" : "Puts the standard swipe actions back",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שחזור ברירות המחדל"
+          }
+        }
+      }
+    },
+    "Snooze" : {
+      "comment" : "Swipe action choice",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נודניק"
+          }
+        }
+      }
+    },
+    "Star or Unstar" : {
+      "comment" : "Swipe action choice: star a thread, or unstar it if it is starred",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סימון בכוכב או הסרתו"
+          }
+        }
+      }
+    },
+    "Swipe Actions" : {
+      "comment" : "Title of the swipe settings",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פעולות החלקה"
+          }
+        }
+      }
+    },
+    "Swipe Left" : {
+      "comment" : "Swipe settings section: the actions a swipe to the left shows",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "החלקה שמאלה"
+          }
+        }
+      }
+    },
+    "Swipe Right" : {
+      "comment" : "Swipe settings section: the actions a swipe to the right shows",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "החלקה ימינה"
+          }
+        }
+      }
+    },
+    "Trash" : {
+      "comment" : "Swipe action choice",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה לפח"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
