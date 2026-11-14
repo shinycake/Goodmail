@@ -51,10 +51,18 @@ final class ChatLayoutTests: XCTestCase {
     private func open(_ subject: String, in app: XCUIApplication) {
         let row = app.collectionViews["mailbox"].cells.containing(NSPredicate(format: "label CONTAINS %@", subject))
             .firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 10))
-        // Clear of the toolbar along the bottom, which takes a tap at the row's middle when it sits under it.
         let list = app.collectionViews["mailbox"]
-        for _ in 0..<10 where !row.isHittable || row.frame.maxY > list.frame.maxY - 120 { list.swipeUp() }
+        // Rows below the screen aren't laid out yet, so scroll until the row is there and clear of the toolbar
+        // along the bottom, which takes a tap at the row's middle when it sits under it.
+        for _ in 0..<12 {
+            if !row.exists || row.frame.maxY > list.frame.maxY - 120 {
+                list.swipeUp(velocity: .slow)
+            } else if row.frame.minY < app.navigationBars.firstMatch.frame.maxY {
+                list.swipeDown(velocity: .slow)
+            } else {
+                break
+            }
+        }
         XCTAssertTrue(
             row.wait(for: \.isHittable, toEqual: true, timeout: 10), "the row is on screen and takes touches")
         let thread = app.scrollViews["thread"]
