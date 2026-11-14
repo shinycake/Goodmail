@@ -84,6 +84,7 @@ private struct ServerFields: View {
             )
             .textContentType(.URL)
             .keyboardType(.URL)
+            .accessibilityIdentifier("other-account-host")
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
             .multilineTextAlignment(.trailing)

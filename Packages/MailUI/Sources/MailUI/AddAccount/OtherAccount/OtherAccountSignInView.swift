@@ -2,7 +2,7 @@ import MailCore
 import SwiftUI
 
 /// Why a sign-in to another mail account failed, as the form explains it.
-public enum OtherAccountSignInFailure: Error, Equatable {
+nonisolated public enum OtherAccountSignInFailure: Error, Equatable {
     public enum Server: Sendable, Equatable {
         case incoming, outgoing
     }
@@ -19,20 +19,6 @@ public enum OtherAccountSignInFailure: Error, Equatable {
 /// password first. Goodmail then looks the servers up and logs in to them; only when it can't find them, or they
 /// don't answer, does it ask for them, filled in with what it found or guessed.
 struct OtherAccountSignInView: View {
-    /// Where the form stands. `account` and `servers` take input; a failure stays shown until the next try.
-    enum Stage: Equatable {
-        /// The name, address and password.
-        case account(failure: String?)
-        /// Looking the servers up, then logging in to them.
-        case discovering
-        /// The servers, to fill in or correct. `found` says whether they came from the lookup.
-        case servers(found: Bool, failure: String?)
-        /// Logging in to the servers as typed.
-        case checking
-
-        var isBusy: Bool { self == .discovering || self == .checking }
-    }
-
     let discover: (_ email: String) async -> MailServerSettings?
     let guess: (_ email: String) -> MailServerSettings
     let signIn:
@@ -42,8 +28,7 @@ struct OtherAccountSignInView: View {
     @State private var name = ""
     @State private var email = ""
     @State private var password = ""
-    @State private var settings: MailServerSettings?
-    @State private var stage = Stage.account(failure: nil)
+    @State private var stage = OtherAccountStage.account(failure: nil)
     @FocusState private var focusedField: Field?
 
     private enum Field {
@@ -56,19 +41,24 @@ struct OtherAccountSignInView: View {
                 TextField(Self.string("Name", "Other account: the name mail is sent under"), text: $name)
                     .textContentType(.name)
                     .focused($focusedField, equals: .name)
+                    .accessibilityIdentifier("other-account-name")
                 TextField(Self.string("Email", "Other account: the address field"), text: $email)
                     .textContentType(.emailAddress)
                     .keyboardType(.emailAddress)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .focused($focusedField, equals: .email)
+                    .accessibilityIdentifier("other-account-email")
                 SecureField(Self.string("Password", "Other account: the password field"), text: $password)
                     .textContentType(.password)
+                    // Passwords are mostly Latin, so a Hebrew or other keyboard isn't the one it opens with.
+                    .keyboardType(.asciiCapable)
                     .focused($focusedField, equals: .password)
+                    .accessibilityIdentifier("other-account-password")
             } footer: {
                 // Always one Text, so the section keeps its identity between stages and the secure field keeps
                 // showing what was typed.
-                if case .servers(found: false, _) = stage {
+                if stage.foundNoServers {
                     Text(
                         "Goodmail couldn’t find this provider’s servers. Enter them as your provider gives them.",
                         tableName: "OtherAccount", bundle: .module,
@@ -83,13 +73,17 @@ struct OtherAccountSignInView: View {
             // Disabling the fields while checking leaves the secure field blank once it's enabled again, so they
             // only stop taking touches.
             .allowsHitTesting(!stage.isBusy)
-            if let settings = Binding($settings), stage != .discovering, !isOnAccount {
-                ServerSettingsSections(settings: settings)
-                    .allowsHitTesting(!stage.isBusy)
+            if let servers = stage.shownServers {
+                ServerSettingsSections(
+                    settings: Binding(
+                        get: { stage.shownServers ?? servers },
+                        set: { stage = stage.editing($0) })
+                )
+                .allowsHitTesting(!stage.isBusy)
             }
-            if let failure {
+            if let failure = stage.failure {
                 Section {
-                    Text(failure).foregroundStyle(.red)
+                    Text(Self.message(for: failure)).foregroundStyle(.red)
                 }
             }
         }
@@ -97,8 +91,8 @@ struct OtherAccountSignInView: View {
         // SwiftUI owns the work: it starts when the stage turns busy and is cancelled if the form goes away.
         .task(id: stage) {
             switch stage {
-            case .discovering: await discoverAndSignIn()
-            case .checking: await check()
+            case .discovering: await lookUp()
+            case .signingIn(let settings), .checking(let settings, _): await signIn(with: settings)
             case .account, .servers: break
             }
         }
@@ -120,7 +114,7 @@ struct OtherAccountSignInView: View {
                     ProgressView()
                 } else {
                     Button(action: submit) {
-                        if isOnAccount {
+                        if stage.isOnAccount {
                             Text(
                                 "Next", tableName: "OtherAccount", bundle: .module,
                                 comment: "Looks up the servers for the address and signs in")
@@ -131,58 +125,29 @@ struct OtherAccountSignInView: View {
                         }
                     }
                     .disabled(!canSubmit)
+                    .accessibilityIdentifier("other-account-submit")
                 }
             }
         }
     }
 
-    private var isOnAccount: Bool {
-        if case .account = stage { true } else { false }
-    }
-
-    private var failure: String? {
-        switch stage {
-        case .account(let failure), .servers(_, let failure): failure
-        case .discovering, .checking: nil
-        }
-    }
-
     private var canSubmit: Bool {
-        guard !stage.isBusy, email.contains("@"), !password.isEmpty else { return false }
-        guard !isOnAccount, let settings else { return true }
-        return !settings.imap.host.isEmpty && !settings.smtp.host.isEmpty && !settings.username.isEmpty
-            && settings.imap.port != 0 && settings.smtp.port != 0
+        email.contains("@") && !password.isEmpty && stage.submitted != nil
     }
 
     private func submit() {
-        guard canSubmit else { return }
-        stage = isOnAccount ? .discovering : .checking
+        guard canSubmit, let next = stage.submitted else { return }
+        stage = next
     }
 
-    /// Signs in with the servers the lookup found. Without any, or when they don't answer, the servers are asked
-    /// for; a refused password is asked for again, since the servers that refused it are most likely right.
-    private func discoverAndSignIn() async {
-        guard let found = await discover(email) else {
-            settings = guess(email)
-            stage = .servers(found: false, failure: nil)
-            return
-        }
+    private func lookUp() async {
+        let found = await discover(email)
+        // A form that went away, or moved on, keeps its stage.
         guard !Task.isCancelled else { return }
-        settings = found
-        await signIn(with: found) { failure in
-            if case .refused = failure { return .account(failure: Self.message(for: failure)) }
-            return .servers(found: true, failure: Self.message(for: failure))
-        }
+        stage = .lookedUp(found, guess: guess(email))
     }
 
-    private func check() async {
-        guard let settings else { return }
-        await signIn(with: settings) { .servers(found: true, failure: Self.message(for: $0)) }
-    }
-
-    private func signIn(
-        with settings: MailServerSettings, onFailure: (OtherAccountSignInFailure) -> Stage
-    ) async {
+    private func signIn(with settings: MailServerSettings) async {
         let typedName = name.trimmingCharacters(in: .whitespaces)
         do {
             try await signIn(email, typedName.isEmpty ? nil : typedName, settings, password)
@@ -193,11 +158,18 @@ struct OtherAccountSignInView: View {
                 password = ""
                 focusedField = .password
             }
-            stage = onFailure(failure)
+            stage = stage.failed(.signIn(failure))
         } catch is CancellationError {
             return
         } catch {
-            stage = .servers(found: true, failure: error.localizedDescription)
+            stage = stage.failed(.other(error.localizedDescription))
+        }
+    }
+
+    private static func message(for failure: OtherAccountStage.Failure) -> String {
+        switch failure {
+        case .signIn(let failure): message(for: failure)
+        case .other(let message): message
         }
     }
 
