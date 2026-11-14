@@ -89,16 +89,16 @@ enum StowFlight {
 
     /// Drops the lid and gives the box a small bump as the last row lands.
     private static func shut(_ box: StowBoxView, then completion: @escaping () -> Void) {
+        // The lid settles on its own spring; only the bump times the end.
         box.setOpen(false, duration: closing)
-        UIView.animateKeyframes(withDuration: closing, delay: 0) {
-            UIView.addKeyframe(withRelativeStartTime: 0, relativeDuration: 0.4) {
-                box.transform = CGAffineTransform(scaleX: 1.15, y: 1.15)
-            }
-            UIView.addKeyframe(withRelativeStartTime: 0.4, relativeDuration: 0.6) {
-                box.transform = .identity
-            }
-        } completion: { _ in
-            completion()
-        }
+        CATransaction.begin()
+        CATransaction.setCompletionBlock(completion)
+        let bump = CAKeyframeAnimation(keyPath: "transform.scale")
+        bump.values = [1, 1.15, 1]
+        bump.keyTimes = [0, 0.4, 1]
+        bump.timingFunctions = [CAMediaTimingFunction(name: .easeOut), CAMediaTimingFunction(name: .easeInEaseOut)]
+        bump.duration = closing
+        box.layer.add(bump, forKey: "bump")
+        CATransaction.commit()
     }
 }
