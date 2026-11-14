@@ -49,7 +49,7 @@ struct SnoozedTests {
 }
 
 /// A store with nothing in it, for view models whose actions these tests don't take.
-private final class NoStore: MailCommands.Store, @unchecked Sendable {
+final class NoStore: MailCommands.Store, @unchecked Sendable {
     func enqueue(_ message: OutgoingMessage) throws {}
     func cancel(_ id: Draft.ID) throws -> OutgoingMessage? { nil }
     func dueMessages(for account: AccountID, by date: Date) throws -> [OutgoingMessage] { [] }

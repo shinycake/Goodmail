@@ -153,6 +153,17 @@ struct MailboxesTests {
         #expect(MailboxViewModel.trailingActions(for: thread(labels: ["TRASH", "STARRED"])) == [.untrash])
     }
 
+    @Test func swipingAnInboxThreadOffersSnoozeAfterArchive() {
+        let viewModel = MailboxViewModel(
+            accounts: [], source: .flat { AsyncThrowingStream { $0.finish() } }, refresh: {},
+            actions: MailActions(commands: MailCommands(store: NoStore(), replay: { _ in })))
+        #expect(
+            viewModel.swipeActions(for: thread(labels: ["INBOX"]), leading: false) == [
+                .perform(.archive), .snooze, .perform(.trash),
+            ])
+        #expect(viewModel.swipeActions(for: thread(labels: ["Label_1"]), leading: false) == [.perform(.trash)])
+    }
+
     private func bulkActions(_ threads: [ThreadSummary], service: MailService = .gmail) -> [ThreadAction] {
         MailboxViewModel.bulkActions(for: threads, services: [account.id: service])
     }

@@ -289,6 +289,17 @@
         }
       }
     },
+    "Cancel" : {
+      "comment" : "Closes a menu without acting",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ביטול"
+          }
+        }
+      }
+    },
     "Change Labels" : {
       "comment" : "Action: add or remove labels",
       "localizations" : {

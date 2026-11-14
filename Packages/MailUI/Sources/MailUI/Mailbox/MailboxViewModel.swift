@@ -26,11 +26,17 @@ public struct InboxCategories {
     }
 }
 
+/// A part of a mailbox list: threads just back from snooze, at the top, then the time sections.
+nonisolated public enum MailboxSection: Hashable, Sendable {
+    case backFromSnooze
+    case time(TimeSection)
+}
+
 /// One mailbox list: the threads grouped into time sections, and the refresh state.
 @Observable
 public final class MailboxViewModel {
     public struct Section: Identifiable, Equatable {
-        public let id: TimeSection
+        public let id: MailboxSection
         public let title: String
         public let threads: [ThreadSummary]
     }
@@ -63,6 +69,11 @@ public final class MailboxViewModel {
 
     /// Changed only by `select`.
     private var source: MailboxSource
+    /// Threads put back by their snooze, with when they woke; the ones in this list lead it.
+    @ObservationIgnored private let wokenThreads: (() -> AsyncThrowingStream<[ThreadSummary.ID: Date], any Error>)?
+    /// The latest of each stream `sections` is made from.
+    @ObservationIgnored private var listed: [ThreadSummary] = []
+    @ObservationIgnored private var woken: [ThreadSummary.ID: Date] = [:]
     @ObservationIgnored private let refreshAction: () async throws -> Void
     @ObservationIgnored private let loadOlderAction: () async throws -> Bool
     @ObservationIgnored private let navigate: (Route) -> Void
@@ -75,6 +86,7 @@ public final class MailboxViewModel {
         title: String? = nil,
         accounts: [Account],
         source: MailboxSource,
+        woken: (() -> AsyncThrowingStream<[ThreadSummary.ID: Date], any Error>)? = nil,
         refresh: @escaping () async throws -> Void,
         loadOlder: @escaping () async throws -> Bool = { false },
         navigate: @escaping (Route) -> Void = { _ in },
@@ -90,6 +102,7 @@ public final class MailboxViewModel {
         theme = Theme(accountID: mailbox.accountID, among: accounts, combined: combinedTheme)
         self.accounts = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0) })
         self.source = source
+        wokenThreads = woken
         refreshAction = refresh
         loadOlderAction = loadOlder
         self.navigate = navigate
@@ -99,6 +112,12 @@ public final class MailboxViewModel {
 
     /// Follows the store until the calling task is cancelled.
     public func observe() async {
+        async let woken: Void = followWoken()
+        await followSource()
+        await woken
+    }
+
+    private func followSource() async {
         switch source {
         case .flat(let threads):
             await follow(threads())
@@ -128,6 +147,16 @@ public final class MailboxViewModel {
         return InboxCategory.allCases.first { $0 != category && categoryUnreadCounts[$0, default: 0] > 0 }
     }
 
+    private func followWoken() async {
+        guard let wokenThreads else { return }
+        do {
+            for try await woken in wokenThreads() {
+                self.woken = woken
+                regroup()
+            }
+        } catch {}
+    }
+
     private func followUnreadCounts(_ categories: InboxCategories) async {
         do {
             for try await counts in categories.unreadCounts() { categoryUnreadCounts = counts }
@@ -142,10 +171,8 @@ public final class MailboxViewModel {
                 // A list replaced by another category's may still hand over one last value.
                 if Task.isCancelled { return }
                 hasLoaded = true
-                let now = now()
-                sections = TimeSection.group(threads, by: \.date, now: now, calendar: calendar).map {
-                    Section(id: $0.section, title: $0.section.title(now: now, calendar: calendar), threads: $0.items)
-                }
+                listed = threads
+                regroup()
                 // A list too short to scroll never nears its end, so fetch older mail now: Spam and Trash start
                 // empty, and a quiet label may hold only a few threads in the window. Not for one category: older
                 // pages are the whole Inbox's, and Forums may stay short however many of them come.
@@ -154,6 +181,21 @@ public final class MailboxViewModel {
         } catch {
             if !Task.isCancelled { refreshError = error }
         }
+    }
+
+    /// Threads back from snooze first, latest woken on top, then the rest by time.
+    private func regroup() {
+        let now = now()
+        let back = listed.compactMap { thread in woken[thread.id].map { (thread, $0) } }
+            .sorted { $0.1 > $1.1 }.map(\.0)
+        let rest = listed.filter { woken[$0.id] == nil }
+        let title = String(
+            localized: "Back from snooze", table: "Mailbox", bundle: .module, comment: "Mailbox section header")
+        sections =
+            (back.isEmpty ? [] : [Section(id: .backFromSnooze, title: title, threads: back)])
+            + TimeSection.group(rest, by: \.date, now: now, calendar: calendar).map {
+                Section(id: .time($0.section), title: $0.section.title(now: now, calendar: calendar), threads: $0.items)
+            }
     }
 
     /// Below this many threads, the list fetches older ones without waiting for a scroll.
@@ -197,14 +239,23 @@ public final class MailboxViewModel {
         navigate(.newWindow(id, in: mailbox))
     }
 
+    /// What a swipe button does: act on the thread at once, or ask until when to snooze it.
+    enum Swipe: Equatable {
+        case perform(ThreadAction)
+        case snooze
+    }
+
     /// The swipe actions for a row, edge-most first: reading state and star from the leading edge; from the
-    /// trailing one, what takes the thread out of the way here.
-    func swipeActions(for thread: ThreadSummary, leading: Bool) -> [ThreadAction] {
+    /// trailing one, what takes the thread out of the way here, with snooze after archive in the Inbox.
+    func swipeActions(for thread: ThreadSummary, leading: Bool) -> [Swipe] {
         guard actions != nil else { return [] }
         if leading {
-            return [.markRead(thread.isUnread), .star(!thread.labelIDs.contains(SystemLabel.starred))]
+            return [.markRead(thread.isUnread), .star(!thread.labelIDs.contains(SystemLabel.starred))].map(
+                Swipe.perform)
         }
-        return Self.trailingActions(for: thread)
+        var swipes = Self.trailingActions(for: thread).map(Swipe.perform)
+        if Self.canSnooze([thread]) { swipes.insert(.snooze, at: 1) }
+        return swipes
     }
 
     /// What takes `thread` out of the way, by where it is: out of Trash, out of Spam, or out of the Inbox.

@@ -64,6 +64,17 @@
         }
       }
     },
+    "Back from snooze" : {
+      "comment" : "Mailbox section header",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חזרו מנודניק"
+          }
+        }
+      }
+    },
     "Deselect All" : {
       "comment" : "Clears the selection",
       "localizations" : {

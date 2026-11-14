@@ -98,6 +98,15 @@ struct SnoozeTests {
         #expect(try database.snoozes(of: [id("t1")]).isEmpty)
     }
 
+    @Test func wokenThreadsAreListedWithWhenTheyWoke() async throws {
+        let commands = commands(at: Self.start)
+        try await commands.snooze([id("t1"), id("t2")], until: Self.start)
+        try await commands.unsnooze([id("t2")])
+        try await commands.wakeSnoozed()
+        var woken = database.wokenThreads().makeAsyncIterator()
+        #expect(try await woken.next() == [id("t1"): Self.start], "a thread unsnoozed by hand didn't wake")
+    }
+
     @Test func aWokenThreadIsForgottenAfterADay() async throws {
         try await commands(at: Self.start).snooze([id("t1")], until: Self.start)
         try await commands(at: Self.start).wakeSnoozed()

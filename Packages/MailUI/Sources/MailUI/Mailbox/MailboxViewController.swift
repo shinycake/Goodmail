@@ -5,9 +5,9 @@ import UIKit
 public final class MailboxViewController: UIViewController {
     private let viewModel: MailboxViewModel
     private var collectionView: UICollectionView!
-    private var dataSource: UICollectionViewDiffableDataSource<TimeSection, ThreadSummary.ID>!
+    private var dataSource: UICollectionViewDiffableDataSource<MailboxSection, ThreadSummary.ID>!
     private var threadsByID: [ThreadSummary.ID: ThreadSummary] = [:]
-    private var sectionTitles: [TimeSection: String] = [:]
+    private var sectionTitles: [MailboxSection: String] = [:]
     private var observation: Task<Void, Never>?
     private var swipes: SwipeActionsController!
     private let searchResults: SearchResultsController?
@@ -189,11 +189,31 @@ public final class MailboxViewController: UIViewController {
 
     private func swipeActions(for id: ThreadSummary.ID, leading: Bool) -> [SwipeAction] {
         guard let thread = threadsByID[id] else { return [] }
-        return viewModel.swipeActions(for: thread, leading: leading).map { action in
-            SwipeAction(title: action.title, symbol: action.symbol, isDestructive: action.isDestructive) {
-                [weak self] in self?.viewModel.perform(action, on: [id])
+        return viewModel.swipeActions(for: thread, leading: leading).map { swipe in
+            switch swipe {
+            case .perform(let action):
+                SwipeAction(title: action.title, symbol: action.symbol, isDestructive: action.isDestructive) {
+                    [weak self] in self?.viewModel.perform(action, on: [id])
+                }
+            case .snooze:
+                SwipeAction(
+                    title: String(
+                        localized: "Snooze", table: "Actions", bundle: .module,
+                        comment: "Hides threads until a later time"),
+                    symbol: "clock"
+                ) { [weak self] in self?.askToSnooze(id) }
             }
         }
+    }
+
+    /// Asks until when, pointing at the thread's row, then snoozes it.
+    private func askToSnooze(_ id: ThreadSummary.ID) {
+        guard let indexPath = dataSource.indexPath(for: id), let cell = collectionView.cellForItem(at: indexPath)
+        else { return }
+        let sheet = UIAlertController.snooze(from: self, source: cell) { [weak self] date in
+            self?.viewModel.snooze([id], until: date)
+        }
+        present(sheet, animated: true)
     }
 
     private func configureDataSource() {
@@ -242,7 +262,7 @@ public final class MailboxViewController: UIViewController {
     }
 
     private func applySections(_ sections: [MailboxViewModel.Section]) {
-        var snapshot = NSDiffableDataSourceSnapshot<TimeSection, ThreadSummary.ID>()
+        var snapshot = NSDiffableDataSourceSnapshot<MailboxSection, ThreadSummary.ID>()
         var changed: [ThreadSummary.ID] = []
         var threads: [ThreadSummary.ID: ThreadSummary] = [:]
         threads.reserveCapacity(threadsByID.count)

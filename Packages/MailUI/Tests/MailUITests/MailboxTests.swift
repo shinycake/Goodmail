@@ -102,6 +102,45 @@ struct MailboxTests {
         #expect(viewModel.theme == .account(.teal))
     }
 
+    @Test func threadsBackFromSnoozeLeadTheListLatestWokenFirst() async {
+        let account = Account(id: AccountID(rawValue: "a"), email: "a@example.com", color: .teal, service: .gmail)
+        let threads = [date(2026, 10, 21, 9), date(2026, 10, 20), date(2026, 9, 2), date(2026, 9, 1)].enumerated()
+            .map { index, date in
+                ThreadSummary(
+                    id: ThreadSummary.ID(accountID: account.id, threadID: "\(index)"),
+                    subject: "", snippet: "", sender: Contact(name: nil, address: "x@example.com"),
+                    date: date, isUnread: false, messageCount: 1, labelIDs: ["INBOX"]
+                )
+            }
+        let woken = [
+            threads[2].id: date(2026, 10, 21, 8), threads[3].id: date(2026, 10, 21, 10),
+            // Woken but since archived, so not in this list.
+            ThreadSummary.ID(accountID: account.id, threadID: "gone"): date(2026, 10, 21, 11),
+        ]
+        let viewModel = MailboxViewModel(
+            accounts: [account],
+            source: .flat {
+                AsyncThrowingStream {
+                    $0.yield(threads)
+                    $0.finish()
+                }
+            },
+            woken: {
+                AsyncThrowingStream {
+                    $0.yield(woken)
+                    $0.finish()
+                }
+            },
+            refresh: {},
+            now: { [now] in now },
+            calendar: calendar
+        )
+        await viewModel.observe()
+
+        #expect(viewModel.sections.map(\.title) == ["Back from snooze", "This morning", "Yesterday"])
+        #expect(viewModel.sections.map { $0.threads.map(\.id.threadID) } == [["3", "2"], ["0"], ["1"]])
+    }
+
     @Test func refreshFailureIsKeptUntilTheNextSuccess() async {
         struct Offline: Error {}
         var fail = true

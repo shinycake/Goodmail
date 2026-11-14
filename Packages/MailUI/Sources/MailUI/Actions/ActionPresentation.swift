@@ -71,9 +71,7 @@ extension UIBarButtonItem {
 extension UIMenu {
     static func snooze(from presenter: UIViewController, until: @escaping (Date) -> Void) -> UIMenu {
         UIMenu(
-            title: String(
-                localized: "Snooze Until", table: "Actions", bundle: .module,
-                comment: "Menu of times to snooze threads until"),
+            title: SnoozeTitle.until,
             children: [
                 UIDeferredMenuElement.uncached { [weak presenter] completion in
                     let choices = LaterTime.snoozeChoices(at: .now)
@@ -82,26 +80,63 @@ extension UIMenu {
                             until(choice.date)
                         }
                     }
-                    let pick = UIAction(
-                        title: String(
-                            localized: "Choose a Time…", table: "Actions", bundle: .module,
-                            comment: "Picks a later time from a calendar"),
-                        image: UIImage(systemName: "calendar")
-                    ) { _ in
+                    let pick = UIAction(title: SnoozeTitle.chooseTime, image: UIImage(systemName: "calendar")) { _ in
                         guard let presenter else { return }
-                        LaterPickerViewController.present(
-                            from: presenter,
-                            title: String(
-                                localized: "Snooze Until", table: "Actions", bundle: .module,
-                                comment: "Menu of times to snooze threads until"),
-                            actionTitle: String(
-                                localized: "Snooze", table: "Actions", bundle: .module,
-                                comment: "Hides threads until a later time"),
-                            initial: choices.first?.date, pick: until)
+                        LaterPickerViewController.presentSnooze(
+                            from: presenter, initial: choices.first?.date, pick: until)
                     }
                     completion(times + [pick])
                 }
             ])
+    }
+}
+
+extension UIAlertController {
+    /// The snooze times as a sheet, for a swipe, which has no menu to open. On iPad it points at `source`.
+    static func snooze(from presenter: UIViewController, source: UIView, until: @escaping (Date) -> Void)
+        -> UIAlertController
+    {
+        let sheet = UIAlertController(title: SnoozeTitle.until, message: nil, preferredStyle: .actionSheet)
+        let choices = LaterTime.snoozeChoices(at: .now)
+        for choice in choices {
+            sheet.addAction(UIAlertAction(title: choice.title, style: .default) { _ in until(choice.date) })
+        }
+        sheet.addAction(
+            UIAlertAction(title: SnoozeTitle.chooseTime, style: .default) { [weak presenter] _ in
+                guard let presenter else { return }
+                LaterPickerViewController.presentSnooze(from: presenter, initial: choices.first?.date, pick: until)
+            })
+        sheet.addAction(
+            UIAlertAction(
+                title: String(
+                    localized: "Cancel", table: "Actions", bundle: .module, comment: "Closes a menu without acting"),
+                style: .cancel))
+        sheet.popoverPresentationController?.sourceView = source
+        return sheet
+    }
+}
+
+extension LaterPickerViewController {
+    static func presentSnooze(from presenter: UIViewController, initial: Date?, pick: @escaping (Date) -> Void) {
+        present(
+            from: presenter, title: SnoozeTitle.until,
+            actionTitle: String(
+                localized: "Snooze", table: "Actions", bundle: .module, comment: "Hides threads until a later time"),
+            initial: initial, pick: pick)
+    }
+}
+
+/// The words every way of snoozing shares.
+private enum SnoozeTitle {
+    static var until: String {
+        String(
+            localized: "Snooze Until", table: "Actions", bundle: .module,
+            comment: "Menu of times to snooze threads until")
+    }
+    static var chooseTime: String {
+        String(
+            localized: "Choose a Time…", table: "Actions", bundle: .module,
+            comment: "Picks a later time from a calendar")
     }
 }
 

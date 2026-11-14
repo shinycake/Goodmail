@@ -266,6 +266,7 @@ final class SceneCoordinator: NSObject {
                 title: title,
                 accounts: model.accounts,
                 source: source(for: mailbox),
+                woken: mailbox.labelID == SystemLabel.inbox ? { model.database.wokenThreads() } : nil,
                 refresh: { try await model.syncAll() },
                 loadOlder: { try await model.loadOlder(mailbox) },
                 navigate: { [weak self] route in self?.handle(route) },

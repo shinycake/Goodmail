@@ -84,6 +84,22 @@ extension MailDatabase: SnoozeStore {
         }
     }
 
+    /// Threads put back in the Inbox by their snooze, in every account, each with when it woke. Emits now and after
+    /// every change.
+    public func wokenThreads() -> AsyncThrowingStream<[ThreadSummary.ID: Date], any Error> {
+        observe { db in
+            let rows = try Row.fetchAll(
+                db, sql: "SELECT accountID, threadID, wokeAt FROM snooze WHERE wokeAt IS NOT NULL")
+            return Dictionary(
+                uniqueKeysWithValues: rows.map {
+                    (
+                        ThreadSummary.ID(accountID: AccountID(rawValue: $0["accountID"]), threadID: $0["threadID"]),
+                        $0["wokeAt"]
+                    )
+                })
+        }
+    }
+
     private static func state(_ row: Row) -> SnoozeState? {
         if let until: Date = row["wakeAt"] { return .asleep(until: until) }
         if let at: Date = row["wokeAt"] { return .woke(at: at) }
