@@ -78,6 +78,12 @@ check_simulator=$(xcrun simctl list devices available | grep -m1 -F "$CHECK_NAME
 if [[ -z "$check_simulator" ]]; then
     check_simulator=$(xcrun simctl create "$CHECK_NAME" "${GOODMAIL_SIMULATOR:-iPhone 18 Pro}")
 fi
+# simslim, where installed, switches off the background services tests don't need before the simulator boots, which
+# cuts it from about 200 processes to 70 (docs/setup/mac-simulators.md). It never reboots a simulator already booted.
+if command -v simslim >/dev/null && xcrun simctl list devices | grep -F "$check_simulator" | grep -qF "(Shutdown)"; then
+    simslim on "$check_simulator" --profile scripts/simslim-profile.json --preserve-boot-state >/dev/null ||
+        echo "⚠ simslim could not slim $CHECK_NAME; testing on a stock simulator."
+fi
 # Boot it up front: xcodebuild gives a booting simulator only 60 seconds, which a busy Mac can miss.
 xcrun simctl bootstatus "$check_simulator" -b >/dev/null
 DESTINATION="platform=iOS Simulator,id=$check_simulator"

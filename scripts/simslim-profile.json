@@ -1,0 +1,6 @@
+{
+  "name": "goodmail",
+  "description": "Goodmail dev and test simulators: keeps the Photos and document pickers working, and push registration.",
+  "except": ["photos", "search"],
+  "keep": ["com.apple.apsd"]
+}
