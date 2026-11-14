@@ -24,9 +24,12 @@ struct AttachmentSourceTests {
         #expect(sources == [.photoLibrary, .file])
     }
 
-    #if targetEnvironment(simulator)
-        @Test func theSimulatorOffersNeitherCameraNorScanner() {
-            #expect(AttachmentSource.available(on: .current) == [.photoLibrary, .file])
-        }
-    #endif
+    /// Simulators differ in what they report, so this holds the menu to whatever this one says it has.
+    @Test func theMenuFollowsWhatThisDeviceReports() {
+        let hardware = AttachmentSource.Hardware.current
+        let sources = AttachmentSource.available(on: hardware)
+        #expect(sources.prefix(2) == [.photoLibrary, .file])
+        #expect(sources.contains(.camera) == hardware.hasCamera)
+        #expect(sources.contains(.scan) == hardware.canScan)
+    }
 }

@@ -142,7 +142,7 @@ struct SettingsTests {
         #expect(RowDisplay.previewTitle(3) == "3 lines")
     }
 
-    @Test func renamingTrimsTheNameAndABlankOneClearsIt() {
+    @Test func renamingTrimsTheNameAndABlankOneClearsIt() async {
         var stored = [personal, work]
         var updates = 0
         let model = SettingsViewModel(
@@ -159,10 +159,11 @@ struct SettingsTests {
 
         model.rename(work.id, to: "   ")
         #expect(model.accounts[1].name == nil)
+        await model.settled()
         #expect(updates == 2)
     }
 
-    @Test func recoloringStoresOnlyARealChange() {
+    @Test func recoloringStoresOnlyARealChange() async {
         var stored = [personal]
         var updates = 0
         let model = SettingsViewModel(
@@ -174,18 +175,21 @@ struct SettingsTests {
             closed: {})
 
         model.setColor(.blue, for: personal.id)
+        await model.settled()
         #expect(updates == 0, "the color it already has")
         model.setColor(.mint, for: personal.id)
         #expect(model.accounts[0].color == .mint)
+        await model.settled()
         #expect(updates == 1)
     }
 
-    @Test func aFailedUpdateIsShownAndChangesNothing() {
+    @Test func aFailedUpdateIsShownAndChangesNothing() async {
         struct Locked: Error {}
         let model = SettingsViewModel(
             accounts: { [personal] }, signIn: { _ in true }, remove: { _ in }, update: { _ in throw Locked() },
             closed: {})
         model.setColor(.mint, for: personal.id)
+        await model.settled()
         #expect(model.error is Locked)
         #expect(model.accounts == [personal])
     }

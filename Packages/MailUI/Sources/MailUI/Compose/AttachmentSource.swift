@@ -8,7 +8,7 @@ enum AttachmentSource: CaseIterable {
     case camera
     case scan
 
-    /// What the device can do. The simulator has neither camera nor scanner.
+    /// What the device can do. A simulator may report a camera and scanner as well.
     struct Hardware: Equatable {
         var hasCamera: Bool
         var canScan: Bool
