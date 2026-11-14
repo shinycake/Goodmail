@@ -74,14 +74,14 @@ struct ThemeTests {
         let theme = Theme(accountID: nil, among: [personal, work], combined: .solid(.purple))
         #expect(theme == .solid(.purple))
         #expect(theme.tint == .systemPurple)
-        let font = Typography.serif(.largeTitle, weight: .bold)
+        let font = Typography.system(.largeTitle, weight: .bold)
         #expect(theme.titleColor(for: "Inbox", font: font, direction: .leftToRight) == .systemPurple)
     }
 
     @Test(arguments: [UIUserInterfaceLayoutDirection.leftToRight, .rightToLeft])
     func aGradientThemesTitleIsPaintedInThePattern(direction: UIUserInterfaceLayoutDirection) {
         let theme = Theme(accountID: nil, among: [personal, work], combined: .gradient)
-        let font = Typography.serif(.largeTitle, weight: .bold)
+        let font = Typography.system(.largeTitle, weight: .bold)
         let title = theme.titleColor(for: "Inbox", font: font, direction: direction)
             .resolvedColor(with: UITraitCollection(userInterfaceStyle: .dark))
         #expect(title.cgColor.pattern != nil)
@@ -106,9 +106,20 @@ struct ThemeTests {
         #expect(blended.spokenAccount == "work@example.com")
     }
 
-    @Test func contentTypographyIsNewYork() {
+    @Test func contentTypographyIsTheSystemFont() {
+        let system = UIFont.systemFont(ofSize: 17).familyName
         for font in [Typography.title, Typography.subject, Typography.body] {
-            #expect(font.fontName.contains("NewYork"), "\(font.fontName)")
+            #expect(font.familyName == system, "\(font.fontName)")
         }
+    }
+
+    @Test func contentTypographyFollowsDynamicType() {
+        let large = UITraitCollection(preferredContentSizeCategory: .large)
+        let huge = UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraExtraLarge)
+        let body = Typography.body
+        #expect(body.pointSize == UIFont.preferredFont(forTextStyle: .body, compatibleWith: large).pointSize)
+        #expect(
+            UIFontMetrics(forTextStyle: .body).scaledFont(for: body, compatibleWith: huge).pointSize
+                > body.pointSize)
     }
 }

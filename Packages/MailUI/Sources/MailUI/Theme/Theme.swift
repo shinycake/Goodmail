@@ -73,7 +73,7 @@ extension UIViewController {
         guard let navigationController else { return }
         navigationController.navigationBar.tintColor = tint
         navigationController.toolbar.tintColor = tint
-        let font = Typography.serif(.largeTitle, weight: .bold)
+        let font = Typography.system(.largeTitle, weight: .bold)
         let title = theme.titleColor(
             for: navigationItem.title ?? self.title ?? "", font: font,
             direction: view.effectiveUserInterfaceLayoutDirection)

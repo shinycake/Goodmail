@@ -50,8 +50,7 @@ extension MailboxViewController {
         configuration.imagePadding = 4
         configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
             var attributes = attributes
-            attributes.font = UIFontMetrics(forTextStyle: .subheadline).scaledFont(
-                for: .systemFont(ofSize: 15, weight: .semibold))
+            attributes.font = Typography.system(.subheadline, weight: .semibold)
             return attributes
         }
         let button = UIButton(configuration: configuration)

@@ -1,18 +1,18 @@
 import UIKit
 
-/// New York carries the content (titles, subjects, message bodies); everything else stays in SF Pro.
-/// Every font scales with Dynamic Type.
+/// The app's type: the system font (SF Pro, and the system Hebrew face for Hebrew) in semantic text styles, so every
+/// font follows Dynamic Type, accessibility sizes and Bold Text like the rest of iOS.
 public enum Typography {
-    public static var title: UIFont { serif(.title2, weight: .semibold) }
-    public static var subject: UIFont { serif(.body, weight: .semibold) }
-    public static var body: UIFont { serif(.body) }
+    public static var title: UIFont { system(.title2, weight: .semibold) }
+    public static var subject: UIFont { system(.body, weight: .semibold) }
+    public static var body: UIFont { system(.body) }
 
-    public static func serif(_ style: UIFont.TextStyle, weight: UIFont.Weight = .regular) -> UIFont {
+    /// The system font in `style` at `weight`, scaled to the user's text size.
+    public static func system(_ style: UIFont.TextStyle, weight: UIFont.Weight = .regular) -> UIFont {
         // Start from the default size so UIFontMetrics can scale it to the user's setting.
         let defaultSize = UITraitCollection(preferredContentSizeCategory: .large)
         let descriptor = UIFontDescriptor.preferredFontDescriptor(withTextStyle: style, compatibleWith: defaultSize)
-        let serif = (descriptor.withDesign(.serif) ?? descriptor)
             .addingAttributes([.traits: [UIFontDescriptor.TraitKey.weight: weight]])
-        return UIFontMetrics(forTextStyle: style).scaledFont(for: UIFont(descriptor: serif, size: 0))
+        return UIFontMetrics(forTextStyle: style).scaledFont(for: UIFont(descriptor: descriptor, size: 0))
     }
 }

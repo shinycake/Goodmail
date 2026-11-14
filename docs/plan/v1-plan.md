@@ -43,7 +43,7 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
 
 **Builds:**
 - Google sign-in (PKCE via `ASWebAuthenticationSession`), with tokens in the Keychain
-- fetch the first page of Inbox threads (metadata), store them through `MailStore`, and show them in the UIKit list with the real row design (serif subject, time sections)
+- fetch the first page of Inbox threads (metadata), store them through `MailStore`, and show them in the UIKit list with the real row design (semibold subject, time sections)
 - **performance spike:** 50k synthetic rows, scrolled on a device and measured with Instruments
 
 **Evidence:** a screenshot of the test account's inbox in English and Hebrew, provider tests on fixtures, and the scroll measurement.

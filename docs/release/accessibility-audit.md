@@ -31,7 +31,7 @@ proposed as a follow-up.
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| Fonts | ✅ | Every label uses a text style or `Typography`, which scales New York with `UIFontMetrics`, and sets `adjustsFontForContentSizeCategory`. The category pill scales its 15 pt font with `UIFontMetrics`. |
+| Fonts | ✅ | Every label uses a text style or `Typography`, which scales the system font with `UIFontMetrics`, and sets `adjustsFontForContentSizeCategory`. The category pill uses `Typography` at semibold subheadline. |
 | Thread row size changes while open | 🔧 | `setContentText` bakes the font into the attributed text, which doesn't rescale on its own. The row now sets its text again when the size setting changes. |
 | Thread row header at accessibility sizes | 🔧 | Sender and date sat side by side with the date unsqueezable, so a long name truncated to a few letters. At accessibility sizes the date now goes under the name (`stacksVerticallyAtAccessibilitySizes`). |
 | Message card header at accessibility sizes | 🔧 | The same change for sender and date. |

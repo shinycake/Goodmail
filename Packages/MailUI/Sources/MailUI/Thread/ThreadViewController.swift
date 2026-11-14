@@ -58,7 +58,7 @@ public final class ThreadViewController: UIViewController {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(scrollView)
 
-        subject.font = Typography.serif(.title1, weight: .bold)
+        subject.font = Typography.system(.title1, weight: .bold)
         subject.adjustsFontForContentSizeCategory = true
         subject.numberOfLines = 0
         subject.accessibilityTraits = .header

@@ -14,10 +14,10 @@ The owner decided these on 2026-10-20 after reviewing mockups. The design will b
   - sheets float inset with large corner radii
   - on iPad, the sidebar is a floating glass panel
 - **Typography:**
-  - New York (system serif, `UIFontDescriptor.withDesign(.serif)`) for large titles, subjects and message bodies
-  - SF Pro for names, times, metadata and controls
-  - Dynamic Type throughout
-  - New York has no Hebrew glyphs, so Hebrew text in those styles falls back to the system Hebrew serif (seen in the M0 launch screenshot). Review it when real content lands.
+  - the system font everywhere, per the HIG: SF Pro, with iOS's own Hebrew face for Hebrew (2026-11-14, Idan; New York is gone)
+  - semantic text styles (`.body`, `.headline`, `.title2`…), with weight for emphasis, through `Typography` in UIKit
+  - SF Rounded only for the avatar monograms, which keep a fixed size inside their fixed-size circles
+  - Dynamic Type throughout, up to the accessibility sizes
 - **Motion and haptics** confirm actions and never decorate. SF Symbol effects provide the delight moments.
 - **RTL indistinguishable from native.** Mixed Hebrew/English content renders correctly, and gestures and animations mirror.
 
@@ -61,7 +61,7 @@ There's one main color: the account's theme color. Everything else is neutral.
 - **Sections by time of day:** This morning, Yesterday, Last week… The headers are quiet sentence-case labels.
 - **Rows:**
   - sender in SF, with unread rows semibold
-  - subject in New York
+  - subject in semibold body
   - a 2-line preview by default, adjustable from 0 to 5
 - **The account badge** in the theme color sits on the avatar's top corner, and appears only while the message is unread.
 - **Swipe actions are separate glass buttons**, revealed as the row slides aside. Never colored blocks.
@@ -72,9 +72,9 @@ There's one main color: the account's theme color. Everything else is neutral.
 
 ## Thread view
 
-- **Header:** the subject in large New York type, with a quiet metadata line (account · labels · number of letters).
+- **Header:** the subject in large bold type, with a quiet metadata line (account · labels · number of letters).
 - **Older messages:** a slim timeline of one-line summaries ("Dan — Can we pull push earlier?").
-- **The newest or first unread message:** a rounded card, with the body in New York.
+- **The newest or first unread message:** a rounded card, with the body in the system body style.
 - **Order:** chronological, oldest to newest, and the view opens on the first unread message. Quoted text is folded.
 - **Toolbar:**
   - one neutral glass group with Archive, Trash (red glyph), Label and More

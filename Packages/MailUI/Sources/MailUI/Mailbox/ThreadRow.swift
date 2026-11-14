@@ -1,7 +1,7 @@
 import MailCore
 import UIKit
 
-/// A mailbox row: sender and time, the subject in New York, then the preview. The account badge marks unread mail,
+/// A mailbox row: sender and time, the subject in semibold, then the preview. The account badge marks unread mail,
 /// and in a view spanning accounts, which account the thread belongs to.
 struct ThreadRowConfiguration: UIContentConfiguration, Equatable {
     var thread: ThreadSummary

@@ -87,11 +87,11 @@ nonisolated enum MessageDocument {
         </style>
         """
 
-    /// Plain text gets the reading typography of the app, New York at the body size, light and dark.
+    /// Plain text gets the reading typography of the app, the system font at the body size, light and dark.
     private static let plainStyle = """
         <style>\
         :root { color-scheme: light dark; }\
-        body { font: -apple-system-body; font-family: ui-serif, "New York", serif; line-height: 1.45; }\
+        body { font: -apple-system-body; line-height: 1.45; }\
         blockquote.goodmail-quote { margin: 0; padding-inline-start: 10px; border-inline-start: 2px solid \
         rgba(120,120,128,0.4); color: rgba(120,120,128,1); }\
         </style>
