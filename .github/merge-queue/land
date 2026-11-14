@@ -37,15 +37,15 @@ land() {
         echo "::error::The squash of #$PR isn't the tree that was verified."
         exit 1
     fi
-    # Not a force push: it lands only if main is still the commit the squash was verified on.
-    if ! git push -q origin "$squash:refs/heads/main"; then
-        echo "▸ Main moved during the merge; the next sweep checks #$PR against it."
+    # One atomic push moves main and the PR branch to the squash together, or neither. Main isn't forced: it moves
+    # only if it is still the commit the squash was verified on. The branch's lease keeps a push made after the
+    # review. With the branch's head arriving on main in the same push, GitHub marks the PR merged; pushing main first
+    # leaves GitHub nothing to match, and it shows the PR as closed.
+    if ! git push -q --atomic --force-with-lease="refs/heads/$REF:$SHA" origin \
+        "$squash:refs/heads/main" "$squash:refs/heads/$REF"; then
+        echo "▸ Main moved, or the branch got a push, during the merge; the next sweep looks at #$PR again."
         return
     fi
-    # With the branch's head on main, GitHub marks the PR merged. The lease keeps a push made after the review, and
-    # the branch with it; then, or if GitHub doesn't mark the PR, the job closes it.
-    local kept=false
-    git push -q --force-with-lease="refs/heads/$REF:$SHA" origin "$squash:refs/heads/$REF" || kept=true
     for _ in 1 2 3 4 5 6; do
         [[ $(gh api "repos/$R/pulls/$PR" --jq .merged) == true ]] && break
         sleep 5
@@ -53,7 +53,7 @@ land() {
     if [[ $(gh api "repos/$R/pulls/$PR" --jq .merged) != true ]]; then
         gh pr close "$PR" -R "$R" --comment "Merged to main as $squash by the merge queue."
     fi
-    [[ "$kept" == true ]] || git push -q origin --delete "$REF" || true
+    git push -q origin --delete "$REF" || true
     report "$SHA" success "Merged to main as ${squash:0:7}."
     echo "▸ Merged #$PR as ${squash:0:7}." | tee -a "$GITHUB_STEP_SUMMARY"
 }
