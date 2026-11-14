@@ -33,17 +33,26 @@ struct FakeHost: MailIntentsHost {
 
     func cachedMessages(inThread id: ThreadSummary.ID) throws -> [Message] { cached[id] ?? [] }
 
+    /// Returns an undo that names `action` itself, so a test can tell which change an undo takes back.
     func perform(_ action: ThreadAction, on threads: [ThreadSummary.ID]) throws -> MailCommands.Undo {
         performed.record(action, on: threads)
-        return MailCommands.Undo()
+        return MailCommands.Undo(
+            intents: Dictionary(grouping: threads, by: \.accountID).mapValues { ids in
+                ids.map { OutboxIntent(threadID: $0.threadID, action: action, createdAt: .distantPast) }
+            })
+    }
+
+    func undo(_ undo: MailCommands.Undo) throws {
+        performed.recordUndo(of: undo)
     }
 
     @MainActor func open(_ route: Route) {}
 }
 
-/// The actions performed, per thread ID, in order.
+/// The actions performed, per thread ID, in order, and the actions whose undos ran, once per thread, in order.
 final class Performed: Sendable {
     private let actions = Mutex<[String: [ThreadAction]]>([:])
+    private let undoneActions = Mutex<[ThreadAction]>([])
 
     func record(_ action: ThreadAction, on threads: [ThreadSummary.ID]) {
         actions.withLock { actions in
@@ -52,4 +61,10 @@ final class Performed: Sendable {
     }
 
     func on(_ thread: String) -> [ThreadAction] { actions.withLock { $0[thread] ?? [] } }
+
+    func recordUndo(of undo: MailCommands.Undo) {
+        undoneActions.withLock { $0.append(contentsOf: undo.intents.values.joined().map(\.action)) }
+    }
+
+    var undone: [ThreadAction] { undoneActions.withLock { $0 } }
 }

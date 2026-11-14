@@ -51,6 +51,10 @@
             try await commands.perform(action, on: threads)
         }
 
+        func undo(_ undo: MailCommands.Undo) async throws {
+            try await commands.undo(undo)
+        }
+
         @MainActor func open(_ route: Route) { routes.open(route) }
     }
 #endif

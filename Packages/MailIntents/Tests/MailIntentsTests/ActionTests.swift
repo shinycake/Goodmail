@@ -32,4 +32,21 @@ struct ActionTests {
             ])
         #expect(UpdateMailIntent.actions(isRead: nil, isFlagged: nil, isJunk: false).isEmpty)
     }
+
+    @Test func anActionReturnsWhatUndoesIt() async throws {
+        let change = try await catalog.perform(.archive, onThreads: ["A1/t1"])
+        #expect(change.intents.values.joined().map(\.action) == [.archive])
+    }
+
+    @Test func undoTakesTheChangesBackNewestFirst() async throws {
+        let read = try await catalog.perform(.markRead(true), onThreads: ["A1/t1"])
+        let starred = try await catalog.perform(.star(true), onThreads: ["A1/t1"])
+        try await IntentUndo.takeBack([read, MailCommands.Undo(), starred], through: host)
+        #expect(
+            host.performed.undone == [.star(true), .markRead(true)], "newest first, and nothing for an empty change")
+    }
+
+    @Test func notJunkUndoesNothingWhenNoMessageWasInJunk() async throws {
+        #expect(try await catalog.markNotJunk([]).isEmpty)
+    }
 }

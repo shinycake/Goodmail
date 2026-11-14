@@ -18,6 +18,8 @@ public protocol MailIntentsHost: Sendable {
     /// Changes the threads through `MailCommands`, the only way intents change mail (ADR-011). Returns what undoes it.
     @discardableResult
     func perform(_ action: ThreadAction, on threads: [ThreadSummary.ID]) async throws -> MailCommands.Undo
+    /// Takes back what `perform` did, through `MailCommands`, when the system asks an intent to undo.
+    func undo(_ undo: MailCommands.Undo) async throws
     /// Shows `route` in the frontmost window (ADR-011).
     @MainActor func open(_ route: Route)
 }
