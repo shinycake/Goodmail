@@ -37,13 +37,18 @@ land() {
         echo "::error::The squash of #$PR isn't the tree that was verified."
         exit 1
     fi
-    # One atomic push moves main and the PR branch to the squash together, or neither. Main isn't forced: it moves
-    # only if it is still the commit the squash was verified on. The branch's lease keeps a push made after the
-    # review. With the branch's head arriving on main in the same push, GitHub marks the PR merged; pushing main first
-    # leaves GitHub nothing to match, and it shows the PR as closed.
-    if ! git push -q --atomic --force-with-lease="refs/heads/$REF:$SHA" origin \
-        "$squash:refs/heads/main" "$squash:refs/heads/$REF"; then
-        echo "▸ Main moved, or the branch got a push, during the merge; the next sweep looks at #$PR again."
+    # GitHub marks a PR merged only when its head is already the squash as main arrives at it: pushing both in one
+    # push, or main first, shows the PR as closed. So the squash goes on the branch first, under a lease on the
+    # reviewed head, which stops the merge if the branch got a push since. Then main, not forced: it moves only if it
+    # is still the commit the squash was verified on. If it moved, the branch goes back to the reviewed head, and the
+    # next sweep checks the PR against the new main.
+    if ! git push -q --force-with-lease="refs/heads/$REF:$SHA" origin "$squash:refs/heads/$REF"; then
+        echo "▸ #$PR got a push during the merge; the next sweep looks at it again."
+        return
+    fi
+    if ! git push -q origin "$squash:refs/heads/main"; then
+        git push -q --force-with-lease="refs/heads/$REF:$squash" origin "$SHA:refs/heads/$REF"
+        echo "▸ Main moved during the merge; the next sweep checks #$PR against it."
         return
     fi
     for _ in 1 2 3 4 5 6; do
