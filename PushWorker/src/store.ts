@@ -76,3 +76,36 @@ export async function releaseHistoryId(db: D1Database, claim: HistoryClaim): Pro
           .bind(claim.account, claim.historyId, claim.previous);
   await statement.run();
 }
+
+/** Pushes for an account this soon after the last one are dropped: the device catches up on them from that one. */
+export const BURST_MS = 15_000;
+
+/**
+ * Takes the account's push slot, in one conditional write: false when another push went out less than `BURST_MS`
+ * ago. Returns the time it replaced, for `releasePushSlot`.
+ */
+export async function claimPushSlot(db: D1Database, account: string, now: number): Promise<number | null | false> {
+  const [before, write] = await db.batch<{ pushed_at: number }>([
+    db.prepare("SELECT pushed_at FROM push_times WHERE account = ?1").bind(account),
+    db
+      .prepare(
+        `INSERT INTO push_times (account, pushed_at) VALUES (?1, ?2)
+         ON CONFLICT (account) DO UPDATE SET pushed_at = excluded.pushed_at
+         WHERE excluded.pushed_at - push_times.pushed_at >= ?3`,
+      )
+      .bind(account, now, BURST_MS),
+  ]);
+  if (write?.meta.changes !== 1) return false;
+  return before?.results[0]?.pushed_at ?? null;
+}
+
+/** Gives the slot back after a push that reached no device, so its redelivery isn't dropped as part of a burst. */
+export async function releasePushSlot(db: D1Database, account: string, now: number, previous: number | null) {
+  const statement =
+    previous === null
+      ? db.prepare("DELETE FROM push_times WHERE account = ?1 AND pushed_at = ?2").bind(account, now)
+      : db
+          .prepare("UPDATE push_times SET pushed_at = ?3 WHERE account = ?1 AND pushed_at = ?2")
+          .bind(account, now, previous);
+  await statement.run();
+}

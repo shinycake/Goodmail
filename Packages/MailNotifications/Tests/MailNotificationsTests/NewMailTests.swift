@@ -2,6 +2,7 @@ import Foundation
 import MailCore
 import MailStore
 import Testing
+import UserNotifications
 
 @testable import MailNotifications
 
@@ -22,6 +23,18 @@ struct NewMailAlertTests {
         #expect(content.body == "Tomorrow at one")
         #expect(content.threadIdentifier == "a1")
         #expect(content.categoryIdentifier == NewMailAlert.categoryID)
+    }
+
+    @Test func aPlaceholderKeepsThePushTextButMakesNoSoundAndStacksApart() {
+        let push = UNMutableNotificationContent()
+        push.body = "New mail"
+        push.sound = .default
+        let placeholder = NewMailAlert.placeholder(for: push)
+        #expect(placeholder.body == "New mail")
+        #expect(placeholder.sound == nil)
+        #expect(placeholder.interruptionLevel == .passive)
+        #expect(placeholder.threadIdentifier != NewMailAlert.content(for: thread(), in: account).threadIdentifier)
+        #expect(NewMailAlert.thread(in: placeholder.userInfo) == nil)
     }
 
     @Test func mailWithoutASubjectSaysSo() {

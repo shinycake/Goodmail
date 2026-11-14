@@ -3,7 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { base64Decode } from "../src/encoding";
 import { GOOGLE_JWKS_URL } from "../src/google";
 import worker, { type Env } from "../src/index";
-import { accountId } from "../src/store";
+import { accountId, BURST_MS } from "../src/store";
 import { generateApnsKey, generateGoogleKey, idTokenClaims, jwksResponse, signGoogleToken, type TestGoogleKey } from "./keys";
 
 const EMAIL = "someone@gmail.com";
@@ -35,6 +35,7 @@ beforeEach(async () => {
     env.DB.prepare("DELETE FROM devices"),
     env.DB.prepare("DELETE FROM deliveries"),
     env.DB.prepare("DELETE FROM graph_subscriptions"),
+    env.DB.prepare("DELETE FROM push_times"),
   ]);
   apnsCalls = [];
   apnsReplies = new Map();
@@ -93,6 +94,11 @@ async function pubSubPushRequest(historyId: string | number, email = EMAIL, clai
     headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
     body,
   });
+}
+
+/** Lets the next push through, as if the last one went out longer ago than a burst lasts. */
+async function endBurst() {
+  await env.DB.prepare("UPDATE push_times SET pushed_at = pushed_at - ?1").bind(BURST_MS).run();
 }
 
 async function storedDevices() {
@@ -189,6 +195,7 @@ describe("Pub/Sub push", () => {
   it("drops a duplicate delivery and a historyId that isn't newer", async () => {
     await register();
     await pubSubPush("100");
+    await endBurst();
     await pubSubPush("100");
     await pubSubPush("99");
     await pubSubPush("101");
@@ -198,8 +205,19 @@ describe("Pub/Sub push", () => {
   it("compares history IDs numerically, not by string length", async () => {
     await register();
     await pubSubPush("999");
+    await endBurst();
     await pubSubPush("1000");
     expect(apnsCalls).toHaveLength(2);
+  });
+
+  it("sends one push for a burst of changes, and the next after the burst", async () => {
+    await register();
+    await pubSubPush("40");
+    await pubSubPush("41");
+    await pubSubPush("42");
+    await endBurst();
+    await pubSubPush("43");
+    expect(apnsCalls.map((call) => (call.body as { historyId: string }).historyId)).toEqual(["40", "43"]);
   });
 
   it("sends nothing for an account without devices", async () => {
@@ -252,6 +270,7 @@ describe("Pub/Sub push", () => {
   it("gives back the claim to the one it replaced, so older pushes still drop", async () => {
     await register(DEVICE);
     await pubSubPush("30");
+    await endBurst();
     apnsReplies.set(DEVICE, new Response(null, { status: 500 }));
     expect((await pubSubPush("31")).status).toBe(503);
     apnsReplies.clear();

@@ -82,24 +82,26 @@ private final class Delivery: @unchecked Sendable {
                     identifier: NewMailAlert.identifier(for: thread.id), content: content, trigger: nil)
                 try? await UNUserNotificationCenter.current().add(request)
             }
-            deliver(await SenderAlert.content(for: newest, in: account, logos: logos))
+            let alert = await SenderAlert.content(for: newest, in: account, logos: logos)
+            deliver { _ in alert }
         case .nothingNew:
-            // Empty content drops the alert, with the filtering entitlement; without it iOS shows the push as it came.
-            deliver(UNNotificationContent())
+            // One placeholder at a time: this one replaces any left from earlier pushes.
+            await NewMailAlert.removePlaceholders()
+            deliver(NewMailAlert.placeholder(for:))
         }
     }
 
     /// Shows the push as it came, whose text stands on its own, unless an alert was already handed over.
     func expire() {
-        deliver(nil)
+        deliver { $0 }
     }
 
-    /// `nil` hands over the push as it came.
-    private func deliver(_ content: UNNotificationContent?) {
+    /// Hands iOS `content` made from the push as it came.
+    private func deliver(_ content: (UNNotificationContent) -> UNNotificationContent) {
         state.withLockUnchecked { state in
             guard case .waiting(let fallback, let handler) = state else { return }
             state = .delivered
-            handler(content ?? fallback)
+            handler(content(fallback))
         }
     }
 }

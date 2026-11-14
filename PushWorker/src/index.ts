@@ -19,9 +19,11 @@ import {
 import {
   accountId,
   claimHistoryId,
+  claimPushSlot,
   devicesFor,
   registerDevice,
   releaseHistoryId,
+  releasePushSlot,
   removeToken,
   unregisterDevice,
 } from "./store";
@@ -115,6 +117,13 @@ async function pubSubPush(request: Request, env: Env): Promise<Response> {
   if (devices.length === 0) return new Response(null, { status: 204 });
   const claim = await claimHistoryId(env.DB, account, historyId);
   if (!claim) return new Response(null, { status: 204 });
+  const now = Date.now();
+  const slot = await claimPushSlot(env.DB, account, now);
+  if (slot === false) return new Response(null, { status: 204 });
+  const release = async () => {
+    await releaseHistoryId(env.DB, claim);
+    await releasePushSlot(env.DB, account, now, slot);
+  };
 
   // Pub/Sub's redelivery is the only retry, so an alert that reached no device gives its claim back and asks for it.
   let outcomes: PushOutcome[];
@@ -132,11 +141,11 @@ async function pubSubPush(request: Request, env: Env): Promise<Response> {
       }),
     );
   } catch (error) {
-    await releaseHistoryId(env.DB, claim);
+    await release();
     throw error;
   }
   if (outcomes.includes("failed") && !outcomes.includes("delivered")) {
-    await releaseHistoryId(env.DB, claim);
+    await release();
     return new Response(null, { status: 503 });
   }
   return new Response(null, { status: 204 });

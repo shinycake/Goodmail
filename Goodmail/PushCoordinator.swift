@@ -13,6 +13,8 @@ final class PushCoordinator: NSObject {
     private let routes: IntentRoutes
     /// The latest update of the accounts' push subscriptions. A newer one replaces it, since it covers the same.
     private var update: Task<Void, Never>?
+    /// The latest clearing of placeholder alerts.
+    private var placeholders: Task<Void, Never>?
     /// Keeps the app badge on the unread count for the app's lifetime.
     private var badge: Task<Void, Never>?
 
@@ -36,7 +38,10 @@ final class PushCoordinator: NSObject {
         NotificationCenter.default.addObserver(
             forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.updateSubscriptions() }
+            MainActor.assumeIsolated {
+                self?.clearPlaceholders()
+                self?.updateSubscriptions()
+            }
         }
         updateSubscriptions()
     }
@@ -58,6 +63,12 @@ final class PushCoordinator: NSObject {
                 Logger.push.error("Stopped updating the badge: \(error, privacy: .public)")
             }
         }
+    }
+
+    /// The reader is looking at the mail, so pushes that showed only "New mail" have nothing left to say.
+    private func clearPlaceholders() {
+        placeholders?.cancel()
+        placeholders = Task { await NewMailAlert.removePlaceholders() }
     }
 
     /// Asks for permission if it hasn't been asked, then brings every account's subscription up to date.

@@ -31,6 +31,27 @@ public enum NewMailAlert {
         return content
     }
 
+    /// What shows for a push that brought nothing to alert for, as a label change does: iOS shows something for
+    /// every push until Goodmail has the filtering entitlement, so it's the push's own text, delivered without a
+    /// sound or lighting the screen, and stacked apart from real alerts.
+    public static func placeholder(for push: UNNotificationContent) -> UNNotificationContent {
+        guard let quiet = push.mutableCopy() as? UNMutableNotificationContent else { return push }
+        quiet.sound = nil
+        quiet.interruptionLevel = .passive
+        quiet.relevanceScore = 0
+        quiet.threadIdentifier = placeholderThread
+        return quiet
+    }
+
+    /// Removes delivered alerts that name no thread: placeholders, and pushes shown as they came.
+    public static func removePlaceholders() async {
+        let center = UNUserNotificationCenter.current()
+        let placeholders = await center.deliveredNotifications().filter {
+            thread(in: $0.request.content.userInfo) == nil
+        }
+        center.removeDeliveredNotifications(withIdentifiers: placeholders.map(\.request.identifier))
+    }
+
     /// The thread an alert is about, or `nil` for one that isn't a new-mail alert, such as the bare push shown
     /// when the extension couldn't fetch.
     public static func thread(in userInfo: [AnyHashable: Any]) -> ThreadSummary.ID? {
@@ -76,6 +97,7 @@ public enum NewMailAlert {
         "\(thread.accountID.rawValue)/\(thread.threadID)"
     }
 
+    private static let placeholderThread = "placeholder"
     private static let accountKey = "accountID"
     private static let threadKey = "threadID"
 }
