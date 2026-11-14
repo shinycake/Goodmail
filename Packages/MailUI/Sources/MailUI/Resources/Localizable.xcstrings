@@ -1428,6 +1428,17 @@
         }
       }
     },
+    "Open in New Window" : {
+      "comment" : "Context menu item that opens a thread in a window of its own",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פתיחה בחלון חדש"
+          }
+        }
+      }
+    },
     "Organize" : {
       "comment" : "Button: move threads or change labels",
       "localizations" : {

@@ -312,6 +312,11 @@ final class SceneCoordinator: NSObject {
                 navigation(for: .secondary)?.setViewControllers([reader], animated: false)
                 split.show(.secondary)
             }
+        case .newWindow(let id, let mailbox):
+            let options = UIScene.ActivationRequestOptions()
+            options.requestingScene = window.windowScene
+            UIApplication.shared.requestSceneSessionActivation(
+                nil, userActivity: shown.opening(id, in: mailbox).activity, options: options, errorHandler: nil)
         case .changeLabels(let ids):
             let threads = ids.compactMap { try? model.database.thread($0) }
             guard let account = threads.first?.id.accountID,
@@ -398,6 +403,15 @@ extension SceneCoordinator: UISplitViewControllerDelegate, UINavigationControlle
 }
 
 extension WindowState {
+    /// The state as an activity, which restores it, hands it off, or opens it in a new window.
+    fileprivate var activity: NSUserActivity? {
+        guard let saved = try? saved() else { return nil }
+        let activity = NSUserActivity(activityType: Self.activityType)
+        activity.userInfo = [Self.activityKey: saved]
+        activity.isEligibleForHandoff = true
+        return activity
+    }
+
     /// Where the mailboxes list marks the reader as being.
     fileprivate var destination: MailboxesViewModel.Destination {
         switch list {
@@ -412,11 +426,7 @@ extension SceneCoordinator {
     /// What the window shows, for the system to save with the scene and restore with it, and to offer to the
     /// reader's other devices.
     var activity: NSUserActivity? {
-        guard split != nil, let saved = try? shown.saved() else { return nil }
-        let activity = NSUserActivity(activityType: WindowState.activityType)
-        activity.userInfo = [WindowState.activityKey: saved]
-        activity.isEligibleForHandoff = true
-        return activity
+        split == nil ? nil : shown.activity
     }
 
     /// Makes the window's activity current, so Handoff offers what it shows now.

@@ -63,4 +63,26 @@ struct WindowStateTests {
         #expect(WindowState(list: .snoozed(thread: thread)).keeping([work]) == WindowState(list: .snoozed(thread: nil)))
         #expect(WindowState(list: .scheduled).keeping([]) == WindowState(list: .scheduled))
     }
+
+    @Test func aThreadOpenedInANewWindowKeepsTheListItWasOpenedFrom() {
+        let label = Mailbox(labelID: "Label_7", accountID: work)
+        let thread = ThreadSummary.ID(accountID: work, threadID: "t1")
+        let receipts = WindowState(list: .mailbox(label, title: "Receipts", thread: nil), category: .updates)
+        #expect(
+            receipts.opening(thread, in: label)
+                == WindowState(list: .mailbox(label, title: "Receipts", thread: thread), category: .updates))
+        #expect(
+            WindowState(list: .snoozed(thread: nil)).opening(thread, in: .allMail).list == .snoozed(thread: thread))
+    }
+
+    @Test func aThreadFoundElsewhereOpensInANewWindowOverItsOwnMailbox() {
+        let thread = ThreadSummary.ID(accountID: work, threadID: "t1")
+        let other = ThreadSummary.ID(accountID: home, threadID: "t2")
+        #expect(
+            WindowState(list: .mailbox(.inbox, title: nil, thread: other)).opening(thread, in: .allMail).list
+                == .mailbox(.allMail, title: nil, thread: thread), "a search result is read in All Mail")
+        #expect(
+            WindowState(list: .scheduled).opening(thread, in: .inbox).list
+                == .mailbox(.inbox, title: nil, thread: thread))
+    }
 }

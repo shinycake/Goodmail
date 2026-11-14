@@ -38,8 +38,7 @@ public struct WindowState: Equatable, Codable, Sendable {
     /// The thread open from the shown list, and the mailbox it is read in.
     public var openThread: (id: ThreadSummary.ID, mailbox: Mailbox)? {
         switch list {
-        case .mailbox(let mailbox, _, let thread?): (thread, mailbox)
-        case .snoozed(let thread?): (thread, .allMail)
+        case .mailbox(_, _, let thread?), .snoozed(let thread?): readingMailbox.map { (thread, $0) }
         case .mailbox, .scheduled, .snoozed: nil
         }
     }
@@ -50,6 +49,24 @@ public struct WindowState: Equatable, Codable, Sendable {
         case .mailbox(let mailbox, let title, _): list = .mailbox(mailbox, title: title, thread: thread)
         case .snoozed: list = .snoozed(thread: thread)
         case .scheduled: break
+        }
+    }
+
+    /// A new window that opens `thread`, read in `mailbox`. It keeps this window's list (and its title) when that
+    /// is where the thread was read; a thread found elsewhere, such as in search, opens over its own mailbox.
+    public func opening(_ thread: ThreadSummary.ID, in mailbox: Mailbox) -> WindowState {
+        var opened = self
+        if readingMailbox != mailbox { opened.list = .mailbox(mailbox, title: nil, thread: nil) }
+        opened.setThread(thread)
+        return opened
+    }
+
+    /// The mailbox a thread opened from the shown list is read in. Scheduled holds messages, not threads.
+    private var readingMailbox: Mailbox? {
+        switch list {
+        case .mailbox(let mailbox, _, _): mailbox
+        case .snoozed: .allMail
+        case .scheduled: nil
         }
     }
 

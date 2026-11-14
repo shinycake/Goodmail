@@ -3,6 +3,8 @@
 public enum Route: Hashable, Sendable {
     /// A thread, read from `mailbox`, which a move takes it out of.
     case thread(ThreadSummary.ID, in: Mailbox)
+    /// A thread in a window of its own, read from `mailbox`, where the device has more than one window.
+    case newWindow(ThreadSummary.ID, in: Mailbox)
     /// One mailbox's thread list.
     case mailbox(Mailbox)
     /// The composer, with a new message, reply or forward.

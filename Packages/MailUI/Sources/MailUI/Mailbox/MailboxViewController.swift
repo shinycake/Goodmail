@@ -296,6 +296,26 @@ extension MailboxViewController: UICollectionViewDelegate {
     public func collectionView(_ collectionView: UICollectionView, didDeselectItemAt indexPath: IndexPath) {
         if isEditing { updateSelectionChrome() }
     }
+
+    /// Open in New Window, where the device can show more than one.
+    public func collectionView(
+        _ collectionView: UICollectionView, contextMenuConfigurationForItemsAt indexPaths: [IndexPath],
+        point: CGPoint
+    ) -> UIContextMenuConfiguration? {
+        guard !isEditing, UIApplication.shared.supportsMultipleScenes, indexPaths.count == 1,
+            let id = indexPaths.first.flatMap(dataSource.itemIdentifier(for:))
+        else { return nil }
+        return UIContextMenuConfiguration(actionProvider: { [weak self] _ in
+            UIMenu(children: [
+                UIAction(
+                    title: String(
+                        localized: "Open in New Window", bundle: .module,
+                        comment: "Context menu item that opens a thread in a window of its own"),
+                    image: UIImage(systemName: "macwindow.badge.plus")
+                ) { _ in self?.viewModel.openInNewWindow(id) }
+            ])
+        })
+    }
 }
 
 // MARK: - Selecting several threads

@@ -138,4 +138,15 @@ struct MailboxTests {
         #expect(calls == 3, "failure retries, true continues, false stops")
         #expect(!viewModel.isLoadingOlder)
     }
+
+    @Test func aThreadOpensInANewWindowFromItsMailbox() {
+        let label = Mailbox(labelID: "Label_1", accountID: AccountID(rawValue: "work"))
+        let thread = ThreadSummary.ID(accountID: AccountID(rawValue: "work"), threadID: "t")
+        var routes: [Route] = []
+        let list = MailboxViewModel(
+            mailbox: label, accounts: [], source: .flat { AsyncThrowingStream { $0.finish() } }, refresh: {},
+            navigate: { routes.append($0) })
+        list.openInNewWindow(thread)
+        #expect(routes == [.newWindow(thread, in: label)])
+    }
 }

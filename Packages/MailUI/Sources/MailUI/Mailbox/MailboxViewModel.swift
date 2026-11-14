@@ -193,6 +193,10 @@ public final class MailboxViewModel {
         navigate(.thread(id, in: mailbox))
     }
 
+    public func openInNewWindow(_ id: ThreadSummary.ID) {
+        navigate(.newWindow(id, in: mailbox))
+    }
+
     /// The swipe actions for a row, edge-most first: reading state and star from the leading edge; from the
     /// trailing one, what takes the thread out of the way here.
     func swipeActions(for thread: ThreadSummary, leading: Bool) -> [ThreadAction] {
