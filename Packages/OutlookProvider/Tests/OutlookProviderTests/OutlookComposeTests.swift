@@ -83,9 +83,4 @@ struct OutlookComposeTests {
                 Contact(name: "Shop", address: "shop@example.co.il"),
             ])
     }
-
-    @Test func outlookHasNoSignatureToRead() async throws {
-        let (outlook, _) = try await signedIn()
-        #expect(try await outlook.signature() == "")
-    }
 }

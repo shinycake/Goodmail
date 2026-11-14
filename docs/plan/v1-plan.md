@@ -115,7 +115,7 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
   - recipient autocomplete from the people who wrote in, most frequent first
   - attachments from Photos and Files (up to Gmail's limit), sent as `multipart/mixed`, through Gmail's upload endpoint when large
   - forwards carry the original's files, fetched when the message goes
-  - the default send-as signature, read on each sync, in new drafts
+  - the default send-as signature, read on each sync, in new drafts; editable per account in Settings, written back to Gmail's default send-as address, and kept on the device for Outlook and iCloud, whose APIs expose none
   - drafts saved to Gmail through the send queue (Save Draft on close), with Edit Draft on a thread whose newest message is a draft; sending or deleting it removes Gmail's copy
   - Google Contacts (People API connections and other contacts) in a daily local address book, suggested after the people who wrote in
 - **M5.3 (done):**

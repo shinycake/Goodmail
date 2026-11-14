@@ -2,7 +2,7 @@ import MailCore
 import SwiftUI
 import UIKit
 
-/// One account's own settings: the name its mail goes under, its color, its Inbox, and removing it.
+/// One account's own settings: the name its mail goes under, its color, its signature, its Inbox, and removing it.
 struct AccountSettingsView: View {
     let model: SettingsViewModel
     let accountID: AccountID
@@ -48,6 +48,10 @@ struct AccountSettingsView: View {
                 Text(
                     "Color", tableName: "Settings", bundle: .module,
                     comment: "Settings section for an account's theme color")
+            }
+
+            Section {
+                SignatureRow(signatures: model.signatures, account: account)
             }
 
             if account.service.hasInboxCategories {

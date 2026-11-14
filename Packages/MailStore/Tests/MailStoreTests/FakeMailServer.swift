@@ -8,7 +8,7 @@ import Synchronization
 
 /// An in-memory mail service with Gmail's sync semantics: a history counter, paged queries, and cursors that
 /// expire. Tests change its mail and check that the local store converges.
-final class FakeMailServer: MailProvider {
+final class FakeMailServer: SignatureSyncing {
     struct Query: Equatable {
         let query: ThreadQuery
         let pageToken: String?
@@ -30,6 +30,9 @@ final class FakeMailServer: MailProvider {
         var failPrepare: (any Error)?
         var failLookup: (any Error)?
         var signature: String? = ""
+        var signatureWrites: [String] = []
+        var failSignatureWrite: (any Error)?
+        var onSignatureRead: (@Sendable () async -> Void)?
         var contacts: [Contact]? = []
         var contactRequests = 0
         var drafts: [String: (raw: Data, threadID: String?)] = [:]
@@ -265,14 +268,39 @@ extension FakeMailServer: UploadSending {
 }
 
 extension FakeMailServer {
-    /// Fails like a missing settings scope when `nil`.
+    /// Fails like a missing settings scope when `nil`. Runs `onSignatureRead` after reading and before answering,
+    /// as a slow reply would leave room for.
     func signature() async throws -> String {
-        guard let signature = state.withLock(\.signature) else { throw URLError(.userAuthenticationRequired) }
+        let (signature, onRead) = state.withLock { ($0.signature, $0.onSignatureRead) }
+        await onRead?()
+        guard let signature else { throw URLError(.userAuthenticationRequired) }
         return signature
     }
 
-    func setSignature(_ signature: String?) {
+    func setSignature(_ text: String) async throws {
+        try state.withLock { state in
+            if let error = state.failSignatureWrite { throw error }
+            state.signature = text
+            state.signatureWrites.append(text)
+        }
+    }
+
+    /// What `signature()` answers from now on; `nil` makes it fail.
+    func serveSignature(_ signature: String?) {
         state.withLock { $0.signature = signature }
+    }
+
+    /// The signatures written to the server, oldest first.
+    var signatureWrites: [String] { state.withLock(\.signatureWrites) }
+
+    /// Makes writing the signature throw `error` until set back to `nil`.
+    func failSignatureWrite(with error: (any Error)?) {
+        state.withLock { $0.failSignatureWrite = error }
+    }
+
+    /// Runs `hook` during every signature read, until set back to `nil`.
+    func onSignatureRead(_ hook: (@Sendable () async -> Void)?) {
+        state.withLock { $0.onSignatureRead = hook }
     }
 }
 

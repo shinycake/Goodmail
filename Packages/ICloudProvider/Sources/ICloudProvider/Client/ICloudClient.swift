@@ -100,9 +100,6 @@ public struct ICloudClient: MailProvider {
 
     /// iCloud keeps contacts in CardDAV, not in mail. The address book still learns the people who wrote.
     public func contacts() async throws -> [Contact] { [] }
-
-    /// iCloud keeps signatures on each device, out of IMAP's reach.
-    public func signature() async throws -> String { "" }
 }
 
 extension ThreadQuery {

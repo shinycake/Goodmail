@@ -315,7 +315,7 @@ final class AppModel {
         return prefetcher
     }
 
-    private func engine(for id: AccountID) throws -> SyncEngine {
+    func engine(for id: AccountID) throws -> SyncEngine {
         if let engine = engines[id] { return engine }
         let engine = SyncEngine(accountID: id, provider: try providers.provider(for: id), store: database)
         engines[id] = engine

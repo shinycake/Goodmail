@@ -63,11 +63,6 @@ extension OutlookClient {
         }
     }
 
-    /// Graph doesn't expose Outlook's signatures, so the app's own stands alone.
-    public func signature() async throws -> String {
-        ""
-    }
-
     private func postMIME(_ raw: Data, to path: String) async throws {
         guard raw.count <= Self.mimeLimit else { throw ProviderError.rejected }
         do {

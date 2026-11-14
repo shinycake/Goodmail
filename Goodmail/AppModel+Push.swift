@@ -95,12 +95,8 @@ extension AppModel {
         }
         var plain = text
         if let signature, !signature.isEmpty { plain += "\n\n-- \n" + signature }
-        // Each line its own `dir="auto"` block, as the composer writes it, so Hebrew replies read right to left.
-        let html = plain.split(separator: "\n", omittingEmptySubsequences: false).map { line in
-            line.isEmpty ? "<div><br></div>" : "<div dir=\"auto\">\(HTMLText.escape(String(line)))</div>"
-        }
         var draft = Draft.reply(to: latest, all: false, accountEmail: account.email)
-        draft.body = MessageBody(html: html.joined(), plain: plain)
+        draft.body = MessageBody(html: HTMLText.lines(plain), plain: plain)
         try await commands.send(draft, after: .zero)
     }
 

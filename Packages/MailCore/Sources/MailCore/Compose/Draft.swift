@@ -285,6 +285,13 @@ public enum HTMLText {
             .replacingOccurrences(of: "\"", with: "&quot;")
     }
 
+    /// Plain text as HTML, each line its own `dir="auto"` block so Hebrew lines read right to left.
+    public static func lines(_ text: String) -> String {
+        text.split(separator: "\n", omittingEmptySubsequences: false).map { line in
+            line.isEmpty ? "<div><br></div>" : "<div dir=\"auto\">\(escape(String(line)))</div>"
+        }.joined()
+    }
+
     /// What's inside `<body>`, so a quoted document nests in ours. A fragment comes back as it is.
     static func bodyContent(of html: String) -> String {
         guard let open = html.range(of: #"<body[^>]*>"#, options: [.regularExpression, .caseInsensitive]) else {

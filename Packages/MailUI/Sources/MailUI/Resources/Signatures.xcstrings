@@ -1,0 +1,50 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Kept on this device. Outlook and iCloud don't share their signatures with other apps." : {
+      "comment" : "Explains that an Outlook or iCloud signature stays in this app",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נשמרת במכשיר זה. Outlook ו-iCloud לא משתפים את החתימות שלהם עם אפליקציות אחרות."
+          }
+        }
+      }
+    },
+    "None" : {
+      "comment" : "Shown on the Signature row when the account has no signature",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ללא"
+          }
+        }
+      }
+    },
+    "Signature" : {
+      "comment" : "An account's signature: its settings row and its editor's title",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חתימה"
+          }
+        }
+      }
+    },
+    "Syncs with Gmail. A signature changed here replaces Gmail's formatting with plain text." : {
+      "comment" : "Explains that a Gmail signature is shared with Gmail",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מסונכרנת עם Gmail. חתימה שתשונה כאן תחליף את העיצוב של Gmail בטקסט פשוט."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

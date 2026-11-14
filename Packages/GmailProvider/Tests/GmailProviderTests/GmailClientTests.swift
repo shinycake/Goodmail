@@ -109,15 +109,6 @@ struct GmailClientTests {
         await #expect(throws: OAuthSession.Failure.signedOut) { try await session.validAccessToken() }
     }
 
-    @Test func signatureIsTheDefaultAddresssAsPlainText() async throws {
-        let http = FixtureHTTPClient([
-            "/token": [.init(fixture: "token-exchange")],
-            "/gmail/v1/users/me/settings/sendAs": [.init(fixture: "send-as")],
-        ])
-        let signature = try await GmailClient(session: try await signedIn(http), http: http).signature()
-        #expect(signature == "Dana Levi\nGoodmail & Co.\n\nexample.com")
-    }
-
     @Test func muteIsOneThreadsModifyThatAddsTheMutedLabelAndLeavesTheInbox() async throws {
         let http = FixtureHTTPClient([
             "/token": [.init(fixture: "token-exchange")],

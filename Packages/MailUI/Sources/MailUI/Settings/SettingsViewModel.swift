@@ -25,6 +25,8 @@ public final class SettingsViewModel {
     public var combinedTheme: CombinedTheme {
         didSet { Preferences.combinedTheme = combinedTheme }
     }
+    /// Each account's signature.
+    public let signatures: Signatures
     /// Each account's alerts; `nil` in builds without push.
     public var notifications: NotificationChoices?
     /// Accounts whose Inbox isn't split into categories.
@@ -43,12 +45,14 @@ public final class SettingsViewModel {
 
     /// `signIn` signs in to a service and adds its account, returning `false` if the reader cancelled; `remove`
     /// takes an account and its mail off the device; `update` stores an account's new name or color. `accounts`
-    /// reads them back after each. `closed` runs once the screen is gone, however it was dismissed.
+    /// reads them back after each. `signatures` reads and saves each account's signature; a failure shows as `error`.
+    /// `closed` runs once the screen is gone, however it was dismissed.
     public init(
         accounts: @escaping () -> [Account],
         signIn: @escaping (MailService) async throws -> Bool,
         remove: @escaping (AccountID) async throws -> Void,
         update: @escaping (Account) async throws -> Void,
+        signatures: Signatures = Signatures(read: { _ in nil }, store: { _, _ in }),
         closed: @escaping () -> Void
     ) {
         self.accounts = accounts()
@@ -62,7 +66,9 @@ public final class SettingsViewModel {
         self.remove = remove
         self.update = update
         self.closed = closed
+        self.signatures = signatures
         adder.onAdded = { [weak self] in self?.refresh() }
+        signatures.failed = { [weak self] in self?.error = $0 }
     }
 
     public func removeAccount(_ id: AccountID) async {

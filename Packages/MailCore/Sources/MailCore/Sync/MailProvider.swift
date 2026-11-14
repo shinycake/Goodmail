@@ -40,9 +40,6 @@ public protocol MailProvider: Sendable {
 
     /// Everyone the account keeps contacts for, and the people it has written to.
     func contacts() async throws -> [Contact]
-
-    /// The plain-text signature the service adds to new mail from this account; empty when there is none.
-    func signature() async throws -> String
 }
 
 public enum ProviderError: Error, Equatable {

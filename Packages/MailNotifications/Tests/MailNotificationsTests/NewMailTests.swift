@@ -135,5 +135,4 @@ private struct ChangedThreads: MailProvider {
     func saveDraft(_ raw: Data, inThread threadID: String?, replacing: Message.ID?) async throws {}
     func deleteDraft(_ message: Message.ID) async throws {}
     func contacts() async throws -> [Contact] { [] }
-    func signature() async throws -> String { "" }
 }

@@ -281,13 +281,6 @@ public struct GmailClient: MailProvider, UploadSending {
         return people
     }
 
-    public func signature() async throws -> String {
-        let list: GmailSendAsList = try await get("users/me/settings/sendAs")
-        let addresses = list.sendAs ?? []
-        let sender = addresses.first { $0.isDefault == true } ?? addresses.first { $0.isPrimary == true }
-        return HTMLEntities.plainText(fromHTML: sender?.signature ?? "")
-    }
-
     /// Above this many bytes a draft goes through the upload endpoint: as base64 inside JSON it grows by a third,
     /// past what the JSON endpoint takes.
     static let jsonSendLimit = 3_000_000
@@ -353,17 +346,6 @@ public struct GmailClient: MailProvider, UploadSending {
             attempt += 1
         }
     }
-}
-
-/// The addresses the account sends as; Gmail keeps the signature on each.
-struct GmailSendAsList: Decodable {
-    struct SendAs: Decodable {
-        let signature: String?
-        let isPrimary: Bool?
-        let isDefault: Bool?
-    }
-
-    let sendAs: [SendAs]?
 }
 
 /// What a sent message's upload says besides the message: the thread it answers.

@@ -34,6 +34,15 @@ public enum MailService: String, CaseIterable, Codable, Hashable, Sendable {
         case .icloud, .outlook: false
         }
     }
+
+    /// Whether the service keeps the account's signature, so an edit reaches its other apps. Gmail keeps one on each
+    /// send-as address; Graph and IMAP expose none, so Outlook's and iCloud's stay on the device.
+    public var syncsSignature: Bool {
+        switch self {
+        case .gmail: true
+        case .icloud, .outlook: false
+        }
+    }
 }
 
 public struct Account: Identifiable, Hashable, Sendable {

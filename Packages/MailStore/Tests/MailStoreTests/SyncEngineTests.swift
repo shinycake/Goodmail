@@ -230,17 +230,57 @@ struct SyncEngineTests {
     }
 
     @Test func syncKeepsTheSignatureAndAFailedReadLeavesItAlone() async throws {
-        server.setSignature("Dana\nGoodmail")
+        server.serveSignature("Dana\nGoodmail")
         try await engine().sync()
         #expect(try database.signature(for: account.id) == "Dana\nGoodmail")
 
-        server.setSignature(nil)
+        server.serveSignature(nil)
         try await engine().sync()
         #expect(try database.signature(for: account.id) == "Dana\nGoodmail", "mail syncs; the signature stays")
 
-        server.setSignature("")
+        server.serveSignature("")
         try await engine().sync()
         #expect(try database.signature(for: account.id) == nil)
+    }
+
+    @Test func anEditedSignatureIsWrittenToTheServiceThenStored() async throws {
+        let engine = engine()
+        try await engine.setSignature("Dana\nGoodmail")
+        #expect(server.signatureWrites == ["Dana\nGoodmail"])
+        #expect(try database.signature(for: account.id) == "Dana\nGoodmail")
+
+        try await engine.setSignature("")
+        #expect(try database.signature(for: account.id) == nil, "an empty signature removes it")
+    }
+
+    @Test func aSignatureTheServiceRefusesIsNotStored() async throws {
+        server.serveSignature("Old")
+        let engine = engine()
+        try await engine.sync()
+        server.failSignatureWrite(with: URLError(.notConnectedToInternet))
+
+        await #expect(throws: URLError.self) { try await engine.setSignature("New") }
+        #expect(try database.signature(for: account.id) == "Old", "the next sync would only bring the old one back")
+    }
+
+    @Test func aSignatureReadThatAnEditOvertakesIsDropped() async throws {
+        server.serveSignature("Old")
+        let engine = engine()
+        server.onSignatureRead { [server] in
+            server.onSignatureRead(nil)
+            try? await engine.setSignature("New")
+        }
+        try await engine.sync()
+        #expect(try database.signature(for: account.id) == "New")
+    }
+
+    @Test func aServiceThatKeepsNoSignatureKeepsItOnTheDevice() async throws {
+        let engine = SyncEngine(
+            accountID: account.id, provider: DeviceSignatures(server: server), store: database, now: clock.next)
+        try await engine.setSignature("Dana")
+        try await engine.sync()
+        #expect(try database.signature(for: account.id) == "Dana", "sync leaves the device's signature alone")
+        #expect(server.signatureWrites.isEmpty)
     }
 
     @Test func theAddressBookIsFetchedOnceADayAndAFailureLeavesMailAlone() async throws {
@@ -283,4 +323,30 @@ final class TickingClock: Sendable {
             return now
         }
     }
+}
+
+/// The fake server as a service that keeps no signature, as Outlook's Graph and iCloud's IMAP.
+private struct DeviceSignatures: MailProvider {
+    let server: FakeMailServer
+
+    func labels() async throws -> [MailLabel] { try await server.labels() }
+    func currentCursor() async throws -> String { try await server.currentCursor() }
+    func threads(matching query: ThreadQuery, pageToken: String?) async throws -> ThreadPage {
+        try await server.threads(matching: query, pageToken: pageToken)
+    }
+    func threads(withIDs ids: [String]) async throws -> ThreadFetch { try await server.threads(withIDs: ids) }
+    func changes(since cursor: String) async throws -> ChangeSet { try await server.changes(since: cursor) }
+    func messages(inThread threadID: String) async throws -> [Message] { try await server.messages(inThread: threadID) }
+    func data(for attachment: MailCore.Attachment, in message: Message.ID) async throws -> Data {
+        try await server.data(for: attachment, in: message)
+    }
+    func perform(_ action: ThreadAction, onThread threadID: String) async throws {
+        try await server.perform(action, onThread: threadID)
+    }
+    var sending: Sending { server.sending }
+    func saveDraft(_ raw: Data, inThread threadID: String?, replacing: Message.ID?) async throws {
+        try await server.saveDraft(raw, inThread: threadID, replacing: replacing)
+    }
+    func deleteDraft(_ message: Message.ID) async throws { try await server.deleteDraft(message) }
+    func contacts() async throws -> [Contact] { try await server.contacts() }
 }
