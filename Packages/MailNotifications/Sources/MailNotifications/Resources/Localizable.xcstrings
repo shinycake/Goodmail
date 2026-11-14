@@ -1,0 +1,94 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%u more from %@" : {
+      "comment" : "Summary of stacked alerts: the count, then the account's address",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‏%u נוספות מ-%@"
+          }
+        }
+      }
+    },
+    "Archive" : {
+      "comment" : "Alert action that archives the mail",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה לארכיון"
+          }
+        }
+      }
+    },
+    "Mark as Read" : {
+      "comment" : "Alert action that marks mail read",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סימון כנקרא"
+          }
+        }
+      }
+    },
+    "New Mail" : {
+      "comment" : "Alert text when previews are hidden",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דואר חדש"
+          }
+        }
+      }
+    },
+    "No Subject" : {
+      "comment" : "Alert subtitle for mail without a subject",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ללא נושא"
+          }
+        }
+      }
+    },
+    "Reply" : {
+      "comment" : "Alert action that replies to the mail",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השב"
+          }
+        }
+      }
+    },
+    "Send" : {
+      "comment" : "Sends the reply typed in an alert",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שלח"
+          }
+        }
+      }
+    },
+    "Trash" : {
+      "comment" : "Alert action that moves the mail to Trash",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה לפח"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

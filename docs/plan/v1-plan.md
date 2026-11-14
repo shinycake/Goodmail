@@ -136,6 +136,8 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
 
 **Evidence:** Worker unit tests, plus an end-to-end recording on a real device: send to the test account → notification within seconds → the rich notification → an action that takes effect.
 
+**Status:** Worker done (#37). App side built: the device registers each Gmail account with the relay and renews its `users.watch` (`PushRegistrar`, on every activation), the NSE catches the account up (`SyncEngine.catchUp`) and alerts once per new thread (`MailNotifications`), alerts stack per account, and taps open the thread. Actions: Reply, Mark as Read, Archive, Trash. Each account has its own alert choice (All New Mail, Primary Only, None) in its settings; None also unregisters the device. The Worker is deployed (2026-11-13) and its URL is in the `GOODMAIL_PUSH_RELAY_URL` build setting; a build with that setting empty leaves push off. Without the filtering entitlement, a push that only reports a read or an archive shows the Worker's plain "New mail". Still to do: the Outlook relay (Graph change notifications), once Outlook accounts are in the app; iCloud has no push.
+
 ### M7: Multi-account and the full layout
 
 **Builds:**
@@ -192,7 +194,7 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
   - replies and forwards quote in the app's language: the "On …, X wrote:" line and the forward header come from the String Catalog, read right to left in Hebrew, and keep "Re:"/"Fwd:"
   - onboarding is the welcome screen and its service chooser, and nothing more. The HIG asks apps to get people to their content quickly, so there is no tour. Each permission is asked for where it's first needed: notifications with push (M6), and contacts when compose first suggests a recipient
 - **Still to do:**
-  - with push (M6), since both need the notification permission and a notification that opens its thread: notification settings per account (All / Primary / None), and a notification when a snoozed thread wakes
+  - with push (M6), since both need the notification permission and a notification that opens its thread: ~~notification settings per account (All / Primary / None)~~ built with M6, and a notification when a snoozed thread wakes
 
 ### M11: Release quality
 

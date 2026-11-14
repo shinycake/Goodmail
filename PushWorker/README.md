@@ -1,6 +1,6 @@
 # PushWorker
 
-Goodmail's push backend (ADR-006): a Cloudflare Worker with D1 and no runtime dependencies. Gmail publishes a change to Pub/Sub, Pub/Sub pushes it here, and the Worker sends an APNs alert to the account's devices. The Notification Service Extension then fetches the change itself.
+Goodmail's push backend (ADR-006): a Cloudflare Worker with D1 and no runtime dependencies. Gmail publishes a change to Pub/Sub, Pub/Sub pushes it here, and the Worker sends an APNs alert to the account's devices. Outlook works the same way through Microsoft Graph change notifications, which come straight here. The Notification Service Extension then fetches the change itself.
 
 ## API
 
@@ -9,9 +9,14 @@ Goodmail's push backend (ADR-006): a Cloudflare Worker with D1 and no runtime de
 | `POST /v1/devices` | `{"idToken", "deviceToken", "environment": "sandbox" \| "production"}` | 204; 401 for a bad ID token |
 | `DELETE /v1/devices` | `{"idToken", "deviceToken"}` | 204 |
 | `POST /v1/pubsub` | a Pub/Sub push with an OIDC bearer token | 204 acknowledges it |
+| `POST /v1/graph/subscriptions` | `{"subscriptionId", "clientState", "account", "deviceToken", "environment", "expiresAt"}` | 204; 403 when the subscription is registered with another clientState |
+| `DELETE /v1/graph/subscriptions` | `{"subscriptionId", "clientState"}` | 204 |
+| `POST /v1/graph` | Graph's `validationToken` check, or a batch of change notifications | the token as text; 202 for notifications |
 
 - **Registration:** `idToken` is the Google ID token from sign-in. It needs the `openid` and `email` scopes, and `aud` must be the iOS client ID. The Worker stores only HMAC-SHA256 of the address.
-- **Push:** the payload is `{"aps": {"alert": …, "mutable-content": 1}, "account": "<email>", "historyId": "<id>"}`. Duplicate deliveries and history IDs that aren't newer are dropped. APNs `410` and `BadDeviceToken` remove the token. When the alert reaches no device because sending failed or threw, the Worker gives back the history ID and answers 503, so Pub/Sub redelivers it.
+- **Push:** the payload is `{"aps": {"alert": {"loc-key": "NEW_MAIL_PUSH"}, "mutable-content": 1}, "account": "<email>", "historyId": "<id>"}`. The app's string catalog holds `NEW_MAIL_PUSH`, which iOS shows when the Notification Service Extension can't fetch. Duplicate deliveries and history IDs that aren't newer are dropped. APNs `410` and `BadDeviceToken` remove the token. When the alert reaches no device because sending failed or threw, the Worker gives back the history ID and answers 503, so Pub/Sub redelivers it.
+
+- **Outlook:** each device creates its own Graph subscription to `me/mailFolders('inbox')/messages` with `notificationUrl` set to `/v1/graph`, then registers it here. `clientState` is a random secret only the device and Graph know. The Worker keeps only its SHA-256, and a notification counts only when its `clientState` matches. The first registration of a subscription ID owns it, so renewals must send the same `clientState`. `account` is the app's opaque account ID, never an address. The payload is `{"aps": {…as above}, "accountID": "<id>"}`, one per subscription per batch. `expiresAt` is in milliseconds, and rows are dropped a day after it.
 
 ## Development
 

@@ -75,6 +75,28 @@
         }
       }
     },
+    "Alert Me About" : {
+      "comment" : "Label of an account's alert choice",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "התראה על"
+          }
+        }
+      }
+    },
+    "All New Mail" : {
+      "comment" : "Alert choice: every new Inbox message",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כל הדואר החדש"
+          }
+        }
+      }
+    },
     "Avatars" : {
       "comment" : "Setting for the sender's initials beside each row",
       "localizations" : {
@@ -207,6 +229,39 @@
         }
       }
     },
+    "None" : {
+      "comment" : "Alert choice: no alerts for this account",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ללא"
+          }
+        }
+      }
+    },
+    "Notifications" : {
+      "comment" : "Settings section for an account's alerts",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "התראות"
+          }
+        }
+      }
+    },
+    "Notifications for Goodmail are turned off in Settings." : {
+      "comment" : "Explains why no alerts arrive",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ההתראות של Goodmail כבויות בהגדרות."
+          }
+        }
+      }
+    },
     "Preview" : {
       "comment" : "Setting for how much of each message a mailbox row shows",
       "localizations" : {
@@ -231,6 +286,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ללא"
+          }
+        }
+      }
+    },
+    "Primary Only" : {
+      "comment" : "Alert choice: only Primary-category mail",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ראשי בלבד"
+          }
+        }
+      }
+    },
+    "Primary Only skips Promotions, Social, Updates and Forums." : {
+      "comment" : "Explains the Primary Only alert choice",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "״ראשי בלבד״ מדלג על קידומי מכירות, רשתות חברתיות, עדכונים ופורומים."
           }
         }
       }
@@ -319,6 +396,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ערכת נושא"
+          }
+        }
+      }
+    },
+    "Turn On in Settings" : {
+      "comment" : "Opens iOS Settings to allow alerts",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הפעלה בהגדרות"
           }
         }
       }

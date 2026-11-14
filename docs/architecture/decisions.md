@@ -54,7 +54,8 @@ The owner decided these on 2026-10-20 after talking through the options. Each en
 - **`GmailProvider`:** Gmail REST and JSON, OAuth, history sync, watch renewal. It converts everything into `MailCore` types, and no Gmail wire type escapes it. `OutlookProvider` comes later as a sibling.
 - **`ICloudProvider`:** IMAP over TLS with an app-specific password. IMAP keeps messages in folders, so it derives thread IDs from References and In-Reply-To, keeps each message's thread in MailCore's `MessageIndexStore`, gives a message its folder's label (Archive none, `\Flagged` STARRED, no `\Seen` UNREAD), and takes every folder's STATUS as the cursor, reading changes with CONDSTORE and QRESYNC. No IMAP wire type escapes it.
 - **`MailUI`:** UIKit screens and components, theme with account colors, RTL helpers.
-- **Targets:** the app (thin wiring), the NSE (MailCore, MailStore, GmailProvider, never MailUI), widgets.
+- **`MailNotifications`:** new-mail alerts: what the NSE fetches and which threads alert, the alert content and actions, and how a tap names its thread. Shared by the app and the NSE; no UIKit.
+- **Targets:** the app (thin wiring), the NSE (MailCore, MailStore, GmailProvider, MailNotifications, never MailUI), widgets.
 - **Why:** the compiler enforces the boundaries, so Gmail code can't leak into the UI and only `MailStore` sees the database.
 - **Layout (revised 2026-10-24, at the owner's request):** one local package per module under `Packages/` (`MailCore`, `MailStore`, `GmailProvider`, `MailUI`, `MailIntents`), each with its own manifest and tests. Dependencies between them are `path:` packages; only `MailStore` pins GRDB. A module's manifest states exactly what it may import, and each can be built and tested alone.
 - **Earlier layout (M0):** one `GoodmailKit` package with a target per module. Replaced because the owner wants each module standalone.

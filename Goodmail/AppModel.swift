@@ -13,14 +13,20 @@ final class AppModel {
     let database: MailDatabase
     let commands: MailCommands
     private(set) var accounts: [Account]
-    private let providers: Providers
+    let providers: Providers
     private var engines: [AccountID: SyncEngine] = [:]
     private var prefetchers: [AccountID: BodyPrefetcher] = [:]
     private let path = PathMonitor()
     /// Where opened attachments are kept; they count toward the cache cap with the bodies.
     let attachmentsDirectory = URL.cachesDirectory.appending(path: "Attachments", directoryHint: .isDirectory)
-    private let outboxes: Outboxes
+    let outboxes: Outboxes
     private let senders: Senders
+    /// Keeps each account's push subscription current; `nil` when the build names no push relay.
+    let pushRegistrar: PushRegistrar?
+    /// This device's APNs token, once iOS hands it over.
+    var pushDevice: DeviceToken?
+    /// Runs after an account is added, so alerts can be asked for and set up.
+    var didAddAccount: (() -> Void)?
     /// Told after the stored mail changes in bulk, so the system's copies (Spotlight) can follow.
     var didChange: (@Sendable (MailChange) async -> Void)?
 
@@ -31,9 +37,13 @@ final class AppModel {
         case accountRemoved
     }
 
-    init(database: MailDatabase) throws {
+    /// `pushRelay` is where accounts subscribe to push; `nil` keeps alerts off, as in synthetic mailboxes.
+    init(database: MailDatabase, pushRelay: URL? = PushConfiguration.relayURL) throws {
         self.database = database
         accounts = try database.accounts()
+        pushRegistrar = pushRelay.map {
+            PushRegistrar(relay: PushRelayClient(baseURL: $0), store: database)
+        }
         let providers = Providers(database: database)
         self.providers = providers
         let outboxes = Outboxes { id in
@@ -118,6 +128,7 @@ final class AppModel {
             )
             try await Self.store { [database] in try database.save(account) }
             accounts.append(account)
+            didAddAccount?()
         }
         try await syncAll()
         return true
@@ -146,6 +157,8 @@ final class AppModel {
 
     /// Signs the account out and takes it and its mail off the device. Nothing changes at its service.
     func removeAccount(_ id: AccountID) async throws {
+        // While the account can still prove its address to the relay.
+        await unsubscribePush(id)
         if let account = accounts.first(where: { $0.id == id }) { try? await Providers.signOut(account) }
         providers.forget(id)
         engines[id] = nil

@@ -40,6 +40,10 @@
       "kind": "local",
       "path": "Packages/MailIntents",
     },
+    {
+      "kind": "local",
+      "path": "Packages/MailNotifications",
+    },
   ],
   "files": [
     { "path": "WidgetsExtension.entitlements" },
@@ -125,6 +129,9 @@
           "product-name": "MailStore",
           "build-phase": { "build-phase": "frameworks" },
         }, {
+          "product-name": "MailNotifications",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
           "product-name": "MailUI",
           "build-phase": { "build-phase": "frameworks" },
         }, {
@@ -142,6 +149,7 @@
         "CODE_SIGN_STYLE": "Automatic",
         "CURRENT_PROJECT_VERSION": "1",
         "GENERATE_INFOPLIST_FILE": "YES",
+        "GOODMAIL_PUSH_RELAY_URL": "https://goodmail-push.goodmail-push-worker.workers.dev",
         "INFOPLIST_FILE": "Config/Goodmail-Info.plist",
         "INFOPLIST_KEY_CFBundleDisplayName": "Goodmail",
         "INFOPLIST_KEY_NSCameraUsageDescription": "Goodmail uses the camera to take photos and scan documents you attach to a message.",
@@ -196,6 +204,21 @@
         "compile-sources",
         "frameworks",
         "resources",
+      ],
+      "package-product-members": [
+        {
+          "product-name": "GmailProvider",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "product-name": "MailCore",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "product-name": "MailNotifications",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "product-name": "MailStore",
+          "build-phase": { "build-phase": "frameworks" },
+        },
       ],
       "build-settings": {
         "CODE_SIGN_ENTITLEMENTS": "NotificationService/NotificationService.entitlements",

@@ -1,4 +1,4 @@
-import { env } from "cloudflare:test";
+import { createExecutionContext, env, waitOnExecutionContext } from "cloudflare:test";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { base64Decode } from "../src/encoding";
 import { GOOGLE_JWKS_URL } from "../src/google";
@@ -31,7 +31,11 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await env.DB.batch([env.DB.prepare("DELETE FROM devices"), env.DB.prepare("DELETE FROM deliveries")]);
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM devices"),
+    env.DB.prepare("DELETE FROM deliveries"),
+    env.DB.prepare("DELETE FROM graph_subscriptions"),
+  ]);
   apnsCalls = [];
   apnsReplies = new Map();
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
@@ -52,13 +56,21 @@ afterEach(() => {
 
 const now = () => Math.floor(Date.now() / 1000);
 
+/** Runs a request through the Worker, including the work it hands to `waitUntil`. */
+async function send(request: Request): Promise<Response> {
+  const context = createExecutionContext();
+  const response = await worker.fetch(request, testEnv, context);
+  await waitOnExecutionContext(context);
+  return response;
+}
+
 async function idToken(email = EMAIL, audience = testEnv.GOOGLE_CLIENT_ID): Promise<string> {
   return signGoogleToken(google, idTokenClaims(email, audience, now()));
 }
 
 async function devicesRequest(method: "POST" | "DELETE", body: Record<string, unknown>): Promise<Response> {
   const request = new Request("https://push.example.test/v1/devices", { method, body: JSON.stringify(body) });
-  return worker.fetch(request, testEnv);
+  return send(request);
 }
 
 async function register(deviceToken = DEVICE, environment = "sandbox", email = EMAIL): Promise<Response> {
@@ -66,7 +78,7 @@ async function register(deviceToken = DEVICE, environment = "sandbox", email = E
 }
 
 async function pubSubPush(historyId: string | number, email = EMAIL, claims: Record<string, unknown> = {}) {
-  return worker.fetch(await pubSubPushRequest(historyId, email, claims), testEnv);
+  return send(await pubSubPushRequest(historyId, email, claims));
 }
 
 async function pubSubPushRequest(historyId: string | number, email = EMAIL, claims: Record<string, unknown> = {}) {
@@ -148,7 +160,7 @@ describe("Pub/Sub push", () => {
     expect(call.headers.get("apns-topic")).toBe("com.idanbirman.goodmail");
     expect(call.headers.get("apns-priority")).toBe("10");
     expect(call.body).toEqual({
-      aps: { alert: { title: "Goodmail", body: "New mail" }, sound: "default", "mutable-content": 1 },
+      aps: { alert: { "loc-key": "NEW_MAIL_PUSH" }, sound: "default", "mutable-content": 1 },
       account: EMAIL,
       historyId: "4242",
     });
@@ -232,7 +244,7 @@ describe("Pub/Sub push", () => {
     await register(DEVICE);
     const broken = { ...testEnv, APNS_PRIVATE_KEY: "not a key" };
     const push = await pubSubPushRequest("21");
-    await expect(worker.fetch(push, broken)).rejects.toThrow();
+    await expect(worker.fetch(push, broken, createExecutionContext())).rejects.toThrow();
     expect((await pubSubPush("21")).status).toBe(204);
     expect(apnsCalls).toHaveLength(1);
   });
@@ -262,7 +274,7 @@ describe("Pub/Sub push", () => {
     expect((await pubSubPush("10", EMAIL, { email: "intruder@example.iam.gserviceaccount.com" })).status).toBe(401);
     expect((await pubSubPush("10", EMAIL, { aud: "https://elsewhere.example.test/" })).status).toBe(401);
     const unsigned = new Request(testEnv.PUBSUB_AUDIENCE, { method: "POST", body: "{}" });
-    expect((await worker.fetch(unsigned, testEnv)).status).toBe(401);
+    expect((await send(unsigned)).status).toBe(401);
     expect(apnsCalls).toHaveLength(0);
   });
 
@@ -274,7 +286,7 @@ describe("Pub/Sub push", () => {
       headers: { authorization: `Bearer ${token}` },
       body: JSON.stringify({ message: { data: btoa("not json") } }),
     });
-    expect((await worker.fetch(request, testEnv)).status).toBe(204);
+    expect((await send(request)).status).toBe(204);
     expect(apnsCalls).toHaveLength(0);
   });
 });

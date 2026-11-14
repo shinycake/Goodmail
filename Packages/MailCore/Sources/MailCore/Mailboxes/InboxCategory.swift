@@ -15,4 +15,8 @@ public enum InboxCategory: String, CaseIterable, Codable, Sendable {
         }
     }
 
+    /// The tab `thread` sorts into: Primary unless it carries another category's label.
+    public init(of thread: ThreadSummary) {
+        self = Self.allCases.first { $0 != .primary && thread.labelIDs.contains($0.labelID) } ?? .primary
+    }
 }

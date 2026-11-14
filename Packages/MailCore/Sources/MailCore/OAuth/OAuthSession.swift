@@ -9,6 +9,8 @@ import Foundation
 public actor OAuthSession {
     public enum Failure: Error, Equatable {
         case signedOut
+        /// The service sent no ID token, as when the client doesn't ask for `openid`.
+        case noIDToken
     }
 
     public nonisolated let accountID: AccountID
@@ -16,6 +18,7 @@ public actor OAuthSession {
     private let http: any HTTPClient
     private let keychain: any SecretStore
     private var accessToken: (value: String, expiresAt: Date)?
+    private var idToken: OAuthClient.IDToken?
     private var refreshing: Task<String, any Error>?
 
     public init(
@@ -54,6 +57,20 @@ public actor OAuthSession {
         if let accessToken, accessToken.expiresAt.timeIntervalSinceNow > 60 {
             return accessToken.value
         }
+        return try await sharedRefresh()
+    }
+
+    /// A valid ID token, refreshed when it has less than five minutes left, so whoever checks it still accepts it.
+    public func validIDToken() async throws -> String {
+        if let idToken, idToken.expiresAt.timeIntervalSinceNow > 300 {
+            return idToken.value
+        }
+        _ = try await sharedRefresh()
+        guard let idToken else { throw Failure.noIDToken }
+        return idToken.value
+    }
+
+    private func sharedRefresh() async throws -> String {
         if let refreshing {
             return try await refreshing.value
         }
@@ -65,6 +82,7 @@ public actor OAuthSession {
 
     public func signOut() throws {
         accessToken = nil
+        idToken = nil
         try keychain.remove(refreshTokenKey)
     }
 
@@ -85,5 +103,7 @@ public actor OAuthSession {
             try keychain.set(Data(refreshToken.utf8), for: refreshTokenKey)
         }
         accessToken = (tokens.accessToken, tokens.expiresAt)
+        // A refresh without one keeps the last, which is still good until it expires.
+        if let token = tokens.idToken { idToken = token }
     }
 }

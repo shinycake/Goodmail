@@ -231,6 +231,22 @@ public final class MailDatabase: Sendable {
                     WHERE failure IS NOT NULL
                     """)
         }
+        // Shares v18 with the upload migration because TestFlight builds ran it under this name before that one existed.
+        migrator.registerMigration("v18-notifications") { db in
+            // Each account's alert choice and how far its mail has been considered (AccountNotifications).
+            try db.create(table: "notificationSettings") { table in
+                table.primaryKey("accountID", .text).references("account", onDelete: .cascade)
+                table.column("level", .text).notNull()
+                table.column("seenThrough", .datetime).notNull()
+            }
+            // What the push relay and the service know about the account's pushes to this device.
+            try db.create(table: "pushSubscription") { table in
+                table.primaryKey("accountID", .text).references("account", onDelete: .cascade)
+                table.column("deviceToken", .text).notNull()
+                table.column("registeredAt", .datetime).notNull()
+                table.column("watchExpiresAt", .datetime).notNull()
+            }
+        }
         return migrator
     }
 }

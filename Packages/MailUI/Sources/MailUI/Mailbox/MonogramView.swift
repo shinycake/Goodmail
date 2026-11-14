@@ -1,3 +1,4 @@
+import MailCore
 import UIKit
 
 /// A neutral gray circle with the sender's initials, and an optional account-colored badge on its top corner. Without
@@ -99,15 +100,6 @@ final class MonogramView: UIView {
             badge.layer.borderColor = color.resolvedColor(with: traitCollection).cgColor
             badge.layer.borderWidth = 2.5
         }
-    }
-}
-
-nonisolated enum Monogram {
-    /// Up to two initials from the first letters of the first two words: "Dana Levi" → "DL", "יעל כהן" → "יכ".
-    static func initials(for name: String) -> String {
-        let words = name.split { $0.isWhitespace || $0 == "@" || $0 == "." }
-        let letters = words.prefix(2).compactMap { $0.first(where: \.isLetter) }
-        return String(letters).uppercased()
     }
 }
 

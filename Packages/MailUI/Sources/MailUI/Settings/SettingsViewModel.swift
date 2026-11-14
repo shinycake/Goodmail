@@ -25,6 +25,8 @@ public final class SettingsViewModel {
     public var combinedTheme: CombinedTheme {
         didSet { Preferences.combinedTheme = combinedTheme }
     }
+    /// Each account's alerts; `nil` in builds without push.
+    public var notifications: NotificationChoices?
     /// Accounts whose Inbox isn't split into categories.
     public var unsortedInboxAccounts: Set<AccountID> {
         didSet { Preferences.unsortedInboxAccounts = unsortedInboxAccounts }

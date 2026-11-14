@@ -1,7 +1,21 @@
-import { type ApnsConfig, type ApnsEnvironment, ApnsSigner, newMailPayload, type PushOutcome, sendPush } from "./apns";
+import {
+  type ApnsConfig,
+  type ApnsEnvironment,
+  ApnsSigner,
+  graphMailPayload,
+  newMailPayload,
+  type PushOutcome,
+  sendPush,
+} from "./apns";
 import { base64Decode } from "./encoding";
 import type { Env } from "./env";
 import { GoogleKeys, TokenError, verifyIdToken, verifyPubSubToken } from "./google";
+import {
+  registerGraphSubscription,
+  removeGraphToken,
+  unregisterGraphSubscription,
+  verifiedSubscription,
+} from "./graph";
 import {
   accountId,
   claimHistoryId,
@@ -21,15 +35,25 @@ let apnsSigner: ApnsSigner | undefined;
 const DEVICE_TOKEN = /^[0-9a-f]{64,200}$/i;
 const HISTORY_ID = /^\d{1,20}$/;
 const ENVIRONMENTS: readonly ApnsEnvironment[] = ["sandbox", "production"];
+const GRAPH_SUBSCRIPTION_ID = /^[0-9a-f-]{36}$/i;
+/** Graph allows up to 128 characters; the app sends 64 hex digits. */
+const CLIENT_STATE = /^[\x21-\x7e]{32,128}$/;
+const ACCOUNT_ID = /^[A-Za-z0-9-]{1,64}$/;
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    const { pathname } = new URL(request.url);
+  async fetch(request: Request, env: Env, context: ExecutionContext): Promise<Response> {
+    const url = new URL(request.url);
+    const { pathname } = url;
     try {
       if (pathname === "/v1/devices" && request.method === "POST") return await register(request, env);
       if (pathname === "/v1/devices" && request.method === "DELETE") return await unregister(request, env);
       if (pathname === "/v1/pubsub" && request.method === "POST") return await pubSubPush(request, env);
-      if (pathname === "/v1/devices" || pathname === "/v1/pubsub") return new Response(null, { status: 405 });
+      if (pathname === "/v1/graph" && request.method === "POST") return await graphNotification(request, url, env, context);
+      if (pathname === "/v1/graph/subscriptions" && request.method === "POST") return await registerGraph(request, env);
+      if (pathname === "/v1/graph/subscriptions" && request.method === "DELETE") return await unregisterGraph(request, env);
+      if (["/v1/devices", "/v1/pubsub", "/v1/graph", "/v1/graph/subscriptions"].includes(pathname)) {
+        return new Response(null, { status: 405 });
+      }
       return new Response(null, { status: 404 });
     } catch (error) {
       if (error instanceof TokenError) return new Response(null, { status: 401 });
@@ -100,7 +124,10 @@ async function pubSubPush(request: Request, env: Env): Promise<Response> {
     outcomes = await Promise.all(
       devices.map(async (device) => {
         const outcome = await sendPush(signer, device, payload);
-        if (outcome === "gone") await removeToken(env.DB, device.token);
+        if (outcome === "gone") {
+          await removeToken(env.DB, device.token);
+          await removeGraphToken(env.DB, device.token);
+        }
         return outcome;
       }),
     );
@@ -113,6 +140,73 @@ async function pubSubPush(request: Request, env: Env): Promise<Response> {
     return new Response(null, { status: 503 });
   }
   return new Response(null, { status: 204 });
+}
+
+/** Reads a Graph subscription's ID and clientState from a registration body. */
+function graphCredentials(body: Record<string, unknown>): { subscriptionId: string; clientState: string } {
+  const { subscriptionId, clientState } = body;
+  if (typeof subscriptionId !== "string" || !GRAPH_SUBSCRIPTION_ID.test(subscriptionId)) {
+    throw new BadRequest("bad subscriptionId");
+  }
+  if (typeof clientState !== "string" || !CLIENT_STATE.test(clientState)) throw new BadRequest("bad clientState");
+  return { subscriptionId: subscriptionId.toLowerCase(), clientState };
+}
+
+/** Stores the device's Graph subscription; 403 when it is registered under another clientState. */
+async function registerGraph(request: Request, env: Env): Promise<Response> {
+  const body = await readJson(request);
+  const { subscriptionId, clientState } = graphCredentials(body);
+  const { account, deviceToken, expiresAt } = body;
+  const environment = ENVIRONMENTS.find((candidate) => candidate === body.environment);
+  if (!environment) throw new BadRequest("environment must be sandbox or production");
+  if (typeof account !== "string" || !ACCOUNT_ID.test(account)) throw new BadRequest("bad account");
+  if (typeof deviceToken !== "string" || !DEVICE_TOKEN.test(deviceToken)) throw new BadRequest("bad deviceToken");
+  if (typeof expiresAt !== "number" || !Number.isFinite(expiresAt)) throw new BadRequest("bad expiresAt");
+  const stored = await registerGraphSubscription(
+    env.DB,
+    { subscriptionId, account, device: { token: deviceToken.toLowerCase(), environment }, expiresAt },
+    clientState,
+    Date.now(),
+  );
+  return new Response(null, { status: stored ? 204 : 403 });
+}
+
+async function unregisterGraph(request: Request, env: Env): Promise<Response> {
+  const { subscriptionId, clientState } = graphCredentials(await readJson(request));
+  await unregisterGraphSubscription(env.DB, subscriptionId, clientState);
+  return new Response(null, { status: 204 });
+}
+
+/**
+ * Graph's change notifications. Creating a subscription first checks the URL by sending a `validationToken`, which
+ * must come straight back as text. A notification batch is acknowledged at once, as Graph wants within seconds, and
+ * each subscription it names with the right clientState gets one alert.
+ */
+async function graphNotification(request: Request, url: URL, env: Env, context: ExecutionContext): Promise<Response> {
+  const validationToken = url.searchParams.get("validationToken");
+  if (validationToken !== null) {
+    return new Response(validationToken, { status: 200, headers: { "content-type": "text/plain" } });
+  }
+  const body = (await request.json().catch(() => undefined)) as { value?: unknown } | undefined;
+  const notifications = Array.isArray(body?.value) ? body.value : [];
+  const named = new Map<string, string>();
+  for (const notification of notifications) {
+    const { subscriptionId, clientState } = (notification ?? {}) as Record<string, unknown>;
+    if (typeof subscriptionId === "string" && typeof clientState === "string") {
+      named.set(subscriptionId.toLowerCase(), clientState);
+    }
+  }
+  context.waitUntil(
+    Promise.all(
+      [...named].map(async ([subscriptionId, clientState]) => {
+        const subscription = await verifiedSubscription(env.DB, subscriptionId, clientState);
+        if (!subscription) return;
+        const outcome = await sendPush(signerFor(env), subscription.device, graphMailPayload(subscription.account));
+        if (outcome === "gone") await removeGraphToken(env.DB, subscription.device.token);
+      }),
+    ),
+  );
+  return new Response(null, { status: 202 });
 }
 
 /** Gmail's notification is `{emailAddress, historyId}` as base64 JSON in `message.data`. */

@@ -44,6 +44,18 @@ public actor SyncEngine {
         try await task.value
     }
 
+    /// Fetches only what changed since the cursor, for the notification extension's short, memory-tight run: no
+    /// labels, address book or resync. Returns the threads that changed; none when the account isn't current, since
+    /// filling the window is left to the app.
+    public func catchUp() async throws -> [ThreadSummary] {
+        guard case .current(let cursor) = try store.syncState(for: accountID) else { return [] }
+        do {
+            return try await syncChanges(since: cursor)
+        } catch ProviderError.cursorExpired {
+            return []
+        }
+    }
+
     /// Fetches the page of `mailbox` threads just older than the oldest stored one, or its newest page when none
     /// are stored, as for Spam and Trash, which the resync leaves out. Returns whether older threads may remain.
     public func backfill(_ mailbox: Mailbox) async throws -> Bool {
@@ -151,7 +163,9 @@ public actor SyncEngine {
         try await syncChanges(since: resync.cursor)
     }
 
-    private func syncChanges(since cursor: String) async throws {
+    /// Returns the threads it stored.
+    @discardableResult
+    private func syncChanges(since cursor: String) async throws -> [ThreadSummary] {
         let fetchedAt = now()
         let changes = try await provider.changes(since: cursor)
         let fetch =
@@ -167,5 +181,6 @@ public actor SyncEngine {
                 fetchedAt: fetchedAt
             )
         )
+        return fetch.found
     }
 }

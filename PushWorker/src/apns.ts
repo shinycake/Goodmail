@@ -59,12 +59,26 @@ export interface Device {
 /** `delivered`, `gone` (the token should be removed) or `failed` (anything else; keep the token). */
 export type PushOutcome = "delivered" | "gone" | "failed";
 
-/** The new-mail push: a mutable alert whose NSE fetches the change for `account` from `historyId` on. */
+/**
+ * The new-mail push: a mutable alert whose NSE fetches the change for `account` from `historyId` on. The text is a
+ * key in the app's string catalog, so the alert shown when the NSE can't fetch is in the reader's language.
+ */
 export function newMailPayload(account: string, historyId: string): object {
   return {
-    aps: { alert: { title: "Goodmail", body: "New mail" }, sound: "default", "mutable-content": 1 },
+    aps: { alert: { "loc-key": "NEW_MAIL_PUSH" }, sound: "default", "mutable-content": 1 },
     account,
     historyId,
+  };
+}
+
+/**
+ * The Outlook new-mail push. Graph's notification names a subscription, which the relay knows by the app's own
+ * account ID, so the NSE finds the account by that rather than by address.
+ */
+export function graphMailPayload(accountID: string): object {
+  return {
+    aps: { alert: { "loc-key": "NEW_MAIL_PUSH" }, sound: "default", "mutable-content": 1 },
+    accountID,
   };
 }
 

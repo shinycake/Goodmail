@@ -1,3 +1,5 @@
+import MailCore
+import OSLog
 import UIKit
 
 #if canImport(MailIntents)
@@ -20,14 +22,16 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         }
     }()
     private lazy var syncScheduler = SyncScheduler(model: model)
-    /// Where intents send the app's windows.
+    /// Where intents and tapped alerts send the app's windows.
     let intentRoutes = IntentRoutes()
+    private lazy var push = PushCoordinator(model: model, routes: intentRoutes)
 
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
         syncScheduler.start()
+        push.start(application)
         #if canImport(MailIntents)
             let host = IntentsHost(database: model.database, commands: model.commands, routes: intentRoutes)
             host.register()
@@ -47,5 +51,13 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     ) {
         guard identifier == BackgroundUploads.identifier else { return completionHandler() }
         model.handleBackgroundUploadEvents { @MainActor in completionHandler() }
+    }
+
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        push.didRegister(deviceToken: deviceToken)
+    }
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: any Error) {
+        Logger.push.error("Couldn't register for push: \(error, privacy: .public)")
     }
 }

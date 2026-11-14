@@ -8,6 +8,8 @@ public enum GmailConfiguration {
     public static let uploadBaseURL = URL(string: "https://gmail.googleapis.com/upload/gmail/v1/")!
     /// Google's People API, for the address book.
     public static let peopleBaseURL = URL(string: "https://people.googleapis.com/v1/")!
+    /// The Pub/Sub topic Gmail publishes changes to; its push subscription calls the relay (PushWorker/README.md).
+    public static let pushTopic = "projects/goodmail-ios/topics/gmail-push"
 }
 
 extension OAuthClient {

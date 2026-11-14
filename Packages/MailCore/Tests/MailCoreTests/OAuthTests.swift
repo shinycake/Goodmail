@@ -42,6 +42,26 @@ struct OAuthTests {
         #expect(OAuthClient.email(fromIDToken: "e30.\(claims).sig") == "me@outlook.com")
     }
 
+    @Test func anIDTokenIsKeptUntilItIsAboutToExpire() async throws {
+        let keychain = MemorySecretStore()
+        let exp = Int(Date.now.timeIntervalSince1970) + 3600
+        let claims = Data(#"{"email":"me@example.com","exp":\#(exp)}"#.utf8).base64URLEncodedString()
+        let http = TokenEndpoint(#"{"access_token":"a1","expires_in":3600,"id_token":"e30.\#(claims).sig"}"#)
+        let session = OAuthSession(accountID: .generate(), client: client, http: http, keychain: keychain)
+        try keychain.set(Data("r1".utf8), for: session.refreshTokenKey)
+
+        #expect(try await session.validIDToken() == "e30.\(claims).sig")
+    }
+
+    @Test func aServiceThatSendsNoIDTokenSaysSo() async throws {
+        let keychain = MemorySecretStore()
+        let http = TokenEndpoint(#"{"access_token":"a1","expires_in":3600}"#)
+        let session = OAuthSession(accountID: .generate(), client: client, http: http, keychain: keychain)
+        try keychain.set(Data("r1".utf8), for: session.refreshTokenKey)
+
+        await #expect(throws: OAuthSession.Failure.noIDToken) { try await session.validIDToken() }
+    }
+
     @Test func aRotatedRefreshTokenReplacesTheStoredOne() async throws {
         let keychain = MemorySecretStore()
         let http = TokenEndpoint(#"{"access_token":"a2","expires_in":3600,"refresh_token":"r2"}"#)

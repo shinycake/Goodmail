@@ -132,3 +132,26 @@ struct GmailClientTests {
         #expect(body == ["addLabelIds": ["MUTED"], "removeLabelIds": ["INBOX"]])
     }
 }
+
+struct GmailPushTests {
+    private let keychain = InMemorySecretStore()
+
+    @Test func watchingAsksForInboxChangesOnTheRelaysTopic() async throws {
+        let http = FixtureHTTPClient([
+            "/token": [.init(fixture: "token-exchange")],
+            "/gmail/v1/users/me/watch": [.init(fixture: "watch")],
+        ])
+        let session = try await OAuthSession.signIn(
+            client: .gmail, code: "4/abc", pkce: .generate(), http: http, keychain: keychain
+        ).session
+        let expires = try await GmailClient(session: session, http: http).watch()
+
+        #expect(expires == Date(timeIntervalSince1970: 1_800_604_800))
+        let request = try #require(http.requests.last)
+        #expect(request.httpMethod == "POST")
+        let body = try JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any]
+        #expect(body?["topicName"] as? String == "projects/goodmail-ios/topics/gmail-push")
+        #expect(body?["labelIds"] as? [String] == ["INBOX"])
+        #expect(body?["labelFilterBehavior"] as? String == "INCLUDE")
+    }
+}

@@ -104,7 +104,8 @@
             if let corpus = SyntheticCorpus.requestedFolder {
                 try SyntheticCorpus.file(corpus, into: database, account: AccountID(rawValue: "synthetic-1"))
             }
-            return try AppModel(database: database)
+            // No push: its accounts aren't real, and asking for alerts would cover the app in UI tests.
+            return try AppModel(database: database, pushRelay: nil)
         }
 
         /// Mostly Inbox, with some of every other mailbox so each has something to show, and the Inbox spread over

@@ -45,6 +45,15 @@ public struct OAuthClient: Sendable {
         public let refreshToken: String?
         /// The signed-in address, from the ID token. Present on the first exchange only.
         public let email: String?
+        /// The ID token itself, which proves the address to a third party such as the push relay. Google sends one
+        /// with every exchange and refresh when the client asks for `openid`.
+        public let idToken: IDToken?
+    }
+
+    /// A signed ID token and when it stops being accepted.
+    public struct IDToken: Sendable, Equatable {
+        public let value: String
+        public let expiresAt: Date
     }
 
     public enum Failure: Error, Equatable {
@@ -107,18 +116,28 @@ public struct OAuthClient: Sendable {
             accessToken: body.access_token,
             expiresAt: receivedAt.addingTimeInterval(TimeInterval(body.expires_in)),
             refreshToken: body.refresh_token,
-            email: body.id_token.flatMap(email(fromIDToken:))
+            email: body.id_token.flatMap(email(fromIDToken:)),
+            idToken: body.id_token.flatMap(idToken(from:))
         )
     }
 
     /// Reads the `email` claim, or Microsoft's `preferred_username` when the token leaves `email` out. The token came
     /// straight from the service over TLS, so the signature isn't rechecked.
     static func email(fromIDToken token: String) -> String? {
-        let parts = token.split(separator: ".")
-        guard parts.count == 3, let payload = Data(base64URLEncoded: String(parts[1])),
-            let claims = try? JSONDecoder().decode(IDTokenClaims.self, from: payload)
-        else { return nil }
+        guard let claims = claims(of: token) else { return nil }
         return claims.email ?? claims.preferred_username
+    }
+
+    /// The token with its `exp` claim, or `nil` when it has none.
+    static func idToken(from token: String) -> IDToken? {
+        guard let exp = claims(of: token)?.exp else { return nil }
+        return IDToken(value: token, expiresAt: Date(timeIntervalSince1970: exp))
+    }
+
+    private static func claims(of token: String) -> IDTokenClaims? {
+        let parts = token.split(separator: ".")
+        guard parts.count == 3, let payload = Data(base64URLEncoded: String(parts[1])) else { return nil }
+        return try? JSONDecoder().decode(IDTokenClaims.self, from: payload)
     }
 
     private func formRequest(_ fields: [String: String]) -> URLRequest {
@@ -147,5 +166,6 @@ public struct OAuthClient: Sendable {
     private struct IDTokenClaims: Decodable {
         let email: String?
         let preferred_username: String?
+        let exp: TimeInterval?
     }
 }

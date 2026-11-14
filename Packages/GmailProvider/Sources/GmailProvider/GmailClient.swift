@@ -7,7 +7,7 @@ import MailCore
 
 /// Gmail REST for one account, as a `MailProvider`. Wire types stay in this module; callers get `MailCore` types.
 public struct GmailClient: MailProvider, UploadSending {
-    private let session: OAuthSession
+    let session: OAuthSession
     private let http: any HTTPClient
     private let retryDelays: [Duration]
     private let pageSize: Int
@@ -269,7 +269,7 @@ public struct GmailClient: MailProvider, UploadSending {
         try await send(path, query: query)
     }
 
-    private func send<Response: Decodable>(
+    func send<Response: Decodable>(
         _ path: String, method: String = "GET", query: [URLQueryItem] = [], body: (any Encodable)? = nil,
         replay: Replay = .safe
     ) async throws -> Response {

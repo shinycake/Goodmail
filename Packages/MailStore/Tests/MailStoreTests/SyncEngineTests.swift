@@ -92,6 +92,30 @@ struct SyncEngineTests {
         #expect(try allLocal() == ["a", "c", "d"], "archived mail stays local, out of the Inbox")
     }
 
+    @Test func catchingUpReturnsWhatChangedWithoutTouchingLabels() async throws {
+        seed(thread("a", daysAgo: 1))
+        try await engine().sync()
+        let queriesBefore = server.queries.count
+
+        server.set("d", thread("d", daysAgo: 0))
+        let changed = try await engine().catchUp()
+
+        #expect(changed.map(\.id.threadID) == ["d"])
+        #expect(try await local() == ["d", "a"])
+        #expect(server.queries.count == queriesBefore, "no list queries, only the changed threads")
+    }
+
+    @Test func catchingUpLeavesAnAccountThatIsntCurrentToTheApp() async throws {
+        seed(thread("a", daysAgo: 1))
+        #expect(try await engine().catchUp().isEmpty)
+        #expect(try allLocal().isEmpty)
+
+        try await engine().sync()
+        server.set("b", thread("b", daysAgo: 0))
+        server.expireCursors()
+        #expect(try await engine().catchUp().isEmpty)
+    }
+
     @Test func expiredCursorResyncsAndSweepsWhatVanished() async throws {
         seed(thread("kept", daysAgo: 1), thread("deleted", daysAgo: 2), thread("archived", daysAgo: 50))
         try await engine().sync()

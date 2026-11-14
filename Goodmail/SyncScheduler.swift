@@ -3,7 +3,7 @@ import UIKit
 
 /// Decides when sync runs: on becoming active, every 30 seconds while active, and in background app refresh
 /// (BackgroundRefresh), which is asked for on leaving the foreground.
-/// Push replaces the polling in M6; until then it is how new mail shows up while the app is open.
+/// Push wakes the notification extension when the app isn't open; while it is, this polling shows new mail.
 final class SyncScheduler {
     private static let foregroundInterval: Duration = .seconds(30)
 
@@ -45,6 +45,7 @@ final class SyncScheduler {
             while !Task.isCancelled {
                 do {
                     try await model.syncAll()
+                    await model.markInboxSeen()
                 } catch {
                     log.error("Foreground sync failed: \(error, privacy: .public)")
                 }

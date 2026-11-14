@@ -5,16 +5,16 @@ compatibility_date = "2026-11-01"
 # Secrets are not here. Set them with `wrangler secret put` (see README.md): APNS_PRIVATE_KEY, EMAIL_HMAC_SECRET.
 [vars]
 GOOGLE_CLIENT_ID = "847337870740-fpj7hd07nfsueispeug4nell21pf3vi2.apps.googleusercontent.com"
-# Replace <subdomain> with your workers.dev subdomain; it must match the push subscription's audience.
-PUBSUB_AUDIENCE = "https://goodmail-push.<subdomain>.workers.dev/v1/pubsub"
+# Must match the push subscription's audience.
+PUBSUB_AUDIENCE = "https://goodmail-push.goodmail-push-worker.workers.dev/v1/pubsub"
 PUBSUB_SERVICE_ACCOUNT = "gmail-push-invoker@goodmail-ios.iam.gserviceaccount.com"
 APNS_TOPIC = "com.idanbirman.goodmail"
-APNS_KEY_ID = "REPLACE_ME"
-APNS_TEAM_ID = "REPLACE_ME"
+APNS_KEY_ID = "7H5XJ46XVH"
+APNS_TEAM_ID = "72D8U72V55"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "goodmail-push"
-# Placeholder; `wrangler d1 create goodmail-push` prints the real ID.
-database_id = "00000000-0000-0000-0000-000000000000"
+# From `wrangler d1 create goodmail-push`.
+database_id = "b56927bb-7405-4dbf-a571-6da65ec30b6b"
 migrations_dir = "migrations"

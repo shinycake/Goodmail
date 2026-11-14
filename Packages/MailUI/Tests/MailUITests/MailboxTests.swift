@@ -66,14 +66,6 @@ struct MailboxTests {
         #expect(RowDate.text(for: date(2025, 10, 1), now: now, calendar: calendar) == "Oct 1, 2025")
     }
 
-    @Test func monogramsTakeTwoInitialsInAnyScript() {
-        #expect(Monogram.initials(for: "Dana Levi") == "DL")
-        #expect(Monogram.initials(for: "יעל כהן") == "יכ")
-        #expect(Monogram.initials(for: "\"Ann\" Marie Smith") == "AM")
-        #expect(Monogram.initials(for: "noreply@shop.example") == "NS")
-        #expect(Monogram.initials(for: "") == "")
-    }
-
     @Test func viewModelGroupsTheStoreIntoTitledSections() async {
         let account = Account(id: AccountID(rawValue: "a"), email: "a@example.com", color: .teal, service: .gmail)
         let threads = [date(2026, 10, 21, 9), date(2026, 10, 20)].enumerated().map { index, date in

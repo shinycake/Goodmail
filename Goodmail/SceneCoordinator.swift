@@ -3,6 +3,7 @@ import MailCore
 import MailStore
 import MailUI
 import UIKit
+import UserNotifications
 
 /// One per window (ADR-011): decides what the window shows and owns the flows that change it.
 final class SceneCoordinator: NSObject {
@@ -84,6 +85,14 @@ final class SceneCoordinator: NSObject {
                 else { return }
                 model.accounts.isEmpty ? showWelcome() : showMailbox()
             })
+        if model.pushRegistrar != nil {
+            viewModel.notifications = NotificationChoices(
+                read: { await model.notificationLevels() },
+                store: { await model.setNotificationLevel($0, for: $1) },
+                turnedOff: {
+                    await UNUserNotificationCenter.current().notificationSettings().authorizationStatus == .denied
+                })
+        }
         presenter.present(SettingsScreen.make(model: viewModel), animated: true)
     }
 

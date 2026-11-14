@@ -1,0 +1,24 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "NEW_MAIL_PUSH" : {
+      "comment" : "Alert text pushed for new mail, shown when the mail itself couldn't be fetched",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New mail"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דואר חדש"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
