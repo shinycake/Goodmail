@@ -210,9 +210,9 @@ extension ThreadAction {
     var symbol: String {
         switch kind {
         case .archive: "archivebox"
-        case .trash: "trash"
+        // Delete Forever wears the plain trash can too: its red tint and its title tell the two apart.
+        case .trash, .deleteForever: "trash"
         case .untrash, .inbox: "tray.and.arrow.down"
-        case .deleteForever: "trash.slash"
         case .spam: "xmark.bin"
         case .read: "envelope.open"
         case .unread: "envelope.badge"
