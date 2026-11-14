@@ -25,6 +25,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     /// Where intents and tapped alerts send the app's windows.
     let intentRoutes = IntentRoutes()
     private lazy var push = PushCoordinator(model: model, routes: intentRoutes)
+    private lazy var snoozeAlarms = SnoozeAlarms(model: model)
 
     func application(
         _ application: UIApplication,
@@ -32,6 +33,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     ) -> Bool {
         syncScheduler.start()
         push.start(application)
+        snoozeAlarms.start()
         #if canImport(MailIntents)
             let host = IntentsHost(database: model.database, commands: model.commands, routes: intentRoutes)
             host.register()

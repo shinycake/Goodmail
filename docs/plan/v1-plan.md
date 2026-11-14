@@ -194,7 +194,7 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
   - replies and forwards quote in the app's language: the "On …, X wrote:" line and the forward header come from the String Catalog, read right to left in Hebrew, and keep "Re:"/"Fwd:"
   - onboarding is the welcome screen and its service chooser, and nothing more. The HIG asks apps to get people to their content quickly, so there is no tour. Each permission is asked for where it's first needed: notifications with push (M6), and contacts when compose first suggests a recipient
 - **Still to do:**
-  - with push (M6), since both need the notification permission and a notification that opens its thread: ~~notification settings per account (All / Primary / None)~~ built with M6, and a notification when a snoozed thread wakes
+  - with push (M6), since both need the notification permission and a notification that opens its thread: ~~notification settings per account (All / Primary / None)~~ built with M6, ~~and a notification when a snoozed thread wakes~~ built as an alarm scheduled on the device for the wake time, kept in step with the stored snoozes
 
 ### M11: Release quality
 

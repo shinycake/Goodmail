@@ -1,0 +1,17 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Back from snooze: %@" : {
+      "comment" : "Text of the alert when a snoozed thread wakes; the message's preview follows",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חזרה מנודניק: %@"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
