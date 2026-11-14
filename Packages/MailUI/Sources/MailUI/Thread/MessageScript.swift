@@ -59,7 +59,21 @@ nonisolated enum MessageScript {
             while (details.nextSibling) details.appendChild(details.nextSibling);
           }
 
-          // 3. Contrast, for the adaptive palette (MessagePalette): text whose color fails WCAG AA (4.5:1) on the card
+          // 3. Fonts: a sender's font list with no generic family falls back to WebKit's serif default wherever none
+          //    of its fonts is installed, as Outlook's "Aptos" or "Calibri" alone does on iOS. Ending each such list
+          //    with the system font keeps any font that is installed and reads like the app where none is.
+          const GENERIC = /^(serif|sans-serif|monospace|cursive|fantasy|math|emoji|fangsong|system-ui|-apple-system.*|ui-.+)$/i;
+          //    Only where a list starts, since descendants inherit it; all are read before any is changed.
+          const family = (el) => getComputedStyle(el).fontFamily;
+          const lists = [document.body, ...document.body.querySelectorAll('*')]
+            .filter((el) => el === document.body || family(el) !== family(el.parentElement))
+            .map((el) => [el, family(el)]);
+          for (const [el, family] of lists) {
+            const names = family.split(',').map((name) => name.trim().replace(/^["']|["']$/g, ''));
+            if (!names.some((name) => GENERIC.test(name))) el.style.fontFamily = `${family}, system-ui`;
+          }
+
+          // 4. Contrast, for the adaptive palette (MessagePalette): text whose color fails WCAG AA (4.5:1) on the card
           //    in an appearance gets a mark for it and a replacement, which the palette's rules apply in that
           //    appearance only. Grays become the appearance's own text color; other colors keep their hue, mixed
           //    toward white for dark or black for light until they pass, so red stays red and a link stays blue.
@@ -114,7 +128,7 @@ nonisolated enum MessageScript {
             }
           }
 
-          // 4. Fit wide layouts, such as 600-pixel newsletters, to the card's width.
+          // 5. Fit wide layouts, such as 600-pixel newsletters, to the card's width.
           const fit = () => {
             document.body.style.zoom = '';
             const width = document.documentElement.clientWidth;
@@ -122,25 +136,33 @@ nonisolated enum MessageScript {
             if (content > width + 1) document.body.style.zoom = (width / content).toFixed(4);
           };
 
-          // 5. Report what the native side needs: the height to size the card, and whether remote content is blocked.
+          // 6. Report what the native side needs: the height to size the card, and whether remote content is blocked.
           const remote = /^(https?:)?\\/\\//i;
           const hasRemote = [...document.querySelectorAll('img[src], img[srcset], [background], link[href]')]
             .some((el) => remote.test(el.getAttribute('src') || el.getAttribute('srcset')
               || el.getAttribute('background') || el.getAttribute('href') || ''))
             || /url\\(\\s*['"]?(https?:)?\\/\\//i.test(document.documentElement.innerHTML);
           let lastHeight = 0;
+          // The body's content, not its box or the document's: the document is never shorter than the view, so it
+          // couldn't shrink back, and a template's `html, body { height: 100% }` holds the body to the view, which
+          // starts 1 point tall, so the card would never grow past it.
+          const content = document.createRange();
+          content.selectNodeContents(document.body);
           const report = () => {
-            // The body, not the document: the document is never shorter than the view, so it can't shrink back.
             const style = getComputedStyle(document.body);
-            const height = Math.ceil(document.body.getBoundingClientRect().bottom + window.scrollY
-              + parseFloat(style.marginBottom || '0'));
+            const height = Math.ceil(content.getBoundingClientRect().bottom + window.scrollY
+              + parseFloat(style.paddingBottom || '0') + parseFloat(style.marginBottom || '0'));
             if (height === lastHeight) return;
             lastHeight = height;
             window.webkit.messageHandlers.\(handlerName).postMessage({ height, hasRemote });
           };
           fit();
-          new ResizeObserver(report).observe(document.body);
+          // A body held to the view's height doesn't resize when its content does, so its children are watched too,
+          // and images report as they load.
+          const resizes = new ResizeObserver(report);
+          for (const el of [document.body, ...document.body.children]) resizes.observe(el);
           document.addEventListener('toggle', report, true);
+          document.addEventListener('load', report, true);
           report();
         })();
         """

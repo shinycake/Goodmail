@@ -43,17 +43,7 @@ struct MessagePaletteTests {
 struct MessageContrastTests {
     /// Each mark the script set, by element id, with the replacement color it set alongside.
     private func marks(in body: MessageBody, palette: MessagePalette) async throws -> [String: [String: String]] {
-        let view = WKWebView(frame: CGRect(x: 0, y: 0, width: 360, height: 600))
-        let contents = view.configuration.userContentController
-        contents.addUserScript(
-            WKUserScript(
-                source: MessageScript.source(foldLabel: "Show Quoted Text"), injectionTime: .atDocumentEnd,
-                forMainFrameOnly: true))
-        let reported = FirstReport()
-        contents.add(reported, name: MessageScript.handlerName)
-        view.loadHTMLString(
-            MessageDocument.html(for: body, palette: palette, allowsRemoteContent: false), baseURL: nil)
-        await reported.wait()
+        let view = await MessageScriptPage.load(body, palette: palette).view
         let script = """
             (() => Object.fromEntries(['dark', 'light'].map((name) => [name, Object.fromEntries(
               [...document.querySelectorAll('[data-goodmail-faint-on-' + name + ']')].filter((el) => el.id)
