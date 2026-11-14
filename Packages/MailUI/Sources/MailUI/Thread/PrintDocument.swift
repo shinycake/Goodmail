@@ -5,10 +5,12 @@ import MailCore
 /// whom and when, then the body as the reader shows it. Pure, so what goes on paper is testable.
 nonisolated enum PrintDocument {
     /// The body's document (`MessageDocument`), with the message's headers leading its `<body>` and paper styles.
+    /// Paper is a light sheet whatever the screen's appearance, so every body keeps the colors its sender set.
     static func html(
         for message: Message, subject: String?, dateText: String, allowsRemoteContent: Bool
     ) -> String {
-        let document = MessageDocument.html(for: message.body, allowsRemoteContent: allowsRemoteContent)
+        let document = MessageDocument.html(
+            for: message.body, palette: .lightSheet, allowsRemoteContent: allowsRemoteContent)
         let withStyle = MessageDocument.inject(head: paperStyle, into: document)
         return inject(body: header(for: message, subject: subject, dateText: dateText), into: withStyle)
     }

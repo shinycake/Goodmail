@@ -19,14 +19,15 @@ struct MessageDocumentTests {
     @Test func ourStylesGoFirstInTheSendersHead() {
         let html = MessageDocument.html(
             for: MessageBody(html: "<html><head><style>p{}</style></head><body>x</body></html>"),
-            allowsRemoteContent: true)
+            palette: .adaptive, allowsRemoteContent: true)
         let ours = html.range(of: "-webkit-text-size-adjust")!
         let theirs = html.range(of: "p{}")!
         #expect(ours.lowerBound < theirs.lowerBound)
     }
 
     @Test func bareFragmentsGetADocument() {
-        let html = MessageDocument.html(for: MessageBody(html: "<p>Hello</p>"), allowsRemoteContent: true)
+        let html = MessageDocument.html(
+            for: MessageBody(html: "<p>Hello</p>"), palette: .adaptive, allowsRemoteContent: true)
         #expect(html.hasPrefix("<!doctype html><html><head>"))
         #expect(html.hasSuffix("<body><p>Hello</p></body></html>"))
     }
@@ -38,12 +39,12 @@ struct MessageDocumentTests {
         MessageBody(plain: "Hello"),
     ])
     func remoteContentIsBlockedByThePolicyUntilAllowed(body: MessageBody) throws {
-        let blocked = MessageDocument.html(for: body, allowsRemoteContent: false)
+        let blocked = MessageDocument.html(for: body, palette: .adaptive, allowsRemoteContent: false)
         let policy = try #require(blocked.range(of: MessageDocument.remoteContentPolicy), "every kind of body")
         let head = try #require(blocked.range(of: "<head>", options: .caseInsensitive))
         #expect(policy.lowerBound == head.upperBound, "first in the head, before anything it governs")
 
-        let allowed = MessageDocument.html(for: body, allowsRemoteContent: true)
+        let allowed = MessageDocument.html(for: body, palette: .adaptive, allowsRemoteContent: true)
         #expect(!allowed.contains("Content-Security-Policy"))
     }
 }

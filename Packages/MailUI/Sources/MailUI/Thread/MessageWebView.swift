@@ -44,6 +44,8 @@ final class MessageWebView: UIView {
 
         webView.isOpaque = false
         webView.backgroundColor = .clear
+        webView.clipsToBounds = true
+        webView.layer.cornerCurve = .continuous
         webView.scrollView.isScrollEnabled = false
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.navigationDelegate = self
@@ -75,8 +77,11 @@ final class MessageWebView: UIView {
             let rules = webView.configuration.userContentController
             rules.removeAllContentRuleLists()
             if let blocker { rules.add(blocker) }
+            let palette = MessagePalette.of(content.message.body)
+            // A light sheet is a page of its own on the card, so it gets the card's rounded corners.
+            webView.layer.cornerRadius = palette == .lightSheet ? 12 : 0
             let html = MessageDocument.html(
-                for: content.message.body, allowsRemoteContent: content.allowsRemoteContent)
+                for: content.message.body, palette: palette, allowsRemoteContent: content.allowsRemoteContent)
             webView.loadHTMLString(html, baseURL: nil)
         }
     }

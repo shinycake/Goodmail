@@ -8,8 +8,11 @@ nonisolated enum MessageDocument {
     /// Until the reader allows remote content, a content security policy leads the head and blocks it (ADR-003).
     /// The web view also blocks it with a content rule list, but that has to compile first, and if it ever fails
     /// the policy still holds: the block fails closed.
-    static func html(for body: MessageBody, allowsRemoteContent: Bool) -> String {
-        let head = (allowsRemoteContent ? "" : remoteContentPolicy) + baseHead
+    /// The palette decides how the body's colors meet light and dark appearance; the script reads it from the head.
+    static func html(for body: MessageBody, palette: MessagePalette, allowsRemoteContent: Bool) -> String {
+        let head =
+            (allowsRemoteContent ? "" : remoteContentPolicy) + baseHead
+            + #"<meta name="goodmail-palette" content="\#(palette.rawValue)">"# + palette.style
         if let html = body.html, !html.isEmpty {
             return inject(head: head, into: html)
         }
@@ -78,22 +81,21 @@ nonisolated enum MessageDocument {
         body { margin: 0; overflow-wrap: anywhere; }\
         img { max-width: 100%; height: auto; }\
         :where(body) { font: -apple-system-body; line-height: 1.4; }\
-        :where(a) { color: #007aff; }\
+        :where(a) { color: light-dark(#0066cc, #409cff); }\
         details.goodmail-fold > summary { list-style: none; display: inline-block; margin: -3px 0; \
         margin-inline-start: -11px; padding: 0 10px; border: 11px solid transparent; background-clip: padding-box; \
-        border-radius: 21px; background-color: rgba(120,120,128,0.16); color: rgba(60,60,67,0.6); \
+        border-radius: 21px; background-color: rgba(120,120,128,0.16); color: light-dark(#636366, #a1a1a6); \
         font: 600 15px/22px -apple-system; cursor: pointer; }\
         details.goodmail-fold > summary::-webkit-details-marker { display: none; }\
         </style>
         """
 
-    /// Plain text gets the reading typography of the app, the system font at the body size, light and dark.
+    /// Plain text gets the reading typography of the app, the system font at the body size. Its palette is adaptive.
     private static let plainStyle = """
         <style>\
-        :root { color-scheme: light dark; }\
         body { font: -apple-system-body; line-height: 1.45; }\
         blockquote.goodmail-quote { margin: 0; padding-inline-start: 10px; border-inline-start: 2px solid \
-        rgba(120,120,128,0.4); color: rgba(120,120,128,1); }\
+        rgba(120,120,128,0.4); color: light-dark(#636366, #a1a1a6); }\
         </style>
         """
 }

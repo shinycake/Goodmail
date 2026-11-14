@@ -59,7 +59,62 @@ nonisolated enum MessageScript {
             while (details.nextSibling) details.appendChild(details.nextSibling);
           }
 
-          // 3. Fit wide layouts, such as 600-pixel newsletters, to the card's width.
+          // 3. Contrast, for the adaptive palette (MessagePalette): text whose color fails WCAG AA (4.5:1) on the card
+          //    in an appearance gets a mark for it and a replacement, which the palette's rules apply in that
+          //    appearance only. Grays become the appearance's own text color; other colors keep their hue, mixed
+          //    toward white for dark or black for light until they pass, so red stays red and a link stays blue.
+          //    White backgrounds are marked too. Every color is read before any mark lands, since a mark changes
+          //    what its descendants inherit.
+          if (document.querySelector('meta[name="goodmail-palette"]')?.content === 'adaptive') {
+            const APPEARANCES = [
+              { name: 'dark', card: [28, 28, 30], toward: 255 },
+              { name: 'light', card: [242, 242, 247], toward: 0 },
+            ];
+            const channels = (color) => (color.match(/[\\d.]+/g) || []).map(Number);
+            const luminance = (rgb) => rgb.slice(0, 3).map((value) => {
+              const v = value / 255;
+              return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+            }).reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
+            const contrast = (rgb, card) => {
+              const [high, low] = [luminance(rgb), luminance(card)].sort((a, b) => b - a);
+              return (high + 0.05) / (low + 0.05);
+            };
+            const readable = (ink, { card, toward }) => {
+              const opaque = ink.length < 4 ? ink.slice(0, 3) : ink.slice(0, 3).map((v, i) => v * ink[3] + card[i] * (1 - ink[3]));
+              if (contrast(opaque, card) >= 4.5) return null;
+              // Black, white and grays become the appearance's own text color, as unstyled text would be.
+              if (Math.max(...opaque) - Math.min(...opaque) < 40) return 'CanvasText';
+              for (let mix = 0.05; ; mix += 0.05) {
+                const candidate = opaque.map((v) => Math.round(v + (toward - v) * Math.min(mix, 1)));
+                if (mix >= 1 || contrast(candidate, card) >= 4.5) return `rgb(${candidate.join(', ')})`;
+              }
+            };
+            // Our quote and fold colors already pass in both appearances, so they are left as they are.
+            const OURS = 'blockquote.goodmail-quote, details.goodmail-fold > summary';
+            const marks = [document.body, ...document.body.querySelectorAll('*')].flatMap((el) => {
+              if (el.closest(OURS)) return [];
+              const style = getComputedStyle(el);
+              const ink = channels(style.color);
+              const paper = channels(style.backgroundColor);
+              const found = [];
+              for (const appearance of ink.length >= 3 && ink[3] !== 0 ? APPEARANCES : []) {
+                const replacement = readable(ink, appearance);
+                if (replacement) found.push([el, appearance.name, replacement]);
+              }
+              if (paper.length >= 3 && (paper[3] ?? 1) > 0 && luminance(paper) > 0.9) found.push([el, 'white', null]);
+              return found;
+            });
+            for (const [el, name, replacement] of marks) {
+              if (replacement) {
+                el.setAttribute(`data-goodmail-faint-on-${name}`, '');
+                el.style.setProperty(`--goodmail-on-${name}`, replacement);
+              } else {
+                el.setAttribute('data-goodmail-white', '');
+              }
+            }
+          }
+
+          // 4. Fit wide layouts, such as 600-pixel newsletters, to the card's width.
           const fit = () => {
             document.body.style.zoom = '';
             const width = document.documentElement.clientWidth;
@@ -67,7 +122,7 @@ nonisolated enum MessageScript {
             if (content > width + 1) document.body.style.zoom = (width / content).toFixed(4);
           };
 
-          // 4. Report what the native side needs: the height to size the card, and whether remote content is blocked.
+          // 5. Report what the native side needs: the height to size the card, and whether remote content is blocked.
           const remote = /^(https?:)?\\/\\//i;
           const hasRemote = [...document.querySelectorAll('img[src], img[srcset], [background], link[href]')]
             .some((el) => remote.test(el.getAttribute('src') || el.getAttribute('srcset')

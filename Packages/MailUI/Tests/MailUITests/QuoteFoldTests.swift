@@ -17,7 +17,8 @@ struct QuoteFoldTests {
         contents.add(reported, name: MessageScript.handlerName)
         view.loadHTMLString(
             MessageDocument.html(
-                for: MessageBody(plain: "Sounds good.\n\n> On Monday:\n> Ship it?"), allowsRemoteContent: false),
+                for: MessageBody(plain: "Sounds good.\n\n> On Monday:\n> Ship it?"), palette: .adaptive,
+                allowsRemoteContent: false),
             baseURL: nil)
         await reported.wait()
 
@@ -32,7 +33,7 @@ struct QuoteFoldTests {
 
 /// Resumes once the message script reports, which it does after it has folded the quote.
 @MainActor
-private final class FirstReport: NSObject, WKScriptMessageHandler {
+final class FirstReport: NSObject, WKScriptMessageHandler {
     private let stream: AsyncStream<Void>
     private let continuation: AsyncStream<Void>.Continuation
 
