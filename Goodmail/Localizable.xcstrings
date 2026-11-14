@@ -1,6 +1,193 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Archive Conversations" : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Archive Conversations"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העבר שיחות לארכיון"
+          }
+        }
+      }
+    },
+    "Conversation" : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Conversation"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שיחה"
+          }
+        }
+      }
+    },
+    "Conversations" : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Conversations"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שיחות"
+          }
+        }
+      }
+    },
+    "Delete Conversations" : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Delete Conversations"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחק שיחות"
+          }
+        }
+      }
+    },
+    "Forums" : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Forums"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פורומים"
+          }
+        }
+      }
+    },
+    "From" : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "From"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מאת"
+          }
+        }
+      }
+    },
+    "Inbox" : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Inbox"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דואר נכנס"
+          }
+        }
+      }
+    },
+    "Mailbox" : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Mailbox"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תיבת דואר"
+          }
+        }
+      }
+    },
+    "Mark Conversations Read" : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Mark Conversations Read"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סמן שיחות כנקראו"
+          }
+        }
+      }
+    },
+    "Marks conversations read or unread." : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Marks conversations read or unread."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מסמן שיחות כנקראו או כלא נקראו."
+          }
+        }
+      }
+    },
+    "Moves conversations to the Trash." : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Moves conversations to the Trash."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מעביר שיחות לאשפה."
+          }
+        }
+      }
+    },
     "NEW_MAIL_PUSH" : {
       "comment" : "Alert text pushed for new mail, shown when the mail itself couldn't be fetched",
       "extractionState" : "manual",
@@ -15,6 +202,312 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "דואר חדש"
+          }
+        }
+      }
+    },
+    "New Message" : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "New Message"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הודעה חדשה"
+          }
+        }
+      }
+    },
+    "Open Conversation" : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Open Conversation"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פתח שיחה"
+          }
+        }
+      }
+    },
+    "Open Inbox" : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Open Inbox"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פתח דואר נכנס"
+          }
+        }
+      }
+    },
+    "Open Mailbox" : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Open Mailbox"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פתח תיבת דואר"
+          }
+        }
+      }
+    },
+    "Opens a conversation in Goodmail." : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Opens a conversation in Goodmail."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פותח שיחה ב־Goodmail."
+          }
+        }
+      }
+    },
+    "Opens a mailbox in Goodmail." : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Opens a mailbox in Goodmail."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פותח תיבת דואר ב־Goodmail."
+          }
+        }
+      }
+    },
+    "Opens the Inbox in Goodmail." : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Opens the Inbox in Goodmail."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פותח את הדואר הנכנס ב־Goodmail."
+          }
+        }
+      }
+    },
+    "Primary" : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Primary"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ראשי"
+          }
+        }
+      }
+    },
+    "Promotions" : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Promotions"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קידומי מכירות"
+          }
+        }
+      }
+    },
+    "Read" : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Read"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נקרא"
+          }
+        }
+      }
+    },
+    "Social" : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Social"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "רשתות חברתיות"
+          }
+        }
+      }
+    },
+    "Star Conversations" : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Star Conversations"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סמן שיחות בכוכב"
+          }
+        }
+      }
+    },
+    "Starred" : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Starred"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מסומן בכוכב"
+          }
+        }
+      }
+    },
+    "Stars or unstars conversations." : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Stars or unstars conversations."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מסמן או מבטל סימון כוכב בשיחות."
+          }
+        }
+      }
+    },
+    "Starts a new message in Goodmail." : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Starts a new message in Goodmail."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מתחיל הודעה חדשה ב־Goodmail."
+          }
+        }
+      }
+    },
+    "Takes conversations out of the Inbox." : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Takes conversations out of the Inbox."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מוציא שיחות מהדואר הנכנס."
+          }
+        }
+      }
+    },
+    "That mail is no longer on this device." : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "That mail is no longer on this device."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הדואר הזה כבר לא נמצא במכשיר."
+          }
+        }
+      }
+    },
+    "Updates" : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Updates"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עדכונים"
           }
         }
       }

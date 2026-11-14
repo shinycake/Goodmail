@@ -67,3 +67,49 @@ extension Catalog {
         return .thread(id, in: Mailbox.holding(thread.labelIDs))
     }
 }
+
+/// Opens the Inbox of every account.
+public struct OpenInboxIntent: AppIntent {
+    public static let title: LocalizedStringResource = "Open Inbox"
+    public static let description = IntentDescription("Opens the Inbox in Goodmail.")
+    public static let supportedModes: IntentModes = .foreground
+
+    @Dependency private var host: any MailIntentsHost
+
+    public init() {}
+
+    public func perform() async throws -> some IntentResult {
+        await host.open(.mailbox(.inbox))
+        return .result()
+    }
+}
+
+/// Starts a new message, from the account given or else the first.
+public struct NewMessageIntent: AppIntent {
+    public static let title: LocalizedStringResource = "New Message"
+    public static let description = IntentDescription("Starts a new message in Goodmail.")
+    public static let supportedModes: IntentModes = .foreground
+
+    @Parameter(title: "From")
+    public var account: AccountEntity?
+
+    @Dependency private var host: any MailIntentsHost
+
+    public init() {}
+
+    public func perform() async throws -> some IntentResult {
+        guard let route = try Catalog(host: host).newMessage(from: account?.id) else { throw IntentError.gone }
+        await host.open(route)
+        return .result()
+    }
+}
+
+extension Catalog {
+    /// The composer with an empty message from `account`, or from the first account when none is given. `nil` when
+    /// that account is gone or there is none.
+    func newMessage(from account: String?) throws -> Route? {
+        let accounts = try host.accounts()
+        let chosen = account.map { id in accounts.first { $0.id.rawValue == id } } ?? accounts.first
+        return chosen.map { .compose(Draft(id: UUID(), accountID: $0.id)) }
+    }
+}

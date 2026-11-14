@@ -110,3 +110,25 @@ struct CatalogTests {
         #expect(try catalog.route(toThread: "A1/gone") == nil)
     }
 }
+
+struct NewMessageTests {
+    private let first = Account(id: AccountID(rawValue: "A1"), email: "one@example.com", color: .teal, service: .gmail)
+    private let second = Account(
+        id: AccountID(rawValue: "A2"), email: "two@example.com", color: .orange, service: .icloud)
+
+    private func account(of route: Route?) -> AccountID? {
+        guard case .compose(let draft)? = route else { return nil }
+        return draft.accountID
+    }
+
+    @Test func aNewMessageComesFromTheAccountGivenOrElseTheFirst() throws {
+        let catalog = Catalog(host: FakeHost(accountList: [first, second]))
+        #expect(account(of: try catalog.newMessage(from: nil)) == first.id)
+        #expect(account(of: try catalog.newMessage(from: "A2")) == second.id)
+        #expect(try catalog.newMessage(from: "gone") == nil)
+    }
+
+    @Test func thereIsNoNewMessageWithoutAnAccount() throws {
+        #expect(try Catalog(host: FakeHost()).newMessage(from: nil) == nil)
+    }
+}

@@ -1,0 +1,118 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Check ${applicationName}" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Check ${applicationName}"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בדוק את ${applicationName}"
+          }
+        }
+      }
+    },
+    "New ${applicationName} message from ${account}" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "New ${applicationName} message from ${account}"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הודעת ${applicationName} חדשה מ־${account}"
+          }
+        }
+      }
+    },
+    "New message in ${applicationName}" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "New message in ${applicationName}"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הודעה חדשה ב־${applicationName}"
+          }
+        }
+      }
+    },
+    "Open ${target} in ${applicationName}" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Open ${target} in ${applicationName}"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פתח את ${target} ב־${applicationName}"
+          }
+        }
+      }
+    },
+    "Open my ${applicationName} inbox" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Open my ${applicationName} inbox"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פתח את תיבת הדואר הנכנס ב־${applicationName}"
+          }
+        }
+      }
+    },
+    "Show ${target} in ${applicationName}" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Show ${target} in ${applicationName}"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצג את ${target} ב־${applicationName}"
+          }
+        }
+      }
+    },
+    "Write an email in ${applicationName}" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Write an email in ${applicationName}"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כתוב מייל ב־${applicationName}"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
