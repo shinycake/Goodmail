@@ -34,10 +34,18 @@ public final class ThreadViewController: UIViewController {
     /// The layout the reader last scrolled to the focused message in; switching layouts scrolls there again.
     private var focusedLayout: ConversationLayout?
     private var previewURL: URL?
+    /// The way off the mailing list the conversation came from, shown under the subject while it applies.
+    private let unsubscribeOffer: UnsubscribeOffer?
+    private lazy var unsubscribeBanner = UnsubscribeBanner()
+    /// The reader's request to leave the list, cancelled if the reader leaves first.
+    private var unsubscribing: Task<Void, Never>?
 
-    public init(viewModel: ThreadViewModel, openURL: @escaping (URL) -> Void) {
+    public init(
+        viewModel: ThreadViewModel, openURL: @escaping (URL) -> Void, unsubscribeOffer: UnsubscribeOffer? = nil
+    ) {
         self.viewModel = viewModel
         self.openURL = openURL
+        self.unsubscribeOffer = unsubscribeOffer
         super.init(nibName: nil, bundle: nil)
         navigationItem.largeTitleDisplayMode = .never
     }
@@ -47,6 +55,7 @@ public final class ThreadViewController: UIViewController {
 
     deinit {
         observation?.cancel()
+        unsubscribing?.cancel()
     }
 
     public override func viewDidLoad() {
@@ -256,12 +265,32 @@ public final class ThreadViewController: UIViewController {
 
         let header = stack.arrangedSubviews[0]
         let arranged =
-            [header] + (viewModel.layout == .chat ? chatViews(viewModel.transcript) : letterViews(messages))
+            [header] + unsubscribeViews(messages)
+            + (viewModel.layout == .chat ? chatViews(viewModel.transcript) : letterViews(messages))
         if arranged != stack.arrangedSubviews {
             for view in stack.arrangedSubviews { view.removeFromSuperview() }
             arranged.forEach(stack.addArrangedSubview)
         }
         scrollToFocusOnce()
+    }
+
+    /// The banner offering to leave the conversation's mailing list, when it came from one.
+    private func unsubscribeViews(_ messages: [Message]) -> [UIView] {
+        guard let unsubscribeOffer, let offer = unsubscribeOffer.offer(in: messages) else { return [] }
+        unsubscribeBanner.configure(offer, tint: viewModel.accountColor.uiColor)
+        unsubscribeBanner.onUnsubscribe = { [weak self] in self?.confirmUnsubscribe(offer) }
+        return [unsubscribeBanner]
+    }
+
+    private func confirmUnsubscribe(_ offer: UnsubscribeOffer.Offer) {
+        let alert = UIAlertController.unsubscribe(offer, accountEmail: viewModel.accountEmail) { [weak self] in
+            guard let self, let unsubscribeOffer, unsubscribing == nil else { return }
+            unsubscribing = Task { [weak self] in
+                await unsubscribeOffer.unsubscribe(offer)
+                self?.unsubscribing = nil
+            }
+        }
+        present(alert, animated: true)
     }
 
     /// Cards for the open messages and one-line rows for the rest.

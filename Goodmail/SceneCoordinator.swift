@@ -280,7 +280,14 @@ final class SceneCoordinator: NSObject {
             close: { [weak self] in self?.closeThread() },
             attachmentsDirectory: model.attachmentsDirectory
         )
-        return ThreadViewController(viewModel: viewModel, openURL: { url in UIApplication.shared.open(url) })
+        let unsubscriber = model.listUnsubscriber
+        let unsubscribeOffer = UnsubscribeOffer(
+            account: account.id, accountEmail: account.email,
+            perform: { [account] in try await unsubscriber.unsubscribe($0, account: account.id) },
+            openURL: { url in UIApplication.shared.open(url) })
+        return ThreadViewController(
+            viewModel: viewModel, openURL: { url in UIApplication.shared.open(url) },
+            unsubscribeOffer: unsubscribeOffer)
     }
 
     /// Leaves the open thread, after an action that takes it out of the mailbox.

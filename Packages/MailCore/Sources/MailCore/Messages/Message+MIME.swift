@@ -2,7 +2,7 @@ import Foundation
 
 extension Message {
     /// A message read from its MIME tree: its people, subject and threading headers from the top-level headers,
-    /// and its body and attachments as `MIMEPart.content()` picks them. What a provider keeps outside the message,
+    /// how to leave its mailing list, and its body and attachments as `MIMEPart.content()` picks them. What a provider keeps outside the message,
     /// its date, snippet and labels, comes in alongside.
     public init(id: ID, threadID: String, mime: MIMEPart, date: Date, snippet: String, labelIDs: Set<String>) {
         let content = mime.content()
@@ -23,7 +23,10 @@ extension Message {
             body: content.body,
             attachments: content.attachments,
             internetMessageID: Self.messageIDs(in: header("Message-ID")).first,
-            references: Self.messageIDs(in: header("References"))
+            references: Self.messageIDs(in: header("References")),
+            unsubscribe: mime.header("List-Unsubscribe").flatMap {
+                Unsubscribe(listUnsubscribe: $0, post: mime.header("List-Unsubscribe-Post"))
+            }
         )
     }
 

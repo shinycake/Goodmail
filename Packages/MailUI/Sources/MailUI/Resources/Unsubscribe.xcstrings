@@ -1,0 +1,127 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@ will be asked to stop sending you mail." : {
+      "comment" : "Unsubscribe alert, one-click lists; the argument is the list’s sender",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תישלח בקשה אל %@ להפסיק לשלוח לך דואר."
+          }
+        }
+      }
+    },
+    "%@’s page will open in your browser to finish." : {
+      "comment" : "Unsubscribe alert for lists left on a web page; the argument is the sender",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הדף של %@ ייפתח בדפדפן כדי לסיים."
+          }
+        }
+      }
+    },
+    "A message asking %@ to stop sending you mail will go from %@." : {
+      "comment" : "Unsubscribe alert for lists left by email; the arguments are the sender and the account",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הודעה שמבקשת מ־%1$@ להפסיק לשלוח לך דואר תישלח מ־%2$@."
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "comment" : "Button: stays on the list",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ביטול"
+          }
+        }
+      }
+    },
+    "Couldn’t unsubscribe from %@." : {
+      "comment" : "Banner when the unsubscribe request fails; the argument is the list’s sender",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן היה לבטל את ההרשמה ל־%@."
+          }
+        }
+      }
+    },
+    "Finish unsubscribing from %@ on the page that opened." : {
+      "comment" : "Banner after opening the list’s unsubscribe page; the argument is the sender",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "יש לסיים את ביטול ההרשמה ל־%@ בדף שנפתח."
+          }
+        }
+      }
+    },
+    "This message is from a mailing list." : {
+      "comment" : "Banner above a newsletter's message",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ההודעה הזו נשלחה מרשימת תפוצה."
+          }
+        }
+      }
+    },
+    "Try Again" : {
+      "comment" : "Button: asks the list again",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ניסיון חוזר"
+          }
+        }
+      }
+    },
+    "Unsubscribe" : {
+      "comment" : "Button: leaves the mailing list",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ביטול הרשמה"
+          }
+        }
+      }
+    },
+    "Unsubscribe?" : {
+      "comment" : "Title of the alert before leaving a mailing list",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לבטל את ההרשמה?"
+          }
+        }
+      }
+    },
+    "You unsubscribed from %@." : {
+      "comment" : "Banner once the list has the request; the argument is the list’s sender",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ביטלת את ההרשמה ל־%@."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

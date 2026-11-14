@@ -16,7 +16,7 @@ public enum MIMEWriter {
         if !draft.cc.isEmpty { headers.append(("Cc", draft.cc.map(mailbox).joined(separator: ", "))) }
         // The provider delivers to Bcc and removes the header from what others receive.
         if !draft.bcc.isEmpty { headers.append(("Bcc", draft.bcc.map(mailbox).joined(separator: ", "))) }
-        headers.append(("Subject", encodedWords(draft.subject)))
+        headers.append(("Subject", encodedWords(oneLine(draft.subject))))
         if let inReplyTo = draft.inReplyTo { headers.append(("In-Reply-To", angled(inReplyTo))) }
         if !draft.references.isEmpty {
             headers.append(("References", draft.references.map(angled).joined(separator: " ")))
@@ -90,7 +90,8 @@ public enum MIMEWriter {
 
     /// `Name <address>`, with the name quoted or MIME-encoded as needed.
     static func mailbox(_ contact: Contact) -> String {
-        guard let name = contact.name, !name.isEmpty else { return contact.address }
+        let address = oneLine(contact.address)
+        guard let name = contact.name.map(oneLine), !name.isEmpty else { return address }
         let display: String
         if !name.unicodeScalars.allSatisfy(\.isASCII) {
             display = encodedWords(name)
@@ -100,7 +101,15 @@ public enum MIMEWriter {
         } else {
             display = name
         }
-        return "\(display) <\(contact.address)>"
+        return "\(display) <\(address)>"
+    }
+
+    /// Header text on one line: CR, LF and other control characters become spaces, so no value written into a
+    /// header, however it arrived, can end it and start another.
+    static func oneLine(_ text: String) -> String {
+        String(
+            String.UnicodeScalarView(
+                text.unicodeScalars.map { CharacterSet.controlCharacters.contains($0) ? " " : $0 }))
     }
 
     /// RFC 2047 encoded words for text with non-ASCII characters; ASCII passes through. Each word stays under the

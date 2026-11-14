@@ -77,7 +77,7 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
 
 **Evidence:** rendering tests on tricky real-world MIME fixtures, including Hebrew mail from Gmail, Outlook and Apple Mail with mixed English, numbers, links and nested quotes. Screenshots of a Hebrew/English mixed thread and an HTML newsletter.
 
-**Status:** done (PRs #6, #7, #8). Body prefetch and an attachment cache limit are deferred.
+**Status:** done (PRs #6, #7, #8). Body prefetch and an attachment cache limit are deferred. Since then: Unsubscribe for mail from a mailing list, from its `List-Unsubscribe` headers: a banner under the subject asks first, then sends the one-click request (RFC 8058), the list's unsubscribe message from the reader's account, or opens the list's page, and the device remembers lists it left.
 
 ### M4: Actions and outbox
 

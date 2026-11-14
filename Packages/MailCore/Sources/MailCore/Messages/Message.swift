@@ -30,6 +30,8 @@ public struct Message: Identifiable, Equatable, Codable, Sendable {
     /// The RFC 5322 `Message-ID` and `References`, which replies thread on.
     public var internetMessageID: String?
     public var references: [String]
+    /// How to leave the mailing list the message came from, when it says.
+    public var unsubscribe: Unsubscribe?
 
     public var isUnread: Bool { labelIDs.contains("UNREAD") }
 
@@ -48,7 +50,8 @@ public struct Message: Identifiable, Equatable, Codable, Sendable {
         body: MessageBody,
         attachments: [Attachment] = [],
         internetMessageID: String? = nil,
-        references: [String] = []
+        references: [String] = [],
+        unsubscribe: Unsubscribe? = nil
     ) {
         self.id = id
         self.threadID = threadID
@@ -65,14 +68,15 @@ public struct Message: Identifiable, Equatable, Codable, Sendable {
         self.attachments = attachments
         self.internetMessageID = internetMessageID
         self.references = references
+        self.unsubscribe = unsubscribe
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, threadID, from, to, cc, bcc, replyTo, subject, date, snippet, labelIDs, body, attachments,
-            internetMessageID, references
+            internetMessageID, references, unsubscribe
     }
 
-    /// Messages cached before drafts kept their Bcc decode with none.
+    /// Messages cached before drafts kept their Bcc, or before the list headers were read, decode with none.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.init(
@@ -90,7 +94,8 @@ public struct Message: Identifiable, Equatable, Codable, Sendable {
             body: try container.decode(MessageBody.self, forKey: .body),
             attachments: try container.decode([Attachment].self, forKey: .attachments),
             internetMessageID: try container.decodeIfPresent(String.self, forKey: .internetMessageID),
-            references: try container.decode([String].self, forKey: .references)
+            references: try container.decode([String].self, forKey: .references),
+            unsubscribe: try container.decodeIfPresent(Unsubscribe.self, forKey: .unsubscribe)
         )
     }
 }
