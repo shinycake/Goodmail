@@ -4,7 +4,7 @@ import MailCore
 extension QuoteWording {
     /// The quote and forward header in the language the app is read in, so a Hebrew reader's replies quote in
     /// Hebrew, right to left, with Hebrew dates.
-    static var localized: QuoteWording {
+    public static var localized: QuoteWording {
         QuoteWording(
             locale: .current,
             attribution: { date, sender in

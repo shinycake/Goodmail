@@ -14,6 +14,8 @@ final class SceneCoordinator: NSObject {
     private var failures: Task<Void, Never>?
     /// The launch check for a Gmail sign-in that can't delete forever, then signing that account in again.
     private var signInAgain: Task<Void, Never>?
+    /// An answer from the list waiting for the message it answers, which a newer answer replaces.
+    private var answering: Task<Void, Never>?
     /// Failed sends already shown, so each is offered once per launch.
     private var shownFailures: Set<Draft.ID> = []
     /// The mail screens, once there is an account.
@@ -37,6 +39,7 @@ final class SceneCoordinator: NSObject {
     deinit {
         failures?.cancel()
         signInAgain?.cancel()
+        answering?.cancel()
     }
 
     func start() {
@@ -399,6 +402,19 @@ final class SceneCoordinator: NSObject {
             presenter.present(navigation, animated: true)
         case .settings:
             showSettings()
+        case .answer(let id, let answer):
+            guard let account = model.accounts.first(where: { $0.id == id.accountID }) else { return }
+            answering?.cancel()
+            answering = Task { [weak self, model] in
+                let draft = try? await answer.draft(
+                    answering: model.messagesToAnswer(in: id), accountEmail: account.email, wording: .localized)
+                guard !Task.isCancelled, let self else { return }
+                if let draft {
+                    handle(.compose(draft))
+                } else {
+                    topViewController()?.present(UIAlertController.answerUnavailable(), animated: true)
+                }
+            }
         case .compose(let draft):
             guard let account = model.accounts.first(where: { $0.id == draft.accountID }),
                 let presenter = topViewController()

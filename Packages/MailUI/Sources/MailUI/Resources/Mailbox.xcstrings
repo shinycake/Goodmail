@@ -75,6 +75,17 @@
         }
       }
     },
+    "Change Labels" : {
+      "comment" : "Action: add or remove labels",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שינוי תוויות"
+          }
+        }
+      }
+    },
     "Deselect All" : {
       "comment" : "Clears the selection",
       "localizations" : {
@@ -86,6 +97,17 @@
         }
       }
     },
+    "Forward" : {
+      "comment" : "Forwards the message",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העבר"
+          }
+        }
+      }
+    },
     "Go to %@" : {
       "comment" : "Link from an empty Inbox category to another with unread mail",
       "localizations" : {
@@ -93,6 +115,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "מעבר אל %@"
+          }
+        }
+      }
+    },
+    "Goodmail couldn't download this message. Check your connection and try again." : {
+      "comment" : "Alert when a reply or forward can't load the message it answers",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן היה להוריד את ההודעה הזו. כדאי לבדוק את החיבור ולנסות שוב."
           }
         }
       }
@@ -215,6 +248,28 @@
         }
       }
     },
+    "Message Not Available" : {
+      "comment" : "Alert when a reply or forward can't load the message it answers",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ההודעה לא זמינה"
+          }
+        }
+      }
+    },
+    "Move to…" : {
+      "comment" : "Action: move threads to another mailbox",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה אל…"
+          }
+        }
+      }
+    },
     "Muted" : {
       "comment" : "VoiceOver: thread state",
       "localizations" : {
@@ -248,6 +303,17 @@
         }
       }
     },
+    "OK" : {
+      "comment" : "Dismiss",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אישור"
+          }
+        }
+      }
+    },
     "Open in New Window" : {
       "comment" : "Context menu item that opens a thread in a window of its own",
       "localizations" : {
@@ -255,6 +321,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "פתיחה בחלון חדש"
+          }
+        }
+      }
+    },
+    "Reply" : {
+      "comment" : "Composer title for a reply",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השב"
+          }
+        }
+      }
+    },
+    "Reply All" : {
+      "comment" : "Replies to everyone",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השב לכולם"
           }
         }
       }
@@ -288,6 +376,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "בחירת הכול"
+          }
+        }
+      }
+    },
+    "Snooze" : {
+      "comment" : "Hides threads until a later time",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נודניק"
           }
         }
       }

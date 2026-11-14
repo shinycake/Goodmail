@@ -295,6 +295,11 @@ public final class MailboxViewModel {
         navigate(.move(threads, from: mailbox))
     }
 
+    /// Opens the composer answering `thread`'s newest message.
+    public func answer(_ thread: ThreadSummary.ID, with answer: Answer) {
+        navigate(.answer(thread, answer))
+    }
+
     /// Opens the label picker for these threads.
     public func changeLabels(of threads: [ThreadSummary.ID]) {
         navigate(.changeLabels(threads))

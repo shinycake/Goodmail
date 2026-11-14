@@ -9,6 +9,8 @@ public enum Route: Hashable, Sendable {
     case mailbox(Mailbox)
     /// The composer, with a new message, reply or forward.
     case compose(Draft)
+    /// The composer, answering a thread's newest message, which may still have to be fetched.
+    case answer(ThreadSummary.ID, Answer)
     /// The label picker for these threads, which share one account.
     case changeLabels([ThreadSummary.ID])
     /// Where to move these threads, which the reader sees in `mailbox`.

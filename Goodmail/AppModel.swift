@@ -318,6 +318,33 @@ final class AppModel {
         try await Self.store { [database] in try database.save(messages, inThread: thread, fetchedAt: fetchedAt) }
     }
 
+    /// A thread's messages, to answer its newest: the cached ones when they reach as far as the thread does,
+    /// otherwise the provider's, fetched into the store first. Offline, the cached ones are the best there is.
+    func messagesToAnswer(in thread: ThreadSummary.ID) async throws -> [Message] {
+        let newest = try await Self.read { [database] in try database.thread(thread)?.date }
+        let cached = try await Self.first(database.messages(inThread: thread))
+        // The store keeps the thread's date to the millisecond and each message's whole, so allow a little.
+        if let newest, let last = cached.last?.date, last.timeIntervalSince(newest) > -1 { return cached }
+        do {
+            try await loadMessages(of: thread)
+        } catch {
+            if cached.isEmpty { throw error }
+            return cached
+        }
+        return try await Self.first(database.messages(inThread: thread))
+    }
+
+    /// The store's current value, without following it.
+    private static func first(_ messages: AsyncThrowingStream<[Message], any Error>) async throws -> [Message] {
+        for try await messages in messages { return messages }
+        return []
+    }
+
+    /// Runs a database read off the main actor, for the same reason as `store`.
+    @concurrent private static func read<Value: Sendable>(_ read: @Sendable () throws -> Value) async throws -> Value {
+        try read()
+    }
+
     /// Runs a database write off the main actor. Any write can wait out another process's lock for seconds
     /// (ADR-002), and the larger ones take long enough by themselves to drop frames.
     @concurrent private static func store(_ write: @Sendable () throws -> Void) async throws {
