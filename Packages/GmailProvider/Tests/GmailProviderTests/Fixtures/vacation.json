@@ -1,0 +1,9 @@
+{
+  "enableAutoReply": true,
+  "responseSubject": "Away",
+  "responseBodyHtml": "<div>Back on <b>Monday</b></div>",
+  "restrictToContacts": true,
+  "restrictToDomain": false,
+  "startTime": "1800000000000",
+  "endTime": "1800086400000"
+}

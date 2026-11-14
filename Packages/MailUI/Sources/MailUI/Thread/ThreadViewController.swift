@@ -112,8 +112,7 @@ public final class ThreadViewController: UIViewController {
             stack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -24),
         ])
 
-        subject.setSubjectText(
-            viewModel.thread.subject.isEmpty ? ThreadRowMetrics.noSubject : viewModel.thread.subject)
+        subject.setSubjectText(displaySubject)
         observation = Task { [viewModel] in await viewModel.observe() }
     }
 
@@ -174,7 +173,7 @@ public final class ThreadViewController: UIViewController {
         stack.arrangedSubviews.first?.isHidden = chat
         composer.isHidden = !chat
         if viewIfLoaded?.window != nil { navigationController?.setToolbarHidden(chat, animated: true) }
-        let subject = viewModel.thread.subject.isEmpty ? ThreadRowMetrics.noSubject : viewModel.thread.subject
+        let subject = displaySubject
         navigationItem.title = chat ? subject : nil
         navigationItem.subtitle = chat ? participantsText : nil
         if chat { composer.setActions(toolbarItems?.filter { $0.image != nil } ?? []) }
@@ -304,10 +303,15 @@ public final class ThreadViewController: UIViewController {
         present(alert, animated: true)
     }
 
+    /// The subject as the reader shows it, with a placeholder for none.
+    private var displaySubject: String {
+        viewModel.thread.subject.isEmpty ? ThreadRowMetrics.noSubject : viewModel.thread.subject
+    }
+
     /// The conversation as it is now, for Print and Share as PDF.
     private var exportedConversation: ConversationExporter.Conversation {
         ConversationExporter.Conversation(
-            subject: viewModel.thread.subject.isEmpty ? ThreadRowMetrics.noSubject : viewModel.thread.subject,
+            subject: displaySubject,
             messages: viewModel.messages, allowsRemoteContent: viewModel.remoteContentAllowed,
             attachmentData: viewModel.attachmentData)
     }

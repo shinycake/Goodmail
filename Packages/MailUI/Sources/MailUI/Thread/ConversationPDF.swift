@@ -63,6 +63,8 @@ enum ConversationPDF {
         configuration.websiteDataStore = .nonPersistent()
         configuration.defaultWebpagePreferences.allowsContentJavaScript = false
         configuration.setURLSchemeHandler(cid, forURLScheme: "cid")
+        // A rule list that fails to compile is left out: the document's content security policy still blocks
+        // remote loads, so the block fails closed, as in the reader.
         if !allowsRemoteContent, let blocker = try? await RemoteContentBlocker.shared.ruleList() {
             configuration.userContentController.add(blocker)
         }

@@ -72,6 +72,16 @@ struct AccountSettingsView: View {
                 }
             }
 
+            if let autoReply = model.autoReply(accountID) {
+                Section {
+                    NavigationLink {
+                        AutoReplyView(service: autoReply)
+                    } label: {
+                        AutoReplyView.title
+                    }
+                }
+            }
+
             if let notifications = model.notifications, account.service.pushesNewMail {
                 NotificationsSection(choices: notifications, account: account)
             }

@@ -1,0 +1,171 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Automatic Reply" : {
+      "comment" : "Title of an account's away-message setting",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מענה אוטומטי"
+          }
+        }
+      }
+    },
+    "Check your connection and try again." : {
+      "comment" : "Explains a failed load of the automatic reply",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "יש לבדוק את החיבור ולנסות שוב."
+          }
+        }
+      }
+    },
+    "Couldn’t Load Automatic Reply" : {
+      "comment" : "Shown when the automatic reply can't be read",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן היה לטעון את המענה האוטומטי"
+          }
+        }
+      }
+    },
+    "Couldn’t Save Automatic Reply" : {
+      "comment" : "Alert title when the service refuses the automatic reply",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן היה לשמור את המענה האוטומטי"
+          }
+        }
+      }
+    },
+    "Ends" : {
+      "comment" : "Reply end date",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סיום"
+          }
+        }
+      }
+    },
+    "I’m away and will reply when I’m back." : {
+      "comment" : "Placeholder for the automatic reply's message",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כרגע אין לי גישה לדואר. אחזור אליך בהקדם."
+          }
+        }
+      }
+    },
+    "Message" : {
+      "comment" : "The automatic reply's text",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הודעה"
+          }
+        }
+      }
+    },
+    "OK" : {
+      "comment" : "Dismiss",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אישור"
+          }
+        }
+      }
+    },
+    "Only During These Dates" : {
+      "comment" : "Limits the automatic reply to a date range",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "רק בתאריכים האלה"
+          }
+        }
+      }
+    },
+    "Only Reply to My Contacts" : {
+      "comment" : "Sends the automatic reply only to the reader's contacts",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מענה רק לאנשי הקשר שלי"
+          }
+        }
+      }
+    },
+    "Replies to new mail for you, from the mail service, even while this iPhone is off." : {
+      "comment" : "Explains the automatic reply",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שירות הדואר עונה בשמך לדואר חדש, גם כשה‑iPhone כבוי."
+          }
+        }
+      }
+    },
+    "Save" : {
+      "comment" : "Saves the automatic reply",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שמירה"
+          }
+        }
+      }
+    },
+    "Starts" : {
+      "comment" : "Reply start date",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "התחלה"
+          }
+        }
+      }
+    },
+    "Subject" : {
+      "comment" : "Placeholder for the automatic reply's subject",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נושא"
+          }
+        }
+      }
+    },
+    "Try Again" : {
+      "comment" : "Loads the reply again",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ניסיון חוזר"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

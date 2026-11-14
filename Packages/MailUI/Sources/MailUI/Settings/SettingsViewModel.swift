@@ -33,6 +33,8 @@ public final class SettingsViewModel {
     public let signatures: Signatures
     /// Each account's alerts; `nil` in builds without push.
     public var notifications: NotificationChoices?
+    /// The automatic reply of an account whose service sends one; `nil` for one that doesn't, as iCloud.
+    @ObservationIgnored public var autoReply: (AccountID) -> AutoReplyEditor.Service? = { _ in nil }
     /// Accounts whose Inbox isn't split into categories.
     public var unsortedInboxAccounts: Set<AccountID> {
         didSet { Preferences.unsortedInboxAccounts = unsortedInboxAccounts }

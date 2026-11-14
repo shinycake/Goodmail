@@ -120,6 +120,7 @@ final class SceneCoordinator: NSObject {
                 else { return }
                 model.accounts.isEmpty ? showWelcome() : showMailbox()
             })
+        viewModel.autoReply = { model.autoReplyService(for: $0) }
         if model.pushRegistrar != nil {
             viewModel.notifications = NotificationChoices(
                 read: { await model.notificationLevels() },
