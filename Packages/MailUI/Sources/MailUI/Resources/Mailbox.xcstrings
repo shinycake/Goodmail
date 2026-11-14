@@ -204,6 +204,17 @@
         }
       }
     },
+    "Mailboxes" : {
+      "comment" : "VoiceOver: the button that goes back to the list of mailboxes",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תיבות דואר"
+          }
+        }
+      }
+    },
     "Muted" : {
       "comment" : "VoiceOver: thread state",
       "localizations" : {

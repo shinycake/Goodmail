@@ -139,6 +139,9 @@ public final class SettingsViewModel {
     /// The gradient that views spanning accounts wear while `wearsGradient` is on.
     var gradient: AccountBlend { AccountBlend(accounts.map(\.color)) }
 
+    /// The accounts whose service sorts its Inbox into categories, which the Inbox Categories switch covers.
+    var categorisedAccounts: [Account] { accounts.filter(\.service.hasInboxCategories) }
+
     /// Whether the account's Inbox is split into Gmail's categories.
     func sortsInbox(_ account: AccountID) -> Bool {
         !unsortedInboxAccounts.contains(account)

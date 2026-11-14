@@ -301,6 +301,17 @@
         }
       }
     },
+    "Sorts the Inbox into Primary, Promotions, Social, Updates and Forums, as Gmail does. Each account can also choose in its own settings." : {
+      "comment" : "Explains the Inbox Categories setting that covers every Gmail account",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ממיין את הדואר הנכנס לראשי, קידומי מכירות, רשתות חברתיות, עדכונים ופורומים, כמו ב-Gmail. אפשר גם לבחור לכל חשבון בהגדרות שלו."
+          }
+        }
+      }
+    },
     "Theme" : {
       "comment" : "Settings section for the color of views showing every account",
       "localizations" : {

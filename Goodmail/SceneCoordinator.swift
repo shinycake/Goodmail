@@ -181,7 +181,7 @@ final class SceneCoordinator: NSObject {
     /// The narrow arrangement: one stack of the mailboxes, the shown mailbox's list and its open thread.
     private func buildStack() {
         guard let split else { return }
-        let stack = UINavigationController(rootViewController: mailboxesViewController(style: .list))
+        let stack = MailStackController(rootViewController: mailboxesViewController(style: .list))
         stack.delegate = self
         stack.pushViewController(shownListViewController(), animated: false)
         if let reader = shownReader() { stack.pushViewController(reader, animated: false) }

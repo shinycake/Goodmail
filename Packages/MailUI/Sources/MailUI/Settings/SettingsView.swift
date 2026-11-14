@@ -68,6 +68,9 @@ struct SettingsView: View {
                     comment: "Explains turning avatars off")
             }
 
+            let categorised = model.categorisedAccounts
+            if !categorised.isEmpty { InboxCategoriesSection(model: model, accounts: categorised) }
+
             if model.accounts.count > 1 { ThemeSection(model: model) }
 
             Section {

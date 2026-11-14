@@ -54,8 +54,8 @@ public final class MailboxViewController: UIViewController {
         super.init(nibName: nil, bundle: nil)
         title = viewModel.title
         navigationItem.largeTitleDisplayMode = .always
-        navigationItem.leftItemsSupplementBackButton = true
-        navigationItem.leftBarButtonItem = categoryItem
+        // The sidebar button stands in for the back button (`browsingLeadingItems`); a root list has neither.
+        navigationItem.hidesBackButton = true
         if viewModel.actions != nil { navigationItem.rightBarButtonItem = selectItem() }
     }
 
@@ -107,6 +107,7 @@ public final class MailboxViewController: UIViewController {
         }
         navigationController?.setToolbarHidden(false, animated: animated)
         navigationController?.navigationBar.prefersLargeTitles = true
+        if !isEditing { navigationItem.leftBarButtonItems = browsingLeadingItems }
         wear(viewModel.theme)
     }
 
@@ -373,7 +374,6 @@ extension MailboxViewController {
         super.setEditing(editing, animated: animated)
         swipes.close(animated: animated)
         collectionView.isEditing = editing
-        navigationItem.hidesBackButton = editing
         navigationItem.searchController = editing ? nil : search
         navigationItem.rightBarButtonItem =
             editing
@@ -384,7 +384,7 @@ extension MailboxViewController {
         if editing {
             updateSelectionChrome()
         } else {
-            navigationItem.leftBarButtonItem = categoryItem
+            navigationItem.leftBarButtonItems = browsingLeadingItems
             title = viewModel.title
             setToolbarItems(browsingToolbarItems, animated: animated)
         }
@@ -392,6 +392,12 @@ extension MailboxViewController {
 
     private var selectedIDs: [ThreadSummary.ID] {
         (collectionView.indexPathsForSelectedItems ?? []).compactMap(dataSource.itemIdentifier)
+    }
+
+    /// The leading items while browsing: the sidebar button when the mailboxes are behind this list, then the
+    /// category menu.
+    private var browsingLeadingItems: [UIBarButtonItem] {
+        [sidebarBackItem(), categoryItem].compactMap(\.self)
     }
 
     /// The title, Select All and the toolbar's actions, for what is selected now.

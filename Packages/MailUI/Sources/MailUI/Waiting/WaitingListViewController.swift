@@ -91,6 +91,8 @@ public final class WaitingListViewController<Model: WaitingListModel>: UIViewCon
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setToolbarHidden(true, animated: animated)
+        navigationItem.leftBarButtonItem = sidebarBackItem()
+        navigationItem.hidesBackButton = navigationItem.leftBarButtonItem != nil
     }
 
     /// Called by UIKit whenever an observed view-model property changes.

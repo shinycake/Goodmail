@@ -120,6 +120,21 @@ struct SettingsTests {
         #expect(Preferences.unsortedInboxAccounts.isEmpty)
     }
 
+    @Test func theInboxCategoriesSwitchCoversOnlyAccountsWithCategories() {
+        let saved = Preferences.unsortedInboxAccounts
+        defer { Preferences.unsortedInboxAccounts = saved }
+        Preferences.unsortedInboxAccounts = []
+        let icloud = Account(id: AccountID(rawValue: "c"), email: "me@icloud.com", color: .green, service: .icloud)
+        let model = SettingsViewModel(
+            accounts: { [personal, icloud, work] }, signIn: { _ in true }, remove: { _ in }, update: { _ in },
+            closed: {})
+        #expect(model.categorisedAccounts.map(\.id) == [personal.id, work.id])
+
+        let onlyICloud = SettingsViewModel(
+            accounts: { [icloud] }, signIn: { _ in true }, remove: { _ in }, update: { _ in }, closed: {})
+        #expect(onlyICloud.categorisedAccounts.isEmpty, "no switch without an account that has categories")
+    }
+
     @Test func theMailListsLookPersists() {
         let saved = Preferences.rowDisplay
         defer { Preferences.rowDisplay = saved }
