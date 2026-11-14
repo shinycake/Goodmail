@@ -919,6 +919,17 @@
         }
       }
     },
+    "Gradient" : {
+      "comment" : "Setting for a gradient of every account's color",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מעבר צבעים"
+          }
+        }
+      }
+    },
     "Has Attachment" : {
       "comment" : "Search filter for mail with files",
       "localizations" : {
@@ -1996,6 +2007,17 @@
         }
       }
     },
+    "Theme" : {
+      "comment" : "Settings section for the color of views showing every account",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ערכת נושא"
+          }
+        }
+      }
+    },
     "This Evening, %@" : {
       "comment" : "Later choice: this evening, with the time",
       "localizations" : {
@@ -2207,6 +2229,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "הסרת כוכב"
+          }
+        }
+      }
+    },
+    "Views that show every account, like the unified inbox, wear a gradient of your account colors. Turn it off to choose one color." : {
+      "comment" : "Explains the Gradient setting",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תצוגות שמציגות את כל החשבונות, כמו תיבת הדואר המאוחדת, נצבעות במעבר בין צבעי החשבונות שלך. אפשר לכבות זאת ולבחור צבע אחד."
           }
         }
       }

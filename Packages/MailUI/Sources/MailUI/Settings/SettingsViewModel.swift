@@ -17,6 +17,10 @@ public final class SettingsViewModel {
     public var rowDisplay: RowDisplay {
         didSet { Preferences.rowDisplay = rowDisplay }
     }
+    /// What views that span accounts wear.
+    public var combinedTheme: CombinedTheme {
+        didSet { Preferences.combinedTheme = combinedTheme }
+    }
     /// Accounts whose Inbox isn't split into categories.
     public var unsortedInboxAccounts: Set<AccountID> {
         didSet { Preferences.unsortedInboxAccounts = unsortedInboxAccounts }
@@ -46,6 +50,7 @@ public final class SettingsViewModel {
         undoSendSeconds = Preferences.undoSendSeconds
         rowDisplay = Preferences.rowDisplay
         unsortedInboxAccounts = Preferences.unsortedInboxAccounts
+        combinedTheme = Preferences.combinedTheme
         reload = accounts
         self.remove = remove
         self.update = update
@@ -119,6 +124,15 @@ public final class SettingsViewModel {
     func settled() async {
         await changes.settled()
     }
+
+    /// Whether views that span accounts wear the gradient. Turning it off starts from the first account's color.
+    var wearsGradient: Bool {
+        get { combinedTheme == .gradient }
+        set { combinedTheme = newValue ? .gradient : .solid(accounts.first?.color ?? .blue) }
+    }
+
+    /// The gradient that views spanning accounts wear while `wearsGradient` is on.
+    var gradient: AccountBlend { AccountBlend(accounts.map(\.color)) }
 
     /// Whether the account's Inbox is split into Gmail's categories.
     func sortsInbox(_ account: AccountID) -> Bool {

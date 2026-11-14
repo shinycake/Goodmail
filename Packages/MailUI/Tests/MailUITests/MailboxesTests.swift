@@ -68,7 +68,7 @@ struct MailboxesTests {
                     $0.yield(directory)
                     $0.finish()
                 }
-            })
+            }, combinedTheme: .gradient)
         await viewModel.observe()
 
         let groups = viewModel.groups
@@ -79,7 +79,7 @@ struct MailboxesTests {
         #expect(groups[1].items.map(\.count) == [2, 0])
         #expect(groups[2].items.map(\.destination) == [.mailbox(workInbox), .mailbox(clients)])
         #expect(groups[2].items.map(\.count) == [3, 1])
-        #expect(viewModel.theme == .blend(AccountBlend([.teal, .orange])))
+        #expect(viewModel.theme == .gradient(AccountBlend([.teal, .orange])))
     }
 
     @Test func anAccountsMailboxWearsItsColorAndComposesFromIt() {
@@ -88,7 +88,7 @@ struct MailboxesTests {
         func mailbox(_ mailbox: Mailbox) -> MailboxViewModel {
             MailboxViewModel(
                 mailbox: mailbox, accounts: [account, work], source: .flat { AsyncThrowingStream { $0.finish() } },
-                refresh: {}, navigate: { routes.append($0) })
+                refresh: {}, navigate: { routes.append($0) }, combinedTheme: .gradient)
         }
         let own = mailbox(Mailbox(labelID: SystemLabel.inbox, accountID: work.id))
         let blended = mailbox(.inbox)
@@ -99,7 +99,7 @@ struct MailboxesTests {
 
         #expect(own.theme == .account(.orange))
         #expect(own.rowAccount(for: workThread) == .implied(.orange))
-        #expect(blended.theme == .blend(AccountBlend([.teal, .orange])))
+        #expect(blended.theme == .gradient(AccountBlend([.teal, .orange])))
         #expect(blended.rowAccount(for: workThread) == .shown(.orange, email: "work@example.com"))
 
         own.compose()

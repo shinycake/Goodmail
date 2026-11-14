@@ -59,6 +59,8 @@ struct SettingsView: View {
                     comment: "Explains turning avatars off")
             }
 
+            if model.accounts.count > 1 { ThemeSection(model: model) }
+
             Section {
                 Picker(selection: $model.undoSendSeconds) {
                     ForEach(Preferences.undoSendChoices, id: \.self) { seconds in

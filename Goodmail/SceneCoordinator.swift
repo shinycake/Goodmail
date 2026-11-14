@@ -64,13 +64,14 @@ final class SceneCoordinator: NSObject {
         presenter.present(alert, animated: true)
     }
 
-    /// Accounts and preferences. The mail screens are rebuilt once it closes if the accounts changed.
+    /// Accounts and preferences. The mail screens are rebuilt once it closes if the accounts or how they look changed.
     private func showSettings() {
         guard let presenter = topViewController() else { return }
         let model = model
         let before = model.accounts
         let unsortedBefore = Preferences.unsortedInboxAccounts
         let displayBefore = Preferences.rowDisplay
+        let themeBefore = Preferences.combinedTheme
         let viewModel = SettingsViewModel(
             accounts: { model.accounts },
             signIn: { [weak self] in try await self?.signIn(to: $0) ?? false },
@@ -79,7 +80,7 @@ final class SceneCoordinator: NSObject {
             closed: { [weak self] in
                 guard let self,
                     model.accounts != before || Preferences.unsortedInboxAccounts != unsortedBefore
-                        || Preferences.rowDisplay != displayBefore
+                        || Preferences.rowDisplay != displayBefore || Preferences.combinedTheme != themeBefore
                 else { return }
                 model.accounts.isEmpty ? showWelcome() : showMailbox()
             })

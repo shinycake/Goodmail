@@ -43,7 +43,7 @@ public final class MailboxViewModel {
     public private(set) var isLoadingOlder = false
     /// A refresh failure, for a quiet inline notice. Cleared by the next successful refresh.
     public private(set) var refreshError: (any Error)?
-    /// The account's color in one account's mailbox; the blend of every account's in one that spans them.
+    /// The account's color in one account's mailbox; the combined theme in one that spans them.
     public let theme: Theme
     @ObservationIgnored private let accounts: [AccountID: Account]
     /// Each account's service, which decides the actions its threads have.
@@ -79,6 +79,7 @@ public final class MailboxViewModel {
         loadOlder: @escaping () async throws -> Bool = { false },
         navigate: @escaping (Route) -> Void = { _ in },
         actions: MailActions? = nil,
+        combinedTheme: CombinedTheme = Preferences.combinedTheme,
         now: @escaping () -> Date = Date.init,
         calendar: Calendar = .autoupdatingCurrent
     ) {
@@ -86,7 +87,7 @@ public final class MailboxViewModel {
         self.mailbox = mailbox
         self.title = title ?? mailbox.title(labels: [])
         composingAccount = mailbox.accountID ?? accounts.first?.id
-        theme = Theme(accountID: mailbox.accountID, among: accounts)
+        theme = Theme(accountID: mailbox.accountID, among: accounts, combined: combinedTheme)
         self.accounts = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0) })
         self.source = source
         refreshAction = refresh

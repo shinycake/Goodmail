@@ -34,9 +34,25 @@ public enum Preferences {
         }
     }
 
+    /// What views that span accounts wear. A stored color that no longer exists reads as the gradient.
+    public static var combinedTheme: CombinedTheme {
+        get {
+            defaults.string(forKey: combinedThemeColorKey).flatMap(AccountColor.init(rawValue:)).map(
+                CombinedTheme.solid)
+                ?? .gradient
+        }
+        set {
+            switch newValue {
+            case .gradient: defaults.removeObject(forKey: combinedThemeColorKey)
+            case .solid(let color): defaults.set(color.rawValue, forKey: combinedThemeColorKey)
+            }
+        }
+    }
+
     private static let undoSendKey = "undoSendSeconds"
     private static let previewLinesKey = "previewLines"
     private static let showsAvatarsKey = "showsAvatars"
     private static let unsortedInboxKey = "unsortedInboxAccounts"
+    private static let combinedThemeColorKey = "combinedThemeColor"
     private static let defaults = UserDefaults.standard
 }

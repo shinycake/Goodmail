@@ -136,6 +136,24 @@ struct SettingsTests {
         #expect(Preferences.rowDisplay.previewLines == 2, "a length the picker doesn't offer reads as the standard")
     }
 
+    @Test func theCombinedThemeIsAGradientUntilTurnedOffAndPersists() {
+        let saved = Preferences.combinedTheme
+        defer { Preferences.combinedTheme = saved }
+        Preferences.combinedTheme = .gradient
+        let model = SettingsViewModel(
+            accounts: { [work, personal] }, signIn: { _ in true }, remove: { _ in }, update: { _ in }, closed: {})
+        #expect(model.wearsGradient, "the gradient is the standard")
+        #expect(model.gradient == AccountBlend([work.color, personal.color]))
+
+        model.wearsGradient = false
+        #expect(model.combinedTheme == .solid(work.color), "turning it off starts from the first account's color")
+        model.combinedTheme = .solid(.mint)
+        #expect(Preferences.combinedTheme == .solid(.mint))
+
+        model.wearsGradient = true
+        #expect(Preferences.combinedTheme == .gradient)
+    }
+
     @Test func previewTitlesReadAsLines() {
         #expect(RowDisplay.previewTitle(0) == "None")
         #expect(RowDisplay.previewTitle(1) == "1 line")

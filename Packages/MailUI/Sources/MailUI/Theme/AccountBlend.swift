@@ -2,7 +2,7 @@ import MailCore
 import UIKit
 
 /// The theme of a view that spans several accounts, such as the unified inbox: a gradient through every
-/// account's color, and one blended tint for controls.
+/// account's color on its title, and one of those colors, the most legible, for its controls.
 public struct AccountBlend: Equatable {
     public struct Stop: Equatable {
         public let color: AccountColor
@@ -29,22 +29,49 @@ public struct AccountBlend: Equatable {
         }
     }
 
-    /// The average of the account colors, resolved per trait collection. The system tint when there are none.
+    /// The minimum contrast against the background for a control's tint (WCAG 2, non-text and large text).
+    static let legibleContrast: CGFloat = 3
+
+    /// The tint for controls, which take one color: per trait collection, the first account color that stands
+    /// out from the background by `legibleContrast`, or the one that stands out most when none does. A gradient
+    /// of yellow and blue tints its buttons blue in light mode, where yellow on white is hard to read, and yellow
+    /// in dark mode. The system tint when there are no accounts.
     public var tint: UIColor {
         guard colors.count > 1 else { return colors.first?.uiColor ?? .tintColor }
         let colors = colors.map(\.uiColor)
         return UIColor { traits in
-            var sum: (red: CGFloat, green: CGFloat, blue: CGFloat) = (0, 0, 0)
-            for color in colors {
-                var red: CGFloat = 0
-                var green: CGFloat = 0
-                var blue: CGFloat = 0
-                var alpha: CGFloat = 0
-                color.resolvedColor(with: traits).getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-                sum = (sum.red + red, sum.green + green, sum.blue + blue)
+            let contrasts = colors.map { (color: $0, ratio: $0.contrastRatio(with: .systemBackground, in: traits)) }
+            let legible =
+                contrasts.first { $0.ratio >= Self.legibleContrast } ?? contrasts.max { $0.ratio < $1.ratio }
+            return (legible?.color ?? .tintColor).resolvedColor(with: traits)
+        }
+    }
+
+    /// A color that paints text in this gradient, from its leading edge to its trailing one, for text `width`
+    /// points wide drawn from the origin of its view. It is a pattern that tiles sideways, so it runs the gradient
+    /// out and back again: wherever the text actually starts, it never shows a seam.
+    func textColor(width: CGFloat, direction: UIUserInterfaceLayoutDirection) -> UIColor {
+        let leading =
+            direction == .rightToLeft
+            ? gradientStops.reversed().map { Stop(color: $0.color, location: 1 - $0.location) } : gradientStops
+        // Out over the first half of the tile, back over the second.
+        let stops =
+            leading.map { Stop(color: $0.color, location: $0.location / 2) }
+            + leading.reversed().map { Stop(color: $0.color, location: 1 - $0.location / 2) }
+        let size = CGSize(width: max(ceil(width), 1) * 2, height: 1)
+        return UIColor { traits in
+            let image = UIGraphicsImageRenderer(size: size, format: UIGraphicsImageRendererFormat(for: traits)).image {
+                context in
+                let colors = stops.map { $0.color.uiColor.resolvedColor(with: traits).cgColor }
+                guard
+                    let gradient = CGGradient(
+                        colorsSpace: CGColorSpace(name: CGColorSpace.extendedSRGB), colors: colors as CFArray,
+                        locations: stops.map { CGFloat($0.location) })
+                else { return }
+                context.cgContext.drawLinearGradient(
+                    gradient, start: .zero, end: CGPoint(x: size.width, y: 0), options: [])
             }
-            let count = CGFloat(colors.count)
-            return UIColor(red: sum.red / count, green: sum.green / count, blue: sum.blue / count, alpha: 1)
+            return UIColor(patternImage: image)
         }
     }
 }

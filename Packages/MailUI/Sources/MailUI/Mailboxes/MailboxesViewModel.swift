@@ -43,7 +43,7 @@ public final class MailboxesViewModel {
     }
 
     public private(set) var directory = MailboxDirectory()
-    /// The blend of every account's color, or the only account's.
+    /// What every account's mailboxes wear, or the only account's color.
     public let theme: Theme
 
     @ObservationIgnored private let directoryStream: () -> AsyncThrowingStream<MailboxDirectory, any Error>
@@ -53,12 +53,13 @@ public final class MailboxesViewModel {
     public init(
         accounts: [Account],
         directory: @escaping () -> AsyncThrowingStream<MailboxDirectory, any Error>,
-        navigate: @escaping (Route) -> Void = { _ in }
+        navigate: @escaping (Route) -> Void = { _ in },
+        combinedTheme: CombinedTheme = Preferences.combinedTheme
     ) {
         directoryStream = directory
         self.navigate = navigate
         self.accounts = accounts
-        theme = Theme(accountID: nil, among: accounts)
+        theme = Theme(accountID: nil, among: accounts, combined: combinedTheme)
     }
 
     /// The groups to show, leaving out any with no rows.
