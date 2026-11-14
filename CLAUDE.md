@@ -11,7 +11,7 @@ A native iOS email client. Read [README.md](README.md) for the build and the gat
 - **Use the vendored skills** in [.claude/skills](.claude/skills/README.md): load `swift-concurrency` before touching tasks, actors, `Sendable` or isolation, `swiftui-expert-skill` before writing SwiftUI, and `swift-testing-expert` before writing tests. The review holds code to them.
 - No third-party dependency without the owner's approval. GRDB is the only one.
 - Logic is developed test-first with Swift Testing.
-- Run `swift format format -i -r Packages Goodmail` before committing, and `scripts/check` before pushing (the pre-push hook does it). In a Linux cloud session, `scripts/check` sets up the toolchain if it's missing (run `scripts/check --lint` once before your first commit when the session started outside this repository, so the git hooks are on), compiles everything for iOS and runs the MailCore, GmailProvider, ICloudProvider, OutlookProvider and MailStore tests natively ([docs/setup/cloud-builds.md](docs/setup/cloud-builds.md)).
+- Run `swift format format -i -r Packages Goodmail` before committing, and `scripts/check` before pushing (the pre-push hook does it). In a Linux cloud session, `scripts/check` sets up the toolchain if it's missing (run `scripts/check --lint` once before your first commit when the session started outside this repository, so the git hooks are on), compiles everything for iOS and runs the MailCore, GmailProvider, IMAPProvider, OutlookProvider and MailStore tests natively ([docs/setup/cloud-builds.md](docs/setup/cloud-builds.md)).
 
 ## How work lands (ADR-016)
 

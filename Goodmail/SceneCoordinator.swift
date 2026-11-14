@@ -1,4 +1,4 @@
-import ICloudProvider
+import IMAPProvider
 import MailCore
 import MailStore
 import MailUI

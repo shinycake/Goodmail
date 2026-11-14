@@ -26,7 +26,7 @@
     },
     {
       "kind": "local",
-      "path": "Packages/ICloudProvider",
+      "path": "Packages/IMAPProvider",
     },
     {
       "kind": "local",
@@ -120,7 +120,7 @@
           "product-name": "GmailProvider",
           "build-phase": { "build-phase": "frameworks" },
         }, {
-          "product-name": "ICloudProvider",
+          "product-name": "IMAPProvider",
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "product-name": "MailCore",

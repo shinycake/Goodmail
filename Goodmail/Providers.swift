@@ -1,5 +1,5 @@
 import GmailProvider
-import ICloudProvider
+import IMAPProvider
 import MailCore
 import MailStore
 import OutlookProvider
@@ -53,9 +53,9 @@ nonisolated final class Providers: Sendable {
         switch account.service {
         case .gmail: GmailClient(session: OAuthSession(accountID: account.id, client: .gmail, keychain: Keychain()))
         case .icloud:
-            ICloudClient(
-                accountID: account.id, email: account.email,
-                appPassword: try ICloudSignIn(secrets: Keychain()).appPassword(for: account.id), index: database)
+            IMAPClient(
+                accountID: account.id, settings: .icloud(email: account.email),
+                password: try ICloudSignIn(secrets: Keychain()).appPassword(for: account.id), index: database)
         case .outlook:
             OutlookClient(
                 session: OAuthSession(accountID: account.id, client: .outlook, keychain: Keychain()), index: database)
