@@ -83,10 +83,12 @@ final class AppModel {
         return try AppModel(database: MailDatabase(url: directory.appending(path: "Mail/mail.sqlite")))
     }
 
-    /// Signs in with Google and adds the account, or re-authenticates it if it's already here.
-    /// Returns `false` if the user cancelled.
-    func addGmailAccount(using web: WebAuthentication) async throws -> Bool {
-        try await addAccount(.gmail, signingInWith: .gmail, using: web) { GmailClient(session: $0) }
+    /// Signs in with Google and adds the account, or re-authenticates it if it's already here. `loginHint` is the
+    /// address Google's page starts with, as when signing an account in again. Returns `false` if the user cancelled.
+    func addGmailAccount(using web: WebAuthentication, loginHint: String? = nil) async throws -> Bool {
+        try await addAccount(.gmail, signingInWith: .gmail, using: web, loginHint: loginHint) {
+            GmailClient(session: $0)
+        }
     }
 
     /// Signs in with Microsoft and adds the Outlook account, or re-authenticates it if it's already here.
@@ -101,11 +103,11 @@ final class AppModel {
     /// under the ID it already had when this address at this service is here.
     private func addAccount(
         _ service: MailService, signingInWith client: OAuthClient, using web: WebAuthentication,
-        provider: (OAuthSession) -> any MailProvider
+        loginHint: String? = nil, provider: (OAuthSession) -> any MailProvider
     ) async throws -> Bool {
         let pkce = PKCE.generate()
         let state = UUID().uuidString
-        let url = client.authorizationURL(pkce: pkce, state: state)
+        let url = client.authorizationURL(pkce: pkce, state: state, loginHint: loginHint)
         guard let redirect = try await web.authenticate(url: url, callbackScheme: client.redirectScheme)
         else { return false }
 

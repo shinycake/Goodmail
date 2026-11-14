@@ -127,6 +127,50 @@
         }
       }
     },
+    "Gmail needs %@ to sign in again before it deletes mail forever." : {
+      "comment" : "Message of the alert asking a Gmail account to sign in again, with its address",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כדי ש-Gmail ימחק דואר לצמיתות, צריך להתחבר שוב אל %@."
+          }
+        }
+      }
+    },
+    "Not Now" : {
+      "comment" : "Button: leaves the account signed in as it is",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא עכשיו"
+          }
+        }
+      }
+    },
+    "Sign In" : {
+      "comment" : "Button: opens Google's sign-in page for the account",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "התחברות"
+          }
+        }
+      }
+    },
+    "Sign In Again to Delete Forever" : {
+      "comment" : "Title of the alert asking a Gmail account to sign in again so it can delete mail for good",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "יש להתחבר שוב כדי למחוק לצמיתות"
+          }
+        }
+      }
+    },
     "You can’t undo this." : {
       "comment" : "Message of the alert before deleting threads in Trash for good",
       "localizations" : {

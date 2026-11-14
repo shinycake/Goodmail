@@ -2,6 +2,7 @@ import ICloudProvider
 import MailCore
 import MailStore
 import MailUI
+import OSLog
 import UIKit
 import UserNotifications
 
@@ -11,6 +12,8 @@ final class SceneCoordinator: NSObject {
     private let model: AppModel
     private let actions: MailActions
     private var failures: Task<Void, Never>?
+    /// The launch check for a Gmail sign-in that can't delete forever, then signing that account in again.
+    private var signInAgain: Task<Void, Never>?
     /// Failed sends already shown, so each is offered once per launch.
     private var shownFailures: Set<Draft.ID> = []
     /// The mail screens, once there is an account.
@@ -33,6 +36,7 @@ final class SceneCoordinator: NSObject {
 
     deinit {
         failures?.cancel()
+        signInAgain?.cancel()
     }
 
     func start() {
@@ -40,6 +44,7 @@ final class SceneCoordinator: NSObject {
             showWelcome()
         } else {
             showMailbox(shown)
+            checkGmailSignIns()
         }
         failures = Task { [weak self, database = model.database] in
             do {
@@ -63,6 +68,31 @@ final class SceneCoordinator: NSObject {
             retry: { actions.retrySend(message) },
             delete: { actions.discardSend(message) })
         presenter.present(alert, animated: true)
+    }
+
+    /// Once a launch, asks the first Gmail account whose sign-in can't delete forever to sign in again.
+    private func checkGmailSignIns() {
+        signInAgain = Task { [weak self, model] in
+            guard let account = await model.gmailAccountsToSignInAgain().first,
+                let self, let presenter = topViewController(), !(presenter is UIAlertController)
+            else { return }
+            let alert = UIAlertController.signInAgainToDeleteForever(account.email) { [weak self] in
+                self?.signInAgain(account)
+            }
+            presenter.present(alert, animated: true)
+        }
+    }
+
+    /// Google's page for `account`, whose new sign-in replaces the old one and keeps the account.
+    private func signInAgain(_ account: Account) {
+        signInAgain = Task { [model, window] in
+            do {
+                _ = try await model.addGmailAccount(using: WebAuthentication(window: window), loginHint: account.email)
+            } catch {
+                Logger(subsystem: "com.idanbirman.goodmail", category: "accounts")
+                    .error("Signing a Gmail account in again failed: \(error, privacy: .public)")
+            }
+        }
     }
 
     /// Accounts and preferences. The mail screens are rebuilt once it closes if the accounts or how they look changed.

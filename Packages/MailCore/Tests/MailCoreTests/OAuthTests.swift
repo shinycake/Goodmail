@@ -62,6 +62,26 @@ struct OAuthTests {
         await #expect(throws: OAuthSession.Failure.noIDToken) { try await session.validIDToken() }
     }
 
+    @Test func theGrantedScopesAreWhatTheServiceSays() async throws {
+        let keychain = MemorySecretStore()
+        let http = TokenEndpoint(
+            #"{"access_token":"a1","expires_in":3600,"scope":"https://www.googleapis.com/auth/gmail.modify openid"}"#)
+        let session = OAuthSession(accountID: .generate(), client: client, http: http, keychain: keychain)
+        try keychain.set(Data("r1".utf8), for: session.refreshTokenKey)
+
+        #expect(try await session.grants("https://www.googleapis.com/auth/gmail.modify"))
+        #expect(try await !session.grants("https://mail.google.com/"), "an older sign-in lacks the newer scope")
+    }
+
+    @Test func aServiceThatDoesntSayGrantsWhatWasAskedFor() async throws {
+        let keychain = MemorySecretStore()
+        let http = TokenEndpoint(#"{"access_token":"a1","expires_in":3600}"#)
+        let session = OAuthSession(accountID: .generate(), client: client, http: http, keychain: keychain)
+        try keychain.set(Data("r1".utf8), for: session.refreshTokenKey)
+
+        #expect(try await session.grants("Mail.ReadWrite"))
+    }
+
     @Test func aRotatedRefreshTokenReplacesTheStoredOne() async throws {
         let keychain = MemorySecretStore()
         let http = TokenEndpoint(#"{"access_token":"a2","expires_in":3600,"refresh_token":"r2"}"#)

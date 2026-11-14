@@ -25,6 +25,12 @@ public struct GmailClient: MailProvider, UploadSending {
         self.pageSize = pageSize
     }
 
+    /// Whether Gmail lets this account delete mail for good. A sign-in from before the app asked for the full mail
+    /// scope doesn't, until the account signs in again (ADR-019).
+    public func deletesForever() async throws -> Bool {
+        try await session.grants(GmailConfiguration.fullMailScope)
+    }
+
     public func labels() async throws -> [MailLabel] {
         let list: GmailLabelList = try await get("users/me/labels")
         return (list.labels ?? []).map(\.mailLabel)

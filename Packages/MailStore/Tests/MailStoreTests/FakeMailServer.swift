@@ -24,6 +24,7 @@ final class FakeMailServer: MailProvider {
         var changeRequests = 0
         var performed: [(threadID: String, action: ThreadAction)] = []
         var failPerform: (any Error)?
+        var refused: [ThreadAction] = []
         var sent: [(raw: Data, threadID: String?)] = []
         var sendStatus: Int? = 200
         var failPrepare: (any Error)?
@@ -155,6 +156,7 @@ extension FakeMailServer {
         try state.withLock { state in
             state.performed.append((threadID, action))
             if let failure = state.failPerform { throw failure }
+            if state.refused.contains(action) { throw ProviderError.rejected }
             guard var thread = state.threads[threadID] else { throw ProviderError.notFound }
             var labels = thread.labelIDs
             if thread.isUnread { labels.insert(SystemLabel.unread) }
@@ -176,6 +178,11 @@ extension FakeMailServer {
     /// Makes every `perform` throw `error` until set back to `nil`.
     func failPerform(with error: (any Error)?) {
         state.withLock { $0.failPerform = error }
+    }
+
+    /// Makes every `perform` of `action` throw `ProviderError.rejected`, as a service refuses what it won't do.
+    func refuse(_ action: ThreadAction) {
+        state.withLock { $0.refused.append(action) }
     }
 }
 

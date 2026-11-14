@@ -166,14 +166,14 @@ public actor MailCommands {
 public actor Outbox {
     public nonisolated let accountID: AccountID
     private let provider: any MailProvider
-    private let store: any OutboxStore
+    private let store: any OutboxStore & SyncStore
     private let now: @Sendable () -> Date
     private var running: Task<Void, any Error>?
 
     public init(
         accountID: AccountID,
         provider: any MailProvider,
-        store: any OutboxStore,
+        store: any OutboxStore & SyncStore,
         now: @escaping @Sendable () -> Date = { .now }
     ) {
         self.accountID = accountID
@@ -182,8 +182,9 @@ public actor Outbox {
         self.now = now
     }
 
-    /// Sends everything queued. A thread that is gone, or an intent the provider refuses, drops it; any other failure stops the drain, leaving
-    /// the rest queued for the next call. Concurrent callers share the drain in progress.
+    /// Sends everything queued. A thread that is gone, or an intent the provider refuses, drops it and takes the
+    /// thread as the provider has it; any other failure stops the drain, leaving the rest queued for the next call.
+    /// Concurrent callers share the drain in progress.
     public func flush() async throws {
         if let running { return try await running.value }
         let task = Task { try await drain() }
@@ -200,8 +201,19 @@ public actor Outbox {
                 try store.markSent(intent.id, at: now())
             } catch ProviderError.notFound, ProviderError.rejected {
                 // Deleted on the server, or refused for good: sending it again changes nothing (ADR-008).
-                try store.removeIntent(intent.id)
+                try await drop(intent)
             }
         }
+    }
+
+    /// Forgets the intent and undoes it locally by storing the thread as the provider has it, gone or not. No sync
+    /// would: the provider didn't change the thread, so it's never listed as changed. Fetches first, so a failure
+    /// leaves the intent queued; then forgets it before storing, so the fetch isn't overlaid with it again.
+    private func drop(_ intent: OutboxIntent) async throws {
+        let fetchedAt = now()
+        let fetch = try await provider.threads(withIDs: [intent.threadID])
+        try store.removeIntent(intent.id)
+        try store.apply(
+            StoreChanges(accountID: accountID, upserts: fetch.found, deletions: fetch.missing, fetchedAt: fetchedAt))
     }
 }

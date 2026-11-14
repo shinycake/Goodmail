@@ -48,6 +48,9 @@ public struct OAuthClient: Sendable {
         /// The ID token itself, which proves the address to a third party such as the push relay. Google sends one
         /// with every exchange and refresh when the client asks for `openid`.
         public let idToken: IDToken?
+        /// The scopes the service granted, when it says. Google says on every exchange and refresh, and may grant
+        /// fewer than were asked for.
+        public let scopes: Set<String>?
     }
 
     /// A signed ID token and when it stops being accepted.
@@ -117,7 +120,8 @@ public struct OAuthClient: Sendable {
             expiresAt: receivedAt.addingTimeInterval(TimeInterval(body.expires_in)),
             refreshToken: body.refresh_token,
             email: body.id_token.flatMap(email(fromIDToken:)),
-            idToken: body.id_token.flatMap(idToken(from:))
+            idToken: body.id_token.flatMap(idToken(from:)),
+            scopes: body.scope.map { Set($0.split(separator: " ").map(String.init)) }
         )
     }
 
@@ -156,6 +160,7 @@ public struct OAuthClient: Sendable {
         let expires_in: Int
         let refresh_token: String?
         let id_token: String?
+        let scope: String?
     }
 
     private struct ErrorBody: Decodable {

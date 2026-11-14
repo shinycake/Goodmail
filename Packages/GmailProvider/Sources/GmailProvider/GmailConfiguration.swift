@@ -10,6 +10,8 @@ public enum GmailConfiguration {
     public static let peopleBaseURL = URL(string: "https://people.googleapis.com/v1/")!
     /// The Pub/Sub topic Gmail publishes changes to; its push subscription calls the relay (PushWorker/README.md).
     public static let pushTopic = "projects/goodmail-ios/topics/gmail-push"
+    /// The full mail scope, not `gmail.modify`, because only it allows deleting mail for good (ADR-019).
+    public static let fullMailScope = "https://mail.google.com/"
 }
 
 extension OAuthClient {
@@ -21,9 +23,8 @@ extension OAuthClient {
         clientID: "847337870740-fpj7hd07nfsueispeug4nell21pf3vi2.apps.googleusercontent.com",
         redirectURI: URL(
             string: "com.googleusercontent.apps.847337870740-fpj7hd07nfsueispeug4nell21pf3vi2:/oauthredirect")!,
-        // The full mail scope, not `gmail.modify`, because only it allows deleting mail for good.
         scopes: [
-            "https://mail.google.com/",
+            GmailConfiguration.fullMailScope,
             "https://www.googleapis.com/auth/gmail.settings.basic",
             "https://www.googleapis.com/auth/contacts.readonly",
             "https://www.googleapis.com/auth/contacts.other.readonly",

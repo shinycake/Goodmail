@@ -149,6 +149,32 @@ struct OutboxTests {
         #expect(try database.pendingIntents(for: account.id).isEmpty)
     }
 
+    @Test func aRefusedDeleteForeverPutsTheThreadBackAsTheServerHasIt() async throws {
+        var trashed = thread("t1")
+        trashed.labelIDs = ["TRASH"]
+        try seed(trashed)
+        try await commands().perform(.deleteForever, on: [id("t1")])
+        #expect(try database.thread(id("t1")) == nil)
+
+        server.failPerform(with: ProviderError.rejected)
+        try await outbox().flush()
+        #expect(try database.thread(id("t1"))?.labelIDs == ["TRASH"], "the server still has it, so it's back")
+        #expect(try database.pendingIntents(for: account.id).isEmpty, "a refusal isn't sent again")
+    }
+
+    @Test func aRefusalKeepsTheThreadsOtherQueuedActions() async throws {
+        try seed(thread("t1"))
+        try await commands().perform(.trash, on: [id("t1")])
+        try await commands().perform(.markRead(true), on: [id("t1")])
+        server.refuse(.trash)
+
+        try await outbox().flush()
+        let restored = try #require(try database.thread(id("t1")))
+        #expect(restored.labelIDs == ["INBOX"], "the refused trash is undone")
+        #expect(!restored.isUnread, "the mark-read after it still shows")
+        #expect(server.thread("t1")?.isUnread == false)
+    }
+
     @Test func aFetchThatBeganBeforeTheSendStillShowsTheAction() async throws {
         try seed(thread("t1"))
         try await commands().perform(.archive, on: [id("t1")])

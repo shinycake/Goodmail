@@ -19,6 +19,8 @@ public actor OAuthSession {
     private let keychain: any SecretStore
     private var accessToken: (value: String, expiresAt: Date)?
     private var idToken: OAuthClient.IDToken?
+    /// What the last token response granted, or `nil` before one that says.
+    private var grantedScopes: Set<String>?
     private var refreshing: Task<String, any Error>?
 
     public init(
@@ -70,6 +72,13 @@ public actor OAuthSession {
         return idToken.value
     }
 
+    /// Whether the account's sign-in grants `scope`. Refreshes to find out when no token response has said yet;
+    /// a service that never says is taken to grant what was asked for.
+    public func grants(_ scope: String) async throws -> Bool {
+        if grantedScopes == nil { _ = try await sharedRefresh() }
+        return grantedScopes?.contains(scope) ?? true
+    }
+
     private func sharedRefresh() async throws -> String {
         if let refreshing {
             return try await refreshing.value
@@ -105,5 +114,6 @@ public actor OAuthSession {
         accessToken = (tokens.accessToken, tokens.expiresAt)
         // A refresh without one keeps the last, which is still good until it expires.
         if let token = tokens.idToken { idToken = token }
+        if let scopes = tokens.scopes { grantedScopes = scopes }
     }
 }
