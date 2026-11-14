@@ -18,6 +18,19 @@ public final class MailboxViewController: UIViewController {
     /// What an empty list shows.
     private let empty: UIContentUnavailableConfiguration
     private var emptyState: EmptyState?
+    /// Threads just sent to Trash from this list, with when, so their rows dissolve as they leave. A thread the store
+    /// hasn't taken out by then left some other way, or not at all, and goes quietly.
+    private var trashed: [ThreadSummary.ID: ContinuousClock.Instant] = [:]
+    private static let trashedWindow = Duration.seconds(2)
+    private var listMotion = ListMotion.free
+
+    /// Whether the list takes changes as they come.
+    private enum ListMotion {
+        case free
+        /// Rows are breaking into dust over their hidden cells. The list holds still until the dust has blown clear,
+        /// so the rows below don't slide in under text that hasn't broken up yet, then catches up in one change.
+        case dissolving([ThreadSummary.ID], release: Task<Void, Never>)
+    }
 
     private enum EmptyState: Equatable {
         /// Spam and Trash start empty while their first page is fetched.
@@ -55,6 +68,7 @@ public final class MailboxViewController: UIViewController {
 
     deinit {
         observation?.cancel()
+        if case .dissolving(_, let release) = listMotion { release.cancel() }
     }
 
     public override func viewDidLoad() {
@@ -190,7 +204,7 @@ public final class MailboxViewController: UIViewController {
         guard let thread = threadsByID[id] else { return [] }
         return viewModel.swipeActions(for: thread, leading: leading).map { action in
             SwipeAction(title: action.title, symbol: action.symbol, isDestructive: action.isDestructive) {
-                [weak self] in self?.viewModel.perform(action, on: [id])
+                [weak self] in self?.perform(action, on: [id])
             }
         }
     }
@@ -241,6 +255,7 @@ public final class MailboxViewController: UIViewController {
     }
 
     private func applySections(_ sections: [MailboxViewModel.Section]) {
+        if case .dissolving = listMotion { return }
         var snapshot = NSDiffableDataSourceSnapshot<TimeSection, ThreadSummary.ID>()
         var changed: [ThreadSummary.ID] = []
         var threads: [ThreadSummary.ID: ThreadSummary] = [:]
@@ -254,6 +269,7 @@ public final class MailboxViewController: UIViewController {
             }
         }
         snapshot.reconfigureItems(changed)
+        if dissolveTrashed(leaving: threads) { return }
         let titlesChanged = sectionTitles != Dictionary(uniqueKeysWithValues: sections.map { ($0.id, $0.title) })
         threadsByID = threads
         sectionTitles = Dictionary(uniqueKeysWithValues: sections.map { ($0.id, $0.title) })
@@ -262,6 +278,54 @@ public final class MailboxViewController: UIViewController {
         swipes.rowsDidChange()
         // Selected threads may have left the list.
         if isEditing { updateSelectionChrome() }
+    }
+}
+
+// MARK: - Deleting
+
+extension MailboxViewController {
+    private func perform(_ action: ThreadAction, on ids: [ThreadSummary.ID]) {
+        if action == .trash {
+            let now = ContinuousClock.now
+            for id in ids { trashed[id] = now }
+        }
+        viewModel.perform(action, on: ids)
+    }
+
+    /// Breaks the rows of trashed threads that are leaving the list into dust and holds the list still while it
+    /// blows clear. With Reduce Motion on, they fade out with the list's own deletion instead. Returns whether any
+    /// row dissolves, in which case the list takes this change once the hold ends.
+    private func dissolveTrashed(leaving threads: [ThreadSummary.ID: ThreadSummary]) -> Bool {
+        let now = ContinuousClock.now
+        trashed = trashed.filter { now - $0.value < Self.trashedWindow }
+        let leaving = trashed.keys.filter { threads[$0] == nil }
+        guard !leaving.isEmpty else { return false }
+        for id in leaving { trashed[id] = nil }
+        guard view.window != nil, !UIAccessibility.isReduceMotionEnabled else { return false }
+        let rows = leaving.compactMap { id in
+            dataSource.indexPath(for: id).flatMap(collectionView.cellForItem).map { (id, $0) }
+        }
+        guard !rows.isEmpty else { return false }
+        for (_, cell) in rows {
+            DissolveView.dissolve(cell, in: collectionView, budget: DissolveView.particleBudget / rows.count)
+        }
+        let release = Task { [weak self] in
+            guard (try? await Task.sleep(for: .seconds(DissolveField.sweep))) != nil else { return }
+            self?.endDissolving()
+        }
+        listMotion = .dissolving(rows.map(\.0), release: release)
+        return true
+    }
+
+    /// Lets the list catch up with every change held back while rows dissolved. A thread that came back meanwhile, as
+    /// on a quick Undo, shows its row again.
+    private func endDissolving() {
+        guard case .dissolving(let ids, _) = listMotion else { return }
+        listMotion = .free
+        applySections(viewModel.sections)
+        for id in ids {
+            dataSource.indexPath(for: id).flatMap(collectionView.cellForItem)?.alpha = 1
+        }
     }
 }
 
@@ -417,7 +481,7 @@ extension MailboxViewController {
     }
 
     private func performOnSelection(_ action: ThreadAction) {
-        viewModel.perform(action, on: selectedIDs)
+        perform(action, on: selectedIDs)
         setEditing(false, animated: true)
     }
 }
