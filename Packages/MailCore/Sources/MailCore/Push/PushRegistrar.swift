@@ -1,23 +1,18 @@
 import Foundation
 
-/// Keeps each account's push subscription in step with its alert choice and this device's token: registers the
-/// device with the relay, renews the service's watch before it lapses, and unregisters when alerts are off.
-///
-/// The service's watch is shared by every device on the account, so it is renewed but never stopped.
+/// Keeps each account's push subscription in step with its alert choice and this device's token: subscribes, renews
+/// before the service lets the subscription lapse, and unsubscribes when alerts are off.
 public actor PushRegistrar {
-    /// Registrations are repeated this often, so the relay keeps a device whose earlier registration it lost.
+    /// Subscriptions are renewed at least this often, so the relay keeps a device whose earlier registration it lost.
     public static let registrationAge: TimeInterval = 7 * 86_400
-    /// Watches are renewed once less than this is left. Gmail's last seven days.
-    public static let watchMargin: TimeInterval = 2 * 86_400
 
     /// The one thing an account's subscription needs now.
     public enum Step: Equatable, Sendable {
-        /// Register the device and start the watch.
-        case subscribe
-        /// Renew the watch only.
-        case renewWatch
-        /// Remove this device token from the relay.
-        case unsubscribe(deviceToken: String)
+        /// Subscribe, renewing the stored channel when there is one.
+        case subscribe(renewing: PushChannel?)
+        /// The stored subscription belongs to an old device token: drop it and subscribe this one.
+        case replace(PushSubscription)
+        case unsubscribe(PushSubscription)
         case none
     }
 
@@ -31,47 +26,58 @@ public actor PushRegistrar {
         self.now = now
     }
 
-    /// What `subscription` needs at `level`, for `device`.
+    /// What `subscription` needs at `level`, for `device`, renewing once less than `margin` is left.
     public static func step(
-        level: NotificationLevel, subscription: PushSubscription?, device: DeviceToken, now: Date
+        level: NotificationLevel, subscription: PushSubscription?, device: DeviceToken, margin: TimeInterval,
+        now: Date
     ) -> Step {
-        guard level != .off else {
-            return subscription.map { .unsubscribe(deviceToken: $0.deviceToken) } ?? .none
-        }
-        guard let subscription, subscription.deviceToken == device.hex,
-            now.timeIntervalSince(subscription.registeredAt) < registrationAge
-        else { return .subscribe }
-        return subscription.watchExpiresAt.timeIntervalSince(now) < watchMargin ? .renewWatch : .none
+        guard level != .off else { return subscription.map(Step.unsubscribe) ?? .none }
+        guard let subscription else { return .subscribe(renewing: nil) }
+        guard subscription.device == device else { return .replace(subscription) }
+        let due =
+            now.timeIntervalSince(subscription.renewedAt) >= registrationAge
+            || subscription.expiresAt.timeIntervalSince(now) < margin
+        return due ? .subscribe(renewing: subscription.channel) : .none
     }
 
     /// Brings one account's subscription up to date. Throws what the relay or the service threw; what was done
     /// before is kept, and the next call takes it from there.
     public func refresh(_ account: AccountID, source: any PushSource, device: DeviceToken) async throws {
         let at = now()
-        let notifications = try store.notifications(for: account, now: at)
-        let subscription = try store.pushSubscription(for: account)
-        switch Self.step(level: notifications.level, subscription: subscription, device: device, now: at) {
-        case .subscribe:
-            try await relay.register(device, proof: try await source.relayProof())
-            let expires = try await source.watch()
-            try store.setPushSubscription(
-                PushSubscription(deviceToken: device.hex, registeredAt: at, watchExpiresAt: expires), for: account)
-        case .renewWatch:
-            guard var subscription else { return }
-            subscription.watchExpiresAt = try await source.watch()
-            try store.setPushSubscription(subscription, for: account)
-        case .unsubscribe(let token):
-            try await relay.unregister(deviceToken: token, proof: try await source.relayProof())
-            try store.setPushSubscription(nil, for: account)
+        let level = try store.notifications(for: account, now: at).level
+        let stored = try store.pushSubscription(for: account)
+        switch Self.step(level: level, subscription: stored, device: device, margin: source.renewalMargin, now: at) {
+        case .subscribe(let channel):
+            try await subscribe(account, source: source, device: device, renewing: channel, at: at)
+        case .replace(let old):
+            // Best effort: the old token's subscription lapses on its own, and alerts on this one matter more.
+            try? await source.unsubscribe(old.channel, deviceToken: old.device.hex, relay: relay)
+            try await subscribe(account, source: source, device: device, renewing: nil, at: at)
+        case .unsubscribe(let old):
+            try await unsubscribe(account, old, source: source)
         case .none:
             break
         }
     }
 
-    /// Takes this device off the relay for an account about to be removed. The watch stays for other devices.
+    /// Takes this device off the relay for an account about to be removed.
     public func unsubscribe(_ account: AccountID, source: any PushSource) async throws {
-        guard let subscription = try store.pushSubscription(for: account) else { return }
-        try await relay.unregister(deviceToken: subscription.deviceToken, proof: try await source.relayProof())
+        guard let stored = try store.pushSubscription(for: account) else { return }
+        try await unsubscribe(account, stored, source: source)
+    }
+
+    private func subscribe(
+        _ account: AccountID, source: any PushSource, device: DeviceToken, renewing channel: PushChannel?, at: Date
+    ) async throws {
+        let (channel, expiresAt) = try await source.subscribe(device, renewing: channel, relay: relay)
+        try store.setPushSubscription(
+            PushSubscription(device: device, channel: channel, renewedAt: at, expiresAt: expiresAt), for: account)
+    }
+
+    private func unsubscribe(_ account: AccountID, _ subscription: PushSubscription, source: any PushSource)
+        async throws
+    {
+        try await source.unsubscribe(subscription.channel, deviceToken: subscription.device.hex, relay: relay)
         try store.setPushSubscription(nil, for: account)
     }
 }

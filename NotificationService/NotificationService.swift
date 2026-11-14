@@ -3,6 +3,7 @@ import MailCore
 import MailNotifications
 import MailStore
 import OSLog
+import OutlookProvider
 import Synchronization
 import UserNotifications
 import os
@@ -19,11 +20,11 @@ final class NotificationService: UNNotificationServiceExtension {
         let delivery = Delivery(fallback: request.content, handler: contentHandler)
         self.delivery.withLock { $0 = delivery }
         let userInfo = request.content.userInfo
-        guard let address = NewMailFetch.address(in: userInfo) else { return delivery.expire() }
+        guard let target = NewMailFetch.target(in: userInfo) else { return delivery.expire() }
         Task { @concurrent in
             do {
                 let fetch = try Self.fetch()
-                let outcome = try await fetch.run(address: address)
+                let outcome = try await fetch.run(target)
                 if let badge = try? fetch.badgeCount() {
                     try? await UNUserNotificationCenter.current().setBadgeCount(badge)
                 }
@@ -45,8 +46,12 @@ final class NotificationService: UNNotificationServiceExtension {
         return NewMailFetch(database: database) { account in
             switch account.service {
             case .gmail: GmailClient(session: OAuthSession(accountID: account.id, client: .gmail, keychain: Keychain()))
-            // Only Gmail goes through the relay so far.
-            case .icloud, .outlook: throw NewMailFetch.Failure.unknownAccount
+            case .outlook:
+                OutlookClient(
+                    session: OAuthSession(accountID: account.id, client: .outlook, keychain: Keychain()),
+                    index: database)
+            // iCloud has no push.
+            case .icloud: throw NewMailFetch.Failure.unknownAccount
             }
         }
     }

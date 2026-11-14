@@ -218,6 +218,9 @@
         }, {
           "product-name": "MailStore",
           "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "product-name": "OutlookProvider",
+          "build-phase": { "build-phase": "frameworks" },
         },
       ],
       "build-settings": {

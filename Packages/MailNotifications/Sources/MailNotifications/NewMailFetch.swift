@@ -13,9 +13,9 @@ public struct NewMailFetch: Sendable {
     }
 
     public enum Failure: Error, Equatable {
-        /// The push names no address, so it isn't one of the relay's.
+        /// The push names no account, so it isn't one of the relay's.
         case notANewMailPush
-        /// No account on this device has the push's address, as after removing it.
+        /// No account on this device is the push's, as after removing it.
         case unknownAccount
     }
 
@@ -33,9 +33,17 @@ public struct NewMailFetch: Sendable {
         self.now = now
     }
 
-    /// The relay's payload names the account by address (PushWorker/README.md).
-    public static func address(in userInfo: [AnyHashable: Any]) -> String? {
-        userInfo["account"] as? String
+    /// How the relay's payload names the account (PushWorker/README.md).
+    public enum Target: Equatable, Sendable {
+        /// Gmail: by address, the only thing Gmail's notification says.
+        case address(String)
+        /// Outlook: by the app's own ID, which the device registered with its subscription.
+        case account(AccountID)
+    }
+
+    public static func target(in userInfo: [AnyHashable: Any]) -> Target? {
+        if let id = userInfo["accountID"] as? String { return .account(AccountID(rawValue: id)) }
+        return (userInfo["account"] as? String).map(Target.address)
     }
 
     /// The app badge after the fetch, as `MailDatabase.badgeCount()` counts it.
@@ -43,12 +51,15 @@ public struct NewMailFetch: Sendable {
         try database.badgeCount()
     }
 
-    public func run(address: String) async throws -> Outcome {
-        guard
-            let account = try database.accounts().first(where: {
-                $0.email.caseInsensitiveCompare(address) == .orderedSame
-            })
-        else { throw Failure.unknownAccount }
+    public func run(_ target: Target) async throws -> Outcome {
+        let accounts = try database.accounts()
+        let match: Account? =
+            switch target {
+            case .address(let address):
+                accounts.first { $0.email.caseInsensitiveCompare(address) == .orderedSame }
+            case .account(let id): accounts.first { $0.id == id }
+            }
+        guard let account = match else { throw Failure.unknownAccount }
         let arrived = try await SyncEngine(accountID: account.id, provider: try provider(account), store: database)
             .catchUp()
         let threads = try database.claimAlerts(among: arrived, in: account, now: now())

@@ -124,17 +124,28 @@ struct PushSubscriptionRecord: Codable, FetchableRecord, PersistableRecord {
 
     var accountID: String
     var deviceToken: String
-    var registeredAt: Date
-    var watchExpiresAt: Date
+    var environment: String
+    /// The `PushChannel`, as JSON.
+    var channel: String
+    var renewedAt: Date
+    var expiresAt: Date
 
-    init(account: AccountID, _ subscription: PushSubscription) {
+    init(account: AccountID, _ subscription: PushSubscription) throws {
         accountID = account.rawValue
-        deviceToken = subscription.deviceToken
-        registeredAt = subscription.registeredAt
-        watchExpiresAt = subscription.watchExpiresAt
+        deviceToken = subscription.device.hex
+        environment = subscription.device.environment.rawValue
+        channel = String(decoding: try JSONEncoder().encode(subscription.channel), as: UTF8.self)
+        renewedAt = subscription.renewedAt
+        expiresAt = subscription.expiresAt
     }
 
-    var subscription: PushSubscription {
-        PushSubscription(deviceToken: deviceToken, registeredAt: registeredAt, watchExpiresAt: watchExpiresAt)
+    /// `nil` for a row this build can't read, as from a newer one, which then subscribes again.
+    var subscription: PushSubscription? {
+        guard let environment = APNsEnvironment(rawValue: environment),
+            let channel = try? JSONDecoder().decode(PushChannel.self, from: Data(channel.utf8))
+        else { return nil }
+        return PushSubscription(
+            device: DeviceToken(hex: deviceToken, environment: environment), channel: channel, renewedAt: renewedAt,
+            expiresAt: expiresAt)
     }
 }

@@ -59,12 +59,15 @@ struct NotificationStoreTests {
     }
 
     @Test func aSubscriptionIsStoredReplacedAndForgotten() throws {
-        let first = PushSubscription(deviceToken: "ab", registeredAt: now, watchExpiresAt: now.addingTimeInterval(9))
+        let first = PushSubscription(
+            device: DeviceToken(hex: "ab", environment: .sandbox), channel: .watch, renewedAt: now,
+            expiresAt: now.addingTimeInterval(9))
         try database.setPushSubscription(first, for: account.id)
         #expect(try database.pushSubscription(for: account.id) == first)
 
         var renewed = first
-        renewed.watchExpiresAt = now.addingTimeInterval(99)
+        renewed.channel = .subscription(id: "s1", clientState: "secret")
+        renewed.expiresAt = now.addingTimeInterval(99)
         try database.setPushSubscription(renewed, for: account.id)
         #expect(try database.pushSubscription(for: account.id) == renewed)
 
@@ -75,7 +78,10 @@ struct NotificationStoreTests {
     @Test func removingTheAccountTakesItsSettingsWithIt() throws {
         try database.setNotificationLevel(.off, for: account.id, now: now)
         try database.setPushSubscription(
-            PushSubscription(deviceToken: "ab", registeredAt: now, watchExpiresAt: now), for: account.id)
+            PushSubscription(
+                device: DeviceToken(hex: "ab", environment: .production), channel: .watch, renewedAt: now,
+                expiresAt: now),
+            for: account.id)
         try database.removeAccount(account.id)
         try database.save(account)
 

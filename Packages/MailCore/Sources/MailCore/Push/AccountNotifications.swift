@@ -61,8 +61,8 @@ extension MailService {
     /// third-party push.
     public var pushesNewMail: Bool {
         switch self {
-        case .gmail: true
-        case .icloud, .outlook: false
+        case .gmail, .outlook: true
+        case .icloud: false
         }
     }
 }

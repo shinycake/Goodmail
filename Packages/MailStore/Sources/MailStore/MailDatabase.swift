@@ -247,6 +247,19 @@ public final class MailDatabase: Sendable {
                 table.column("watchExpiresAt", .datetime).notNull()
             }
         }
+        migrator.registerMigration("v19-push-channel") { db in
+            // Subscriptions now say how the service reaches the relay (PushChannel). The rows are only a cache of
+            // what the relay holds, so they are dropped and each account subscribes again on the next launch.
+            try db.drop(table: "pushSubscription")
+            try db.create(table: "pushSubscription") { table in
+                table.primaryKey("accountID", .text).references("account", onDelete: .cascade)
+                table.column("deviceToken", .text).notNull()
+                table.column("environment", .text).notNull()
+                table.column("channel", .text).notNull()
+                table.column("renewedAt", .datetime).notNull()
+                table.column("expiresAt", .datetime).notNull()
+            }
+        }
         return migrator
     }
 }

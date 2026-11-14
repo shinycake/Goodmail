@@ -80,24 +80,32 @@ struct NewMailFetchTests {
 
     @Test func newMailAlertsOnceAndIsStored() async throws {
         let provider = ChangedThreads([thread("t1")])
-        let first = try await fetch(provider).run(address: "me@example.com")
+        let first = try await fetch(provider).run(.address("me@example.com"))
         #expect(first == .alerts([thread("t1")], in: account))
-        #expect(try await fetch(provider).run(address: "me@example.com") == .nothingNew)
+        #expect(try await fetch(provider).run(.address("me@example.com")) == .nothingNew)
     }
 
     @Test func aReadChangeAlertsForNothing() async throws {
         #expect(
-            try await fetch(ChangedThreads([thread("t1", unread: false)])).run(address: account.email) == .nothingNew)
+            try await fetch(ChangedThreads([thread("t1", unread: false)])).run(.address(account.email)) == .nothingNew)
     }
 
     @Test func turningAlertsOffSilencesThem() async throws {
         try database.setNotificationLevel(.off, for: account.id, now: now)
-        #expect(try await fetch(ChangedThreads([thread("t1")])).run(address: account.email) == .nothingNew)
+        #expect(try await fetch(ChangedThreads([thread("t1")])).run(.address(account.email)) == .nothingNew)
+    }
+
+    @Test func anOutlookPushNamesTheAccountByID() async throws {
+        #expect(NewMailFetch.target(in: ["accountID": "a1"]) == .account(AccountID(rawValue: "a1")))
+        #expect(NewMailFetch.target(in: ["account": "me@example.com"]) == .address("me@example.com"))
+        #expect(NewMailFetch.target(in: ["aps": [:]]) == nil)
+        let first = try await fetch(ChangedThreads([thread("t1")])).run(.account(account.id))
+        #expect(first != .nothingNew)
     }
 
     @Test func anAddressNotOnTheDeviceIsAnError() async throws {
         await #expect(throws: NewMailFetch.Failure.unknownAccount) {
-            try await fetch(ChangedThreads([])).run(address: "someone@example.com")
+            try await fetch(ChangedThreads([])).run(.address("someone@example.com"))
         }
     }
 }

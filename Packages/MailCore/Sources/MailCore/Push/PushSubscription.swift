@@ -23,34 +23,73 @@ public struct DeviceToken: Equatable, Sendable {
     }
 }
 
+/// How an account's service reaches the relay for this device.
+public enum PushChannel: Codable, Equatable, Sendable {
+    /// Gmail: the relay knows the device by the account's address, and one Pub/Sub watch serves every device.
+    case watch
+    /// Outlook: this device's own Graph subscription, which the relay trusts by its `clientState`.
+    case subscription(id: String, clientState: String)
+}
+
 /// A service that can tell the push relay when an account's mail changes.
 public protocol PushSource: Sendable {
-    /// Asks the service to notify the relay of the account's Inbox changes, renewing any earlier request. Returns
-    /// when the request lapses unless renewed.
-    func watch() async throws -> Date
+    /// Subscriptions are renewed once less than this is left.
+    var renewalMargin: TimeInterval { get }
 
-    /// Proof of the account's address that the relay checks before it stores this device for it.
-    func relayProof() async throws -> String
+    /// Starts sending the account's new Inbox mail to `device` through `relay`, or renews `channel` when it is
+    /// still this device's. Returns the channel and when it lapses unless renewed.
+    func subscribe(_ device: DeviceToken, renewing channel: PushChannel?, relay: any PushRelay) async throws
+        -> (channel: PushChannel, expiresAt: Date)
+
+    /// Stops sending the account's mail to `deviceToken` through `channel`.
+    func unsubscribe(_ channel: PushChannel, deviceToken: String, relay: any PushRelay) async throws
+}
+
+/// An Outlook device's Graph subscription, as the relay stores it.
+public struct RelayGraphSubscription: Equatable, Sendable {
+    public var id: String
+    public var clientState: String
+    public var account: AccountID
+    public var device: DeviceToken
+    public var expiresAt: Date
+
+    public init(id: String, clientState: String, account: AccountID, device: DeviceToken, expiresAt: Date) {
+        self.id = id
+        self.clientState = clientState
+        self.account = account
+        self.device = device
+        self.expiresAt = expiresAt
+    }
 }
 
 /// The push relay (PushWorker): wakes registered devices when their accounts' mail changes.
 public protocol PushRelay: Sendable {
+    /// Where Graph sends Outlook's change notifications.
+    var graphNotificationURL: URL { get }
+
+    /// Gmail: registers the device for the address `proof` vouches for.
     func register(_ device: DeviceToken, proof: String) async throws
     func unregister(deviceToken: String, proof: String) async throws
+
+    /// Outlook: stores or renews the device's Graph subscription.
+    func register(_ subscription: RelayGraphSubscription) async throws
+    func unregisterGraphSubscription(id: String, clientState: String) async throws
 }
 
 /// What the relay and the service know about one account's pushes to this device.
 public struct PushSubscription: Equatable, Sendable {
-    /// The device token the relay holds for the account.
-    public var deviceToken: String
-    public var registeredAt: Date
-    /// When the service stops notifying the relay unless the watch is renewed.
-    public var watchExpiresAt: Date
+    public var device: DeviceToken
+    public var channel: PushChannel
+    /// When the relay last heard from this device for the account.
+    public var renewedAt: Date
+    /// When the service stops notifying the relay unless the subscription is renewed.
+    public var expiresAt: Date
 
-    public init(deviceToken: String, registeredAt: Date, watchExpiresAt: Date) {
-        self.deviceToken = deviceToken
-        self.registeredAt = registeredAt
-        self.watchExpiresAt = watchExpiresAt
+    public init(device: DeviceToken, channel: PushChannel, renewedAt: Date, expiresAt: Date) {
+        self.device = device
+        self.channel = channel
+        self.renewedAt = renewedAt
+        self.expiresAt = expiresAt
     }
 }
 
