@@ -4,11 +4,11 @@ import Testing
 
 struct ThreadActionTests {
     @Test func actionsChangeLabelsAsGmailDoes() {
-        #expect(ThreadAction.archive.applied(to: ["INBOX", "UNREAD"]) == ["UNREAD"])
-        #expect(ThreadAction.trash.applied(to: ["INBOX", "Label_1"]) == ["TRASH", "Label_1"])
-        #expect(ThreadAction.untrash.applied(to: ["TRASH"]) == [])
-        #expect(ThreadAction.markRead(true).applied(to: ["INBOX", "UNREAD"]) == ["INBOX"])
-        #expect(ThreadAction.reportSpam.applied(to: ["INBOX"]) == ["SPAM"])
+        #expect(ThreadAction.archive.outcome(for: ["INBOX", "UNREAD"]) == .labeled(["UNREAD"]))
+        #expect(ThreadAction.trash.outcome(for: ["INBOX", "Label_1"]) == .labeled(["TRASH", "Label_1"]))
+        #expect(ThreadAction.untrash.outcome(for: ["TRASH"]) == .labeled([]))
+        #expect(ThreadAction.markRead(true).outcome(for: ["INBOX", "UNREAD"]) == .labeled(["INBOX"]))
+        #expect(ThreadAction.reportSpam.outcome(for: ["INBOX"]) == .labeled(["SPAM"]))
     }
 
     @Test func undoPutsBackOnlyWhatChanged() {
@@ -27,15 +27,22 @@ struct ThreadActionTests {
             for labels: Set<String> in [
                 ["INBOX", "UNREAD"], ["Label_1", "STARRED"], ["SPAM"], ["TRASH", "INBOX"], ["MUTED", "STARRED"],
             ] {
-                let restored = action.inverse(given: labels).reduce(action.applied(to: labels)) { $1.applied(to: $0) }
-                #expect(restored == labels, "\(action) on \(labels)")
+                #expect(action.undone(on: labels) == labels, "\(action) on \(labels)")
             }
         }
     }
 
+    @Test func deleteForeverDeletesWhatIsInTrashAndLeavesTheRest() {
+        #expect(ThreadAction.deleteForever.outcome(for: ["TRASH", "UNREAD"]) == .deleted)
+        #expect(ThreadAction.deleteForever.outcome(for: ["INBOX", "TRASH"]) == .deleted, "a thread in Trash at all")
+        #expect(ThreadAction.deleteForever.outcome(for: ["INBOX", "UNREAD"]) == .labeled(["INBOX", "UNREAD"]))
+        #expect(ThreadAction.deleteForever.inverse(given: ["TRASH"]) == [], "nothing brings it back")
+    }
+
     @Test func muteTakesTheThreadOutOfTheInboxAndUnmuteBringsItBack() {
-        #expect(ThreadAction.mute.applied(to: ["INBOX", "UNREAD", "Label_1"]) == ["MUTED", "UNREAD", "Label_1"])
-        #expect(ThreadAction.unmute.applied(to: ["MUTED", "Label_1"]) == ["INBOX", "Label_1"])
+        #expect(
+            ThreadAction.mute.outcome(for: ["INBOX", "UNREAD", "Label_1"]) == .labeled(["MUTED", "UNREAD", "Label_1"]))
+        #expect(ThreadAction.unmute.outcome(for: ["MUTED", "Label_1"]) == .labeled(["INBOX", "Label_1"]))
         #expect(ThreadAction.mute.inverse(given: ["INBOX"]) == [.modifyLabels(add: ["INBOX"], remove: ["MUTED"])])
         #expect(ThreadAction.mute.inverse(given: ["MUTED"]) == [], "muting muted mail changes nothing")
     }
@@ -55,5 +62,22 @@ struct ThreadActionTests {
 
     private func gmail(_ threads: [Set<String>]) -> [(labels: Set<String>, service: MailService)] {
         threads.map { ($0, .gmail) }
+    }
+}
+
+extension ThreadAction {
+    /// The labels a thread carrying `labels` has after this action and then its undo, or `nil` if either deletes it.
+    func undone(on labels: Set<String>) -> Set<String>? {
+        inverse(given: labels).reduce(outcome(for: labels)) { outcome, undo in
+            guard case .labeled(let labels) = outcome else { return outcome }
+            return undo.outcome(for: labels)
+        }.labels
+    }
+}
+
+extension ThreadAction.Outcome {
+    var labels: Set<String>? {
+        guard case .labeled(let labels) = self else { return nil }
+        return labels
     }
 }

@@ -7,6 +7,8 @@ struct CopyPlan: Equatable {
         case stay
         /// To the folder of this label, or Archive for `nil`.
         case move(toLabel: String?)
+        /// Removed for good.
+        case expunge
     }
 
     var addFlags: Set<String> = []
@@ -28,8 +30,13 @@ struct CopyPlan: Equatable {
     /// - Sent and Drafts are where mail was made, not places: their copies only move to Trash.
     /// - A copy whose folder keeps its label stays, and gets a copy in each folder whose label was added.
     /// - Otherwise it moves to the first folder left (the Inbox first), or to Archive when none is.
+    /// - A copy the action deletes is expunged.
     init(action: ThreadAction, folderLabel: String?, flags: Set<String>) {
-        let after = action.applied(to: Folders.labelIDs(folderLabel: folderLabel, flags: flags))
+        guard case .labeled(let after) = action.outcome(for: Folders.labelIDs(folderLabel: folderLabel, flags: flags))
+        else {
+            placement = .expunge
+            return
+        }
         if after.contains(SystemLabel.starred) != flags.contains(Self.flagged) {
             if after.contains(SystemLabel.starred) {
                 addFlags.insert(Self.flagged)

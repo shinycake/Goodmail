@@ -16,7 +16,10 @@ private final class LabelStore: MailCommands.Store, @unchecked Sendable {
         for intent in intents {
             guard let current = labels[intent.threadID] else { continue }
             before[intent.threadID] = before[intent.threadID] ?? current
-            labels[intent.threadID] = intent.action.applied(to: current)
+            switch intent.action.outcome(for: current) {
+            case .labeled(let after): labels[intent.threadID] = after
+            case .deleted: labels[intent.threadID] = nil
+            }
             queued.append(intent)
         }
         return before

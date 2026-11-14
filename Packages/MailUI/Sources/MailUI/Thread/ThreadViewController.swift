@@ -210,8 +210,16 @@ public final class ThreadViewController: UIViewController {
                     image: UIImage(systemName: "arrowshape.turn.up.right")
                 ) { [weak self] _ in self?.viewModel.forward() },
             ]))
+        let deleteForever = UIBarButtonItem(
+            title: ThreadAction.deleteForever.title, image: UIImage(systemName: ThreadAction.deleteForever.symbol),
+            primaryAction: UIAction { [weak self] _ in
+                let alert = UIAlertController.deleteForever(.threads(1)) { [weak self] in
+                    self?.viewModel.perform(.deleteForever)
+                }
+                self?.present(alert, animated: true)
+            })
         toolbarItems = [
-            item(.archive), item(.trash),
+            item(.archive), viewModel.isInTrash ? deleteForever : item(.trash),
             .snooze(from: self) { [weak self] in self?.viewModel.snooze(until: $0) }, .flexibleSpace(),
             item(.markRead(false)), starItem,
             .organize(

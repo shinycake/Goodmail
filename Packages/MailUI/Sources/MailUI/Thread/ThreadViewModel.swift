@@ -174,11 +174,14 @@ public final class ThreadViewModel {
         return ThreadAction.muting([(messages.isEmpty ? thread.labelIDs : labels, accountService)])
     }
 
-    /// Applies an action to the whole thread. Archive, Trash, Spam and Mute take it out of the mailbox, and Unread
-    /// puts it back for later, so the reader leaves after them.
+    /// Whether the thread was in Trash when opened, so its toolbar deletes it forever instead of trashing it.
+    public var isInTrash: Bool { thread.labelIDs.contains(SystemLabel.trash) }
+
+    /// Applies an action to the whole thread. Archive, Trash, Delete Forever, Spam and Mute take it out of the
+    /// mailbox, and Unread puts it back for later, so the reader leaves after them.
     public func perform(_ action: ThreadAction) {
         actions?.perform(action, on: [thread.id])
-        if [.archive, .trash, .reportSpam, .mute, .markRead(false)].contains(action) { leave() }
+        if [.archive, .trash, .deleteForever, .reportSpam, .mute, .markRead(false)].contains(action) { leave() }
     }
 
     /// Takes the thread out of the Inbox until `date`, and leaves it.

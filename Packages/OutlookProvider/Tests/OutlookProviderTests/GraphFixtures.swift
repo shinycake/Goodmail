@@ -39,7 +39,7 @@ final class FixtureGraph: HTTPClient {
 
 extension FixtureGraph {
     /// A mailbox with every well-known folder but Conversation History, a user folder at the root and one in the
-    /// Inbox, and two conversations in the Inbox.
+    /// Inbox, two conversations in the Inbox, and c3 with one message in Deleted Items and one in the Inbox.
     static func mailbox(_ request: URLRequest) -> String? {
         let path = request.graphPath
         if request.url!.host() == "login.example.com" { return "token" }
@@ -58,6 +58,7 @@ extension FixtureGraph {
             switch request.query("$filter") {
             case "conversationId eq 'c1'": return "conversation-c1"
             case "conversationId eq 'c2'": return "conversation-c2"
+            case "conversationId eq 'c3'": return "conversation-c3"
             default: return "empty-page"
             }
         default: return nil

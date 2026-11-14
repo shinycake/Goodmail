@@ -1,0 +1,9 @@
+{
+  "id": "18f0c1",
+  "historyId": "9100",
+  "messages": [
+    { "id": "18f0c1m1", "threadId": "18f0c1", "labelIds": ["TRASH"] },
+    { "id": "18f0c1m2", "threadId": "18f0c1", "labelIds": ["INBOX", "UNREAD"] },
+    { "id": "18f0c1m3", "threadId": "18f0c1", "labelIds": ["TRASH", "SENT"] }
+  ]
+}

@@ -21,8 +21,9 @@ extension OAuthClient {
         clientID: "847337870740-fpj7hd07nfsueispeug4nell21pf3vi2.apps.googleusercontent.com",
         redirectURI: URL(
             string: "com.googleusercontent.apps.847337870740-fpj7hd07nfsueispeug4nell21pf3vi2:/oauthredirect")!,
+        // The full mail scope, not `gmail.modify`, because only it allows deleting mail for good.
         scopes: [
-            "https://www.googleapis.com/auth/gmail.modify",
+            "https://mail.google.com/",
             "https://www.googleapis.com/auth/gmail.settings.basic",
             "https://www.googleapis.com/auth/contacts.readonly",
             "https://www.googleapis.com/auth/contacts.other.readonly",

@@ -150,7 +150,9 @@ struct MailboxesTests {
         #expect(MailboxViewModel.trailingActions(for: thread(labels: ["INBOX"])) == [.archive, .trash])
         #expect(MailboxViewModel.trailingActions(for: thread(labels: ["Label_1"])) == [.trash])
         #expect(MailboxViewModel.trailingActions(for: thread(labels: ["SPAM"])) == [.moveToInbox, .trash])
-        #expect(MailboxViewModel.trailingActions(for: thread(labels: ["TRASH", "STARRED"])) == [.untrash])
+        #expect(
+            MailboxViewModel.trailingActions(for: thread(labels: ["TRASH", "STARRED"])) == [.untrash, .deleteForever],
+            "a full swipe restores; deleting forever takes a tap and a confirmation")
     }
 
     @Test func swipingAnInboxThreadOffersSnoozeAfterArchive() {
@@ -182,6 +184,10 @@ struct MailboxesTests {
             bulkActions([read, thread(labels: ["Label_1"])]) == [.markRead(true), .trash, .mute],
             "archived mail can't be archived again")
         #expect(bulkActions([read, thread(labels: ["TRASH"])]) == [.markRead(true)])
+        #expect(
+            bulkActions([thread(labels: ["TRASH"]), thread(labels: ["TRASH"])], service: .icloud)
+                == [.markRead(true), .untrash, .deleteForever],
+            "every service deletes forever from Trash")
         #expect(
             bulkActions([thread(labels: ["MUTED"]), thread(labels: ["MUTED", "Label_1"])])
                 == [.markRead(true), .trash, .unmute],

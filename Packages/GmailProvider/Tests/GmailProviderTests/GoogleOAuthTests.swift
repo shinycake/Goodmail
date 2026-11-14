@@ -18,7 +18,7 @@ struct GoogleOAuthTests {
         #expect(query["redirect_uri"] == OAuthClient.gmail.redirectURI.absoluteString)
         #expect(query["state"] == "s1")
         #expect(query["login_hint"] == "a@b.c")
-        #expect(query["scope"]??.contains("https://www.googleapis.com/auth/gmail.modify") == true)
+        #expect(query["scope"]??.contains("https://mail.google.com/") == true, "the full scope, to delete forever")
     }
 
     @Test func redirectYieldsTheCodeOnlyForOurState() throws {

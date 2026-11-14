@@ -65,6 +65,10 @@ final class FakeMailServer: MailProvider {
         }
     }
 
+    func thread(_ id: String) -> ThreadSummary? {
+        state.withLock { $0.threads[id] }
+    }
+
     /// Forgets history: every earlier cursor expires, as Gmail's do after about a week.
     func expireCursors() {
         state.withLock { $0.oldestValidCursor = $0.history }
@@ -154,10 +158,14 @@ extension FakeMailServer {
             guard var thread = state.threads[threadID] else { throw ProviderError.notFound }
             var labels = thread.labelIDs
             if thread.isUnread { labels.insert(SystemLabel.unread) }
-            labels = action.applied(to: labels)
-            thread.isUnread = labels.contains(SystemLabel.unread)
-            thread.labelIDs = labels.subtracting([SystemLabel.unread])
-            state.threads[threadID] = thread
+            switch action.outcome(for: labels) {
+            case .labeled(let labels):
+                thread.isUnread = labels.contains(SystemLabel.unread)
+                thread.labelIDs = labels.subtracting([SystemLabel.unread])
+                state.threads[threadID] = thread
+            case .deleted:
+                state.threads[threadID] = nil
+            }
             state.history += 1
             state.changed.append((state.history, threadID))
         }

@@ -8,6 +8,8 @@ enum GraphChange: Equatable, Sendable {
     case markRead(Bool)
     case flag(Bool)
     case move(toFolder: String)
+    /// Deletes the message for good, past Recoverable Items.
+    case permanentDelete
 
     enum Failure: Error, Equatable {
         /// The action names a label no folder holds, such as a folder deleted since, or archives in a mailbox
@@ -17,8 +19,8 @@ enum GraphChange: Equatable, Sendable {
         case severalFolders
     }
 
-    /// The changes that give `message` the labels `action` leaves it with, read before move. Empty when it already
-    /// has them, so replaying an action changes nothing.
+    /// The changes that give `message` the labels `action` leaves it with, read before move, or that delete it for
+    /// good when the action deletes it. Empty when it already has them, so replaying an action changes nothing.
     ///
     /// A message lands in the folder of the label the action adds. Sent mail and drafts stay put, as Gmail keeps
     /// their labels, unless the thread goes to Trash or Spam whole. A message that loses its folder's label and gains
@@ -26,7 +28,25 @@ enum GraphChange: Equatable, Sendable {
     static func changes(
         for action: ThreadAction, to message: GraphMessage, in folders: FolderDirectory
     ) throws -> [GraphChange] {
-        let (add, remove) = action.labelChange
+        let current = message.parentFolderId.flatMap(folders.label(forFolder:))
+        switch action {
+        case .modifyLabels(let add, let remove):
+            return try changes(adding: add, removing: remove, to: message, in: current, of: folders)
+        case .trash:
+            return try changes(
+                adding: [SystemLabel.trash], removing: [SystemLabel.inbox], to: message, in: current, of: folders)
+        case .untrash:
+            return try changes(adding: [], removing: [SystemLabel.trash], to: message, in: current, of: folders)
+        case .deleteForever:
+            return current == SystemLabel.trash ? [.permanentDelete] : []
+        }
+    }
+
+    /// The changes for a label change, as `ThreadAction.outcome(for:)` reads Trash and untrash too.
+    private static func changes(
+        adding add: Set<String>, removing remove: Set<String>, to message: GraphMessage, in current: String?,
+        of folders: FolderDirectory
+    ) throws -> [GraphChange] {
         var changes: [GraphChange] = []
         if let unread = Self.state(of: SystemLabel.unread, adding: add, removing: remove),
             unread != (message.isRead == false)
@@ -38,7 +58,6 @@ enum GraphChange: Equatable, Sendable {
         {
             changes.append(.flag(starred))
         }
-        let current = message.parentFolderId.flatMap(folders.label(forFolder:))
         if let destination = try folder(adding: add, removing: remove, from: current, in: folders),
             destination != message.parentFolderId
         {
@@ -48,7 +67,7 @@ enum GraphChange: Equatable, Sendable {
     }
 
     /// Whether the action leaves a flag label on (`true`) or off (`false`), or `nil` when it doesn't touch it.
-    /// Adding wins over removing, as in `ThreadAction.applied(to:)`.
+    /// Adding wins over removing, as in `ThreadAction.outcome(for:)`.
     private static func state(of flag: String, adding add: Set<String>, removing remove: Set<String>) -> Bool? {
         if add.contains(flag) { return true }
         if remove.contains(flag) { return false }
@@ -80,17 +99,6 @@ struct MessagePlan: Sendable {
     let changes: [GraphChange]
 }
 
-extension ThreadAction {
-    /// The labels the action adds and removes. Trash and untrash are label changes too, as `applied(to:)` reads them.
-    fileprivate var labelChange: (add: Set<String>, remove: Set<String>) {
-        switch self {
-        case .modifyLabels(let add, let remove): (add, remove)
-        case .trash: ([SystemLabel.trash], [SystemLabel.inbox])
-        case .untrash: ([], [SystemLabel.trash])
-        }
-    }
-}
-
 extension GraphMessage {
     /// What `perform` reads to plan a message's changes.
     static let stateFields = "id,isRead,flag,parentFolderId"
@@ -111,6 +119,8 @@ extension GraphTransport {
                 try await send(url, method: "PATCH", json: FlagPatch(flag: .init(flagged: flagged)))
             case .move(let folder):
                 try await send(url.appending(path: "move"), method: "POST", json: MoveRequest(destinationId: folder))
+            case .permanentDelete:
+                try await send(url.appending(path: "permanentDelete"), method: "POST", payload: nil)
             }
         } catch let error as GraphError where error.status == 404 {
             return

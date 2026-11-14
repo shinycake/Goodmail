@@ -132,11 +132,32 @@ public struct GmailClient: MailProvider, UploadSending {
                 let _: GmailThreadRef = try await send(path + "/trash", method: "POST")
             case .untrash:
                 let _: GmailThreadRef = try await send(path + "/untrash", method: "POST")
+            case .deleteForever:
+                try await deleteTrashedMessages(inThread: path)
             }
         } catch let error as GmailError where error.status == 404 {
             throw ProviderError.notFound
-        } catch let error as GmailError where error.status == 400 {
+        } catch let error as GmailError where error.status == 400 || error.lacksScope {
             throw ProviderError.rejected
+        }
+    }
+
+    /// Deletes the thread's messages in Trash for good, one by one, so its messages elsewhere stay. One already gone
+    /// is not an error. Needs the full mail scope; an account signed in before Goodmail asked for it is refused.
+    private func deleteTrashedMessages(inThread path: String) async throws {
+        let thread: GmailThread = try await get(path, query: [URLQueryItem(name: "format", value: "minimal")])
+        let trashed = (thread.messages ?? []).filter { $0.labelIds?.contains(SystemLabel.trash) == true }
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for message in trashed {
+                group.addTask {
+                    do {
+                        let _: GmailEmpty = try await send("users/me/messages/\(message.id)", method: "DELETE")
+                    } catch let error as GmailError where error.status == 404 {
+                        return
+                    }
+                }
+            }
+            try await group.waitForAll()
         }
     }
 
@@ -416,6 +437,9 @@ struct GmailThreadRef: Decodable {
 public struct GmailError: Error, Equatable {
     public let status: Int
     public let body: String
+
+    /// The token lacks a scope the request needs, as an account signed in before Goodmail asked for it.
+    var lacksScope: Bool { status == 403 && body.contains("ACCESS_TOKEN_SCOPE_INSUFFICIENT") }
 
     /// Rate limits and server errors, which Google asks clients to retry with exponential backoff.
     var retryable: RetryableFailure? {

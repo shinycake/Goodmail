@@ -56,6 +56,8 @@ public final class MailboxViewModel {
     var services: [AccountID: MailService] { accounts.mapValues(\.service) }
     public let actions: MailActions?
     public let mailbox: Mailbox
+    /// Whether this is a Trash, of every account or of one, which Delete Forever can empty.
+    var isTrash: Bool { mailbox.labelID == SystemLabel.trash }
     public let title: String
     /// The category the list shows, or `nil` when the mailbox isn't split into categories.
     public var category: InboxCategory? {
@@ -258,9 +260,10 @@ public final class MailboxViewModel {
         return swipes
     }
 
-    /// What takes `thread` out of the way, by where it is: out of Trash, out of Spam, or out of the Inbox.
+    /// What takes `thread` out of the way, by where it is: out of Trash, or gone for good from it, out of Spam, or out
+    /// of the Inbox.
     static func trailingActions(for thread: ThreadSummary) -> [ThreadAction] {
-        if thread.labelIDs.contains(SystemLabel.trash) { return [.untrash] }
+        if thread.labelIDs.contains(SystemLabel.trash) { return [.untrash, .deleteForever] }
         if thread.labelIDs.contains(SystemLabel.spam) { return [.moveToInbox, .trash] }
         return thread.labelIDs.contains(SystemLabel.inbox) ? [.archive, .trash] : [.trash]
     }

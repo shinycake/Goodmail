@@ -6,6 +6,8 @@ public enum ThreadAction: Codable, Equatable, Sendable {
     case modifyLabels(add: Set<String>, remove: Set<String>)
     case trash
     case untrash
+    /// Deletes the thread's messages that are in Trash for good. Messages anywhere else stay, and nothing undoes it.
+    case deleteForever
 
     public static let archive = modifyLabels(add: [], remove: [SystemLabel.inbox])
     public static let moveToInbox = modifyLabels(add: [SystemLabel.inbox], remove: [SystemLabel.spam])
@@ -26,12 +28,21 @@ public enum ThreadAction: Codable, Equatable, Sendable {
             : .modifyLabels(add: [], remove: [SystemLabel.starred])
     }
 
-    /// The labels a thread (or message) carries after this action.
-    public func applied(to labels: Set<String>) -> Set<String> {
+    /// What this action leaves of a thread or message that carries `labels`.
+    public enum Outcome: Equatable, Sendable {
+        case labeled(Set<String>)
+        /// Gone for good.
+        case deleted
+    }
+
+    /// What a thread (or message) carrying `labels` is after this action. A thread is deleted forever whole while it
+    /// carries Trash, even when some of its messages are elsewhere: the next fetch brings those back.
+    public func outcome(for labels: Set<String>) -> Outcome {
         switch self {
-        case .modifyLabels(let add, let remove): labels.subtracting(remove).union(add)
-        case .trash: labels.subtracting([SystemLabel.inbox]).union([SystemLabel.trash])
-        case .untrash: labels.subtracting([SystemLabel.trash])
+        case .modifyLabels(let add, let remove): .labeled(labels.subtracting(remove).union(add))
+        case .trash: .labeled(labels.subtracting([SystemLabel.inbox]).union([SystemLabel.trash]))
+        case .untrash: .labeled(labels.subtracting([SystemLabel.trash]))
+        case .deleteForever: labels.contains(SystemLabel.trash) ? .deleted : .labeled(labels)
         }
     }
 
@@ -48,9 +59,10 @@ public enum ThreadAction: Codable, Equatable, Sendable {
         return threads.allSatisfy { $0.labels.contains(SystemLabel.muted) } ? .unmute : nil
     }
 
-    /// The actions that put back a thread that carried `labels` before this one. Empty when this one changed nothing.
+    /// The actions that put back a thread that carried `labels` before this one. Empty when this one changed nothing,
+    /// and when it deleted the thread, which nothing brings back.
     public func inverse(given labels: Set<String>) -> [ThreadAction] {
-        let after = applied(to: labels)
+        guard case .labeled(let after) = outcome(for: labels) else { return [] }
         let added = after.subtracting(labels)
         let removed = labels.subtracting(after)
         var actions: [ThreadAction] = []

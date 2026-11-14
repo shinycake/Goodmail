@@ -3,7 +3,7 @@ import MailCore
 
 extension ICloudClient {
     /// Applies `action` to every copy of the thread's messages (`CopyPlan`): flags first, so moved copies carry them,
-    /// then copies, then moves. Moved and copied messages get new UIDs, which the index learns from the server's
+    /// then copies, then moves. Copies the action deletes, as Delete Forever does those in Trash, are expunged. Moved and copied messages get new UIDs, which the index learns from the server's
     /// COPYUID; a server that doesn't say leaves them to the next `changes(since:)`.
     ///
     /// A folder never gets a second copy of a message, so replaying an action changes nothing: a copy isn't filed
@@ -33,6 +33,13 @@ extension ICloudClient {
 
                 var moves: [String: [IMAPMessageHeader]] = [:]
                 var copies: [String: [IMAPMessageHeader]] = [:]
+                let expunged = plans.filter { $0.plan.placement == .expunge }.map(\.header.uid)
+                try await connection.expunge(expunged)
+                try index.forgetIndexEntries(
+                    withKeys: expunged.map {
+                        MessageKey(folder: folder, uidValidity: selection.uidValidity, uid: $0).rawValue
+                    },
+                    account: accountID)
                 for (header, plan) in plans {
                     for copy in plan.copies {
                         if let target = folders.folder(for: copy) {

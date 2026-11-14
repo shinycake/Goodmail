@@ -18,11 +18,18 @@ public final class MailboxViewController: UIViewController {
     /// What an empty list shows.
     private let empty: UIContentUnavailableConfiguration
     private var emptyState: EmptyState?
+    /// Threads just deleted forever from this list, with when, so their rows dissolve as they leave. A thread the
+    /// store hasn't taken out by then left some other way, or not at all, and goes quietly.
+    private var deleted: [ThreadSummary.ID: ContinuousClock.Instant] = [:]
+    private static let deletedWindow = Duration.seconds(2)
     private var listMotion = ListMotion.free
 
     /// Whether the list takes changes as they come.
     private enum ListMotion {
         case free
+        /// Rows are breaking into dust over their hidden cells. The list holds still until the dust has blown clear,
+        /// so the rows below don't slide in under text that hasn't broken up yet, then catches up in one change.
+        case dissolving([ThreadSummary.ID], release: Task<Void, Never>)
         /// These rows are going into a box. The list holds still, so they lift off where they are, and catches up
         /// in one change once they are in.
         case stowing([ThreadSummary.ID])
@@ -64,6 +71,7 @@ public final class MailboxViewController: UIViewController {
 
     deinit {
         observation?.cancel()
+        if case .dissolving(_, let release) = listMotion { release.cancel() }
     }
 
     public override func viewDidLoad() {
@@ -206,7 +214,7 @@ public final class MailboxViewController: UIViewController {
                     title: action.title, symbol: action.symbol, isDestructive: action.isDestructive, stow: action.stow
                 ) { [weak self] stowing in
                     guard let self else { return }
-                    guard let stowing else { return viewModel.perform(action, on: [id]) }
+                    guard let stowing else { return perform(action, on: [id]) }
                     stow([id], into: stowing.box, doing: action, then: stowing.done)
                 }
             case .snooze:
@@ -292,6 +300,7 @@ public final class MailboxViewController: UIViewController {
             }
         }
         snapshot.reconfigureItems(changed)
+        if dissolveDeleted(leaving: threads) { return }
         let titlesChanged = sectionTitles != Dictionary(uniqueKeysWithValues: sections.map { ($0.id, $0.title) })
         threadsByID = threads
         sectionTitles = Dictionary(uniqueKeysWithValues: sections.map { ($0.id, $0.title) })
@@ -300,6 +309,64 @@ public final class MailboxViewController: UIViewController {
         swipes.rowsDidChange()
         // Selected threads may have left the list.
         if isEditing { updateSelectionChrome() }
+    }
+}
+
+// MARK: - Deleting
+
+extension MailboxViewController {
+    /// Performs `action`, then `done`. Delete Forever asks first, and on Cancel does neither.
+    private func perform(_ action: ThreadAction, on ids: [ThreadSummary.ID], then done: @escaping () -> Void = {}) {
+        guard action == .deleteForever else {
+            viewModel.perform(action, on: ids)
+            return done()
+        }
+        let everything = viewModel.isTrash && ids.count == dataSource.snapshot().numberOfItems
+        let alert = UIAlertController.deleteForever(everything ? .trash(ids.count) : .threads(ids.count)) {
+            [weak self] in
+            guard let self else { return }
+            let now = ContinuousClock.now
+            for id in ids { deleted[id] = now }
+            viewModel.perform(.deleteForever, on: ids)
+            done()
+        }
+        present(alert, animated: true)
+    }
+
+    /// Breaks the rows of threads deleted forever that are leaving the list into dust and holds the list still while
+    /// it blows clear. With Reduce Motion on, they fade out with the list's own deletion instead. Returns whether any
+    /// row dissolves, in which case the list takes this change once the hold ends.
+    private func dissolveDeleted(leaving threads: [ThreadSummary.ID: ThreadSummary]) -> Bool {
+        let now = ContinuousClock.now
+        deleted = deleted.filter { now - $0.value < Self.deletedWindow }
+        let leaving = deleted.keys.filter { threads[$0] == nil }
+        guard !leaving.isEmpty else { return false }
+        for id in leaving { deleted[id] = nil }
+        guard view.window != nil, !UIAccessibility.isReduceMotionEnabled else { return false }
+        let rows = leaving.compactMap { id in
+            dataSource.indexPath(for: id).flatMap(collectionView.cellForItem).map { (id, $0) }
+        }
+        guard !rows.isEmpty else { return false }
+        for (_, cell) in rows {
+            DissolveView.dissolve(cell, in: collectionView, budget: DissolveView.particleBudget / rows.count)
+        }
+        let release = Task { [weak self] in
+            guard (try? await Task.sleep(for: .seconds(DissolveField.sweep))) != nil else { return }
+            self?.endDissolving()
+        }
+        listMotion = .dissolving(rows.map(\.0), release: release)
+        return true
+    }
+
+    /// Lets the list catch up with every change held back while rows dissolved. A thread that came back meanwhile, as
+    /// one a fetch restored, shows its row again.
+    private func endDissolving() {
+        guard case .dissolving(let ids, _) = listMotion else { return }
+        listMotion = .free
+        applySections(viewModel.sections)
+        for id in ids {
+            dataSource.indexPath(for: id).flatMap(collectionView.cellForItem)?.alpha = 1
+        }
     }
 }
 
@@ -429,10 +496,17 @@ extension MailboxViewController {
         let threads = (ids.isEmpty ? snapshot.itemIdentifiers : ids).compactMap { threadsByID[$0] }
         let actions = MailboxViewModel.bulkActions(for: threads, services: viewModel.services)
         let items = actions.map { action in
+            // With nothing selected, Trash's Delete Forever empties it.
+            let emptiesTrash = action == .deleteForever && ids.isEmpty && viewModel.isTrash
+            // Words, not the symbol, since it does more than the selected-threads button it replaces.
             let item = UIBarButtonItem(
-                title: action.title, image: UIImage(systemName: action.symbol),
-                primaryAction: UIAction { [weak self] _ in self?.performOnSelection(action) })
-            item.isEnabled = !ids.isEmpty
+                title: emptiesTrash ? DeleteForeverScope.trash(0).actionTitle : action.title,
+                image: emptiesTrash ? nil : UIImage(systemName: action.symbol),
+                primaryAction: UIAction { [weak self] _ in
+                    guard let self else { return }
+                    performOnSelection(action, all: emptiesTrash)
+                })
+            item.isEnabled = !ids.isEmpty || emptiesTrash
             return item
         }
         // Labels belong to an account, so the picker opens for one account's threads at a time.
@@ -454,8 +528,9 @@ extension MailboxViewController {
             setEditing(false, animated: true)
         }
         snooze.isEnabled = !ids.isEmpty && MailboxViewModel.canSnooze(threads)
-        setToolbarItems(
-            Array(items.prefix(1)) + [labels, move, snooze, .flexibleSpace()] + items.dropFirst(), animated: false)
+        // Trash leaves out labels and snooze, which mean nothing there, so its Delete Forever fits without More.
+        let organize = viewModel.isTrash ? [move] : [labels, move, snooze]
+        setToolbarItems(Array(items.prefix(1)) + organize + [.flexibleSpace()] + items.dropFirst(), animated: false)
     }
 
     private func selectAll(_ select: Bool) {
@@ -470,11 +545,11 @@ extension MailboxViewController {
         updateSelectionChrome()
     }
 
-    private func performOnSelection(_ action: ThreadAction) {
-        let ids = selectedIDs
+    /// Performs `action` on the selected threads, or with `all` on every one in the list, and stops selecting.
+    private func performOnSelection(_ action: ThreadAction, all: Bool = false) {
+        let ids = all ? dataSource.snapshot().itemIdentifiers : selectedIDs
         guard let kind = action.stow, !UIAccessibility.isReduceMotionEnabled, let window = view.window else {
-            viewModel.perform(action, on: ids)
-            return setEditing(false, animated: true)
+            return perform(action, on: ids) { [weak self] in self?.setEditing(false, animated: true) }
         }
         // The action's button may be in the toolbar's overflow menu, so a box pops up above the toolbar to take them.
         let badge = StowBadgeView(kind: kind)

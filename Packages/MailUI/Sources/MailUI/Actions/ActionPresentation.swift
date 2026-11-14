@@ -142,13 +142,14 @@ private enum SnoozeTitle {
 
 extension ThreadAction {
     private enum Kind {
-        case archive, trash, untrash, spam, inbox, read, unread, star, unstar, mute, unmute, labels
+        case archive, trash, untrash, deleteForever, spam, inbox, read, unread, star, unstar, mute, unmute, labels
     }
 
     private var kind: Kind {
         switch self {
         case .trash: .trash
         case .untrash: .untrash
+        case .deleteForever: .deleteForever
         case .modifyLabels:
             [
                 (ThreadAction.archive, Kind.archive), (.reportSpam, .spam), (.moveToInbox, .inbox),
@@ -178,6 +179,10 @@ extension ThreadAction {
         case .untrash:
             String(
                 localized: "Move Out of Trash", table: "Actions", bundle: .module, comment: "Action: restore a thread")
+        case .deleteForever:
+            String(
+                localized: "Delete Forever", table: "DeleteForever", bundle: .module,
+                comment: "Action: delete a thread in Trash for good")
         case .spam:
             String(
                 localized: "Report Spam", table: "Actions", bundle: .module, comment: "Action: report a thread as spam")
@@ -207,6 +212,7 @@ extension ThreadAction {
         case .archive: "archivebox"
         case .trash: "trash"
         case .untrash, .inbox: "tray.and.arrow.down"
+        case .deleteForever: "trash.slash"
         case .spam: "xmark.bin"
         case .read: "envelope.open"
         case .unread: "envelope.badge"
@@ -218,7 +224,7 @@ extension ThreadAction {
         }
     }
 
-    var isDestructive: Bool { kind == .trash || kind == .spam }
+    var isDestructive: Bool { [.trash, .deleteForever, .spam].contains(kind) }
 }
 
 /// The glass capsule along the bottom after an action that hides threads: what happened, and Undo.

@@ -6,8 +6,8 @@ import Testing
 struct MoveTests {
     private let work = Mailbox(labelID: "Label_work", accountID: AccountID(rawValue: "a"))
 
-    private func moved(_ labels: Set<String>, to destination: MoveDestination, from mailbox: Mailbox) -> Set<String> {
-        ThreadAction.move(to: destination, from: mailbox).applied(to: labels)
+    private func moved(_ labels: Set<String>, to destination: MoveDestination, from mailbox: Mailbox) -> Set<String>? {
+        ThreadAction.move(to: destination, from: mailbox).outcome(for: labels).labels
     }
 
     @Test func fromTheInbox() {
@@ -67,8 +67,7 @@ struct MoveTests {
         for (mailbox, labels) in cases {
             for destination in destinations {
                 let action = ThreadAction.move(to: destination, from: mailbox)
-                let restored = action.inverse(given: labels).reduce(action.applied(to: labels)) { $1.applied(to: $0) }
-                #expect(restored == labels, "\(destination) from \(mailbox)")
+                #expect(action.undone(on: labels) == labels, "\(destination) from \(mailbox)")
             }
         }
     }

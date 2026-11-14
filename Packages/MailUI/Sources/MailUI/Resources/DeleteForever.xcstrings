@@ -1,0 +1,143 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "All %lld threads in Trash will be deleted. You can’t undo this." : {
+      "comment" : "Message of the alert before emptying Trash, with how many it deletes",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The thread in Trash will be deleted. You can’t undo this."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "All %lld threads in Trash will be deleted. You can’t undo this."
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "השרשור שבפח יימחק. אי אפשר לבטל את הפעולה."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "כל %lld השרשורים שבפח יימחקו. אי אפשר לבטל את הפעולה."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "comment" : "Button: keeps the threads",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ביטול"
+          }
+        }
+      }
+    },
+    "Delete %lld Threads Forever?" : {
+      "comment" : "Title of the alert before deleting threads in Trash for good",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Delete Thread Forever?"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Delete %lld Threads Forever?"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "למחוק את השרשור לצמיתות?"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "למחוק %lld שרשורים לצמיתות?"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Delete Forever" : {
+      "comment" : "Action: delete a thread in Trash for good",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחיקה לצמיתות"
+          }
+        }
+      }
+    },
+    "Empty Trash" : {
+      "comment" : "Action: delete everything in Trash for good",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ריקון הפח"
+          }
+        }
+      }
+    },
+    "Empty Trash?" : {
+      "comment" : "Title of the alert before emptying Trash",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לרוקן את הפח?"
+          }
+        }
+      }
+    },
+    "You can’t undo this." : {
+      "comment" : "Message of the alert before deleting threads in Trash for good",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אי אפשר לבטל את הפעולה."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

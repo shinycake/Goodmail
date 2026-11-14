@@ -1,0 +1,12 @@
+{
+  "value": [
+    {"id": "m7", "conversationId": "c3", "subject": "Old receipt", "bodyPreview": "Thanks for your order",
+     "from": {"emailAddress": {"name": "Shop", "address": "shop@example.com"}},
+     "receivedDateTime": "2026-11-01T09:30:00Z", "isRead": true, "flag": {"flagStatus": "notFlagged"},
+     "parentFolderId": "AATrash"},
+    {"id": "m8", "conversationId": "c3", "subject": "RE: Old receipt", "bodyPreview": "Where is it?",
+     "from": {"emailAddress": {"name": "Me", "address": "me@outlook.com"}},
+     "receivedDateTime": "2026-11-02T18:00:00Z", "isRead": true, "flag": {"flagStatus": "notFlagged"},
+     "parentFolderId": "AAInbox"}
+  ]
+}

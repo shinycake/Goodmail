@@ -42,6 +42,12 @@ struct CopyPlanTests {
         #expect(plan(.trash, in: "SENT").placement == .move(toLabel: "TRASH"))
         #expect(plan(.trash, in: "DRAFT").placement == .move(toLabel: "TRASH"))
     }
+
+    @Test func deleteForeverExpungesOnlyTheCopyInTrash() {
+        #expect(plan(.deleteForever, in: "TRASH") == CopyPlan(placement: .expunge))
+        #expect(plan(.deleteForever, in: "INBOX") == CopyPlan())
+        #expect(plan(.deleteForever, in: "SENT") == CopyPlan())
+    }
 }
 
 struct ICloudActionTests {
@@ -143,6 +149,36 @@ struct ICloudActionTests {
         try await client.perform(.trash, onThread: "a0@x")
 
         #expect(index.all.map(\.key) == [trashKey])
+    }
+
+    @Test func deleteForeverExpungesTheTrashCopiesAndForgetsThem() async throws {
+        let trash = { (uid: UInt32) in MessageKey(folder: "Deleted Messages", uidValidity: 2, uid: uid).rawValue }
+        let inbox = MessageKey(folder: "INBOX", uidValidity: 7, uid: 40).rawValue
+        let index = MemoryIndex([
+            MessageIndexEntry(key: trash(9), threadID: "a0@x", internetMessageID: "a0@x"),
+            MessageIndexEntry(key: trash(10), threadID: "a0@x", internetMessageID: "a1@x"),
+            MessageIndexEntry(key: inbox, threadID: "a0@x", internetMessageID: "a2@x"),
+        ])
+        let client = ICloudClientTests.client(
+            [
+                ICloudClientTests.login,
+                ICloudClientTests.select("Deleted Messages", tag: 5, uidValidity: 2),
+                "C: A6 UID FETCH 9:10 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES CONTENT-TYPE CONTENT-TRANSFER-ENCODING)] BODY.PEEK[TEXT]<0.2048>)",
+                ICloudClientTests.header(uid: 9, date: "1-Nov-2026 09:00:00 +0000", subject: "a", messageID: "a0@x"),
+                ICloudClientTests.header(uid: 10, date: "2-Nov-2026 09:00:00 +0000", subject: "b", messageID: "a1@x"),
+                "S: A6 OK",
+                #"C: A7 UID STORE 9:10 +FLAGS.SILENT (\Deleted)"#, "S: A7 OK",
+                "C: A8 UID EXPUNGE 9:10", "S: * 1 EXPUNGE", "S: * 1 EXPUNGE", "S: A8 OK",
+                ICloudClientTests.select("INBOX", tag: 9),
+                "C: A10 UID FETCH 40 (UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES CONTENT-TYPE CONTENT-TRANSFER-ENCODING)] BODY.PEEK[TEXT]<0.2048>)",
+                ICloudClientTests.header(uid: 40, date: "3-Nov-2026 09:00:00 +0000", subject: "c", messageID: "a2@x"),
+                "S: A10 OK",
+            ].joined(separator: "\n"),
+            index: index)
+
+        try await client.perform(.deleteForever, onThread: "a0@x")
+
+        #expect(index.all.map(\.key) == [inbox], "the Inbox copy stays")
     }
 
     @Test func aThreadTheIndexDoesntKnowIsNotFound() async throws {

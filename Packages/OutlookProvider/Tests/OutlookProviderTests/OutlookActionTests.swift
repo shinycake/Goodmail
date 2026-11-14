@@ -80,6 +80,19 @@ struct OutlookActionTests {
         #expect(try GraphChange.changes(for: .untrash, to: trashed, in: folders) == [.move(toFolder: "AAArchive")])
     }
 
+    @Test func deleteForeverDeletesOnlyTheMessagesInDeletedItems() throws {
+        let folders = FolderDirectory(wellKnown: [.inbox: "AAInbox", .deleteditems: "AATrash"], user: [])
+        let trashed = GraphMessage(id: "m", parentFolderId: "AATrash", isRead: true, flagged: false)
+        let inInbox = GraphMessage(id: "m", parentFolderId: "AAInbox", isRead: false, flagged: false)
+        #expect(try GraphChange.changes(for: .deleteForever, to: trashed, in: folders) == [.permanentDelete])
+        #expect(try GraphChange.changes(for: .deleteForever, to: inInbox, in: folders) == [])
+    }
+
+    @Test func deleteForeverIsAPermanentDeleteOfTheTrashedMessagesOnly() async throws {
+        #expect(try await perform(.deleteForever, on: "c3") == ["POST me/messages/m7/permanentDelete "])
+        #expect(try await perform(.deleteForever, on: "c1") == [], "nothing of c1 is in Trash")
+    }
+
     @Test func aMailboxWithoutArchiveCanStillTrashButNotArchive() throws {
         let folders = FolderDirectory(wellKnown: [.inbox: "AAInbox", .deleteditems: "AATrash"], user: [])
         let inInbox = GraphMessage(id: "m", parentFolderId: "AAInbox", isRead: true, flagged: false)

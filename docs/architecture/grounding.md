@@ -46,7 +46,7 @@ The facts every design must honor. Product decisions are in [../product-brief.md
 - iOS OAuth client: authorization code with PKCE. The redirect uses the reverse-client-ID custom scheme and runs through `ASWebAuthenticationSession`. There's no client secret on device.
 - Scopes:
   - `gmail.modify` is restricted, and covers everything except permanent delete.
-  - `https://mail.google.com/` is restricted and also allows permanent delete.
+  - `https://mail.google.com/` is restricted and also allows permanent delete. Goodmail uses it (ADR-019).
   - `gmail.settings.basic` covers settings; `openid email` returns an ID token.
 - **Testing-mode caveat** *(verify)*: in "Testing" publishing status, external-user refresh tokens **expire after 7 days**.
   - Moving the app to "In production" while unverified avoids that, at the cost of an unverified-app warning and a 100-user cap.

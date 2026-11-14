@@ -110,6 +110,45 @@ struct OutboxTests {
         #expect(try database.pendingIntents(for: account.id).isEmpty)
     }
 
+    @Test func deleteForeverRemovesTrashedThreadsAtOnceWithNothingToUndo() async throws {
+        var trashed = thread("t1")
+        trashed.labelIDs = ["TRASH"]
+        try seed(trashed, thread("t2"))
+        let message = Message(
+            id: Message.ID(accountID: account.id, messageID: "m1"), threadID: "t1",
+            from: Contact(name: nil, address: "a@example.com"), subject: "", date: Self.now,
+            labelIDs: ["TRASH"], body: MessageBody(plain: "hi"))
+        try database.save([message], inThread: id("t1"))
+
+        let undo = try await commands().perform(.deleteForever, on: [id("t1"), id("t2")])
+
+        #expect(undo.isEmpty)
+        #expect(try database.thread(id("t1")) == nil)
+        var messages = database.messages(inThread: id("t1")).makeAsyncIterator()
+        #expect(try await messages.next()?.isEmpty == true)
+        #expect(try database.thread(id("t2")) != nil, "a thread out of Trash stays")
+        try await outbox().flush()
+        #expect(server.performed.map(\.threadID) == ["t1", "t2"])
+        #expect(server.thread("t1") == nil)
+    }
+
+    @Test func aSyncBeforeReplayDoesNotBringADeletedThreadBack() async throws {
+        var trashed = thread("t1")
+        trashed.labelIDs = ["TRASH"]
+        try seed(trashed)
+        server.set("t1", trashed)  // touched on the server, so the next sync refetches it
+        try await commands().perform(.deleteForever, on: [id("t1")])
+
+        let engine = SyncEngine(accountID: account.id, provider: server, store: database, now: clock.next)
+        try await engine.sync()
+        #expect(try database.thread(id("t1")) == nil, "the queued delete still shows")
+
+        try await outbox().flush()
+        try await engine.sync()
+        #expect(try database.thread(id("t1")) == nil)
+        #expect(try database.pendingIntents(for: account.id).isEmpty)
+    }
+
     @Test func aFetchThatBeganBeforeTheSendStillShowsTheAction() async throws {
         try seed(thread("t1"))
         try await commands().perform(.archive, on: [id("t1")])

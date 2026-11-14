@@ -37,7 +37,7 @@ Removing an account (`AppModel.removeAccount`) deletes its refresh token, its ro
 | Destination | Purpose | Data sent |
 |---|---|---|
 | `accounts.google.com`, `oauth2.googleapis.com` | Sign-in (PKCE in `ASWebAuthenticationSession`) and token refresh | OAuth code and refresh token |
-| `gmail.googleapis.com` | Mail: read, send, modify, settings (`gmail.modify`, `gmail.settings.basic`) | The user's own mail, to the user's own provider |
+| `gmail.googleapis.com` | Mail: read, send, modify, delete forever, settings (`https://mail.google.com/`, `gmail.settings.basic`) | The user's own mail, to the user's own provider |
 | `people.googleapis.com` | Contacts for address completion (`contacts.readonly`, `contacts.other.readonly`) | Read only |
 | Remote content in messages | Images, only when the reader allows them for a message | The image request (IP address, user agent). Blocked by default |
 | The push Worker | Device registration (not wired in the app yet) | Google ID token and APNs device token |
@@ -120,7 +120,7 @@ The registration PR must add the same entry to the app's manifest (`NSPrivacyCol
 **Also for App Store Connect**
 
 - A privacy policy URL is required, even for "Data Not Collected". It can be a short page made from this document.
-- Gmail's restricted scope (`gmail.modify`) needs Google's OAuth verification and a security assessment before the app leaves Testing mode, beyond 100 users. That's separate from Apple's review.
+- Gmail's restricted scope (`https://mail.google.com/`, the full scope Delete Forever needs, ADR-019) needs Google's OAuth verification and a CASA security assessment before the app leaves Testing mode, beyond 100 users. That's separate from Apple's review.
 
 ## Verify on a Mac
 

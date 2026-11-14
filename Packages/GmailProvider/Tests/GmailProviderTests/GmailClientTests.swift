@@ -131,6 +131,35 @@ struct GmailClientTests {
             try JSONSerialization.jsonObject(with: modify.httpBody ?? Data()) as? [String: [String]])
         #expect(body == ["addLabelIds": ["MUTED"], "removeLabelIds": ["INBOX"]])
     }
+
+    @Test func deleteForeverDeletesOnlyTheThreadsMessagesInTrash() async throws {
+        let http = FixtureHTTPClient([
+            "/token": [.init(fixture: "token-exchange")],
+            "/gmail/v1/users/me/threads/18f0c1": [.init(fixture: "thread-18f0c1-minimal")],
+            "/gmail/v1/users/me/messages/18f0c1m1": [.init(fixture: "empty", status: 204)],
+            "/gmail/v1/users/me/messages/18f0c1m3": [.init(fixture: "not-found", status: 404)],
+        ])
+        try await GmailClient(session: try await signedIn(http), http: http)
+            .perform(.deleteForever, onThread: "18f0c1")
+
+        let read = try #require(http.requests.first { $0.url?.path() == "/gmail/v1/users/me/threads/18f0c1" })
+        #expect(read.url?.query()?.contains("format=minimal") == true)
+        let deletes = http.requests.filter { $0.httpMethod == "DELETE" }.compactMap { $0.url?.path() }
+        #expect(
+            deletes.sorted() == ["/gmail/v1/users/me/messages/18f0c1m1", "/gmail/v1/users/me/messages/18f0c1m3"],
+            "the Inbox message stays, and one already gone is no error")
+    }
+
+    @Test func deleteForeverWithoutTheFullMailScopeIsRefused() async throws {
+        let http = FixtureHTTPClient([
+            "/token": [.init(fixture: "token-exchange")],
+            "/gmail/v1/users/me/threads/18f0c1": [.init(fixture: "thread-18f0c1-minimal")],
+            "/gmail/v1/users/me/messages/18f0c1m1": [.init(fixture: "insufficient-scope", status: 403)],
+            "/gmail/v1/users/me/messages/18f0c1m3": [.init(fixture: "insufficient-scope", status: 403)],
+        ])
+        let client = GmailClient(session: try await signedIn(http), http: http)
+        await #expect(throws: ProviderError.rejected) { try await client.perform(.deleteForever, onThread: "18f0c1") }
+    }
 }
 
 struct GmailPushTests {

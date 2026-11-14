@@ -75,8 +75,8 @@ extension MailDatabase: OutboxStore {
             .map { try decoder.decode(OutboxIntent.self, from: Data($0.utf8)) }
     }
 
-    /// Applies `action` to a stored thread's labels and its cached messages. Returns the thread's labels from
-    /// before, or `nil` when the thread isn't stored.
+    /// Applies `action` to a stored thread's labels and its cached messages, or deletes the thread and its messages
+    /// when the action deletes it. Returns the thread's labels from before, or `nil` when the thread isn't stored.
     private static func apply(_ action: ThreadAction, account: String, thread: String, in db: Database) throws
         -> Set<String>?
     {
@@ -90,8 +90,11 @@ extension MailDatabase: OutboxStore {
                 db, sql: "SELECT labelID FROM threadLabel WHERE accountID = ? AND threadID = ?",
                 arguments: [account, thread]))
         if isUnread { before.insert(SystemLabel.unread) }
-        let after = action.applied(to: before)
-        if after != before {
+        switch action.outcome(for: before) {
+        case .deleted:
+            try db.execute(sql: "DELETE FROM thread WHERE accountID = ? AND id = ?", arguments: [account, thread])
+            return before
+        case .labeled(let after) where after != before:
             try db.execute(
                 sql: "DELETE FROM threadLabel WHERE accountID = ? AND threadID = ?", arguments: [account, thread])
             for label in after.subtracting([SystemLabel.unread]) {
@@ -102,6 +105,8 @@ extension MailDatabase: OutboxStore {
             try db.execute(
                 sql: "UPDATE thread SET isUnread = ? WHERE accountID = ? AND id = ?",
                 arguments: [after.contains(SystemLabel.unread), account, thread])
+        case .labeled:
+            break
         }
         let encoder = JSONEncoder()
         let decoder = JSONDecoder()
@@ -111,8 +116,8 @@ extension MailDatabase: OutboxStore {
         for row in rows {
             let content: String = row["content"]
             var message = try decoder.decode(Message.self, from: Data(content.utf8))
-            let labels = action.applied(to: message.labelIDs)
-            guard labels != message.labelIDs else { continue }
+            guard case .labeled(let labels) = action.outcome(for: message.labelIDs), labels != message.labelIDs
+            else { continue }
             message.labelIDs = labels
             try db.execute(
                 sql: "UPDATE message SET content = ? WHERE accountID = ? AND id = ?",
