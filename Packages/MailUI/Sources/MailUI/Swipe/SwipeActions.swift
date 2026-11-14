@@ -349,6 +349,8 @@ final class GlassActionButton: UIControl {
     private let effectView = UIVisualEffectView()
     private let imageView = UIImageView()
     private let titleLabel = UILabel()
+    /// The drawn box standing in for the symbol while rows go into it; `nil` while the symbol shows.
+    private var box: StowBoxView?
     /// How wide the button must be to name its action.
     private static let titledWidth: CGFloat = 160
 
@@ -400,6 +402,7 @@ final class GlassActionButton: UIControl {
     /// The symbol alone in the middle; once wide enough, the symbol and title side by side, centered together.
     override func layoutSubviews() {
         super.layoutSubviews()
+        // The symbol keeps its place while a box stands in for it, so the box sits where the symbol was.
         let symbol = imageView.intrinsicContentSize
         let titled = bounds.width >= Self.titledWidth
         let title = titleLabel.intrinsicContentSize
@@ -416,15 +419,21 @@ final class GlassActionButton: UIControl {
             x: isRightToLeft ? start : symbolX + symbol.width + gap, y: (bounds.height - title.height) / 2,
             width: titleWidth, height: title.height)
         titleLabel.alpha = titled ? 1 : 0
+        box?.center = imageView.center
     }
+
+    /// Where the symbol sits, in the button's coordinates.
+    var symbolCenter: CGPoint { imageView.center }
 
     /// Swaps the symbol for a drawn `kind` box whose lid can open, in the symbol's color.
     func showBox(_ kind: StowKind) -> StowBoxView {
         let box = StowBoxView(kind: kind, color: imageView.tintColor)
-        box.frame = CGRect(x: 0, y: 0, width: 30, height: 30)
-        box.center = CGPoint(x: imageView.bounds.midX, y: imageView.bounds.midY)
-        imageView.image = nil
-        imageView.addSubview(box)
+        box.bounds = CGRect(x: 0, y: 0, width: 30, height: 30)
+        box.center = imageView.center
+        // Hidden rather than cleared: an image view without an image has no size, and the layout places the box by it.
+        imageView.alpha = 0
+        effectView.contentView.addSubview(box)
+        self.box = box
         box.layoutIfNeeded()
         return box
     }
