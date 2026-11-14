@@ -63,8 +63,10 @@ public struct ChatTranscript: Equatable, Sendable {
     }
 
     public let entries: [Entry]
+    /// Everyone else who takes part, in the order they first appear.
+    public let others: [Contact]
     /// Whether more than one other person takes part, so their bubbles need names.
-    public let isGroup: Bool
+    public var isGroup: Bool { others.count > 1 }
 
     /// A pause this long puts a timestamp between messages and ends the run.
     public static let pause: TimeInterval = 60 * 60
@@ -106,10 +108,9 @@ public struct ChatTranscript: Equatable, Sendable {
         self.entries = entries
 
         // Me is the account, and any address it sent from, such as an alias.
-        let me = Set([accountEmail] + sent.filter(isMine).map(\.from.address)).map { $0.lowercased() }
-        let others = Set(
-            sent.flatMap { [$0.from] + $0.to + $0.cc }.map { $0.address.lowercased() }.filter { !me.contains($0) })
-        isGroup = others.count > 1
+        let me = Set(([accountEmail] + sent.filter(isMine).map(\.from.address)).map { $0.lowercased() })
+        var seen = me
+        others = sent.flatMap { [$0.from] + $0.to + $0.cc }.filter { seen.insert($0.address.lowercased()).inserted }
     }
 
     private static func bubbles(for message: Message, replyingTo quote: Quote?) -> [Bubble] {

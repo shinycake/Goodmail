@@ -210,6 +210,25 @@ public final class ThreadViewModel {
         navigate(.compose(Draft.reply(to: message, all: all, accountEmail: accountEmail, wording: .localized)))
     }
 
+    /// Sends a reply typed in the chat's field: to everyone on the newest message, like a reply in a group chat.
+    public func sendChatReply(_ text: String, attachments: [DraftAttachment]) {
+        guard let reply = chatReply(text, attachments: attachments) else { return }
+        actions?.send(reply)
+    }
+
+    /// The chat reply as a draft: each line its own `dir=auto` paragraph, so Hebrew and English lines each read
+    /// their own way in any client. `nil` while there is no sent message to answer.
+    func chatReply(_ text: String, attachments: [DraftAttachment]) -> Draft? {
+        guard let message = latestSent else { return nil }
+        var reply = Draft.reply(to: message, all: true, accountEmail: accountEmail)
+        let paragraphs = text.split(separator: "\n", omittingEmptySubsequences: false).map { line in
+            line.isEmpty ? "<div dir=\"auto\"><br></div>" : "<div dir=\"auto\">\(HTMLText.escape(String(line)))</div>"
+        }
+        reply.body = MessageBody(html: paragraphs.joined(), plain: text)
+        reply.attachments = attachments
+        return reply
+    }
+
     public func forward() {
         guard let message = latestSent else { return }
         navigate(.compose(Draft.forward(message, wording: .localized)))

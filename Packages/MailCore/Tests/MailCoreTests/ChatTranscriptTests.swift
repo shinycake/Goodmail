@@ -120,7 +120,9 @@ struct ChatTranscriptTests {
     @Test func aConversationWithMoreThanOneOtherPersonIsAGroup() {
         let pair = transcript([message("1", from: dana, minutes: 0), message("2", from: me, minutes: 1)])
         let group = transcript([message("1", from: dana, to: [me, avi], minutes: 0)])
+        #expect(pair.others == [dana])
         #expect(!pair.isGroup)
+        #expect(group.others == [dana, avi])
         #expect(group.isGroup)
     }
 }

@@ -26,11 +26,8 @@ public final class ComposeViewController: UIViewController {
     private let attachmentsView = ComposeAttachmentsView()
     private let sendItem = UIBarButtonItem()
     private let fromButton = UIButton(configuration: .plain())
-    /// Photos and scans waiting to be turned into attachments, in the order they were taken.
-    let captures = AsyncStream.makeStream(of: CapturedAttachment.Preparation.self)
-    /// Prepares `captures` one at a time and attaches each. Cancelling it when the message closes stops the one in
-    /// hand and every one waiting.
-    var preparing: Task<Void, Never>?
+    /// Takes files from Photos, Files, the camera and the scanner.
+    lazy var picker = AttachmentPicker { [weak self] in self?.add($0) }
 
     public init(viewModel: ComposeViewModel) {
         self.viewModel = viewModel
@@ -42,7 +39,7 @@ public final class ComposeViewController: UIViewController {
 
     public override func viewDidLoad() {
         super.viewDidLoad()
-        preparing = preparingCaptures()
+        picker.presenter = self
         view.backgroundColor = .systemBackground
         configureNavigation()
 
@@ -131,8 +128,7 @@ public final class ComposeViewController: UIViewController {
     public override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         if isBeingDismissed || navigationController?.isBeingDismissed == true {
-            captures.continuation.finish()
-            preparing?.cancel()
+            picker.finish()
         }
     }
 

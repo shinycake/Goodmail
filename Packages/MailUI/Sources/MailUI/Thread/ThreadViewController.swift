@@ -25,6 +25,11 @@ public final class ThreadViewController: UIViewController {
     private var runs: [ChatTranscript.Bubble.ID: ChatRunView] = [:]
     private var timestamps: [Date: ChatTimestampView] = [:]
     private let layoutItem = UIBarButtonItem()
+    /// The chat's message field and folded mail actions, in place of the toolbar while the chat layout shows.
+    private let composer = ChatComposerBar()
+    /// Letters keep a readable width; chat bubbles reach nearly to the edges.
+    private var readableWidth: [NSLayoutConstraint] = []
+    private var chatWidth: [NSLayoutConstraint] = []
     private var observation: Task<Void, Never>?
     /// The layout the reader last scrolled to the focused message in; switching layouts scrolls there again.
     private var focusedLayout: ConversationLayout?
@@ -48,6 +53,7 @@ public final class ThreadViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
         scrollView.alwaysBounceVertical = true
+        scrollView.keyboardDismissMode = .interactive
         scrollView.accessibilityIdentifier = "thread"
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(scrollView)
@@ -75,8 +81,17 @@ public final class ThreadViewController: UIViewController {
         stack.translatesAutoresizingMaskIntoConstraints = false
         scrollView.addSubview(stack)
 
-        // Letters keep a readable width and center in wide windows.
         let readable = scrollView.readableContentGuide
+        readableWidth = [
+            stack.leadingAnchor.constraint(equalTo: readable.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: readable.trailingAnchor),
+        ]
+        let frame = scrollView.frameLayoutGuide
+        chatWidth = [
+            stack.leadingAnchor.constraint(equalTo: frame.leadingAnchor, constant: 12),
+            stack.trailingAnchor.constraint(equalTo: frame.trailingAnchor, constant: -12),
+        ]
+        configureComposer()
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: view.topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
@@ -84,8 +99,6 @@ public final class ThreadViewController: UIViewController {
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             stack.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 8),
             stack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -24),
-            stack.leadingAnchor.constraint(equalTo: readable.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: readable.trailingAnchor),
         ])
 
         subject.setSubjectText(
@@ -95,13 +108,77 @@ public final class ThreadViewController: UIViewController {
 
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        navigationController?.setToolbarHidden(false, animated: animated)
+        navigationController?.setToolbarHidden(viewModel.layout == .chat, animated: animated)
         wear(.account(viewModel.accountColor))
     }
 
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         navigationController?.setToolbarHidden(true, animated: animated)
+        if isMovingFromParent || isBeingDismissed { composer.finish() }
+    }
+
+    /// Keeps the conversation's end clear of the composer, which rides on top of the keyboard.
+    public override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        let covered =
+            composer.isHidden ? 0 : max(0, view.bounds.height - view.safeAreaInsets.bottom - composer.frame.minY)
+        guard scrollView.contentInset.bottom != covered else { return }
+        let atEnd =
+            scrollView.contentOffset.y + scrollView.bounds.height
+            >= scrollView.contentSize.height + scrollView.adjustedContentInset.bottom - 24
+        scrollView.contentInset.bottom = covered
+        scrollView.verticalScrollIndicatorInsets.bottom = covered
+        if atEnd { scrollToEnd() }
+    }
+
+    private func scrollToEnd() {
+        let inset = scrollView.adjustedContentInset
+        let end = max(-inset.top, scrollView.contentSize.height + inset.bottom - scrollView.bounds.height)
+        scrollView.setContentOffset(CGPoint(x: 0, y: end), animated: false)
+    }
+
+    private func configureComposer() {
+        composer.presenter = self
+        composer.setAccentColor(viewModel.accountColor.uiColor)
+        composer.onSend = { [weak self] text, attachments in
+            self?.viewModel.sendChatReply(text, attachments: attachments)
+        }
+        composer.onResize = { [weak self] in self?.view.setNeedsLayout() }
+        composer.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(composer)
+        NSLayoutConstraint.activate([
+            composer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            composer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            composer.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
+        ])
+    }
+
+    /// The chat reads under the subject in the bar with its people below it, and the composer takes the
+    /// toolbar's place; letters keep the large subject header and the toolbar.
+    private func applyLayout(_ layout: ConversationLayout) {
+        let chat = layout == .chat
+        NSLayoutConstraint.deactivate(chat ? readableWidth : chatWidth)
+        NSLayoutConstraint.activate(chat ? chatWidth : readableWidth)
+        stack.arrangedSubviews.first?.isHidden = chat
+        composer.isHidden = !chat
+        if viewIfLoaded?.window != nil { navigationController?.setToolbarHidden(chat, animated: true) }
+        let subject = viewModel.thread.subject.isEmpty ? ThreadRowMetrics.noSubject : viewModel.thread.subject
+        navigationItem.title = chat ? subject : nil
+        navigationItem.subtitle = chat ? participantsText : nil
+        if chat { composer.setActions(toolbarItems?.filter { $0.image != nil } ?? []) }
+    }
+
+    /// "Dana Levi", or "Dana, Avi and Yael": everyone else on the conversation, by first name when there are
+    /// several.
+    private var participantsText: String? {
+        let others = viewModel.transcript.others
+        guard !others.isEmpty else { return nil }
+        let names = others.map { contact in
+            others.count > 1
+                ? contact.displayName.split(separator: " ").first.map(String.init) ?? "" : contact.displayName
+        }
+        return names.formatted(.list(type: .and, width: .narrow))
     }
 
     /// Archive, Trash, Snooze, Mute and Unread close the reader through the view model, which leaves the thread once.
@@ -167,6 +244,7 @@ public final class ThreadViewController: UIViewController {
             localized: "Show as \(other.title)", table: "Thread", bundle: .module,
             comment: "Switches one conversation's layout; the argument is Classic or Chat")
         stack.spacing = viewModel.layout == .chat ? 10 : 12
+        applyLayout(viewModel.layout)
 
         let header = stack.arrangedSubviews[0]
         let arranged =

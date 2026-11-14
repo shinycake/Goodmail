@@ -48,6 +48,17 @@
         }
       }
     },
+    "Attach" : {
+      "comment" : "Adds files to the message",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "צירוף"
+          }
+        }
+      }
+    },
     "Copy" : {
       "comment" : "Copies a bubble's text",
       "localizations" : {
@@ -103,6 +114,17 @@
         }
       }
     },
+    "Hide Mail Actions" : {
+      "comment" : "Folds the chat's mail actions away",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הסתרת פעולות הדואר"
+          }
+        }
+      }
+    },
     "Load Remote Images" : {
       "comment" : "Shows blocked remote content",
       "localizations" : {
@@ -110,6 +132,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "טעינת תמונות מרוחקות"
+          }
+        }
+      }
+    },
+    "Mail Actions" : {
+      "comment" : "Unfolds archive, trash and the rest",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פעולות דואר"
+          }
+        }
+      }
+    },
+    "Message" : {
+      "comment" : "The chat's reply field, and its placeholder",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הודעה"
           }
         }
       }
@@ -215,6 +259,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "בתגובה ל%1$@: %2$@"
+          }
+        }
+      }
+    },
+    "Send" : {
+      "comment" : "Sends the chat reply",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שלח"
           }
         }
       }

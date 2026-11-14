@@ -236,3 +236,36 @@ struct AttachmentFileTests {
         #expect(AttachmentListView.symbol(for: "application/pdf") == "doc.richtext")
     }
 }
+
+extension ThreadViewModelTests {
+    @Test func aChatReplyAnswersEveryoneOnTheNewestSentMessageWithTheTypedWords() async {
+        var first = message("1", unread: false, minutes: 1)
+        first.to = [Contact(name: "Me", address: "me@example.com"), Contact(name: "Avi", address: "avi@example.com")]
+        first.internetMessageID = "1@example.com"
+        var draft = message("2", unread: false, minutes: 2)
+        draft.labelIDs = [SystemLabel.draft]
+        let model = ThreadViewModel(
+            thread: ThreadSummary(
+                id: .init(accountID: account, threadID: "t"), subject: "Plan", snippet: "",
+                sender: first.from, date: .now, isUnread: false, messageCount: 2, labelIDs: []),
+            mailbox: .inbox,
+            accountEmail: "me@example.com", accountColor: .blue, accountService: .gmail,
+            messages: {
+                AsyncThrowingStream {
+                    $0.yield([first, draft])
+                    $0.finish()
+                }
+            }, load: {}, attachmentData: { _, _ in Data() })
+        await model.observe()
+        let file = DraftAttachment(filename: "a.txt", mimeType: "text/plain", content: .data(Data("a".utf8)))
+
+        let reply = model.chatReply("Sounds good <3\nשבת שלום", attachments: [file])
+
+        #expect(reply?.to.map(\.address) == ["dana@example.com"])
+        #expect(reply?.cc.map(\.address) == ["avi@example.com"])
+        #expect(reply?.body.plain == "Sounds good <3\nשבת שלום")
+        #expect(reply?.body.html == #"<div dir="auto">Sounds good &lt;3</div><div dir="auto">שבת שלום</div>"#)
+        #expect(reply?.attachments == [file])
+        #expect(reply?.inReplyTo == "1@example.com")
+    }
+}

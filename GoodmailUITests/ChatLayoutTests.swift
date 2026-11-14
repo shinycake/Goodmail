@@ -14,6 +14,9 @@ final class ChatLayoutTests: XCTestCase {
             app.otherElements.containing(NSPredicate(format: "label CONTAINS 'Yes to both! 10 works.'"))
                 .firstMatch.waitForExistence(timeout: 5), "my reply shows without its quote or iPhone signature")
         attach(app, "chat-en")
+        app.buttons["Mail Actions"].tap()
+        XCTAssertTrue(app.buttons["Archive"].waitForExistence(timeout: 5), "the tray unfolds the mail actions")
+        attach(app, "chat-en-actions")
     }
 
     @MainActor
@@ -24,6 +27,11 @@ final class ChatLayoutTests: XCTestCase {
             app.otherElements.containing(NSPredicate(format: "label CONTAINS 'אני בפנים! אביא חלה.'"))
                 .firstMatch.waitForExistence(timeout: 5))
         attach(app, "chat-he")
+        app.textViews["הודעה"].tap()
+        app.typeText("נתראה בשישי!")
+        attach(app, "chat-he-typing")
+        let send = app.buttons.matching(identifier: "chat.send").firstMatch
+        XCTAssertTrue(send.isEnabled, "typed words can go")
     }
 
     @MainActor
