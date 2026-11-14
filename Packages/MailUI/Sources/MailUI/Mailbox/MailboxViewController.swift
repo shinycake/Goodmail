@@ -318,6 +318,12 @@ extension MailboxViewController: UICollectionViewDelegate {
         Task { [viewModel] in await viewModel.loadOlderIfNeeded() }
     }
 
+    public func collectionView(
+        _ collectionView: UICollectionView, didEndDisplaying cell: UICollectionViewCell, forItemAt indexPath: IndexPath
+    ) {
+        swipes.cellDidEndDisplaying(cell)
+    }
+
     public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
         swipes.close()
     }

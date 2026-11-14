@@ -66,15 +66,23 @@ final class SwipeActionsController: NSObject {
         return true
     }
 
-    /// Keeps the open buttons on their row after the list changed: on the row's cell if the list gave it a new one,
-    /// or gone with the row when it left the list or the screen.
+    /// Keeps the buttons on their row after the list changed: gone with the row when it left the list, and moved to
+    /// the row's cell if the list gave it a new one. While the list is still updating it may not have the row's cell
+    /// yet; the buttons then stay on the cell they ride, and `cellDidEndDisplaying(_:)` takes them off if it goes.
     func rowsDidChange() {
         guard let row = state.row, let collectionView else { return }
-        guard let indexPath = indexPath(row.id), let cell = collectionView.cellForItem(at: indexPath) else {
+        guard let indexPath = indexPath(row.id) else {
             close(animated: false)
             return
         }
-        if row.overlay.superview !== cell { attach(row.overlay, to: cell) }
+        if let cell = collectionView.cellForItem(at: indexPath), row.overlay.superview !== cell {
+            attach(row.overlay, to: cell)
+        }
+    }
+
+    /// A cell left the screen; buttons riding on it would otherwise show on whichever row reuses it.
+    func cellDidEndDisplaying(_ cell: UICollectionViewCell) {
+        if state.row?.overlay.superview === cell { close(animated: false) }
     }
 
     @objc private func handlePan(_ pan: UIPanGestureRecognizer) {
