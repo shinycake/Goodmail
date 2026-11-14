@@ -159,6 +159,15 @@ extension ThreadAction {
         }
     }
 
+    /// The box a thread is seen going into when this action puts it away.
+    var stow: StowKind? {
+        switch kind {
+        case .trash: .trash
+        case .archive: .archive
+        default: nil
+        }
+    }
+
     /// The action's name, for buttons and VoiceOver.
     var title: String {
         switch kind {

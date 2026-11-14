@@ -6,7 +6,18 @@ struct SwipeAction {
     var title: String
     var symbol: String
     var isDestructive = false
-    var handler: () -> Void
+    /// The box the row is seen going into when the action puts it away; `nil` when the buttons just close.
+    var stow: StowKind?
+    /// Runs the action. For one that stows, `stowing` carries the opened box on the action's button, and the
+    /// buttons stay up until the handler calls its `done`.
+    var handler: (_ stowing: Stowing?) -> Void
+
+    /// A stow in progress from a swipe button.
+    struct Stowing {
+        let box: StowBoxView
+        /// Takes the buttons away, once the row has gone into the box.
+        let done: () -> Void
+    }
 }
 
 /// Swiping a row reveals glass buttons over it while the row itself stays still. The buttons slide in from the
@@ -81,8 +92,8 @@ final class SwipeActionsController: NSObject {
             let velocity = pan.velocity(in: collectionView).x
             switch state.end(afterMoving: dx, velocity: velocity, layout: layout, cancelled: pan.state != .ended) {
             case .fired(let row):
-                hide(row, animated: true)
-                row.overlay.actions.first?.handler()
+                guard let action = row.overlay.actions.first, let button = row.overlay.buttons.first else { break }
+                fire(action, from: button, on: row)
             case .opened(let row, let width):
                 UIView.animate(springDuration: 0.35, bounce: Motion.bounce(0.15)) {
                     row.overlay.reveal = .tracking(width)
@@ -118,9 +129,9 @@ final class SwipeActionsController: NSObject {
         let actions = actions(id, edge)
         guard !actions.isEmpty else { return nil }
         let overlay = SwipeOverlayView(actions: actions, side: side)
-        overlay.onAction = { [weak self] action in
-            self?.close()
-            action.handler()
+        overlay.onAction = { [weak self] action, button in
+            guard let self, let row = state.close() else { return }
+            fire(action, from: button, on: row)
         }
         attach(overlay, to: cell)
         let feedback = UIImpactFeedbackGenerator(style: .medium, view: collectionView)
@@ -134,6 +145,25 @@ final class SwipeActionsController: NSObject {
         overlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         overlay.layer.zPosition = 10
         cell.addSubview(overlay)
+    }
+
+    /// Runs `action`. One that stows keeps the buttons up and turns its own into the box the row goes into; any
+    /// other closes them first.
+    private func fire(_ action: SwipeAction, from button: GlassActionButton, on row: Row) {
+        guard let kind = action.stow, !UIAccessibility.isReduceMotionEnabled else {
+            hide(row, animated: true)
+            return action.handler(nil)
+        }
+        let overlay = row.overlay
+        overlay.isUserInteractionEnabled = false
+        action.handler(
+            SwipeAction.Stowing(box: button.showBox(kind)) {
+                UIView.animate(withDuration: 0.2) {
+                    overlay.alpha = 0
+                } completion: { _ in
+                    overlay.removeFromSuperview()
+                }
+            })
     }
 
     private func hide(_ row: Row, animated: Bool) {
@@ -238,11 +268,12 @@ nonisolated struct SwipeLayout {
 final class SwipeOverlayView: UIView {
     let actions: [SwipeAction]
     let side: SwipeSide
-    var onAction: ((SwipeAction) -> Void)?
+    var onAction: ((SwipeAction, GlassActionButton) -> Void)?
     var reveal: SwipeReveal = .tracking(0) {
         didSet { layoutButtons() }
     }
-    private var buttons: [GlassActionButton] = []
+    /// One for each action, in the same order.
+    private(set) var buttons: [GlassActionButton] = []
 
     var layout: SwipeLayout { SwipeLayout(count: actions.count, rowWidth: bounds.width) }
 
@@ -254,7 +285,7 @@ final class SwipeOverlayView: UIView {
             let button = GlassActionButton(action: action)
             button.addAction(
                 // A plain `UIControl` sends touch events, not `.primaryActionTriggered`.
-                UIAction { [weak self] _ in self?.onAction?(action) }, for: .touchUpInside)
+                UIAction { [weak self, unowned button] _ in self?.onAction?(action, button) }, for: .touchUpInside)
             buttons.append(button)
             // The edge-most button stays on top, so the inner ones fan out from under it.
             insertSubview(button, at: 0)
@@ -313,6 +344,17 @@ final class GlassActionButton: UIControl {
         isAccessibilityElement = true
         accessibilityLabel = action.title
         accessibilityTraits = .button
+    }
+
+    /// Swaps the symbol for a drawn `kind` box whose lid can open, in the symbol's color.
+    func showBox(_ kind: StowKind) -> StowBoxView {
+        let box = StowBoxView(kind: kind, color: imageView.tintColor)
+        box.frame = CGRect(x: 0, y: 0, width: 30, height: 30)
+        box.center = CGPoint(x: imageView.bounds.midX, y: imageView.bounds.midY)
+        imageView.image = nil
+        imageView.addSubview(box)
+        box.layoutIfNeeded()
+        return box
     }
 
     override var isHighlighted: Bool {

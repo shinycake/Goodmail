@@ -18,6 +18,15 @@ public final class MailboxViewController: UIViewController {
     /// What an empty list shows.
     private let empty: UIContentUnavailableConfiguration
     private var emptyState: EmptyState?
+    private var listMotion = ListMotion.free
+
+    /// Whether the list takes changes as they come.
+    private enum ListMotion {
+        case free
+        /// These rows are going into a box. The list holds still, so they lift off where they are, and catches up
+        /// in one change once they are in.
+        case stowing([ThreadSummary.ID])
+    }
 
     private enum EmptyState: Equatable {
         /// Spam and Trash start empty while their first page is fetched.
@@ -192,8 +201,12 @@ public final class MailboxViewController: UIViewController {
         return viewModel.swipeActions(for: thread, leading: leading).map { swipe in
             switch swipe {
             case .perform(let action):
-                SwipeAction(title: action.title, symbol: action.symbol, isDestructive: action.isDestructive) {
-                    [weak self] in self?.viewModel.perform(action, on: [id])
+                SwipeAction(
+                    title: action.title, symbol: action.symbol, isDestructive: action.isDestructive, stow: action.stow
+                ) { [weak self] stowing in
+                    guard let self else { return }
+                    guard let stowing else { return viewModel.perform(action, on: [id]) }
+                    stow([id], into: stowing.box, doing: action, then: stowing.done)
                 }
             case .snooze:
                 SwipeAction(
@@ -201,7 +214,7 @@ public final class MailboxViewController: UIViewController {
                         localized: "Snooze", table: "Actions", bundle: .module,
                         comment: "Hides threads until a later time"),
                     symbol: "clock"
-                ) { [weak self] in self?.askToSnooze(id) }
+                ) { [weak self] _ in self?.askToSnooze(id) }
             }
         }
     }
@@ -221,6 +234,8 @@ public final class MailboxViewController: UIViewController {
             [weak self] cell, _, id in
             guard let self, let thread = threadsByID[id] else { return }
             cell.accessories = [.multiselect(displayed: .whenEditing)]
+            // A row that went into a box left its cell's content hidden.
+            cell.contentView.alpha = 1
             cell.contentConfiguration = ThreadRowConfiguration(
                 thread: thread,
                 dateText: viewModel.dateText(for: thread),
@@ -240,7 +255,7 @@ public final class MailboxViewController: UIViewController {
                 (swipeActions(for: id, leading: false)
                 + swipeActions(for: id, leading: true)).map { action in
                     UIAccessibilityCustomAction(name: action.title) { _ in
-                        action.handler()
+                        action.handler(nil)
                         return true
                     }
                 }
@@ -262,6 +277,7 @@ public final class MailboxViewController: UIViewController {
     }
 
     private func applySections(_ sections: [MailboxViewModel.Section]) {
+        guard case .free = listMotion else { return }
         var snapshot = NSDiffableDataSourceSnapshot<MailboxSection, ThreadSummary.ID>()
         var changed: [ThreadSummary.ID] = []
         var threads: [ThreadSummary.ID: ThreadSummary] = [:]
@@ -443,7 +459,59 @@ extension MailboxViewController {
     }
 
     private func performOnSelection(_ action: ThreadAction) {
-        viewModel.perform(action, on: selectedIDs)
-        setEditing(false, animated: true)
+        let ids = selectedIDs
+        guard let kind = action.stow, !UIAccessibility.isReduceMotionEnabled, let window = view.window else {
+            viewModel.perform(action, on: ids)
+            return setEditing(false, animated: true)
+        }
+        // The action's button may be in the toolbar's overflow menu, so a box pops up above the toolbar to take them.
+        let badge = StowBadgeView(kind: kind)
+        // Well above the toolbar and the confirmation that shows over it, still within reach of the lower rows.
+        badge.show(at: CGPoint(x: window.bounds.midX, y: window.bounds.height * 0.72), in: window)
+        stow(ids, into: badge.box, doing: action) { [weak self] in
+            badge.dismiss()
+            self?.setEditing(false, animated: true)
+        }
+        // Their rows lose the selection tint once lifted off, so no tinted gaps are left behind.
+        for indexPath in collectionView.indexPathsForSelectedItems ?? [] {
+            collectionView.deselectItem(at: indexPath, animated: false)
+        }
+    }
+}
+
+// MARK: - Putting threads away
+
+extension MailboxViewController {
+    /// Does `action` on `ids` and flies the rows on screen into `box`, holding the list still meanwhile. Once they
+    /// are in, `finish` runs and the list closes the gaps. Off screen, or while other rows are still going in, the
+    /// action just happens.
+    private func stow(
+        _ ids: [ThreadSummary.ID], into box: StowBoxView, doing action: ThreadAction,
+        then finish: @escaping () -> Void
+    ) {
+        guard case .free = listMotion, let window = view.window else {
+            viewModel.perform(action, on: ids)
+            return finish()
+        }
+        let cells = ids.compactMap { dataSource.indexPath(for: $0).flatMap(collectionView.cellForItem) }
+        listMotion = .stowing(ids)
+        collectionView.isUserInteractionEnabled = false
+        viewModel.perform(action, on: ids)
+        StowFlight.run(cells, into: box, over: window) { [weak self] in
+            finish()
+            self?.endStowing()
+        }
+    }
+
+    /// Lets the list catch up with every change held back while rows went into their box. A thread that came back
+    /// meanwhile, as on a quick Undo, shows its row again.
+    private func endStowing() {
+        guard case .stowing(let ids) = listMotion else { return }
+        listMotion = .free
+        collectionView.isUserInteractionEnabled = true
+        applySections(viewModel.sections)
+        for id in ids {
+            dataSource.indexPath(for: id).flatMap(collectionView.cellForItem)?.contentView.alpha = 1
+        }
     }
 }
