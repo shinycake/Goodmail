@@ -11,9 +11,19 @@
             return count > 0 ? count : nil
         }
 
+        /// Seconds between arrivals, with `-GoodmailSyntheticArrivalEvery`.
+        private static var arrivalInterval: Int? {
+            let interval = UserDefaults.standard.integer(forKey: "GoodmailSyntheticArrivalEvery")
+            return interval > 0 ? interval : nil
+        }
+
         static func makeModel(threadCount: Int) throws -> AppModel {
-            // Seeded once per size and reused, so launches measure the app rather than the generator.
-            let url = URL.cachesDirectory.appending(path: "Synthetic-\(threadCount)/mail.sqlite")
+            // Seeded once per size and reused, so launches measure the app rather than the generator. A mailbox
+            // taking arrivals starts fresh each launch instead, so earlier arrivals don't pile up at its top.
+            let folder = URL.cachesDirectory.appending(
+                path: "Synthetic-\(threadCount)\(arrivalInterval == nil ? "" : "-arrivals")")
+            if arrivalInterval != nil { try? FileManager.default.removeItem(at: folder) }
+            let url = folder.appending(path: "mail.sqlite")
             let seeded = FileManager.default.fileExists(atPath: url.path())
             let database = try MailDatabase(url: url)
             if seeded { return try model(of: database) }
@@ -58,6 +68,36 @@
             }
             try database.upsert(threads)
             return try model(of: database)
+        }
+
+        /// With `-GoodmailSyntheticArrivalEvery 2` as well, a new thread lands at the top of the Inbox that many
+        /// seconds apart, so the list can be watched taking in mail. The UI tests use it to check that open swipe
+        /// buttons stay on their row.
+        static func deliverArrivalsIfRequested(to database: MailDatabase) {
+            guard requestedCount != nil, let interval = arrivalInterval else { return }
+            // A debug launch option that runs for the life of the process: nothing awaits or cancels it, and it
+            // stops at the first write that fails.
+            Task { await deliverArrivals(every: interval, to: database) }
+        }
+
+        @concurrent private static func deliverArrivals(every interval: Int, to database: MailDatabase) async {
+            for index in 1... {
+                do {
+                    try await Task.sleep(for: .seconds(interval))
+                    try database.upsert([
+                        ThreadSummary(
+                            id: ThreadSummary.ID(
+                                accountID: AccountID(rawValue: "synthetic-1"), threadID: "arrival-\(index)"),
+                            subject: "New arrival \(index)",
+                            snippet: "Delivered while the list was open.",
+                            sender: Contact(name: "Arrivals", address: "arrivals@example.com"),
+                            date: .now, isUnread: true, messageCount: 1, labelIDs: ["INBOX", "CATEGORY_PERSONAL"])
+                    ])
+                } catch {
+                    print("Synthetic arrival failed: \(error)")
+                    return
+                }
+            }
         }
 
         private static func model(of database: MailDatabase) throws -> AppModel {

@@ -1,3 +1,4 @@
+import MailCore
 import UIKit
 
 /// An action revealed by swiping a row.
@@ -10,54 +11,36 @@ struct SwipeAction {
 
 /// Swiping a row reveals glass buttons over it while the row itself stays still. The buttons slide in from the
 /// row's edge, following the finger. Releasing past halfway keeps them open; swiping far enough fires the edge-most
-/// action.
+/// action. The buttons ride on the row's cell, so they stay on their row when mail arrives above it.
 final class SwipeActionsController: NSObject {
     enum Edge {
         case leading, trailing
     }
 
     /// A row whose actions are on screen.
-    private struct Row {
+    struct Row: Identifiable {
+        let id: ThreadSummary.ID
         let overlay: SwipeOverlayView
-        let indexPath: IndexPath
         let feedback: UIImpactFeedbackGenerator
     }
 
-    /// Where the swipe stands. Dragging a row that is already open starts from its fully revealed buttons.
-    private enum State {
-        /// No row shows its actions.
-        case idle
-        /// A drag is uncovering a row's actions from closed.
-        case revealing(Row)
-        /// A row's actions settled open; a drag on it continues from there.
-        case open(Row)
-
-        var row: Row? {
-            switch self {
-            case .idle: nil
-            case .revealing(let row), .open(let row): row
-            }
-        }
-
-        /// How far the buttons are revealed once the finger has moved `dx` from where the drag began.
-        func distance(dx: CGFloat) -> CGFloat? {
-            switch self {
-            case .idle: nil
-            case .revealing(let row): row.overlay.towardEdge * dx
-            case .open(let row): row.overlay.layout.revealWidth + row.overlay.towardEdge * dx
-            }
-        }
-    }
-
     /// The actions for a row and edge, edge-most first. Empty means that edge has none.
-    var actions: (IndexPath, Edge) -> [SwipeAction] = { _, _ in [] }
+    var actions: (ThreadSummary.ID, Edge) -> [SwipeAction] = { _, _ in [] }
 
     private weak var collectionView: UICollectionView?
+    private let rowID: (IndexPath) -> ThreadSummary.ID?
+    private let indexPath: (ThreadSummary.ID) -> IndexPath?
     private let pan = UIPanGestureRecognizer()
-    private var state = State.idle
+    private var state = SwipeState<Row>.idle
 
-    init(collectionView: UICollectionView) {
+    /// `rowID` and `indexPath` translate between the list's positions and its rows' stable identities.
+    init(
+        collectionView: UICollectionView, rowID: @escaping (IndexPath) -> ThreadSummary.ID?,
+        indexPath: @escaping (ThreadSummary.ID) -> IndexPath?
+    ) {
         self.collectionView = collectionView
+        self.rowID = rowID
+        self.indexPath = indexPath
         super.init()
         pan.addTarget(self, action: #selector(handlePan))
         pan.delegate = self
@@ -67,15 +50,20 @@ final class SwipeActionsController: NSObject {
     /// Hides any open actions, as when the list scrolls or another row is tapped. Returns whether any were open.
     @discardableResult
     func close(animated: Bool = true) -> Bool {
-        guard let overlay = state.row?.overlay else { return false }
-        state = .idle
-        let hide = { overlay.reveal = .tracking(0) }
-        if animated {
-            UIView.animate(springDuration: 0.3, bounce: 0, animations: hide) { _ in overlay.removeFromSuperview() }
-        } else {
-            overlay.removeFromSuperview()
-        }
+        guard let row = state.close() else { return false }
+        hide(row, animated: animated)
         return true
+    }
+
+    /// Keeps the open buttons on their row after the list changed: on the row's cell if the list gave it a new one,
+    /// or gone with the row when it left the list or the screen.
+    func rowsDidChange() {
+        guard let row = state.row, let collectionView else { return }
+        guard let indexPath = indexPath(row.id), let cell = collectionView.cellForItem(at: indexPath) else {
+            close(animated: false)
+            return
+        }
+        if row.overlay.superview !== cell { attach(row.overlay, to: cell) }
     }
 
     @objc private func handlePan(_ pan: UIPanGestureRecognizer) {
@@ -84,47 +72,78 @@ final class SwipeActionsController: NSObject {
         switch pan.state {
         case .began:
             // The translation is still zero when the pan begins; the velocity tells which way it's heading.
-            begin(at: pan.location(in: collectionView), dx: pan.velocity(in: collectionView).x, in: collectionView)
+            begin(at: pan.location(in: collectionView), heading: pan.velocity(in: collectionView).x, in: collectionView)
         case .changed:
-            guard let row = state.row, let distance = state.distance(dx: dx) else { return }
+            guard let row = state.row, let distance = state.distance(afterMoving: dx) else { return }
             update(distance: distance, row: row)
         case .ended, .cancelled, .failed:
-            guard let row = state.row, let distance = state.distance(dx: dx) else { return }
-            let velocity = row.overlay.towardEdge * pan.velocity(in: collectionView).x
-            finish(distance: distance, velocity: velocity, row: row, cancelled: pan.state != .ended)
+            guard let layout = state.row?.overlay.layout else { return }
+            let velocity = pan.velocity(in: collectionView).x
+            switch state.end(afterMoving: dx, velocity: velocity, layout: layout, cancelled: pan.state != .ended) {
+            case .fired(let row):
+                hide(row, animated: true)
+                row.overlay.actions.first?.handler()
+            case .opened(let row, let width):
+                UIView.animate(springDuration: 0.35, bounce: Motion.bounce(0.15)) {
+                    row.overlay.reveal = .tracking(width)
+                }
+            case .closed(let row):
+                hide(row, animated: true)
+            case nil:
+                break
+            }
         default:
             break
         }
     }
 
-    private func begin(at location: CGPoint, dx: CGFloat, in collectionView: UICollectionView) {
+    private func begin(at location: CGPoint, heading dx: CGFloat, in collectionView: UICollectionView) {
         // Stop the list from scrolling under the finger once the swipe has started.
         collectionView.panGestureRecognizer.isEnabled = false
         collectionView.panGestureRecognizer.isEnabled = true
-        guard let target = collectionView.indexPathForItem(at: location),
+        guard let target = collectionView.indexPathForItem(at: location), let id = rowID(target),
             let cell = collectionView.cellForItem(at: target)
         else { return }
-        if case .open(let row) = state, row.indexPath == target, (dx < 0) == (row.overlay.side == .right) {
-            return  // Dragging the open actions further or back.
+        let replaced = state.begin(on: id, heading: dx) { side in
+            makeRow(id, side: side, on: cell, in: collectionView)
         }
-        close(animated: false)
-        // Moving left uncovers the right side, as if the row slid; which edge that is depends on the layout direction.
-        let side: SwipeOverlayView.Side = dx < 0 ? .right : .left
+        if let replaced { hide(replaced, animated: false) }
+    }
+
+    private func makeRow(
+        _ id: ThreadSummary.ID, side: SwipeSide, on cell: UICollectionViewCell, in collectionView: UICollectionView
+    ) -> Row? {
         let isRightToLeft = collectionView.effectiveUserInterfaceLayoutDirection == .rightToLeft
         let edge: Edge = (side == .right) != isRightToLeft ? .trailing : .leading
-        let actions = actions(target, edge)
-        guard !actions.isEmpty else { return }
+        let actions = actions(id, edge)
+        guard !actions.isEmpty else { return nil }
         let overlay = SwipeOverlayView(actions: actions, side: side)
-        overlay.frame = cell.frame
-        overlay.layer.zPosition = 10
         overlay.onAction = { [weak self] action in
             self?.close()
             action.handler()
         }
-        collectionView.addSubview(overlay)
+        attach(overlay, to: cell)
         let feedback = UIImpactFeedbackGenerator(style: .medium, view: collectionView)
         feedback.prepare()
-        state = .revealing(Row(overlay: overlay, indexPath: target, feedback: feedback))
+        return Row(id: id, overlay: overlay, feedback: feedback)
+    }
+
+    /// Puts the buttons on `cell`, above its content, so they move with it.
+    private func attach(_ overlay: SwipeOverlayView, to cell: UICollectionViewCell) {
+        overlay.frame = cell.bounds
+        overlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        overlay.layer.zPosition = 10
+        cell.addSubview(overlay)
+    }
+
+    private func hide(_ row: Row, animated: Bool) {
+        let overlay = row.overlay
+        guard animated else { return overlay.removeFromSuperview() }
+        UIView.animate(springDuration: 0.3, bounce: 0) {
+            overlay.reveal = .tracking(0)
+        } completion: { _ in
+            overlay.removeFromSuperview()
+        }
     }
 
     private func update(distance: CGFloat, row: Row) {
@@ -135,24 +154,6 @@ final class SwipeActionsController: NSObject {
             UIView.animate(springDuration: 0.3, bounce: Motion.bounce(0.2)) { overlay.reveal = reveal }
         } else {
             overlay.reveal = reveal
-        }
-    }
-
-    private func finish(distance: CGFloat, velocity: CGFloat, row: Row, cancelled: Bool) {
-        let overlay = row.overlay
-        let layout = overlay.layout
-        if !cancelled, layout.reveal(at: distance).isFullSwipe, let first = overlay.actions.first {
-            close()
-            first.handler()
-            return
-        }
-        if !cancelled, distance + velocity * 0.15 > layout.revealWidth / 2 {
-            state = .open(row)
-            UIView.animate(springDuration: 0.35, bounce: Motion.bounce(0.15)) {
-                overlay.reveal = .tracking(layout.revealWidth)
-            }
-        } else {
-            close()
         }
     }
 }
@@ -174,7 +175,7 @@ extension SwipeActionsController: UIGestureRecognizerDelegate {
 }
 
 /// How far a swipe has gone: either revealing the buttons, or past the point where letting go fires the first.
-enum SwipeReveal: Equatable {
+nonisolated enum SwipeReveal: Equatable {
     /// The finger has moved this far toward the edge; the buttons follow it.
     case tracking(CGFloat)
     /// The finger has moved this far, enough to fire the edge-most action on release.
@@ -187,7 +188,7 @@ enum SwipeReveal: Equatable {
 
 /// Where each swipe button sits, measured inward from the row's edge, for a given reveal. Pure geometry, so the
 /// slide can be checked without a screen.
-struct SwipeLayout {
+nonisolated struct SwipeLayout {
     var count: Int
     var rowWidth: CGFloat
 
@@ -235,24 +236,17 @@ struct SwipeLayout {
 
 /// The glass buttons over one row, laid out from the side the swipe uncovers.
 final class SwipeOverlayView: UIView {
-    enum Side {
-        case left, right
-    }
-
     let actions: [SwipeAction]
-    let side: Side
+    let side: SwipeSide
     var onAction: ((SwipeAction) -> Void)?
     var reveal: SwipeReveal = .tracking(0) {
         didSet { layoutButtons() }
     }
     private var buttons: [GlassActionButton] = []
 
-    /// +1 when a rightward drag reveals more, −1 when a leftward one does.
-    var towardEdge: CGFloat { side == .left ? 1 : -1 }
-
     var layout: SwipeLayout { SwipeLayout(count: actions.count, rowWidth: bounds.width) }
 
-    init(actions: [SwipeAction], side: Side) {
+    init(actions: [SwipeAction], side: SwipeSide) {
         self.actions = actions
         self.side = side
         super.init(frame: .zero)

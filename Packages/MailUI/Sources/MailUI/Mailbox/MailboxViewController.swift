@@ -176,9 +176,12 @@ public final class MailboxViewController: UIViewController {
     }
 
     private func configureSwipes() {
-        swipes = SwipeActionsController(collectionView: collectionView)
-        swipes.actions = { [weak self] indexPath, edge in
-            guard let self, !isEditing, let id = dataSource.itemIdentifier(for: indexPath) else { return [] }
+        swipes = SwipeActionsController(
+            collectionView: collectionView,
+            rowID: { [weak self] in self?.dataSource.itemIdentifier(for: $0) },
+            indexPath: { [weak self] in self?.dataSource.indexPath(for: $0) })
+        swipes.actions = { [weak self] id, edge in
+            guard let self, !isEditing else { return [] }
             return swipeActions(for: id, leading: edge == .leading)
         }
     }
@@ -256,6 +259,7 @@ public final class MailboxViewController: UIViewController {
         sectionTitles = Dictionary(uniqueKeysWithValues: sections.map { ($0.id, $0.title) })
         if titlesChanged { snapshot.reloadSections(snapshot.sectionIdentifiers) }
         dataSource.apply(snapshot, animatingDifferences: view.window != nil)
+        swipes.rowsDidChange()
         // Selected threads may have left the list.
         if isEditing { updateSelectionChrome() }
     }
