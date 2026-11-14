@@ -156,7 +156,8 @@ public final class SettingsViewModel {
     static func undoSendTitle(_ seconds: Int) -> String {
         guard seconds > 0 else {
             return String(
-                localized: "Undo Send: Off", defaultValue: "Off", bundle: .module, comment: "Undo Send is turned off")
+                localized: "Undo Send: Off", defaultValue: "Off", table: "Settings", bundle: .module,
+                comment: "Undo Send is turned off")
         }
         return Duration.seconds(seconds).formatted(.units(allowed: [.seconds], width: .wide))
     }

@@ -55,7 +55,7 @@ public final class MailActions {
     ) {
         apply(
             confirmation: String(
-                localized: "\(threads.count) moved to \(name)", bundle: .module,
+                localized: "\(threads.count) moved to \(name)", table: "Actions", bundle: .module,
                 comment: "Toast after moving threads; the second value is the mailbox or label they went to")
         ) { try await $0.perform(.move(to: destination, from: mailbox), on: threads) }
     }
@@ -64,7 +64,7 @@ public final class MailActions {
     public func snooze(_ threads: [ThreadSummary.ID], until date: Date) {
         apply(
             confirmation: String(
-                localized: "Snoozed until \(ScheduledTime.text(for: date))", bundle: .module,
+                localized: "Snoozed until \(ScheduledTime.text(for: date))", table: "Actions", bundle: .module,
                 comment: "Toast after snoozing threads, with when they come back")
         ) { try await $0.snooze(threads, until: date) }
     }
@@ -73,7 +73,7 @@ public final class MailActions {
     public func unsnooze(_ threads: [ThreadSummary.ID]) {
         apply(
             confirmation: String(
-                localized: "\(threads.count) moved to Inbox", bundle: .module,
+                localized: "\(threads.count) moved to Inbox", table: "Actions", bundle: .module,
                 comment: "Toast after putting snoozed threads back in the Inbox")
         ) { try await $0.unsnooze(threads) }
     }
@@ -116,7 +116,8 @@ public final class MailActions {
                 show(
                     Toast(
                         message: String(
-                            localized: "Sending…", bundle: .module, comment: "Toast while a message waits to go"),
+                            localized: "Sending…", table: "Actions", bundle: .module,
+                            comment: "Toast while a message waits to go"),
                         undo: .send(draft.id)),
                     for: delay)
             case .at(let date):
@@ -186,7 +187,7 @@ public final class MailActions {
 
     static func scheduledConfirmation(for date: Date) -> String {
         String(
-            localized: "Scheduled for \(ScheduledTime.text(for: date))", bundle: .module,
+            localized: "Scheduled for \(ScheduledTime.text(for: date))", table: "Actions", bundle: .module,
             comment: "Toast after scheduling a message, with when it goes")
     }
 
@@ -205,18 +206,23 @@ public final class MailActions {
     /// What the toast says. Actions that leave the thread in view need none: the row shows the change.
     static func confirmation(for action: ThreadAction, count: Int) -> String? {
         if action == .archive {
-            return String(localized: "\(count) archived", bundle: .module, comment: "Toast after archiving threads")
+            return String(
+                localized: "\(count) archived", table: "Actions", bundle: .module,
+                comment: "Toast after archiving threads")
         }
         if action == .trash {
             return String(
-                localized: "\(count) moved to Trash", bundle: .module, comment: "Toast after trashing threads")
+                localized: "\(count) moved to Trash", table: "Actions", bundle: .module,
+                comment: "Toast after trashing threads")
         }
         if action == .mute {
-            return String(localized: "\(count) muted", bundle: .module, comment: "Toast after muting threads")
+            return String(
+                localized: "\(count) muted", table: "Actions", bundle: .module, comment: "Toast after muting threads")
         }
         if action == .reportSpam {
             return String(
-                localized: "\(count) reported as spam", bundle: .module, comment: "Toast after reporting spam")
+                localized: "\(count) reported as spam", table: "Actions", bundle: .module,
+                comment: "Toast after reporting spam")
         }
         return nil
     }

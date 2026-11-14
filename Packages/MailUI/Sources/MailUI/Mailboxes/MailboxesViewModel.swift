@@ -85,7 +85,9 @@ public final class MailboxesViewModel {
         if directory.snoozedCount > 0, let starred = items.firstIndex(where: { $0.destination == .mailbox(.starred) }) {
             let snoozed = Item(
                 destination: .snoozed,
-                title: String(localized: "Snoozed", bundle: .module, comment: "Mailbox: threads snoozed until later"),
+                title: String(
+                    localized: "Snoozed", table: "Mailboxes", bundle: .module,
+                    comment: "Mailbox: threads snoozed until later"),
                 symbol: "moon.zzz", count: directory.snoozedCount, color: nil)
             items.insert(snoozed, at: starred + 1)
         }
@@ -93,7 +95,8 @@ public final class MailboxesViewModel {
             let scheduled = Item(
                 destination: .scheduled,
                 title: String(
-                    localized: "Scheduled", bundle: .module, comment: "Mailbox: messages waiting to be sent later"),
+                    localized: "Scheduled", table: "Mailboxes", bundle: .module,
+                    comment: "Mailbox: messages waiting to be sent later"),
                 symbol: "clock", count: directory.scheduledCount, color: nil)
             items.insert(scheduled, at: drafts + 1)
         }

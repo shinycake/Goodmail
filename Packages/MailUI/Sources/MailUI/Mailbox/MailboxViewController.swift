@@ -82,7 +82,7 @@ public final class MailboxViewController: UIViewController {
             searchItem(),
             .flexibleSpace(),
             UIBarButtonItem(
-                title: String(localized: "New Message", bundle: .module, comment: "Composer title"),
+                title: String(localized: "New Message", table: "Mailbox", bundle: .module, comment: "Composer title"),
                 image: UIImage(systemName: "square.and.pencil"),
                 primaryAction: UIAction { [weak self] _ in self?.viewModel.compose() }),
         ]
@@ -107,7 +107,7 @@ public final class MailboxViewController: UIViewController {
         let search = UISearchController(searchResultsController: searchResults)
         search.searchResultsUpdater = searchResults
         search.searchBar.placeholder = String(
-            localized: "Search Mail", bundle: .module, comment: "Placeholder of the search field")
+            localized: "Search Mail", table: "Mailbox", bundle: .module, comment: "Placeholder of the search field")
         self.search = search
         navigationItem.searchController = search
         navigationItem.preferredSearchBarPlacement = .integratedButton
@@ -155,7 +155,7 @@ public final class MailboxViewController: UIViewController {
         var configuration = configuration
         var button = UIButton.Configuration.plain()
         button.title = String(
-            localized: "Go to \(category.title)", bundle: .module,
+            localized: "Go to \(category.title)", table: "Mailbox", bundle: .module,
             comment: "Link from an empty Inbox category to another with unread mail")
         configuration.button = button
         configuration.buttonProperties.primaryAction = UIAction { [weak self] _ in self?.show(category) }
@@ -171,7 +171,8 @@ public final class MailboxViewController: UIViewController {
     private static func noMail(in mailbox: Mailbox) -> UIContentUnavailableConfiguration {
         var configuration = UIContentUnavailableConfiguration.empty()
         configuration.image = UIImage(systemName: mailbox.symbol)
-        configuration.text = String(localized: "No Mail", bundle: .module, comment: "An empty mailbox")
+        configuration.text = String(
+            localized: "No Mail", table: "Mailbox", bundle: .module, comment: "An empty mailbox")
         return configuration
     }
 
@@ -313,7 +314,7 @@ extension MailboxViewController: UICollectionViewDelegate {
             UIMenu(children: [
                 UIAction(
                     title: String(
-                        localized: "Open in New Window", bundle: .module,
+                        localized: "Open in New Window", table: "Mailbox", bundle: .module,
                         comment: "Context menu item that opens a thread in a window of its own"),
                     image: UIImage(systemName: "macwindow.badge.plus")
                 ) { _ in self?.viewModel.openInNewWindow(id) }
@@ -327,7 +328,8 @@ extension MailboxViewController: UICollectionViewDelegate {
 extension MailboxViewController {
     private func selectItem() -> UIBarButtonItem {
         UIBarButtonItem(
-            title: String(localized: "Select", bundle: .module, comment: "Starts selecting several threads"),
+            title: String(
+                localized: "Select", table: "Mailbox", bundle: .module, comment: "Starts selecting several threads"),
             primaryAction: UIAction { [weak self] _ in self?.setEditing(true, animated: true) })
     }
 
@@ -364,11 +366,15 @@ extension MailboxViewController {
         title =
             ids.isEmpty
             ? viewModel.title
-            : String(localized: "\(ids.count) Selected", bundle: .module, comment: "Title while selecting threads")
+            : String(
+                localized: "\(ids.count) Selected", table: "Mailbox", bundle: .module,
+                comment: "Title while selecting threads")
         navigationItem.leftBarButtonItem = UIBarButtonItem(
             title: allSelected
-                ? String(localized: "Deselect All", bundle: .module, comment: "Clears the selection")
-                : String(localized: "Select All", bundle: .module, comment: "Selects every thread in the list"),
+                ? String(localized: "Deselect All", table: "Mailbox", bundle: .module, comment: "Clears the selection")
+                : String(
+                    localized: "Select All", table: "Mailbox", bundle: .module,
+                    comment: "Selects every thread in the list"),
             primaryAction: UIAction { [weak self] _ in self?.selectAll(!allSelected) })
 
         // With nothing selected, show what the list as a whole allows, disabled, so the toolbar doesn't jump.

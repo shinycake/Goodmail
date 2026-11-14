@@ -43,7 +43,8 @@ final class MessageCardView: UIView {
         notice.cornerStyle = .capsule
         notice.image = UIImage(systemName: "photo.badge.arrow.down")
         notice.imagePadding = 6
-        notice.title = String(localized: "Load Remote Images", bundle: .module, comment: "Shows blocked remote content")
+        notice.title = String(
+            localized: "Load Remote Images", table: "Thread", bundle: .module, comment: "Shows blocked remote content")
         notice.buttonSize = .small
         remoteNotice.configuration = notice
         remoteNotice.isHidden = true
@@ -110,12 +111,12 @@ final class MessageCardView: UIView {
 
     /// "to Dana Levi, me": the account's own address reads as "me".
     static func recipientsLine(_ message: Message, accountEmail: String) -> String {
-        let me = String(localized: "me", bundle: .module, comment: "The reader, in a recipient list")
+        let me = String(localized: "me", table: "Thread", bundle: .module, comment: "The reader, in a recipient list")
         let names = (message.to + message.cc).map { contact in
             contact.address.caseInsensitiveCompare(accountEmail) == .orderedSame ? me : contact.displayName
         }
         return String(
-            localized: "to \(names.formatted(.list(type: .and, width: .narrow)))", bundle: .module,
+            localized: "to \(names.formatted(.list(type: .and, width: .narrow)))", table: "Thread", bundle: .module,
             comment: "Recipients under the sender; the argument is a list of names")
     }
 }

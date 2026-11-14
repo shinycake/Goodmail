@@ -1,0 +1,138 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Blue" : {
+      "comment" : "An account color",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כחול"
+          }
+        }
+      }
+    },
+    "Brown" : {
+      "comment" : "An account color",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חום"
+          }
+        }
+      }
+    },
+    "Cyan" : {
+      "comment" : "An account color",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תכלת"
+          }
+        }
+      }
+    },
+    "Graphite" : {
+      "comment" : "An account color",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "גרפיט"
+          }
+        }
+      }
+    },
+    "Green" : {
+      "comment" : "An account color",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ירוק"
+          }
+        }
+      }
+    },
+    "Indigo" : {
+      "comment" : "An account color",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אינדיגו"
+          }
+        }
+      }
+    },
+    "Mint" : {
+      "comment" : "An account color",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מנטה"
+          }
+        }
+      }
+    },
+    "Orange" : {
+      "comment" : "An account color",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כתום"
+          }
+        }
+      }
+    },
+    "Pink" : {
+      "comment" : "An account color",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ורוד"
+          }
+        }
+      }
+    },
+    "Purple" : {
+      "comment" : "An account color",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סגול"
+          }
+        }
+      }
+    },
+    "Teal" : {
+      "comment" : "An account color",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "טורקיז"
+          }
+        }
+      }
+    },
+    "Yellow" : {
+      "comment" : "An account color",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "צהוב"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

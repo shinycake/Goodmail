@@ -42,13 +42,14 @@ extension ComposeViewController {
 
     private func couldNotPrepare() {
         let alert = UIAlertController(
-            title: String(localized: "Couldn't Attach", bundle: .module, comment: "Alert title"),
+            title: String(localized: "Couldn't Attach", table: "Compose", bundle: .module, comment: "Alert title"),
             message: String(
-                localized: "Goodmail couldn't prepare that for the message.", bundle: .module,
+                localized: "Goodmail couldn't prepare that for the message.", table: "Compose", bundle: .module,
                 comment: "Alert when a photo or scan can't be turned into a file"),
             preferredStyle: .alert)
         alert.addAction(
-            UIAlertAction(title: String(localized: "OK", bundle: .module, comment: "Dismiss"), style: .default))
+            UIAlertAction(
+                title: String(localized: "OK", table: "Compose", bundle: .module, comment: "Dismiss"), style: .default))
         present(alert, animated: true)
     }
 }

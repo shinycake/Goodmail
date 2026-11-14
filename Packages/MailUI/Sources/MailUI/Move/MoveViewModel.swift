@@ -31,7 +31,7 @@ public final class MoveViewModel {
         self.actions = actions
         let current = MoveDestination(mailbox)
         let archive = String(
-            localized: "move.archive", defaultValue: "Archive", bundle: .module,
+            localized: "move.archive", defaultValue: "Archive", table: "Move", bundle: .module,
             comment: "Move destination: out of the Inbox, with no label")
         places = [
             Choice(

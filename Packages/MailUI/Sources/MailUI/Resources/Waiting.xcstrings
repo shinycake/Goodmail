@@ -1,0 +1,138 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Edit" : {
+      "comment" : "Reopens a failed message",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ערוך"
+          }
+        }
+      }
+    },
+    "Goodmail sends these from this device. One may go a little late if the device is off or offline at the time." : {
+      "comment" : "Explains that scheduled messages are sent by the device",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Goodmail שולח את ההודעות האלה מהמכשיר הזה. הודעה עשויה להישלח מעט באיחור אם המכשיר כבוי או לא מחובר באותה שעה."
+          }
+        }
+      }
+    },
+    "Move to Drafts" : {
+      "comment" : "Keeps a scheduled message in Drafts instead",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העבר לטיוטות"
+          }
+        }
+      }
+    },
+    "Move to Inbox" : {
+      "comment" : "Action: back to the Inbox",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה לדואר הנכנס"
+          }
+        }
+      }
+    },
+    "Nothing Scheduled" : {
+      "comment" : "Shown when no message waits to be sent later",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אין הודעות מתוזמנות"
+          }
+        }
+      }
+    },
+    "Nothing Snoozed" : {
+      "comment" : "Shown when no thread is snoozed",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אין שרשורים במצב נודניק"
+          }
+        }
+      }
+    },
+    "Open" : {
+      "comment" : "Opens a snoozed thread to read it",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פתיחה"
+          }
+        }
+      }
+    },
+    "Scheduled" : {
+      "comment" : "Mailbox: messages waiting to be sent later",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מתוזמנים"
+          }
+        }
+      }
+    },
+    "Snooze a thread to have it come back to the Inbox later." : {
+      "comment" : "Explains what snoozing does",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אפשר להפעיל נודניק על שרשור כדי שיחזור לדואר הנכנס מאוחר יותר."
+          }
+        }
+      }
+    },
+    "Snoozed" : {
+      "comment" : "Mailbox: threads snoozed until later",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "במצב נודניק"
+          }
+        }
+      }
+    },
+    "Snoozed threads come back to the Inbox, unread, when Goodmail next checks for mail after their time." : {
+      "comment" : "Explains when snoozed threads come back",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שרשורים במצב נודניק חוזרים לדואר הנכנס כלא נקראו, בפעם הבאה ש-Goodmail בודק אם הגיע דואר אחרי המועד שלהם."
+          }
+        }
+      }
+    },
+    "Touch and hold Send to pick when a message goes." : {
+      "comment" : "Explains how to schedule a message",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "געו ממושכות בכפתור השליחה כדי לבחור מתי ההודעה תישלח."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

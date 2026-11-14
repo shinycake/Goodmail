@@ -44,7 +44,8 @@ final class SearchSuggestionsViewController: UIViewController, UICollectionViewD
                 content.image = UIImage(systemName: "clock.arrow.circlepath")
             case .clear:
                 content.text = String(
-                    localized: "Clear Recent Searches", bundle: .module, comment: "Forgets the recent searches")
+                    localized: "Clear Recent Searches", table: "Search", bundle: .module,
+                    comment: "Forgets the recent searches")
                 content.textProperties.color = .tintColor
             }
             cell.contentConfiguration = content
@@ -56,10 +57,12 @@ final class SearchSuggestionsViewController: UIViewController, UICollectionViewD
             content.text =
                 switch self?.dataSource.sectionIdentifier(for: indexPath.section) {
                 case .recent:
-                    String(localized: "Recent", bundle: .module, comment: "Header above the recent searches")
+                    String(
+                        localized: "Recent", table: "Search", bundle: .module,
+                        comment: "Header above the recent searches")
                 default:
                     String(
-                        localized: "Suggestions", bundle: .module,
+                        localized: "Suggestions", table: "Search", bundle: .module,
                         comment: "Header above the search filters offered for what is typed")
                 }
             header.contentConfiguration = content

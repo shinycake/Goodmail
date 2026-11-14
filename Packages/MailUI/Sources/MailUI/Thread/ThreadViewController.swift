@@ -11,7 +11,8 @@ public final class ThreadViewController: UIViewController {
     /// Reply, or Edit Draft while the newest message is an unsent draft.
     private var replyItem = UIBarButtonItem()
     private lazy var editDraftItem = UIBarButtonItem(
-        title: String(localized: "Edit Draft", bundle: .module, comment: "Opens a saved draft to finish it"),
+        title: String(
+            localized: "Edit Draft", table: "Thread", bundle: .module, comment: "Opens a saved draft to finish it"),
         image: UIImage(systemName: "square.and.pencil"),
         primaryAction: UIAction { [weak self] _ in self?.viewModel.editDraft() })
     private let scrollView = UIScrollView()
@@ -108,18 +109,20 @@ public final class ThreadViewController: UIViewController {
             viewModel.perform(.star(!viewModel.isStarred))
         }
         replyItem = UIBarButtonItem(
-            title: String(localized: "Reply", bundle: .module, comment: "Composer title for a reply"),
+            title: String(localized: "Reply", table: "Thread", bundle: .module, comment: "Composer title for a reply"),
             image: UIImage(systemName: "arrowshape.turn.up.left"),
             primaryAction: UIAction { [weak self] _ in self?.viewModel.reply(all: false) },
             // The alternatives only: a tap is Reply, and a toolbar that overflows into More lists the primary action
             // beside these, so a Reply here would show twice.
             menu: UIMenu(children: [
                 UIAction(
-                    title: String(localized: "Reply All", bundle: .module, comment: "Replies to everyone"),
+                    title: String(
+                        localized: "Reply All", table: "Thread", bundle: .module, comment: "Replies to everyone"),
                     image: UIImage(systemName: "arrowshape.turn.up.left.2")
                 ) { [weak self] _ in self?.viewModel.reply(all: true) },
                 UIAction(
-                    title: String(localized: "Forward", bundle: .module, comment: "Forwards the message"),
+                    title: String(
+                        localized: "Forward", table: "Thread", bundle: .module, comment: "Forwards the message"),
                     image: UIImage(systemName: "arrowshape.turn.up.right")
                 ) { [weak self] _ in self?.viewModel.forward() },
             ]))
@@ -206,11 +209,13 @@ public final class ThreadViewController: UIViewController {
             } catch {
                 let alert = UIAlertController(
                     title: String(
-                        localized: "Couldn’t Open Attachment", bundle: .module,
+                        localized: "Couldn’t Open Attachment", table: "Thread", bundle: .module,
                         comment: "Alert title when an attachment fails to download"),
                     message: error.localizedDescription, preferredStyle: .alert)
                 alert.addAction(
-                    UIAlertAction(title: String(localized: "OK", bundle: .module, comment: "Dismiss"), style: .default))
+                    UIAlertAction(
+                        title: String(localized: "OK", table: "Thread", bundle: .module, comment: "Dismiss"),
+                        style: .default))
                 present(alert, animated: true)
             }
         }
@@ -230,7 +235,9 @@ public final class ThreadViewController: UIViewController {
 
     static func countText(_ count: Int) -> String {
         guard count > 1 else { return "" }
-        return String(localized: "\(count) messages", bundle: .module, comment: "How many messages a thread holds")
+        return String(
+            localized: "\(count) messages", table: "Thread", bundle: .module,
+            comment: "How many messages a thread holds")
     }
 }
 

@@ -1,0 +1,606 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "(No Subject)" : {
+      "comment" : "Shown in place of an empty email subject",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(ללא נושא)"
+          }
+        }
+      }
+    },
+    "A forwarded attachment is no longer available." : {
+      "comment" : "Why a message failed to send: a file it forwards is gone",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קובץ מצורף שהועבר כבר לא זמין."
+          }
+        }
+      }
+    },
+    "Attach" : {
+      "comment" : "Adds files to the message",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "צירוף"
+          }
+        }
+      }
+    },
+    "Automatic" : {
+      "comment" : "Text direction: follows what is typed",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אוטומטי"
+          }
+        }
+      }
+    },
+    "Bcc:" : {
+      "comment" : "Compose field label",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עותק מוסתר:"
+          }
+        }
+      }
+    },
+    "Bold" : {
+      "comment" : "Formatting: bold text",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מודגש"
+          }
+        }
+      }
+    },
+    "Bulleted List" : {
+      "comment" : "Formatting: a bulleted list",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "רשימה עם תבליטים"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "comment" : "Closes the link prompt",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ביטול"
+          }
+        }
+      }
+    },
+    "Cc/Bcc" : {
+      "comment" : "Shows Cc and Bcc",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עותק/מוסתר"
+          }
+        }
+      }
+    },
+    "Cc:" : {
+      "comment" : "Compose field label",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עותק:"
+          }
+        }
+      }
+    },
+    "Choose File" : {
+      "comment" : "Attach from Files",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בחירת קובץ"
+          }
+        }
+      }
+    },
+    "Choose a Time…" : {
+      "comment" : "Picks a later time from a calendar",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בחר שעה…"
+          }
+        }
+      }
+    },
+    "Couldn't Attach" : {
+      "comment" : "Alert title",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן לצרף"
+          }
+        }
+      }
+    },
+    "Couldn't Send “%@”" : {
+      "comment" : "A message failed to send",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן לשלוח את “%@”"
+          }
+        }
+      }
+    },
+    "Delete" : {
+      "comment" : "Deletes a failed message",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחק"
+          }
+        }
+      }
+    },
+    "Delete Draft" : {
+      "comment" : "Discards the message",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחק טיוטה"
+          }
+        }
+      }
+    },
+    "Done" : {
+      "comment" : "Applies the link",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סיום"
+          }
+        }
+      }
+    },
+    "Edit" : {
+      "comment" : "Reopens a failed message",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ערוך"
+          }
+        }
+      }
+    },
+    "File Too Large" : {
+      "comment" : "Alert title",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הקובץ גדול מדי"
+          }
+        }
+      }
+    },
+    "From:" : {
+      "comment" : "Compose field label",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מאת:"
+          }
+        }
+      }
+    },
+    "From: %@" : {
+      "comment" : "VoiceOver: the account the message is sent from",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מאת: %@"
+          }
+        }
+      }
+    },
+    "Gmail sends up to 25 MB of attachments in one message." : {
+      "comment" : "Alert explaining the attachment size limit",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‏Gmail שולח עד 25 MB של קבצים מצורפים בהודעה אחת."
+          }
+        }
+      }
+    },
+    "Goodmail couldn't prepare that for the message." : {
+      "comment" : "Alert when a photo or scan can't be turned into a file",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Goodmail לא הצליח להכין את הקובץ להודעה."
+          }
+        }
+      }
+    },
+    "Goodmail couldn’t confirm it was sent. Check Sent before trying again." : {
+      "comment" : "Why a message failed to send: its upload ended without an answer and it isn't in Sent",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Goodmail couldn’t confirm it was sent. Check Sent before trying again."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‏Goodmail לא הצליח לוודא שההודעה נשלחה. כדאי לבדוק ב„נשלחו” לפני שמנסים שוב."
+          }
+        }
+      }
+    },
+    "Hide Quoted Text" : {
+      "comment" : "Accessibility label of the open fold",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הסתרת טקסט מצוטט"
+          }
+        }
+      }
+    },
+    "Italic" : {
+      "comment" : "Formatting: italic text",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נטוי"
+          }
+        }
+      }
+    },
+    "Keep Editing" : {
+      "comment" : "Returns to the message",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "המשך לערוך"
+          }
+        }
+      }
+    },
+    "Left to Right" : {
+      "comment" : "Text direction",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "משמאל לימין"
+          }
+        }
+      }
+    },
+    "Link" : {
+      "comment" : "Formatting: links the selection",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קישור"
+          }
+        }
+      }
+    },
+    "List" : {
+      "comment" : "Formatting: the list menu",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "רשימה"
+          }
+        }
+      }
+    },
+    "Message" : {
+      "comment" : "The body field",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הודעה"
+          }
+        }
+      }
+    },
+    "New Message" : {
+      "comment" : "Composer title",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הודעה חדשה"
+          }
+        }
+      }
+    },
+    "Numbered List" : {
+      "comment" : "Formatting: a numbered list",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "רשימה ממוספרת"
+          }
+        }
+      }
+    },
+    "OK" : {
+      "comment" : "Dismiss",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אישור"
+          }
+        }
+      }
+    },
+    "Photo Library" : {
+      "comment" : "Attach from Photos",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ספריית התמונות"
+          }
+        }
+      }
+    },
+    "Quote" : {
+      "comment" : "Formatting: quotes the paragraph",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ציטוט"
+          }
+        }
+      }
+    },
+    "Remove" : {
+      "comment" : "Takes a file off the message",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הסרה"
+          }
+        }
+      }
+    },
+    "Remove Link" : {
+      "comment" : "Formatting: unlinks the text",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הסרת קישור"
+          }
+        }
+      }
+    },
+    "Reply" : {
+      "comment" : "Composer title for a reply",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השב"
+          }
+        }
+      }
+    },
+    "Right to Left" : {
+      "comment" : "Text direction",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מימין לשמאל"
+          }
+        }
+      }
+    },
+    "Save Draft" : {
+      "comment" : "Keeps the message in Drafts",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שמור טיוטה"
+          }
+        }
+      }
+    },
+    "Scan Document" : {
+      "comment" : "Attach a scanned document as a PDF",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סריקת מסמך"
+          }
+        }
+      }
+    },
+    "Schedule" : {
+      "comment" : "Schedules the message for the picked time",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תזמן"
+          }
+        }
+      }
+    },
+    "Send" : {
+      "comment" : "Sends the message",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שלח"
+          }
+        }
+      }
+    },
+    "Send Later" : {
+      "comment" : "Menu of times to send a message",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שלח מאוחר יותר"
+          }
+        }
+      }
+    },
+    "Show Quoted Text" : {
+      "comment" : "Accessibility label of the fold",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצגת טקסט מצוטט"
+          }
+        }
+      }
+    },
+    "Strikethrough" : {
+      "comment" : "Formatting: struck-through text",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קו חוצה"
+          }
+        }
+      }
+    },
+    "Subject:" : {
+      "comment" : "Compose field label",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נושא:"
+          }
+        }
+      }
+    },
+    "Take Photo" : {
+      "comment" : "Attach a picture from the camera",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "צילום תמונה"
+          }
+        }
+      }
+    },
+    "Text Direction" : {
+      "comment" : "Formatting: the paragraph direction menu",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כיוון טקסט"
+          }
+        }
+      }
+    },
+    "The server refused the message." : {
+      "comment" : "Why a message failed to send: the mail server refused it",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השרת דחה את ההודעה."
+          }
+        }
+      }
+    },
+    "To:" : {
+      "comment" : "Compose field label",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אל:"
+          }
+        }
+      }
+    },
+    "Try Again" : {
+      "comment" : "Sends a failed message again",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נסה שוב"
+          }
+        }
+      }
+    },
+    "Underline" : {
+      "comment" : "Formatting: underlined text",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קו תחתון"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

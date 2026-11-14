@@ -1,0 +1,117 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Clear Recent Searches" : {
+      "comment" : "Forgets the recent searches",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נקה חיפושים אחרונים"
+          }
+        }
+      }
+    },
+    "From %@" : {
+      "comment" : "Search suggestion: mail from a person",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מאת %@"
+          }
+        }
+      }
+    },
+    "Has Attachment" : {
+      "comment" : "Search filter for mail with files",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עם קובץ מצורף"
+          }
+        }
+      }
+    },
+    "Recent" : {
+      "comment" : "Header above the recent searches",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אחרונים"
+          }
+        }
+      }
+    },
+    "Search" : {
+      "comment" : "Title of the search results list",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חיפוש"
+          }
+        }
+      }
+    },
+    "Search.Starred" : {
+      "comment" : "Search filter for starred mail",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Starred"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מסומנים בכוכב"
+          }
+        }
+      }
+    },
+    "Search.Unread" : {
+      "comment" : "Search filter for unread mail",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unread"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא נקראו"
+          }
+        }
+      }
+    },
+    "Subject contains “%@”" : {
+      "comment" : "Search suggestion: mail whose subject has the typed text",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הנושא מכיל “%@”"
+          }
+        }
+      }
+    },
+    "Suggestions" : {
+      "comment" : "Header above the search filters offered for what is typed",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצעות"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

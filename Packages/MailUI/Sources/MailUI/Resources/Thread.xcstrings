@@ -1,0 +1,180 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%lld messages" : {
+      "comment" : "How many messages a thread holds",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld message"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld messages"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "הודעה אחת"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld הודעות"
+                }
+              },
+              "two" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "שתי הודעות"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Couldn’t Open Attachment" : {
+      "comment" : "Alert title when an attachment fails to download",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן לפתוח את הקובץ המצורף"
+          }
+        }
+      }
+    },
+    "Edit Draft" : {
+      "comment" : "Opens a saved draft to finish it",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ערוך טיוטה"
+          }
+        }
+      }
+    },
+    "Forward" : {
+      "comment" : "Forwards the message",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העבר"
+          }
+        }
+      }
+    },
+    "Load Remote Images" : {
+      "comment" : "Shows blocked remote content",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "טעינת תמונות מרוחקות"
+          }
+        }
+      }
+    },
+    "No Message Selected" : {
+      "comment" : "Shown beside the message list when no conversation is open.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Message Selected"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא נבחרה הודעה"
+          }
+        }
+      }
+    },
+    "OK" : {
+      "comment" : "Dismiss",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אישור"
+          }
+        }
+      }
+    },
+    "Reply" : {
+      "comment" : "Composer title for a reply",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השב"
+          }
+        }
+      }
+    },
+    "Reply All" : {
+      "comment" : "Replies to everyone",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השב לכולם"
+          }
+        }
+      }
+    },
+    "Show Quoted Text" : {
+      "comment" : "Accessibility label of the fold",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצגת טקסט מצוטט"
+          }
+        }
+      }
+    },
+    "me" : {
+      "comment" : "The reader, in a recipient list",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אני"
+          }
+        }
+      }
+    },
+    "to %@" : {
+      "comment" : "Recipients under the sender; the argument is a list of names",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אל %@"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

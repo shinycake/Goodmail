@@ -1,0 +1,28 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Fast, simple mail. Add an account to get started." : {
+      "comment" : "Welcome screen: what the app is and what to do first",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דואר מהיר ופשוט. כדי להתחיל, מוסיפים חשבון."
+          }
+        }
+      }
+    },
+    "Goodmail" : {
+      "comment" : "The app's name, as the welcome screen's title",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Goodmail"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

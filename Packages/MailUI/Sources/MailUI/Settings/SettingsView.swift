@@ -30,13 +30,16 @@ struct SettingsView: View {
                     AddAccountView(model: model)
                 } label: {
                     Label {
-                        Text("Add Account", bundle: .module, comment: "Adds another mail account")
+                        Text(
+                            "Add Account", tableName: "Settings", bundle: .module, comment: "Adds another mail account")
                     } icon: {
                         Image(systemName: "plus")
                     }
                 }
             } header: {
-                Text("Accounts", bundle: .module, comment: "Settings section listing the accounts")
+                Text(
+                    "Accounts", tableName: "Settings", bundle: .module, comment: "Settings section listing the accounts"
+                )
             }
 
             Section {
@@ -46,16 +49,22 @@ struct SettingsView: View {
                     }
                 } label: {
                     Text(
-                        "Preview", bundle: .module, comment: "Setting for how much of each message a mailbox row shows")
+                        "Preview", tableName: "Settings", bundle: .module,
+                        comment: "Setting for how much of each message a mailbox row shows")
                 }
                 Toggle(isOn: $model.rowDisplay.showsAvatars) {
-                    Text("Avatars", bundle: .module, comment: "Setting for the sender's initials beside each row")
+                    Text(
+                        "Avatars", tableName: "Settings", bundle: .module,
+                        comment: "Setting for the sender's initials beside each row")
                 }
             } header: {
-                Text("Mail List", bundle: .module, comment: "Settings section for how mailbox rows look")
+                Text(
+                    "Mail List", tableName: "Settings", bundle: .module,
+                    comment: "Settings section for how mailbox rows look")
             } footer: {
                 Text(
-                    "Without avatars, a dot beside a row still marks unread mail.", bundle: .module,
+                    "Without avatars, a dot beside a row still marks unread mail.", tableName: "Settings",
+                    bundle: .module,
                     comment: "Explains turning avatars off")
             }
 
@@ -67,23 +76,27 @@ struct SettingsView: View {
                         Text(SettingsViewModel.undoSendTitle(seconds)).tag(seconds)
                     }
                 } label: {
-                    Text("Undo Send", bundle: .module, comment: "Setting for how long a sent message can be taken back")
+                    Text(
+                        "Undo Send", tableName: "Settings", bundle: .module,
+                        comment: "Setting for how long a sent message can be taken back")
                 }
             } footer: {
                 Text(
-                    "How long a sent message waits, so you can take it back.", bundle: .module,
+                    "How long a sent message waits, so you can take it back.", tableName: "Settings", bundle: .module,
                     comment: "Explains the Undo Send setting")
             }
         }
         .navigationDestination(for: AccountID.self) { AccountSettingsView(model: model, accountID: $0) }
-        .navigationTitle(Text("Settings", bundle: .module, comment: "Title of the settings screen"))
+        .navigationTitle(
+            Text("Settings", tableName: "Settings", bundle: .module, comment: "Title of the settings screen")
+        )
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button(role: .close) { dismiss() }
             }
         }
         .confirmationDialog(
-            Text("Remove Account?", bundle: .module, comment: "Asks before removing an account"),
+            Text("Remove Account?", tableName: "Settings", bundle: .module, comment: "Asks before removing an account"),
             isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
             titleVisibility: .visible,
             presenting: removing
@@ -91,15 +104,19 @@ struct SettingsView: View {
             Button(role: .destructive) {
                 Task { await model.removeAccount(account.id) }
             } label: {
-                Text("Remove Account", bundle: .module, comment: "Removes an account from the device")
+                Text(
+                    "Remove Account", tableName: "Settings", bundle: .module,
+                    comment: "Removes an account from the device")
             }
         } message: { account in
             Text(
                 "\(account.email) and its mail are removed from this device. Nothing is deleted from Gmail.",
-                bundle: .module, comment: "Explains what removing an account does")
+                tableName: "Settings", bundle: .module, comment: "Explains what removing an account does")
         }
         .alert(
-            Text("Something Went Wrong", bundle: .module, comment: "Title of a settings failure alert"),
+            Text(
+                "Something Went Wrong", tableName: "Settings", bundle: .module,
+                comment: "Title of a settings failure alert"),
             isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })
         ) {
         } message: {
@@ -114,7 +131,9 @@ extension SettingsView {
             removing = account
         } label: {
             Label {
-                Text("Remove Account", bundle: .module, comment: "Removes an account from the device")
+                Text(
+                    "Remove Account", tableName: "Settings", bundle: .module,
+                    comment: "Removes an account from the device")
             } icon: {
                 Image(systemName: "minus.circle")
             }

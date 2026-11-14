@@ -31,7 +31,8 @@ final class MessageWebView: UIView {
         configuration.defaultWebpagePreferences.allowsContentJavaScript = false
         configuration.dataDetectorTypes = [.link, .phoneNumber, .address, .calendarEvent]
         configuration.setURLSchemeHandler(cidHandler, forURLScheme: "cid")
-        let label = String(localized: "Show Quoted Text", bundle: .module, comment: "Accessibility label of the fold")
+        let label = String(
+            localized: "Show Quoted Text", table: "Thread", bundle: .module, comment: "Accessibility label of the fold")
         configuration.userContentController.addUserScript(
             WKUserScript(
                 source: MessageScript.source(foldLabel: label), injectionTime: .atDocumentEnd, forMainFrameOnly: true,

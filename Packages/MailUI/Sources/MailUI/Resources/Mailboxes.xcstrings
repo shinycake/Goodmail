@@ -1,0 +1,155 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "All Mail" : {
+      "comment" : "Mailbox: every thread outside Spam and Trash",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כל הדואר"
+          }
+        }
+      }
+    },
+    "Drafts" : {
+      "comment" : "Mailbox: unsent drafts",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "טיוטות"
+          }
+        }
+      }
+    },
+    "Inbox" : {
+      "comment" : "Mailbox title",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דואר נכנס"
+          }
+        }
+      }
+    },
+    "Labels" : {
+      "comment" : "Header above the user's labels",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תוויות"
+          }
+        }
+      }
+    },
+    "Mailboxes" : {
+      "comment" : "Title of the list of mailboxes",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תיבות דואר"
+          }
+        }
+      }
+    },
+    "New Message" : {
+      "comment" : "Composer title",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הודעה חדשה"
+          }
+        }
+      }
+    },
+    "Scheduled" : {
+      "comment" : "Mailbox: messages waiting to be sent later",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מתוזמנים"
+          }
+        }
+      }
+    },
+    "Sent" : {
+      "comment" : "Mailbox: sent mail",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נשלחו"
+          }
+        }
+      }
+    },
+    "Settings" : {
+      "comment" : "Title of the settings screen",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הגדרות"
+          }
+        }
+      }
+    },
+    "Snoozed" : {
+      "comment" : "Mailbox: threads snoozed until later",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "במצב נודניק"
+          }
+        }
+      }
+    },
+    "Spam" : {
+      "comment" : "Mailbox: spam",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ספאם"
+          }
+        }
+      }
+    },
+    "Starred" : {
+      "comment" : "Mailbox: starred threads",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מסומנים בכוכב"
+          }
+        }
+      }
+    },
+    "mailbox.trash" : {
+      "comment" : "Mailbox: deleted mail",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trash"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פח"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

@@ -45,7 +45,9 @@ public final class ScheduledViewModel: WaitingListModel {
             id: draft.id,
             title: recipients.formatted(.list(type: .and, width: .short)),
             subtitle: draft.subject.isEmpty
-                ? String(localized: "No Subject", bundle: .module, comment: "Shown for a message without a subject")
+                ? String(
+                    localized: "No Subject", table: "Scheduled", bundle: .module,
+                    comment: "Shown for a message without a subject")
                 : draft.subject,
             time: ScheduledTime.text(for: message.sendAt),
             accountColor: color)

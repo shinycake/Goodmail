@@ -1,0 +1,323 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@ and its mail are removed from this device. Nothing is deleted from Gmail." : {
+      "comment" : "Explains what removing an account does",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‏%@ והדואר שלו יוסרו מהמכשיר הזה. שום דבר לא יימחק מ-Gmail."
+          }
+        }
+      }
+    },
+    "%lld lines" : {
+      "comment" : "Mailbox rows show this many lines of preview",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld line"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld lines"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "שורה אחת"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld שורות"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Accounts" : {
+      "comment" : "Settings section listing the accounts",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חשבונות"
+          }
+        }
+      }
+    },
+    "Add Account" : {
+      "comment" : "Adds another mail account",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הוסף חשבון"
+          }
+        }
+      }
+    },
+    "Avatars" : {
+      "comment" : "Setting for the sender's initials beside each row",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תמונות פרופיל"
+          }
+        }
+      }
+    },
+    "Color" : {
+      "comment" : "Settings section for an account's theme color",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "צבע"
+          }
+        }
+      }
+    },
+    "Gradient" : {
+      "comment" : "Setting for a gradient of every account's color",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מעבר צבעים"
+          }
+        }
+      }
+    },
+    "How long a sent message waits, so you can take it back." : {
+      "comment" : "Explains the Undo Send setting",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כמה זמן הודעה שנשלחה ממתינה, כדי שתוכל לבטל אותה."
+          }
+        }
+      }
+    },
+    "Inbox Categories" : {
+      "comment" : "Settings section for Gmail's Inbox categories",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קטגוריות בדואר הנכנס"
+          }
+        }
+      }
+    },
+    "Mail List" : {
+      "comment" : "Settings section for how mailbox rows look",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "רשימת הדואר"
+          }
+        }
+      }
+    },
+    "Name" : {
+      "comment" : "Label of an account's sender name field",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שם"
+          }
+        }
+      }
+    },
+    "Preview" : {
+      "comment" : "Setting for how much of each message a mailbox row shows",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תצוגה מקדימה"
+          }
+        }
+      }
+    },
+    "Preview: None" : {
+      "comment" : "Mailbox rows show no preview",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ללא"
+          }
+        }
+      }
+    },
+    "Remove Account" : {
+      "comment" : "Removes an account from the device",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הסר חשבון"
+          }
+        }
+      }
+    },
+    "Remove Account?" : {
+      "comment" : "Asks before removing an account",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "להסיר את החשבון?"
+          }
+        }
+      }
+    },
+    "Settings" : {
+      "comment" : "Title of the settings screen",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הגדרות"
+          }
+        }
+      }
+    },
+    "Shown to the people you write to from %@." : {
+      "comment" : "Explains an account's sender name",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מוצג לנמענים של הודעות מ-%@."
+          }
+        }
+      }
+    },
+    "Something Went Wrong" : {
+      "comment" : "Title of a settings failure alert",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "משהו השתבש"
+          }
+        }
+      }
+    },
+    "Sorts the Inbox into Primary, Promotions, Social, Updates and Forums, as Gmail does." : {
+      "comment" : "Explains the Inbox Categories setting",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ממיין את הדואר הנכנס לראשי, קידומי מכירות, רשתות חברתיות, עדכונים ופורומים, כמו ב-Gmail."
+          }
+        }
+      }
+    },
+    "Theme" : {
+      "comment" : "Settings section for the color of views showing every account",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ערכת נושא"
+          }
+        }
+      }
+    },
+    "Undo Send" : {
+      "comment" : "Setting for how long a sent message can be taken back",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ביטול שליחה"
+          }
+        }
+      }
+    },
+    "Undo Send: Off" : {
+      "comment" : "Undo Send is turned off",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כבוי"
+          }
+        }
+      }
+    },
+    "Views that show every account, like the unified inbox, wear a gradient of your account colors. Turn it off to choose one color." : {
+      "comment" : "Explains the Gradient setting",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תצוגות שמציגות את כל החשבונות, כמו תיבת הדואר המאוחדת, נצבעות במעבר בין צבעי החשבונות שלך. אפשר לכבות זאת ולבחור צבע אחד."
+          }
+        }
+      }
+    },
+    "Without avatars, a dot beside a row still marks unread mail." : {
+      "comment" : "Explains turning avatars off",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "גם בלי תמונות פרופיל, נקודה ליד שורה מסמנת דואר שלא נקרא."
+          }
+        }
+      }
+    },
+    "Your Name" : {
+      "comment" : "Placeholder for an account's sender name",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השם שלך"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

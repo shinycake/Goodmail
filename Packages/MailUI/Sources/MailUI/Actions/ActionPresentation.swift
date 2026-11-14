@@ -5,14 +5,17 @@ extension UIBarButtonItem {
     /// Opens the label picker.
     static func changeLabels(_ handler: @escaping () -> Void) -> UIBarButtonItem {
         UIBarButtonItem(
-            title: String(localized: "Change Labels", bundle: .module, comment: "Action: add or remove labels"),
+            title: String(
+                localized: "Change Labels", table: "Actions", bundle: .module, comment: "Action: add or remove labels"),
             image: UIImage(systemName: "tag"), primaryAction: UIAction { _ in handler() })
     }
 
     /// Opens the list of places to move threads to.
     static func move(_ handler: @escaping () -> Void) -> UIBarButtonItem {
         UIBarButtonItem(
-            title: String(localized: "Move to…", bundle: .module, comment: "Action: move threads to another mailbox"),
+            title: String(
+                localized: "Move to…", table: "Actions", bundle: .module,
+                comment: "Action: move threads to another mailbox"),
             image: UIImage(systemName: "folder"), primaryAction: UIAction { _ in handler() })
     }
 
@@ -23,16 +26,21 @@ extension UIBarButtonItem {
         perform: @escaping (ThreadAction) -> Void
     ) -> UIBarButtonItem {
         UIBarButtonItem(
-            title: String(localized: "Organize", bundle: .module, comment: "Button: move threads or change labels"),
+            title: String(
+                localized: "Organize", table: "Actions", bundle: .module,
+                comment: "Button: move threads or change labels"),
             image: UIImage(systemName: "folder"),
             menu: UIMenu(children: [
                 UIAction(
                     title: String(
-                        localized: "Move to…", bundle: .module, comment: "Action: move threads to another mailbox"),
+                        localized: "Move to…", table: "Actions", bundle: .module,
+                        comment: "Action: move threads to another mailbox"),
                     image: UIImage(systemName: "folder")
                 ) { _ in move() },
                 UIAction(
-                    title: String(localized: "Change Labels", bundle: .module, comment: "Action: add or remove labels"),
+                    title: String(
+                        localized: "Change Labels", table: "Actions", bundle: .module,
+                        comment: "Action: add or remove labels"),
                     image: UIImage(systemName: "tag")
                 ) { _ in changeLabels() },
                 UIDeferredMenuElement.uncached { completion in
@@ -53,7 +61,8 @@ extension UIBarButtonItem {
     /// Snooze, with the times on offer when it opens, then a picker for any other.
     static func snooze(from presenter: UIViewController, until: @escaping (Date) -> Void) -> UIBarButtonItem {
         UIBarButtonItem(
-            title: String(localized: "Snooze", bundle: .module, comment: "Hides threads until a later time"),
+            title: String(
+                localized: "Snooze", table: "Actions", bundle: .module, comment: "Hides threads until a later time"),
             image: UIImage(systemName: "clock"),
             menu: .snooze(from: presenter, until: until))
     }
@@ -62,7 +71,9 @@ extension UIBarButtonItem {
 extension UIMenu {
     static func snooze(from presenter: UIViewController, until: @escaping (Date) -> Void) -> UIMenu {
         UIMenu(
-            title: String(localized: "Snooze Until", bundle: .module, comment: "Menu of times to snooze threads until"),
+            title: String(
+                localized: "Snooze Until", table: "Actions", bundle: .module,
+                comment: "Menu of times to snooze threads until"),
             children: [
                 UIDeferredMenuElement.uncached { [weak presenter] completion in
                     let choices = LaterTime.snoozeChoices(at: .now)
@@ -73,17 +84,19 @@ extension UIMenu {
                     }
                     let pick = UIAction(
                         title: String(
-                            localized: "Choose a Time…", bundle: .module, comment: "Picks a later time from a calendar"),
+                            localized: "Choose a Time…", table: "Actions", bundle: .module,
+                            comment: "Picks a later time from a calendar"),
                         image: UIImage(systemName: "calendar")
                     ) { _ in
                         guard let presenter else { return }
                         LaterPickerViewController.present(
                             from: presenter,
                             title: String(
-                                localized: "Snooze Until", bundle: .module,
+                                localized: "Snooze Until", table: "Actions", bundle: .module,
                                 comment: "Menu of times to snooze threads until"),
                             actionTitle: String(
-                                localized: "Snooze", bundle: .module, comment: "Hides threads until a later time"),
+                                localized: "Snooze", table: "Actions", bundle: .module,
+                                comment: "Hides threads until a later time"),
                             initial: choices.first?.date, pick: until)
                     }
                     completion(times + [pick])
@@ -114,21 +127,34 @@ extension ThreadAction {
     /// The action's name, for buttons and VoiceOver.
     var title: String {
         switch kind {
-        case .archive: String(localized: "Archive", bundle: .module, comment: "Action: archive a thread")
-        case .trash: String(localized: "Trash", bundle: .module, comment: "Action: move a thread to Trash")
-        case .untrash: String(localized: "Move Out of Trash", bundle: .module, comment: "Action: restore a thread")
-        case .spam: String(localized: "Report Spam", bundle: .module, comment: "Action: report a thread as spam")
-        case .inbox: String(localized: "Move to Inbox", bundle: .module, comment: "Action: back to the Inbox")
-        case .read: String(localized: "Mark as Read", bundle: .module, comment: "Action")
-        case .unread: String(localized: "Mark as Unread", bundle: .module, comment: "Action")
-        case .star: String(localized: "Star", bundle: .module, comment: "Action: star a thread")
-        case .unstar: String(localized: "Unstar", bundle: .module, comment: "Action: remove a thread's star")
+        case .archive:
+            String(localized: "Archive", table: "Actions", bundle: .module, comment: "Action: archive a thread")
+        case .trash:
+            String(localized: "Trash", table: "Actions", bundle: .module, comment: "Action: move a thread to Trash")
+        case .untrash:
+            String(
+                localized: "Move Out of Trash", table: "Actions", bundle: .module, comment: "Action: restore a thread")
+        case .spam:
+            String(
+                localized: "Report Spam", table: "Actions", bundle: .module, comment: "Action: report a thread as spam")
+        case .inbox:
+            String(localized: "Move to Inbox", table: "Actions", bundle: .module, comment: "Action: back to the Inbox")
+        case .read: String(localized: "Mark as Read", table: "Actions", bundle: .module, comment: "Action")
+        case .unread: String(localized: "Mark as Unread", table: "Actions", bundle: .module, comment: "Action")
+        case .star: String(localized: "Star", table: "Actions", bundle: .module, comment: "Action: star a thread")
+        case .unstar:
+            String(localized: "Unstar", table: "Actions", bundle: .module, comment: "Action: remove a thread's star")
         case .mute:
-            String(localized: "Mute", bundle: .module, comment: "Action: keep a thread's replies out of the Inbox")
+            String(
+                localized: "Mute", table: "Actions", bundle: .module,
+                comment: "Action: keep a thread's replies out of the Inbox")
         case .unmute:
             String(
-                localized: "Unmute", bundle: .module, comment: "Action: let a thread's replies reach the Inbox again")
-        case .labels: String(localized: "Change Labels", bundle: .module, comment: "Action: add or remove labels")
+                localized: "Unmute", table: "Actions", bundle: .module,
+                comment: "Action: let a thread's replies reach the Inbox again")
+        case .labels:
+            String(
+                localized: "Change Labels", table: "Actions", bundle: .module, comment: "Action: add or remove labels")
         }
     }
 
@@ -166,7 +192,7 @@ final class UndoToastView: UIView {
         label.font = .preferredFont(forTextStyle: .subheadline)
         label.adjustsFontForContentSizeCategory = true
         var undo = UIButton.Configuration.plain()
-        undo.title = String(localized: "Undo", bundle: .module, comment: "Undoes the last action")
+        undo.title = String(localized: "Undo", table: "Actions", bundle: .module, comment: "Undoes the last action")
         undo.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer {
             var attributes = $0
             attributes.font = UIFont.preferredFont(forTextStyle: .subheadline).withWeight(.semibold)

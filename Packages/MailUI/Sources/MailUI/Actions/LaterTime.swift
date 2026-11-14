@@ -32,17 +32,19 @@ enum LaterTime: Equatable {
         return switch self {
         case .thisEvening:
             String(
-                localized: "This Evening, \(time)", bundle: .module,
+                localized: "This Evening, \(time)", table: "Actions", bundle: .module,
                 comment: "Later choice: this evening, with the time")
         case .tonight:
-            String(localized: "Tonight, \(time)", bundle: .module, comment: "Later choice: tonight, with the time")
+            String(
+                localized: "Tonight, \(time)", table: "Actions", bundle: .module,
+                comment: "Later choice: tonight, with the time")
         case .tomorrowMorning:
             String(
-                localized: "Tomorrow, \(time)", bundle: .module,
+                localized: "Tomorrow, \(time)", table: "Actions", bundle: .module,
                 comment: "Later choice: tomorrow morning, with the time")
         case .thisWeekend, .nextWeek:
             String(
-                localized: "\(date.formatted(.dateTime.weekday(.wide))), \(time)", bundle: .module,
+                localized: "\(date.formatted(.dateTime.weekday(.wide))), \(time)", table: "Actions", bundle: .module,
                 comment: "Later choice: a morning on another day, as weekday and time")
         }
     }

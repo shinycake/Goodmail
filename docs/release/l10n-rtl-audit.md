@@ -6,7 +6,7 @@ Audited on 2026-11-13 against `main` at `42720fc`.
 
 ## How to re-run the code checks
 
-- **Catalog gaps.** Every key in `Packages/MailUI/Sources/MailUI/Resources/Localizable.xcstrings`, `Widgets/Localizable.xcstrings` and `Goodmail/InfoPlist.xcstrings` has a `he` value in state `translated`, and none is `stale`. A short Python pass over the JSON finds the rest.
+- **Catalog gaps.** Every key in `Packages/MailUI/Sources/MailUI/Resources/*.xcstrings`, `Widgets/Localizable.xcstrings` and `Goodmail/InfoPlist.xcstrings` has a `he` value in state `translated`, and none is `stale`. A short Python pass over the JSON finds the rest.
 - **Strings outside the catalog.** In `MailUI`, every `String(localized:)` and `Text("…")` passes `bundle: .module`. Without it the lookup goes to the app's bundle and the Hebrew value is never found. App targets (`Goodmail`, `Widgets`) use their own bundle and need no argument.
 - **Prose stored as data.** Search for English sentences assigned to properties or written to the database, such as `reason: "…"`. Store a case and word it in `MailUI`.
 - **Layout.** No `.left` or `.right` in Auto Layout, insets or `NSTextAlignment`, except where the code chooses an edge from a direction it worked out first.

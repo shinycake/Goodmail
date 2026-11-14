@@ -23,7 +23,8 @@ public final class MailboxesViewController: UIViewController {
         self.viewModel = viewModel
         self.style = style
         super.init(nibName: nil, bundle: nil)
-        title = String(localized: "Mailboxes", bundle: .module, comment: "Title of the list of mailboxes")
+        title = String(
+            localized: "Mailboxes", table: "Mailboxes", bundle: .module, comment: "Title of the list of mailboxes")
         navigationItem.largeTitleDisplayMode = .always
     }
 
@@ -47,12 +48,13 @@ public final class MailboxesViewController: UIViewController {
         configureDataSource()
         toolbarItems = [
             UIBarButtonItem(
-                title: String(localized: "Settings", bundle: .module, comment: "Title of the settings screen"),
+                title: String(
+                    localized: "Settings", table: "Mailboxes", bundle: .module, comment: "Title of the settings screen"),
                 image: UIImage(systemName: "gearshape"),
                 primaryAction: UIAction { [weak self] _ in self?.viewModel.openSettings() }),
             .flexibleSpace(),
             UIBarButtonItem(
-                title: String(localized: "New Message", bundle: .module, comment: "Composer title"),
+                title: String(localized: "New Message", table: "Mailboxes", bundle: .module, comment: "Composer title"),
                 image: UIImage(systemName: "square.and.pencil"),
                 primaryAction: UIAction { [weak self] _ in self?.viewModel.compose() }),
         ]
@@ -125,7 +127,8 @@ public final class MailboxesViewController: UIViewController {
             switch self?.dataSource.sectionIdentifier(for: indexPath.section) {
             case .mailboxes, nil: break
             case .labels:
-                content.text = String(localized: "Labels", bundle: .module, comment: "Header above the user's labels")
+                content.text = String(
+                    localized: "Labels", table: "Mailboxes", bundle: .module, comment: "Header above the user's labels")
             case .account(let account):
                 // The account's own color, beside its address: the one place it shows in a view of every account.
                 content.text = account.email

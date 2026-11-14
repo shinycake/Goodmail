@@ -32,7 +32,8 @@ final class ComposeAttachmentsView: UIStackView {
             let button = UIButton(configuration: configuration)
             button.menu = UIMenu(children: [
                 UIAction(
-                    title: String(localized: "Remove", bundle: .module, comment: "Takes a file off the message"),
+                    title: String(
+                        localized: "Remove", table: "Compose", bundle: .module, comment: "Takes a file off the message"),
                     image: UIImage(systemName: "xmark"), attributes: .destructive
                 ) { [weak self] _ in self?.onRemove?(attachment.id) }
             ])
@@ -49,7 +50,7 @@ extension ComposeViewController {
     /// The paperclip: a menu of where to take files from.
     func attachItem() -> UIBarButtonItem {
         UIBarButtonItem(
-            title: String(localized: "Attach", bundle: .module, comment: "Adds files to the message"),
+            title: String(localized: "Attach", table: "Compose", bundle: .module, comment: "Adds files to the message"),
             image: UIImage(systemName: "paperclip"),
             menu: UIMenu(
                 children: AttachmentSource.available(on: .current).map { source in
@@ -91,13 +92,14 @@ extension ComposeViewController {
 
     func tooLarge() {
         let alert = UIAlertController(
-            title: String(localized: "File Too Large", bundle: .module, comment: "Alert title"),
+            title: String(localized: "File Too Large", table: "Compose", bundle: .module, comment: "Alert title"),
             message: String(
-                localized: "Gmail sends up to 25 MB of attachments in one message.", bundle: .module,
+                localized: "Gmail sends up to 25 MB of attachments in one message.", table: "Compose", bundle: .module,
                 comment: "Alert explaining the attachment size limit"),
             preferredStyle: .alert)
         alert.addAction(
-            UIAlertAction(title: String(localized: "OK", bundle: .module, comment: "Dismiss"), style: .default))
+            UIAlertAction(
+                title: String(localized: "OK", table: "Compose", bundle: .module, comment: "Dismiss"), style: .default))
         present(alert, animated: true)
     }
 }
@@ -147,13 +149,16 @@ extension AttachmentSource {
     var title: String {
         switch self {
         case .photoLibrary:
-            String(localized: "Photo Library", bundle: .module, comment: "Attach from Photos")
+            String(localized: "Photo Library", table: "Compose", bundle: .module, comment: "Attach from Photos")
         case .file:
-            String(localized: "Choose File", bundle: .module, comment: "Attach from Files")
+            String(localized: "Choose File", table: "Compose", bundle: .module, comment: "Attach from Files")
         case .camera:
-            String(localized: "Take Photo", bundle: .module, comment: "Attach a picture from the camera")
+            String(
+                localized: "Take Photo", table: "Compose", bundle: .module, comment: "Attach a picture from the camera")
         case .scan:
-            String(localized: "Scan Document", bundle: .module, comment: "Attach a scanned document as a PDF")
+            String(
+                localized: "Scan Document", table: "Compose", bundle: .module,
+                comment: "Attach a scanned document as a PDF")
         }
     }
 

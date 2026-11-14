@@ -1,0 +1,352 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%lld Selected" : {
+      "comment" : "Title while selecting threads",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Selected"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Selected"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld נבחר"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld נבחרו"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld unread" : {
+      "comment" : "Inbox category menu: unread threads in a category",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld שלא נקראו"
+          }
+        }
+      }
+    },
+    "(No Subject)" : {
+      "comment" : "Shown in place of an empty email subject",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(ללא נושא)"
+          }
+        }
+      }
+    },
+    "Deselect All" : {
+      "comment" : "Clears the selection",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ביטול הבחירה"
+          }
+        }
+      }
+    },
+    "Go to %@" : {
+      "comment" : "Link from an empty Inbox category to another with unread mail",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מעבר אל %@"
+          }
+        }
+      }
+    },
+    "Inbox category: %@" : {
+      "comment" : "VoiceOver: the Inbox category menu, with the category shown",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קטגוריית דואר נכנס: %@"
+          }
+        }
+      }
+    },
+    "InboxCategory.Forums" : {
+      "comment" : "Inbox category: mailing lists and groups",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Forums"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פורומים"
+          }
+        }
+      }
+    },
+    "InboxCategory.Primary" : {
+      "comment" : "Inbox category: personal mail and anything Gmail didn't sort",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Primary"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ראשי"
+          }
+        }
+      }
+    },
+    "InboxCategory.Promotions" : {
+      "comment" : "Inbox category: deals and offers",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Promotions"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קידומי מכירות"
+          }
+        }
+      }
+    },
+    "InboxCategory.Social" : {
+      "comment" : "Inbox category: social networks",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Social"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "רשתות חברתיות"
+          }
+        }
+      }
+    },
+    "InboxCategory.Updates" : {
+      "comment" : "Inbox category: receipts, bills and notifications",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updates"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עדכונים"
+          }
+        }
+      }
+    },
+    "Last week" : {
+      "comment" : "Mailbox section header",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בשבוע שעבר"
+          }
+        }
+      }
+    },
+    "Muted" : {
+      "comment" : "VoiceOver: thread state",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מושתקת"
+          }
+        }
+      }
+    },
+    "New Message" : {
+      "comment" : "Composer title",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הודעה חדשה"
+          }
+        }
+      }
+    },
+    "No Mail" : {
+      "comment" : "An empty mailbox",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אין דואר"
+          }
+        }
+      }
+    },
+    "Open in New Window" : {
+      "comment" : "Context menu item that opens a thread in a window of its own",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פתיחה בחלון חדש"
+          }
+        }
+      }
+    },
+    "Search Mail" : {
+      "comment" : "Placeholder of the search field",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חיפוש בדואר"
+          }
+        }
+      }
+    },
+    "Select" : {
+      "comment" : "Starts selecting several threads",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בחירה"
+          }
+        }
+      }
+    },
+    "Select All" : {
+      "comment" : "Selects every thread in the list",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בחירת הכול"
+          }
+        }
+      }
+    },
+    "This afternoon" : {
+      "comment" : "Mailbox section header",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אחר הצהריים"
+          }
+        }
+      }
+    },
+    "This evening" : {
+      "comment" : "Mailbox section header",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הערב"
+          }
+        }
+      }
+    },
+    "This month" : {
+      "comment" : "Mailbox section header",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "החודש"
+          }
+        }
+      }
+    },
+    "This morning" : {
+      "comment" : "Mailbox section header",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הבוקר"
+          }
+        }
+      }
+    },
+    "This week" : {
+      "comment" : "Mailbox section header",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השבוע"
+          }
+        }
+      }
+    },
+    "Unread" : {
+      "comment" : "VoiceOver: thread state",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא נקראה"
+          }
+        }
+      }
+    },
+    "Yesterday" : {
+      "comment" : "Mailbox section header",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אתמול"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

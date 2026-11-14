@@ -33,6 +33,11 @@ step "Format (swift format lint --strict)"
 swift format lint --strict --recursive --parallel "${SWIFT_ROOTS[@]}"
 
 step "Line cap (fail above 1000, warn above 800)"
+# Every text file, code or not (ADR-014). Generated files, recorded fixtures and vendored skills are exempt.
+LINE_CAP_EXEMPT=(
+    ':(exclude)**/Fixtures/**' ':(exclude)*.xcproj' ':(exclude)**/package-lock.json' ':(exclude)**/Package.resolved'
+    ':(exclude).claude/skills/**'
+)
 over_cap=0
 while IFS= read -r file; do
     [[ -f "$file" ]] || continue
@@ -43,7 +48,9 @@ while IFS= read -r file; do
     elif ((lines > 800)); then
         echo "⚠ $file has $lines lines."
     fi
-done < <(git ls-files --cached --others --exclude-standard -- '*.swift' '*.ts' ':(exclude)**/Fixtures/**')
+done < <(git ls-files --cached --others --exclude-standard -- . "${LINE_CAP_EXEMPT[@]}" | while IFS= read -r f; do
+    grep -Iq . "$f" 2>/dev/null && echo "$f" # text files only
+done)
 ((over_cap == 0)) || exit 1
 
 [[ "${1:-}" == "--lint" ]] && exit 0

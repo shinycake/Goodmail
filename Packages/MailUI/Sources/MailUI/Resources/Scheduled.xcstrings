@@ -1,0 +1,17 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "No Subject" : {
+      "comment" : "Shown for a message without a subject",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ללא נושא"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

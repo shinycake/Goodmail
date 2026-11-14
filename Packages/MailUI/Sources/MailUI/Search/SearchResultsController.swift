@@ -27,7 +27,8 @@ public final class SearchResultsController: UIViewController, UISearchResultsUpd
         list = MailboxViewController(
             viewModel: MailboxViewModel(
                 mailbox: .allMail,
-                title: String(localized: "Search", bundle: .module, comment: "Title of the search results list"),
+                title: String(
+                    localized: "Search", table: "Search", bundle: .module, comment: "Title of the search results list"),
                 accounts: accounts,
                 source: .flat { search.results() },
                 refresh: { try await search.refresh() },

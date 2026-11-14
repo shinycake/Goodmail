@@ -10,18 +10,19 @@ nonisolated struct SearchFilter: Hashable {
     static let unread = SearchFilter(
         term: .unread,
         title: String(
-            localized: "Search.Unread", defaultValue: "Unread", bundle: .module,
+            localized: "Search.Unread", defaultValue: "Unread", table: "Search", bundle: .module,
             comment: "Search filter for unread mail"),
         symbol: "envelope.badge")
     static let starred = SearchFilter(
         term: .starred,
         title: String(
-            localized: "Search.Starred", defaultValue: "Starred", bundle: .module,
+            localized: "Search.Starred", defaultValue: "Starred", table: "Search", bundle: .module,
             comment: "Search filter for starred mail"),
         symbol: "star")
     static let hasAttachment = SearchFilter(
         term: .hasAttachment,
-        title: String(localized: "Has Attachment", bundle: .module, comment: "Search filter for mail with files"),
+        title: String(
+            localized: "Has Attachment", table: "Search", bundle: .module, comment: "Search filter for mail with files"),
         symbol: "paperclip")
 
     /// The filters offered before anything is typed.
@@ -58,10 +59,12 @@ nonisolated struct SearchFilter: Hashable {
     var label: String {
         switch term.name {
         case "from":
-            String(localized: "From \(title)", bundle: .module, comment: "Search suggestion: mail from a person")
+            String(
+                localized: "From \(title)", table: "Search", bundle: .module,
+                comment: "Search suggestion: mail from a person")
         case "subject":
             String(
-                localized: "Subject contains “\(title)”", bundle: .module,
+                localized: "Subject contains “\(title)”", table: "Search", bundle: .module,
                 comment: "Search suggestion: mail whose subject has the typed text")
         default: title
         }

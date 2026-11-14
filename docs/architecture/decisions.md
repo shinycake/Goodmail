@@ -134,13 +134,14 @@ The owner decided these on 2026-10-20 after talking through the options. Each en
 - **Merge-conflict hygiene:**
   - Code lives in local packages, and the app target uses Xcode synchronized (buildable) folders, so adding files doesn't edit `project.pbxproj`.
   - `swift format`, which ships with the toolchain, auto-formats.
-  - Each package has its own String Catalog.
+  - Each package has its own string catalogs, one table per feature folder (ADR-014).
   - Parallel sessions work in separate git worktrees on separate packages.
 
 ## ADR-014: 1000-line hard cap per file
 
-- `scripts/check` fails on any `.swift` or `.ts` file over 1000 lines, and warns above 800. The pre-commit hook and CI run it too.
-- **Exempt:** fixtures, `.xcstrings`, `project.pbxproj`, lockfiles and other generated files.
+- `scripts/check` fails on any tracked text file over 1000 lines, code or not, and warns above 800. The pre-commit hook and CI run it too.
+- **Exempt:** recorded fixtures, `project.xcproj`, lockfiles and the vendored skills in `.claude/skills`, which follow their upstream.
+- **String catalogs:** each feature folder of a package has its own string table (`Resources/<Feature>.xcstrings`, used with `table:` or `tableName:`), so catalogs stay small and two features don't conflict in one file (2026-11-13).
 - **On hitting the cap:** split by responsibility. Never squeeze lines to get under it.
 
 ## ADR-015: Xcode's JSON project format (`.xcproj`)

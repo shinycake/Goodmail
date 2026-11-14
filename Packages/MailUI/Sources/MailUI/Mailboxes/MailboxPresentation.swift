@@ -7,14 +7,22 @@ extension Mailbox {
     nonisolated public func title(labels: [MailboxDirectory.Label]) -> String {
         switch labelID {
         case nil:
-            String(localized: "All Mail", bundle: .module, comment: "Mailbox: every thread outside Spam and Trash")
-        case SystemLabel.inbox: String(localized: "Inbox", bundle: .module, comment: "Mailbox title")
-        case SystemLabel.starred: String(localized: "Starred", bundle: .module, comment: "Mailbox: starred threads")
-        case SystemLabel.sent: String(localized: "Sent", bundle: .module, comment: "Mailbox: sent mail")
-        case SystemLabel.draft: String(localized: "Drafts", bundle: .module, comment: "Mailbox: unsent drafts")
-        case SystemLabel.spam: String(localized: "Spam", bundle: .module, comment: "Mailbox: spam")
+            String(
+                localized: "All Mail", table: "Mailboxes", bundle: .module,
+                comment: "Mailbox: every thread outside Spam and Trash")
+        case SystemLabel.inbox:
+            String(localized: "Inbox", table: "Mailboxes", bundle: .module, comment: "Mailbox title")
+        case SystemLabel.starred:
+            String(localized: "Starred", table: "Mailboxes", bundle: .module, comment: "Mailbox: starred threads")
+        case SystemLabel.sent:
+            String(localized: "Sent", table: "Mailboxes", bundle: .module, comment: "Mailbox: sent mail")
+        case SystemLabel.draft:
+            String(localized: "Drafts", table: "Mailboxes", bundle: .module, comment: "Mailbox: unsent drafts")
+        case SystemLabel.spam: String(localized: "Spam", table: "Mailboxes", bundle: .module, comment: "Mailbox: spam")
         case SystemLabel.trash:
-            String(localized: "mailbox.trash", defaultValue: "Trash", bundle: .module, comment: "Mailbox: deleted mail")
+            String(
+                localized: "mailbox.trash", defaultValue: "Trash", table: "Mailboxes", bundle: .module,
+                comment: "Mailbox: deleted mail")
         case let id?: labels.first { $0.mailbox == self }?.name ?? id
         }
     }

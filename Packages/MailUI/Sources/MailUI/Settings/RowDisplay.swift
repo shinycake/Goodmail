@@ -19,10 +19,11 @@ public struct RowDisplay: Equatable, Sendable {
     static func previewTitle(_ lines: Int) -> String {
         guard lines > 0 else {
             return String(
-                localized: "Preview: None", defaultValue: "None", bundle: .module,
+                localized: "Preview: None", defaultValue: "None", table: "Settings", bundle: .module,
                 comment: "Mailbox rows show no preview")
         }
         return String(
-            localized: "\(lines) lines", bundle: .module, comment: "Mailbox rows show this many lines of preview")
+            localized: "\(lines) lines", table: "Settings", bundle: .module,
+            comment: "Mailbox rows show this many lines of preview")
     }
 }

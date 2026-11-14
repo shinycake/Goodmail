@@ -123,8 +123,12 @@ final class ThreadRowContentView: UIView, UIContentView {
             showingMonogram: current.display.showsAvatars)
 
         accessibilityLabel = [
-            thread.isUnread ? String(localized: "Unread", bundle: .module, comment: "VoiceOver: thread state") : nil,
-            isMuted ? String(localized: "Muted", bundle: .module, comment: "VoiceOver: thread state") : nil,
+            thread.isUnread
+                ? String(localized: "Unread", table: "Mailbox", bundle: .module, comment: "VoiceOver: thread state")
+                : nil,
+            isMuted
+                ? String(localized: "Muted", table: "Mailbox", bundle: .module, comment: "VoiceOver: thread state")
+                : nil,
             current.account?.spokenAccount, name, subjectText, current.dateText,
             preview.isHidden ? nil : thread.snippet,
         ].compactMap(\.self).joined(separator: ", ")
@@ -154,7 +158,9 @@ enum ThreadRowMetrics {
         insets.leading + MonogramView.width(showingMonogram: display.showsAvatars) + avatarSpacing
     }
     static var noSubject: String {
-        String(localized: "(No Subject)", bundle: .module, comment: "Shown in place of an empty email subject")
+        String(
+            localized: "(No Subject)", table: "Mailbox", bundle: .module,
+            comment: "Shown in place of an empty email subject")
     }
 }
 

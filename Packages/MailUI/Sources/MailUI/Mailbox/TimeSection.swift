@@ -61,13 +61,20 @@ nonisolated public enum TimeSection: Hashable, Sendable {
 
     public func title(now: Date, calendar: Calendar) -> String {
         switch self {
-        case .thisMorning: String(localized: "This morning", bundle: .module, comment: "Mailbox section header")
-        case .thisAfternoon: String(localized: "This afternoon", bundle: .module, comment: "Mailbox section header")
-        case .thisEvening: String(localized: "This evening", bundle: .module, comment: "Mailbox section header")
-        case .yesterday: String(localized: "Yesterday", bundle: .module, comment: "Mailbox section header")
-        case .thisWeek: String(localized: "This week", bundle: .module, comment: "Mailbox section header")
-        case .lastWeek: String(localized: "Last week", bundle: .module, comment: "Mailbox section header")
-        case .thisMonth: String(localized: "This month", bundle: .module, comment: "Mailbox section header")
+        case .thisMorning:
+            String(localized: "This morning", table: "Mailbox", bundle: .module, comment: "Mailbox section header")
+        case .thisAfternoon:
+            String(localized: "This afternoon", table: "Mailbox", bundle: .module, comment: "Mailbox section header")
+        case .thisEvening:
+            String(localized: "This evening", table: "Mailbox", bundle: .module, comment: "Mailbox section header")
+        case .yesterday:
+            String(localized: "Yesterday", table: "Mailbox", bundle: .module, comment: "Mailbox section header")
+        case .thisWeek:
+            String(localized: "This week", table: "Mailbox", bundle: .module, comment: "Mailbox section header")
+        case .lastWeek:
+            String(localized: "Last week", table: "Mailbox", bundle: .module, comment: "Mailbox section header")
+        case .thisMonth:
+            String(localized: "This month", table: "Mailbox", bundle: .module, comment: "Mailbox section header")
         case .month(let year, let month):
             Self.monthTitle(year: year, month: month, now: now, calendar: calendar)
         }

@@ -71,18 +71,24 @@ public final class ComposeViewController: UIViewController {
         bodyView.textContainer.lineFragmentPadding = 0
         bodyView.delegate = self
         bodyView.accessibilityIdentifier = "compose.body"
-        bodyView.accessibilityLabel = String(localized: "Message", bundle: .module, comment: "The body field")
+        bodyView.accessibilityLabel = String(
+            localized: "Message", table: "Compose", bundle: .module, comment: "The body field")
 
         let showsCc = !viewModel.ccText.isEmpty || !viewModel.bccText.isEmpty
-        ccRow = row(String(localized: "Cc:", bundle: .module, comment: "Compose field label"), ccField)
-        bccRow = row(String(localized: "Bcc:", bundle: .module, comment: "Compose field label"), bccField)
+        ccRow = row(
+            String(localized: "Cc:", table: "Compose", bundle: .module, comment: "Compose field label"), ccField)
+        bccRow = row(
+            String(localized: "Bcc:", table: "Compose", bundle: .module, comment: "Compose field label"), bccField)
         ccRow.isHidden = !showsCc
         bccRow.isHidden = !showsCc
         toRow = row(
-            String(localized: "To:", bundle: .module, comment: "Compose field label"), toField, ccToggle: !showsCc)
+            String(localized: "To:", table: "Compose", bundle: .module, comment: "Compose field label"), toField,
+            ccToggle: !showsCc)
         let stack = UIStackView(arrangedSubviews: [
             toRow, ccRow, bccRow,
-            row(String(localized: "Subject:", bundle: .module, comment: "Compose field label"), subjectField),
+            row(
+                String(localized: "Subject:", table: "Compose", bundle: .module, comment: "Compose field label"),
+                subjectField),
             bodyView, attachmentsView,
         ])
         stack.axis = .vertical
@@ -142,16 +148,17 @@ public final class ComposeViewController: UIViewController {
     private func configureNavigation() {
         title =
             viewModel.isReply
-            ? String(localized: "Reply", bundle: .module, comment: "Composer title for a reply")
-            : String(localized: "New Message", bundle: .module, comment: "Composer title")
+            ? String(localized: "Reply", table: "Compose", bundle: .module, comment: "Composer title for a reply")
+            : String(localized: "New Message", table: "Compose", bundle: .module, comment: "Composer title")
         navigationItem.leftBarButtonItem = UIBarButtonItem(
             systemItem: .close,
             primaryAction: UIAction { [weak self] _ in self?.cancel() })
         sendItem.image = UIImage(systemName: "arrow.up")
         sendItem.style = .prominent
-        sendItem.accessibilityLabel = String(localized: "Send", bundle: .module, comment: "Sends the message")
+        sendItem.accessibilityLabel = String(
+            localized: "Send", table: "Compose", bundle: .module, comment: "Sends the message")
         sendItem.primaryAction = UIAction(
-            title: String(localized: "Send", bundle: .module, comment: "Sends the message"),
+            title: String(localized: "Send", table: "Compose", bundle: .module, comment: "Sends the message"),
             image: UIImage(systemName: "arrow.up")
         ) { [weak self] _ in self?.send() }
         // Touching and holding Send offers to send later.
@@ -247,7 +254,8 @@ public final class ComposeViewController: UIViewController {
         line.alignment = .firstBaseline
         if ccToggle {
             let toggle = UIButton(configuration: .plain())
-            toggle.configuration?.title = String(localized: "Cc/Bcc", bundle: .module, comment: "Shows Cc and Bcc")
+            toggle.configuration?.title = String(
+                localized: "Cc/Bcc", table: "Compose", bundle: .module, comment: "Shows Cc and Bcc")
             toggle.configuration?.contentInsets = .zero
             toggle.setContentHuggingPriority(.required, for: .horizontal)
             // A long recipient line scrolls in its field rather than squeezing the button.
@@ -279,7 +287,7 @@ public final class ComposeViewController: UIViewController {
     /// The account the message goes from, as a menu of the others.
     private func fromRow() -> UIView {
         let label = UILabel()
-        label.text = String(localized: "From:", bundle: .module, comment: "Compose field label")
+        label.text = String(localized: "From:", table: "Compose", bundle: .module, comment: "Compose field label")
         label.font = .preferredFont(forTextStyle: .body)
         label.textColor = .secondaryLabel
         label.adjustsFontForContentSizeCategory = true
@@ -315,7 +323,7 @@ public final class ComposeViewController: UIViewController {
         title.font = .preferredFont(forTextStyle: .body)
         fromButton.configuration?.attributedTitle = title
         fromButton.accessibilityLabel = String(
-            localized: "From: \(viewModel.accountEmail)", bundle: .module,
+            localized: "From: \(viewModel.accountEmail)", table: "Compose", bundle: .module,
             comment: "VoiceOver: the account the message is sent from")
         fromButton.menu = UIMenu(
             options: .singleSelection,
@@ -366,8 +374,12 @@ public final class ComposeViewController: UIViewController {
     private func updateQuoteButtonLabel() {
         quoteButton.accessibilityLabel =
             quoteLabel.isHidden
-            ? String(localized: "Show Quoted Text", bundle: .module, comment: "Accessibility label of the fold")
-            : String(localized: "Hide Quoted Text", bundle: .module, comment: "Accessibility label of the open fold")
+            ? String(
+                localized: "Show Quoted Text", table: "Compose", bundle: .module,
+                comment: "Accessibility label of the fold")
+            : String(
+                localized: "Hide Quoted Text", table: "Compose", bundle: .module,
+                comment: "Accessibility label of the open fold")
     }
 
     private func fieldChanged() {
@@ -414,12 +426,16 @@ public final class ComposeViewController: UIViewController {
             }
         }
         let pick = UIAction(
-            title: String(localized: "Choose a Time…", bundle: .module, comment: "Picks a later time from a calendar"),
+            title: String(
+                localized: "Choose a Time…", table: "Compose", bundle: .module,
+                comment: "Picks a later time from a calendar"),
             image: UIImage(systemName: "calendar")
         ) { [weak self] _ in self?.pickSendTime() }
         return [
             UIMenu(
-                title: String(localized: "Send Later", bundle: .module, comment: "Menu of times to send a message"),
+                title: String(
+                    localized: "Send Later", table: "Compose", bundle: .module,
+                    comment: "Menu of times to send a message"),
                 options: .displayInline, children: choices + [pick])
         ]
     }
@@ -427,9 +443,11 @@ public final class ComposeViewController: UIViewController {
     private func pickSendTime() {
         LaterPickerViewController.present(
             from: self,
-            title: String(localized: "Send Later", bundle: .module, comment: "Menu of times to send a message"),
+            title: String(
+                localized: "Send Later", table: "Compose", bundle: .module, comment: "Menu of times to send a message"),
             actionTitle: String(
-                localized: "Schedule", bundle: .module, comment: "Schedules the message for the picked time"),
+                localized: "Schedule", table: "Compose", bundle: .module,
+                comment: "Schedules the message for the picked time"),
             initial: LaterTime.sendChoices(at: .now).first?.date
         ) { [weak self] date in self?.send(at: .at(date)) }
     }
@@ -440,7 +458,8 @@ public final class ComposeViewController: UIViewController {
         let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         sheet.addAction(
             UIAlertAction(
-                title: String(localized: "Delete Draft", bundle: .module, comment: "Discards the message"),
+                title: String(
+                    localized: "Delete Draft", table: "Compose", bundle: .module, comment: "Discards the message"),
                 style: .destructive
             ) { [weak self] _ in
                 self?.viewModel.deleteDraft()
@@ -449,7 +468,9 @@ public final class ComposeViewController: UIViewController {
         if viewModel.canSaveDraft {
             sheet.addAction(
                 UIAlertAction(
-                    title: String(localized: "Save Draft", bundle: .module, comment: "Keeps the message in Drafts"),
+                    title: String(
+                        localized: "Save Draft", table: "Compose", bundle: .module,
+                        comment: "Keeps the message in Drafts"),
                     style: .default
                 ) { [weak self] _ in
                     guard let self else { return }
@@ -459,7 +480,8 @@ public final class ComposeViewController: UIViewController {
         }
         sheet.addAction(
             UIAlertAction(
-                title: String(localized: "Keep Editing", bundle: .module, comment: "Returns to the message"),
+                title: String(
+                    localized: "Keep Editing", table: "Compose", bundle: .module, comment: "Returns to the message"),
                 style: .cancel))
         sheet.popoverPresentationController?.sourceItem = navigationItem.leftBarButtonItem
         present(sheet, animated: true)

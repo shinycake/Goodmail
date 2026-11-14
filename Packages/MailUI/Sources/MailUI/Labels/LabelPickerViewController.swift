@@ -13,7 +13,9 @@ public final class LabelPickerViewController: UIViewController {
         selection = LabelSelection(labels: labels, threads: threads)
         self.apply = apply
         super.init(nibName: nil, bundle: nil)
-        title = String(localized: "Labels", bundle: .module, comment: "Section of user labels in the mailbox list")
+        title = String(
+            localized: "Labels", table: "Labels", bundle: .module, comment: "Section of user labels in the mailbox list"
+        )
     }
 
     @available(*, unavailable)
@@ -70,10 +72,16 @@ public final class LabelPickerViewController: UIViewController {
 
     private static func accessibilityValue(_ state: LabelSelection.State) -> String {
         switch state {
-        case .on: String(localized: "On", bundle: .module, comment: "VoiceOver: the threads carry this label")
-        case .off: String(localized: "Off", bundle: .module, comment: "VoiceOver: the threads lack this label")
+        case .on:
+            String(
+                localized: "On", table: "Labels", bundle: .module, comment: "VoiceOver: the threads carry this label")
+        case .off:
+            String(
+                localized: "Off", table: "Labels", bundle: .module, comment: "VoiceOver: the threads lack this label")
         case .mixed:
-            String(localized: "Some", bundle: .module, comment: "VoiceOver: some of the threads carry this label")
+            String(
+                localized: "Some", table: "Labels", bundle: .module,
+                comment: "VoiceOver: some of the threads carry this label")
         }
     }
 }

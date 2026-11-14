@@ -20,25 +20,33 @@ struct AccountSettingsView: View {
             Section {
                 TextField(
                     text: $name,
-                    prompt: Text("Your Name", bundle: .module, comment: "Placeholder for an account's sender name")
+                    prompt: Text(
+                        "Your Name", tableName: "Settings", bundle: .module,
+                        comment: "Placeholder for an account's sender name")
                 ) {
-                    Text("Name", bundle: .module, comment: "Label of an account's sender name field")
+                    Text(
+                        "Name", tableName: "Settings", bundle: .module,
+                        comment: "Label of an account's sender name field")
                 }
                 .textContentType(.name)
                 .submitLabel(.done)
                 .onSubmit { model.rename(accountID, to: name) }
             } header: {
-                Text("Name", bundle: .module, comment: "Settings section for an account's sender name")
+                Text(
+                    "Name", tableName: "Settings", bundle: .module,
+                    comment: "Settings section for an account's sender name")
             } footer: {
                 Text(
-                    "Shown to the people you write to from \(account.email).", bundle: .module,
+                    "Shown to the people you write to from \(account.email).", tableName: "Settings", bundle: .module,
                     comment: "Explains an account's sender name")
             }
 
             Section {
                 ColorChoices(selection: account.color) { model.setColor($0, for: accountID) }
             } header: {
-                Text("Color", bundle: .module, comment: "Settings section for an account's theme color")
+                Text(
+                    "Color", tableName: "Settings", bundle: .module,
+                    comment: "Settings section for an account's theme color")
             }
 
             if account.service.hasInboxCategories {
@@ -48,12 +56,14 @@ struct AccountSettingsView: View {
                             get: { model.sortsInbox(accountID) },
                             set: { model.setSortsInbox($0, for: accountID) })
                     ) {
-                        Text("Inbox Categories", bundle: .module, comment: "Setting for Gmail's Inbox categories")
+                        Text(
+                            "Inbox Categories", tableName: "Settings", bundle: .module,
+                            comment: "Setting for Gmail's Inbox categories")
                     }
                 } footer: {
                     Text(
                         "Sorts the Inbox into Primary, Promotions, Social, Updates and Forums, as Gmail does.",
-                        bundle: .module, comment: "Explains the Inbox Categories setting")
+                        tableName: "Settings", bundle: .module, comment: "Explains the Inbox Categories setting")
                 }
             }
 
@@ -61,7 +71,9 @@ struct AccountSettingsView: View {
                 Button(role: .destructive) {
                     isConfirmingRemoval = true
                 } label: {
-                    Text("Remove Account", bundle: .module, comment: "Removes an account from the device")
+                    Text(
+                        "Remove Account", tableName: "Settings", bundle: .module,
+                        comment: "Removes an account from the device")
                 }
             }
         }
@@ -71,19 +83,21 @@ struct AccountSettingsView: View {
         // Leaving without pressing Done keeps what was typed.
         .onDisappear { model.rename(accountID, to: name) }
         .confirmationDialog(
-            Text("Remove Account?", bundle: .module, comment: "Asks before removing an account"),
+            Text("Remove Account?", tableName: "Settings", bundle: .module, comment: "Asks before removing an account"),
             isPresented: $isConfirmingRemoval, titleVisibility: .visible
         ) {
             Button(role: .destructive) {
                 dismiss()
                 Task { await model.removeAccount(accountID) }
             } label: {
-                Text("Remove Account", bundle: .module, comment: "Removes an account from the device")
+                Text(
+                    "Remove Account", tableName: "Settings", bundle: .module,
+                    comment: "Removes an account from the device")
             }
         } message: {
             Text(
                 "\(account.email) and its mail are removed from this device. Nothing is deleted from Gmail.",
-                bundle: .module, comment: "Explains what removing an account does")
+                tableName: "Settings", bundle: .module, comment: "Explains what removing an account does")
         }
     }
 }

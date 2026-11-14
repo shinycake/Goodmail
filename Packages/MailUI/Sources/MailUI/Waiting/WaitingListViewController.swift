@@ -192,43 +192,52 @@ extension WaitingListStyle {
     static var scheduled: WaitingListStyle {
         WaitingListStyle(
             title: String(
-                localized: "Scheduled", bundle: .module, comment: "Mailbox: messages waiting to be sent later"),
+                localized: "Scheduled", table: "Waiting", bundle: .module,
+                comment: "Mailbox: messages waiting to be sent later"),
             emptySymbol: "clock",
             emptyText: String(
-                localized: "Nothing Scheduled", bundle: .module,
+                localized: "Nothing Scheduled", table: "Waiting", bundle: .module,
                 comment: "Shown when no message waits to be sent later"),
             emptyHint: String(
-                localized: "Touch and hold Send to pick when a message goes.", bundle: .module,
+                localized: "Touch and hold Send to pick when a message goes.", table: "Waiting", bundle: .module,
                 comment: "Explains how to schedule a message"),
             footer: String(
                 localized:
                     "Goodmail sends these from this device. One may go a little late if the device is off or offline at the time.",
-                bundle: .module, comment: "Explains that scheduled messages are sent by the device"),
-            openTitle: String(localized: "Edit", bundle: .module, comment: "Opens a scheduled message to change it"),
+                table: "Waiting", bundle: .module, comment: "Explains that scheduled messages are sent by the device"),
+            openTitle: String(
+                localized: "Edit", table: "Waiting", bundle: .module, comment: "Opens a scheduled message to change it"),
             openSymbol: "pencil",
             takeBackTitle: String(
-                localized: "Move to Drafts", bundle: .module, comment: "Keeps a scheduled message in Drafts instead"),
+                localized: "Move to Drafts", table: "Waiting", bundle: .module,
+                comment: "Keeps a scheduled message in Drafts instead"),
             takeBackSymbol: "doc",
             accessibilityIdentifier: "scheduled")
     }
 
     static var snoozed: WaitingListStyle {
         WaitingListStyle(
-            title: String(localized: "Snoozed", bundle: .module, comment: "Mailbox: threads snoozed until later"),
+            title: String(
+                localized: "Snoozed", table: "Waiting", bundle: .module, comment: "Mailbox: threads snoozed until later"
+            ),
             emptySymbol: "moon.zzz",
             emptyText: String(
-                localized: "Nothing Snoozed", bundle: .module, comment: "Shown when no thread is snoozed"),
+                localized: "Nothing Snoozed", table: "Waiting", bundle: .module,
+                comment: "Shown when no thread is snoozed"),
             emptyHint: String(
-                localized: "Snooze a thread to have it come back to the Inbox later.", bundle: .module,
+                localized: "Snooze a thread to have it come back to the Inbox later.", table: "Waiting",
+                bundle: .module,
                 comment: "Explains what snoozing does"),
             footer: String(
                 localized:
                     "Snoozed threads come back to the Inbox, unread, when Goodmail next checks for mail after their time.",
-                bundle: .module, comment: "Explains when snoozed threads come back"),
-            openTitle: String(localized: "Open", bundle: .module, comment: "Opens a snoozed thread to read it"),
+                table: "Waiting", bundle: .module, comment: "Explains when snoozed threads come back"),
+            openTitle: String(
+                localized: "Open", table: "Waiting", bundle: .module, comment: "Opens a snoozed thread to read it"),
             openSymbol: "envelope.open",
             takeBackTitle: String(
-                localized: "Move to Inbox", bundle: .module, comment: "Puts a snoozed thread back in the Inbox now"),
+                localized: "Move to Inbox", table: "Waiting", bundle: .module,
+                comment: "Puts a snoozed thread back in the Inbox now"),
             takeBackSymbol: "tray",
             accessibilityIdentifier: "snoozed")
     }

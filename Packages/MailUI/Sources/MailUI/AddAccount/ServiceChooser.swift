@@ -30,7 +30,9 @@ extension View {
     /// Shows the adder's last failed sign-in.
     func signInFailureAlert(_ adder: AccountAdder) -> some View {
         alert(
-            Text("Couldn’t Add Account", bundle: .module, comment: "Sign-in failure alert title"),
+            Text(
+                "Couldn’t Add Account", tableName: "AddAccount", bundle: .module, comment: "Sign-in failure alert title"
+            ),
             isPresented: Binding(get: { adder.error != nil }, set: { if !$0 { adder.error = nil } })
         ) {
         } message: {

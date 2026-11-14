@@ -34,7 +34,9 @@ struct ICloudSignInView: View {
         Form {
             Section {
                 TextField(
-                    String(localized: "iCloud Address", bundle: .module, comment: "iCloud sign-in: the address field"),
+                    String(
+                        localized: "iCloud Address", table: "AddAccount", bundle: .module,
+                        comment: "iCloud sign-in: the address field"),
                     text: $email
                 )
                 .textContentType(.username)
@@ -44,7 +46,7 @@ struct ICloudSignInView: View {
                 .focused($focusedField, equals: .email)
                 SecureField(
                     String(
-                        localized: "App-Specific Password", bundle: .module,
+                        localized: "App-Specific Password", table: "AddAccount", bundle: .module,
                         comment: "iCloud sign-in: the password field"),
                     text: $appPassword
                 )
@@ -54,9 +56,12 @@ struct ICloudSignInView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(
                         "iCloud Mail needs an app-specific password, not your Apple Account password. Make one under Sign-In and Security.",
-                        bundle: .module, comment: "iCloud sign-in: why and where to make an app-specific password")
+                        tableName: "AddAccount", bundle: .module,
+                        comment: "iCloud sign-in: why and where to make an app-specific password")
                     Link(destination: Self.appPasswords) {
-                        Text("Open account.apple.com", bundle: .module, comment: "iCloud sign-in: opens Apple's site")
+                        Text(
+                            "Open account.apple.com", tableName: "AddAccount", bundle: .module,
+                            comment: "iCloud sign-in: opens Apple's site")
                     }
                 }
             }
@@ -79,7 +84,9 @@ struct ICloudSignInView: View {
                 Button {
                     finished(false)
                 } label: {
-                    Text("Cancel", bundle: .module, comment: "Closes the iCloud sign-in without adding the account")
+                    Text(
+                        "Cancel", tableName: "AddAccount", bundle: .module,
+                        comment: "Closes the iCloud sign-in without adding the account")
                 }
                 .disabled(stage == .checking)
             }
@@ -90,7 +97,9 @@ struct ICloudSignInView: View {
                     Button {
                         stage = .checking
                     } label: {
-                        Text("Sign In", bundle: .module, comment: "Checks the iCloud address and password")
+                        Text(
+                            "Sign In", tableName: "AddAccount", bundle: .module,
+                            comment: "Checks the iCloud address and password")
                     }
                     .disabled(!canSubmit)
                 }
@@ -114,7 +123,8 @@ struct ICloudSignInView: View {
                 failure: String(
                     localized:
                         "iCloud didn’t accept this address and password. Check that it’s an app-specific password, not your Apple Account password.",
-                    bundle: .module, comment: "iCloud sign-in: the address or password was refused"))
+                    table: "AddAccount", bundle: .module, comment: "iCloud sign-in: the address or password was refused"
+                ))
         } catch {
             stage = .editing(failure: error.localizedDescription)
         }

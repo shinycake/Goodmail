@@ -13,10 +13,13 @@ struct WelcomeView: View {
                     .font(.system(size: 56))
                     .foregroundStyle(.tint)
                     .accessibilityHidden(true)
-                Text("Goodmail", bundle: .module, comment: "The app's name, as the welcome screen's title")
-                    .font(Font(Typography.title))
                 Text(
-                    "Fast, simple mail. Add an account to get started.", bundle: .module,
+                    "Goodmail", tableName: "Welcome", bundle: .module,
+                    comment: "The app's name, as the welcome screen's title"
+                )
+                .font(Font(Typography.title))
+                Text(
+                    "Fast, simple mail. Add an account to get started.", tableName: "Welcome", bundle: .module,
                     comment: "Welcome screen: what the app is and what to do first"
                 )
                 .font(.body)

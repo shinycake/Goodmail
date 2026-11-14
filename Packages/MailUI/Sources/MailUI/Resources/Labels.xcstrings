@@ -1,0 +1,50 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Labels" : {
+      "comment" : "Header above the user's labels",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תוויות"
+          }
+        }
+      }
+    },
+    "Off" : {
+      "comment" : "VoiceOver: the threads lack this label",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא מסומן"
+          }
+        }
+      }
+    },
+    "On" : {
+      "comment" : "VoiceOver: the threads carry this label",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מסומן"
+          }
+        }
+      }
+    },
+    "Some" : {
+      "comment" : "VoiceOver: some of the threads carry this label",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חלקית"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

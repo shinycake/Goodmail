@@ -10,7 +10,9 @@ struct ThemeSection: View {
         Section {
             Toggle(isOn: $model.wearsGradient) {
                 Label {
-                    Text("Gradient", bundle: .module, comment: "Setting for a gradient of every account's color")
+                    Text(
+                        "Gradient", tableName: "Settings", bundle: .module,
+                        comment: "Setting for a gradient of every account's color")
                 } icon: {
                     Capsule()
                         .fill(
@@ -26,11 +28,13 @@ struct ThemeSection: View {
                 ColorChoices(selection: color) { model.combinedTheme = .solid($0) }
             }
         } header: {
-            Text("Theme", bundle: .module, comment: "Settings section for the color of views showing every account")
+            Text(
+                "Theme", tableName: "Settings", bundle: .module,
+                comment: "Settings section for the color of views showing every account")
         } footer: {
             Text(
                 "Views that show every account, like the unified inbox, wear a gradient of your account colors. Turn it off to choose one color.",
-                bundle: .module, comment: "Explains the Gradient setting")
+                tableName: "Settings", bundle: .module, comment: "Explains the Gradient setting")
         }
     }
 }

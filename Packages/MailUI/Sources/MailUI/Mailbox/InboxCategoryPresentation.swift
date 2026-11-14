@@ -6,23 +6,23 @@ extension InboxCategory {
         switch self {
         case .primary:
             String(
-                localized: "InboxCategory.Primary", defaultValue: "Primary", bundle: .module,
+                localized: "InboxCategory.Primary", defaultValue: "Primary", table: "Mailbox", bundle: .module,
                 comment: "Inbox category: personal mail and anything Gmail didn't sort")
         case .promotions:
             String(
-                localized: "InboxCategory.Promotions", defaultValue: "Promotions", bundle: .module,
+                localized: "InboxCategory.Promotions", defaultValue: "Promotions", table: "Mailbox", bundle: .module,
                 comment: "Inbox category: deals and offers")
         case .social:
             String(
-                localized: "InboxCategory.Social", defaultValue: "Social", bundle: .module,
+                localized: "InboxCategory.Social", defaultValue: "Social", table: "Mailbox", bundle: .module,
                 comment: "Inbox category: social networks")
         case .updates:
             String(
-                localized: "InboxCategory.Updates", defaultValue: "Updates", bundle: .module,
+                localized: "InboxCategory.Updates", defaultValue: "Updates", table: "Mailbox", bundle: .module,
                 comment: "Inbox category: receipts, bills and notifications")
         case .forums:
             String(
-                localized: "InboxCategory.Forums", defaultValue: "Forums", bundle: .module,
+                localized: "InboxCategory.Forums", defaultValue: "Forums", table: "Mailbox", bundle: .module,
                 comment: "Inbox category: mailing lists and groups")
         }
     }
@@ -67,7 +67,7 @@ extension MailboxViewController {
     ) {
         button.configuration?.title = selected.title
         button.accessibilityLabel = String(
-            localized: "Inbox category: \(selected.title)", bundle: .module,
+            localized: "Inbox category: \(selected.title)", table: "Mailbox", bundle: .module,
             comment: "VoiceOver: the Inbox category menu, with the category shown")
         button.menu = UIMenu(
             children: InboxCategory.allCases.map { category in
@@ -76,7 +76,7 @@ extension MailboxViewController {
                 }
                 if let unread = unreadCounts[category] {
                     action.subtitle = String(
-                        localized: "\(unread) unread", bundle: .module,
+                        localized: "\(unread) unread", table: "Mailbox", bundle: .module,
                         comment: "Inbox category menu: unread threads in a category")
                 }
                 action.state = category == selected ? .on : .off

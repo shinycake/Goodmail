@@ -1,0 +1,547 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@, %@" : {
+      "comment" : "Later choice: a morning on another day, as weekday and time",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$@"
+          }
+        }
+      }
+    },
+    "%lld archived" : {
+      "comment" : "Toast after archiving threads",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Archived"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld threads archived"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "הועבר לארכיון"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld שרשורים הועברו לארכיון"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld moved to %@" : {
+      "comment" : "Toast after moving threads; the second value is the mailbox or label they went to",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@count@ to %2$@"
+          },
+          "substitutions" : {
+            "count" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "Moved"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg threads moved"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@count@ אל %2$@"
+          },
+          "substitutions" : {
+            "count" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "הועבר"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg שרשורים הועברו"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld moved to Inbox" : {
+      "comment" : "Toast after putting snoozed threads back in the Inbox",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Moved to Inbox"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld threads moved to Inbox"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "הועבר לדואר הנכנס"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld שרשורים הועברו לדואר הנכנס"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld moved to Trash" : {
+      "comment" : "Toast after trashing threads",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Moved to Trash"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld threads moved to Trash"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "הועבר לפח"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld שרשורים הועברו לפח"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld muted" : {
+      "comment" : "Toast after muting threads",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Muted"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld threads muted"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "הושתק"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld שרשורים הושתקו"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld reported as spam" : {
+      "comment" : "Toast after reporting spam",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Reported as spam"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld threads reported as spam"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "דווח כספאם"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld שרשורים דווחו כספאם"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Archive" : {
+      "comment" : "Action: archive a thread",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה לארכיון"
+          }
+        }
+      }
+    },
+    "Change Labels" : {
+      "comment" : "Action: add or remove labels",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שינוי תוויות"
+          }
+        }
+      }
+    },
+    "Choose a Time…" : {
+      "comment" : "Picks a later time from a calendar",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בחר שעה…"
+          }
+        }
+      }
+    },
+    "Mark as Read" : {
+      "comment" : "Action",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סימון כנקרא"
+          }
+        }
+      }
+    },
+    "Mark as Unread" : {
+      "comment" : "Action",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סימון כלא נקרא"
+          }
+        }
+      }
+    },
+    "Move Out of Trash" : {
+      "comment" : "Action: restore a thread",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הוצאה מהפח"
+          }
+        }
+      }
+    },
+    "Move to Inbox" : {
+      "comment" : "Action: back to the Inbox",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה לדואר הנכנס"
+          }
+        }
+      }
+    },
+    "Move to…" : {
+      "comment" : "Action: move threads to another mailbox",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה אל…"
+          }
+        }
+      }
+    },
+    "Mute" : {
+      "comment" : "Action: keep a thread's replies out of the Inbox",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השתקה"
+          }
+        }
+      }
+    },
+    "Organize" : {
+      "comment" : "Button: move threads or change labels",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ארגון"
+          }
+        }
+      }
+    },
+    "Report Spam" : {
+      "comment" : "Action: report a thread as spam",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דיווח כספאם"
+          }
+        }
+      }
+    },
+    "Scheduled for %@" : {
+      "comment" : "Toast after scheduling a message, with when it goes",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מתוזמן ל%@"
+          }
+        }
+      }
+    },
+    "Sending…" : {
+      "comment" : "Toast while a message waits to go",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שולח…"
+          }
+        }
+      }
+    },
+    "Snooze" : {
+      "comment" : "Hides threads until a later time",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נודניק"
+          }
+        }
+      }
+    },
+    "Snooze Until" : {
+      "comment" : "Menu of times to snooze threads until",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נודניק עד"
+          }
+        }
+      }
+    },
+    "Snoozed until %@" : {
+      "comment" : "Toast after snoozing threads, with when they come back",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נודניק עד %@"
+          }
+        }
+      }
+    },
+    "Star" : {
+      "comment" : "Action: star a thread",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סימון בכוכב"
+          }
+        }
+      }
+    },
+    "This Evening, %@" : {
+      "comment" : "Later choice: this evening, with the time",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "היום בערב, %@"
+          }
+        }
+      }
+    },
+    "Tomorrow, %@" : {
+      "comment" : "Later choice: tomorrow morning, with the time",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחר, %@"
+          }
+        }
+      }
+    },
+    "Tonight, %@" : {
+      "comment" : "Later choice: tonight, with the time",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הערב, %@"
+          }
+        }
+      }
+    },
+    "Trash" : {
+      "comment" : "Action: move a thread to Trash",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה לפח"
+          }
+        }
+      }
+    },
+    "Undo" : {
+      "comment" : "Undoes the last action",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ביטול"
+          }
+        }
+      }
+    },
+    "Unmute" : {
+      "comment" : "Action: let a thread's replies reach the Inbox again",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ביטול השתקה"
+          }
+        }
+      }
+    },
+    "Unstar" : {
+      "comment" : "Action: remove a thread's star",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הסרת כוכב"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

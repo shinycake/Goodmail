@@ -16,7 +16,7 @@ public final class MoveViewController: UIViewController {
         self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
         title = String(
-            localized: "move.title", defaultValue: "Move To", bundle: .module,
+            localized: "move.title", defaultValue: "Move To", table: "Move", bundle: .module,
             comment: "Title of the sheet that picks where threads move")
     }
 
@@ -51,7 +51,8 @@ public final class MoveViewController: UIViewController {
         ) { cell, _, _ in
             var content = cell.defaultContentConfiguration()
             content.text = String(
-                localized: "Labels", bundle: .module, comment: "Section of user labels in the mailbox list")
+                localized: "Labels", table: "Move", bundle: .module,
+                comment: "Section of user labels in the mailbox list")
             cell.contentConfiguration = content
         }
         dataSource = UICollectionViewDiffableDataSource(collectionView: collectionView) { [weak self] view, path, id in

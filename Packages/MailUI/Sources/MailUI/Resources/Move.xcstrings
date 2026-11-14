@@ -1,0 +1,51 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Labels" : {
+      "comment" : "Header above the user's labels",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תוויות"
+          }
+        }
+      }
+    },
+    "move.archive" : {
+      "comment" : "Move destination: out of the Inbox, with no label",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archive"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ארכיון"
+          }
+        }
+      }
+    },
+    "move.title" : {
+      "comment" : "Title of the sheet that picks where threads move",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move To"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה אל"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

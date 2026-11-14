@@ -44,7 +44,9 @@ public final class SnoozedViewModel: WaitingListModel {
         return WaitingRow(
             id: thread.id, title: thread.sender.displayName,
             subtitle: thread.subject.isEmpty
-                ? String(localized: "No Subject", bundle: .module, comment: "Shown for a message without a subject")
+                ? String(
+                    localized: "No Subject", table: "Snoozed", bundle: .module,
+                    comment: "Shown for a message without a subject")
                 : thread.subject,
             time: ScheduledTime.text(for: snoozed.wakeAt),
             accountColor: accounts.count > 1 ? accounts.first { $0.id == thread.id.accountID }?.color : nil)

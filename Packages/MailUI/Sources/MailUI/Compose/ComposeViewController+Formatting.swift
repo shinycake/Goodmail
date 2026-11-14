@@ -60,7 +60,8 @@ extension ComposeViewController {
     private func askForLink() {
         let current = currentFormatting.link
         let alert = UIAlertController(
-            title: String(localized: "Link", bundle: .module, comment: "Formatting: links the selection"),
+            title: String(
+                localized: "Link", table: "Compose", bundle: .module, comment: "Formatting: links the selection"),
             message: nil, preferredStyle: .alert)
         alert.addTextField { field in
             field.text = current?.absoluteString
@@ -73,15 +74,20 @@ extension ComposeViewController {
         if current != nil {
             alert.addAction(
                 UIAlertAction(
-                    title: String(localized: "Remove Link", bundle: .module, comment: "Formatting: unlinks the text"),
+                    title: String(
+                        localized: "Remove Link", table: "Compose", bundle: .module,
+                        comment: "Formatting: unlinks the text"),
                     style: .destructive
                 ) { [weak self] _ in self?.applyFormatting(.link(nil)) })
         }
         alert.addAction(
             UIAlertAction(
-                title: String(localized: "Cancel", bundle: .module, comment: "Closes the link prompt"), style: .cancel))
+                title: String(
+                    localized: "Cancel", table: "Compose", bundle: .module, comment: "Closes the link prompt"),
+                style: .cancel))
         let done = UIAlertAction(
-            title: String(localized: "Done", bundle: .module, comment: "Applies the link"), style: .default
+            title: String(localized: "Done", table: "Compose", bundle: .module, comment: "Applies the link"),
+            style: .default
         ) { [weak self, weak alert] _ in
             guard let url = FormattingCommand.linkURL(from: alert?.textFields?.first?.text ?? "") else { return }
             self?.applyFormatting(.link(url))

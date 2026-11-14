@@ -1,0 +1,116 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Add Account" : {
+      "comment" : "Adds another mail account",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הוסף חשבון"
+          }
+        }
+      }
+    },
+    "App-Specific Password" : {
+      "comment" : "iCloud sign-in: the password field",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סיסמה ייעודית ליישום"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "comment" : "Closes the link prompt",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ביטול"
+          }
+        }
+      }
+    },
+    "Couldn’t Add Account" : {
+      "comment" : "Sign-in failure alert title",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן להוסיף את החשבון"
+          }
+        }
+      }
+    },
+    "Goodmail keeps your mail on this device and talks to your provider directly." : {
+      "comment" : "Add Account: where mail is kept",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Goodmail שומר את הדואר שלך במכשיר הזה ומתקשר ישירות עם ספק הדואר."
+          }
+        }
+      }
+    },
+    "Open account.apple.com" : {
+      "comment" : "iCloud sign-in: opens Apple's site",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פתח את account.apple.com"
+          }
+        }
+      }
+    },
+    "Sign In" : {
+      "comment" : "Checks the iCloud address and password",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "התחבר"
+          }
+        }
+      }
+    },
+    "iCloud Address" : {
+      "comment" : "iCloud sign-in: the address field",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כתובת iCloud"
+          }
+        }
+      }
+    },
+    "iCloud Mail needs an app-specific password, not your Apple Account password. Make one under Sign-In and Security." : {
+      "comment" : "iCloud sign-in: why and where to make an app-specific password",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‏iCloud Mail דורש סיסמה ייעודית ליישום, לא את סיסמת חשבון Apple. אפשר ליצור אחת תחת ״התחברות ואבטחה״."
+          }
+        }
+      }
+    },
+    "iCloud didn’t accept this address and password. Check that it’s an app-specific password, not your Apple Account password." : {
+      "comment" : "iCloud sign-in: the address or password was refused",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‏iCloud לא קיבל את הכתובת והסיסמה. ודא שזו סיסמה ייעודית ליישום ולא סיסמת חשבון Apple."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

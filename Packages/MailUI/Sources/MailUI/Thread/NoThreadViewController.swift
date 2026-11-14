@@ -8,7 +8,7 @@ public final class NoThreadViewController: UIViewController {
         var empty = UIContentUnavailableConfiguration.empty()
         empty.image = UIImage(systemName: "envelope")
         empty.text = String(
-            localized: "No Message Selected", bundle: .module,
+            localized: "No Message Selected", table: "Thread", bundle: .module,
             comment: "Shown beside the list on iPad while no thread is open")
         contentUnavailableConfiguration = empty
     }

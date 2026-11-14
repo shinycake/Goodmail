@@ -23,18 +23,22 @@ final class FormattingBar: UIToolbar {
             return (style, item)
         }
         listItem.image = UIImage(systemName: "list.bullet")
-        listItem.accessibilityLabel = String(localized: "List", bundle: .module, comment: "Formatting: the list menu")
+        listItem.accessibilityLabel = String(
+            localized: "List", table: "Compose", bundle: .module, comment: "Formatting: the list menu")
         quoteItem.primaryAction = UIAction(
-            title: String(localized: "Quote", bundle: .module, comment: "Formatting: quotes the paragraph"),
+            title: String(
+                localized: "Quote", table: "Compose", bundle: .module, comment: "Formatting: quotes the paragraph"),
             image: UIImage(systemName: "text.quote")
         ) { [weak self] _ in self?.onCommand(.block(.quote)) }
         linkItem.primaryAction = UIAction(
-            title: String(localized: "Link", bundle: .module, comment: "Formatting: links the selection"),
+            title: String(
+                localized: "Link", table: "Compose", bundle: .module, comment: "Formatting: links the selection"),
             image: UIImage(systemName: "link")
         ) { [weak self] _ in self?.onLink() }
         directionItem.image = UIImage(systemName: "arrow.left.arrow.right")
         directionItem.accessibilityLabel = String(
-            localized: "Text Direction", bundle: .module, comment: "Formatting: the paragraph direction menu")
+            localized: "Text Direction", table: "Compose", bundle: .module,
+            comment: "Formatting: the paragraph direction menu")
         let controls = styleItems.map(\.1) + [listItem, quoteItem, linkItem, directionItem]
         items = controls.flatMap { [$0, .flexibleSpace()] }.dropLast()
         show(nil)
@@ -52,11 +56,15 @@ final class FormattingBar: UIToolbar {
             children: [
                 (
                     RichText.Block.bulleted, "list.bullet",
-                    String(localized: "Bulleted List", bundle: .module, comment: "Formatting: a bulleted list")
+                    String(
+                        localized: "Bulleted List", table: "Compose", bundle: .module,
+                        comment: "Formatting: a bulleted list")
                 ),
                 (
                     .numbered, "list.number",
-                    String(localized: "Numbered List", bundle: .module, comment: "Formatting: a numbered list")
+                    String(
+                        localized: "Numbered List", table: "Compose", bundle: .module,
+                        comment: "Formatting: a numbered list")
                 ),
             ].map { list, symbol, title in
                 UIAction(title: title, image: UIImage(systemName: symbol), state: block == list ? .on : .off) {
@@ -68,7 +76,8 @@ final class FormattingBar: UIToolbar {
         let direction = formatting?.direction ?? .auto
         directionItem.menu = UIMenu(
             title: String(
-                localized: "Text Direction", bundle: .module, comment: "Formatting: the paragraph direction menu"),
+                localized: "Text Direction", table: "Compose", bundle: .module,
+                comment: "Formatting: the paragraph direction menu"),
             options: .singleSelection,
             children: RichText.Direction.allCases.map { choice in
                 UIAction(title: choice.title, state: choice == direction ? .on : .off) { [weak self] _ in
@@ -81,11 +90,14 @@ final class FormattingBar: UIToolbar {
 extension RichText.Style {
     fileprivate var title: String {
         switch self {
-        case .bold: String(localized: "Bold", bundle: .module, comment: "Formatting: bold text")
-        case .italic: String(localized: "Italic", bundle: .module, comment: "Formatting: italic text")
-        case .underline: String(localized: "Underline", bundle: .module, comment: "Formatting: underlined text")
+        case .bold: String(localized: "Bold", table: "Compose", bundle: .module, comment: "Formatting: bold text")
+        case .italic: String(localized: "Italic", table: "Compose", bundle: .module, comment: "Formatting: italic text")
+        case .underline:
+            String(localized: "Underline", table: "Compose", bundle: .module, comment: "Formatting: underlined text")
         case .strikethrough:
-            String(localized: "Strikethrough", bundle: .module, comment: "Formatting: struck-through text")
+            String(
+                localized: "Strikethrough", table: "Compose", bundle: .module,
+                comment: "Formatting: struck-through text")
         }
     }
 
@@ -103,9 +115,13 @@ extension RichText.Direction {
     fileprivate var title: String {
         switch self {
         case .auto:
-            String(localized: "Automatic", bundle: .module, comment: "Text direction: follows what is typed")
-        case .leftToRight: String(localized: "Left to Right", bundle: .module, comment: "Text direction")
-        case .rightToLeft: String(localized: "Right to Left", bundle: .module, comment: "Text direction")
+            String(
+                localized: "Automatic", table: "Compose", bundle: .module,
+                comment: "Text direction: follows what is typed")
+        case .leftToRight:
+            String(localized: "Left to Right", table: "Compose", bundle: .module, comment: "Text direction")
+        case .rightToLeft:
+            String(localized: "Right to Left", table: "Compose", bundle: .module, comment: "Text direction")
         }
     }
 }
