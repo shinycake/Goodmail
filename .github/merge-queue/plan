@@ -31,16 +31,13 @@ assess() {
         printf 'waiting\tIt changes .github/, the gate itself, so the owner merges it.\n'
         return
     fi
-    # The merge job's own verdict (a conflict, or a failing check on the PR merged with main) holds until main moves.
+    # The verifier's own verdict (a conflict, or a failing check on the PR squashed onto main) holds until main moves.
+    # GitHub's `mergeable` doesn't decide: it flagged #162 as conflicting though git merges it cleanly, so the
+    # verifier's real squash does.
     local last
     last=$(last_status "$sha")
     if [[ "$last" == failure$'\t'*"$on_main" ]]; then
         printf 'stuck\t%s\n' "${last#*$'\t'}"
-        return
-    fi
-    if [[ "$(gh api "repos/$R/pulls/$pr" --jq .mergeable)" == false ]]; then
-        notify "$pr" "conflict $sha $main" "The merge queue can't merge this: it conflicts with main at ${main:0:7}. Merge main into the branch and push."
-        printf 'stuck\tIt conflicts with main. Merge main into the branch and push. %s\n' "$on_main"
         return
     fi
 
@@ -48,7 +45,13 @@ assess() {
     run=$(gh api "repos/$R/actions/workflows/review.yml/runs?head_sha=$sha&event=pull_request&per_page=100" \
         --jq '.workflow_runs | max_by(.id) // empty | [.id, .status, (.conclusion // "-"), .run_attempt, (.referenced_workflows[0].sha // "-")] | @tsv')
     if [[ -z "$run" ]]; then
-        printf 'waiting\tWaiting for the review run to start.\n'
+        # GitHub runs no pull_request workflow on a PR it thinks conflicts, so that PR would wait forever.
+        if [[ "$(gh api "repos/$R/pulls/$pr" --jq .mergeable)" == false ]]; then
+            notify "$pr" "unreviewed $sha" "GitHub sees a conflict with main here, so it won't start the review. Merge main into the branch and push."
+            printf 'stuck\tGitHub sees a conflict with main, so the review never starts. Merge main in and push.\n'
+        else
+            printf 'waiting\tWaiting for the review run to start.\n'
+        fi
         return
     fi
     IFS=$'\t' read -r id status conclusion attempt checked <<<"$run"

@@ -26,7 +26,7 @@ The `merge-queue` status says it in one line, and each sweep's run summary has a
 A PR is stuck when:
 
 - **The Claude review requested changes.** Fix the findings and push.
-- **It conflicts with main.** Merge main into the branch and push.
+- **It conflicts with main**, found by squashing it onto main, or GitHub sees a conflict and so never starts its review. Merge main into the branch and push. The queue squashes onto main itself, so a branch that is only behind main never needs updating.
 - **`scripts/check` fails on it squashed onto main**, twice. Fix it and push. The queue tries again by itself whenever main moves.
 - **Its review run failed three times** for something other than the review's verdict: a crashed review, a failing check, a runner that went away. The queue reruns a failed run's failed jobs itself, up to three attempts in all. Push a fix, or rerun the run once the cause is gone.
 
