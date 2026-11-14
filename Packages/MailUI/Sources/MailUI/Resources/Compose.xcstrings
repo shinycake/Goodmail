@@ -210,6 +210,108 @@
         }
       }
     },
+    "Forward header: Cc" : {
+      "comment" : "Forwarded message header field: the copied recipients",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cc:"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עותק:"
+          }
+        }
+      }
+    },
+    "Forward header: Date" : {
+      "comment" : "Forwarded message header field: when it was sent",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Date:"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תאריך:"
+          }
+        }
+      }
+    },
+    "Forward header: From" : {
+      "comment" : "Forwarded message header field: the sender",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From:"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מאת:"
+          }
+        }
+      }
+    },
+    "Forward header: Subject" : {
+      "comment" : "Forwarded message header field: the subject",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subject:"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נושא:"
+          }
+        }
+      }
+    },
+    "Forward header: To" : {
+      "comment" : "Forwarded message header field: the recipients",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To:"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אל:"
+          }
+        }
+      }
+    },
+    "Forward header: title" : {
+      "comment" : "The first line of the header above a forwarded message",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "---------- Forwarded message ---------"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "---------- הודעה שהועברה ---------"
+          }
+        }
+      }
+    },
     "From:" : {
       "comment" : "Compose field label",
       "localizations" : {
@@ -377,6 +479,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "אישור"
+          }
+        }
+      }
+    },
+    "On %@, %@ wrote:" : {
+      "comment" : "Above a quoted message in a reply: when it was sent, and its sender's name and address",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בתאריך %1$@, מאת %2$@:"
           }
         }
       }

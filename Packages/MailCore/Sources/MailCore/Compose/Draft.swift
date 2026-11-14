@@ -83,7 +83,8 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
     /// A reply to `message`, from the account at `accountEmail`. Reply all adds everyone else on it, except the
     /// account itself.
     public static func reply(
-        to message: Message, all: Bool, accountEmail: String, locale: Locale = .current, timeZone: TimeZone = .current
+        to message: Message, all: Bool, accountEmail: String, wording: QuoteWording = .english,
+        timeZone: TimeZone = .current
     ) -> Draft {
         let isMine = { (contact: Contact) in contact.address.caseInsensitiveCompare(accountEmail) == .orderedSame }
         // Replying to your own message goes back to the people you wrote to.
@@ -99,7 +100,7 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
             to: to,
             cc: cc,
             subject: prefixed(message.subject, with: "Re:", recognizing: ["re:"]),
-            quote: quote(of: message, locale: locale, timeZone: timeZone),
+            quote: quote(of: message, wording: wording, timeZone: timeZone),
             threadID: message.threadID,
             inReplyTo: message.internetMessageID,
             references: message.references + (message.internetMessageID.map { [$0] } ?? [])
@@ -107,11 +108,13 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
     }
 
     /// A forward of `message` to people yet to be chosen, in the same thread, with the files it carries.
-    public static func forward(_ message: Message, locale: Locale = .current, timeZone: TimeZone = .current) -> Draft {
+    public static func forward(_ message: Message, wording: QuoteWording = .english, timeZone: TimeZone = .current)
+        -> Draft
+    {
         Draft(
             accountID: message.id.accountID,
             subject: prefixed(message.subject, with: "Fwd:", recognizing: ["fwd:", "fw:"]),
-            quote: forwardedQuote(of: message, locale: locale, timeZone: timeZone),
+            quote: forwardedQuote(of: message, wording: wording, timeZone: timeZone),
             threadID: message.threadID,
             references: message.references + (message.internetMessageID.map { [$0] } ?? []),
             attachments: forwardedFiles(of: message)
@@ -164,13 +167,13 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
     }
 
     /// "On Oct 12, 2026 at 9:10 AM, Dana Levi <dana@example.com> wrote:" above the original, as Gmail quotes.
-    static func quote(of message: Message, locale: Locale, timeZone: TimeZone) -> MessageBody {
-        let attribution =
-            "On \(dateText(message.date, locale: locale, timeZone: timeZone)), "
-            + "\(mailbox(message.from)) wrote:"
+    static func quote(of message: Message, wording: QuoteWording, timeZone: TimeZone) -> MessageBody {
+        let attribution = wording.attribution(
+            wording.isolated(dateText(message.date, locale: wording.locale, timeZone: timeZone)),
+            wording.isolated(mailbox(message.from)))
         let original = originalHTML(message)
         let html = """
-            <div class="gmail_quote"><div dir="ltr" class="gmail_attr">\(HTMLText.escape(attribution))<br></div>\
+            <div class="gmail_quote"><div dir="\(wording.direction)" class="gmail_attr">\(HTMLText.escape(attribution))<br></div>\
             <blockquote class="gmail_quote" type="cite" style="margin:0 0 0 .8ex;border-left:1px solid #ccc;\
             padding-left:1ex">\(original)</blockquote></div>
             """
@@ -181,18 +184,19 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
         return MessageBody(html: html, plain: plain)
     }
 
-    static func forwardedQuote(of message: Message, locale: Locale, timeZone: TimeZone) -> MessageBody {
+    static func forwardedQuote(of message: Message, wording: QuoteWording, timeZone: TimeZone) -> MessageBody {
+        let field = { (name: String, value: String) in "\(name) \(wording.isolated(value))" }
         var lines = [
-            "---------- Forwarded message ---------",
-            "From: \(mailbox(message.from))",
-            "Date: \(dateText(message.date, locale: locale, timeZone: timeZone))",
-            "Subject: \(message.subject)",
+            wording.forwardedMessage,
+            field(wording.from, mailbox(message.from)),
+            field(wording.date, dateText(message.date, locale: wording.locale, timeZone: timeZone)),
+            field(wording.subject, message.subject),
         ]
-        if !message.to.isEmpty { lines.append("To: \(message.to.map(mailbox).joined(separator: ", "))") }
-        if !message.cc.isEmpty { lines.append("Cc: \(message.cc.map(mailbox).joined(separator: ", "))") }
+        if !message.to.isEmpty { lines.append(field(wording.to, message.to.map(mailbox).joined(separator: ", "))) }
+        if !message.cc.isEmpty { lines.append(field(wording.cc, message.cc.map(mailbox).joined(separator: ", "))) }
         let header = lines.map(HTMLText.escape).joined(separator: "<br>")
         let html = """
-            <div class="gmail_quote"><div dir="ltr" class="gmail_attr">\(header)<br></div><br>\
+            <div class="gmail_quote"><div dir="\(wording.direction)" class="gmail_attr">\(header)<br></div><br>\
             \(originalHTML(message))</div>
             """
         return MessageBody(html: html, plain: lines.joined(separator: "\n") + "\n\n" + (message.body.plain ?? ""))

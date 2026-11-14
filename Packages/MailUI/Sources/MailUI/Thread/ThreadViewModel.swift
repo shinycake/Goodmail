@@ -207,12 +207,12 @@ public final class ThreadViewModel {
     /// Replies to the newest message.
     public func reply(all: Bool) {
         guard let message = latestSent else { return }
-        navigate(.compose(Draft.reply(to: message, all: all, accountEmail: accountEmail)))
+        navigate(.compose(Draft.reply(to: message, all: all, accountEmail: accountEmail, wording: .localized)))
     }
 
     public func forward() {
         guard let message = latestSent else { return }
-        navigate(.compose(Draft.forward(message)))
+        navigate(.compose(Draft.forward(message, wording: .localized)))
     }
 
     /// The newest message when it is a draft not yet sent, which the reader finishes rather than answers.

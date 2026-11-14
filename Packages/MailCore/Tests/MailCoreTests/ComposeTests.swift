@@ -8,7 +8,6 @@ struct DraftTests {
     private let account = AccountID(rawValue: "a")
     private let me = "me@example.com"
     private let utc = TimeZone(identifier: "UTC")!
-    private let english = Locale(identifier: "en_US")
 
     private func message(
         from: Contact, to: [Contact], cc: [Contact] = [], replyTo: [Contact] = [], subject: String = "Plan"
@@ -26,7 +25,7 @@ struct DraftTests {
     @Test func replyGoesToTheSenderAndThreads() {
         let draft = Draft.reply(
             to: message(from: dana, to: [Contact(name: nil, address: me), avi]), all: false, accountEmail: me,
-            locale: english, timeZone: utc)
+            timeZone: utc)
         #expect(draft.to == [dana])
         #expect(draft.cc.isEmpty)
         #expect(draft.subject == "Re: Plan")
@@ -38,7 +37,7 @@ struct DraftTests {
     @Test func replyAllKeepsEveryoneButMe() {
         let draft = Draft.reply(
             to: message(from: dana, to: [Contact(name: "Me", address: "ME@example.com"), avi], cc: [dana]),
-            all: true, accountEmail: me, locale: english, timeZone: utc)
+            all: true, accountEmail: me, timeZone: utc)
         #expect(draft.to == [dana])
         #expect(draft.cc == [avi], "the sender isn't repeated in Cc, and I'm left out")
     }
@@ -90,7 +89,7 @@ struct DraftTests {
 
     @Test func theQuoteCarriesTheOriginalAndItsAttribution() throws {
         let draft = Draft.reply(
-            to: message(from: dana, to: []), all: false, accountEmail: me, locale: english, timeZone: utc)
+            to: message(from: dana, to: []), all: false, accountEmail: me, timeZone: utc)
         let quote = try #require(draft.quote)
         #expect(quote.html?.contains("Dana Levi &lt;dana@example.com&gt; wrote:") == true)
         #expect(quote.html?.contains("<blockquote class=\"gmail_quote\" type=\"cite\"") == true)
@@ -120,13 +119,45 @@ struct DraftTests {
     }
 
     @Test func forwardsKeepTheThreadAndListTheOriginalHeaders() throws {
-        let draft = Draft.forward(message(from: dana, to: [avi]), locale: english, timeZone: utc)
+        let draft = Draft.forward(message(from: dana, to: [avi]), timeZone: utc)
         #expect(draft.to.isEmpty)
         #expect(draft.threadID == "t1")
         #expect(draft.inReplyTo == nil)
         let plain = try #require(draft.quote?.plain)
         #expect(plain.contains("From: Dana Levi <dana@example.com>"))
         #expect(plain.contains("To: Avi <avi@example.com>"))
+    }
+
+    /// The words a Hebrew reader's app would pass, as its String Catalog has them.
+    private let hebrew = QuoteWording(
+        locale: Locale(identifier: "he_IL"), attribution: { "בתאריך \($0), מאת \($1):" },
+        forwardedMessage: "---------- הודעה שהועברה ---------", from: "מאת:", date: "תאריך:", subject: "נושא:",
+        to: "אל:", cc: "עותק:")
+
+    @Test func aHebrewReplyQuotesInHebrewRightToLeftWithTheAddressKeptWhole() throws {
+        let draft = Draft.reply(
+            to: message(from: dana, to: []), all: false, accountEmail: me, wording: hebrew, timeZone: utc)
+        let quote = try #require(draft.quote)
+        #expect(
+            quote.plain?.hasPrefix(
+                "בתאריך \u{2068}12 באוק׳ 2026, 10:13\u{2069}, מאת \u{2068}Dana Levi <dana@example.com>\u{2069}:\n")
+                == true)
+        #expect(quote.html?.contains("<div dir=\"rtl\" class=\"gmail_attr\">בתאריך") == true)
+    }
+
+    @Test func aHebrewForwardNamesItsFieldsInHebrew() throws {
+        let draft = Draft.forward(message(from: dana, to: [avi]), wording: hebrew, timeZone: utc)
+        let plain = try #require(draft.quote?.plain)
+        #expect(
+            plain.hasPrefix("---------- הודעה שהועברה ---------\nמאת: \u{2068}Dana Levi <dana@example.com>\u{2069}\n"))
+        #expect(plain.contains("נושא: \u{2068}Plan\u{2069}"))
+        #expect(draft.subject == "Fwd: Plan", "the subject prefix is the standard one in every language")
+    }
+
+    @Test func englishNeedsNoIsolation() throws {
+        let plain = try #require(Draft.forward(message(from: dana, to: [avi]), timeZone: utc).quote?.plain)
+        #expect(!plain.contains("\u{2068}"))
+        #expect(plain.contains("Date: Oct 12, 2026"))
     }
 }
 
