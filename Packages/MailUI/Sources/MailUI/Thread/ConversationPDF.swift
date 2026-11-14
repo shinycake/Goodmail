@@ -4,10 +4,16 @@ import WebKit
 
 /// A conversation as a paged PDF, for printing or sharing: each message laid out by its own off-screen web view
 /// (so one sender's styles never reach another's), with the same rules as the reader: no email JavaScript, and no
-/// remote loads unless the reader allowed them for that message (ADR-003). WebKit's print formatters are main-actor
-/// UI work, so this is too.
+/// remote loads unless the reader allowed them for that message (ADR-003). Each web view renders its message as one
+/// tall PDF page (`WKWebView.pdf`), which is cut into paper-sized pages. WebKit's print formatter isn't used: in the
+/// app it waits on the web process of a view that isn't in a window, holding the main thread forever.
 @MainActor
 enum ConversationPDF {
+    enum Failure: Error {
+        /// WebKit's PDF of a message couldn't be read back, so the conversation would print without it.
+        case unreadableMessagePDF
+    }
+
     /// A page of the reader's region: US Letter where that is the paper, A4 elsewhere, with half-inch margins.
     static var paper: CGRect {
         let letterRegions: Set<String> = ["US", "CA", "MX", "PH", "CL", "CO", "VE", "GT", "CR", "PR"]
@@ -23,9 +29,8 @@ enum ConversationPDF {
     ) async throws -> Data {
         let paper = paper
         let printable = paper.insetBy(dx: 36, dy: 36)
-        var pages: [PaperRenderer] = []
-        // The web views have to stay alive until their pages are drawn.
-        var views: [WKWebView] = []
+        // One tall page per message, kept with its document: a CGPDFPage doesn't keep the document it came from.
+        var rendered: [(document: CGPDFDocument, page: CGPDFPage)] = []
         for (index, message) in messages.enumerated() {
             try Task.checkCancellation()
             let allows = allowsRemoteContent.contains(message.id)
@@ -35,21 +40,40 @@ enum ConversationPDF {
             let view = try await loadedView(
                 html, message: message, width: printable.width, allowsRemoteContent: allows,
                 attachmentData: attachmentData)
-            views.append(view)
-            let renderer = PaperRenderer(paper: paper, printable: printable)
-            renderer.addPrintFormatter(view.viewPrintFormatter(), startingAtPageAt: 0)
-            pages.append(renderer)
+            let pdf = try await view.pdf(configuration: WKPDFConfiguration())
+            // WebKit returned a PDF, so it parses; if it ever doesn't, the export fails rather than drop a message.
+            guard let document = CGDataProvider(data: pdf as CFData).flatMap(CGPDFDocument.init),
+                let page = document.page(at: 1)
+            else { throw Failure.unreadableMessagePDF }
+            rendered.append((document, page))
         }
-        defer { withExtendedLifetime(views) {} }
         return UIGraphicsPDFRenderer(bounds: paper).pdfData { context in
-            for renderer in pages {
-                renderer.prepare(forDrawingPages: NSRange(location: 0, length: renderer.numberOfPages))
-                for page in 0..<renderer.numberOfPages {
-                    context.beginPage()
-                    renderer.drawPage(at: page, in: paper)
-                }
+            for message in rendered {
+                draw(message.page, onto: context, printable: printable)
             }
         }
+    }
+
+    /// Cuts one tall page into as many paper pages as it fills, each showing the next slice in the printable area.
+    private static func draw(_ page: CGPDFPage, onto context: UIGraphicsPDFRendererContext, printable: CGRect) {
+        let box = page.getBoxRect(.mediaBox)
+        guard box.width > 0, box.height > 0 else { return }
+        let scale = printable.width / box.width
+        let height = box.height * scale
+        var offset: CGFloat = 0
+        repeat {
+            context.beginPage()
+            let cg = context.cgContext
+            cg.saveGState()
+            cg.clip(to: printable)
+            // PDF space runs up from the bottom; the page's top goes `offset` above the printable area's top.
+            cg.translateBy(x: printable.minX, y: printable.minY - offset + height)
+            cg.scaleBy(x: scale, y: -scale)
+            cg.translateBy(x: -box.minX, y: -box.minY)
+            cg.drawPDFPage(page)
+            cg.restoreGState()
+            offset += printable.height
+        } while offset < height
     }
 
     /// A web view off screen with `html` loaded, its `cid:` images included.
@@ -68,7 +92,8 @@ enum ConversationPDF {
         if !allowsRemoteContent, let blocker = try? await RemoteContentBlocker.shared.ruleList() {
             configuration.userContentController.add(blocker)
         }
-        let view = WKWebView(frame: CGRect(x: 0, y: 0, width: width, height: 800), configuration: configuration)
+        // As short as can be, so the content sets the height of its PDF and no blank paper follows a short message.
+        let view = WKWebView(frame: CGRect(x: 0, y: 0, width: width, height: 1), configuration: configuration)
         let loader = PageLoader()
         view.navigationDelegate = loader
         try await withTaskCancellationHandler {
@@ -121,19 +146,4 @@ private final class PageLoader: NSObject, WKNavigationDelegate {
     ) {
         finish(.failure(error))
     }
-}
-
-/// Draws onto the given paper, whatever printer is or isn't chosen.
-private nonisolated final class PaperRenderer: UIPrintPageRenderer {
-    private let paper: CGRect
-    private let printable: CGRect
-
-    init(paper: CGRect, printable: CGRect) {
-        self.paper = paper
-        self.printable = printable
-        super.init()
-    }
-
-    override var paperRect: CGRect { paper }
-    override var printableRect: CGRect { printable }
 }
