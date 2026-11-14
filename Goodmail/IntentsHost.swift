@@ -6,6 +6,7 @@
     import MailIntents
     import MailStore
     import MailUI
+    import OSLog
     import UIKit
 
     /// The intents the app offers, from the package shared with its extensions.
@@ -56,5 +57,21 @@
         }
 
         @MainActor func open(_ route: Route) { routes.open(route) }
+    }
+
+    extension SpotlightIndexer {
+        /// Keeps Spotlight in step with each bulk change to the stored mail. A failure leaves the index as it was until
+        /// the next change; it is logged, since nothing on screen depends on it.
+        nonisolated func follow(_ change: AppModel.MailChange) async {
+            do {
+                switch change {
+                case .synced: try await refresh()
+                case .accountRemoved: try await rebuild()
+                }
+            } catch {
+                Logger(subsystem: "com.idanbirman.goodmail", category: "spotlight")
+                    .error("Couldn't update Spotlight: \(error, privacy: .public)")
+            }
+        }
     }
 #endif

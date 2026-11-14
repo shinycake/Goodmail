@@ -1,4 +1,5 @@
 import AppIntents
+import CoreSpotlight
 import MailCore
 
 /// A conversation, as Siri, Shortcuts and Spotlight see it.
@@ -13,6 +14,8 @@ public struct ThreadEntity {
     public var messages: [MessageEntity]
     /// The latest message's sender, for the subtitle.
     var sender: String
+    /// The latest message's date, which Spotlight sorts by.
+    var date: Date
 
     public var displayRepresentation: DisplayRepresentation {
         DisplayRepresentation(title: "\(title)", subtitle: "\(sender)")
@@ -21,6 +24,7 @@ public struct ThreadEntity {
     init(_ thread: ThreadSummary, messages: [MessageEntity]) {
         id = EntityID.string(thread.id)
         sender = thread.sender.displayName
+        date = thread.date
         title = thread.subject
         description = thread.snippet.isEmpty ? nil : thread.snippet
         self.messages = messages
@@ -29,7 +33,18 @@ public struct ThreadEntity {
     var threadID: ThreadSummary.ID? { EntityID.thread(id) }
 }
 
-public struct ThreadQuery: EntityStringQuery {
+extension ThreadEntity: IndexedEntity {
+    public var attributeSet: CSSearchableItemAttributeSet {
+        let attributes = defaultAttributeSet
+        attributes.title = title
+        attributes.contentDescription = description
+        attributes.authorNames = [sender]
+        attributes.contentCreationDate = date
+        return attributes
+    }
+}
+
+public struct ThreadQuery: EntityStringQuery, IndexedEntityQuery {
     @Dependency private var host: any MailIntentsHost
 
     public init() {}
@@ -44,5 +59,17 @@ public struct ThreadQuery: EntityStringQuery {
 
     public func suggestedEntities() async throws -> [ThreadEntity] {
         try Catalog(host: host).recentThreads()
+    }
+
+    /// Spotlight lost its copy: index the newest conversations again.
+    public func reindexAllEntities(indexDescription: CSSearchableIndexDescription) async throws {
+        try await SpotlightIndexer(host: host).refresh()
+    }
+
+    public func reindexEntities(for identifiers: [String], indexDescription: CSSearchableIndexDescription)
+        async throws
+    {
+        let threads = try Catalog(host: host).threads(identifiers, withMessages: false)
+        try await SystemSpotlightIndex().index(threads)
     }
 }

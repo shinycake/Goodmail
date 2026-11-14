@@ -29,7 +29,9 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     ) -> Bool {
         syncScheduler.start()
         #if canImport(MailIntents)
-            IntentsHost(database: model.database, commands: model.commands, routes: intentRoutes).register()
+            let host = IntentsHost(database: model.database, commands: model.commands, routes: intentRoutes)
+            host.register()
+            model.didChange = SpotlightIndexer(host: host).follow
         #endif
         #if DEBUG
             TestDelivery.scheduleIfRequested(model: model)

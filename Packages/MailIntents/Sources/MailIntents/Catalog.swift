@@ -17,8 +17,11 @@ struct Catalog {
         }
     }
 
-    func threads(_ identifiers: [String]) throws -> [ThreadEntity] {
-        try entities(for: host.threads(identifiers.compactMap(EntityID.thread)))
+    /// With `withMessages: false` the threads carry no messages, which spares decoding every cached body when only
+    /// the thread itself is wanted, as Spotlight does.
+    func threads(_ identifiers: [String], withMessages: Bool = true) throws -> [ThreadEntity] {
+        let threads = try host.threads(identifiers.compactMap(EntityID.thread))
+        return withMessages ? try entities(for: threads) : threads.map { ThreadEntity($0, messages: []) }
     }
 
     func threads(matching text: String) throws -> [ThreadEntity] {

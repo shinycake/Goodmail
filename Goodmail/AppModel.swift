@@ -21,6 +21,15 @@ final class AppModel {
     let attachmentsDirectory = URL.cachesDirectory.appending(path: "Attachments", directoryHint: .isDirectory)
     private let outboxes: Outboxes
     private let senders: Senders
+    /// Told after the stored mail changes in bulk, so the system's copies (Spotlight) can follow.
+    var didChange: (@Sendable (MailChange) async -> Void)?
+
+    nonisolated enum MailChange: Sendable {
+        /// A sync of every account finished.
+        case synced
+        /// An account and its mail left the device.
+        case accountRemoved
+    }
 
     init(database: MailDatabase) throws {
         self.database = database
@@ -148,6 +157,7 @@ final class AppModel {
         try await Self.store { [database] in try database.removeAccount(id) }
         try? FileManager.default.removeItem(at: attachmentsDirectory.appending(path: id.rawValue))
         accounts.removeAll { $0.id == id }
+        await didChange?(.accountRemoved)
     }
 
     /// Stores the account's new name or color.
@@ -179,6 +189,7 @@ final class AppModel {
         }
         if prefetch { for prefetcher in prefetchers { await prefetcher.start() } }
         await trimCache()
+        await didChange?(.synced)
     }
 
     /// Starts prefetching again each time the connection turns cheap, as when Wi-Fi comes back, until the calling
