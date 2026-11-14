@@ -74,7 +74,9 @@ final class MessageWebView: UIView {
             let rules = webView.configuration.userContentController
             rules.removeAllContentRuleLists()
             if let blocker { rules.add(blocker) }
-            webView.loadHTMLString(MessageDocument.html(for: content.message.body), baseURL: nil)
+            let html = MessageDocument.html(
+                for: content.message.body, allowsRemoteContent: content.allowsRemoteContent)
+            webView.loadHTMLString(html, baseURL: nil)
         }
     }
 

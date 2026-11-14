@@ -16,7 +16,9 @@ struct QuoteFoldTests {
         let reported = FirstReport()
         contents.add(reported, name: MessageScript.handlerName)
         view.loadHTMLString(
-            MessageDocument.html(for: MessageBody(plain: "Sounds good.\n\n> On Monday:\n> Ship it?")), baseURL: nil)
+            MessageDocument.html(
+                for: MessageBody(plain: "Sounds good.\n\n> On Monday:\n> Ship it?"), allowsRemoteContent: false),
+            baseURL: nil)
         await reported.wait()
 
         let size = try #require(

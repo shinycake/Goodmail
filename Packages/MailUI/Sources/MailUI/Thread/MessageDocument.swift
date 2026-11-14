@@ -5,13 +5,23 @@ import MailCore
 nonisolated enum MessageDocument {
     /// HTML bodies keep their markup; plain-text bodies become HTML with one block per line and `>` quotes nested.
     /// Our stylesheet and viewport go first in the head, so the sender's own styles still win where they set any.
-    static func html(for body: MessageBody) -> String {
+    /// Until the reader allows remote content, a content security policy leads the head and blocks it (ADR-003).
+    /// The web view also blocks it with a content rule list, but that has to compile first, and if it ever fails
+    /// the policy still holds: the block fails closed.
+    static func html(for body: MessageBody, allowsRemoteContent: Bool) -> String {
+        let head = (allowsRemoteContent ? "" : remoteContentPolicy) + baseHead
         if let html = body.html, !html.isEmpty {
-            return inject(head: baseHead, into: html)
+            return inject(head: head, into: html)
         }
-        return "<!doctype html><html><head>\(baseHead)\(plainStyle)</head><body>\(plainToHTML(body.plain ?? ""))"
+        return "<!doctype html><html><head>\(head)\(plainStyle)</head><body>\(plainToHTML(body.plain ?? ""))"
             + "</body></html>"
     }
+
+    /// Loads only what the message carries itself: `cid:` parts and `data:` URLs. Inline styles stay, so the
+    /// sender's layout and ours both apply. Our script runs in its own content world, which the policy doesn't touch.
+    static let remoteContentPolicy =
+        #"<meta http-equiv="Content-Security-Policy" content="default-src 'none'; "#
+        + #"img-src cid: data:; media-src cid: data:; font-src cid: data:; style-src 'unsafe-inline' cid: data:">"#
 
     /// Each line is its own `dir=auto` block, so a Hebrew line and an English line each read and align their own way.
     /// Lines starting with `>` nest into blockquotes by depth.
