@@ -74,7 +74,6 @@ struct SettingsView: View {
             }
         }
         .navigationDestination(for: AccountID.self) { AccountSettingsView(model: model, accountID: $0) }
-        .onDisappear { model.didClose() }
         .navigationTitle(Text("Settings", bundle: .module, comment: "Title of the settings screen"))
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -124,6 +123,34 @@ extension SettingsView {
 /// The settings screen, for UIKit to present.
 public enum SettingsScreen {
     public static func make(model: SettingsViewModel) -> UIViewController {
-        UIHostingController(rootView: NavigationStack { SettingsView(model: model) })
+        Controller(model: model)
+    }
+
+    private struct Root: View {
+        let model: SettingsViewModel
+
+        var body: some View {
+            NavigationStack { SettingsView(model: model) }
+        }
+    }
+
+    /// Tells the model the screen closed only when the screen itself is dismissed. The root view also goes off
+    /// screen when an account or Add Account is pushed over it, and treating that as closing rebuilt the mail
+    /// screens under the open sheet, which took Settings down with them.
+    private final class Controller: UIHostingController<Root> {
+        private let model: SettingsViewModel
+
+        init(model: SettingsViewModel) {
+            self.model = model
+            super.init(rootView: Root(model: model))
+        }
+
+        @available(*, unavailable)
+        required init?(coder: NSCoder) { fatalError("Programmatic UI only") }
+
+        override func viewDidDisappear(_ animated: Bool) {
+            super.viewDidDisappear(animated)
+            if isBeingDismissed { model.didClose() }
+        }
     }
 }
