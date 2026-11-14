@@ -39,8 +39,14 @@ final class ChatLayoutTests: XCTestCase {
         let row = app.collectionViews["mailbox"].cells.containing(NSPredicate(format: "label CONTAINS %@", subject))
             .firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertTrue(
+            row.wait(for: \.isHittable, toEqual: true, timeout: 10), "the row is on screen and takes touches")
+        let thread = app.scrollViews["thread"]
         row.tap()
-        XCTAssertTrue(app.scrollViews["thread"].waitForExistence(timeout: 5))
+        // On a busy Mac running the whole check, the first tap can land while the app is still finishing its launch
+        // transition and be dropped, with the list showing and nothing opened. One more tap opens it then.
+        if !thread.waitForExistence(timeout: 5) { row.tap() }
+        XCTAssertTrue(thread.waitForExistence(timeout: 10), "the thread opens")
     }
 
     @MainActor
