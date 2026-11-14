@@ -17,6 +17,10 @@ public final class SettingsViewModel {
     public var rowDisplay: RowDisplay {
         didSet { Preferences.rowDisplay = rowDisplay }
     }
+    /// How conversations open.
+    public var conversationLayout: ConversationLayout {
+        didSet { Preferences.conversationLayout = conversationLayout }
+    }
     /// What views that span accounts wear.
     public var combinedTheme: CombinedTheme {
         didSet { Preferences.combinedTheme = combinedTheme }
@@ -49,6 +53,7 @@ public final class SettingsViewModel {
         adder = AccountAdder(signIn: signIn)
         undoSendSeconds = Preferences.undoSendSeconds
         rowDisplay = Preferences.rowDisplay
+        conversationLayout = Preferences.conversationLayout
         unsortedInboxAccounts = Preferences.unsortedInboxAccounts
         combinedTheme = Preferences.combinedTheme
         reload = accounts

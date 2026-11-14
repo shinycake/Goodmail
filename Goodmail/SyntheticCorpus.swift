@@ -40,13 +40,16 @@
         private static func message(_ raw: Data, number: Int, in thread: ThreadSummary.ID) -> Message {
             let mime = MIMEPart(parsing: raw)
             let plain = mime.content().body.plain ?? ""
-            return Message(
+            var message = Message(
                 id: Message.ID(accountID: thread.accountID, messageID: "\(thread.threadID)-\(number)"),
                 threadID: thread.threadID,
                 mime: mime,
                 date: mime.header("Date").flatMap(dateFormatter.date(from:)) ?? .distantPast,
                 snippet: String(plain.split(whereSeparator: \.isWhitespace).joined(separator: " ").prefix(200)),
                 labelIDs: ["INBOX"])
+            // The corpus writes as its tester, which stands in for this account: its messages are the ones sent.
+            if message.from.address == "tester@example.com" { message.labelIDs = [SystemLabel.sent] }
+            return message
         }
 
         private static func shifted(_ messages: [Message], endingAt latest: Date) -> [Message] {

@@ -86,6 +86,39 @@
         }
       }
     },
+    "Chat" : {
+      "comment" : "Conversation layout: messages as chat bubbles",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "צ׳אט"
+          }
+        }
+      }
+    },
+    "Chat shows each message's new words as bubbles. Switch one conversation from its toolbar." : {
+      "comment" : "Explains the conversation layout setting",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בתצוגת צ׳אט כל הודעה מוצגת כבועה, בלי הציטוטים והחתימה. אפשר להחליף תצוגה לשיחה אחת מסרגל הכלים שלה."
+          }
+        }
+      }
+    },
+    "Classic" : {
+      "comment" : "Conversation layout: each message as a letter",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קלאסי"
+          }
+        }
+      }
+    },
     "Color" : {
       "comment" : "Settings section for an account's theme color",
       "localizations" : {
@@ -93,6 +126,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "צבע"
+          }
+        }
+      }
+    },
+    "Conversations" : {
+      "comment" : "Settings section for how conversations read",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שיחות"
           }
         }
       }
@@ -126,6 +170,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "קטגוריות בדואר הנכנס"
+          }
+        }
+      }
+    },
+    "Layout" : {
+      "comment" : "Setting for how a conversation reads",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תצוגה"
           }
         }
       }

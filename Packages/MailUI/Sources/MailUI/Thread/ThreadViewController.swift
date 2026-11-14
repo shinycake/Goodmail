@@ -21,8 +21,13 @@ public final class ThreadViewController: UIViewController {
     private let metadata = UILabel()
     private var cards: [Message.ID: MessageCardView] = [:]
     private var rows: [Message.ID: TimelineRowView] = [:]
+    /// Chat runs by their first bubble, which stays first as later messages join the run.
+    private var runs: [ChatTranscript.Bubble.ID: ChatRunView] = [:]
+    private var timestamps: [Date: ChatTimestampView] = [:]
+    private let layoutItem = UIBarButtonItem()
     private var observation: Task<Void, Never>?
-    private var hasScrolledToFocus = false
+    /// The layout the reader last scrolled to the focused message in; switching layouts scrolls there again.
+    private var focusedLayout: ConversationLayout?
     private var previewURL: URL?
 
     public init(viewModel: ThreadViewModel, openURL: @escaping (URL) -> Void) {
@@ -65,6 +70,8 @@ public final class ThreadViewController: UIViewController {
         stack.spacing = 12
         stack.addArrangedSubview(header)
         configureToolbar()
+        layoutItem.primaryAction = UIAction { [weak self] _ in self?.viewModel.switchLayout() }
+        navigationItem.rightBarButtonItem = layoutItem
         stack.translatesAutoresizingMaskIntoConstraints = false
         scrollView.addSubview(stack)
 
@@ -154,7 +161,26 @@ public final class ThreadViewController: UIViewController {
         metadata.text = [viewModel.accountEmail, Self.countText(messages.count)]
             .filter { !$0.isEmpty }.joined(separator: " · ")
 
-        var arranged: [UIView] = [stack.arrangedSubviews[0]]
+        let other = viewModel.layout.other
+        layoutItem.image = UIImage(systemName: other == .chat ? "bubble.left.and.bubble.right" : "doc.plaintext")
+        layoutItem.title = String(
+            localized: "Show as \(other.title)", table: "Thread", bundle: .module,
+            comment: "Switches one conversation's layout; the argument is Classic or Chat")
+        stack.spacing = viewModel.layout == .chat ? 10 : 12
+
+        let header = stack.arrangedSubviews[0]
+        let arranged =
+            [header] + (viewModel.layout == .chat ? chatViews(viewModel.transcript) : letterViews(messages))
+        if arranged != stack.arrangedSubviews {
+            for view in stack.arrangedSubviews { view.removeFromSuperview() }
+            arranged.forEach(stack.addArrangedSubview)
+        }
+        scrollToFocusOnce()
+    }
+
+    /// Cards for the open messages and one-line rows for the rest.
+    private func letterViews(_ messages: [Message]) -> [UIView] {
+        var arranged: [UIView] = []
         for message in messages {
             let dateText = viewModel.dateText(for: message)
             if viewModel.expanded.contains(message.id) {
@@ -170,11 +196,54 @@ public final class ThreadViewController: UIViewController {
                 arranged.append(row)
             }
         }
-        if arranged != stack.arrangedSubviews {
-            for view in stack.arrangedSubviews { view.removeFromSuperview() }
-            arranged.forEach(stack.addArrangedSubview)
+        return arranged
+    }
+
+    /// Timestamps and runs of bubbles, reusing the views already made for them.
+    private func chatViews(_ transcript: ChatTranscript) -> [UIView] {
+        let actions = ChatBubbleActions(
+            openLetter: { [weak self] in self?.openLetter($0) },
+            openAttachment: { [weak self] attachment, message, loading in
+                self?.open(attachment, in: message, loading: loading)
+            },
+            showQuoted: { [weak self] in self?.scroll(to: $0, animated: true) },
+            openURL: openURL)
+        let times = Dictionary(
+            viewModel.messages.map { ($0.id, viewModel.timestampText(for: $0.date)) },
+            uniquingKeysWith: { first, _ in first })
+        // Only the entries shown now keep their views, so a message that left the thread lets its views go.
+        var shownRuns: [ChatTranscript.Bubble.ID: ChatRunView] = [:]
+        var shownTimestamps: [Date: ChatTimestampView] = [:]
+        defer { (runs, timestamps) = (shownRuns, shownTimestamps) }
+        return transcript.entries.compactMap { entry -> UIView? in
+            switch entry {
+            case .timestamp(let date):
+                let label = timestamps[date] ?? ChatTimestampView()
+                shownTimestamps[date] = label
+                label.text = viewModel.timestampText(for: date)
+                return label
+            case .run(let run):
+                guard let first = run.bubbles.first else { return nil }
+                let view = runs[first.id] ?? ChatRunView()
+                shownRuns[first.id] = view
+                view.configure(
+                    run, isGroup: transcript.isGroup, accountColor: viewModel.accountColor.uiColor,
+                    actions: actions, timeText: { times[$0] ?? "" })
+                return view
+            }
         }
-        scrollToFocusOnce()
+    }
+
+    /// A long or laid-out message, in full over the chat.
+    private func openLetter(_ message: Message.ID) {
+        let sheet = LetterSheetController(
+            viewModel: viewModel, message: message, openURL: openURL,
+            openAttachment: { [weak self] attachment, loading in self?.open(attachment, in: message, loading: loading) }
+        )
+        let navigation = UINavigationController(rootViewController: sheet)
+        navigation.sheetPresentationController?.detents = [.large()]
+        navigation.sheetPresentationController?.prefersGrabberVisible = true
+        present(navigation, animated: true)
     }
 
     private func makeCard(for id: Message.ID) -> MessageCardView {
@@ -183,8 +252,7 @@ public final class ThreadViewController: UIViewController {
         card.onAllowRemoteContent = { [weak self] in self?.viewModel.allowRemoteContent(in: id) }
         card.openURL = openURL
         card.onOpenAttachment = { [weak self, weak card] attachment in
-            guard let self, let card else { return }
-            open(attachment, in: id, from: card)
+            self?.open(attachment, in: id) { card?.setLoading($0, for: attachment) }
         }
         cards[id] = card
         return card
@@ -197,15 +265,17 @@ public final class ThreadViewController: UIViewController {
         return row
     }
 
-    private func open(_ attachment: Attachment, in message: Message.ID, from card: MessageCardView) {
-        card.setLoading(true, for: attachment)
+    /// Downloads the file, with `loading` showing it on whatever the reader tapped, then previews it from the
+    /// controller in front, which may be a letter's sheet.
+    private func open(_ attachment: Attachment, in message: Message.ID, loading: @escaping (Bool) -> Void) {
+        loading(true)
         Task {
-            defer { card.setLoading(false, for: attachment) }
+            defer { loading(false) }
             do {
                 previewURL = try await viewModel.file(for: attachment, in: message)
                 let preview = QLPreviewController()
                 preview.dataSource = self
-                present(preview, animated: true)
+                (presentedViewController ?? self).present(preview, animated: true)
             } catch {
                 let alert = UIAlertController(
                     title: String(
@@ -216,21 +286,34 @@ public final class ThreadViewController: UIViewController {
                     UIAlertAction(
                         title: String(localized: "OK", table: "Thread", bundle: .module, comment: "Dismiss"),
                         style: .default))
-                present(alert, animated: true)
+                (presentedViewController ?? self).present(alert, animated: true)
             }
         }
     }
 
-    /// Opens on the first unread message, or the newest, once the messages first arrive.
+    /// Opens on the first unread message, or the newest, once the messages first arrive in each layout.
     private func scrollToFocusOnce() {
-        guard !hasScrolledToFocus, let focus = viewModel.firstFocused, let card = cards[focus],
-            viewModel.messages.count > 1
+        guard focusedLayout != viewModel.layout, let focus = viewModel.firstFocused, viewModel.messages.count > 1,
+            scroll(to: focus, animated: false)
         else { return }
-        hasScrolledToFocus = true
+        focusedLayout = viewModel.layout
+    }
+
+    /// Scrolls the message's card or bubble to the top, or as far as the content goes. False when it isn't shown.
+    @discardableResult
+    private func scroll(to message: Message.ID, animated: Bool) -> Bool {
+        let shown: UIView? =
+            switch viewModel.layout {
+            case .classic: cards[message] ?? rows[message]
+            case .chat: runs.values.lazy.compactMap { $0.view(for: message) }.first
+            }
+        guard let shown, shown.isDescendant(of: scrollView) else { return false }
         view.layoutIfNeeded()
-        let target = card.convert(card.bounds, to: scrollView).minY - scrollView.adjustedContentInset.top - 8
-        scrollView.setContentOffset(
-            CGPoint(x: 0, y: max(-scrollView.adjustedContentInset.top, target)), animated: false)
+        let inset = scrollView.adjustedContentInset
+        let target = shown.convert(shown.bounds, to: scrollView).minY - inset.top - 8
+        let bottom = max(-inset.top, scrollView.contentSize.height + inset.bottom - scrollView.bounds.height)
+        scrollView.setContentOffset(CGPoint(x: 0, y: min(bottom, max(-inset.top, target))), animated: animated)
+        return true
     }
 
     static func countText(_ count: Int) -> String {

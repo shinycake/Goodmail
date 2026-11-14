@@ -71,6 +71,26 @@ struct SettingsView: View {
             if model.accounts.count > 1 { ThemeSection(model: model) }
 
             Section {
+                Picker(selection: $model.conversationLayout) {
+                    ForEach(ConversationLayout.allCases, id: \.self) { layout in
+                        Text(layout.title).tag(layout)
+                    }
+                } label: {
+                    Text(
+                        "Layout", tableName: "Settings", bundle: .module,
+                        comment: "Setting for how a conversation reads")
+                }
+            } header: {
+                Text(
+                    "Conversations", tableName: "Settings", bundle: .module,
+                    comment: "Settings section for how conversations read")
+            } footer: {
+                Text(
+                    "Chat shows each message's new words as bubbles. Switch one conversation from its toolbar.",
+                    tableName: "Settings", bundle: .module, comment: "Explains the conversation layout setting")
+            }
+
+            Section {
                 Picker(selection: $model.undoSendSeconds) {
                     ForEach(Preferences.undoSendChoices, id: \.self) { seconds in
                         Text(SettingsViewModel.undoSendTitle(seconds)).tag(seconds)

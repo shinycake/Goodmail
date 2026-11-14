@@ -34,6 +34,14 @@ public enum Preferences {
         }
     }
 
+    /// How conversations open. A stored value from a later build reads as the classic layout.
+    public static var conversationLayout: ConversationLayout {
+        get { defaults.string(forKey: conversationLayoutKey).flatMap(ConversationLayout.init(rawValue:)) ?? .classic }
+        set { defaults.set(newValue.rawValue, forKey: conversationLayoutKey) }
+    }
+
+    private static let conversationLayoutKey = "conversationLayout"
+
     /// What views that span accounts wear. A stored color that no longer exists reads as the gradient.
     public static var combinedTheme: CombinedTheme {
         get {

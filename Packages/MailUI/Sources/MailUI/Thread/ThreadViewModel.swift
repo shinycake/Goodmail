@@ -25,6 +25,10 @@ public final class ThreadViewModel {
         case left
     }
     public private(set) var presence: Presence = .reading
+    /// How this conversation reads. It opens in the reader's chosen layout, and the toolbar switches it.
+    public private(set) var layout: ConversationLayout
+    /// The messages as chat bubbles, worked out off the main actor each time they change.
+    public private(set) var transcript: ChatTranscript
 
     @ObservationIgnored private let stream: () -> AsyncThrowingStream<[Message], any Error>
     @ObservationIgnored private let loadAction: () async throws -> Void
@@ -51,8 +55,11 @@ public final class ThreadViewModel {
         close: @escaping () -> Void = {},
         attachmentsDirectory: URL = FileManager.default.temporaryDirectory.appending(path: "Attachments"),
         now: @escaping () -> Date = Date.init,
-        calendar: Calendar = .autoupdatingCurrent
+        calendar: Calendar = .autoupdatingCurrent,
+        layout: ConversationLayout = Preferences.conversationLayout
     ) {
+        self.layout = layout
+        transcript = ChatTranscript(messages: [], accountEmail: accountEmail)
         self.actions = actions
         self.navigate = navigate
         self.close = close
@@ -81,7 +88,9 @@ public final class ThreadViewModel {
         do {
             for try await messages in stream() {
                 if expanded.isEmpty { expanded = Self.initiallyExpanded(messages) }
+                let transcript = await Self.transcript(of: messages, accountEmail: accountEmail)
                 self.messages = messages
+                self.transcript = transcript
                 if !messages.isEmpty, mailbox.contains(thread) {
                     var now = thread
                     now.labelIDs = messages.reduce(into: []) { $0.formUnion($1.labelIDs) }
@@ -103,6 +112,17 @@ public final class ThreadViewModel {
         } catch {
             loadError = error
         }
+    }
+
+    /// Reading the bodies for their new words parses every message, so it stays off the main actor.
+    @concurrent
+    nonisolated static func transcript(of messages: [Message], accountEmail: String) async -> ChatTranscript {
+        ChatTranscript(messages: messages, accountEmail: accountEmail)
+    }
+
+    /// Reads this conversation the other way, without changing the layout others open in.
+    public func switchLayout() {
+        layout = layout.other
     }
 
     public func toggle(_ id: Message.ID) {
@@ -222,5 +242,27 @@ public final class ThreadViewModel {
 
     func dateText(for message: Message) -> String {
         RowDate.text(for: message.date, now: now(), calendar: calendar)
+    }
+
+    func timestampText(for date: Date) -> String {
+        ChatTimestamp.text(for: date, now: now(), calendar: calendar)
+    }
+}
+
+/// A chat timestamp: the time today, the weekday and time this past week, and the date and time before that.
+nonisolated enum ChatTimestamp {
+    static func text(for date: Date, now: Date, calendar: Calendar) -> String {
+        let time = Date.FormatStyle(
+            locale: calendar.locale ?? .current, calendar: calendar, timeZone: calendar.timeZone
+        ).hour().minute()
+        let today = calendar.startOfDay(for: now)
+        if calendar.isDate(date, inSameDayAs: today) { return date.formatted(time) }
+        if let weekAgo = calendar.date(byAdding: .day, value: -6, to: today), date >= weekAgo {
+            return date.formatted(time.weekday(.wide))
+        }
+        if calendar.isDate(date, equalTo: today, toGranularity: .year) {
+            return date.formatted(time.day().month(.abbreviated))
+        }
+        return date.formatted(time.day().month(.abbreviated).year())
     }
 }

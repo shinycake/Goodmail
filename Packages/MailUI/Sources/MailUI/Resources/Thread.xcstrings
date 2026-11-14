@@ -48,6 +48,17 @@
         }
       }
     },
+    "Copy" : {
+      "comment" : "Copies a bubble's text",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העתקה"
+          }
+        }
+      }
+    },
     "Couldn’t Open Attachment" : {
       "comment" : "Alert title when an attachment fails to download",
       "localizations" : {
@@ -77,6 +88,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "העבר"
+          }
+        }
+      }
+    },
+    "Go to Quoted Message" : {
+      "comment" : "Scrolls to the message a bubble answers",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מעבר להודעה המצוטטת"
           }
         }
       }
@@ -120,6 +142,50 @@
         }
       }
     },
+    "Open %@" : {
+      "comment" : "Opens a link from a bubble; the argument is the site",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פתיחת %@"
+          }
+        }
+      }
+    },
+    "Open Message" : {
+      "comment" : "Opens a long message from its bubble",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פתיחת ההודעה"
+          }
+        }
+      }
+    },
+    "Opens the whole message" : {
+      "comment" : "VoiceOver hint on a long message's bubble",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פותח את ההודעה המלאה"
+          }
+        }
+      }
+    },
+    "Quote: %@" : {
+      "comment" : "VoiceOver: lines a message answers inline",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ציטוט: %@"
+          }
+        }
+      }
+    },
     "Reply" : {
       "comment" : "Composer title for a reply",
       "localizations" : {
@@ -142,6 +208,28 @@
         }
       }
     },
+    "Replying to %@: %@" : {
+      "comment" : "VoiceOver: the earlier message a bubble answers",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בתגובה ל%1$@: %2$@"
+          }
+        }
+      }
+    },
+    "Show Full Message" : {
+      "comment" : "Opens a bubble's whole email",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצגת ההודעה המלאה"
+          }
+        }
+      }
+    },
     "Show Quoted Text" : {
       "comment" : "Accessibility label of the fold",
       "localizations" : {
@@ -149,6 +237,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "הצגת טקסט מצוטט"
+          }
+        }
+      }
+    },
+    "Show as %@" : {
+      "comment" : "Switches one conversation's layout; the argument is Classic or Chat",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצגה כ%@"
+          }
+        }
+      }
+    },
+    "You" : {
+      "comment" : "VoiceOver: the reader, as the sender of a bubble",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "את/ה"
           }
         }
       }

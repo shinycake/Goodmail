@@ -190,3 +190,49 @@ write("plain-quoted-mixed", [headers(
     text("I agree with Avi. ההחלטה: deploy ביום ראשון at 09:00.\n\n> On Oct 12, Avi wrote:\n> נעשה deploy ביום ראשון?\n"
          ">> Dana wrote:\n>> Can we ship v2.1 this week?\n", "utf-8"),
     DANA, f"{AVI}, {TESTER}", "Re: v2.1 deploy", 360, "pq-1")])
+
+# 9. A back-and-forth for the chat layout: a signature, a quick follow-up, a reply sent from a phone, a file, and
+#    inline answers to an older message after a pause.
+def reply_text(new, attribution, quoted):
+    return new + "\n\n" + attribution + "\n" + "".join(f"> {line}\n" for line in quoted.split("\n"))
+
+
+c1 = text("Hey! Are we still on for Saturday? I was thinking the farmers market at 10, then brunch.\n\n-- \n"
+          "Dana Levi\nProduct, Example Inc.\n")
+c2 = text("Also, can you bring the picnic blanket?\n")
+c3 = text(reply_text("Yes to both! 10 works.\n\nSent from my iPhone",
+                     "On Mon, Oct 12, 2026 at 9:02 AM Dana Levi <dana@example.com> wrote:",
+                     "Also, can you bring the picnic blanket?"))
+c4 = MIMEMultipart("mixed")
+c4.attach(text("Here's the map they posted.\n"))
+map_pdf = MIMEApplication(pdf(), "pdf")
+map_pdf.add_header("Content-Disposition", "attachment", filename="Market map.pdf")
+c4.attach(map_pdf)
+c5 = text("On Mon, Oct 12, 2026 at 9:20 AM Goodmail Tester <tester@example.com> wrote:\n> Yes to both!\nAmazing.\n\n"
+          "> 10 works.\nLet's say 10:15, parking is a pain.\n\n> Sent from my iPhone\n")
+c6 = text("Deal 👍\n")
+write("chat-weekend-plan", [
+    headers(c1, DANA, TESTER, "Saturday?", 0, "chat-1"),
+    headers(c2, DANA, TESTER, "Re: Saturday?", 2, "chat-2", ["chat-1"]),
+    headers(c3, TESTER, DANA, "Re: Saturday?", 20, "chat-3", ["chat-1", "chat-2"]),
+    headers(c4, TESTER, DANA, "Re: Saturday?", 21, "chat-4", ["chat-1", "chat-2", "chat-3"]),
+    headers(c5, DANA, TESTER, "Re: Saturday?", 150, "chat-5", ["chat-1", "chat-2", "chat-3"]),
+    headers(c6, TESTER, DANA, "Re: Saturday?", 155, "chat-6", ["chat-1", "chat-2", "chat-3", "chat-5"]),
+])
+
+# 10. A Hebrew group thread for the chat layout, with a Hebrew Gmail attribution and an iPhone signature.
+h1 = text("היי לכולם, מי מגיע לארוחת שישי? אני מכינה שקשוקה.\n")
+h2 = text(reply_text("אני בפנים! אביא חלה.",
+                     "בתאריך יום ב׳, 12 באוק׳ 2026 ב-8:30 מאת יעל כהן <yael@example.co.il>:",
+                     "היי לכולם, מי מגיע לארוחת שישי? אני מכינה שקשוקה."))
+h3 = text("גם אני מגיע 🙂 אפשר להביא יין?\n\nנשלח מה-iPhone שלי\n")
+h4 = text("בטח! תביא אדום.\n")
+h5 = text("ואל תשכחו, מתחילים ב-19:30.\n")
+group = f"{YAEL}, {AVI}, {TESTER}"
+write("chat-hebrew-group", [
+    headers(h1, YAEL, f"{AVI}, {TESTER}", "ארוחת שישי", 0, "heb-1"),
+    headers(h2, AVI, group, "Re: ארוחת שישי", 5, "heb-2", ["heb-1"]),
+    headers(h3, TESTER, f"{YAEL}, {AVI}", "Re: ארוחת שישי", 12, "heb-3", ["heb-1", "heb-2"]),
+    headers(h4, YAEL, group, "Re: ארוחת שישי", 14, "heb-4", ["heb-1", "heb-2", "heb-3"]),
+    headers(h5, YAEL, group, "Re: ארוחת שישי", 15, "heb-5", ["heb-1", "heb-2", "heb-3", "heb-4"]),
+])

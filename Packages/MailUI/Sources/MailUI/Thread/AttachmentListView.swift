@@ -43,7 +43,7 @@ final class AttachmentListView: UIStackView {
         buttons[attachment.id]?.configuration?.showsActivityIndicator = loading
     }
 
-    private static func configuration(for attachment: Attachment) -> UIButton.Configuration {
+    static func configuration(for attachment: Attachment) -> UIButton.Configuration {
         var configuration = UIButton.Configuration.glass()
         configuration.cornerStyle = .capsule
         configuration.image = UIImage(systemName: symbol(for: attachment.mimeType))
