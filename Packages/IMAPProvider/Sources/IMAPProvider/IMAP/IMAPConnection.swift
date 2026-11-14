@@ -1,4 +1,5 @@
 import Foundation
+import MailCore
 
 /// One IMAP session (RFC 3501 §3): log in, open a mailbox, read it. Commands run one at a time, in call order.
 actor IMAPConnection {
@@ -68,7 +69,9 @@ actor IMAPConnection {
                 // Capabilities change at login (RFC 3501 §6.2.3), and iCloud's login reply lists only the
                 // AUTH= ones, so the session asks again.
                 connection.capabilities = nil
-            } catch IMAPError.refused(let status) where status.code("AUTHENTICATIONFAILED") != nil {
+            } catch IMAPError.refused(let status) where status.code("UNAVAILABLE") == nil {
+                // A NO to LOGIN is a refused user name or password (RFC 3501 §6.2.3), with or without iCloud's
+                // AUTHENTICATIONFAILED code; only UNAVAILABLE says the server can't check them now (RFC 5530).
                 throw IMAPError.authenticationFailed
             }
             connection.state = .authenticated

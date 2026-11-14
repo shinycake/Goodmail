@@ -1,4 +1,5 @@
 import Foundation
+import MailCore
 
 /// The account's IMAP connection: opened and logged in on first use, opened again when the server has hung up, and
 /// lent to one operation at a time, since an operation selects a folder and then reads it.

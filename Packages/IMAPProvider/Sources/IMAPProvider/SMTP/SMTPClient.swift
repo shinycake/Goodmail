@@ -1,4 +1,5 @@
 import Foundation
+import MailCore
 
 /// Submits messages over SMTP (RFC 5321), over TLS or after STARTTLS, one connection per message: mail is sent one
 /// message at a time, seconds or hours apart, so there's no session worth keeping open.
@@ -18,6 +19,13 @@ struct SMTPClient: Sendable {
             try await conversation.send(
                 SMTPEnvelope.dotStuffed(envelope.message) + Data(".\r\n".utf8), expect: 250)
             // The message is sent; a QUIT that fails changes nothing.
+            try? await conversation.command("QUIT", expect: 221)
+        }
+    }
+
+    /// Logs in and leaves, to check the user name and password before an account is added.
+    func verify() async throws {
+        try await withLoggedInConversation { conversation in
             try? await conversation.command("QUIT", expect: 221)
         }
     }

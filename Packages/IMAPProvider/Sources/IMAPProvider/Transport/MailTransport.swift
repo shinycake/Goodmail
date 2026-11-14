@@ -1,4 +1,5 @@
 import Foundation
+import MailCore
 
 #if canImport(FoundationNetworking)
     import FoundationNetworking
