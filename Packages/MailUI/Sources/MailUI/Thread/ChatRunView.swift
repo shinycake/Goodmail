@@ -111,7 +111,7 @@ final class ChatRunView: UIView {
             view = words
         case .letter:
             let letter = ChatLetterBubble()
-            letter.addAction(UIAction { _ in actions.openLetter(message) }, for: .primaryActionTriggered)
+            letter.addAction(UIAction { _ in actions.openLetter(message) }, for: .touchUpInside)
             view = letter
         case .attachment(let attachment):
             let file = ChatAttachmentBubble()

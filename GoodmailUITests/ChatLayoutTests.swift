@@ -35,10 +35,26 @@ final class ChatLayoutTests: XCTestCase {
     }
 
     @MainActor
+    func testALaidOutLetterOpensInFull() {
+        let app = launch(language: "en", locale: "en_US")
+        open("This week at Example Co", in: app)
+        let letter = app.buttons["chat.letter"].firstMatch
+        XCTAssertTrue(letter.waitForExistence(timeout: 5), "a newsletter reads as a letter bubble")
+        attach(app, "chat-letter")
+        letter.tap()
+        XCTAssertTrue(
+            app.links["Read more"].waitForExistence(timeout: 20), "tapping the letter opens it in full, body and all")
+        attach(app, "chat-letter-open")
+    }
+
+    @MainActor
     private func open(_ subject: String, in app: XCUIApplication) {
         let row = app.collectionViews["mailbox"].cells.containing(NSPredicate(format: "label CONTAINS %@", subject))
             .firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 10))
+        // Clear of the toolbar along the bottom, which takes a tap at the row's middle when it sits under it.
+        let list = app.collectionViews["mailbox"]
+        for _ in 0..<10 where !row.isHittable || row.frame.maxY > list.frame.maxY - 120 { list.swipeUp() }
         XCTAssertTrue(
             row.wait(for: \.isHittable, toEqual: true, timeout: 10), "the row is on screen and takes touches")
         let thread = app.scrollViews["thread"]

@@ -224,6 +224,8 @@ private final class InlineQuoteView: UIView {
 
 /// A message too long or too laid out for a bubble: its subject and first lines, which open the whole letter.
 final class ChatLetterBubble: UIControl {
+    /// How much of the message reads in the bubble before "Open Message".
+    static let lines = 12
     private let subject = UILabel()
     private let preview = UILabel()
     private let open = UILabel()
@@ -234,9 +236,9 @@ final class ChatLetterBubble: UIControl {
         backgroundColor = .secondarySystemBackground
         subject.font = .preferredFont(forTextStyle: .headline)
         subject.numberOfLines = 2
-        preview.font = .preferredFont(forTextStyle: .subheadline)
-        preview.textColor = .secondaryLabel
-        preview.numberOfLines = 4
+        preview.font = .preferredFont(forTextStyle: .body)
+        preview.textColor = .label
+        preview.numberOfLines = ChatLetterBubble.lines
         open.font = .preferredFont(forTextStyle: .subheadline).bold
         open.textColor = .tintColor
         open.text = String(
@@ -261,6 +263,7 @@ final class ChatLetterBubble: UIControl {
         ])
         isAccessibilityElement = true
         accessibilityTraits = .button
+        accessibilityIdentifier = "chat.letter"
         accessibilityHint = String(
             localized: "Opens the whole message", table: "Thread", bundle: .module,
             comment: "VoiceOver hint on a long message's bubble")
@@ -275,12 +278,27 @@ final class ChatLetterBubble: UIControl {
         applyShape()
         let title = subject.isEmpty ? ThreadRowMetrics.noSubject : subject
         self.subject.setSubjectText(title)
-        self.preview.setContentText(preview.replacingOccurrences(of: "\n", with: " "))
+        self.preview.setContentText(Self.paragraphs(preview))
         accessibilityLabel = "\(voice), \(title), \(preview)"
+    }
+
+    /// The message's lines, with runs of blank lines between paragraphs closed up to one.
+    static func paragraphs(_ text: String) -> String {
+        text.split(separator: "\n", omittingEmptySubsequences: false)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .split(separator: "", omittingEmptySubsequences: true)
+            .map { $0.joined(separator: "\n") }
+            .joined(separator: "\n\n")
     }
 
     private func applyShape() {
         cornerConfiguration = shape.corners(in: effectiveUserInterfaceLayoutDirection)
+    }
+
+    /// VoiceOver opens the letter as a tap does.
+    override func accessibilityActivate() -> Bool {
+        sendActions(for: .touchUpInside)
+        return true
     }
 
     override var isHighlighted: Bool {

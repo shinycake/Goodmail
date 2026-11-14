@@ -84,3 +84,11 @@ struct ChatThreadViewModelTests {
         #expect(!model.transcript.isGroup)
     }
 }
+
+@MainActor
+struct ChatLetterBubbleTests {
+    @Test func keepsTheLettersLinesAndClosesUpBlankRuns() {
+        let text = "  This week  \n\n\n\nNew: dark mode\nFixed: sync\n \n\nSee you"
+        #expect(ChatLetterBubble.paragraphs(text) == "This week\n\nNew: dark mode\nFixed: sync\n\nSee you")
+    }
+}
