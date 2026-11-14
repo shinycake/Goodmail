@@ -41,4 +41,47 @@ final class SettingsTests: XCTestCase {
         XCTAssertTrue(settings.waitForNonExistence(timeout: 5))
         XCTAssertTrue(app.collectionViews["mailbox"].waitForExistence(timeout: 5), "closing Settings shows the mail")
     }
+
+    /// The delete and archive animations can be turned down to the standard ones, in English and in Hebrew.
+    @MainActor
+    func testTheRemovalAnimationsCanBeMadeSubtle() {
+        chooseSubtleRemovals(
+            language: "en", locale: "en_US", settings: "Settings", setting: "Delete & Archive", subtle: "Subtle")
+    }
+
+    @MainActor
+    func testTheRemovalAnimationsCanBeMadeSubtleInHebrew() {
+        chooseSubtleRemovals(
+            language: "he", locale: "he_IL", settings: "הגדרות", setting: "מחיקה וארכיון", subtle: "עדין")
+    }
+
+    @MainActor
+    private func chooseSubtleRemovals(
+        language: String, locale: String, settings: String, setting: String, subtle: String
+    ) {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-GoodmailSyntheticThreads", "20", "-AppleLanguages", "(\(language))", "-AppleLocale", locale,
+            "-removalAnimation", "playful",
+        ]
+        app.launch()
+        XCTAssertTrue(app.collectionViews["mailbox"].cells.firstMatch.waitForExistence(timeout: 15))
+        if app.windows.firstMatch.horizontalSizeClass == .compact {
+            app.navigationBars.buttons.element(boundBy: 0).tap()
+        }
+        app.buttons[settings].firstMatch.tap()
+        XCTAssertTrue(app.navigationBars[settings].waitForExistence(timeout: 5))
+        let picker = app.buttons.containing(NSPredicate(format: "label BEGINSWITH %@", setting)).firstMatch
+        for _ in 0..<6 where !picker.isHittable { app.swipeUp() }
+        XCTAssertTrue(picker.isHittable, "the animation setting is in Settings")
+        picker.tap()
+        app.buttons[subtle].firstMatch.tap()
+        XCTAssertTrue(
+            app.buttons.containing(NSPredicate(format: "label CONTAINS %@", subtle)).firstMatch
+                .waitForExistence(timeout: 5), "the setting reads Subtle")
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "removal-animation-\(language)"
+        shot.lifetime = .keepAlways
+        add(shot)
+    }
 }

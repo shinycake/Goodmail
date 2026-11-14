@@ -97,6 +97,17 @@
         }
       }
     },
+    "Animations" : {
+      "comment" : "Settings section for the app's animations",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אנימציות"
+          }
+        }
+      }
+    },
     "Avatars" : {
       "comment" : "Setting for the sender's initials beside each row",
       "localizations" : {
@@ -159,6 +170,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "שיחות"
+          }
+        }
+      }
+    },
+    "Delete & Archive" : {
+      "comment" : "Setting for how trashed, archived and deleted threads leave the list",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחיקה וארכיון"
           }
         }
       }
@@ -258,6 +280,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ההתראות של Goodmail כבויות בהגדרות."
+          }
+        }
+      }
+    },
+    "Playful" : {
+      "comment" : "Removal animation: rows go into a trash can or archive box, or dissolve",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שובב"
+          }
+        }
+      }
+    },
+    "Playful puts mail into the trash can or archive box, and dissolves mail deleted forever. Subtle slides it away." : {
+      "comment" : "Explains the delete and archive animation setting",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "״שובב״ מכניס את הדואר לפח או לתיבת הארכיון, ומפורר דואר שנמחק לצמיתות. ״עדין״ פשוט מחליק אותו החוצה."
           }
         }
       }
@@ -385,6 +429,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ממיין את הדואר הנכנס לראשי, קידומי מכירות, רשתות חברתיות, עדכונים ופורומים, כמו ב-Gmail. אפשר גם לבחור לכל חשבון בהגדרות שלו."
+          }
+        }
+      }
+    },
+    "Subtle" : {
+      "comment" : "Removal animation: rows slide away with the standard animation",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עדין"
           }
         }
       }

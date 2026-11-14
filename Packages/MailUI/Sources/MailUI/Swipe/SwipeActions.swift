@@ -158,7 +158,7 @@ final class SwipeActionsController: NSObject {
     /// Runs `action`. One that stows keeps the buttons up and turns its own into the box the row goes into; any
     /// other closes them first.
     private func fire(_ action: SwipeAction, from button: GlassActionButton, on row: Row) {
-        guard let kind = action.stow, !UIAccessibility.isReduceMotionEnabled else {
+        guard let kind = action.stow, Motion.playsRemovals else {
             hide(row, animated: true)
             return action.handler(nil)
         }

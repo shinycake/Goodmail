@@ -42,6 +42,14 @@ public enum Preferences {
 
     private static let conversationLayoutKey = "conversationLayout"
 
+    /// How trashed, archived and deleted threads leave the list. A stored value from a later build reads as playful.
+    public static var removalAnimation: RemovalAnimation {
+        get { defaults.string(forKey: removalAnimationKey).flatMap(RemovalAnimation.init(rawValue:)) ?? .playful }
+        set { defaults.set(newValue.rawValue, forKey: removalAnimationKey) }
+    }
+
+    private static let removalAnimationKey = "removalAnimation"
+
     /// What views that span accounts wear. A stored color that no longer exists reads as the gradient.
     public static var combinedTheme: CombinedTheme {
         get {

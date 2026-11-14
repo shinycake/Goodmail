@@ -169,6 +169,28 @@ struct SettingsTests {
         #expect(Preferences.combinedTheme == .gradient)
     }
 
+    @Test func removalAnimationsArePlayfulUntilMadeSubtleAndPersist() {
+        let saved = Preferences.removalAnimation
+        defer { Preferences.removalAnimation = saved }
+        Preferences.removalAnimation = .playful
+        let model = SettingsViewModel(
+            accounts: { [personal] }, signIn: { _ in true }, remove: { _ in }, update: { _ in }, closed: {})
+        #expect(model.removalAnimation == .playful, "the box and dissolve animations are the standard")
+
+        model.removalAnimation = .subtle
+        #expect(Preferences.removalAnimation == .subtle)
+    }
+
+    @Test(arguments: [
+        (RemovalAnimation.playful, false, true),
+        (.playful, true, false),
+        (.subtle, false, false),
+        (.subtle, true, false),
+    ])
+    func removalsPlayOnlyWhenPlayfulAndMotionIsAllowed(choice: RemovalAnimation, reducingMotion: Bool, plays: Bool) {
+        #expect(choice.plays(reducingMotion: reducingMotion) == plays)
+    }
+
     @Test func previewTitlesReadAsLines() {
         #expect(RowDisplay.previewTitle(0) == "None")
         #expect(RowDisplay.previewTitle(1) == "1 line")

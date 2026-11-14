@@ -25,6 +25,10 @@ public final class SettingsViewModel {
     public var conversationLayout: ConversationLayout {
         didSet { Preferences.conversationLayout = conversationLayout }
     }
+    /// How trashed, archived and deleted threads leave the list.
+    public var removalAnimation: RemovalAnimation {
+        didSet { Preferences.removalAnimation = removalAnimation }
+    }
     /// What views that span accounts wear.
     public var combinedTheme: CombinedTheme {
         didSet { Preferences.combinedTheme = combinedTheme }
@@ -67,6 +71,7 @@ public final class SettingsViewModel {
         rowDisplay = Preferences.rowDisplay
         swipeArrangement = Preferences.swipeArrangement
         conversationLayout = Preferences.conversationLayout
+        removalAnimation = Preferences.removalAnimation
         unsortedInboxAccounts = Preferences.unsortedInboxAccounts
         combinedTheme = Preferences.combinedTheme
         reload = accounts

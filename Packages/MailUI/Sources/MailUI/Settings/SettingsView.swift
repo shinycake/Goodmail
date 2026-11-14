@@ -99,6 +99,27 @@ struct SettingsView: View {
             }
 
             Section {
+                Picker(selection: $model.removalAnimation) {
+                    ForEach(RemovalAnimation.allCases, id: \.self) { animation in
+                        Text(animation.title).tag(animation)
+                    }
+                } label: {
+                    Text(
+                        "Delete & Archive", tableName: "Settings", bundle: .module,
+                        comment: "Setting for how trashed, archived and deleted threads leave the list")
+                }
+            } header: {
+                Text(
+                    "Animations", tableName: "Settings", bundle: .module,
+                    comment: "Settings section for the app's animations")
+            } footer: {
+                Text(
+                    "Playful puts mail into the trash can or archive box, and dissolves mail deleted forever. Subtle slides it away.",
+                    tableName: "Settings", bundle: .module, comment: "Explains the delete and archive animation setting"
+                )
+            }
+
+            Section {
                 Picker(selection: $model.undoSendSeconds) {
                     ForEach(Preferences.undoSendChoices, id: \.self) { seconds in
                         Text(SettingsViewModel.undoSendTitle(seconds)).tag(seconds)

@@ -342,7 +342,7 @@ extension MailboxViewController {
         let leaving = deleted.keys.filter { threads[$0] == nil }
         guard !leaving.isEmpty else { return false }
         for id in leaving { deleted[id] = nil }
-        guard view.window != nil, !UIAccessibility.isReduceMotionEnabled else { return false }
+        guard view.window != nil, Motion.playsRemovals else { return false }
         let rows = leaving.compactMap { id in
             dataSource.indexPath(for: id).flatMap(collectionView.cellForItem).map { (id, $0) }
         }
@@ -551,7 +551,7 @@ extension MailboxViewController {
     /// Performs `action` on the selected threads, or with `all` on every one in the list, and stops selecting.
     private func performOnSelection(_ action: ThreadAction, all: Bool = false) {
         let ids = all ? dataSource.snapshot().itemIdentifiers : selectedIDs
-        guard let kind = action.stow, !UIAccessibility.isReduceMotionEnabled, let window = view.window else {
+        guard let kind = action.stow, Motion.playsRemovals, let window = view.window else {
             return perform(action, on: ids) { [weak self] in self?.setEditing(false, animated: true) }
         }
         // The action's button may be in the toolbar's overflow menu, so a box pops up above the toolbar to take them.
