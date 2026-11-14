@@ -81,7 +81,7 @@ public final class ThreadViewModel {
     public func observe() async {
         if thread.isUnread, !hasMarkedRead {
             hasMarkedRead = true
-            actions?.perform(.markRead(true), on: [thread.id])
+            actions?.markOpened([thread.id])
         }
         // A child of the observation, so leaving the thread cancels the fetch with it.
         async let loading: Void = load()

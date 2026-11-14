@@ -20,6 +20,8 @@ public final class MailSplitViewController: UISplitViewController {
 
     public override func viewDidLoad() {
         super.viewDidLoad()
+        let haptics = HapticPlayer(view: view)
+        actions.feedback = { haptics.play($0) }
         toast.alpha = 0
         toast.onUndo = { [weak self] in self?.actions.undoLast() }
         toast.translatesAutoresizingMaskIntoConstraints = false

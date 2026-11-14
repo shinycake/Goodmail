@@ -22,6 +22,8 @@ public final class MailActions {
 
     /// Opens a taken-back message in the composer again.
     @ObservationIgnored public var reopen: ((Draft) -> Void)?
+    /// Plays the tap for an action the reader took, as soon as they take it.
+    @ObservationIgnored var feedback: (Haptic) -> Void = { _ in }
 
     public private(set) var toast: Toast?
     /// A failure to apply or undo an action locally.
@@ -44,6 +46,7 @@ public final class MailActions {
     }
 
     public func perform(_ action: ThreadAction, on threads: [ThreadSummary.ID]) {
+        feedback(.performing(action))
         apply(confirmation: Self.confirmation(for: action, count: threads.count)) {
             try await $0.perform(action, on: threads)
         }
@@ -53,6 +56,7 @@ public final class MailActions {
     public func move(
         _ threads: [ThreadSummary.ID], to destination: MoveDestination, named name: String, from mailbox: Mailbox
     ) {
+        feedback(.putAway)
         apply(
             confirmation: String(
                 localized: "\(threads.count) moved to \(name)", table: "Actions", bundle: .module,
@@ -62,6 +66,7 @@ public final class MailActions {
 
     /// Takes the threads out of the Inbox until `date`, with a toast to take that back.
     public func snooze(_ threads: [ThreadSummary.ID], until date: Date) {
+        feedback(.putAway)
         apply(
             confirmation: String(
                 localized: "Snoozed until \(ScheduledTime.text(for: date))", table: "Actions", bundle: .module,
@@ -71,11 +76,18 @@ public final class MailActions {
 
     /// Puts snoozed threads back in the Inbox now, with a toast to snooze them again.
     public func unsnooze(_ threads: [ThreadSummary.ID]) {
+        feedback(.change)
         apply(
             confirmation: String(
                 localized: "\(threads.count) moved to Inbox", table: "Actions", bundle: .module,
                 comment: "Toast after putting snoozed threads back in the Inbox")
         ) { try await $0.unsnooze(threads) }
+    }
+
+    /// Marks threads read because the reader opened them: the app's doing, not an action they took, so it plays
+    /// no tap and leaves nothing to undo.
+    public func markOpened(_ threads: [ThreadSummary.ID]) {
+        run { _ = try await $0.perform(.markRead(true), on: threads) }
     }
 
     /// Undoes the most recent action, from the toast or a shake. Does nothing when there is none.
@@ -84,6 +96,7 @@ public final class MailActions {
             guard let undo = lastUndo else { return }
             lastUndo = nil
             toast = nil
+            feedback(.undone)
             switch undo {
             case .actions(let undo):
                 try await commands.undo(undo)
@@ -106,6 +119,7 @@ public final class MailActions {
     /// Queues a message to go at `time`, with a toast to take it back: for the undo window when it goes now, or
     /// for the usual toast time when it waits under Scheduled.
     public func send(_ draft: Draft, at time: SendTime = .now) {
+        feedback(.sent)
         run { [self] commands in
             switch time {
             case .now:
