@@ -22,11 +22,11 @@ The process is autonomous. Nobody needs to approve routine work.
    - New code goes in new files. Don't grow a central file every feature touches (coordinators, registries, shared string tables): give each feature its own file or table.
 2. Open a ready (not draft) PR with evidence: the `scripts/check` output, plus simulator screenshots or recordings for UI changes.
 3. `.github/workflows/review.yml` runs the Linux `scripts/check` on the PR merged with main, and a Claude review against [docs/review.md](docs/review.md). Its comments land on the PR.
-4. If the review approves and the check is green, the workflow squash-merges the reviewed commit and deletes the branch. If main moved after the check, the merge job checks the PR merged with the new main itself before merging, so there's nothing to push. Merge main in yourself only when the workflow says the PR conflicts with main or fails on it. A push that only takes in main keeps the approval, because the review is keyed on the PR's own changes.
-5. If the review requests changes, fix them and push. Every push that changes the PR's own diff is reviewed again from scratch. If you believe a finding is wrong, justify the trade-off in the PR description before pushing the fix for the rest.
+4. The merge queue (`.github/workflows/merge-queue.yml`, [docs/setup/merge-queue.md](docs/setup/merge-queue.md), ADR-020) lands the PR once the review approves and the check is green: it rechecks the PR squashed onto main if main moved, reruns a flaky run up to three attempts, squash-merges and deletes the branch. Nothing needs to watch it. The PR's `merge-queue` status says where it stands, and why if it's stuck. A push that only takes in main keeps the approval, because the review is keyed on the PR's own changes.
+5. Act only when the `merge-queue` status is a failure: the review requested changes (fix and push), the PR conflicts with main or fails on it (merge main in, fix and push), or its runs failed three times. Every push that changes the PR's own diff is reviewed again from scratch. If you believe a finding is wrong, justify the trade-off in the PR description before pushing the fix for the rest.
 
 Don't merge PRs by hand to get around the gate. Exceptions:
 
 - A PR labeled `hold` is reviewed but not merged.
-- A PR that changes `.github/` is reviewed but the owner merges it, because it changes the gate itself.
+- A PR that changes `.github/` is checked but the owner merges it, because it changes the gate itself (the Claude action won't review it).
 - Draft PRs aren't reviewed until they are marked ready.

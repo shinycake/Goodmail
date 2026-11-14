@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+# The merge queue's planner (docs/setup/merge-queue.md). Looks at every ready PR from this repository, oldest first,
+# puts each one's place in the queue on its `merge-queue` status, reruns a failed review run up to MAX_ATTEMPTS times,
+# and names the first PR that can merge: approved by the Claude review, with `scripts/check` green on its head.
+#
+# Each PR is in exactly one queue state, which `assess` prints as "state<TAB>why<TAB>checked tree":
+#   ready    approved and green: it can merge, and the tree is the PR merged with main as the check saw it
+#   waiting  the queue is waiting on a run, a label or the owner, with nothing for the author to do
+#   stuck    the author has to act: push a fix, or merge main in
+set -euo pipefail
+# shellcheck source=.github/merge-queue/lib.sh
+source "$(dirname "$0")/lib.sh"
+
+MAX_ATTEMPTS=3
+main=$(gh api "repos/$R/commits/main" --jq .sha)
+on_main=$(stamp "$main")
+
+# The jobs of a run, as "name<TAB>conclusion<TAB>failed steps" lines.
+run_jobs() {
+    gh api "repos/$R/actions/runs/$1/jobs" --paginate \
+        --jq '.jobs[] | [.name, (.conclusion // ""), ([.steps[]? | select(.conclusion == "failure") | .name] | join(","))] | @tsv'
+}
+
+assess() {
+    local pr=$1 sha=$2 labels=$3
+    if grep -qx hold <<<"$labels"; then
+        printf 'waiting\tLabeled hold: it merges once the label comes off.\n'
+        return
+    fi
+    if gh api "repos/$R/pulls/$pr/files" --paginate --jq '.[].filename' | grep -q '^\.github/'; then
+        printf 'waiting\tIt changes .github/, the gate itself, so the owner merges it.\n'
+        return
+    fi
+    # The merge job's own verdict (a conflict, or a failing check on the PR merged with main) holds until main moves.
+    local last
+    last=$(last_status "$sha")
+    if [[ "$last" == failure$'\t'*"$on_main" ]]; then
+        printf 'stuck\t%s\n' "${last#*$'\t'}"
+        return
+    fi
+    if [[ "$(gh api "repos/$R/pulls/$pr" --jq .mergeable)" == false ]]; then
+        notify "$pr" "conflict $sha $main" "The merge queue can't merge this: it conflicts with main at ${main:0:7}. Merge main into the branch and push."
+        printf 'stuck\tIt conflicts with main. Merge main into the branch and push. %s\n' "$on_main"
+        return
+    fi
+
+    local run id status conclusion attempt checked
+    run=$(gh api "repos/$R/actions/workflows/review.yml/runs?head_sha=$sha&event=pull_request&per_page=100" \
+        --jq '.workflow_runs | max_by(.id) // empty | [.id, .status, (.conclusion // "-"), .run_attempt, (.referenced_workflows[0].sha // "-")] | @tsv')
+    if [[ -z "$run" ]]; then
+        printf 'waiting\tWaiting for the review run to start.\n'
+        return
+    fi
+    IFS=$'\t' read -r id status conclusion attempt checked <<<"$run"
+    if [[ "$status" != completed ]]; then
+        printf 'waiting\tThe review and check are running (attempt %s).\n' "$attempt"
+        return
+    fi
+
+    local jobs
+    jobs=$(run_jobs "$id")
+    job() { awk -F'\t' -v name="$1" '$1 == name { print $2 }' <<<"$jobs"; }
+    if [[ "$conclusion" == success ]]; then
+        if [[ "$(job claude)" == success && "$(job 'check / check')" == success ]]; then
+            # The check ran on GitHub's merge of the PR with main; its tree is what a squash onto that main holds.
+            local tree=""
+            [[ "$checked" == - ]] || tree=$(gh api "repos/$R/git/commits/$checked" --jq .tree.sha 2>/dev/null || true)
+            printf 'ready\tApproved and green.\t%s\n' "$tree"
+        else
+            printf 'waiting\tThe WIP limit held it back. Mark it ready again once its lane has room.\n'
+        fi
+        return
+    fi
+    if awk -F'\t' '$1 == "claude" && $3 ~ /Enforce the verdict/' <<<"$jobs" | grep -q .; then
+        printf 'stuck\tThe Claude review requested changes. Fix its findings and push.\n'
+        return
+    fi
+    if ((attempt < MAX_ATTEMPTS)); then
+        # A crashed review, a flaky test or a runner that went away: run what failed again.
+        if awk -F'\t' '$2 == "failure" || $2 == "cancelled" || $2 == "timed_out"' <<<"$jobs" | grep -q .; then
+            gh api -X POST "repos/$R/actions/runs/$id/rerun-failed-jobs" >/dev/null
+        else
+            gh api -X POST "repos/$R/actions/runs/$id/rerun" >/dev/null
+        fi
+        printf 'waiting\tThe review run ended %s; running it again (attempt %s of %s).\n' \
+            "$conclusion" "$((attempt + 1))" "$MAX_ATTEMPTS"
+        return
+    fi
+    notify "$pr" "attempts $sha" "The merge queue gave up on this head: its review run ended $conclusion $MAX_ATTEMPTS times. See https://github.com/$R/actions/runs/$id, then push a fix or rerun the run."
+    printf 'stuck\tThe review run ended %s %s times. Push a fix, or rerun it.\n' "$conclusion" "$MAX_ATTEMPTS"
+}
+
+summary=$'| PR | Queue | Why |\n|---|---|---|\n'
+next=""
+while IFS=$'\t' read -r pr sha ref author_id author_login; do
+    [[ -n "$pr" ]] || continue
+    labels=$(gh api "repos/$R/issues/$pr/labels" --jq '.[].name')
+    IFS=$'\t' read -r state why tree < <(assess "$pr" "$sha" "$labels" </dev/null)
+    case "$state" in
+        ready)
+            if [[ -z "$next" ]]; then
+                next=$pr
+                report "$sha" pending "Approved and green: next to merge."
+                {
+                    echo "pr=$pr"
+                    echo "sha=$sha"
+                    echo "ref=$ref"
+                    echo "tree=$tree"
+                    echo "author_id=$author_id"
+                    echo "author_login=$author_login"
+                } >>"$GITHUB_OUTPUT"
+            else
+                why="Approved and green: queued behind #$next."
+                report "$sha" pending "$why"
+            fi
+            ;;
+        waiting) report "$sha" pending "$why" ;;
+        stuck) report "$sha" failure "$why" ;;
+        *)
+            echo "::error::#$pr: no queue state"
+            exit 1
+            ;;
+    esac
+    summary+="| #$pr | $state | $why |"$'\n'
+done < <(gh api "repos/$R/pulls?state=open&sort=created&direction=asc&per_page=100" --paginate \
+    --jq ".[] | select(.draft | not) | select((.head.repo.full_name // \"\" | ascii_downcase) == (\"$R\" | ascii_downcase))
+        | [.number, .head.sha, .head.ref, .user.id, .user.login] | @tsv")
+
+echo "Main is at ${main:0:7}."$'\n\n'"$summary" >>"$GITHUB_STEP_SUMMARY"
+echo "$summary"

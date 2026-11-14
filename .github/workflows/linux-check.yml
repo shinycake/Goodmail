@@ -1,15 +1,11 @@
 # The Linux scripts/check (docs/setup/cloud-builds.md): lint, every package and its tests compiled for iOS, the app
-# and extension targets type-checked, and the Linux-testable packages' tests. review.yml gates merges on it, and
-# check.yml runs it on main. It needs the private goodmail-sdk repository, read with the GOODMAIL_SDK_DEPLOY_KEY secret.
+# and extension targets type-checked, and the Linux-testable packages' tests. review.yml runs it on each PR merged
+# with main, which the merge queue requires, and check.yml on main. It needs the private goodmail-sdk repository, read with the GOODMAIL_SDK_DEPLOY_KEY secret.
 # Until that secret exists, it runs only the lint and the line cap (scripts/check --lint).
 name: linux-check
 
 on:
   workflow_call:
-    outputs:
-      base:
-        description: The main commit the checked tree was merged with, for the merge gate's up-to-date check.
-        value: ${{ jobs.check.outputs.base }}
     secrets:
       GOODMAIL_SDK_DEPLOY_KEY:
         required: false
@@ -24,8 +20,6 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: read
-    outputs:
-      base: ${{ steps.base.outputs.sha }}
     # The image's default shell is sh; scripts and these steps expect bash.
     defaults:
       run:
@@ -39,17 +33,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: goodmail
-          fetch-depth: 2
-      # A pull request's checkout is its merge with main, whose first parent is the main it was tested against.
-      - id: base
+      - name: Trust the checkout
         working-directory: goodmail
-        run: |
-          git config --global --add safe.directory "$PWD"
-          if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
-            echo "sha=$(git rev-parse HEAD^1)" >>"$GITHUB_OUTPUT"
-          else
-            echo "sha=$(git rev-parse HEAD)" >>"$GITHUB_OUTPUT"
-          fi
+        run: git config --global --add safe.directory "$PWD"
 
       - uses: ./goodmail/.github/actions/linux-toolchain
         with:
