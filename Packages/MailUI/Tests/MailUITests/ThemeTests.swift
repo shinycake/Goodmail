@@ -114,12 +114,11 @@ struct ThemeTests {
     }
 
     @Test func contentTypographyFollowsDynamicType() {
+        // A font UIFontMetrics already scaled must not be scaled again, so ask Typography for each size.
         let large = UITraitCollection(preferredContentSizeCategory: .large)
         let huge = UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraExtraLarge)
-        let body = Typography.body
+        let body = Typography.system(.body, compatibleWith: large)
         #expect(body.pointSize == UIFont.preferredFont(forTextStyle: .body, compatibleWith: large).pointSize)
-        #expect(
-            UIFontMetrics(forTextStyle: .body).scaledFont(for: body, compatibleWith: huge).pointSize
-                > body.pointSize)
+        #expect(Typography.system(.body, compatibleWith: huge).pointSize > body.pointSize)
     }
 }
