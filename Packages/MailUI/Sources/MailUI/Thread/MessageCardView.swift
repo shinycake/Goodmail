@@ -5,6 +5,8 @@ import UIKit
 final class MessageCardView: UIView {
     var onToggle: (() -> Void)?
     var onAllowRemoteContent: (() -> Void)?
+    /// Trusts the sender, so their remote images always load.
+    var onTrustSender: (() -> Void)?
     var onOpenAttachment: ((Attachment) -> Void)? {
         didSet { attachments.onOpen = onOpenAttachment }
     }
@@ -13,7 +15,7 @@ final class MessageCardView: UIView {
     }
 
     private let header = MessageHeaderView()
-    private let remoteNotice = UIButton(configuration: .plain())
+    private let remoteNotice = RemoteImagesNotice()
     private let body: MessageWebView
     private let attachments = AttachmentListView()
 
@@ -24,22 +26,12 @@ final class MessageCardView: UIView {
         layer.cornerRadius = 24
         layer.cornerCurve = .continuous
 
-        var notice = UIButton.Configuration.gray()
-        notice.cornerStyle = .capsule
-        notice.image = UIImage(systemName: "photo.badge.arrow.down")
-        notice.imagePadding = 6
-        notice.title = String(
-            localized: "Load Remote Images", table: "Thread", bundle: .module, comment: "Shows blocked remote content")
-        notice.buttonSize = .small
-        remoteNotice.configuration = notice
-        remoteNotice.isHidden = true
-        remoteNotice.addAction(
-            UIAction { [weak self] _ in self?.onAllowRemoteContent?() }, for: .primaryActionTriggered)
+        remoteNotice.onLoad = { [weak self] in self?.onAllowRemoteContent?() }
+        remoteNotice.onTrustSender = { [weak self] in self?.onTrustSender?() }
 
         header.onFold = { [weak self] in self?.onToggle?() }
 
-        let noticeRow = UIStackView(arrangedSubviews: [remoteNotice, UIView()])
-        let stack = UIStackView(arrangedSubviews: [header, noticeRow, body, attachments])
+        let stack = UIStackView(arrangedSubviews: [header, remoteNotice, body, attachments])
         stack.axis = .vertical
         stack.spacing = 14
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -52,9 +44,8 @@ final class MessageCardView: UIView {
         ])
         body.onLayout = { [weak self] _, blocked in
             self?.remoteNotice.isHidden = !blocked
-            noticeRow.isHidden = !blocked
         }
-        noticeRow.isHidden = true
+        remoteNotice.isHidden = true
     }
 
     @available(*, unavailable)
@@ -66,6 +57,7 @@ final class MessageCardView: UIView {
         header.configure(
             MessageHeader(message), dateText: dateText, accountEmail: accountEmail,
             badge: message.isUnread ? .dot(accountColor) : nil)
+        remoteNotice.configure(sender: message.from.address)
         body.show(MessageWebView.Content(message: message, allowsRemoteContent: allowsRemoteContent))
         attachments.show(AttachmentListView.listed(in: message))
     }

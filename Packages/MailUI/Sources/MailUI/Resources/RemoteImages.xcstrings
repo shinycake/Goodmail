@@ -1,0 +1,94 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Always Load from This Sender" : {
+      "comment" : "Menu item: always load remote images in mail from this message's sender",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לטעון תמיד תמונות מהשולח הזה"
+          }
+        }
+      }
+    },
+    "Images from these senders load as soon as you open their mail." : {
+      "comment" : "Explains the list of trusted senders",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תמונות מהשולחים האלה נטענות מיד כשפותחים את הדואר שלהם."
+          }
+        }
+      }
+    },
+    "More Image Options" : {
+      "comment" : "Accessibility label of the menu beside Load Remote Images",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אפשרויות נוספות לתמונות"
+          }
+        }
+      }
+    },
+    "No Trusted Senders" : {
+      "comment" : "Shown when no sender's remote images always load",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אין שולחים מהימנים"
+          }
+        }
+      }
+    },
+    "Remote Images" : {
+      "comment" : "Settings section for loading images from the web in mail",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תמונות מרוחקות"
+          }
+        }
+      }
+    },
+    "Remote images can tell senders when you open their mail. Goodmail loads them only when you ask, and always for trusted senders." : {
+      "comment" : "Explains why remote images are blocked",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תמונות מרוחקות יכולות לגלות לשולחים מתי פתחת את הדואר שלהם. Goodmail טוען אותן רק כשביקשת, ותמיד משולחים מהימנים."
+          }
+        }
+      }
+    },
+    "To always load a sender’s images, open the menu beside Load Remote Images in their message." : {
+      "comment" : "Explains how to trust a sender",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כדי לטעון תמיד את התמונות של שולח, פתח את התפריט שליד „טעינת תמונות מרוחקות” בהודעה שלו."
+          }
+        }
+      }
+    },
+    "Trusted Senders" : {
+      "comment" : "Title of the list of senders whose remote images always load",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שולחים מהימנים"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

@@ -15,7 +15,10 @@ public final class ThreadViewModel {
     public private(set) var messages: [Message] = []
     /// Messages shown as cards; the rest are one-line rows in the timeline.
     public private(set) var expanded: Set<Message.ID> = []
-    public private(set) var remoteContentAllowed: Set<Message.ID> = []
+    /// Messages whose remote content the reader loaded once.
+    private var loadedOnce: Set<Message.ID> = []
+    /// The senders whose remote images always load, as of opening the thread and trusting from it.
+    private var trustedAddresses: Set<String>
     public private(set) var isLoading = false
     public private(set) var loadError: (any Error)?
     /// Whether the reader is still on the thread. It leaves once, when an action or a move takes the thread out of
@@ -43,6 +46,7 @@ public final class ThreadViewModel {
     @ObservationIgnored private let attachmentsDirectory: URL
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let calendar: Calendar
+    @ObservationIgnored private let trustedSenders: TrustedImageSenders
 
     public init(
         thread: ThreadSummary,
@@ -60,8 +64,11 @@ public final class ThreadViewModel {
         attachmentsDirectory: URL = FileManager.default.temporaryDirectory.appending(path: "Attachments"),
         now: @escaping () -> Date = Date.init,
         calendar: Calendar = .autoupdatingCurrent,
-        layout: ConversationLayout = Preferences.conversationLayout
+        layout: ConversationLayout = Preferences.conversationLayout,
+        trustedSenders: TrustedImageSenders = TrustedImageSenders()
     ) {
+        self.trustedSenders = trustedSenders
+        trustedAddresses = Set(trustedSenders.addresses)
         self.layout = layout
         transcript = ChatTranscript(messages: [], accountEmail: accountEmail)
         self.actions = actions
@@ -146,8 +153,25 @@ public final class ThreadViewModel {
         }
     }
 
+    /// The messages that may load remote content: those the reader loaded once, and every one from a trusted sender.
+    public var remoteContentAllowed: Set<Message.ID> {
+        Set(messages.lazy.filter(allowsRemoteContent).map(\.id))
+    }
+
+    public func allowsRemoteContent(in message: Message) -> Bool {
+        loadedOnce.contains(message.id)
+            || trustedAddresses.contains(TrustedImageSenders.normalized(message.from.address))
+    }
+
     public func allowRemoteContent(in id: Message.ID) {
-        remoteContentAllowed.insert(id)
+        loadedOnce.insert(id)
+    }
+
+    /// Trusts the sender of `id` on this device, so their remote images load in this message and all their others.
+    public func alwaysAllowRemoteContent(from id: Message.ID) {
+        guard let address = messages.first(where: { $0.id == id })?.from.address else { return }
+        trustedSenders.trust(address)
+        trustedAddresses = Set(trustedSenders.addresses)
     }
 
     /// A local copy of an attachment for Quick Look, named as the sender named it. Fetched once per message part.

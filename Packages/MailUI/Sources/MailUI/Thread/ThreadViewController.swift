@@ -327,7 +327,7 @@ public final class ThreadViewController: UIViewController {
                 card.configure(
                     message, dateText: dateText, accountEmail: viewModel.accountEmail,
                     accountColor: viewModel.accountColor.uiColor,
-                    allowsRemoteContent: viewModel.remoteContentAllowed.contains(message.id))
+                    allowsRemoteContent: viewModel.allowsRemoteContent(in: message))
                 arranged.append(card)
             } else {
                 let row = rows[message.id] ?? makeRow(for: message.id)
@@ -389,6 +389,7 @@ public final class ThreadViewController: UIViewController {
         let card = MessageCardView(attachmentData: viewModel.attachmentData)
         card.onToggle = { [weak self] in self?.viewModel.toggle(id) }
         card.onAllowRemoteContent = { [weak self] in self?.viewModel.allowRemoteContent(in: id) }
+        card.onTrustSender = { [weak self] in self?.viewModel.alwaysAllowRemoteContent(from: id) }
         card.openURL = openURL
         card.onOpenAttachment = { [weak self, weak card] attachment in
             self?.open(attachment, in: id) { card?.setLoading($0, for: attachment) }

@@ -98,6 +98,8 @@ struct SettingsView: View {
                     tableName: "Settings", bundle: .module, comment: "Explains the conversation layout setting")
             }
 
+            RemoteImagesSection()
+
             Section {
                 Picker(selection: $model.removalAnimation) {
                     ForEach(RemovalAnimation.allCases, id: \.self) { animation in

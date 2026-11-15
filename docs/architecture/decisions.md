@@ -30,7 +30,7 @@ The owner decided these on 2026-10-20 after talking through the options. Each en
 - **Decision:** each message in a thread renders in its own `WKWebView`:
   - Collapsed messages aren't rendered.
   - Email JavaScript is off.
-  - A `WKContentRuleList` blocks remote content by default.
+  - A `WKContentRuleList` blocks remote content by default. The reader loads it once per message, or always for a sender they trust, kept on the device by address (`TrustedImageSenders`).
   - `cid:` images are served by a `WKURLSchemeHandler`.
   - Our own script, in an isolated `WKContentWorld`, measures height and applies `dir=auto`.
 - **Why:** per-message actions, accessibility and RTL stay simple, and it matches Apple Mail.
