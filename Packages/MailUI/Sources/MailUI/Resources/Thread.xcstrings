@@ -59,6 +59,28 @@
         }
       }
     },
+    "Bcc" : {
+      "comment" : "A message's Bcc field",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עותק מוסתר"
+          }
+        }
+      }
+    },
+    "Cc" : {
+      "comment" : "A message's Cc field",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עותק"
+          }
+        }
+      }
+    },
     "Copy" : {
       "comment" : "Copies a bubble's text",
       "localizations" : {
@@ -70,6 +92,39 @@
         }
       }
     },
+    "Copy %@" : {
+      "comment" : "Copies an email address from a message's header; the argument is the address",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העתקת %@"
+          }
+        }
+      }
+    },
+    "Copy Address" : {
+      "comment" : "Copies a chat sender's email address",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העתקת הכתובת"
+          }
+        }
+      }
+    },
+    "Copy Addresses" : {
+      "comment" : "Copies every email address in a header field",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העתקת הכתובות"
+          }
+        }
+      }
+    },
     "Couldn’t Open Attachment" : {
       "comment" : "Alert title when an attachment fails to download",
       "localizations" : {
@@ -77,6 +132,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "לא ניתן לפתוח את הקובץ המצורף"
+          }
+        }
+      }
+    },
+    "Details" : {
+      "comment" : "Shows every address a message went to",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פרטים"
           }
         }
       }
@@ -103,6 +169,17 @@
         }
       }
     },
+    "Hide" : {
+      "comment" : "Folds a message's recipient addresses back into names",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הסתרה"
+          }
+        }
+      }
+    },
     "Hide Mail Actions" : {
       "comment" : "Folds the chat's mail actions away",
       "localizations" : {
@@ -110,6 +187,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "הסתרת פעולות הדואר"
+          }
+        }
+      }
+    },
+    "Hide Recipient Details" : {
+      "comment" : "VoiceOver: folds a message's recipient addresses back into names",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הסתרת פרטי הנמענים"
           }
         }
       }
@@ -219,6 +307,17 @@
         }
       }
     },
+    "Replies go to %@" : {
+      "comment" : "Where a reply goes when that isn't the sender; the argument lists addresses",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תשובות יישלחו אל %@"
+          }
+        }
+      }
+    },
     "Reply" : {
       "comment" : "Composer title for a reply",
       "localizations" : {
@@ -274,6 +373,17 @@
         }
       }
     },
+    "Show Recipient Details" : {
+      "comment" : "VoiceOver: shows every address a message went to",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצגת פרטי הנמענים"
+          }
+        }
+      }
+    },
     "Show as %@" : {
       "comment" : "Switches one conversation's layout; the argument is Classic or Chat",
       "localizations" : {
@@ -281,6 +391,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "הצגה כ%@"
+          }
+        }
+      }
+    },
+    "To" : {
+      "comment" : "A message's To field",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אל"
           }
         }
       }

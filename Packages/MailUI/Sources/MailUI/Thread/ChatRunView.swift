@@ -59,7 +59,7 @@ final class ChatRunView: UIView {
         let mine = run.side == .mine
         column.alignment = mine ? .trailing : .leading
         avatar.isHidden = mine
-        avatar.configure(name: run.sender.displayName)
+        avatar.configure(sender: run.sender)
         hangsFromTrailing.isActive = mine
         hangsFromAvatar.isActive = !mine
 
@@ -148,8 +148,9 @@ struct ChatBubbleShape: Equatable {
     }
 }
 
-/// The sender's initials in a small neutral circle beside their last bubble. VoiceOver reads the name on the bubble.
-final class ChatAvatarView: UIView {
+/// The sender's initials in a small neutral circle beside their last bubble. Tapping it shows who that really is:
+/// the name over the address, which a name in a chat could otherwise hide.
+final class ChatAvatarView: UIButton {
     static let diameter: CGFloat = 28
     private let initials = UILabel()
 
@@ -157,9 +158,10 @@ final class ChatAvatarView: UIView {
         super.init(frame: .zero)
         backgroundColor = .tertiarySystemFill
         layer.cornerRadius = Self.diameter / 2
-        accessibilityElementsHidden = true
+        showsMenuAsPrimaryAction = true
         initials.font = UIFont.systemFont(ofSize: 11, weight: .semibold).rounded
         initials.textColor = .secondaryLabel
+        initials.isUserInteractionEnabled = false
         initials.translatesAutoresizingMaskIntoConstraints = false
         addSubview(initials)
         NSLayoutConstraint.activate([
@@ -173,8 +175,23 @@ final class ChatAvatarView: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("Programmatic UI only") }
 
-    func configure(name: String) {
-        initials.text = Monogram.initials(for: name)
+    /// The small circle still takes a full-size tap.
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        let grow = max(0, 44 - Self.diameter) / 2
+        return bounds.insetBy(dx: -grow, dy: -grow).contains(point)
+    }
+
+    func configure(sender: Contact) {
+        initials.text = Monogram.initials(for: sender.displayName)
+        accessibilityLabel =
+            sender.displayName == sender.address ? sender.address : "\(sender.displayName), \(sender.address)"
+        let copy = UIAction(
+            title: String(
+                localized: "Copy Address", table: "Thread", bundle: .module,
+                comment: "Copies a chat sender's email address"),
+            subtitle: sender.address, image: UIImage(systemName: "doc.on.doc")
+        ) { _ in UIPasteboard.general.string = sender.address }
+        menu = UIMenu(title: sender.displayName, children: [copy])
     }
 }
 

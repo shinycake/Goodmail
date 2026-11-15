@@ -1,7 +1,7 @@
 import MailCore
 import UIKit
 
-/// An open message: a rounded card with who wrote and when, then the body in its own web view.
+/// An open message: a rounded card with its header, then the body in its own web view.
 final class MessageCardView: UIView {
     var onToggle: (() -> Void)?
     var onAllowRemoteContent: (() -> Void)?
@@ -12,14 +12,10 @@ final class MessageCardView: UIView {
         didSet { body.openURL = openURL }
     }
 
-    private let avatar = MonogramView()
-    private let sender = UILabel()
-    private let date = UILabel()
-    private let recipients = UILabel()
+    private let header = MessageHeaderView()
     private let remoteNotice = UIButton(configuration: .plain())
     private let body: MessageWebView
     private let attachments = AttachmentListView()
-    private let header = UIStackView()
 
     init(attachmentData: @escaping (Attachment, Message.ID) async throws -> Data) {
         body = MessageWebView(attachmentData: attachmentData)
@@ -27,17 +23,6 @@ final class MessageCardView: UIView {
         backgroundColor = .secondarySystemBackground
         layer.cornerRadius = 24
         layer.cornerCurve = .continuous
-
-        sender.font = .preferredFont(forTextStyle: .headline)
-        sender.adjustsFontForContentSizeCategory = true
-        date.font = .preferredFont(forTextStyle: .subheadline)
-        date.textColor = .secondaryLabel
-        date.adjustsFontForContentSizeCategory = true
-        date.setContentHuggingPriority(.required, for: .horizontal)
-        date.setContentCompressionResistancePriority(.required, for: .horizontal)
-        recipients.font = .preferredFont(forTextStyle: .subheadline)
-        recipients.textColor = .secondaryLabel
-        recipients.adjustsFontForContentSizeCategory = true
 
         var notice = UIButton.Configuration.gray()
         notice.cornerStyle = .capsule
@@ -51,20 +36,7 @@ final class MessageCardView: UIView {
         remoteNotice.addAction(
             UIAction { [weak self] _ in self?.onAllowRemoteContent?() }, for: .primaryActionTriggered)
 
-        let names = UIStackView(arrangedSubviews: [sender, date])
-        names.spacing = 8
-        names.stacksVerticallyAtAccessibilitySizes()
-        let people = UIStackView(arrangedSubviews: [names, recipients])
-        people.axis = .vertical
-        people.spacing = 2
-        header.addArrangedSubview(avatar)
-        header.addArrangedSubview(people)
-        header.spacing = 12
-        header.alignment = .center
-        header.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(toggle)))
-        // VoiceOver reads who and when as one button; double-tapping it taps the header, which folds the message.
-        header.isAccessibilityElement = true
-        header.accessibilityTraits = .button
+        header.onFold = { [weak self] in self?.onToggle?() }
 
         let noticeRow = UIStackView(arrangedSubviews: [remoteNotice, UIView()])
         let stack = UIStackView(arrangedSubviews: [header, noticeRow, body, attachments])
@@ -91,33 +63,15 @@ final class MessageCardView: UIView {
     func configure(
         _ message: Message, dateText: String, accountEmail: String, accountColor: UIColor, allowsRemoteContent: Bool
     ) {
-        sender.setContentText(message.from.displayName, alignedToContent: false)
-        date.text = dateText
-        avatar.configure(name: message.from.displayName, badge: message.isUnread ? .dot(accountColor) : nil)
-        recipients.setContentText(Self.recipientsLine(message, accountEmail: accountEmail), alignedToContent: false)
+        header.configure(
+            MessageHeader(message), dateText: dateText, accountEmail: accountEmail,
+            badge: message.isUnread ? .dot(accountColor) : nil)
         body.show(MessageWebView.Content(message: message, allowsRemoteContent: allowsRemoteContent))
         attachments.show(AttachmentListView.listed(in: message))
-        header.accessibilityLabel = [message.from.displayName, dateText, recipients.text]
-            .compactMap(\.self).joined(separator: ", ")
     }
 
     func setLoading(_ loading: Bool, for attachment: Attachment) {
         attachments.setLoading(loading, for: attachment)
-    }
-
-    @objc private func toggle() {
-        onToggle?()
-    }
-
-    /// "to Dana Levi, me": the account's own address reads as "me".
-    static func recipientsLine(_ message: Message, accountEmail: String) -> String {
-        let me = String(localized: "me", table: "Thread", bundle: .module, comment: "The reader, in a recipient list")
-        let names = (message.to + message.cc).map { contact in
-            contact.address.caseInsensitiveCompare(accountEmail) == .orderedSame ? me : contact.displayName
-        }
-        return String(
-            localized: "to \(names.formatted(.list(type: .and, width: .narrow)))", table: "Thread", bundle: .module,
-            comment: "Recipients under the sender; the argument is a list of names")
     }
 }
 
