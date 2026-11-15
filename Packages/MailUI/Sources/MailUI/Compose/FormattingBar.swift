@@ -1,66 +1,186 @@
 import UIKit
 
 /// The formatting controls above the keyboard while the body is being written: the four styles, size, color, lists,
-/// quote, link and the paragraph's direction. Each shows whether the selection has it. The system's Format menu and panel, on a
-/// selection, offer the styles and lists too.
-final class FormattingBar: UIToolbar {
+/// quote, link and the paragraph's direction, side by side in one glass capsule that scrolls sideways when they don't
+/// all fit. Each shows whether the selection has it. The system's Format menu and panel, on a selection, offer the
+/// styles and lists too.
+final class FormattingBar: UIView {
     /// A control was used. `.link` asks for an address first, so it comes through `onLink`.
     var onCommand: (FormattingCommand) -> Void = { _ in }
     var onLink: () -> Void = {}
-    private var styleItems: [(RichText.Style, UIBarButtonItem)] = []
-    private let sizeItem = UIBarButtonItem()
-    private let colorItem = UIBarButtonItem()
-    private let listItem = UIBarButtonItem()
-    private let quoteItem = UIBarButtonItem()
-    private let linkItem = UIBarButtonItem()
-    private let directionItem = UIBarButtonItem()
+    private var styleButtons: [(RichText.Style, UIButton)] = []
+    private let sizeButton: UIButton
+    private let colorButton: UIButton
+    private let listButton: UIButton
+    private let quoteButton: UIButton
+    private let linkButton: UIButton
+    private let directionButton: UIButton
+    private let scrollView = UIScrollView()
+    private let fade = CAGradientLayer()
+    /// The width the controls were last placed for; at a new width they go back to their start.
+    private var laidOutWidth: CGFloat = 0
+
+    /// The capsule's height; the controls sit inside it with room around their highlight.
+    private static let capsuleHeight: CGFloat = 52
+    private static let inset: CGFloat = 8
+    private static let buttonSize = CGSize(width: 44, height: 40)
+    /// How far the controls fade out at an edge that has more of them past it.
+    private static let fadeLength: CGFloat = 24
 
     init() {
-        super.init(frame: CGRect(x: 0, y: 0, width: 400, height: 44))
-        styleItems = RichText.Style.allCases.map { style in
-            let item = UIBarButtonItem(
-                title: style.title, image: UIImage(systemName: style.symbol),
-                primaryAction: UIAction { [weak self] _ in self?.onCommand(.toggle(style)) })
-            item.accessibilityLabel = style.title
-            return (style, item)
+        sizeButton = Self.button(
+            symbol: "textformat.size",
+            title: String(
+                localized: "Text Size", table: "Formatting", bundle: .module, comment: "Formatting: the text size menu")
+        )
+        colorButton = Self.button(
+            symbol: "paintpalette",
+            title: String(
+                localized: "Text Color", table: "Formatting", bundle: .module,
+                comment: "Formatting: the text color menu"))
+        listButton = Self.button(
+            symbol: "list.bullet",
+            title: String(localized: "List", table: "Compose", bundle: .module, comment: "Formatting: the list menu"))
+        quoteButton = Self.button(
+            symbol: "text.quote",
+            title: String(
+                localized: "Quote", table: "Compose", bundle: .module, comment: "Formatting: quotes the paragraph"))
+        linkButton = Self.button(
+            symbol: "link",
+            title: String(
+                localized: "Link", table: "Compose", bundle: .module, comment: "Formatting: links the selection"))
+        directionButton = Self.button(
+            symbol: "arrow.left.arrow.right",
+            title: String(
+                localized: "Text Direction", table: "Compose", bundle: .module,
+                comment: "Formatting: the paragraph direction menu"))
+        super.init(frame: CGRect(x: 0, y: 0, width: 400, height: Self.capsuleHeight + Self.inset))
+        // Flexible height lets the system grow the bar by the bottom safe area when it sits at the screen's edge,
+        // as it does with a hardware keyboard, so the capsule clears the home indicator and the rounded corners.
+        autoresizingMask = .flexibleHeight
+        // At the largest text sizes, pressing and holding a control shows its name large.
+        addInteraction(UILargeContentViewerInteraction())
+        styleButtons = RichText.Style.allCases.map { style in
+            let button = Self.button(symbol: style.symbol, title: style.title)
+            button.addAction(
+                UIAction { [weak self] _ in self?.onCommand(.toggle(style)) }, for: .primaryActionTriggered)
+            return (style, button)
         }
-        sizeItem.image = UIImage(systemName: "textformat.size")
-        sizeItem.title = String(
-            localized: "Text Size", table: "Formatting", bundle: .module, comment: "Formatting: the text size menu")
-        colorItem.image = UIImage(systemName: "paintpalette")
-        colorItem.title = String(
-            localized: "Text Color", table: "Formatting", bundle: .module, comment: "Formatting: the text color menu")
-        listItem.image = UIImage(systemName: "list.bullet")
-        listItem.title = String(
-            localized: "List", table: "Compose", bundle: .module, comment: "Formatting: the list menu")
-        quoteItem.primaryAction = UIAction(
-            title: String(
-                localized: "Quote", table: "Compose", bundle: .module, comment: "Formatting: quotes the paragraph"),
-            image: UIImage(systemName: "text.quote")
-        ) { [weak self] _ in self?.onCommand(.block(.quote)) }
-        linkItem.primaryAction = UIAction(
-            title: String(
-                localized: "Link", table: "Compose", bundle: .module, comment: "Formatting: links the selection"),
-            image: UIImage(systemName: "link")
-        ) { [weak self] _ in self?.onLink() }
-        directionItem.image = UIImage(systemName: "arrow.left.arrow.right")
-        directionItem.title = String(
-            localized: "Text Direction", table: "Compose", bundle: .module,
-            comment: "Formatting: the paragraph direction menu")
-        // A titled item keeps its symbol on the bar and shows its title where the bar overflows into "…".
-        for item in [sizeItem, colorItem, listItem, directionItem] { item.accessibilityLabel = item.title }
-        let controls = styleItems.map(\.1) + [sizeItem, colorItem, listItem, quoteItem, linkItem, directionItem]
-        items = controls.flatMap { [$0, .flexibleSpace()] }.dropLast()
+        quoteButton.addAction(
+            UIAction { [weak self] _ in self?.onCommand(.block(.quote)) }, for: .primaryActionTriggered)
+        linkButton.addAction(UIAction { [weak self] _ in self?.onLink() }, for: .primaryActionTriggered)
+        for button in [sizeButton, colorButton, listButton, directionButton] { button.showsMenuAsPrimaryAction = true }
+
+        let glass = UIVisualEffectView(effect: UIGlassEffect())
+        glass.cornerConfiguration = .capsule()
+        glass.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(glass)
+        scrollView.showsHorizontalScrollIndicator = false
+        scrollView.alwaysBounceHorizontal = true
+        scrollView.delegate = self
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        glass.contentView.addSubview(scrollView)
+        let controls = UIStackView(
+            arrangedSubviews: styleButtons.map(\.1) + [
+                sizeButton, colorButton, listButton, quoteButton, linkButton, directionButton,
+            ])
+        controls.spacing = 4
+        controls.alignment = .center
+        controls.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.addSubview(controls)
+        fade.startPoint = CGPoint(x: 0, y: 0.5)
+        fade.endPoint = CGPoint(x: 1, y: 0.5)
+        scrollView.layer.mask = fade
+
+        let content = scrollView.contentLayoutGuide
+        NSLayoutConstraint.activate([
+            glass.topAnchor.constraint(equalTo: topAnchor, constant: Self.inset / 2),
+            glass.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -Self.inset / 2),
+            glass.heightAnchor.constraint(equalToConstant: Self.capsuleHeight),
+            glass.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor, constant: Self.inset),
+            glass.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor, constant: -Self.inset),
+            scrollView.topAnchor.constraint(equalTo: glass.contentView.topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: glass.contentView.bottomAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: glass.contentView.leadingAnchor, constant: Self.inset),
+            scrollView.trailingAnchor.constraint(equalTo: glass.contentView.trailingAnchor, constant: -Self.inset),
+            controls.topAnchor.constraint(equalTo: content.topAnchor),
+            controls.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+            controls.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            controls.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            controls.heightAnchor.constraint(equalTo: scrollView.frameLayoutGuide.heightAnchor),
+            // When everything fits, the controls spread across the capsule; otherwise they keep their size and scroll.
+            controls.widthAnchor.constraint(greaterThanOrEqualTo: scrollView.frameLayoutGuide.widthAnchor),
+        ])
+        controls.distribution = .equalSpacing
         show(nil)
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("Programmatic UI only") }
 
+    override var intrinsicContentSize: CGSize {
+        CGSize(width: UIView.noIntrinsicMetric, height: Self.capsuleHeight + Self.inset)
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        // Right to left, the controls start at the right: show that end first, as a left-to-right bar shows its left.
+        if bounds.width != laidOutWidth {
+            laidOutWidth = bounds.width
+            scrollView.layoutIfNeeded()
+            let start =
+                effectiveUserInterfaceLayoutDirection == .rightToLeft
+                ? max(scrollView.contentSize.width - scrollView.bounds.width, 0) : 0
+            scrollView.contentOffset.x = start
+        }
+        updateFade()
+    }
+
+    /// Fades the controls out at each edge that has more of them past it, so the bar reads as one that scrolls.
+    private func updateFade() {
+        let width = scrollView.bounds.width
+        guard width > 0 else { return }
+        let offset = scrollView.contentOffset.x
+        let hiddenBefore = offset > 1
+        let hiddenAfter = offset + width < scrollView.contentSize.width - 1
+        let edge = Self.fadeLength / width
+        let opaque = UIColor.black.cgColor
+        let clear = UIColor.clear.cgColor
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        fade.frame = scrollView.bounds
+        fade.colors = [hiddenBefore ? clear : opaque, opaque, opaque, hiddenAfter ? clear : opaque]
+        fade.locations = [0, NSNumber(value: edge), NSNumber(value: 1 - edge), 1]
+        CATransaction.commit()
+    }
+
+    private static func button(symbol: String, title: String) -> UIButton {
+        var configuration = UIButton.Configuration.plain()
+        configuration.image = UIImage(systemName: symbol)
+        configuration.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(textStyle: .body)
+        configuration.baseForegroundColor = .label
+        configuration.cornerStyle = .capsule
+        let button = UIButton(configuration: configuration)
+        button.accessibilityLabel = title
+        button.largeContentTitle = title
+        button.showsLargeContentViewer = true
+        // A control that is on fills in, as the system's own formatting toggles do.
+        button.configurationUpdateHandler = { button in
+            var configuration = button.configuration
+            configuration?.background.backgroundColor = button.isSelected ? .tertiarySystemFill : .clear
+            button.configuration = configuration
+        }
+        NSLayoutConstraint.activate([
+            button.widthAnchor.constraint(equalToConstant: buttonSize.width),
+            button.heightAnchor.constraint(equalToConstant: buttonSize.height),
+        ])
+        return button
+    }
+
     /// Shows which controls are on for `formatting`; `nil` shows them all off.
     func show(_ formatting: Formatting?) {
-        for (style, item) in styleItems { item.isSelected = formatting?.styles.contains(style) ?? false }
-        sizeItem.menu = UIMenu(
+        for (style, button) in styleButtons { button.isSelected = formatting?.styles.contains(style) ?? false }
+        sizeButton.menu = UIMenu(
             title: String(
                 localized: "Text Size", table: "Formatting", bundle: .module, comment: "Formatting: the text size menu"),
             options: .singleSelection,
@@ -69,7 +189,7 @@ final class FormattingBar: UIToolbar {
                     self?.onCommand(.size(size))
                 }
             })
-        colorItem.menu = UIMenu(
+        colorButton.menu = UIMenu(
             title: String(
                 localized: "Text Color", table: "Formatting", bundle: .module,
                 comment: "Formatting: the text color menu"),
@@ -83,8 +203,8 @@ final class FormattingBar: UIToolbar {
                 ) { [weak self] _ in self?.onCommand(.color(color)) }
             })
         let block = formatting?.block ?? .body
-        listItem.isSelected = block == .bulleted || block == .numbered
-        listItem.menu = UIMenu(
+        listButton.isSelected = block == .bulleted || block == .numbered
+        listButton.menu = UIMenu(
             children: [
                 (
                     RichText.Block.bulleted, "list.bullet",
@@ -103,10 +223,10 @@ final class FormattingBar: UIToolbar {
                     [weak self] _ in self?.onCommand(.block(list))
                 }
             })
-        quoteItem.isSelected = block == .quote
-        linkItem.isSelected = formatting?.link != nil
+        quoteButton.isSelected = block == .quote
+        linkButton.isSelected = formatting?.link != nil
         let direction = formatting?.direction ?? .auto
-        directionItem.menu = UIMenu(
+        directionButton.menu = UIMenu(
             title: String(
                 localized: "Text Direction", table: "Compose", bundle: .module,
                 comment: "Formatting: the paragraph direction menu"),
@@ -117,6 +237,10 @@ final class FormattingBar: UIToolbar {
                 }
             })
     }
+}
+
+extension FormattingBar: UIScrollViewDelegate {
+    func scrollViewDidScroll(_ scrollView: UIScrollView) { updateFade() }
 }
 
 extension RichText.Style {
