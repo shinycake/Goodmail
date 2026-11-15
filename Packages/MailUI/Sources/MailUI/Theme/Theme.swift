@@ -87,6 +87,24 @@ extension UIViewController {
         let title = theme.titleColor(
             for: navigationItem.title ?? self.title ?? "", font: font,
             direction: view.effectiveUserInterfaceLayoutDirection)
-        navigationController.navigationBar.largeTitleTextAttributes = [.font: font, .foregroundColor: title]
+        // MOCKUP ONLY: `-GoodmailTitleStyle outline|hollow|underline` picks a look for a gradient title.
+        var attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: title]
+        if case .gradient(let blend) = theme, blend.colors.count > 1 {
+            switch UserDefaults.standard.string(forKey: "GoodmailTitleStyle") {
+            case "outline":
+                attributes[.foregroundColor] = UIColor.label
+                attributes[.strokeColor] = title
+                attributes[.strokeWidth] = -4
+            case "hollow":
+                attributes[.strokeColor] = title
+                attributes[.strokeWidth] = 4
+            case "underline":
+                attributes[.foregroundColor] = UIColor.label
+                attributes[.underlineStyle] = NSUnderlineStyle.thick.rawValue
+                attributes[.underlineColor] = title
+            default: break
+            }
+        }
+        navigationController.navigationBar.largeTitleTextAttributes = attributes
     }
 }
