@@ -8,7 +8,8 @@ import UserNotifications
 
 /// One per window (ADR-011): decides what the window shows and owns the flows that change it.
 final class SceneCoordinator: NSObject {
-    private let window: UIWindow
+    /// The window this coordinator fills, which undoes the last mail action when shaken.
+    let window: UIWindow
     let model: AppModel
     private let actions: MailActions
     private var failures: Task<Void, Never>?
@@ -27,11 +28,12 @@ final class SceneCoordinator: NSObject {
     }
 
     /// `restoring` is what the window showed when the system last saved it, or what another device handed off.
-    init(window: UIWindow, model: AppModel, restoring: WindowState?) {
-        self.window = window
+    init(windowScene: UIWindowScene, model: AppModel, restoring: WindowState?) {
         self.model = model
         shown = restoring?.keeping(model.accounts.map(\.id)) ?? WindowState()
-        actions = MailActions(commands: model.commands)
+        let actions = MailActions(commands: model.commands)
+        self.actions = actions
+        window = ShakeToUndoWindow(windowScene: windowScene, undo: { actions.undoLast() })
         super.init()
         actions.reopen = { [weak self] draft in self?.handle(.compose(draft)) }
     }

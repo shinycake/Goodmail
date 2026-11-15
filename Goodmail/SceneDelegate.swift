@@ -11,17 +11,16 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         options connectionOptions: UIScene.ConnectionOptions
     ) {
         guard let windowScene = scene as? UIWindowScene else { return }
-        let window = UIWindow(windowScene: windowScene)
         let app = UIApplication.shared.delegate as! AppDelegate
         // A handoff from another device wins over what this window showed when it was last saved.
         let restoring = (connectionOptions.userActivities + [session.stateRestorationActivity].compactMap(\.self))
             .lazy.compactMap(Self.windowState(in:)).first
-        let coordinator = SceneCoordinator(window: window, model: app.model, restoring: restoring)
+        let coordinator = SceneCoordinator(windowScene: windowScene, model: app.model, restoring: restoring)
         self.coordinator = coordinator
         coordinator.start()
         if let route = app.intentRoutes.takeWaiting() { coordinator.handle(route) }
-        window.makeKeyAndVisible()
-        self.window = window
+        coordinator.window.makeKeyAndVisible()
+        window = coordinator.window
     }
 
     /// Saved with the scene when the system puts the window away, and handed back to `willConnectTo` with it.

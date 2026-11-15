@@ -1,8 +1,8 @@
 import UIKit
 
 /// A window's mail screens: mailboxes, a mailbox's list and a thread side by side when the window is wide, one
-/// stack when it is narrow. The undo toast floats over them, above the toolbars, and shaking undoes the last action
-/// from any screen.
+/// stack when it is narrow. The undo toast floats over them, above the toolbars. Shaking to undo is
+/// the window's (`ShakeToUndoWindow`), so that no screen holds first responder and raises the keyboard with a menu.
 public final class MailSplitViewController: UISplitViewController {
     private let actions: MailActions
     private let toast = UndoToastView()
@@ -71,18 +71,5 @@ public final class MailSplitViewController: UISplitViewController {
             self.toast.alpha = current == nil ? 0 : 1
             self.toast.transform = .identity
         }
-    }
-
-    public override var canBecomeFirstResponder: Bool { true }
-
-    public override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-        becomeFirstResponder()
-    }
-
-    /// Shake to undo the last action, as everywhere on iOS.
-    public override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
-        guard motion == .motionShake else { return super.motionEnded(motion, with: event) }
-        actions.undoLast()
     }
 }
