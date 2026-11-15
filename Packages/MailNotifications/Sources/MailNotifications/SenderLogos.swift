@@ -2,39 +2,53 @@ import Foundation
 import ImageIO
 import MailCore
 
-/// Company senders' logos for alerts, fetched from the company's own website and kept in the App Group. People and
-/// free-mail addresses get none, so their initials show instead and no lookup service learns who writes to the
-/// reader. A domain's site is asked at most once a month, never about a particular message.
+/// Company senders' logos, kept in the App Group: the logo the domain publishes for mail clients through BIMI, as
+/// Gmail and Apple Mail show, or else its website's touch icon. People and public mail providers' addresses get none,
+/// so their initials show instead. Each domain is asked at most once a month, never about a particular message, and
+/// DNS goes through the system resolver.
+///
+/// BIMI's mark certificates aren't checked yet. Mail claiming a domain must pass that domain's DMARC policy, which
+/// BIMI requires to be enforcing, so a spoofed sender is rejected before it arrives; a look-alike domain can publish
+/// its own record, as it can its own touch icon.
 public struct SenderLogos: Sendable {
     /// A logo is fetched again after this long, so a rebrand shows up.
     static let freshFor: TimeInterval = 30 * 86_400
-    /// A site without a usable logo is asked again after this long.
+    /// A domain without a usable logo is asked again after this long.
     static let missingFor: TimeInterval = 7 * 86_400
     /// Smaller icons look blurry at an alert's size.
     static let smallestSide = 60
+    /// BIMI logos are drawn at this many pixels square: sharp at an alert's or a row's size on a 3x screen.
+    static let renderedSide = 256
+    /// BIMI caps a logo at 32 KB; anything much bigger isn't one.
+    static let largestSVG = 128 * 1024
 
     private let directory: URL
     private let http: any HTTPClient
+    private let dns: any TXTResolving
     private let now: @Sendable () -> Date
 
     public init(
-        directory: URL, http: any HTTPClient = URLSession.shared, now: @escaping @Sendable () -> Date = { .now }
+        directory: URL, http: any HTTPClient = URLSession.shared, dns: any TXTResolving = SystemTXTResolver(),
+        now: @escaping @Sendable () -> Date = { .now }
     ) {
         self.directory = directory
         self.http = http
+        self.dns = dns
         self.now = now
     }
 
-    /// The sender's company logo as image data, or `nil` when there is none to show. A logo past its month is still
-    /// shown while its site can't give a new one.
+    /// The sender's company logo as PNG data, or `nil` when there is none to show. A logo past its month is still
+    /// shown while its domain can't give a new one.
     public func logo(for address: String) async -> Data? {
-        guard let domain = Self.domain(for: address) else { return nil }
-        let logo = directory.appending(path: "\(domain).png")
-        let missing = directory.appending(path: "\(domain).none")
+        guard let domain = SenderDomain(address: address) else { return nil }
+        let logo = directory.appending(path: "\(domain.host).png")
+        let missing = directory.appending(path: "\(domain.host).none")
         let cached = try? Data(contentsOf: logo)
         if let cached, isFresh(logo, for: Self.freshFor) { return cached }
         if isFresh(missing, for: Self.missingFor) { return cached }
-        guard let data = await fetch(from: domain) else {
+        var fetched = await bimiLogo(of: domain)
+        if fetched == nil { fetched = await siteIcon(of: domain.organization) }
+        guard let data = fetched else {
             remember(Data(), at: missing)
             return cached
         }
@@ -42,34 +56,22 @@ public struct SenderLogos: Sendable {
         return data
     }
 
-    /// The domain whose site has the sender's logo: the registrable domain, as `github.com` for
-    /// `noreply@mail.github.com`, or `nil` for a free-mail or malformed address.
-    static func domain(for address: String) -> String? {
-        guard let at = address.lastIndex(of: "@") else { return nil }
-        let labels = address[address.index(after: at)...].lowercased().split(separator: ".").map(String.init)
-        guard labels.count >= 2, labels.allSatisfy(isHostLabel) else { return nil }
-        // Country-code domains like example.co.il and example.com.au register one level deeper.
-        let secondLevel = ["co", "com", "org", "net", "ac", "gov", "edu", "ne", "or"]
-        let deeper =
-            labels.count >= 3 && labels[labels.count - 1].count == 2
-            && secondLevel.contains(labels[labels.count - 2])
-        let domain = labels.suffix(deeper ? 3 : 2).joined(separator: ".")
-        return freeMail.contains(domain) ? nil : domain
+    /// The domain's BIMI logo, drawn as PNG. The host's record decides when it has one, else the organization's.
+    private func bimiLogo(of domain: SenderDomain) async -> Data? {
+        for name in domain.bimiRecordNames {
+            guard let record = BIMIRecord(txtRecords: await dns.txtRecords(named: name)) else { continue }
+            guard let url = record.logo else { return nil }
+            var request = URLRequest(url: url, timeoutInterval: 4)
+            request.setValue("image/svg+xml", forHTTPHeaderField: "Accept")
+            guard let (data, response) = try? await http.data(for: request), response.statusCode == 200,
+                data.count <= Self.largestSVG, let image = SVGDocument.image(from: data)
+            else { return nil }
+            return VectorRenderer.png(of: image, side: Self.renderedSide)
+        }
+        return nil
     }
 
-    private static func isHostLabel(_ label: String) -> Bool {
-        !label.isEmpty && label.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-") }
-    }
-
-    /// Addresses anyone can sign up for, whose domain's logo says nothing about the sender.
-    static let freeMail: Set<String> = [
-        "gmail.com", "googlemail.com", "icloud.com", "me.com", "mac.com", "outlook.com", "hotmail.com", "live.com",
-        "msn.com", "yahoo.com", "ymail.com", "aol.com", "proton.me", "protonmail.com", "pm.me", "gmx.com", "gmx.net",
-        "gmx.de", "web.de", "mail.com", "zoho.com", "yandex.com", "yandex.ru", "fastmail.com", "hey.com",
-        "tutanota.com", "walla.co.il", "walla.com",
-    ]
-
-    private func fetch(from domain: String) async -> Data? {
+    private func siteIcon(of domain: String) async -> Data? {
         guard let url = URL(string: "https://\(domain)/apple-touch-icon.png") else { return nil }
         var request = URLRequest(url: url, timeoutInterval: 4)
         request.setValue("image/png,image/*", forHTTPHeaderField: "Accept")

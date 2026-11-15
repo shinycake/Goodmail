@@ -8,24 +8,10 @@ import UniformTypeIdentifiers
 @testable import MailNotifications
 
 struct SenderLogosTests {
-    @Test(arguments: [
-        ("noreply@mail.github.com", "github.com"),
-        ("billing@Example.CO.IL", "example.co.il"),
-        ("news@shop.example.com.au", "example.com.au"),
-        ("someone@gmail.com", nil),
-        ("friend@walla.co.il", nil),
-        ("broken", nil),
-        ("x@localhost", nil),
-        ("x@exa mple.com", nil),
-    ])
-    func logosComeFromTheRegistrableDomainOfNonFreeMail(address: String, domain: String?) {
-        #expect(SenderLogos.domain(for: address) == domain)
-    }
-
     @Test func aFetchedLogoIsCachedForAMonth() async throws {
         let site = FakeSite(image: png(side: 120))
         let clock = Clock()
-        let logos = SenderLogos(directory: try temporaryDirectory(), http: site, now: { clock.now })
+        let logos = SenderLogos(directory: try temporaryDirectory(), http: site, dns: FakeDNS(), now: { clock.now })
 
         #expect(await logos.logo(for: "a@github.com") != nil)
         clock.advance(by: 29 * 86_400)
@@ -40,7 +26,7 @@ struct SenderLogosTests {
     @Test func aSiteWithoutAUsableLogoIsAskedAgainOnlyAfterAWeek() async throws {
         let site = FakeSite(image: png(side: 16))
         let clock = Clock()
-        let logos = SenderLogos(directory: try temporaryDirectory(), http: site, now: { clock.now })
+        let logos = SenderLogos(directory: try temporaryDirectory(), http: site, dns: FakeDNS(), now: { clock.now })
 
         #expect(await logos.logo(for: "a@example.com") == nil)
         #expect(await logos.logo(for: "a@example.com") == nil)
@@ -50,9 +36,37 @@ struct SenderLogosTests {
         #expect(site.urls.count == 2)
     }
 
+    @Test func aBIMILogoComesFirstAndIsDrawnAsAPNG() async throws {
+        let svg = Data(
+            ##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10" fill="#002991"/></svg>"##
+                .utf8)
+        let site = FakeSite(image: svg)
+        let dns = FakeDNS(["default._bimi.paypal.com": ["v=BIMI1; l=https://cdn.example/paypal.svg; a=;"]])
+        let logos = SenderLogos(directory: try temporaryDirectory(), http: site, dns: dns)
+
+        let logo = try #require(await logos.logo(for: "service@mail.paypal.com"))
+
+        #expect(dns.names == ["default._bimi.mail.paypal.com", "default._bimi.paypal.com"])
+        #expect(site.urls == ["https://cdn.example/paypal.svg"])
+        let image = try #require(
+            CGImageSourceCreateWithData(logo as CFData, nil).flatMap {
+                CGImageSourceCreateImageAtIndex($0, 0, nil)
+            })
+        #expect(image.width == SenderLogos.renderedSide)
+    }
+
+    @Test func aDomainThatDeclinesBIMIFallsBackToItsSiteIcon() async throws {
+        let site = FakeSite(image: png(side: 120))
+        let dns = FakeDNS(["default._bimi.example.com": ["v=BIMI1; l=; a=;"]])
+        let logos = SenderLogos(directory: try temporaryDirectory(), http: site, dns: dns)
+
+        #expect(await logos.logo(for: "a@example.com") != nil)
+        #expect(site.urls == ["https://example.com/apple-touch-icon.png"])
+    }
+
     @Test func freeMailIsNeverLookedUp() async throws {
         let site = FakeSite(image: png(side: 120))
-        let logos = SenderLogos(directory: try temporaryDirectory(), http: site)
+        let logos = SenderLogos(directory: try temporaryDirectory(), http: site, dns: FakeDNS())
         #expect(await logos.logo(for: "someone@icloud.com") == nil)
         #expect(site.urls.isEmpty)
     }
@@ -96,5 +110,21 @@ private final class FakeSite: HTTPClient {
     func data(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         requested.withLock { $0.append(request.url!.absoluteString) }
         return (image, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+    }
+}
+
+private final class FakeDNS: TXTResolving {
+    private let records: [String: [String]]
+    private let asked = Mutex<[String]>([])
+
+    init(_ records: [String: [String]] = [:]) {
+        self.records = records
+    }
+
+    var names: [String] { asked.withLock { $0 } }
+
+    func txtRecords(named name: String) async -> [String] {
+        asked.withLock { $0.append(name) }
+        return records[name] ?? []
     }
 }

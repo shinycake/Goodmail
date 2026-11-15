@@ -83,7 +83,9 @@ private final class Delivery: @unchecked Sendable {
         switch outcome {
         case .alerts(let mail, let account):
             guard let newest = mail.first else { return expire() }
-            let logos = SharedContainer.directoryURL.map { SenderLogos(directory: $0.appending(path: "SenderLogos")) }
+            let logos = SharedContainer.directoryURL.map {
+                SenderLogos(directory: $0.appending(path: "SenderPictures"))
+            }
             // The push shows the newest; each other thread gets its own alert, posted before the push's lands.
             for other in mail.dropFirst() {
                 let content = await SenderAlert.content(for: other, in: account, logos: logos)

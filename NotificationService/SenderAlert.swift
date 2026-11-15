@@ -1,40 +1,15 @@
-import Intents
 import MailCore
 import MailNotifications
-import OSLog
 import UIKit
 import UserNotifications
 
-/// A new-mail alert as a communication alert: iOS shows the sender's picture, with Goodmail's icon as its badge.
+/// A new-mail alert with the sender's picture: their company's logo, or else their initials.
 enum SenderAlert {
-    /// The alert for `mail`, or the plain one when iOS refuses the sender's details.
     static func content(for mail: NewMail, in account: Account, logos: SenderLogos?) async -> UNNotificationContent {
-        let plain = NewMailAlert.content(for: mail, in: account)
-        let thread = mail.thread
-        let address = thread.sender.address
-        var picture = await logos?.logo(for: address)
-        if picture == nil { picture = monogram(for: thread.sender.displayName) }
-        let sender = INPerson(
-            personHandle: INPersonHandle(value: address, type: .emailAddress), nameComponents: nil,
-            displayName: thread.sender.displayName, image: picture.map { INImage(imageData: $0) },
-            contactIdentifier: nil, customIdentifier: address)
-        let intent = INSendMessageIntent(
-            recipients: nil, outgoingMessageType: .outgoingMessageText, content: plain.body, speakableGroupName: nil,
-            conversationIdentifier: plain.targetContentIdentifier, serviceName: nil, sender: sender, attachments: nil)
-        let interaction = INInteraction(intent: intent, response: nil)
-        interaction.direction = .incoming
-        do {
-            try await interaction.donate()
-            guard let alert = try plain.updating(from: intent).mutableCopy() as? UNMutableNotificationContent else {
-                return plain
-            }
-            // Still stacked by account, as plain alerts are, rather than by conversation.
-            alert.threadIdentifier = plain.threadIdentifier
-            return alert
-        } catch {
-            Logger.senderAlert.error("Couldn't show the sender: \(error, privacy: .public)")
-            return plain
-        }
+        let sender = mail.thread.sender
+        var picture = await logos?.logo(for: sender.address)
+        if picture == nil { picture = monogram(for: sender.displayName) }
+        return await CommunicationAlert.content(for: mail, in: account, picture: picture)
     }
 
     /// The sender's initials on a neutral circle, readable on light and dark alerts. `nil` for a name with no
@@ -59,8 +34,4 @@ enum SenderAlert {
             text.draw(at: CGPoint(x: (side - size.width) / 2, y: (side - size.height) / 2))
         }
     }
-}
-
-extension Logger {
-    fileprivate static let senderAlert = Logger(subsystem: "com.idanbirman.goodmail", category: "push")
 }

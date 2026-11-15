@@ -46,6 +46,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         #endif
         #if DEBUG
             TestDelivery.scheduleIfRequested(model: model)
+            TestAlert.scheduleIfRequested(model: model)
             SyntheticMailbox.deliverArrivalsIfRequested(to: model.database)
             TestMailTools.runIfRequested(model: model)
         #endif
