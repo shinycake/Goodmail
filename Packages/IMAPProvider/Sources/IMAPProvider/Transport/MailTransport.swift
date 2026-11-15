@@ -32,12 +32,20 @@ protocol MailTransport: Sendable {
             if server.security == .tls { task.startSecureConnection() }
         }
 
+        // Both bridge the completion handlers through `firstReply`, not the SDK's async forms: CFNetwork can call
+        // a handler twice, which traps the SDK's checked continuation.
         func send(_ data: Data) async throws {
-            try await task.write(data, timeout: 60)
+            try await firstReply { reply in
+                task.write(data, timeout: 60) { error in reply(error.map { .failure($0) } ?? .success(())) }
+            }
         }
 
         func receive() async throws -> Data {
-            try await task.readData(ofMinLength: 1, maxLength: 64 * 1024, timeout: 60).0 ?? Data()
+            try await firstReply { reply in
+                task.readData(ofMinLength: 1, maxLength: 64 * 1024, timeout: 60) { data, _, error in
+                    reply(error.map { .failure($0) } ?? .success(data ?? Data()))
+                }
+            }
         }
 
         func startTLS() async throws {
