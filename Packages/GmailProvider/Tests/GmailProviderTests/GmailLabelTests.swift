@@ -72,12 +72,27 @@ struct GmailLabelTests {
         await #expect(throws: ProviderError.notFound) { try await client(http).renameLabel("Label_99", to: "X") }
     }
 
-    @Test func deletingALabelThatIsAlreadyGoneSucceeds() async throws {
+    @Test func deletingALabelDeletesTheLabelsNestedInItFirstAndNoOthers() async throws {
         let http = FixtureHTTPClient(
-            Self.replies(["/gmail/v1/users/me/labels/Label_1": [.init(fixture: "not-found", status: 404)]]))
+            Self.replies([
+                "/gmail/v1/users/me/labels": [.init(fixture: "labels-nested")],
+                "/gmail/v1/users/me/labels/Label_1": [.init(fixture: "empty", status: 204)],
+                // One that another client deleted meanwhile doesn't stop the rest.
+                "/gmail/v1/users/me/labels/Label_2": [.init(fixture: "not-found", status: 404)],
+                "/gmail/v1/users/me/labels/Label_3": [.init(fixture: "empty", status: 204)],
+            ]))
 
         try await client(http).deleteLabel("Label_1")
 
-        #expect(http.requests.last?.httpMethod == "DELETE")
+        let deletes = http.requests.filter { $0.httpMethod == "DELETE" }
+        #expect(deletes.map { $0.url?.lastPathComponent } == ["Label_2", "Label_3", "Label_1"])
+    }
+
+    @Test func deletingALabelThatIsAlreadyGoneSendsNothing() async throws {
+        let http = FixtureHTTPClient(Self.replies(["/gmail/v1/users/me/labels": [.init(fixture: "labels-nested")]]))
+
+        try await client(http).deleteLabel("Label_99")
+
+        #expect(!http.requests.contains { $0.httpMethod == "DELETE" })
     }
 }

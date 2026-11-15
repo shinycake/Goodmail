@@ -13,6 +13,8 @@ struct IMAPMailbox: Equatable, Sendable {
     /// The name as people read it.
     var name: String
     var role: Role?
+    /// What separates the steps of its name, as `/` in `Projects/Goodmail`; `nil` on a server without a hierarchy.
+    var delimiter: String?
     /// `\Noselect` and `\NonExistent` mailboxes only hold other mailboxes.
     var isSelectable: Bool
     /// `\All` and `\Flagged` mailboxes (RFC 6154) show messages filed in other mailboxes, as Gmail's All Mail and
@@ -26,6 +28,7 @@ struct IMAPMailbox: Equatable, Sendable {
         else { return nil }
         let flags = Set(attributes.compactMap { $0.atom?.lowercased() })
         wireName = String(decoding: wireBytes, as: UTF8.self)
+        delimiter = values[2].bytes.map { String(decoding: $0, as: UTF8.self) }
         name = ModifiedUTF7.decode(wireName)
         isSelectable = flags.isDisjoint(with: [#"\noselect"#, #"\nonexistent"#])
         isVirtual = !flags.isDisjoint(with: [#"\all"#, #"\flagged"#])

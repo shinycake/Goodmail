@@ -284,7 +284,11 @@ extension MailboxesViewController {
         else { return nil }
         return LabelEdits(
             rename: { flow.rename(labelID, named: label.name) },
-            delete: { [weak self] in flow.delete(labelID, named: label.name) { self?.leave(item.destination) } })
+            delete: { [weak self, viewModel] in
+                flow.delete(labelID, named: label.name, nested: viewModel.nestedLabelCount(in: label)) {
+                    self?.leave(item.destination)
+                }
+            })
     }
 
     /// Delete, then Rename, swiped in from a user label's trailing edge. Each goes on in its alert; Delete reports

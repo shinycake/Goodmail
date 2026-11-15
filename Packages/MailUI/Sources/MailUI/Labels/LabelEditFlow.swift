@@ -48,13 +48,14 @@ final class LabelEditFlow {
         presenter?.present(alert, animated: true)
     }
 
-    /// Asks first, saying what happens to the label's mail; `deleted` runs once the service deleted it.
-    func delete(_ id: String, named name: String, then deleted: @escaping () -> Void) {
+    /// Asks first, saying how many labels are nested in it, which go with it, and what happens to their mail;
+    /// `deleted` runs once the service deleted them.
+    func delete(_ id: String, named name: String, nested: Int, then deleted: @escaping () -> Void) {
         let alert = UIAlertController(
             title: String(
                 localized: "Delete “\(name)”?", table: "LabelEditing", bundle: .module,
                 comment: "Title of the alert before deleting a label, with its name"),
-            message: editor.deletion.consequence, preferredStyle: .alert)
+            message: editor.deletion.message(nested: nested), preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: Self.cancel, style: .cancel))
         alert.addAction(
             UIAlertAction(
@@ -94,6 +95,16 @@ final class LabelEditFlow {
 }
 
 extension LabelDeletion {
+    /// What the delete confirmation says: the labels nested in it that go too, when there are any, then what
+    /// happens to the mail.
+    func message(nested: Int) -> String {
+        guard nested > 0 else { return consequence }
+        let nestedToo = String(
+            localized: "The \(nested) labels inside it are deleted too.", table: "LabelEditing", bundle: .module,
+            comment: "Delete label alert: how many labels nested in it are deleted with it")
+        return nestedToo + "\n" + consequence
+    }
+
     /// What the delete confirmation says happens to the label's mail.
     var consequence: String {
         switch self {

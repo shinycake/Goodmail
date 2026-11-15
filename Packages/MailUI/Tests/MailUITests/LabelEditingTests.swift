@@ -74,6 +74,34 @@ struct LabelEditingTests {
         #expect(viewModel.labelAccounts == [gmail])
     }
 
+    @Test func deletingALabelCountsTheAccountsLabelsNestedInIt() async {
+        func label(_ id: String, _ name: String, _ account: Account) -> MailboxDirectory.Label {
+            MailboxDirectory.Label(mailbox: Mailbox(labelID: id, accountID: account.id), name: name, color: nil)
+        }
+        let projects = label("Label_1", "Projects", gmail)
+        let directory = MailboxDirectory(labels: [
+            projects, label("Label_2", "Projects/Goodmail", gmail), label("Label_3", "Projects/Goodmail/Design", gmail),
+            label("Label_4", "Projects archive", gmail), label("Projects/Other", "Projects/Other", icloud),
+        ])
+        let viewModel = MailboxesViewModel(
+            accounts: [gmail, icloud],
+            directory: {
+                AsyncThrowingStream {
+                    $0.yield(directory)
+                    $0.finish()
+                }
+            })
+        await viewModel.observe()
+
+        #expect(
+            viewModel.nestedLabelCount(in: projects) == 2, "not a name that only starts the same, nor another account's"
+        )
+        #expect(viewModel.nestedLabelCount(in: directory.labels[2]) == 0)
+        #expect(LabelDeletion.keepsMail.message(nested: 0) == LabelDeletion.keepsMail.consequence)
+        #expect(LabelDeletion.keepsMail.message(nested: 2).hasSuffix(LabelDeletion.keepsMail.consequence))
+        #expect(LabelDeletion.keepsMail.message(nested: 2).contains("2"))
+    }
+
     @Test func theDeleteConfirmationSaysWhatHappensToTheMail() {
         #expect(MailService.gmail.labelDeletion == .keepsMail)
         #expect(MailService.outlook.labelDeletion == .movesMailToTrash)

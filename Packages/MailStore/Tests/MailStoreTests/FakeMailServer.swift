@@ -396,9 +396,12 @@ extension FakeMailServer {
 
     func deleteLabel(_ id: String) async throws {
         state.withLock { state in
-            state.labels.removeAll { $0.id == id }
-            for (threadID, thread) in state.threads where thread.labelIDs.contains(id) {
-                state.threads[threadID]?.labelIDs.remove(id)
+            // With the labels nested in it, as every service's deleteLabel does.
+            guard let name = state.labels.first(where: { $0.id == id })?.name else { return }
+            let doomed = Set(state.labels.filter { $0.id == id || $0.name.hasPrefix(name + "/") }.map(\.id))
+            state.labels.removeAll { doomed.contains($0.id) }
+            for (threadID, thread) in state.threads where !thread.labelIDs.isDisjoint(with: doomed) {
+                state.threads[threadID]?.labelIDs.subtract(doomed)
             }
         }
     }

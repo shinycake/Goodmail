@@ -2,8 +2,7 @@ import Foundation
 import MailCore
 
 /// The user's labels. Gmail nests a label by its name, as `Projects/Goodmail` sits under `Projects`, and keeps each
-/// one apart: renaming `Projects` renames none of the labels under it, so the client renames them too, as Gmail's
-/// own apps do.
+/// one apart: renaming or deleting `Projects` changes none of the labels under it, so the client changes them too.
 extension GmailClient {
     public func createLabel(named name: String) async throws -> MailLabel {
         do {
@@ -39,12 +38,19 @@ extension GmailClient {
         }
     }
 
-    /// Gmail takes the label off its conversations and keeps them; the labels under it stay.
+    /// Gmail takes each label off its conversations and keeps them. The labels under it go first, so a failure
+    /// partway leaves the label to delete again.
     public func deleteLabel(_ id: String) async throws {
-        do {
-            let _: GmailEmpty = try await send("users/me/labels/\(id)", method: "DELETE")
-        } catch let error as GmailError where error.status == 404 {
-            return
+        let list: GmailLabelList = try await send("users/me/labels")
+        let labels = list.labels ?? []
+        guard let label = labels.first(where: { $0.id == id }) else { return }
+        let nested = labels.filter { $0.name.hasPrefix(label.name + "/") }.map(\.id)
+        for id in nested + [id] {
+            do {
+                let _: GmailEmpty = try await send("users/me/labels/\(id)", method: "DELETE")
+            } catch let error as GmailError where error.status == 404 {
+                continue
+            }
         }
     }
 }

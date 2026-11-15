@@ -65,6 +65,33 @@ struct IMAPLabelTests {
         #expect(await unsent.sent.last == "A4 LIST \"\" \"*\"\r\n")
     }
 
+    @Test func deletingAFolderDeletesTheFoldersUnderItFirstButNotARoleFolder() async throws {
+        let (client, transport) = Self.client(
+            Self.loginThen(
+                #"C: A4 LIST "" "*""#,
+                #"S: * LIST (\HasNoChildren) "/" "INBOX""#,
+                #"S: * LIST (\HasChildren) "/" "Work""#,
+                #"S: * LIST (\Noselect \HasChildren) "/" "Work/2026""#,
+                #"S: * LIST (\HasNoChildren) "/" "Work/2026/Q1""#,
+                #"S: * LIST (\HasNoChildren) "/" "Work/Clients""#,
+                #"S: * LIST (\HasNoChildren \Sent) "/" "Work/Sent""#,
+                #"S: * LIST (\HasNoChildren) "/" "Workshop""#,
+                "S: A4 OK LIST completed",
+                #"C: A5 DELETE "Work/Clients""#, "S: A5 OK DELETE completed",
+                #"C: A6 DELETE "Work/2026/Q1""#, "S: A6 OK DELETE completed",
+                #"C: A7 DELETE "Work/2026""#, "S: A7 OK DELETE completed",
+                #"C: A8 DELETE "Work""#, "S: A8 OK DELETE completed"))
+
+        try await client.deleteLabel("Work")
+
+        #expect(
+            await transport.sent.filter { $0.contains(" DELETE ") } == [
+                "A5 DELETE \"Work/Clients\"\r\n", "A6 DELETE \"Work/2026/Q1\"\r\n", "A7 DELETE \"Work/2026\"\r\n",
+                "A8 DELETE \"Work\"\r\n",
+            ],
+            "each folder before the one holding it; not Sent, nor one whose name only starts the same")
+    }
+
     /// A client that replays `transcript`, and its transport, to check what was sent.
     private static func client(_ transcript: String) -> (IMAPClient, ScriptedTransport) {
         let transport = ScriptedTransport(transcript: transcript)

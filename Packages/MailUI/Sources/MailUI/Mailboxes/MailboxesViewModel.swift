@@ -178,6 +178,13 @@ public final class MailboxesViewModel {
         return directory.labels.first { $0.mailbox == mailbox }
     }
 
+    /// How many of the account's labels are nested in `label`, which deleting it deletes too.
+    func nestedLabelCount(in label: MailboxDirectory.Label) -> Int {
+        directory.labels.count {
+            $0.mailbox.accountID == label.mailbox.accountID && $0.name.hasPrefix(label.name + "/")
+        }
+    }
+
     public func open(_ destination: Destination) {
         switch destination {
         case .mailbox(let mailbox): navigate(.mailbox(mailbox))

@@ -54,8 +54,8 @@ public protocol MailProvider: Sendable {
     /// it's gone and `ProviderError.rejected` when the service refuses the name.
     func renameLabel(_ id: String, to name: String) async throws
 
-    /// Deletes the user label `id`. What happens to its mail is the service's `labelDeletion`. One that is already
-    /// gone is not an error.
+    /// Deletes the user label `id` and the labels nested in it, as `Projects/Goodmail` is in `Projects`. What
+    /// happens to their mail is the service's `labelDeletion`. One that is already gone is not an error.
     func deleteLabel(_ id: String) async throws
 }
 

@@ -86,11 +86,10 @@ struct LabelEditingTests {
         let nested = try await engine.createLabel(named: "Receipts/2026")
         server.set("t1", thread("t1", labels: ["INBOX", nested.id]))
         try await engine.sync()
-        // A service that deletes nested folders with their parent, as Outlook and IMAP do.
-        try await server.deleteLabel(nested.id)
 
         try await engine.deleteLabel("Label_1")
 
+        #expect(try storedLabels() == ["INBOX": "INBOX"])
         #expect(try database.threadIDs(labeled: [nested.id], account: account.id).isEmpty)
     }
 

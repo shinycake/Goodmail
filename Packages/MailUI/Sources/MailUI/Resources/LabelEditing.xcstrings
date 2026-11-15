@@ -177,6 +177,53 @@
         }
       }
     },
+    "The %lld labels inside it are deleted too." : {
+      "comment" : "Delete label alert: how many labels nested in it are deleted with it",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The label inside it is deleted too."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The %lld labels inside it are deleted too."
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "גם התווית שבתוכה תימחק."
+                }
+              },
+              "two" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "גם שתי התוויות שבתוכה יימחקו."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "גם %lld התוויות שבתוכה יימחקו."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "The label comes off its conversations, which stay in your mail." : {
       "comment" : "Delete label alert, Gmail: no mail is deleted",
       "localizations" : {
