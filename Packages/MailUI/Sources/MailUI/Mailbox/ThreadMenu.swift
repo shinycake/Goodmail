@@ -41,8 +41,9 @@ struct ThreadMenu: Equatable {
             + [ThreadAction.muting([thread.labelIDs])].compactMap { $0.map(Item.perform) }
         let organize: [Item] =
             (MailboxViewModel.canSnooze([thread]) ? [.snooze] : []) + [.move, .changeLabels]
-        var away = MailboxViewModel.trailingActions(for: thread)
-        if thread.labelIDs.isDisjoint(with: [SystemLabel.spam, SystemLabel.trash]) {
+        let place = ThreadPlace(thread, in: mailbox)
+        var away = place.awayActions
+        if place.canReportSpam {
             away.insert(.reportSpam, at: away.firstIndex(of: .trash) ?? away.endIndex)
         }
         sections = [answers, windows, state, organize, away.map(Item.perform)].filter { !$0.isEmpty }

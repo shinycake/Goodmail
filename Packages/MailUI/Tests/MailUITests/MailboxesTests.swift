@@ -163,13 +163,30 @@ struct MailboxesTests {
         #expect(Mailbox.trash.title(labels: []) == "Trash")
     }
 
+    private func away(_ labels: Set<String>, in mailbox: Mailbox) -> [ThreadAction] {
+        ThreadPlace(thread(labels: labels), in: mailbox).awayActions
+    }
+
     @Test func swipingTakesTheThreadOutOfWhereItIs() {
-        #expect(MailboxViewModel.trailingActions(for: thread(labels: ["INBOX"])) == [.archive, .trash])
-        #expect(MailboxViewModel.trailingActions(for: thread(labels: ["Label_1"])) == [.trash])
-        #expect(MailboxViewModel.trailingActions(for: thread(labels: ["SPAM"])) == [.moveToInbox, .trash])
+        #expect(away(["INBOX"], in: .inbox) == [.archive, .trash])
+        #expect(away(["Label_1"], in: Mailbox(labelID: "Label_1")) == [.trash])
+        #expect(away(["SPAM"], in: .spam) == [.moveToInbox, .trash])
         #expect(
-            MailboxViewModel.trailingActions(for: thread(labels: ["TRASH", "STARRED"])) == [.untrash, .deleteForever],
+            away(["TRASH", "STARRED"], in: .trash) == [.untrash, .deleteForever],
             "a full swipe restores; deleting forever takes a tap and a confirmation")
+    }
+
+    @Test func onlyTheTrashListDeletesForever() {
+        #expect(
+            away(["INBOX", "TRASH"], in: .inbox) == [.archive, .trash],
+            "a reply in the Inbox to a trashed thread is Inbox mail")
+        #expect(
+            away(["INBOX", "TRASH"], in: Mailbox(labelID: SystemLabel.inbox, accountID: account.id)) == [
+                .archive, .trash,
+            ])
+        #expect(away(["TRASH", "STARRED"], in: .starred) == [.trash])
+        #expect(away(["TRASH"], in: .allMail) == [.trash], "a search lists Trash too")
+        #expect(away(["INBOX", "TRASH"], in: Mailbox(labelID: SystemLabel.trash)) == [.untrash, .deleteForever])
     }
 
     @Test func swipingAnInboxThreadOffersSnoozeAfterArchive() {
@@ -184,8 +201,8 @@ struct MailboxesTests {
             viewModel.swipeActions(for: thread(labels: ["Label_1"]), leading: false).map(\.swipe) == [.perform(.trash)])
     }
 
-    private func bulkActions(_ threads: [ThreadSummary]) -> [ThreadAction] {
-        MailboxViewModel.bulkActions(for: threads)
+    private func bulkActions(_ threads: [ThreadSummary], in mailbox: Mailbox = .inbox) -> [ThreadAction] {
+        MailboxViewModel.bulkActions(for: threads, in: mailbox)
     }
 
     @Test func bulkActionsAreWhatEverySelectedThreadAllows() {
@@ -201,9 +218,11 @@ struct MailboxesTests {
         #expect(
             bulkActions([read, thread(labels: ["Label_1"])]) == [.markRead(true), .trash, .mute],
             "archived mail can't be archived again")
-        #expect(bulkActions([read, thread(labels: ["TRASH"])]) == [.markRead(true)])
         #expect(
-            bulkActions([thread(labels: ["TRASH"]), thread(labels: ["TRASH"])])
+            bulkActions([read, thread(labels: ["INBOX", "TRASH"])]) == [.markRead(true), .archive, .trash],
+            "Inbox mail with trashed messages is still Inbox mail")
+        #expect(
+            bulkActions([thread(labels: ["TRASH"]), thread(labels: ["TRASH"])], in: .trash)
                 == [.markRead(true), .untrash, .deleteForever],
             "every service deletes forever from Trash")
         #expect(

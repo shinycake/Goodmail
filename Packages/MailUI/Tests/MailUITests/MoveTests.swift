@@ -191,4 +191,16 @@ struct MoveViewModelTests {
         }
         #expect(closes == 4)
     }
+
+    @Test(arguments: [(Mailbox.inbox, false), (Mailbox.trash, true)])
+    func theReaderDeletesForeverOnlyWhenOpenedFromTrash(mailbox: Mailbox, deletesForever: Bool) {
+        // A reply that came in to a trashed thread puts it in the Inbox, still carrying Trash for the rest.
+        let thread = ThreadSummary(
+            id: id("t"), subject: "Plan", snippet: "", sender: Contact(name: nil, address: "a@example.com"),
+            date: .now, isUnread: false, messageCount: 2, labelIDs: ["INBOX", "TRASH"])
+        let model = ThreadViewModel(
+            thread: thread, mailbox: mailbox, accountEmail: "me@example.com", accountColor: .blue,
+            messages: { AsyncThrowingStream { $0.finish() } }, load: {}, attachmentData: { _, _ in Data() })
+        #expect(model.isInTrash == deletesForever)
+    }
 }

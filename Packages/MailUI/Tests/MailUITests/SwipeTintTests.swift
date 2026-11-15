@@ -53,7 +53,7 @@ struct SwipeTintTests {
             id: ThreadSummary.ID(accountID: AccountID(rawValue: "a"), threadID: "t"), subject: "", snippet: "",
             sender: Contact(name: nil, address: "x@example.com"), date: .now, isUnread: true, messageCount: 1,
             labelIDs: ["INBOX"])
-        let buttons = SwipeArrangement.standard.buttons(for: thread, on: .trailing, tints: tints)
+        let buttons = SwipeArrangement.standard.buttons(for: thread, at: .inbox, on: .trailing, tints: tints)
         #expect(buttons.map(\.tint) == [picked, .clear, .red])
     }
 

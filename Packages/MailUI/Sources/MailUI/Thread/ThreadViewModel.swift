@@ -255,8 +255,9 @@ public final class ThreadViewModel {
         return ThreadAction.muting([messages.isEmpty ? thread.labelIDs : labels])
     }
 
-    /// Whether the thread was in Trash when opened, so its toolbar deletes it forever instead of trashing it.
-    public var isInTrash: Bool { thread.labelIDs.contains(SystemLabel.trash) }
+    /// Whether the thread was opened from Trash, so its toolbar deletes it forever instead of trashing it. Its labels
+    /// can't say: a thread whose reply came in to the Inbox after its earlier messages were trashed carries Trash too.
+    public var isInTrash: Bool { ThreadPlace(thread, in: mailbox) == .trash }
 
     /// Applies an action to the whole thread. Archive, Trash, Delete Forever, Spam and Mute take it out of the
     /// mailbox, and Unread puts it back for later, so the reader leaves after them.

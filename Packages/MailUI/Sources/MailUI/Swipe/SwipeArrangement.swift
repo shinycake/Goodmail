@@ -5,22 +5,23 @@ import MailCore
 nonisolated public enum SwipeChoice: String, CaseIterable, Sendable {
     case read, star, archive, snooze, trash, spam
 
-    /// What this choice does to `thread`, or `nil` where it means nothing there. Archive takes the thread out of the
-    /// way where it is: out of the Inbox, out of Spam back to the Inbox, or out of Trash. Trash deletes a thread
-    /// already in Trash for good. Snooze needs the thread in the Inbox.
-    func swipe(for thread: ThreadSummary) -> MailboxViewModel.Swipe? {
-        let labels = thread.labelIDs
+    /// What this choice does to `thread` standing at `place`, or `nil` where it means nothing there. Archive takes
+    /// the thread out of the way where it is: out of the Inbox, out of Spam back to the Inbox, or out of Trash. Trash
+    /// deletes a thread in the Trash list for good. Snooze needs the thread in the Inbox.
+    func swipe(for thread: ThreadSummary, at place: ThreadPlace) -> MailboxViewModel.Swipe? {
         switch self {
         case .read: return .perform(.markRead(thread.isUnread))
-        case .star: return .perform(.star(!labels.contains(SystemLabel.starred)))
+        case .star: return .perform(.star(!thread.labelIDs.contains(SystemLabel.starred)))
         case .archive:
-            if labels.contains(SystemLabel.trash) { return .perform(.untrash) }
-            if labels.contains(SystemLabel.spam) { return .perform(.moveToInbox) }
-            return labels.contains(SystemLabel.inbox) ? .perform(.archive) : nil
+            switch place {
+            case .trash: return .perform(.untrash)
+            case .spam: return .perform(.moveToInbox)
+            case .inbox: return .perform(.archive)
+            case .elsewhere: return nil
+            }
         case .snooze: return MailboxViewModel.canSnooze([thread]) ? .snooze : nil
-        case .trash: return .perform(labels.contains(SystemLabel.trash) ? .deleteForever : .trash)
-        case .spam:
-            return labels.isDisjoint(with: [SystemLabel.spam, SystemLabel.trash]) ? .perform(.reportSpam) : nil
+        case .trash: return .perform(place == .trash ? .deleteForever : .trash)
+        case .spam: return place.canReportSpam ? .perform(.reportSpam) : nil
         }
     }
 }
@@ -125,11 +126,13 @@ nonisolated public struct SwipeArrangement: Equatable, Sendable {
         }
     }
 
-    /// The buttons `side` shows for `thread`, edge-most first: each choice's swipe where it means something there,
-    /// in the choice's tint.
-    func buttons(for thread: ThreadSummary, on side: Side, tints: SwipeTints) -> [MailboxViewModel.SwipeButton] {
+    /// The buttons `side` shows for `thread` standing at `place`, edge-most first: each choice's swipe where it means
+    /// something there, in the choice's tint.
+    func buttons(for thread: ThreadSummary, at place: ThreadPlace, on side: Side, tints: SwipeTints)
+        -> [MailboxViewModel.SwipeButton]
+    {
         self[side].compactMap { choice in
-            choice.swipe(for: thread).map { MailboxViewModel.SwipeButton(swipe: $0, tint: tints[choice]) }
+            choice.swipe(for: thread, at: place).map { MailboxViewModel.SwipeButton(swipe: $0, tint: tints[choice]) }
         }
     }
 

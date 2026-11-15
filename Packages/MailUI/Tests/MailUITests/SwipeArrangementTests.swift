@@ -12,11 +12,13 @@ struct SwipeArrangementTests {
             labelIDs: labels)
     }
 
-    /// What `side` does for `thread`, leaving out the tints.
-    private func swipes(_ arrangement: SwipeArrangement, _ thread: ThreadSummary, _ side: SwipeArrangement.Side)
-        -> [MailboxViewModel.Swipe]
-    {
-        arrangement.buttons(for: thread, on: side, tints: .standard).map(\.swipe)
+    /// What `side` does for `thread` listed in `mailbox`, leaving out the tints.
+    private func swipes(
+        _ arrangement: SwipeArrangement, _ thread: ThreadSummary, _ side: SwipeArrangement.Side,
+        in mailbox: Mailbox = .inbox
+    ) -> [MailboxViewModel.Swipe] {
+        arrangement.buttons(for: thread, at: ThreadPlace(thread, in: mailbox), on: side, tints: .standard)
+            .map(\.swipe)
     }
 
     @Test func theStandardArrangementKeepsTheUsualSwipesInEveryMailbox() {
@@ -25,10 +27,23 @@ struct SwipeArrangementTests {
             swipes(standard, thread(["INBOX"]), .leading) == [.perform(.markRead(true)), .perform(.star(true))])
         #expect(
             swipes(standard, thread(["INBOX"]), .trailing) == [.perform(.archive), .snooze, .perform(.trash)])
-        #expect(swipes(standard, thread(["SPAM"]), .trailing) == [.perform(.moveToInbox), .perform(.trash)])
         #expect(
-            swipes(standard, thread(["TRASH"]), .trailing) == [.perform(.untrash), .perform(.deleteForever)])
-        #expect(swipes(standard, thread(["SENT"]), .trailing) == [.perform(.trash)])
+            swipes(standard, thread(["SPAM"]), .trailing, in: .spam) == [.perform(.moveToInbox), .perform(.trash)])
+        #expect(
+            swipes(standard, thread(["TRASH"]), .trailing, in: .trash)
+                == [.perform(.untrash), .perform(.deleteForever)])
+        #expect(swipes(standard, thread(["SENT"]), .trailing, in: .sent) == [.perform(.trash)])
+    }
+
+    @Test func anInboxThreadWithTrashedMessagesSwipesAsAnInboxThread() {
+        // A reply that came in to a trashed thread puts it back in the Inbox, still carrying Trash for the rest.
+        let mixed = thread(["INBOX", "TRASH"])
+        #expect(
+            swipes(.standard, mixed, .trailing) == [.perform(.archive), .snooze, .perform(.trash)],
+            "Delete Forever there would delete only the trashed messages, and the reply would come back")
+        #expect(
+            swipes(.standard, mixed, .trailing, in: .trash) == [.perform(.untrash), .perform(.deleteForever)],
+            "in Trash it deletes forever")
     }
 
     @Test func choicesFollowTheThreadsState() {
@@ -39,7 +54,7 @@ struct SwipeArrangementTests {
 
     @Test func aChoiceThatMeansNothingHereIsLeftOut() {
         let arrangement = SwipeArrangement(leading: [.spam, .snooze], trailing: [])
-        #expect(swipes(arrangement, thread(["SPAM"]), .leading).isEmpty)
+        #expect(swipes(arrangement, thread(["SPAM"]), .leading, in: .spam).isEmpty)
         #expect(swipes(arrangement, thread(["INBOX"]), .leading) == [.perform(.reportSpam), .snooze])
     }
 

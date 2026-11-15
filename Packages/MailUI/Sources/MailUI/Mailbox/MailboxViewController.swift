@@ -509,7 +509,7 @@ extension MailboxViewController {
 
         // With nothing selected, show what the list as a whole allows, disabled, so the toolbar doesn't jump.
         let threads = (ids.isEmpty ? snapshot.itemIdentifiers : ids).compactMap { threadsByID[$0] }
-        let actions = MailboxViewModel.bulkActions(for: threads)
+        let actions = MailboxViewModel.bulkActions(for: threads, in: viewModel.mailbox)
         let items = actions.map { action in
             // With nothing selected, Trash's Delete Forever empties it.
             let emptiesTrash = action == .deleteForever && ids.isEmpty && viewModel.isTrash

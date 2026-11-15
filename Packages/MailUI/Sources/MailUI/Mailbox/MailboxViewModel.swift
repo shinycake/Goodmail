@@ -298,23 +298,16 @@ public final class MailboxViewModel {
     func swipeActions(for thread: ThreadSummary, leading: Bool) -> [SwipeButton] {
         guard actions != nil else { return [] }
         return Preferences.swipeArrangement.buttons(
-            for: thread, on: leading ? .leading : .trailing, tints: Preferences.swipeTints)
+            for: thread, at: ThreadPlace(thread, in: mailbox), on: leading ? .leading : .trailing,
+            tints: Preferences.swipeTints)
     }
 
-    /// What takes `thread` out of the way, by where it is: out of Trash, or gone for good from it, out of Spam, or out
-    /// of the Inbox.
-    static func trailingActions(for thread: ThreadSummary) -> [ThreadAction] {
-        if thread.labelIDs.contains(SystemLabel.trash) { return [.untrash, .deleteForever] }
-        if thread.labelIDs.contains(SystemLabel.spam) { return [.moveToInbox, .trash] }
-        return thread.labelIDs.contains(SystemLabel.inbox) ? [.archive, .trash] : [.trash]
-    }
-
-    /// The toolbar's actions for the threads selected in edit mode: their reading state, what takes all of them out
-    /// of the way here, then Mute or Unmute when all of them allow it.
-    static func bulkActions(for threads: [ThreadSummary]) -> [ThreadAction] {
+    /// The toolbar's actions for the threads of `mailbox` selected in edit mode: their reading state, what takes all
+    /// of them out of the way here, then Mute or Unmute when all of them allow it.
+    static func bulkActions(for threads: [ThreadSummary], in mailbox: Mailbox) -> [ThreadAction] {
         guard let first = threads.first else { return [] }
-        let common = threads.dropFirst().reduce(Self.trailingActions(for: first)) { common, thread in
-            let theirs = Self.trailingActions(for: thread)
+        let common = threads.dropFirst().reduce(ThreadPlace(first, in: mailbox).awayActions) { common, thread in
+            let theirs = ThreadPlace(thread, in: mailbox).awayActions
             return common.filter(theirs.contains)
         }
         return [.markRead(threads.contains(where: \.isUnread))] + common

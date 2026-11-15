@@ -66,6 +66,14 @@ struct ThreadMenuTests {
         #expect(menu.sections[3] == [.perform(.untrash), .perform(.deleteForever)])
     }
 
+    @Test func anInboxThreadWithTrashedMessagesIsTrashedNotDeletedForever() {
+        let menu = ThreadMenu(
+            thread: thread([SystemLabel.inbox, SystemLabel.trash]), in: .inbox, reach: .actions(pinned: false),
+            opensWindows: false)
+        #expect(menu.sections.last == [.perform(.archive), .perform(.reportSpam), .perform(.trash)])
+        #expect(!menu.sections.contains { $0.contains(.perform(.deleteForever)) })
+    }
+
     @Test func draftsAreFinishedNotAnswered() {
         let menu = ThreadMenu(
             thread: thread([SystemLabel.draft]), in: .drafts, reach: .actions(pinned: false), opensWindows: false)
