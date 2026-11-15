@@ -13,14 +13,20 @@ struct SettingsView: View {
                 ForEach(model.accounts) { account in
                     NavigationLink(value: account.id) {
                         Label {
-                            VStack(alignment: .leading) {
-                                Text(account.name ?? account.email)
-                                if account.name != nil {
-                                    Text(account.email).font(.footnote).foregroundStyle(.secondary)
+                            HStack {
+                                VStack(alignment: .leading) {
+                                    Text(account.name ?? account.email)
+                                    if account.name != nil {
+                                        Text(account.email).font(.footnote).foregroundStyle(.secondary)
+                                    }
                                 }
+                                Spacer()
+                                // The account's color, which tints its mail and mailboxes.
+                                Circle().fill(Color(account.color.uiColor)).frame(width: 10, height: 10)
+                                    .accessibilityHidden(true)
                             }
                         } icon: {
-                            Circle().fill(Color(account.color.uiColor)).frame(width: 12, height: 12)
+                            ServiceLogo(service: account.service)
                         }
                     }
                     .swipeActions { removeButton(account) }

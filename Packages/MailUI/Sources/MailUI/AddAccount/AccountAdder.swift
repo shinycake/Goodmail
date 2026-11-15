@@ -58,14 +58,4 @@ extension MailService {
                 comment: "The service chooser's choice for an account on any IMAP and SMTP server")
         }
     }
-
-    /// What the chooser shows beside the name.
-    var symbol: String {
-        switch self {
-        case .gmail: "envelope.fill"
-        case .icloud: "icloud.fill"
-        case .outlook: "tray.full.fill"
-        case .imap: "at"
-        }
-    }
 }

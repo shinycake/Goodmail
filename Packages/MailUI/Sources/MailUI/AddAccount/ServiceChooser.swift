@@ -16,7 +16,7 @@ struct ServiceChooser: View {
                     if adder.state == .signingIn(service) {
                         ProgressView()
                     } else {
-                        Image(systemName: service.symbol)
+                        ServiceLogo(service: service)
                     }
                 }
             }
