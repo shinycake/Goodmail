@@ -72,6 +72,16 @@ struct AccountSettingsView: View {
                 }
             }
 
+            if let servers = model.serverSettings(accountID) {
+                Section {
+                    NavigationLink {
+                        ServerSettingsView(service: servers)
+                    } label: {
+                        ServerSettingsView.title(servers.kind)
+                    }
+                }
+            }
+
             if let autoReply = model.autoReply(accountID) {
                 Section {
                     NavigationLink {

@@ -1,0 +1,83 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "App-Specific Password" : {
+      "comment" : "Title of the screen that changes an iCloud account's app-specific password",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סיסמה ייעודית ליישום"
+          }
+        }
+      }
+    },
+    "Goodmail logs in to both servers before it saves a change." : {
+      "comment" : "Explains that Save checks the servers first",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‏Goodmail מתחבר לשני השרתים לפני שמירת שינוי."
+          }
+        }
+      }
+    },
+    "No Sign-In on This Device" : {
+      "comment" : "Shown when the account's servers and password can't be read",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אין פרטי התחברות במכשיר הזה"
+          }
+        }
+      }
+    },
+    "Remove the account and add it again." : {
+      "comment" : "What to do when the account's sign-in is missing",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "יש להסיר את החשבון ולהוסיף אותו שוב."
+          }
+        }
+      }
+    },
+    "Save" : {
+      "comment" : "Checks the edited servers and keeps them",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שמירה"
+          }
+        }
+      }
+    },
+    "Server Settings" : {
+      "comment" : "Title of an account's IMAP and SMTP server settings",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הגדרות שרת"
+          }
+        }
+      }
+    },
+    "Use an app-specific password from your Apple Account. Goodmail checks it with iCloud before it saves it." : {
+      "comment" : "Explains the iCloud app-specific password and that Save checks it first",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "יש להשתמש בסיסמה ייעודית ליישום מחשבון Apple שלך. Goodmail בודק אותה מול iCloud לפני השמירה."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

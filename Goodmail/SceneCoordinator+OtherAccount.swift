@@ -24,7 +24,7 @@ extension SceneCoordinator {
 
 extension OtherAccountSignInFailure {
     /// The form's failure for the sign-in's; `nil` for a missing login, which a sign-in doesn't throw.
-    fileprivate init?(_ failure: IMAPSignIn.Failure) {
+    init?(_ failure: IMAPSignIn.Failure) {
         func side(_ server: IMAPSignIn.Server) -> Server {
             switch server {
             case .imap: .incoming

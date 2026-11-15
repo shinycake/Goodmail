@@ -166,7 +166,8 @@ struct OtherAccountSignInView: View {
         }
     }
 
-    private static func message(for failure: OtherAccountStage.Failure) -> String {
+    /// The failure in words, for the sign-in form and the server settings screen.
+    static func message(for failure: OtherAccountStage.Failure) -> String {
         switch failure {
         case .signIn(let failure): message(for: failure)
         case .other(let message): message

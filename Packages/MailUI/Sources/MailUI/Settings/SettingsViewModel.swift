@@ -45,6 +45,9 @@ public final class SettingsViewModel {
     public var badges: BadgeChoices?
     /// The automatic reply of an account whose service sends one; `nil` for one that doesn't, as iCloud.
     @ObservationIgnored public var autoReply: (AccountID) -> AutoReplyEditor.Service? = { _ in nil }
+    /// The sign-in of an account that logs in with a password: an Other Mail Account's servers and password, or
+    /// iCloud's app-specific password; `nil` for an account that signs in with its service, as Gmail and Outlook do.
+    @ObservationIgnored public var serverSettings: (AccountID) -> ServerSettingsEditor.Service? = { _ in nil }
     /// Accounts whose Inbox isn't split into categories.
     public var unsortedInboxAccounts: Set<AccountID> {
         didSet { Preferences.unsortedInboxAccounts = unsortedInboxAccounts }
