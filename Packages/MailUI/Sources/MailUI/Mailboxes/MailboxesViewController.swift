@@ -76,13 +76,48 @@ public final class MailboxesViewController: UIViewController {
     /// Called by UIKit whenever an observed view-model property changes.
     public override func updateProperties() {
         super.updateProperties()
-        var snapshot = NSDiffableDataSourceSnapshot<MailboxesViewModel.Section, MailboxesViewModel.Item>()
-        for group in viewModel.groups {
-            snapshot.appendSections([group.section])
-            snapshot.appendItems(group.items, toSection: group.section)
+        let groups = viewModel.groups
+        let sections = groups.map(\.section)
+        // Only a change of sections, as an account added, replaces the rows; otherwise each section's rows are
+        // diffed in place, keeping what the reader folded.
+        if dataSource.snapshot().sectionIdentifiers != sections {
+            var snapshot = NSDiffableDataSourceSnapshot<MailboxesViewModel.Section, MailboxesViewModel.Item>()
+            snapshot.appendSections(sections)
+            dataSource.apply(snapshot, animatingDifferences: false)
         }
-        dataSource.apply(snapshot, animatingDifferences: collectionView.window != nil)
+        let animated = collectionView.window != nil
+        for group in groups {
+            dataSource.apply(sectionSnapshot(of: group), to: group.section, animatingDifferences: animated)
+        }
         selectShownMailbox()
+    }
+
+    /// The group's rows with their nested labels, unfolded unless the reader folded them in the rows shown now.
+    private func sectionSnapshot(
+        of group: MailboxesViewModel.Group
+    ) -> NSDiffableDataSourceSectionSnapshot<MailboxesViewModel.Item> {
+        let shown = dataSource.snapshot(for: group.section)
+        let folded = Set(
+            shown.items.filter { $0.isParent && shown.contains($0) && !shown.isExpanded($0) }.map(\.destination))
+        var section = NSDiffableDataSourceSectionSnapshot<MailboxesViewModel.Item>()
+        func append(_ items: [MailboxesViewModel.Item], to parent: MailboxesViewModel.Item?) {
+            section.append(items, to: parent)
+            for item in items {
+                guard let children = group.children[item.destination] else { continue }
+                append(children, to: item)
+                if !folded.contains(item.destination) { section.expand([item]) }
+            }
+        }
+        append(group.items, to: nil)
+        return section
+    }
+
+    /// Folds or unfolds a parent's labels, as tapping a folder that is no label does.
+    private func toggle(_ item: MailboxesViewModel.Item, at indexPath: IndexPath) {
+        guard let sectionID = dataSource.sectionIdentifier(for: indexPath.section) else { return }
+        var section = dataSource.snapshot(for: sectionID)
+        if section.isExpanded(item) { section.collapse([item]) } else { section.expand([item]) }
+        dataSource.apply(section, to: sectionID, animatingDifferences: true)
     }
 
     private func selectShownMailbox() {
@@ -96,28 +131,39 @@ public final class MailboxesViewController: UIViewController {
         let style = style
         let row = UICollectionView.CellRegistration<UICollectionViewListCell, MailboxesViewModel.Item> {
             cell, _, item in
-            let count = item.count > 0 ? item.count.formatted() : nil
-            var content =
-                style == .sidebar ? UIListContentConfiguration.sidebarCell() : UIListContentConfiguration.valueCell()
-            content.text = item.title
-            content.image = UIImage(systemName: item.symbol)
-            content.imageProperties.tintColor = UIColor(labelColor: item.color) ?? .tintColor
-            switch style {
-            case .sidebar:
-                cell.accessories = count.map { [.label(text: $0)] } ?? []
-            case .list:
-                // The count is the value cell's secondary text, not an accessory, so at accessibility sizes it moves
-                // under the name instead of squeezing it until words break.
-                content.secondaryText = count
-                cell.accessories = [.disclosureIndicator()]
+            let isParent = item.isParent
+            // A level of nesting reads at a glance in the list, as it does in the sidebar.
+            if style == .list { cell.indentationWidth = 20 }
+            // Folded away, a parent counts its nested labels' unread threads with its own.
+            cell.configurationUpdateHandler = { cell, state in
+                guard let cell = cell as? UICollectionViewListCell else { return }
+                let shown = isParent && !state.isExpanded ? item.nestedCount : item.count
+                let count = shown > 0 ? shown.formatted() : nil
+                var content =
+                    style == .sidebar
+                    ? UIListContentConfiguration.sidebarCell() : UIListContentConfiguration.valueCell()
+                content.text = item.title
+                content.image = UIImage(systemName: item.symbol)
+                content.imageProperties.tintColor = UIColor(labelColor: item.color) ?? .tintColor
+                let unfold: [UICellAccessory] = isParent ? [.outlineDisclosure()] : []
+                switch style {
+                case .sidebar:
+                    cell.accessories = (count.map { [.label(text: $0)] } ?? []) + unfold
+                case .list:
+                    // The count is the value cell's secondary text, not an accessory, so at accessibility sizes it
+                    // moves under the name instead of squeezing it until words break.
+                    content.secondaryText = count
+                    cell.accessories = unfold.isEmpty ? [.disclosureIndicator()] : unfold
+                }
+                cell.contentConfiguration = content
             }
-            cell.contentConfiguration = content
             cell.accessibilityIdentifier =
                 switch item.destination {
                 case .mailbox(let mailbox):
                     "mailbox.\(mailbox.labelID ?? "all")" + (mailbox.accountID.map { ".\($0.rawValue)" } ?? "")
                 case .scheduled: "mailbox.scheduled"
                 case .snoozed: "mailbox.snoozed"
+                case .folder(let path, let account): "mailbox.folder.\(path).\(account.rawValue)"
                 }
         }
         let header = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(
@@ -152,6 +198,16 @@ extension MailboxesViewController: UICollectionViewDelegate {
     public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         guard let item = dataSource.itemIdentifier(for: indexPath) else { return }
         viewModel.open(item.destination)
+    }
+
+    /// A folder that is no label opens nothing: a tap folds or unfolds it, and the sidebar keeps the shown mailbox
+    /// selected.
+    public func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
+        guard let item = dataSource.itemIdentifier(for: indexPath), case .folder = item.destination else {
+            return true
+        }
+        toggle(item, at: indexPath)
+        return false
     }
 
     /// Rename and Delete on a user label.

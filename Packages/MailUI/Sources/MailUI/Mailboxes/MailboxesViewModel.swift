@@ -14,6 +14,8 @@ public final class MailboxesViewModel {
         case scheduled
         /// The threads snoozed out of the Inbox.
         case snoozed
+        /// A step of nested labels' paths that is no label itself, which only holds them.
+        case folder(path: String, accountID: AccountID)
     }
 
     /// A group of rows, under its own header.
@@ -28,7 +30,10 @@ public final class MailboxesViewModel {
 
     nonisolated public struct Group: Equatable, Sendable {
         public let section: Section
+        /// The rows at the top of the group.
         public let items: [Item]
+        /// The rows nested in a row, by its destination: the labels under a label or folder.
+        public var children: [Destination: [Item]] = [:]
     }
 
     nonisolated public struct Item: Hashable, Identifiable, Sendable {
@@ -38,6 +43,10 @@ public final class MailboxesViewModel {
         public let symbol: String
         /// The number beside it: unread threads, or threads or messages waiting. Zero shows none.
         public let count: Int
+        /// `count` with the unread threads of the labels nested in it, shown while they are folded away.
+        public let nestedCount: Int
+        /// Whether labels are nested in it, so it folds.
+        public var isParent = false
         /// `#rrggbb` for a user label with a color.
         public let color: String?
     }
@@ -70,16 +79,42 @@ public final class MailboxesViewModel {
     public var groups: [Group] {
         let mailboxes = Group(section: .mailboxes, items: standardItems)
         guard accounts.count > 1 else {
-            let labels = directory.labels.map { item(for: $0.mailbox, color: $0.color) }
-            return [mailboxes, Group(section: .labels, items: labels)].filter { !$0.items.isEmpty }
+            return [mailboxes, labelGroup(.labels, labels: directory.labels)].filter { !$0.items.isEmpty }
         }
         return [mailboxes]
             + accounts.map { account in
                 let inbox = item(for: Mailbox(labelID: SystemLabel.inbox, accountID: account.id), color: nil)
-                let labels = directory.labels.filter { $0.mailbox.accountID == account.id }
-                    .map { item(for: $0.mailbox, color: $0.color) }
-                return Group(section: .account(account), items: [inbox] + labels)
+                let group = labelGroup(
+                    .account(account), labels: directory.labels.filter { $0.mailbox.accountID == account.id })
+                return Group(section: group.section, items: [inbox] + group.items, children: group.children)
             }
+    }
+
+    /// The labels as a tree: each with the labels nested in it, under folders where a step of a path is no label.
+    private func labelGroup(_ section: Section, labels: [MailboxDirectory.Label]) -> Group {
+        var children: [Destination: [Item]] = [:]
+        func items(_ nodes: [LabelTree.Node], account: AccountID) -> [Item] {
+            nodes.map { node in
+                let nested = items(node.children, account: account)
+                let nestedUnread = nested.map(\.nestedCount).reduce(0, +)
+                let row =
+                    node.label.map {
+                        item(for: $0.mailbox, color: $0.color, title: node.name, nestedUnread: nestedUnread)
+                    }
+                    ?? Item(
+                        destination: .folder(path: node.path, accountID: account), title: node.name,
+                        symbol: "folder", count: 0, nestedCount: nestedUnread, color: nil)
+                guard !nested.isEmpty else { return row }
+                children[row.destination] = nested
+                var parent = row
+                parent.isParent = true
+                return parent
+            }
+        }
+        // Every label belongs to an account, the one the group lists.
+        guard let account = labels.first?.mailbox.accountID else { return Group(section: section, items: []) }
+        let roots = items(LabelTree(labels).roots, account: account)
+        return Group(section: section, items: roots, children: children)
     }
 
     /// The standard mailboxes, with Snoozed after Starred while a thread sleeps and Scheduled after Drafts while a
@@ -92,7 +127,7 @@ public final class MailboxesViewModel {
                 title: String(
                     localized: "Snoozed", table: "Mailboxes", bundle: .module,
                     comment: "Mailbox: threads snoozed until later"),
-                symbol: "moon.zzz", count: directory.snoozedCount, color: nil)
+                symbol: "moon.zzz", count: directory.snoozedCount, nestedCount: directory.snoozedCount, color: nil)
             items.insert(snoozed, at: starred + 1)
         }
         if directory.scheduledCount > 0, let drafts = items.firstIndex(where: { $0.destination == .mailbox(.drafts) }) {
@@ -101,16 +136,19 @@ public final class MailboxesViewModel {
                 title: String(
                     localized: "Scheduled", table: "Mailboxes", bundle: .module,
                     comment: "Mailbox: messages waiting to be sent later"),
-                symbol: "clock", count: directory.scheduledCount, color: nil)
+                symbol: "clock", count: directory.scheduledCount, nestedCount: directory.scheduledCount, color: nil)
             items.insert(scheduled, at: drafts + 1)
         }
         return items
     }
 
-    private func item(for mailbox: Mailbox, color: String?) -> Item {
-        Item(
-            destination: .mailbox(mailbox), title: mailbox.title(labels: directory.labels), symbol: mailbox.symbol,
-            count: mailbox.showsUnreadCount ? directory.unreadCounts[mailbox] ?? 0 : 0, color: color)
+    /// `title` in place of the mailbox's own, as a nested label's last step; `nestedUnread` the unread threads of the
+    /// labels nested in it.
+    private func item(for mailbox: Mailbox, color: String?, title: String? = nil, nestedUnread: Int = 0) -> Item {
+        let count = mailbox.showsUnreadCount ? directory.unreadCounts[mailbox] ?? 0 : 0
+        return Item(
+            destination: .mailbox(mailbox), title: title ?? mailbox.title(labels: directory.labels),
+            symbol: mailbox.symbol, count: count, nestedCount: count + nestedUnread, color: color)
     }
 
     /// Follows the store until the calling task is cancelled. A failure leaves the last directory in place.
@@ -136,6 +174,7 @@ public final class MailboxesViewModel {
         case .mailbox(let mailbox): navigate(.mailbox(mailbox))
         case .scheduled: navigate(.scheduled)
         case .snoozed: navigate(.snoozed)
+        case .folder: break
         }
     }
 
