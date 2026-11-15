@@ -3,11 +3,12 @@ import MailNotifications
 import UIKit
 import UserNotifications
 
-/// A new-mail alert with the sender's picture: their company's logo, or else their initials.
+/// A new-mail alert with the sender's picture: their photo in Contacts, their company's logo, or else their initials.
 enum SenderAlert {
     static func content(for mail: NewMail, in account: Account, logos: SenderLogos?) async -> UNNotificationContent {
         let sender = mail.thread.sender
-        var picture = await logos?.logo(for: sender.address)
+        var picture = ContactPhotos.photo(for: sender.address)
+        if picture == nil { picture = await logos?.logo(for: sender.address) }
         if picture == nil { picture = monogram(for: sender.displayName) }
         return await CommunicationAlert.content(for: mail, in: account, picture: picture)
     }

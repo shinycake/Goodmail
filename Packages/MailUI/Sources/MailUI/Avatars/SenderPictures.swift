@@ -2,14 +2,14 @@ import MailCore
 import Synchronization
 import UIKit
 
-/// Senders' pictures for the mail screens, as the alerts show them: a company's logo, decoded small, off the main
-/// actor, and kept in memory. Where they come from is the app's to say, so MailUI knows nothing of BIMI or caches on
-/// disk. Pictures are per domain, so every sender at a company shares one.
+/// Senders' pictures for the mail screens, as the alerts show them: a person's photo or a company's logo, decoded
+/// small, off the main actor, and kept in memory. Where they come from is the app's to say, so MailUI knows nothing
+/// of Contacts, BIMI or caches on disk.
 nonisolated public final class SenderPictures: Sendable {
     /// What is known about a sender's picture without waiting.
     enum Lookup {
         case picture(UIImage)
-        /// Asked already, and there is none, or the sender is a person or at a public mail provider.
+        /// Asked already, and there is none.
         case none
         /// Not asked yet: `picture(for:)` finds out.
         case unknown
@@ -25,7 +25,7 @@ nonisolated public final class SenderPictures: Sendable {
         var loads: [String: Task<UIImage?, Never>] = [:]
     }
 
-    /// Enough for every company in a long mailbox; a few megabytes at most.
+    /// Enough for every sender in a long mailbox; a few megabytes at most.
     private static let capacity = 300
 
     private let load: @Sendable (String) async -> Data?
@@ -81,9 +81,10 @@ nonisolated public final class SenderPictures: Sendable {
         return image
     }
 
-    /// One entry per domain; `nil` for addresses that have no brand picture.
+    /// One entry per address, however it's capitalized; `nil` for no address.
     private static func key(for address: String) -> String? {
-        SenderDomain(address: address)?.host
+        let key = address.trimmingCharacters(in: .whitespaces).lowercased()
+        return key.isEmpty ? nil : key
     }
 
     private static func decode(_ data: Data, scale: CGFloat) -> UIImage? {
