@@ -1,0 +1,81 @@
+Goodmail
+Copyright (c) 2026 shinycake (https://github.com/shinycake). All rights reserved.
+
+PROPRIETARY LICENSE. NO PERMISSIONS GRANTED.
+
+1. Ownership. This repository and everything in it, including the source code,
+   object code, builds, designs, graphics, icons, screenshots, text, documentation
+   and test data (together, the "Software"), is owned by the copyright holder and
+   is protected by copyright and other intellectual property laws. Except for the
+   third-party components listed in THIRD_PARTY_NOTICES.md, which remain under
+   their own licenses, no part of the Software is open source or free software.
+
+2. No license. No license or other right is granted to you, by implication,
+   estoppel or otherwise, to use, copy, reproduce, modify, adapt, translate,
+   merge, publish, distribute, sublicense, sell, rent, lease, lend, host, build,
+   install, run, reverse engineer, create derivative works of, or otherwise
+   exploit the Software or any part of it, in whole or in part, for any purpose,
+   commercial or non-commercial, without the copyright holder's prior written
+   permission.
+
+3. No commercial use. Without limiting section 2, you may not use the Software,
+   or any code, design or idea expressed in it, in or for any product, service,
+   business, or other activity that is commercial or generates revenue, directly
+   or indirectly, including training or evaluating machine-learning models
+   offered as or used in a commercial product or service.
+
+4. Public visibility is not permission. The Software is publicly visible only
+   for the copyright holder's convenience. Being able to view, clone or fork it
+   (including any fork created under the hosting service's terms of service)
+   grants no right beyond what those terms strictly require, and any copy you
+   hold must not be used, modified, run or redistributed.
+
+5. Contributions. Contributions are not invited. Anything you submit (issues,
+   pull requests, patches or suggestions) may be used or discarded by the
+   copyright holder at their sole discretion, without any obligation to you, and
+   you grant the copyright holder a perpetual, irrevocable, worldwide,
+   royalty-free license to do so.
+
+6. Use at your own risk. If you nevertheless use the Software in any way,
+   including with the copyright holder's permission, you do so entirely at your
+   own risk and responsibility. You are solely responsible for your accounts,
+   your mail, your data, your devices and any consequences of that use.
+
+7. No warranty. THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT
+   WARRANTY OF ANY KIND, EXPRESS, IMPLIED OR STATUTORY, INCLUDING BUT NOT LIMITED
+   TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE,
+   NON-INFRINGEMENT, ACCURACY, SECURITY, AND THAT IT WILL BE UNINTERRUPTED OR
+   ERROR-FREE. THE SOFTWARE MAY LOSE, DELETE, CORRUPT, MISSEND OR EXPOSE EMAIL
+   AND OTHER DATA.
+
+8. Limitation of liability. TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW,
+   IN NO EVENT SHALL THE COPYRIGHT HOLDER OR ANY CONTRIBUTOR BE LIABLE FOR ANY
+   CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER DIRECT, INDIRECT, INCIDENTAL,
+   SPECIAL, EXEMPLARY, PUNITIVE OR CONSEQUENTIAL (INCLUDING LOSS OF DATA, MAIL,
+   PROFITS, GOODWILL OR BUSINESS INTERRUPTION, AND ANY ACCOUNT SUSPENSION OR
+   SECURITY INCIDENT), HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+   CONTRACT, STRICT LIABILITY OR TORT (INCLUDING NEGLIGENCE), ARISING IN ANY WAY
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR ITS USE, EVEN IF ADVISED OF THE
+   POSSIBILITY OF SUCH DAMAGE.
+
+9. Indemnity. You will indemnify and hold harmless the copyright holder against
+   any claim, loss or expense arising from your use of the Software or your
+   breach of this license.
+
+10. Termination and enforcement. Any use of the Software in breach of this
+    license is copyright infringement. Any permission the copyright holder gives
+    you in writing ends automatically if you breach it, and you must then delete
+    every copy of the Software you hold.
+
+11. Trademarks. Nothing here grants any right to the name "Goodmail", its icon or
+    any other mark or branding of the Software.
+
+12. Third-party services. Gmail, Google, Outlook, Microsoft, iCloud and Apple are
+    trademarks of their respective owners. The Software is not affiliated with,
+    endorsed by or sponsored by any of them.
+
+13. Severability. If any part of this license is held unenforceable, the rest
+    remains in effect, and the unenforceable part is limited to the minimum
+    extent necessary.
+
+Permission, if any, is granted only in a signed writing from the copyright holder.
