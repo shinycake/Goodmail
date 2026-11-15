@@ -82,6 +82,23 @@ struct MailboxesTests {
         #expect(viewModel.theme == .gradient(AccountBlend([.teal, .orange])))
     }
 
+    @Test(arguments: [CombinedTheme.gradient, .solid(.mint)])
+    func eachAccountsIconsWearItsColorAndTheBlendedOnesTheListsTheme(combined: CombinedTheme) {
+        let work = Account(id: AccountID(rawValue: "w"), email: "work@example.com", color: .orange, service: .gmail)
+        let viewModel = MailboxesViewModel(
+            accounts: [account, work], directory: { AsyncThrowingStream { $0.finish() } }, combinedTheme: combined)
+        #expect(viewModel.theme(of: .account(account)) == .account(.teal))
+        #expect(viewModel.theme(of: .account(work)) == .account(.orange))
+        #expect(viewModel.theme(of: .mailboxes) == viewModel.theme)
+    }
+
+    @Test func theOnlyAccountsIconsWearItsColor() {
+        let viewModel = MailboxesViewModel(
+            accounts: [account], directory: { AsyncThrowingStream { $0.finish() } }, combinedTheme: .gradient)
+        #expect(viewModel.theme(of: .mailboxes) == .account(.teal))
+        #expect(viewModel.theme(of: .labels) == .account(.teal))
+    }
+
     @Test func anAccountsMailboxWearsItsColorAndComposesFromIt() {
         let work = Account(id: AccountID(rawValue: "w"), email: "work@example.com", color: .orange, service: .gmail)
         var routes: [Route] = []

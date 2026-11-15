@@ -74,4 +74,27 @@ public struct AccountBlend: Equatable {
             return UIColor(patternImage: image)
         }
     }
+
+    /// `symbol` painted in this gradient from its leading edge to its trailing one, in `traits`' colors. A symbol's
+    /// tint takes one plain color, so the gradient is drawn into the image, keeping how the symbol sits on a line.
+    func paint(_ symbol: UIImage, in traits: UITraitCollection, direction: UIUserInterfaceLayoutDirection) -> UIImage {
+        let leading = direction == .rightToLeft ? Array(gradientStops.reversed()) : gradientStops
+        let bounds = CGRect(origin: .zero, size: symbol.size)
+        let painted = UIGraphicsImageRenderer(bounds: bounds, format: UIGraphicsImageRendererFormat(for: traits))
+            .image { context in
+                symbol.withTintColor(.black, renderingMode: .alwaysOriginal).draw(in: bounds)
+                let colors = leading.map { $0.color.uiColor.resolvedColor(with: traits).cgColor }
+                guard
+                    let gradient = CGGradient(
+                        colorsSpace: CGColorSpace(name: CGColorSpace.extendedSRGB), colors: colors as CFArray,
+                        locations: gradientStops.map { CGFloat($0.location) })
+                else { return }
+                // Only where the symbol is drawn.
+                context.cgContext.setBlendMode(.sourceIn)
+                context.cgContext.drawLinearGradient(
+                    gradient, start: .zero, end: CGPoint(x: bounds.width, y: 0), options: [])
+            }
+        return painted.withBaselineOffset(fromBottom: symbol.baselineOffsetFromBottom ?? 0)
+            .withAlignmentRectInsets(symbol.alignmentRectInsets).withRenderingMode(.alwaysOriginal)
+    }
 }

@@ -87,6 +87,23 @@ struct ThemeTests {
         #expect(title.cgColor.pattern != nil)
     }
 
+    @Test(arguments: [UIUserInterfaceLayoutDirection.leftToRight, .rightToLeft])
+    func aGradientThemePaintsASymbolFromItsLeadingColorToItsTrailingOne(direction: UIUserInterfaceLayoutDirection)
+        throws
+    {
+        let traits = UITraitCollection(userInterfaceStyle: .light)
+        let square = try #require(
+            UIImage(systemName: "square.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 40)))
+        let painted = Theme.gradient(AccountBlend([.blue, .orange])).paint(square, in: traits, direction: direction)
+        #expect(painted.size == square.size)
+        #expect(painted.renderingMode == .alwaysOriginal, "a tint would flatten the gradient to one color")
+        let left = try #require(painted.color(at: CGPoint(x: 0.15, y: 0.5)))
+        let right = try #require(painted.color(at: CGPoint(x: 0.85, y: 0.5)))
+        let (leading, trailing) = direction == .leftToRight ? (left, right) : (right, left)
+        #expect(leading.isCloser(to: .systemBlue, than: .systemOrange, in: traits))
+        #expect(trailing.isCloser(to: .systemOrange, than: .systemBlue, in: traits))
+    }
+
     @Test func aGoneAccountsViewWearsTheSystemTint() {
         #expect(
             Theme(accountID: AccountID(rawValue: "gone"), among: [personal], combined: .gradient).tint == .tintColor)
@@ -120,5 +137,40 @@ struct ThemeTests {
         let body = Typography.system(.body, compatibleWith: large)
         #expect(body.pointSize == UIFont.preferredFont(forTextStyle: .body, compatibleWith: large).pointSize)
         #expect(Typography.system(.body, compatibleWith: huge).pointSize > body.pointSize)
+    }
+}
+
+extension UIImage {
+    /// The color at `point`, as a fraction of the image's width and height.
+    fileprivate func color(at point: CGPoint) -> UIColor? {
+        guard let cgImage else { return nil }
+        let x = Int(point.x * CGFloat(cgImage.width))
+        let y = Int(point.y * CGFloat(cgImage.height))
+        var pixel = [UInt8](repeating: 0, count: 4)
+        guard
+            let context = CGContext(
+                data: &pixel, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        else { return nil }
+        context.draw(
+            cgImage, in: CGRect(x: -x, y: y - cgImage.height + 1, width: cgImage.width, height: cgImage.height))
+        guard pixel[3] > 0 else { return nil }
+        let alpha = CGFloat(pixel[3])
+        return UIColor(
+            red: CGFloat(pixel[0]) / alpha, green: CGFloat(pixel[1]) / alpha, blue: CGFloat(pixel[2]) / alpha, alpha: 1)
+    }
+}
+
+extension UIColor {
+    fileprivate func isCloser(to near: UIColor, than far: UIColor, in traits: UITraitCollection) -> Bool {
+        func distance(to other: UIColor) -> CGFloat {
+            var (r1, g1, b1, a1, r2, g2, b2, a2):
+                (CGFloat, CGFloat, CGFloat, CGFloat, CGFloat, CGFloat, CGFloat, CGFloat) =
+                    (0, 0, 0, 0, 0, 0, 0, 0)
+            getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
+            other.resolvedColor(with: traits).getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
+            return pow(r1 - r2, 2) + pow(g1 - g2, 2) + pow(b1 - b2, 2)
+        }
+        return distance(to: near) < distance(to: far)
     }
 }

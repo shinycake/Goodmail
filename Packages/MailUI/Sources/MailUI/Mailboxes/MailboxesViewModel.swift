@@ -75,6 +75,15 @@ public final class MailboxesViewModel {
         theme = Theme(accountID: nil, among: accounts, combined: combinedTheme)
     }
 
+    /// What a section's icons wear: an account's own color under its address, and the list's theme on the rows that
+    /// blend every account or belong to the only one.
+    public func theme(of section: Section) -> Theme {
+        switch section {
+        case .account(let account): .account(account.color)
+        case .mailboxes, .labels: theme
+        }
+    }
+
     /// The groups to show, leaving out any with no rows.
     public var groups: [Group] {
         let mailboxes = Group(section: .mailboxes, items: standardItems)

@@ -45,6 +45,16 @@ public enum Theme: Equatable {
         }
     }
 
+    /// `symbol` in this theme for `traits`: painted in the gradient, when the theme is one, or in the tint.
+    func paint(_ symbol: UIImage, in traits: UITraitCollection, direction: UIUserInterfaceLayoutDirection) -> UIImage {
+        switch self {
+        case .gradient(let blend) where blend.colors.count > 1:
+            blend.paint(symbol, in: traits, direction: direction)
+        case .account, .gradient, .solid:
+            symbol.withTintColor(tint.resolvedColor(with: traits), renderingMode: .alwaysOriginal)
+        }
+    }
+
     /// What a thread row shows of `account`. A view of one account already says which it is, so its rows mark only
     /// unread mail; a view that spans accounts marks every row with its own account's color.
     func rowAccount(_ account: Account) -> RowAccount {

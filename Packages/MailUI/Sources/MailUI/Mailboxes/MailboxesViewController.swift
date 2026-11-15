@@ -130,11 +130,17 @@ public final class MailboxesViewController: UIViewController {
         collectionView.selectItem(at: indexPath, animated: false, scrollPosition: [])
     }
 
+    /// What the icons of the rows in `indexPath`'s section wear.
+    private func theme(at indexPath: IndexPath) -> Theme? {
+        dataSource.sectionIdentifier(for: indexPath.section).map(viewModel.theme(of:))
+    }
+
     private func configureDataSource() {
         let style = style
         let row = UICollectionView.CellRegistration<UICollectionViewListCell, MailboxesViewModel.Item> {
-            cell, _, item in
+            [weak self] cell, indexPath, item in
             let isParent = item.isParent
+            let theme = self?.theme(at: indexPath)
             // A level of nesting reads at a glance in the list, as it does in the sidebar.
             if style == .list { cell.indentationWidth = 20 }
             // Folded away, a parent counts its nested labels' unread threads with its own.
@@ -146,8 +152,29 @@ public final class MailboxesViewController: UIViewController {
                     style == .sidebar
                     ? UIListContentConfiguration.sidebarCell() : UIListContentConfiguration.valueCell()
                 content.text = item.title
-                content.image = UIImage(systemName: item.symbol)
-                content.imageProperties.tintColor = UIColor(labelColor: item.color) ?? .tintColor
+                // A gradient is drawn into a plain image, which the cell neither sizes nor gives a symbol's slot, so
+                // every icon is sized here, as the cell sizes a symbol, and sits in the same slot.
+                // As the cell sizes a tinted symbol: to the body text style, at the large scale, or the small one at
+                // accessibility sizes, where icons grow far less than the text.
+                let size = UIImage.SymbolConfiguration(
+                    textStyle: .body,
+                    scale: state.traitCollection.preferredContentSizeCategory.isAccessibilityCategory ? .small : .large)
+                content.imageProperties.preferredSymbolConfiguration = size
+                content.imageProperties.reservedLayoutSize = CGSize(
+                    width: UIListContentConfiguration.ImageProperties.standardDimension,
+                    height: UIListContentConfiguration.ImageProperties.standardDimension)
+                let symbol = UIImage(
+                    systemName: item.symbol, withConfiguration: size.withTraitCollection(state.traitCollection))
+                // A label's own color, or the section's: an account's color, or the gradient across each icon.
+                content.image =
+                    if let color = UIColor(labelColor: item.color) {
+                        symbol?.withTintColor(color, renderingMode: .alwaysOriginal)
+                    } else if let symbol, let theme {
+                        theme.paint(
+                            symbol, in: state.traitCollection, direction: cell.effectiveUserInterfaceLayoutDirection)
+                    } else {
+                        symbol
+                    }
                 let unfold: [UICellAccessory] = isParent ? [.outlineDisclosure()] : []
                 switch style {
                 case .sidebar:
