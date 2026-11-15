@@ -9,6 +9,8 @@ public final class ThreadViewModel {
     /// The mailbox the reader opened the thread from, which a move takes it out of.
     public let mailbox: Mailbox
     public let accountEmail: String
+    /// The account's other addresses, which answers to mail sent to one go from.
+    public let accountAliases: [Contact]
     public let accountColor: AccountColor
     public private(set) var messages: [Message] = []
     /// Messages shown as cards; the rest are one-line rows in the timeline.
@@ -46,6 +48,7 @@ public final class ThreadViewModel {
         thread: ThreadSummary,
         mailbox: Mailbox,
         accountEmail: String,
+        accountAliases: [Contact] = [],
         accountColor: AccountColor,
         messages: @escaping () -> AsyncThrowingStream<[Message], any Error>,
         pins: @escaping () -> AsyncThrowingStream<Set<ThreadSummary.ID>, any Error> = { AsyncThrowingStream { _ in } },
@@ -68,6 +71,7 @@ public final class ThreadViewModel {
         self.thread = thread
         self.mailbox = mailbox
         self.accountEmail = accountEmail
+        self.accountAliases = accountAliases
         self.accountColor = accountColor
         stream = messages
         self.pins = pins
@@ -224,7 +228,10 @@ public final class ThreadViewModel {
     /// Opens the composer with `answer`'s draft: replies and forwards answer the newest message that went, never an
     /// unsent draft.
     public func answer(_ answer: Answer) {
-        guard let draft = answer.draft(answering: messages, accountEmail: accountEmail, wording: .localized) else {
+        guard
+            let draft = answer.draft(
+                answering: messages, accountEmail: accountEmail, aliases: accountAliases, wording: .localized)
+        else {
             return
         }
         navigate(.compose(draft))
@@ -240,7 +247,7 @@ public final class ThreadViewModel {
     /// their own way in any client. `nil` while there is no sent message to answer.
     func chatReply(_ text: String, attachments: [DraftAttachment]) -> Draft? {
         guard let message = latestSent else { return nil }
-        var reply = Draft.reply(to: message, all: true, accountEmail: accountEmail)
+        var reply = Draft.reply(to: message, all: true, accountEmail: accountEmail, aliases: accountAliases)
         let paragraphs = text.split(separator: "\n", omittingEmptySubsequences: false).map { line in
             line.isEmpty ? "<div dir=\"auto\"><br></div>" : "<div dir=\"auto\">\(HTMLText.escape(String(line)))</div>"
         }
@@ -256,7 +263,7 @@ public final class ThreadViewModel {
 
     public func editDraft() {
         guard let draft else { return }
-        navigate(.compose(Draft.editing(draft)))
+        navigate(.compose(Draft.editing(draft, aliases: accountAliases)))
     }
 
     /// The chat answers the newest message that went, never an unsent draft.

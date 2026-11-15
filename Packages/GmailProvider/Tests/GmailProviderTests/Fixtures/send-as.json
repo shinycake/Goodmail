@@ -4,7 +4,8 @@
       "sendAsEmail": "alias@example.com",
       "displayName": "Alias",
       "signature": "<div>Not this one</div>",
-      "isPrimary": false
+      "isPrimary": false,
+      "verificationStatus": "accepted"
     },
     {
       "sendAsEmail": "tester@example.com",
@@ -12,6 +13,18 @@
       "signature": "<div dir=\"ltr\">Dana Levi<div>Goodmail &amp; Co.</div><div><br></div><div><a href=\"https://example.com\">example.com</a></div></div>",
       "isPrimary": true,
       "isDefault": true
+    },
+    {
+      "sendAsEmail": "unnamed@example.com",
+      "displayName": "",
+      "isPrimary": false,
+      "verificationStatus": "accepted"
+    },
+    {
+      "sendAsEmail": "pending@example.com",
+      "displayName": "Not Yet",
+      "isPrimary": false,
+      "verificationStatus": "pending"
     }
   ]
 }

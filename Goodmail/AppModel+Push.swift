@@ -95,7 +95,7 @@ extension AppModel {
         }
         var plain = text
         if let signature, !signature.isEmpty { plain += "\n\n-- \n" + signature }
-        var draft = Draft.reply(to: latest, all: false, accountEmail: account.email)
+        var draft = Draft.reply(to: latest, all: false, accountEmail: account.email, aliases: account.aliases)
         draft.body = MessageBody(html: HTMLText.lines(plain), plain: plain)
         try await commands.send(draft, after: .zero)
     }

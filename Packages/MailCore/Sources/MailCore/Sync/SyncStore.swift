@@ -54,6 +54,8 @@ public struct StoreChanges: Sendable {
     public var labels: [MailLabel]?
     /// Replaces the account's signature; empty clears it.
     public var signature: String?
+    /// Replaces the account's aliases, the other addresses it sends as.
+    public var aliases: [Contact]?
     /// Replaces the account's address book.
     public var addressBook: AddressBook?
     /// Stamped on `upserts` during a resync.
@@ -69,6 +71,7 @@ public struct StoreChanges: Sendable {
         deletions: [String] = [],
         labels: [MailLabel]? = nil,
         signature: String? = nil,
+        aliases: [Contact]? = nil,
         addressBook: AddressBook? = nil,
         generation: Int? = nil,
         sweep: Sweep? = nil,
@@ -80,6 +83,7 @@ public struct StoreChanges: Sendable {
         self.deletions = deletions
         self.labels = labels
         self.signature = signature
+        self.aliases = aliases
         self.addressBook = addressBook
         self.generation = generation
         self.sweep = sweep

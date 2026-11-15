@@ -243,6 +243,18 @@ struct SyncEngineTests {
         #expect(try database.signature(for: account.id) == nil)
     }
 
+    @Test func syncKeepsTheAccountsAliasesAndAFailedReadLeavesThemAlone() async throws {
+        let work = Contact(name: "Dana at Work", address: "dana@work.example")
+        server.serveAliases([work])
+        try await engine().sync()
+        #expect(try database.accounts().first?.aliases == [work])
+
+        server.serveSignature(nil)
+        server.serveAliases([])
+        try await engine().sync()
+        #expect(try database.accounts().first?.aliases == [work], "mail syncs; the aliases stay")
+    }
+
     @Test func anEditedSignatureIsWrittenToTheServiceThenStored() async throws {
         let engine = engine()
         try await engine.setSignature("Dana\nGoodmail")

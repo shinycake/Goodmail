@@ -4,7 +4,7 @@ import Testing
 
 @testable import GmailProvider
 
-struct GmailSignatureTests {
+struct GmailSendAsTests {
     private let keychain = InMemorySecretStore()
 
     private func client(_ http: FixtureHTTPClient) async throws -> GmailClient {
@@ -21,8 +21,17 @@ struct GmailSignatureTests {
     ]
 
     @Test func theSignatureIsTheDefaultAddresssAsPlainText() async throws {
-        let signature = try await client(FixtureHTTPClient(Self.replies)).signature()
-        #expect(signature == "Dana Levi\nGoodmail & Co.\n\nexample.com")
+        let sendAs = try await client(FixtureHTTPClient(Self.replies)).sendAs()
+        #expect(sendAs.signature == "Dana Levi\nGoodmail & Co.\n\nexample.com")
+    }
+
+    @Test func theAliasesAreTheVerifiedOtherAddressesUnderTheirNames() async throws {
+        let sendAs = try await client(FixtureHTTPClient(Self.replies)).sendAs()
+        #expect(
+            sendAs.aliases == [
+                Contact(name: "Alias", address: "alias@example.com"),
+                Contact(name: nil, address: "unnamed@example.com"),
+            ])
     }
 
     @Test func anEditIsPatchedOntoTheDefaultAddressAsHTML() async throws {

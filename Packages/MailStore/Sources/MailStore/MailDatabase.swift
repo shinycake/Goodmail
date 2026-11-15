@@ -286,6 +286,10 @@ public final class MailDatabase: Sendable {
                 table.primaryKey(["accountID", "threadID"])
             }
         }
+        migrator.registerMigration("v23-aliases") { db in
+            // The other addresses each account sends as (Account.aliases), as JSON; none until the next sync.
+            try db.alter(table: "account") { table in table.add(column: "aliases", .text).notNull().defaults(to: "[]") }
+        }
         return migrator
     }
 }

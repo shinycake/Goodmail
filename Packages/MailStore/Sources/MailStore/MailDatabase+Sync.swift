@@ -36,6 +36,11 @@ extension MailDatabase: SyncStore {
                     sql: "UPDATE account SET signature = ? WHERE id = ? AND signature IS NOT ?",
                     arguments: [signature.isEmpty ? nil : signature, account, signature.isEmpty ? nil : signature])
             }
+            if let aliases = changes.aliases {
+                try db.execute(
+                    sql: "UPDATE account SET aliases = ? WHERE id = ?",
+                    arguments: [String(decoding: try JSONEncoder().encode(aliases), as: UTF8.self), account])
+            }
             if let book = changes.addressBook {
                 try db.execute(sql: "DELETE FROM addressBook WHERE accountID = ?", arguments: [account])
                 for contact in book.contacts {

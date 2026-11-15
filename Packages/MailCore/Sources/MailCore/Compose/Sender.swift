@@ -102,8 +102,9 @@ public actor Sender {
             return .stop
         }
         // Read as each message goes, so a renamed account's next message carries the new name.
-        guard let from = try? store.sender(for: accountID) else { return .stop }
-        let raw = MIMEWriter.message(for: draft, from: from, date: now(), messageID: message.headerID)
+        guard let account = try? store.sender(for: accountID) else { return .stop }
+        let raw = MIMEWriter.message(
+            for: draft, from: draft.sender(account: account), date: now(), messageID: message.headerID)
         do {
             switch message.purpose {
             case .send, .scheduledSend:

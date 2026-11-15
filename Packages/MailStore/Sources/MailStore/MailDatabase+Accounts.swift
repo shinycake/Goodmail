@@ -50,6 +50,7 @@ struct AccountRecord: Codable, FetchableRecord, PersistableRecord {
     var color: String
     var service: String
     var name: String?
+    var aliases: [Contact]
     var createdAt: Date
 
     init(_ account: Account, createdAt: Date = .now) {
@@ -58,6 +59,7 @@ struct AccountRecord: Codable, FetchableRecord, PersistableRecord {
         color = account.color.rawValue
         service = account.service.rawValue
         name = account.name
+        aliases = account.aliases
         self.createdAt = createdAt
     }
 
@@ -66,6 +68,7 @@ struct AccountRecord: Codable, FetchableRecord, PersistableRecord {
         guard let color = AccountColor(rawValue: color), let service = MailService(rawValue: service) else {
             return nil
         }
-        return Account(id: AccountID(rawValue: id), email: email, color: color, service: service, name: name)
+        return Account(
+            id: AccountID(rawValue: id), email: email, color: color, service: service, name: name, aliases: aliases)
     }
 }

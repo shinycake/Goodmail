@@ -119,13 +119,16 @@ struct ComposeViewModelTests {
             signature: { signatures[$0] }, send: { _, _ in })
         #expect(model.canChangeSender)
 
-        let body = model.changeSender(to: work, body: model.draft.body)
+        let body = model.changeSender(to: SendingAddress(account: work), body: model.draft.body)
         #expect(body?.plain == "\n\n-- \nMe, at work")
         #expect(model.draft.accountID == work.id)
         #expect(model.accountEmail == "me@work.example")
         #expect(!model.hasChanges(body: model.draft.body))
 
-        #expect(model.changeSender(to: personal, body: MessageBody(plain: "Hi\n\n-- \nMe, at work")) == nil)
+        #expect(
+            model.changeSender(
+                to: SendingAddress(account: personal), body: MessageBody(plain: "Hi\n\n-- \nMe, at work"))
+                == nil)
         #expect(model.draft.accountID == personal.id, "the account changes; the typed text stays")
     }
 
@@ -136,6 +139,20 @@ struct ComposeViewModelTests {
             draft: Draft(accountID: personal.id, threadID: "t1"), accountEmail: personal.email,
             senders: [personal, work], send: { _, _ in })
         #expect(!model.canChangeSender)
+    }
+
+    @Test func aReplyCanSwitchAmongItsAccountsAliasesKeepingItsBody() {
+        let alias = Contact(name: "Dana at Work", address: "dana@work.example")
+        let personal = Account(id: account, email: "me@example.com", color: .blue, service: .gmail, aliases: [alias])
+        let model = ComposeViewModel(
+            draft: Draft(accountID: personal.id, threadID: "t1", alias: alias), accountEmail: personal.email,
+            senders: [personal], signature: { _ in "Me" }, send: { _, _ in })
+        #expect(model.fromAddress == "dana@work.example")
+        #expect(model.canChangeSender)
+
+        #expect(model.changeSender(to: SendingAddress(account: personal), body: model.draft.body) == nil)
+        #expect(model.draft.alias == nil)
+        #expect(model.fromAddress == "me@example.com")
     }
 
     @Test func aRestoredDraftAlwaysAsksBeforeClosing() {

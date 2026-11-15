@@ -6,8 +6,9 @@ import Observation
 @Observable
 public final class ComposeViewModel {
     public private(set) var draft: Draft
+    /// The address of the account the message goes from.
     public private(set) var accountEmail: String
-    /// The accounts the message can go from.
+    /// The accounts the message can go from, with their aliases.
     public let senders: [Account]
     /// The recipient fields as typed, parsed into contacts when sending.
     public var toText: String
@@ -94,19 +95,25 @@ public final class ComposeViewModel {
 
     public var canSaveDraft: Bool { saveAction != nil }
 
-    /// A new message can go from any account; a reply, forward or saved draft stays in its own.
-    public var canChangeSender: Bool {
-        senders.count > 1 && draft.threadID == nil && draft.savedDraft == nil
-    }
+    /// The addresses the message can go from: any account's or alias for new mail; a reply, forward or saved
+    /// draft stays in its own account.
+    public var senderChoices: [SendingAddress] { SendingAddress.choices(for: draft, among: senders) }
 
-    /// Sends from `account` instead. While the body is still as it started, its signature follows the account:
-    /// returns the new body to show then, `nil` when the writer's text stays.
-    public func changeSender(to account: Account, body: MessageBody) -> MessageBody? {
+    public var canChangeSender: Bool { senderChoices.count > 1 }
+
+    /// The address the message goes from: its alias, else its account's own.
+    public var fromAddress: String { draft.alias?.address ?? accountEmail }
+
+    /// Sends from `address` instead. While the body is still as it started, its signature follows a change of
+    /// account: returns the new body to show then, `nil` when the body stays.
+    public func changeSender(to address: SendingAddress, body: MessageBody) -> MessageBody? {
         let untouched = RichText(body) == RichText(draft.body)
-        draft.accountID = account.id
-        accountEmail = account.email
-        guard untouched else { return nil }
-        draft.body = Self.startingBody(signature: signature(account.id))
+        let changesAccount = address.account.id != draft.accountID
+        draft.accountID = address.account.id
+        draft.alias = address.alias
+        accountEmail = address.account.email
+        guard changesAccount, untouched else { return nil }
+        draft.body = Self.startingBody(signature: signature(address.account.id))
         return draft.body
     }
 
@@ -137,14 +144,15 @@ public final class ComposeViewModel {
     }
 
     /// People to offer for the recipient being typed at the end of `field`, leaving out those already in it and the
-    /// accounts the message can go from.
+    /// addresses the message can go from.
     public func suggestions(for field: String) async -> [Contact] {
         let typed = field[Self.lastEntryStart(in: field)...].trimmingCharacters(in: .whitespaces)
         guard !typed.isEmpty else { return [] }
         let excluded = Set(
-            (Contact.list(parsing: field).map(\.address) + senders.map(\.email) + [accountEmail]).map {
-                $0.lowercased()
-            })
+            (Contact.list(parsing: field).map(\.address) + senders.flatMap { [$0.email] + $0.aliases.map(\.address) }
+                + [accountEmail]).map {
+                    $0.lowercased()
+                })
         return await suggest(typed).filter { !excluded.contains($0.address.lowercased()) }
     }
 

@@ -22,6 +22,9 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
     public var attachments: [DraftAttachment]
     /// The provider's saved copy of this draft, replaced when it is saved again and removed once it is sent.
     public var savedDraft: Message.ID?
+    /// One of the account's other addresses to send as, such as a Gmail send-as alias. `nil` sends from the
+    /// account's own address.
+    public var alias: Contact?
 
     public init(
         id: UUID = UUID(),
@@ -36,7 +39,8 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
         inReplyTo: String? = nil,
         references: [String] = [],
         attachments: [DraftAttachment] = [],
-        savedDraft: Message.ID? = nil
+        savedDraft: Message.ID? = nil,
+        alias: Contact? = nil
     ) {
         self.id = id
         self.accountID = accountID
@@ -51,14 +55,15 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
         self.references = references
         self.attachments = attachments
         self.savedDraft = savedDraft
+        self.alias = alias
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, accountID, to, cc, bcc, subject, body, quote, threadID, inReplyTo, references, attachments,
-            savedDraft
+            savedDraft, alias
     }
 
-    /// Drafts saved before attachments existed decode with none.
+    /// Drafts saved before attachments existed decode with none, and those saved before aliases with no alias.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.init(
@@ -74,19 +79,37 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
             inReplyTo: try container.decodeIfPresent(String.self, forKey: .inReplyTo),
             references: try container.decode([String].self, forKey: .references),
             attachments: try container.decodeIfPresent([DraftAttachment].self, forKey: .attachments) ?? [],
-            savedDraft: try container.decodeIfPresent(Message.ID.self, forKey: .savedDraft)
+            savedDraft: try container.decodeIfPresent(Message.ID.self, forKey: .savedDraft),
+            alias: try container.decodeIfPresent(Contact.self, forKey: .alias)
         )
     }
 
     public var recipients: [Contact] { to + cc + bcc }
 
-    /// A reply to `message`, from the account at `accountEmail`. Reply all adds everyone else on it, except the
-    /// account itself.
+    /// Who the message goes out as: the account, or its alias under the account's name when the alias has none.
+    public func sender(account: Contact) -> Contact {
+        guard let alias else { return account }
+        return alias.name?.isEmpty == false ? alias : Contact(name: account.name, address: alias.address)
+    }
+
+    /// The alias a message about `message` goes from, as Gmail picks it: the one the account sent it from, else the
+    /// first it was sent to. `nil` when it involves none, so the account's own address answers.
+    static func alias(for message: Message, among aliases: [Contact]) -> Contact? {
+        ([message.from] + message.to + message.cc).lazy.compactMap { alias(matching: $0, among: aliases) }.first
+    }
+
+    private static func alias(matching contact: Contact, among aliases: [Contact]) -> Contact? {
+        aliases.first { $0.address.caseInsensitiveCompare(contact.address) == .orderedSame }
+    }
+
+    /// A reply to `message`, from the account at `accountEmail`, or from the one of its `aliases` the message was
+    /// sent to. Reply all adds everyone else on it, except the account and its aliases.
     public static func reply(
-        to message: Message, all: Bool, accountEmail: String, wording: QuoteWording = .english,
-        timeZone: TimeZone = .current
+        to message: Message, all: Bool, accountEmail: String, aliases: [Contact] = [],
+        wording: QuoteWording = .english, timeZone: TimeZone = .current
     ) -> Draft {
-        let isMine = { (contact: Contact) in contact.address.caseInsensitiveCompare(accountEmail) == .orderedSame }
+        let mine = [Contact(name: nil, address: accountEmail)] + aliases
+        let isMine = { (contact: Contact) in contains(mine, contact) }
         // Replying to your own message goes back to the people you wrote to.
         let primary = isMine(message.from) ? message.to : (message.replyTo.isEmpty ? [message.from] : message.replyTo)
         var to = unique(primary)
@@ -103,27 +126,33 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
             quote: quote(of: message, wording: wording, timeZone: timeZone),
             threadID: message.threadID,
             inReplyTo: message.internetMessageID,
-            references: message.references + (message.internetMessageID.map { [$0] } ?? [])
+            references: message.references + (message.internetMessageID.map { [$0] } ?? []),
+            alias: alias(for: message, among: aliases)
         )
     }
 
-    /// A forward of `message` to people yet to be chosen, in the same thread, with the files it carries.
-    public static func forward(_ message: Message, wording: QuoteWording = .english, timeZone: TimeZone = .current)
-        -> Draft
-    {
+    /// A forward of `message` to people yet to be chosen, in the same thread, with the files it carries, from the
+    /// one of the account's `aliases` it was sent to, if any.
+    public static func forward(
+        _ message: Message, aliases: [Contact] = [], wording: QuoteWording = .english, timeZone: TimeZone = .current
+    ) -> Draft {
         Draft(
             accountID: message.id.accountID,
             subject: prefixed(message.subject, with: "Fwd:", recognizing: ["fwd:", "fw:"]),
             quote: forwardedQuote(of: message, wording: wording, timeZone: timeZone),
             threadID: message.threadID,
             references: message.references + (message.internetMessageID.map { [$0] } ?? []),
-            attachments: forwardedFiles(of: message)
+            attachments: forwardedFiles(of: message),
+            alias: alias(for: message, among: aliases)
         )
     }
 
     /// A forward of `message` to people yet to be chosen, carrying the whole original as a `message/rfc822` file
     /// rather than quoting it, so its headers, body and files reach the recipient exactly as they came.
-    public static func forwardAsAttachment(_ message: Message, wording: QuoteWording = .english) -> Draft {
+    /// It goes from the one of the account's `aliases` the original was sent to, if any.
+    public static func forwardAsAttachment(
+        _ message: Message, aliases: [Contact] = [], wording: QuoteWording = .english
+    ) -> Draft {
         Draft(
             accountID: message.id.accountID,
             subject: prefixed(message.subject, with: "Fwd:", recognizing: ["fwd:", "fw:"]),
@@ -133,13 +162,14 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
                 DraftAttachment(
                     filename: emlName(message.subject, untitled: wording.untitledMessage), mimeType: "message/rfc822",
                     content: .message(message.id, size: estimatedSize(of: message)))
-            ]
+            ],
+            alias: alias(for: message, among: aliases)
         )
     }
 
     /// A new message written from a copy of `message`: its recipients, subject, body and files, outside its thread,
-    /// so a message already sent can go again, changed or to someone else.
-    public static func editAsNew(_ message: Message) -> Draft {
+    /// so a message already sent can go again, changed or to someone else, from the alias it went from.
+    public static func editAsNew(_ message: Message, aliases: [Contact] = []) -> Draft {
         Draft(
             accountID: message.id.accountID,
             to: message.to,
@@ -147,12 +177,14 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
             bcc: message.bcc,
             subject: message.subject,
             body: message.body,
-            attachments: forwardedFiles(of: message)
+            attachments: forwardedFiles(of: message),
+            alias: alias(matching: message.from, among: aliases)
         )
     }
 
-    /// A draft saved with the provider, reopened to edit and send. Its files stay with the provider until it goes.
-    public static func editing(_ message: Message) -> Draft {
+    /// A draft saved with the provider, reopened to edit and send, from the alias it was saved from. Its files stay
+    /// with the provider until it goes.
+    public static func editing(_ message: Message, aliases: [Contact] = []) -> Draft {
         Draft(
             accountID: message.id.accountID,
             to: message.to,
@@ -164,7 +196,8 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
             inReplyTo: message.references.last,
             references: message.references,
             attachments: forwardedFiles(of: message),
-            savedDraft: message.id
+            savedDraft: message.id,
+            alias: alias(matching: message.from, among: aliases)
         )
     }
 

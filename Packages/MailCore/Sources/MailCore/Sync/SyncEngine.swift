@@ -94,7 +94,7 @@ public actor SyncEngine {
     /// Makes `text` the account's signature: at the service first when it keeps one, so a refused edit changes
     /// nothing, then on the device. Empty removes it.
     public func setSignature(_ text: String) async throws {
-        if let service = provider as? any SignatureSyncing { try await service.setSignature(text) }
+        if let service = provider as? any SendAsSyncing { try await service.setSignature(text) }
         signatureEdits += 1
         try store.apply(StoreChanges(accountID: accountID, signature: text))
     }
@@ -140,18 +140,19 @@ public actor SyncEngine {
     }
 
     private func performSync() async throws {
-        // A signature that can't be read never holds up mail; the last one stays. One read before an edit made
-        // meanwhile is older than the edit, so it's dropped, as are labels read before a label edit's own read.
+        // A signature and aliases that can't be read never hold up mail; the last ones stay. A signature read before
+        // an edit made meanwhile is older than the edit, so it's dropped, as are labels read before a label edit's
+        // own read.
         let editsBeforeRead = signatureEdits
         labelReads += 1
         let labelRead = labelReads
-        async let read = Self.signature(from: provider)
+        async let read = Self.sendAs(from: provider)
         let labels = try await provider.labels()
-        let signature = await read
+        let sendAs = await read
         try store.apply(
             StoreChanges(
                 accountID: accountID, labels: labelRead == labelReads ? labels : nil,
-                signature: signatureEdits == editsBeforeRead ? signature : nil))
+                signature: signatureEdits == editsBeforeRead ? sendAs?.signature : nil, aliases: sendAs?.aliases))
         try await refreshAddressBookIfOld()
         switch try store.syncState(for: accountID) {
         case nil:
@@ -167,10 +168,10 @@ public actor SyncEngine {
         }
     }
 
-    /// The service's signature; `nil` when it keeps none or can't be read.
-    private static func signature(from provider: any MailProvider) async -> String? {
-        guard let service = provider as? any SignatureSyncing else { return nil }
-        return try? await service.signature()
+    /// The service's signature and aliases; `nil` when it keeps none or can't be read.
+    private static func sendAs(from provider: any MailProvider) async -> SendAs? {
+        guard let service = provider as? any SendAsSyncing else { return nil }
+        return try? await service.sendAs()
     }
 
     /// Fetches the address book once a day. Failing to never holds up mail.

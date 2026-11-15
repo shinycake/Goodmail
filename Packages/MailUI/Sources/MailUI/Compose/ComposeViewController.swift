@@ -315,24 +315,26 @@ public final class ComposeViewController: UIViewController {
     }
 
     private func updateFrom() {
-        var title = AttributedString(viewModel.accountEmail)
+        var title = AttributedString(viewModel.fromAddress)
         title.font = .preferredFont(forTextStyle: .body)
         fromButton.configuration?.attributedTitle = title
         fromButton.accessibilityLabel = String(
-            localized: "From: \(viewModel.accountEmail)", table: "Compose", bundle: .module,
+            localized: "From: \(viewModel.fromAddress)", table: "Compose", bundle: .module,
             comment: "VoiceOver: the account the message is sent from")
         fromButton.menu = UIMenu(
             options: .singleSelection,
-            children: viewModel.senders.map { account in
-                // No image: the address gets the menu's whole width rather than wrapping.
-                UIAction(title: account.email, state: account.email == viewModel.accountEmail ? .on : .off) {
-                    [weak self] _ in self?.changeSender(to: account)
-                }
+            children: viewModel.senderChoices.map { address in
+                // No image: the address gets the menu's whole width rather than wrapping. An alias names its
+                // account under it.
+                UIAction(
+                    title: address.email, subtitle: address.alias.map { _ in address.account.email },
+                    state: address.email == viewModel.fromAddress ? .on : .off
+                ) { [weak self] _ in self?.changeSender(to: address) }
             })
     }
 
-    private func changeSender(to account: Account) {
-        if let body = viewModel.changeSender(to: account, body: body) {
+    private func changeSender(to address: SendingAddress) {
+        if let body = viewModel.changeSender(to: address, body: body) {
             show(body)
             bodyView.selectedRange = NSRange(location: 0, length: 0)
         }

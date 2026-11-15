@@ -225,6 +225,9 @@ final class AppModel {
             }
             try await group.waitForAll()
         }
+        // The sync reads each account's aliases, which the composer and replies take from `accounts`.
+        let stored = try await Self.offMain { [database] in try database.accounts() }
+        if stored != accounts { accounts = stored }
         if prefetch { for prefetcher in prefetchers { await prefetcher.start() } }
         await trimCache()
         await didChange?(.synced)

@@ -8,7 +8,7 @@ import Synchronization
 
 /// An in-memory mail service with Gmail's sync semantics: a history counter, paged queries, and cursors that
 /// expire. Tests change its mail and check that the local store converges.
-final class FakeMailServer: SignatureSyncing {
+final class FakeMailServer: SendAsSyncing {
     struct Query: Equatable {
         let query: ThreadQuery
         let pageToken: String?
@@ -30,6 +30,7 @@ final class FakeMailServer: SignatureSyncing {
         var failPrepare: (any Error)?
         var failLookup: (any Error)?
         var signature: String? = ""
+        var aliases: [Contact] = []
         var signatureWrites: [String] = []
         var failSignatureWrite: (any Error)?
         var onSignatureRead: (@Sendable () async -> Void)?
@@ -283,13 +284,13 @@ extension FakeMailServer: UploadSending {
 }
 
 extension FakeMailServer {
-    /// Fails like a missing settings scope when `nil`. Runs `onSignatureRead` after reading and before answering,
+    /// Fails like a missing settings scope when the signature is `nil`. Runs `onSignatureRead` after reading and before answering,
     /// as a slow reply would leave room for.
-    func signature() async throws -> String {
-        let (signature, onRead) = state.withLock { ($0.signature, $0.onSignatureRead) }
+    func sendAs() async throws -> SendAs {
+        let (signature, aliases, onRead) = state.withLock { ($0.signature, $0.aliases, $0.onSignatureRead) }
         await onRead?()
         guard let signature else { throw URLError(.userAuthenticationRequired) }
-        return signature
+        return SendAs(signature: signature, aliases: aliases)
     }
 
     func setSignature(_ text: String) async throws {
@@ -300,9 +301,14 @@ extension FakeMailServer {
         }
     }
 
-    /// What `signature()` answers from now on; `nil` makes it fail.
+    /// The signature `sendAs()` answers from now on; `nil` makes it fail.
     func serveSignature(_ signature: String?) {
         state.withLock { $0.signature = signature }
+    }
+
+    /// The aliases `sendAs()` answers from now on.
+    func serveAliases(_ aliases: [Contact]) {
+        state.withLock { $0.aliases = aliases }
     }
 
     /// The signatures written to the server, oldest first.

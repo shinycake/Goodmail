@@ -74,12 +74,18 @@ public struct Account: Identifiable, Hashable, Sendable {
     public let service: MailService
     /// The name mail from this account is sent under, such as "Dana Levi". `nil` sends the address alone.
     public var name: String?
+    /// The other addresses the account can send from, such as Gmail's send-as aliases, as its service lists them.
+    public var aliases: [Contact]
 
-    public init(id: AccountID, email: String, color: AccountColor, service: MailService, name: String? = nil) {
+    public init(
+        id: AccountID, email: String, color: AccountColor, service: MailService, name: String? = nil,
+        aliases: [Contact] = []
+    ) {
         self.id = id
         self.email = email
         self.color = color
         self.service = service
         self.name = name
+        self.aliases = aliases
     }
 }

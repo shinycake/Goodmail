@@ -288,6 +288,7 @@ final class SceneCoordinator: NSObject {
             thread: thread,
             mailbox: mailbox,
             accountEmail: account.email,
+            accountAliases: account.aliases,
             accountColor: account.color,
             messages: { model.database.messages(inThread: id) },
             pins: { model.database.pinnedThreads() },
@@ -417,7 +418,8 @@ final class SceneCoordinator: NSObject {
             answering?.cancel()
             answering = Task { [weak self, model] in
                 let draft = try? await answer.draft(
-                    answering: model.messagesToAnswer(in: id), accountEmail: account.email, wording: .localized)
+                    answering: model.messagesToAnswer(in: id), accountEmail: account.email, aliases: account.aliases,
+                    wording: .localized)
                 guard !Task.isCancelled, let self else { return }
                 if let draft {
                     handle(.compose(draft))
