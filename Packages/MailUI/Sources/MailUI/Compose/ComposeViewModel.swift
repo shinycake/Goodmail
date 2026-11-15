@@ -164,19 +164,7 @@ public final class ComposeViewModel {
 
     /// Where the last recipient starts: after the last comma that isn't inside quotes or angle brackets.
     private static func lastEntryStart(in field: String) -> String.Index {
-        var start = field.startIndex
-        var inQuotes = false
-        var inAngles = false
-        for index in field.indices {
-            switch field[index] {
-            case "\"": inQuotes.toggle()
-            case "<" where !inQuotes: inAngles = true
-            case ">" where !inQuotes: inAngles = false
-            case "," where !inQuotes && !inAngles: start = field.index(after: index)
-            default: break
-            }
-        }
-        return start
+        Contact.separators(in: field).last.map(field.index(after:)) ?? field.startIndex
     }
 
     static func text(_ contacts: [Contact]) -> String {

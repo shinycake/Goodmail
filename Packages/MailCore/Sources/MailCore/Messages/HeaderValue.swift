@@ -41,24 +41,36 @@ struct HeaderValue {
     private static func fields(_ header: String) -> [String] {
         var fields: [String] = []
         var current = ""
-        var inQuotes = false
-        var escaped = false
+        var context = FieldContext.plain
         for character in header {
-            if escaped {
-                escaped = false
-            } else if character == "\\" && inQuotes {
-                escaped = true
-            } else if character == "\"" {
-                inQuotes.toggle()
-            } else if character == ";" && !inQuotes {
+            if character == ";", context == .plain {
                 fields.append(current)
                 current = ""
                 continue
             }
+            context = context.after(character)
             current.append(character)
         }
         fields.append(current)
         return fields
+    }
+
+    /// Where a scan of a header's fields stands: a backslash escapes only inside quotes.
+    private enum FieldContext {
+        case plain
+        case quoted
+        /// Just after a backslash inside quotes, so the next character is text.
+        case escaped
+
+        func after(_ character: Character) -> FieldContext {
+            switch (self, character) {
+            case (.escaped, _): .quoted
+            case (.quoted, "\\"): .escaped
+            case (.quoted, "\""): .plain
+            case (.plain, "\""): .quoted
+            default: self
+            }
+        }
     }
 
     private static func unquoted(_ text: String) -> String {

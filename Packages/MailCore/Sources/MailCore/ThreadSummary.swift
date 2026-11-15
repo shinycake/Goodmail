@@ -80,25 +80,26 @@ extension Contact {
 
     /// Parses an address list such as `To:`. Commas inside quotes or angle brackets don't split it.
     public static func list(parsing header: String) -> [Contact] {
-        var mailboxes: [String] = []
-        var current = ""
-        var inQuotes = false
-        var inAngles = false
-        for character in header {
-            switch character {
-            case "\"": inQuotes.toggle()
-            case "<" where !inQuotes: inAngles = true
-            case ">" where !inQuotes: inAngles = false
-            case "," where !inQuotes && !inAngles:
-                mailboxes.append(current)
-                current = ""
-                continue
-            default: break
-            }
-            current.append(character)
+        var mailboxes: [Substring] = []
+        var start = header.startIndex
+        for separator in separators(in: header) {
+            mailboxes.append(header[start..<separator])
+            start = header.index(after: separator)
         }
-        mailboxes.append(current)
+        mailboxes.append(header[start...])
         return mailboxes.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }.map(
             Contact.init(parsing:))
+    }
+
+    /// The commas that separate the addresses of a list such as `To:`, in order. Commas inside quotes or angle
+    /// brackets are part of an address.
+    public static func separators(in list: String) -> [String.Index] {
+        var context = AddressListContext.plain
+        var separators: [String.Index] = []
+        for index in list.indices {
+            if list[index] == ",", context == .plain { separators.append(index) }
+            context = context.after(list[index])
+        }
+        return separators
     }
 }

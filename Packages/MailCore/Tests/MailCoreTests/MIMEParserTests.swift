@@ -136,6 +136,8 @@ struct MIMEParserTests {
         #expect(value.parameters["filename"] == "דוח.pdf")
         #expect(value.parameters["size"] == "13")
         #expect(HeaderValue(#"text/plain; name="a;b \"c\".txt""#).parameters["name"] == #"a;b "c".txt"#)
+        // A backslash escapes only inside quotes, so outside them the semicolon after it still splits.
+        #expect(HeaderValue(#"text/plain; a=x\; b=y"#).parameters == ["a": #"x\"#, "b": "y"])
     }
 
     @Test func aCutOffMultipartKeepsItsLastPart() {
