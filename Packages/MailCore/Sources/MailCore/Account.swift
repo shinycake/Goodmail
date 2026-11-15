@@ -45,6 +45,25 @@ public enum MailService: String, CaseIterable, Codable, Hashable, Sendable {
         case .icloud, .outlook, .imap: false
         }
     }
+
+    /// What deleting one of the user's labels does to its mail.
+    public var labelDeletion: LabelDeletion {
+        switch self {
+        case .gmail: .keepsMail
+        case .outlook: .movesMailToTrash
+        case .icloud, .imap: .deletesMail
+        }
+    }
+}
+
+/// What deleting a user label does to the mail in it.
+public enum LabelDeletion: Sendable {
+    /// Gmail: the conversations lose the label and stay wherever else they are.
+    case keepsMail
+    /// Outlook: the folder, its subfolders and their mail move to Deleted Items.
+    case movesMailToTrash
+    /// IMAP: the server removes the folder and its messages for good.
+    case deletesMail
 }
 
 public struct Account: Identifiable, Hashable, Sendable {

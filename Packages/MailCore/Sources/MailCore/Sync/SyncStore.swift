@@ -108,4 +108,8 @@ public protocol SyncStore: Sendable {
     func oldestThreadDate(in mailbox: Mailbox, account: AccountID) throws -> Date?
     /// When the account's address book was last fetched, if ever.
     func addressBookDate(for account: AccountID) throws -> Date?
+    /// The account's labels, as the last sync stored them.
+    func labels(for account: AccountID) throws -> [MailLabel]
+    /// The account's stored threads that carry any of `labels`.
+    func threadIDs(labeled labels: Set<String>, account: AccountID) throws -> [String]
 }

@@ -85,6 +85,32 @@ actor IMAPConnection {
         }
     }
 
+    /// Makes a mailbox, by its name on the wire.
+    func create(_ mailbox: String) async throws {
+        try await exclusively { connection in
+            try connection.requireAuthenticated()
+            _ = try await connection.run(.create(mailbox))
+        }
+    }
+
+    func rename(_ mailbox: String, to name: String) async throws {
+        try await exclusively { connection in
+            try connection.requireAuthenticated()
+            _ = try await connection.run(.rename(mailbox, to: name))
+        }
+    }
+
+    /// Deletes a mailbox. Deleting the selected one leaves none selected.
+    func delete(_ mailbox: String) async throws {
+        try await exclusively { connection in
+            try connection.requireAuthenticated()
+            if case .selected(let selection) = connection.state, selection.mailbox == mailbox {
+                connection.state = .authenticated
+            }
+            _ = try await connection.run(.delete(mailbox))
+        }
+    }
+
     /// Opens `mailbox`, by its name on the wire, for searching and fetching.
     @discardableResult
     func select(_ mailbox: String) async throws -> IMAPSelection {

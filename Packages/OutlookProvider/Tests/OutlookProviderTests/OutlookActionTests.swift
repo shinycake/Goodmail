@@ -114,7 +114,7 @@ extension GraphMessage {
 
 extension URLRequest {
     /// The method, Graph path and JSON body, as in `PATCH me/messages/m1 {"isRead":true}`.
-    fileprivate var summary: String {
+    var summary: String {
         let body = httpBody.map { String(decoding: $0, as: UTF8.self) } ?? ""
         return [httpMethod ?? "", graphPath, body].joined(separator: " ")
     }

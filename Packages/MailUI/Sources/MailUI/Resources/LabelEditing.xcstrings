@@ -1,0 +1,204 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Cancel" : {
+      "comment" : "Button: changes nothing",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ביטול"
+          }
+        }
+      }
+    },
+    "Check your connection and try again." : {
+      "comment" : "A label change failed for another reason",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "יש לבדוק את החיבור ולנסות שוב."
+          }
+        }
+      }
+    },
+    "Couldn’t Create Label" : {
+      "comment" : "Title of the alert when the service refused a new label",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן ליצור את התווית"
+          }
+        }
+      }
+    },
+    "Couldn’t Delete Label" : {
+      "comment" : "Title of the alert when deleting a label failed",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן למחוק את התווית"
+          }
+        }
+      }
+    },
+    "Couldn’t Rename Label" : {
+      "comment" : "Title of the alert when the service refused a label's new name",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן לשנות את שם התווית"
+          }
+        }
+      }
+    },
+    "Create" : {
+      "comment" : "Button: creates the label",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "יצירה"
+          }
+        }
+      }
+    },
+    "Delete" : {
+      "comment" : "Button: deletes the label",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחיקה"
+          }
+        }
+      }
+    },
+    "Delete Label" : {
+      "comment" : "Action: deletes the label",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחיקת התווית"
+          }
+        }
+      }
+    },
+    "Delete “%@”?" : {
+      "comment" : "Title of the alert before deleting a label, with its name",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "למחוק את ״%@״?"
+          }
+        }
+      }
+    },
+    "Its mail and the labels inside it move to Deleted Items." : {
+      "comment" : "Delete label alert, Outlook: the folder and its mail go to Deleted Items",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הדואר שלה והתוויות שבתוכה יועברו אל ״פריטים שנמחקו״."
+          }
+        }
+      }
+    },
+    "Its mail is deleted from the server for good. You can’t undo this." : {
+      "comment" : "Delete label alert, iCloud and IMAP: the folder's messages are deleted",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הדואר שלה יימחק מהשרת לצמיתות. אי אפשר לבטל את הפעולה."
+          }
+        }
+      }
+    },
+    "Name" : {
+      "comment" : "Placeholder: the label's name",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שם"
+          }
+        }
+      }
+    },
+    "New Label" : {
+      "comment" : "Action: makes a new label, and the title of the alert that names it",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תווית חדשה"
+          }
+        }
+      }
+    },
+    "OK" : {
+      "comment" : "Button: closes the alert",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אישור"
+          }
+        }
+      }
+    },
+    "Rename" : {
+      "comment" : "Button: renames the label",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שינוי שם"
+          }
+        }
+      }
+    },
+    "Rename Label" : {
+      "comment" : "Action: renames the label, and the title of the alert that names it",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שינוי שם התווית"
+          }
+        }
+      }
+    },
+    "The label comes off its conversations, which stay in your mail." : {
+      "comment" : "Delete label alert, Gmail: no mail is deleted",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "התווית תוסר מהשיחות שלה, והן יישארו בדואר שלך."
+          }
+        }
+      }
+    },
+    "Try another name. There may already be a label with this one." : {
+      "comment" : "The service refused the label's name",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כדאי לנסות שם אחר. ייתכן שכבר יש תווית בשם הזה."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

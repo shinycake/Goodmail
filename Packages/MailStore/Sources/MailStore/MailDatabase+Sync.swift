@@ -76,6 +76,22 @@ extension MailDatabase: SyncStore {
         }
     }
 
+    public func threadIDs(labeled labels: Set<String>, account: AccountID) throws -> [String] {
+        guard !labels.isEmpty else { return [] }
+        let sorted = labels.sorted()
+        var arguments: StatementArguments = [account.rawValue]
+        arguments += StatementArguments(sorted)
+        return try pool.read { db in
+            try String.fetchAll(
+                db,
+                sql: """
+                    SELECT DISTINCT threadID FROM threadLabel
+                    WHERE accountID = ? AND labelID IN (\(databaseQuestionMarks(count: sorted.count)))
+                    """,
+                arguments: arguments)
+        }
+    }
+
     /// The account's labels, system ones first, then by name.
     public func labels(for account: AccountID) throws -> [MailLabel] {
         try pool.read { db in

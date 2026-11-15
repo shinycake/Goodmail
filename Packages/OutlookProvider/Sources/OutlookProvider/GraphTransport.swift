@@ -32,10 +32,13 @@ struct GraphTransport: Sendable {
 
     /// Sends `body` as JSON, its keys sorted so a request reads the same every time.
     @discardableResult
-    func send(_ url: URL, method: String, json body: some Encodable) async throws -> Data {
+    func send(
+        _ url: URL, method: String, json body: some Encodable, replay: Replay = .safe
+    ) async throws -> Data {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
-        return try await send(url, method: method, payload: (try encoder.encode(body), "application/json"))
+        return try await send(
+            url, method: method, payload: (try encoder.encode(body), "application/json"), replay: replay)
     }
 
     /// The raw reply, for requests whose answer isn't JSON or isn't read. Only Graph itself is sent the account's

@@ -11,7 +11,7 @@ public struct OutlookClient: MailProvider {
     let graph: GraphTransport
     /// Which conversation each message is in, so a message Graph reports deleted names the thread to refetch.
     let index: any MessageIndexStore
-    private let folders = FolderCache()
+    let folders = FolderCache()
     private let pageSize: Int
 
     /// `retryDelays` are the waits before each retry of a throttled or failed request.

@@ -349,4 +349,7 @@ private struct DeviceSignatures: MailProvider {
     }
     func deleteDraft(_ message: Message.ID) async throws { try await server.deleteDraft(message) }
     func contacts() async throws -> [Contact] { try await server.contacts() }
+    func createLabel(named name: String) async throws -> MailLabel { try await server.createLabel(named: name) }
+    func renameLabel(_ id: String, to name: String) async throws { try await server.renameLabel(id, to: name) }
+    func deleteLabel(_ id: String) async throws { try await server.deleteLabel(id) }
 }

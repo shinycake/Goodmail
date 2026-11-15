@@ -18,6 +18,8 @@ public final class MailboxesViewController: UIViewController {
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<MailboxesViewModel.Section, MailboxesViewModel.Item>!
     private var observation: Task<Void, Never>?
+    /// Each account's label changes, made when first needed.
+    private var labelFlows: [AccountID: LabelEditFlow] = [:]
 
     public init(viewModel: MailboxesViewModel, style: Style = .list) {
         self.viewModel = viewModel
@@ -46,18 +48,16 @@ public final class MailboxesViewController: UIViewController {
         collectionView.delegate = self
         view.addSubview(collectionView)
         configureDataSource()
-        toolbarItems = [
-            UIBarButtonItem(
-                title: String(
-                    localized: "Settings", table: "Mailboxes", bundle: .module, comment: "Title of the settings screen"),
-                image: UIImage(systemName: "gearshape"),
-                primaryAction: UIAction { [weak self] _ in self?.viewModel.openSettings() }),
-            .flexibleSpace(),
-            UIBarButtonItem(
-                title: String(localized: "New Message", table: "Mailboxes", bundle: .module, comment: "Composer title"),
-                image: UIImage(systemName: "square.and.pencil"),
-                primaryAction: UIAction { [weak self] _ in self?.viewModel.compose() }),
-        ]
+        let settings = UIBarButtonItem(
+            title: String(
+                localized: "Settings", table: "Mailboxes", bundle: .module, comment: "Title of the settings screen"),
+            image: UIImage(systemName: "gearshape"),
+            primaryAction: UIAction { [weak self] _ in self?.viewModel.openSettings() })
+        let compose = UIBarButtonItem(
+            title: String(localized: "New Message", table: "Mailboxes", bundle: .module, comment: "Composer title"),
+            image: UIImage(systemName: "square.and.pencil"),
+            primaryAction: UIAction { [weak self] _ in self?.viewModel.compose() })
+        toolbarItems = [settings, .flexibleSpace()] + [newLabelItem()].compactMap(\.self) + [compose]
         observation = Task { [viewModel] in await viewModel.observe() }
     }
 
@@ -152,5 +152,71 @@ extension MailboxesViewController: UICollectionViewDelegate {
     public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         guard let item = dataSource.itemIdentifier(for: indexPath) else { return }
         viewModel.open(item.destination)
+    }
+
+    /// Rename and Delete on a user label.
+    public func collectionView(
+        _ collectionView: UICollectionView, contextMenuConfigurationForItemsAt indexPaths: [IndexPath],
+        point: CGPoint
+    ) -> UIContextMenuConfiguration? {
+        guard indexPaths.count == 1, let item = indexPaths.first.flatMap(dataSource.itemIdentifier(for:)),
+            let label = viewModel.label(at: item.destination), let account = label.mailbox.accountID,
+            let labelID = label.mailbox.labelID, let flow = labelFlow(for: account)
+        else { return nil }
+        return UIContextMenuConfiguration(actionProvider: { [weak self] _ in
+            UIMenu(children: [
+                UIAction(
+                    title: String(
+                        localized: "Rename Label", table: "LabelEditing", bundle: .module,
+                        comment: "Action: renames the label, and the title of the alert that names it"),
+                    image: UIImage(systemName: "pencil")
+                ) { _ in flow.rename(labelID, named: label.name) },
+                UIAction(
+                    title: String(
+                        localized: "Delete Label", table: "LabelEditing", bundle: .module,
+                        comment: "Action: deletes the label"),
+                    image: UIImage(systemName: "trash"), attributes: .destructive
+                ) { _ in flow.delete(labelID, named: label.name) { self?.leave(item.destination) } },
+            ])
+        })
+    }
+}
+
+extension MailboxesViewController {
+    /// New Label in the toolbar: straight to its name with one account, or a menu of accounts first with several.
+    private func newLabelItem() -> UIBarButtonItem? {
+        let accounts = viewModel.labelAccounts
+        guard let first = accounts.first else { return nil }
+        let title = String(
+            localized: "New Label", table: "LabelEditing", bundle: .module,
+            comment: "Action: makes a new label, and the title of the alert that names it")
+        let image = UIImage(systemName: "folder.badge.plus")
+        guard accounts.count > 1 else {
+            return UIBarButtonItem(
+                title: title, image: image,
+                primaryAction: UIAction { [weak self] _ in self?.labelFlow(for: first.id)?.create { _ in } })
+        }
+        let menu = UIMenu(
+            title: title,
+            children: accounts.map { account in
+                UIAction(title: account.email) { [weak self] _ in
+                    self?.labelFlow(for: account.id)?.create { _ in }
+                }
+            })
+        return UIBarButtonItem(title: title, image: image, menu: menu)
+    }
+
+    private func labelFlow(for account: AccountID) -> LabelEditFlow? {
+        if let flow = labelFlows[account] { return flow }
+        guard let editor = viewModel.labelEditor(account) else { return nil }
+        let flow = LabelEditFlow(editor: editor, presenter: self)
+        labelFlows[account] = flow
+        return flow
+    }
+
+    /// After its label is deleted, the sidebar stops showing a mailbox that no longer exists.
+    private func leave(_ destination: MailboxesViewModel.Destination) {
+        guard style == .sidebar, selected == destination else { return }
+        viewModel.open(.mailbox(.inbox))
     }
 }

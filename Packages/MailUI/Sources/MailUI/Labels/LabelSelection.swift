@@ -15,7 +15,7 @@ struct LabelSelection: Equatable {
     }
 
     private(set) var choices: [Choice]
-    private let initial: [String: State]
+    private var initial: [String: State]
 
     /// The account's visible user labels, in its order, with their state across `threads`.
     init(labels: [MailLabel], threads: [ThreadSummary]) {
@@ -25,6 +25,13 @@ struct LabelSelection: Equatable {
             return Choice(label: label, state: state)
         }
         initial = Dictionary(uniqueKeysWithValues: choices.map { ($0.id, $0.state) })
+    }
+
+    /// A label made from the picker, which none of the threads carry yet, turned on.
+    mutating func add(_ label: MailLabel) {
+        guard !choices.contains(where: { $0.id == label.id }) else { return }
+        initial[label.id] = .off
+        choices.append(Choice(label: label, state: .on))
     }
 
     /// A tap turns a label on, or off when it already is.

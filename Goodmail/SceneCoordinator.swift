@@ -216,7 +216,8 @@ final class SceneCoordinator: NSObject {
             viewModel: MailboxesViewModel(
                 accounts: model.accounts,
                 directory: { model.database.mailboxDirectory() },
-                navigate: { [weak self] route in self?.handle(route) }),
+                navigate: { [weak self] route in self?.handle(route) },
+                labelEditor: { model.labelEditor(for: $0) }),
             style: style)
         mailboxes.selected = shown.destination
         return mailboxes
@@ -387,7 +388,9 @@ final class SceneCoordinator: NSObject {
                 let presenter = topViewController()
             else { return }
             let actions = actions
-            let picker = LabelPickerViewController(labels: labels, threads: threads) { action in
+            let picker = LabelPickerViewController(
+                labels: labels, threads: threads, editor: model.labelEditor(for: account)
+            ) { action in
                 actions.perform(action, on: ids)
             }
             let navigation = UINavigationController(rootViewController: picker)
@@ -398,7 +401,8 @@ final class SceneCoordinator: NSObject {
             let database = model.database
             let picker = MoveViewController(
                 viewModel: MoveViewModel(
-                    threads: ids, from: mailbox, labels: { (try? database.labels(for: $0)) ?? [] }, actions: actions))
+                    threads: ids, from: mailbox, labels: { (try? database.labels(for: $0)) ?? [] },
+                    editor: { [model] in model.labelEditor(for: $0) }, actions: actions))
             let navigation = UINavigationController(rootViewController: picker)
             navigation.sheetPresentationController?.detents = [.medium(), .large()]
             presenter.present(navigation, animated: true)

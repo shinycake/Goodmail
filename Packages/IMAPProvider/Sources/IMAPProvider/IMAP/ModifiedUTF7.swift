@@ -2,6 +2,29 @@ import Foundation
 
 /// IMAP's mailbox-name encoding (RFC 3501 §5.1.3): UTF-16 in base64 between `&` and `-`, with `,` for `/`.
 enum ModifiedUTF7 {
+    /// Printable ASCII stays as it is, `&` becomes `&-`, and each run of anything else is shifted into base64.
+    static func encode(_ name: String) -> String {
+        var result = ""
+        var shifted: [UInt16] = []
+        func flush() {
+            guard !shifted.isEmpty else { return }
+            let bytes = shifted.flatMap { [UInt8($0 >> 8), UInt8($0 & 0xff)] }
+            let base64 = Data(bytes).base64EncodedString().replacing("=", with: "").replacing("/", with: ",")
+            result += "&\(base64)-"
+            shifted = []
+        }
+        for scalar in name.unicodeScalars {
+            if (0x20...0x7e).contains(scalar.value) {
+                flush()
+                result += scalar == "&" ? "&-" : String(scalar)
+            } else {
+                shifted += String(scalar).utf16
+            }
+        }
+        flush()
+        return result
+    }
+
     static func decode(_ name: String) -> String {
         var result = ""
         var rest = name[...]

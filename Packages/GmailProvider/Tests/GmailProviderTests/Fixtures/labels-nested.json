@@ -1,0 +1,9 @@
+{
+  "labels": [
+    { "id": "INBOX", "name": "INBOX", "type": "system" },
+    { "id": "Label_1", "name": "Projects", "type": "user" },
+    { "id": "Label_2", "name": "Projects/Goodmail", "type": "user" },
+    { "id": "Label_3", "name": "Projects/Goodmail/Design", "type": "user" },
+    { "id": "Label_4", "name": "Projects archive", "type": "user" }
+  ]
+}

@@ -24,6 +24,8 @@ public actor SyncEngine {
     public static let addressBookAge: TimeInterval = 86_400
     /// How many signature edits this engine has stored, so a sync can tell an edit overtook its read.
     private var signatureEdits = 0
+    /// How many label reads this engine has started, so an older read never replaces the labels a newer one stored.
+    private var labelReads = 0
 
     public init(
         accountID: AccountID,
@@ -97,16 +99,59 @@ public actor SyncEngine {
         try store.apply(StoreChanges(accountID: accountID, signature: text))
     }
 
+    /// Makes a user label named `name`, a path such as `Projects/Goodmail`, at the service, then stores the
+    /// account's labels with it. Returns the new label.
+    public func createLabel(named name: String) async throws -> MailLabel {
+        let label = try await provider.createLabel(named: name)
+        try await refreshLabels()
+        return label
+    }
+
+    /// Gives the user label `id` the path `name` at the service, then stores the account's labels.
+    public func renameLabel(_ id: String, to name: String) async throws {
+        try await provider.renameLabel(id, to: name)
+        try await refreshLabels()
+    }
+
+    /// Deletes the user label `id` at the service, then stores the account's labels and refetches the threads that
+    /// carried it or a label nested in it: the service may move or remove their mail without reporting it changed.
+    public func deleteLabel(_ id: String) async throws {
+        let labels = try store.labels(for: accountID)
+        let doomed = labels.first { $0.id == id }.map { label in
+            labels.filter { $0.id == label.id || $0.name.hasPrefix(label.name + "/") }.map(\.id)
+        }
+        let affected = try store.threadIDs(labeled: Set(doomed ?? [id]), account: accountID)
+        try await provider.deleteLabel(id)
+        try await refreshLabels()
+        guard !affected.isEmpty else { return }
+        let fetchedAt = now()
+        let fetch = try await provider.threads(withIDs: affected.sorted())
+        try store.apply(
+            StoreChanges(accountID: accountID, upserts: fetch.found, deletions: fetch.missing, fetchedAt: fetchedAt))
+    }
+
+    /// Reads and stores the account's labels, unless a newer read started meanwhile.
+    private func refreshLabels() async throws {
+        labelReads += 1
+        let read = labelReads
+        let labels = try await provider.labels()
+        guard read == labelReads else { return }
+        try store.apply(StoreChanges(accountID: accountID, labels: labels))
+    }
+
     private func performSync() async throws {
         // A signature that can't be read never holds up mail; the last one stays. One read before an edit made
-        // meanwhile is older than the edit, so it's dropped.
+        // meanwhile is older than the edit, so it's dropped, as are labels read before a label edit's own read.
         let editsBeforeRead = signatureEdits
+        labelReads += 1
+        let labelRead = labelReads
         async let read = Self.signature(from: provider)
         let labels = try await provider.labels()
         let signature = await read
         try store.apply(
             StoreChanges(
-                accountID: accountID, labels: labels, signature: signatureEdits == editsBeforeRead ? signature : nil))
+                accountID: accountID, labels: labelRead == labelReads ? labels : nil,
+                signature: signatureEdits == editsBeforeRead ? signature : nil))
         try await refreshAddressBookIfOld()
         switch try store.syncState(for: accountID) {
         case nil:

@@ -32,6 +32,11 @@ enum IMAPCommand: Equatable, Sendable {
     /// Adds a message to a mailbox. The line announces the message as a literal of `size` bytes, which follows
     /// once the server asks for it.
     case append(mailbox: String, flags: Set<String>, message: Data)
+    /// Makes a mailbox, and the ones above it in its name that don't exist yet (RFC 3501 §6.3.3).
+    case create(String)
+    /// Renames a mailbox and every mailbox under it (RFC 3501 §6.3.5).
+    case rename(String, to: String)
+    case delete(String)
     case logout
 
     /// The UID, flags, dates, envelope and threading headers of a message, and the start of its text with the headers
@@ -102,6 +107,9 @@ enum IMAPCommand: Equatable, Sendable {
                     .text("APPEND \(try Self.quoted(mailbox)) (\(flags.sorted().joined(separator: " ")))"),
                     .literal(message),
                 ]
+            case .create(let mailbox): [.text("CREATE \(try Self.quoted(mailbox))")]
+            case .rename(let mailbox, let name): [.text("RENAME \(try Self.quoted(mailbox)) \(try Self.quoted(name))")]
+            case .delete(let mailbox): [.text("DELETE \(try Self.quoted(mailbox))")]
             case .logout: [.text("LOGOUT")]
             }
         }

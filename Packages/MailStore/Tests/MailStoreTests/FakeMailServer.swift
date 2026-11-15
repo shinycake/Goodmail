@@ -40,6 +40,12 @@ final class FakeMailServer: SignatureSyncing {
         var messages: [String: [Message]] = [:]
         var messageRequests: [String] = []
         var failMessages: (any Error)?
+        var labels = [
+            MailLabel(id: "INBOX", name: "INBOX", kind: .system),
+            MailLabel(id: "Label_1", name: "Receipts", kind: .user),
+        ]
+        var nextLabel = 2
+        var onLabelsRead: (@Sendable () async -> Void)?
     }
 
     /// How the fake takes sends: as Gmail's uploads, or over its own connection, as iCloud's SMTP.
@@ -83,8 +89,11 @@ final class FakeMailServer: SignatureSyncing {
         state.withLock { $0.failPageRequests = count }
     }
 
+    /// Runs `onLabelsRead` after reading and before answering, as a slow reply would leave room for.
     func labels() async throws -> [MailLabel] {
-        [MailLabel(id: "INBOX", name: "INBOX", kind: .system), MailLabel(id: "Label_1", name: "Receipts", kind: .user)]
+        let (labels, onRead) = state.withLock { ($0.labels, $0.onLabelsRead) }
+        await onRead?()
+        return labels
     }
 
     func currentCursor() async throws -> String {
@@ -350,5 +359,39 @@ extension FakeMailServer {
     /// Makes every `messages(inThread:)` throw `error` until set back to `nil`.
     func failMessages(with error: (any Error)?) {
         state.withLock { $0.failMessages = error }
+    }
+}
+
+/// User labels as Gmail keeps them: a taken name is refused, and a deleted label leaves its threads without recording
+/// them in history.
+extension FakeMailServer {
+    func createLabel(named name: String) async throws -> MailLabel {
+        try state.withLock { state in
+            guard !state.labels.contains(where: { $0.name == name }) else { throw ProviderError.rejected }
+            let label = MailLabel(id: "Label_\(state.nextLabel)", name: name, kind: .user)
+            state.nextLabel += 1
+            state.labels.append(label)
+            return label
+        }
+    }
+
+    func renameLabel(_ id: String, to name: String) async throws {
+        try state.withLock { state in
+            guard let index = state.labels.firstIndex(where: { $0.id == id }) else { throw ProviderError.notFound }
+            state.labels[index].name = name
+        }
+    }
+
+    func deleteLabel(_ id: String) async throws {
+        state.withLock { state in
+            state.labels.removeAll { $0.id == id }
+            for (threadID, thread) in state.threads where thread.labelIDs.contains(id) {
+                state.threads[threadID]?.labelIDs.remove(id)
+            }
+        }
+    }
+
+    func onLabelsRead(_ hook: (@Sendable () async -> Void)?) {
+        state.withLock { $0.onLabelsRead = hook }
     }
 }

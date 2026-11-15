@@ -40,6 +40,19 @@ public protocol MailProvider: Sendable {
 
     /// Everyone the account keeps contacts for, and the people it has written to.
     func contacts() async throws -> [Contact]
+
+    /// Makes a user label (a folder, outside Gmail) named `name` and returns it. The name is a path, as
+    /// `MailLabel.name` is: `Projects/Goodmail` nests in `Projects` where the service nests with `/`. Throws
+    /// `ProviderError.rejected` when the service refuses the name, as for one already taken.
+    func createLabel(named name: String) async throws -> MailLabel
+
+    /// Gives the user label `id` the path `name`, with the labels nested in it. Throws `ProviderError.notFound` when
+    /// it's gone and `ProviderError.rejected` when the service refuses the name.
+    func renameLabel(_ id: String, to name: String) async throws
+
+    /// Deletes the user label `id`. What happens to its mail is the service's `labelDeletion`. One that is already
+    /// gone is not an error.
+    func deleteLabel(_ id: String) async throws
 }
 
 public enum ProviderError: Error, Equatable {

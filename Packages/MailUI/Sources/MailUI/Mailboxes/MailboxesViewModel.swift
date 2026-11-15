@@ -49,16 +49,20 @@ public final class MailboxesViewModel {
     @ObservationIgnored private let directoryStream: () -> AsyncThrowingStream<MailboxDirectory, any Error>
     @ObservationIgnored private let navigate: (Route) -> Void
     @ObservationIgnored private let accounts: [Account]
+    /// What changes an account's labels at its service.
+    @ObservationIgnored let labelEditor: (AccountID) -> LabelEditor?
 
     public init(
         accounts: [Account],
         directory: @escaping () -> AsyncThrowingStream<MailboxDirectory, any Error>,
         navigate: @escaping (Route) -> Void = { _ in },
+        labelEditor: @escaping (AccountID) -> LabelEditor? = { _ in nil },
         combinedTheme: CombinedTheme = Preferences.combinedTheme
     ) {
         directoryStream = directory
         self.navigate = navigate
         self.accounts = accounts
+        self.labelEditor = labelEditor
         theme = Theme(accountID: nil, among: accounts, combined: combinedTheme)
     }
 
@@ -114,6 +118,17 @@ public final class MailboxesViewModel {
         do {
             for try await directory in directoryStream() { self.directory = directory }
         } catch {}
+    }
+
+    /// The accounts New Label can make a label in, in the list's order.
+    var labelAccounts: [Account] {
+        accounts.filter { labelEditor($0.id) != nil }
+    }
+
+    /// The user label a row shows, which can be renamed and deleted; `nil` for the standard mailboxes.
+    func label(at destination: Destination) -> MailboxDirectory.Label? {
+        guard case .mailbox(let mailbox) = destination, mailbox.accountID != nil else { return nil }
+        return directory.labels.first { $0.mailbox == mailbox }
     }
 
     public func open(_ destination: Destination) {

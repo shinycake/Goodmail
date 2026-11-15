@@ -17,14 +17,16 @@ public final class MoveViewModel {
     /// The account's visible user labels, in its order. None when the threads come from several accounts, since
     /// each account has its own labels.
     public let labels: [Choice]
+    /// Makes a new label to move the threads to; `nil` when they come from several accounts, like `labels`.
+    let editor: LabelEditor?
     private let threads: [ThreadSummary.ID]
     private let mailbox: Mailbox
     private let actions: MailActions?
 
-    /// `labels` gives an account's labels.
+    /// `labels` gives an account's labels, and `editor` what changes them.
     public init(
         threads: [ThreadSummary.ID], from mailbox: Mailbox, labels: (AccountID) -> [MailLabel],
-        actions: MailActions?
+        editor: (AccountID) -> LabelEditor? = { _ in nil }, actions: MailActions?
     ) {
         self.threads = threads
         self.mailbox = mailbox
@@ -43,12 +45,22 @@ public final class MoveViewModel {
         ]
         .filter { $0.destination != current }
         let accounts = Set(threads.map(\.accountID))
+        let account = accounts.count == 1 ? accounts.first : nil
         self.labels =
-            accounts.count == 1
-            ? labels(accounts.first!).filter { $0.kind == .user && !$0.isHidden }
-                .map { Choice(destination: .label($0.id), name: $0.name, symbol: "tag", color: $0.color) }
-                .filter { $0.destination != current }
-            : []
+            account.map { account in
+                labels(account).filter { $0.kind == .user && !$0.isHidden }.map(Self.choice)
+                    .filter { $0.destination != current }
+            } ?? []
+        self.editor = account.flatMap(editor)
+    }
+
+    private static func choice(_ label: MailLabel) -> Choice {
+        Choice(destination: .label(label.id), name: label.name, symbol: "tag", color: label.color)
+    }
+
+    /// Moves the threads to a label just made for them.
+    public func move(toNew label: MailLabel) {
+        move(to: Self.choice(label))
     }
 
     /// Moves the threads to `choice`, with an undo toast.
