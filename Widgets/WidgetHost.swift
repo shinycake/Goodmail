@@ -45,6 +45,10 @@
             try await commands.perform(action, on: threads)
         }
 
+        func pin(_ threads: [ThreadSummary.ID], _ pinned: Bool) async throws -> MailCommands.Undo {
+            try await commands.pin(threads, pinned)
+        }
+
         func undo(_ undo: MailCommands.Undo) async throws {
             try await commands.undo(undo)
         }
