@@ -156,6 +156,9 @@ public final class ThreadViewController: UIViewController {
         composer.onSend = { [weak self] text, attachments, time in
             self?.viewModel.sendChatReply(text, attachments: attachments, at: time)
         }
+        composer.onExpand = { [weak self] text, attachments in
+            self?.viewModel.expandChatReply(text, attachments: attachments)
+        }
         composer.onResize = { [weak self] in self?.view.setNeedsLayout() }
         composer.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(composer)

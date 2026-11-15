@@ -8,6 +8,9 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
     /// Sends what was typed and attached, now or at the time picked by holding Send. The bar clears itself
     /// afterwards.
     var onSend: ((String, [DraftAttachment], SendTime) -> Void)?
+    /// Opens what was typed and attached in the full composer, for formatting, recipients and the rest. The bar
+    /// clears itself afterwards, as the composer now holds the reply.
+    var onExpand: ((String, [DraftAttachment]) -> Void)?
     /// Tells the reader the bar's height changed, so the conversation keeps clear of it.
     var onResize: (() -> Void)?
 
@@ -29,6 +32,8 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
     private let placeholder = UILabel()
     /// Filled, not glass: it sits on the field's glass, and glass doesn't stack on glass.
     private let sendButton = UIButton(configuration: .filled())
+    /// Plain, on the field's glass beside Send, like Send it doesn't stack glass on glass.
+    private let expandButton = UIButton(configuration: .plain())
     private let attachmentsView = ComposeAttachmentsView()
     private lazy var picker = AttachmentPicker { [weak self] in self?.attach($0) }
     private lazy var textHeight = textView.heightAnchor.constraint(equalToConstant: 36)
@@ -54,6 +59,7 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
         fieldGlass.contentView.addSubview(textView)
         fieldGlass.contentView.addSubview(placeholder)
         fieldGlass.contentView.addSubview(sendButton)
+        fieldGlass.contentView.addSubview(expandButton)
         row.spacing = 8
         row.alignment = .bottom
         column.axis = .vertical
@@ -63,7 +69,7 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
         column.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12)
         container.contentView.addSubview(column)
         addSubview(container)
-        for view in [container, column, actionsRow, textView, placeholder, sendButton] {
+        for view in [container, column, actionsRow, textView, placeholder, sendButton, expandButton] {
             view.translatesAutoresizingMaskIntoConstraints = false
         }
         let field = fieldGlass.contentView
@@ -85,7 +91,9 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
             textView.topAnchor.constraint(equalTo: field.topAnchor, constant: 4),
             textView.bottomAnchor.constraint(equalTo: field.bottomAnchor, constant: -4),
             textView.leadingAnchor.constraint(equalTo: field.leadingAnchor, constant: 12),
-            textView.trailingAnchor.constraint(equalTo: sendButton.leadingAnchor, constant: -4),
+            textView.trailingAnchor.constraint(equalTo: expandButton.leadingAnchor),
+            expandButton.trailingAnchor.constraint(equalTo: sendButton.leadingAnchor),
+            expandButton.bottomAnchor.constraint(equalTo: field.bottomAnchor, constant: -4),
             textHeight,
             placeholder.leadingAnchor.constraint(equalTo: textView.leadingAnchor, constant: 5),
             placeholder.trailingAnchor.constraint(lessThanOrEqualTo: textView.trailingAnchor),
@@ -230,6 +238,22 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
             sendButton.heightAnchor.constraint(equalToConstant: 36),
         ])
         sendButton.addAction(UIAction { [weak self] _ in self?.send() }, for: .primaryActionTriggered)
+
+        expandButton.configuration?.image = UIImage(systemName: "arrow.up.left.and.arrow.down.right")
+        expandButton.configuration?.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(
+            textStyle: .subheadline)
+        expandButton.configuration?.baseForegroundColor = .secondaryLabel
+        expandButton.accessibilityIdentifier = "chat.expand"
+        expandButton.accessibilityLabel = String(
+            localized: "Open in Composer", table: "ChatComposer", bundle: .module,
+            comment: "Opens the chat reply in the full composer, with formatting and recipients")
+        expandButton.largeContentTitle = expandButton.accessibilityLabel
+        expandButton.showsLargeContentViewer = true
+        NSLayoutConstraint.activate([
+            expandButton.widthAnchor.constraint(equalToConstant: 36),
+            expandButton.heightAnchor.constraint(equalToConstant: 36),
+        ])
+        expandButton.addAction(UIAction { [weak self] _ in self?.expand() }, for: .primaryActionTriggered)
         // Holding Send offers later times, as the composer's Send Later does.
         sendButton.menu = UIMenu(children: [
             UIDeferredMenuElement.uncached { [weak self] in $0(self?.sendLaterItems() ?? []) }
@@ -310,10 +334,19 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
     private func send(at time: SendTime = .now) {
         guard sendButton.isEnabled else { return }
         onSend?(trimmedText, attachments, time)
+        clear()
+    }
+
+    private func clear() {
         textView.text = ""
         attachments = []
         attachmentsChanged()
         fitText()
+    }
+
+    private func expand() {
+        onExpand?(trimmedText, attachments)
+        clear()
     }
 
     // MARK: Helpers

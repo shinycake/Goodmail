@@ -312,6 +312,18 @@ public final class ThreadViewModel {
         actions?.send(reply, at: time)
     }
 
+    /// Opens the chat reply in the full composer, for formatting, recipients and drafts: the reply-all draft with
+    /// its quote, carrying what was typed and attached so far.
+    public func expandChatReply(_ text: String, attachments: [DraftAttachment]) {
+        guard
+            var draft = Answer.replyAll.draft(
+                answering: messages, accountEmail: accountEmail, aliases: accountAliases, wording: .localized)
+        else { return }
+        if !text.isEmpty { draft.body = Self.chatBody(text) }
+        draft.attachments += attachments
+        navigate(.compose(draft))
+    }
+
     /// Sends a reply that failed again.
     public func retry(_ id: Draft.ID) {
         guard let message = queued(id) else { return }
@@ -344,12 +356,17 @@ public final class ThreadViewModel {
     func chatReply(_ text: String, attachments: [DraftAttachment]) -> Draft? {
         guard let message = latestSent else { return nil }
         var reply = Draft.reply(to: message, all: true, accountEmail: accountEmail, aliases: accountAliases)
+        reply.body = Self.chatBody(text)
+        reply.attachments = attachments
+        return reply
+    }
+
+    /// Typed lines as a body, each its own `dir=auto` paragraph.
+    static func chatBody(_ text: String) -> MessageBody {
         let paragraphs = text.split(separator: "\n", omittingEmptySubsequences: false).map { line in
             line.isEmpty ? "<div dir=\"auto\"><br></div>" : "<div dir=\"auto\">\(HTMLText.escape(String(line)))</div>"
         }
-        reply.body = MessageBody(html: paragraphs.joined(), plain: text)
-        reply.attachments = attachments
-        return reply
+        return MessageBody(html: paragraphs.joined(), plain: text)
     }
 
     /// The newest message when it is a draft not yet sent, which the reader finishes rather than answers.

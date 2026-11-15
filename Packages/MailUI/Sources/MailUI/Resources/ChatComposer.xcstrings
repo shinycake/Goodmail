@@ -1,0 +1,23 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Open in Composer" : {
+      "comment" : "Opens the chat reply in the full composer, with formatting and recipients",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open in Composer"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פתח בעורך ההודעות"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

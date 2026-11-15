@@ -270,3 +270,37 @@ extension ThreadViewModelTests {
         #expect(reply?.inReplyTo == "1@example.com")
     }
 }
+
+extension ThreadViewModelTests {
+    @Test func expandingTheChatReplyOpensItInTheComposerWithItsQuote() async throws {
+        var first = message("1", unread: false, minutes: 1)
+        first.to = [Contact(name: "Me", address: "me@example.com"), Contact(name: "Avi", address: "avi@example.com")]
+        var opened: [Route] = []
+        let model = ThreadViewModel(
+            thread: ThreadSummary(
+                id: .init(accountID: account, threadID: "t"), subject: "Plan", snippet: "",
+                sender: first.from, date: .now, isUnread: false, messageCount: 1, labelIDs: []),
+            mailbox: .inbox,
+            accountEmail: "me@example.com", accountColor: .blue,
+            messages: {
+                AsyncThrowingStream {
+                    $0.yield([first])
+                    $0.finish()
+                }
+            }, load: {}, attachmentData: { _, _ in Data() }, navigate: { opened.append($0) })
+        await model.observe()
+        let file = DraftAttachment(filename: "a.txt", mimeType: "text/plain", content: .data(Data("a".utf8)))
+
+        model.expandChatReply("Let me add a table", attachments: [file])
+
+        guard case .compose(let draft) = try #require(opened.first) else {
+            Issue.record("Expected the composer to open")
+            return
+        }
+        #expect(draft.to.map(\.address) == ["dana@example.com"])
+        #expect(draft.cc.map(\.address) == ["avi@example.com"])
+        #expect(draft.body.plain == "Let me add a table")
+        #expect(draft.quote != nil, "the composer keeps the quote a reply carries")
+        #expect(draft.attachments == [file])
+    }
+}
