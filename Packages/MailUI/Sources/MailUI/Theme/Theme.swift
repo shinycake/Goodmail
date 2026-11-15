@@ -35,13 +35,21 @@ public enum Theme: Equatable {
         }
     }
 
-    /// The color of `title` set in `font`: the gradient, when the theme is one, or the tint.
-    func titleColor(for title: String, font: UIFont, direction: UIUserInterfaceLayoutDirection) -> UIColor {
+    /// How `title` is set in `font` as a large title: in the text color over a thick bar of the gradient, when the
+    /// theme is one, so the colors show without coloring the letters; otherwise in the tint.
+    func titleAttributes(
+        for title: String, font: UIFont, direction: UIUserInterfaceLayoutDirection
+    ) -> [NSAttributedString.Key: Any] {
         switch self {
         case .gradient(let blend) where blend.colors.count > 1:
-            blend.textColor(width: (title as NSString).size(withAttributes: [.font: font]).width, direction: direction)
+            [
+                .font: font, .foregroundColor: UIColor.label,
+                .underlineStyle: NSUnderlineStyle.thick.rawValue,
+                .underlineColor: blend.textColor(
+                    width: (title as NSString).size(withAttributes: [.font: font]).width, direction: direction),
+            ]
         case .account, .gradient, .solid:
-            tint
+            [.font: font, .foregroundColor: tint]
         }
     }
 
@@ -76,7 +84,7 @@ nonisolated enum RowAccount: Equatable {
 
 extension UIViewController {
     /// Puts `theme` on this screen and on the navigation bar and toolbar it shares with the rest of its stack. Call
-    /// from `viewWillAppear`, after the screen has its title: a gradient is laid across the title's width.
+    /// from `viewWillAppear`, after the screen has its title: a gradient is laid across the title's width, under it.
     func wear(_ theme: Theme) {
         let tint = theme.tint
         view.tintColor = tint
@@ -84,9 +92,8 @@ extension UIViewController {
         navigationController.navigationBar.tintColor = tint
         navigationController.toolbar.tintColor = tint
         let font = Typography.system(.largeTitle, weight: .bold)
-        let title = theme.titleColor(
+        navigationController.navigationBar.largeTitleTextAttributes = theme.titleAttributes(
             for: navigationItem.title ?? self.title ?? "", font: font,
             direction: view.effectiveUserInterfaceLayoutDirection)
-        navigationController.navigationBar.largeTitleTextAttributes = [.font: font, .foregroundColor: title]
     }
 }

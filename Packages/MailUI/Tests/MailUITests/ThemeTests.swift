@@ -75,16 +75,21 @@ struct ThemeTests {
         #expect(theme == .solid(.purple))
         #expect(theme.tint == .systemPurple)
         let font = Typography.system(.largeTitle, weight: .bold)
-        #expect(theme.titleColor(for: "Inbox", font: font, direction: .leftToRight) == .systemPurple)
+        let title = theme.titleAttributes(for: "Inbox", font: font, direction: .leftToRight)
+        #expect(title[.foregroundColor] as? UIColor == .systemPurple)
+        #expect(title[.underlineStyle] == nil)
     }
 
     @Test(arguments: [UIUserInterfaceLayoutDirection.leftToRight, .rightToLeft])
-    func aGradientThemesTitleIsPaintedInThePattern(direction: UIUserInterfaceLayoutDirection) {
+    func aGradientThemesTitleIsInTheTextColorOverAGradientBar(direction: UIUserInterfaceLayoutDirection) {
         let theme = Theme(accountID: nil, among: [personal, work], combined: .gradient)
         let font = Typography.system(.largeTitle, weight: .bold)
-        let title = theme.titleColor(for: "Inbox", font: font, direction: direction)
-            .resolvedColor(with: UITraitCollection(userInterfaceStyle: .dark))
-        #expect(title.cgColor.pattern != nil)
+        let title = theme.titleAttributes(for: "Inbox", font: font, direction: direction)
+        #expect(title[.foregroundColor] as? UIColor == .label)
+        #expect(title[.underlineStyle] as? Int == NSUnderlineStyle.thick.rawValue)
+        let bar = (title[.underlineColor] as? UIColor)?.resolvedColor(
+            with: UITraitCollection(userInterfaceStyle: .dark))
+        #expect(bar?.cgColor.pattern != nil)
     }
 
     @Test(arguments: [UIUserInterfaceLayoutDirection.leftToRight, .rightToLeft])
