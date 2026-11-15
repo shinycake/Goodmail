@@ -13,8 +13,8 @@ final class SceneCoordinator: NSObject {
     let model: AppModel
     private let actions: MailActions
     private var failures: Task<Void, Never>?
-    /// The launch check for a Gmail sign-in that can't delete forever, then signing that account in again.
-    private var signInAgain: Task<Void, Never>?
+    /// The launch check for a Gmail sign-in that can't delete forever, or signing an account in again.
+    private var signingInAgain: Task<Void, Never>?
     /// An answer from the list waiting for the message it answers, which a newer answer replaces.
     private var answering: Task<Void, Never>?
     /// Failed sends already shown, so each is offered once per launch.
@@ -40,7 +40,7 @@ final class SceneCoordinator: NSObject {
 
     deinit {
         failures?.cancel()
-        signInAgain?.cancel()
+        signingInAgain?.cancel()
         answering?.cancel()
     }
 
@@ -77,27 +77,23 @@ final class SceneCoordinator: NSObject {
 
     /// Once a launch, asks the first Gmail account whose sign-in can't delete forever to sign in again.
     private func checkGmailSignIns() {
-        signInAgain = Task { [weak self, model] in
+        signingInAgain = Task { [weak self, model] in
             guard let account = await model.gmailAccountsToSignInAgain().first,
                 let self, let presenter = topViewController(), !(presenter is UIAlertController)
             else { return }
             let alert = UIAlertController.signInAgainToDeleteForever(account.email) { [weak self] in
-                self?.signInAgain(account)
+                self?.signInAgain(account.id)
             }
             presenter.present(alert, animated: true)
         }
     }
 
-    /// Google's page for `account`, whose new sign-in replaces the old one and keeps the account.
-    private func signInAgain(_ account: Account) {
-        signInAgain = Task { [model, window] in
-            do {
-                _ = try await model.addGmailAccount(using: WebAuthentication(window: window), loginHint: account.email)
-            } catch {
-                Logger(subsystem: "com.idanbirman.goodmail", category: "accounts")
-                    .error("Signing a Gmail account in again failed: \(error, privacy: .public)")
-            }
-        }
+    /// Signs `id` in again, its new sign-in replacing the old one and keeping the account. Replaces a launch check
+    /// or a sign-in already under way.
+    private func signInAgain(_ id: AccountID) {
+        guard let account = model.accounts.first(where: { $0.id == id }) else { return }
+        signingInAgain?.cancel()
+        signingInAgain = Task { [weak self] in await self?.signIn(againTo: account) }
     }
 
     /// Accounts and preferences. The mail screens are rebuilt once it closes if the accounts or how they look changed.
@@ -147,17 +143,22 @@ final class SceneCoordinator: NSObject {
     /// needs its own form presents it here, over the chooser.
     private func signIn(to service: MailService) async throws -> Bool {
         switch service {
-        case .gmail: try await model.addGmailAccount(using: WebAuthentication(window: window))
+        case .gmail: try await model.addGmailAccount(using: web)
         case .icloud: await signInToICloud()
-        case .outlook: try await model.addOutlookAccount(using: WebAuthentication(window: window))
+        case .outlook: try await model.addOutlookAccount(using: web)
         case .imap: await signInToOtherAccount()
         }
     }
 
+    /// The web sign-in, over this window.
+    var web: WebAuthentication { WebAuthentication(window: window) }
+
     /// Presents the iCloud form over the chooser, and returns whether it added the account.
-    private func signInToICloud() async -> Bool {
+    /// `email` fills the address in, as when iCloud stopped accepting an account's password.
+    func signInToICloud(email: String = "") async -> Bool {
         await presentSignIn { [model] finished in
             ICloudSignInScreen.make(
+                email: email,
                 signIn: { email, appPassword in
                     do {
                         try await model.addICloudAccount(email: email, appPassword: appPassword)
@@ -338,7 +339,8 @@ final class SceneCoordinator: NSObject {
                 refresh: { try await model.syncAll() },
                 loadOlder: { try await model.loadOlder(mailbox) },
                 navigate: { [weak self] route in self?.handle(route) },
-                actions: actions
+                actions: actions,
+                health: model.health
             ),
             searchResults: results)
     }
@@ -413,6 +415,8 @@ final class SceneCoordinator: NSObject {
             presenter.present(navigation, animated: true)
         case .settings:
             showSettings()
+        case .signInAgain(let id):
+            signInAgain(id)
         case .answer(let id, let answer):
             guard let account = model.accounts.first(where: { $0.id == id.accountID }) else { return }
             answering?.cancel()

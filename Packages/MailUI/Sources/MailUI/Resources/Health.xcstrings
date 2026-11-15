@@ -1,0 +1,193 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@ hasn’t synced for a while. %@" : {
+      "comment" : "An account has failed to sync for minutes; then why, as a sentence",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‏%1$@ לא סונכרן כבר זמן מה. %2$@"
+          }
+        }
+      }
+    },
+    "%@ needs %@ to sign in again before it gets new mail." : {
+      "comment" : "An OAuth service (Gmail, Outlook) revoked the account's sign-in; with the service and address",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‏%1$@ צריך ש־%2$@ יתחבר מחדש כדי לקבל דואר חדש."
+          }
+        }
+      }
+    },
+    "%@: %@" : {
+      "comment" : "Account problems alert: a fix and the account it is for, when there are several",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: %2$@"
+          }
+        }
+      }
+    },
+    "Accounts Need Attention" : {
+      "comment" : "Mailbox toolbar status: more than one account has a sync problem",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חשבונות דורשים טיפול"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "comment" : "Closes the password update without changing it",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ביטול"
+          }
+        }
+      }
+    },
+    "Can’t Sync" : {
+      "comment" : "Mailbox toolbar status: an account has failed to sync for a while",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אין סנכרון"
+          }
+        }
+      }
+    },
+    "Not Now" : {
+      "comment" : "Button: closes the account problems without fixing them",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא עכשיו"
+          }
+        }
+      }
+    },
+    "Password" : {
+      "comment" : "Update password: the password field",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סיסמה"
+          }
+        }
+      }
+    },
+    "Sign In" : {
+      "comment" : "Update password: checks the new password with the server",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "התחברות"
+          }
+        }
+      }
+    },
+    "Sign In Again" : {
+      "comment" : "Button: opens the service's sign-in page for the account",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "התחברות מחדש"
+          }
+        }
+      }
+    },
+    "Sign-In Needed" : {
+      "comment" : "Mailbox toolbar status: an account's service turned down its sign-in",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נדרשת התחברות"
+          }
+        }
+      }
+    },
+    "The mail server no longer accepts the password for %@. It may have been changed." : {
+      "comment" : "An IMAP server turned down the account's stored password",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שרת הדואר כבר לא מקבל את הסיסמה של %@. ייתכן שהיא שונתה."
+          }
+        }
+      }
+    },
+    "The mail server no longer accepts the saved password. Enter the account’s current password." : {
+      "comment" : "Update password: why it's asked for",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שרת הדואר כבר לא מקבל את הסיסמה השמורה. הזן את הסיסמה הנוכחית של החשבון."
+          }
+        }
+      }
+    },
+    "The server didn’t accept this password." : {
+      "comment" : "Update password: the server refused it",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השרת לא קיבל את הסיסמה הזו."
+          }
+        }
+      }
+    },
+    "Try Again" : {
+      "comment" : "Button: syncs the accounts now",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ניסיון חוזר"
+          }
+        }
+      }
+    },
+    "Update Password" : {
+      "comment" : "Button: asks for the account's new password",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עדכון סיסמה"
+          }
+        }
+      }
+    },
+    "iCloud no longer accepts the app-specific password for %@. It may have been revoked." : {
+      "comment" : "iCloud turned down the account's stored password",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‏iCloud כבר לא מקבל את הסיסמה הייעודית ליישום של %@. ייתכן שהיא בוטלה."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

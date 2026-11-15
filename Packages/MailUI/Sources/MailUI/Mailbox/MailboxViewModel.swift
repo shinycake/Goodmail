@@ -1,5 +1,6 @@
 import Foundation
 import MailCore
+import OSLog
 import Observation
 
 /// What a mailbox list shows: one list of threads, or the Inbox split into Gmail's categories with one of them shown.
@@ -48,11 +49,14 @@ public final class MailboxViewModel {
     public private(set) var isRefreshing = false
     /// Whether older threads are being fetched for the bottom of the list.
     public private(set) var isLoadingOlder = false
-    /// A refresh failure, for a quiet inline notice. Cleared by the next successful refresh.
-    public private(set) var refreshError: (any Error)?
+    /// The sync problems of this mailbox's accounts that need the reader, in the accounts' order.
+    public var problems: [AccountProblemNotice] { health.notices(for: mailboxAccounts) }
     /// The account's color in one account's mailbox; the combined theme in one that spans them.
     public let theme: Theme
     @ObservationIgnored private let accounts: [AccountID: Account]
+    /// The accounts whose threads this mailbox lists, in their order.
+    @ObservationIgnored private let mailboxAccounts: [Account]
+    @ObservationIgnored private let health: AccountHealthBoard
     public let actions: MailActions?
     public let mailbox: Mailbox
     /// Whether this is a Trash, of every account or of one, which Delete Forever can empty.
@@ -96,6 +100,7 @@ public final class MailboxViewModel {
         loadOlder: @escaping () async throws -> Bool = { false },
         navigate: @escaping (Route) -> Void = { _ in },
         actions: MailActions? = nil,
+        health: AccountHealthBoard = AccountHealthBoard(),
         combinedTheme: CombinedTheme = Preferences.combinedTheme,
         now: @escaping () -> Date = Date.init,
         calendar: Calendar = .autoupdatingCurrent
@@ -106,6 +111,8 @@ public final class MailboxViewModel {
         composingAccount = mailbox.accountID ?? accounts.first?.id
         theme = Theme(accountID: mailbox.accountID, among: accounts, combined: combinedTheme)
         self.accounts = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0) })
+        mailboxAccounts = accounts.filter { mailbox.accountID == nil || mailbox.accountID == $0.id }
+        self.health = health
         self.source = source
         wokenThreads = woken
         pinnedThreads = pins
@@ -179,7 +186,7 @@ public final class MailboxViewModel {
         do {
             for try await counts in categories.unreadCounts() { categoryUnreadCounts = counts }
         } catch {
-            if !Task.isCancelled { refreshError = error }
+            Self.log.error("The category counts stopped: \(error, privacy: .public)")
         }
     }
 
@@ -197,9 +204,11 @@ public final class MailboxViewModel {
                 if case .flat = source, threads.count < Self.shortList { Task { await loadOlderIfNeeded() } }
             }
         } catch {
-            if !Task.isCancelled { refreshError = error }
+            Self.log.error("The list stopped: \(error, privacy: .public)")
         }
     }
+
+    private static let log = Logger(subsystem: "com.idanbirman.goodmail", category: "mailbox")
 
     /// Pinned threads first, newest on top, then threads back from snooze, latest woken on top, then the rest by
     /// time.
@@ -231,15 +240,19 @@ public final class MailboxViewModel {
     /// Below this many threads, the list fetches older ones without waiting for a scroll.
     static let shortList = 30
 
+    /// Syncs now. A failure is the health board's to tell, as the sync reports it there.
     public func refresh() async {
         guard !isRefreshing else { return }
         isRefreshing = true
         defer { isRefreshing = false }
-        do {
-            try await refreshAction()
-            refreshError = nil
-        } catch {
-            refreshError = error
+        try? await refreshAction()
+    }
+
+    /// What a notice's button does: the service's sign-in for a sign-in it turned down, a sync now for the rest.
+    public func fix(_ notice: AccountProblemNotice) async {
+        switch notice.problem {
+        case .signInRejected: navigate(.signInAgain(notice.account.id))
+        case .cantSync: await refresh()
         }
     }
 

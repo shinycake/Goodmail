@@ -76,13 +76,13 @@ struct InboxCategoryTests {
 
     private struct CountsFailed: Error {}
 
-    @Test func unreadCountsThatFailShowTheRefreshNotice() async {
+    @Test func unreadCountsThatFailLeaveTheListShowing() async {
         let viewModel = viewModel(countsFail: true)
         let observing = Task { await viewModel.observe() }
         defer { observing.cancel() }
 
-        await waitUntil { viewModel.refreshError is CountsFailed }
-        #expect(shownThreads(viewModel) == ["primary"])
+        await waitUntil { shownThreads(viewModel) == ["primary"] }
+        #expect(viewModel.categoryUnreadCounts.isEmpty)
     }
 
     @Test func aRebuiltListOpensOnTheCategoryLastShown() async {

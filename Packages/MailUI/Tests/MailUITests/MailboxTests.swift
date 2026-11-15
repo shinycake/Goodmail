@@ -184,20 +184,15 @@ struct MailboxTests {
         #expect(viewModel.pinning([id]) == nil)
     }
 
-    @Test func refreshFailureIsKeptUntilTheNextSuccess() async {
+    @Test func aFailedRefreshEnds() async {
         struct Offline: Error {}
-        var fail = true
         let viewModel = MailboxViewModel(
             accounts: [],
             source: .flat { AsyncThrowingStream { $0.finish() } },
-            refresh: { if fail { throw Offline() } }
+            refresh: { throw Offline() }
         )
         await viewModel.refresh()
-        #expect(viewModel.refreshError is Offline)
         #expect(!viewModel.isRefreshing)
-        fail = false
-        await viewModel.refresh()
-        #expect(viewModel.refreshError == nil)
     }
 
     @Test func loadingOlderStopsOnceTheProviderRunsOutAndRetriesAfterAFailure() async {

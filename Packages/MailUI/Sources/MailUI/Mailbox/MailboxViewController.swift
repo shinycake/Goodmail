@@ -42,6 +42,7 @@ public final class MailboxViewController: UIViewController {
         case empty(pointingTo: InboxCategory?)
     }
     private var browsingToolbarItems: [UIBarButtonItem] = []
+    private lazy var problemsItem = AccountProblemsItem { [weak self] notices in self?.explain(notices) }
     /// The Inbox's category menu, when the list is split into categories.
     private let categoryButton: UIButton?
     private let categoryItem: UIBarButtonItem?
@@ -98,6 +99,8 @@ public final class MailboxViewController: UIViewController {
         browsingToolbarItems = [
             searchItem(),
             .flexibleSpace(),
+            problemsItem.item,
+            .flexibleSpace(),
             UIBarButtonItem(
                 title: String(localized: "New Message", table: "Mailbox", bundle: .module, comment: "Composer title"),
                 image: UIImage(systemName: "square.and.pencil"),
@@ -139,6 +142,7 @@ public final class MailboxViewController: UIViewController {
         super.updateProperties()
         applySections(viewModel.sections)
         updateEmptyState()
+        problemsItem.show(viewModel.problems)
         if let categoryButton, let category = viewModel.category {
             Self.update(categoryButton, selected: category, unreadCounts: viewModel.categoryUnreadCounts) {
                 [weak self] in self?.show($0)
@@ -147,6 +151,15 @@ public final class MailboxViewController: UIViewController {
         if !viewModel.isRefreshing, collectionView.refreshControl?.isRefreshing == true {
             collectionView.refreshControl?.endRefreshing()
         }
+    }
+
+    /// Asks about the accounts' sync problems, each with its fix.
+    private func explain(_ notices: [AccountProblemNotice]) {
+        let alert = UIAlertController.accountProblems(notices) { [weak self] notice in
+            guard let self else { return }
+            Task { await self.viewModel.fix(notice) }
+        }
+        present(alert, animated: true)
     }
 
     /// Only on a change: setting the configuration lays the view out again, which would run this again.

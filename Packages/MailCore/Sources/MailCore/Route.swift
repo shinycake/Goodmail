@@ -21,4 +21,6 @@ public enum Route: Hashable, Sendable {
     case snoozed
     /// Accounts and preferences.
     case settings
+    /// The account's sign-in, again, after its service turned the stored one down: its web page, or its password.
+    case signInAgain(AccountID)
 }

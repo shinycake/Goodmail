@@ -3,6 +3,7 @@ import GmailProvider
 import IMAPProvider
 import MailCore
 import MailStore
+import MailUI
 import OSLog
 import OutlookProvider
 import UIKit
@@ -20,6 +21,8 @@ final class AppModel {
     /// Where opened attachments are kept; they count toward the cache cap with the bodies.
     let attachmentsDirectory = URL.cachesDirectory.appending(path: "Attachments", directoryHint: .isDirectory)
     let outboxes: Outboxes
+    /// How each account's syncs are going, for the mailbox lists to tell the reader of a problem.
+    let health = AccountHealthBoard()
     private let senders: Senders
     /// Keeps each account's push subscription current; `nil` when the build names no push relay.
     let pushRegistrar: PushRegistrar?
@@ -91,10 +94,10 @@ final class AppModel {
         }
     }
 
-    /// Signs in with Microsoft and adds the Outlook account, or re-authenticates it if it's already here.
-    /// Returns `false` if the user cancelled.
-    func addOutlookAccount(using web: WebAuthentication) async throws -> Bool {
-        try await addAccount(.outlook, signingInWith: .outlook, using: web) { [database] in
+    /// Signs in with Microsoft and adds the Outlook account, or re-authenticates it if it's already here. `loginHint`
+    /// is the address Microsoft's page starts with. Returns `false` if the user cancelled.
+    func addOutlookAccount(using web: WebAuthentication, loginHint: String? = nil) async throws -> Bool {
+        try await addAccount(.outlook, signingInWith: .outlook, using: web, loginHint: loginHint) { [database] in
             OutlookClient(session: $0, index: database)
         }
     }
@@ -195,6 +198,7 @@ final class AppModel {
         try await Self.store { [database] in try database.removeAccount(id) }
         try? FileManager.default.removeItem(at: attachmentsDirectory.appending(path: id.rawValue))
         accounts.removeAll { $0.id == id }
+        health.forget(id)
         await didChange?(.accountRemoved)
     }
 
@@ -204,33 +208,46 @@ final class AppModel {
         accounts = accounts.map { $0.id == account.id ? account : $0 }
     }
 
-    /// Sends queued actions, then syncs, every account at once. Each engine coalesces overlapping calls, so this is
-    /// safe to call often. With `prefetch`, each account then starts fetching bodies in the background (ADR-007);
-    /// a background refresh leaves that to the next time the app is open.
+    /// Sends queued actions, then syncs, every account at once, and tells `health` how each went. Each engine
+    /// coalesces overlapping calls, so this is safe to call often. One account that fails doesn't stop the others;
+    /// once all are done, the first failure is thrown. With `prefetch`, each account that synced then starts
+    /// fetching bodies in the background (ADR-007); a background refresh leaves that to the next time the app is open.
     func syncAll(prefetch: Bool = true) async throws {
-        let engines = try accounts.map { try engine(for: $0.id) }
-        let prefetchers = try accounts.map { try prefetcher(for: $0.id) }
+        // An account whose login is gone from the Keychain has no provider, which is its failure to sync.
+        let engines = accounts.map { account in (account.id, Result { try engine(for: account.id) }) }
         let outboxes = outboxes
         // Snoozed threads whose time came, queued before the replay below so the server hears of them now.
         try await commands.wakeSnoozed()
         // Messages whose undo window closed while the app was away.
         for account in accounts { await senders.deliver(account.id, at: .now) }
-        try await withThrowingTaskGroup(of: Void.self) { group in
-            for engine in engines {
+        let outcomes = await withTaskGroup(of: (AccountID, Result<Void, any Error>).self) { group in
+            for (id, engine) in engines {
                 group.addTask {
-                    // Replay first, so the sync reads the server after the reader's actions.
-                    await outboxes.flush(engine.accountID)
-                    try await engine.sync()
+                    let outcome = await Result {
+                        let engine = try engine.get()
+                        // Replay first, so the sync reads the server after the reader's actions.
+                        await outboxes.flush(id)
+                        try await engine.sync()
+                    }
+                    return (id, outcome)
                 }
             }
-            try await group.waitForAll()
+            var outcomes: [AccountID: Result<Void, any Error>] = [:]
+            for await (id, outcome) in group { outcomes[id] = outcome }
+            return outcomes
         }
-        // The sync reads each account's aliases, which the composer and replies take from `accounts`.
-        let stored = try await Self.offMain { [database] in try database.accounts() }
-        if stored != accounts { accounts = stored }
-        if prefetch { for prefetcher in prefetchers { await prefetcher.start() } }
-        await trimCache()
-        await didChange?(.synced)
+        for (id, outcome) in outcomes { health.record(outcome, for: id) }
+        let synced = accounts.filter { if case .success = outcomes[$0.id] { true } else { false } }
+        // With nothing new stored, the accounts, the cache and the system's copies (Spotlight) have nothing to follow.
+        if !synced.isEmpty {
+            // The sync reads each account's aliases, which the composer and replies take from `accounts`.
+            let stored = try await Self.offMain { [database] in try database.accounts() }
+            if stored != accounts { accounts = stored }
+            if prefetch { for account in synced { await (try? prefetcher(for: account.id))?.start() } }
+            await trimCache()
+            await didChange?(.synced)
+        }
+        for account in accounts { if case .failure(let error) = outcomes[account.id] { throw error } }
     }
 
     /// Starts prefetching again each time the connection turns cheap, as when Wi-Fi comes back, until the calling

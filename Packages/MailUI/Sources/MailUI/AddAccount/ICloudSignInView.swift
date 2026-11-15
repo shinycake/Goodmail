@@ -28,6 +28,16 @@ struct ICloudSignInView: View {
         case email, appPassword
     }
 
+    /// `email` starts the address field, as when an account signs in again.
+    init(
+        email: String, signIn: @escaping (_ email: String, _ appPassword: String) async throws -> Void,
+        finished: @escaping (_ added: Bool) -> Void
+    ) {
+        _email = State(initialValue: email)
+        self.signIn = signIn
+        self.finished = finished
+    }
+
     private static let appPasswords = URL(string: "https://account.apple.com/account/manage/section/security")!
 
     var body: some View {
@@ -135,13 +145,15 @@ struct ICloudSignInView: View {
 public enum ICloudSignInScreen {
     /// `signIn` checks the address and password and adds the account, throwing `ICloudSignInFailure.wrongPassword`
     /// when iCloud refuses them. `finished` is called once, with whether the account was added; the screen can't be
-    /// swiped away, so the reader ends it with Cancel or Sign In.
+    /// swiped away, so the reader ends it with Cancel or Sign In. `email` fills the address in, as for an account
+    /// whose password iCloud stopped accepting.
     public static func make(
+        email: String = "",
         signIn: @escaping (_ email: String, _ appPassword: String) async throws -> Void,
         finished: @escaping (_ added: Bool) -> Void
     ) -> UIViewController {
         let screen = UIHostingController(
-            rootView: NavigationStack { ICloudSignInView(signIn: signIn, finished: finished) })
+            rootView: NavigationStack { ICloudSignInView(email: email, signIn: signIn, finished: finished) })
         screen.isModalInPresentation = true
         return screen
     }
