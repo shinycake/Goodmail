@@ -29,7 +29,7 @@ final class PushCoordinator: NSObject {
         let center = UNUserNotificationCenter.current()
         center.delegate = self
         center.setNotificationCategories([NewMailAlert.category])
-        badge.start()
+        badge.start(accounts: { [model] in model.accounts })
         guard model.pushRegistrar != nil else {
             Logger.push.notice("No push relay in this build; alerts are off")
             return
@@ -62,24 +62,9 @@ final class PushCoordinator: NSObject {
     private func updateSubscriptions() {
         update?.cancel()
         update = Task { [model, badge] in
-            await Self.requestAuthorization(for: model.accounts)
-            // A count set before the reader allowed badges didn't show.
-            badge.setAgain()
+            await badge.askForPermission()
             guard !Task.isCancelled else { return }
             await model.refreshPush()
-        }
-    }
-
-    /// Asks once, and only when there is an account, whose mail can alert or at least count on the app's badge:
-    /// asking on first launch, before the reader has added one, has nothing to explain it.
-    private static func requestAuthorization(for accounts: [Account]) async {
-        guard !accounts.isEmpty else { return }
-        let center = UNUserNotificationCenter.current()
-        guard await center.notificationSettings().authorizationStatus == .notDetermined else { return }
-        do {
-            _ = try await center.requestAuthorization(options: [.alert, .sound, .badge])
-        } catch {
-            Logger.push.error("Couldn't ask for alerts: \(error, privacy: .public)")
         }
     }
 

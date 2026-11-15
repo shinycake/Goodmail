@@ -25,8 +25,12 @@ final class NotificationService: UNNotificationServiceExtension {
             do {
                 let fetch = try Self.fetch()
                 let outcome = try await fetch.run(target)
-                if let badge = try? fetch.badgeCount() {
-                    try? await UNUserNotificationCenter.current().setBadgeCount(badge)
+                do {
+                    let badge = try fetch.badgeCount()
+                    try await UNUserNotificationCenter.current().setBadgeCount(badge)
+                    Logger.push.notice("Set the badge to \(badge, privacy: .public) after a push")
+                } catch {
+                    Logger.push.error("Couldn't set the badge after a push: \(error, privacy: .public)")
                 }
                 await delivery.finish(with: outcome)
             } catch {

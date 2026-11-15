@@ -12,7 +12,12 @@ extension AppModel {
             store: { [weak self] in await self?.setBadgeSource($0, for: $1) },
             turnedOff: {
                 let settings = await UNUserNotificationCenter.current().notificationSettings()
-                return settings.authorizationStatus == .denied || settings.badgeSetting == .disabled
+                // Allowed without badges counts as off: iOS then has no Badges switch to turn on.
+                return switch settings.authorizationStatus {
+                case .notDetermined: false
+                case .denied: true
+                default: settings.badgeSetting != .enabled
+                }
             })
     }
 
