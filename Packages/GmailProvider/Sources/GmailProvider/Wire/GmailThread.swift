@@ -109,3 +109,8 @@ extension GmailThread.Message {
 struct GmailAttachmentBody: Decodable {
     let data: String
 }
+
+/// A message as `format=raw` returns it: the whole RFC 5322 message, base64url-encoded.
+struct GmailRawMessage: Decodable {
+    let raw: String
+}

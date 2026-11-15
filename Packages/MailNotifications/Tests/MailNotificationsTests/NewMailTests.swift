@@ -130,6 +130,7 @@ private struct ChangedThreads: MailProvider {
     }
     func messages(inThread threadID: String) async throws -> [Message] { [] }
     func data(for attachment: MailCore.Attachment, in message: Message.ID) async throws -> Data { Data() }
+    func source(of message: Message.ID) async throws -> Data { Data() }
     func perform(_ action: ThreadAction, onThread threadID: String) async throws {}
     var sending: Sending { .direct { _, _ in } }
     func saveDraft(_ raw: Data, inThread threadID: String?, replacing: Message.ID?) async throws {}

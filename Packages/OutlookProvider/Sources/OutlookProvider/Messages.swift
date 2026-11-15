@@ -41,11 +41,21 @@ extension OutlookClient {
         return data
     }
 
+    public func source(of message: Message.ID) async throws -> Data {
+        guard let raw = try await raw(message.messageID) else { throw ProviderError.notFound }
+        return raw
+    }
+
     /// The message's MIME, or `nil` when it's gone.
     private func mime(of messageID: String) async throws -> MIMEPart? {
+        try await raw(messageID).map(MIMEPart.init(parsing:))
+    }
+
+    /// The RFC 5322 message Exchange keeps, or `nil` when it's gone.
+    private func raw(_ messageID: String) async throws -> Data? {
         let url = GraphTransport.baseURL.appending(path: "me/messages/\(messageID)/$value")
         do {
-            return MIMEPart(parsing: try await graph.send(url, method: "GET", payload: nil))
+            return try await graph.send(url, method: "GET", payload: nil)
         } catch let error as GraphError where error.status == 404 {
             return nil
         }

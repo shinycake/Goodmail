@@ -65,6 +65,56 @@ struct DraftTests {
         #expect(Draft.reply(to: original, all: false, accountEmail: me).attachments.isEmpty)
     }
 
+    @Test func forwardingAsAttachmentCarriesTheWholeOriginalInItsThread() {
+        var original = message(from: dana, to: [avi])
+        original.attachments = [
+            Attachment(id: "2", filename: "plan.pdf", mimeType: "application/pdf", size: 900, fetchToken: "a")
+        ]
+        let draft = Draft.forwardAsAttachment(original)
+        #expect(draft.to.isEmpty)
+        #expect(draft.subject == "Fwd: Plan")
+        #expect(draft.quote == nil, "the original travels as a file, not a quote")
+        #expect(draft.threadID == "t1")
+        #expect(draft.references == ["m1@example.com", "m2@example.com"])
+        let file = draft.attachments.first
+        #expect(draft.attachments.count == 1)
+        #expect(file?.filename == "Plan.eml")
+        #expect(file?.mimeType == "message/rfc822")
+        #expect(file?.content == .message(original.id, size: 41 + 14 + 1200), "the body and the file, as base64")
+    }
+
+    @Test(arguments: [
+        ("Q3: plan / budget?", "Q3 plan  budget.eml"), ("  ", "Untitled.eml"), ("תוכנית", "תוכנית.eml"),
+    ])
+    func aForwardedMessageIsNamedForItsSubject(subject: String, name: String) {
+        let wording = QuoteWording(
+            locale: Locale(identifier: "en_US"), attribution: { _, _ in "" }, forwardedMessage: "", from: "",
+            date: "", subject: "", to: "", cc: "", untitledMessage: "Untitled")
+        let draft = Draft.forwardAsAttachment(message(from: dana, to: [], subject: subject), wording: wording)
+        #expect(draft.attachments.first?.filename == name)
+    }
+
+    @Test func editingAsNewCopiesTheMessageOutsideItsThread() {
+        let boss = Contact(name: "Boss", address: "boss@example.com")
+        var sent = message(from: Contact(name: nil, address: me), to: [dana], cc: [avi])
+        sent.bcc = [boss]
+        sent.attachments = [
+            Attachment(id: "2", filename: "plan.pdf", mimeType: "application/pdf", size: 900, fetchToken: "a")
+        ]
+        let draft = Draft.editAsNew(sent)
+        #expect(draft.to == [dana])
+        #expect(draft.cc == [avi])
+        #expect(draft.bcc == [boss])
+        #expect(draft.subject == "Plan", "no Re: or Fwd:")
+        #expect(draft.body == sent.body)
+        #expect(draft.attachments.map(\.content) == [.forwarded(sent.attachments[0], in: sent.id)])
+        #expect(draft.threadID == nil)
+        #expect(draft.inReplyTo == nil)
+        #expect(draft.references.isEmpty)
+        #expect(draft.savedDraft == nil, "sending it leaves the original alone")
+        #expect(draft.quote == nil)
+    }
+
     @Test func attachmentsQueuedWithTheirBytesStillDecode() throws {
         let json =
             #"{"id":"6F9619FF-8B86-D011-B42D-00C04FC964FF","filename":"a.txt","mimeType":"text/plain","data":"aGk="}"#
@@ -77,6 +127,10 @@ struct DraftTests {
                 in: Message.ID(
                     accountID: account, messageID: "m")))
         #expect(try JSONDecoder().decode(DraftAttachment.self, from: JSONEncoder().encode(forwarded)) == forwarded)
+        let whole = DraftAttachment(
+            filename: "Plan.eml", mimeType: "message/rfc822",
+            content: .message(Message.ID(accountID: account, messageID: "m"), size: 10))
+        #expect(try JSONDecoder().decode(DraftAttachment.self, from: JSONEncoder().encode(whole)) == whole)
     }
 
     @Test func subjectsArentPrefixedTwice() {
@@ -132,7 +186,7 @@ struct DraftTests {
     private let hebrew = QuoteWording(
         locale: Locale(identifier: "he_IL"), attribution: { "בתאריך \($0), מאת \($1):" },
         forwardedMessage: "---------- הודעה שהועברה ---------", from: "מאת:", date: "תאריך:", subject: "נושא:",
-        to: "אל:", cc: "עותק:")
+        to: "אל:", cc: "עותק:", untitledMessage: "הודעה")
 
     @Test func aHebrewReplyQuotesInHebrewRightToLeftWithTheAddressKeptWhole() throws {
         let draft = Draft.reply(
@@ -276,5 +330,33 @@ struct MIMEWriterTests {
         json["attachments"] = nil
         let decoded = try JSONDecoder().decode(Draft.self, from: JSONSerialization.data(withJSONObject: json))
         #expect(decoded == draft)
+    }
+
+    private func attaching(_ raw: Data) -> String {
+        var draft = draft
+        draft.attachments = [DraftAttachment(filename: "Plan.eml", mimeType: "message/rfc822", data: raw)]
+        return String(
+            decoding: MIMEWriter.message(
+                for: draft, from: Contact(name: nil, address: "me@example.com"), date: Date(timeIntervalSince1970: 0),
+                messageID: "id1@goodmail.app", boundary: "B"),
+            as: UTF8.self)
+    }
+
+    @Test func aMessageAttachedWholeGoesAsItIsWithCRLFLines() {
+        let text = attaching(Data("From: dana@example.com\nSubject: Plan\n\nShip it?\r\n".utf8))
+        #expect(
+            text.contains(
+                "Content-Type: message/rfc822; name=\"Plan.eml\"\r\n"
+                    + "Content-Disposition: attachment; filename=\"Plan.eml\"\r\nContent-Transfer-Encoding: 7bit\r\n\r\n"
+                    + "From: dana@example.com\r\nSubject: Plan\r\n\r\nShip it?\r\n--B--"))
+    }
+
+    @Test(arguments: [
+        Data("Subject: סיכום\r\n\r\nשלום".utf8), Data(("Subject: x\r\n\r\n" + String(repeating: "a", count: 999)).utf8),
+    ])
+    func aMessageThatIsNot7BitGoesAsBase64(_ raw: Data) throws {
+        let text = attaching(raw)
+        #expect(text.contains("Content-Type: message/rfc822"))
+        #expect(text.contains("Content-Transfer-Encoding: base64\r\n\r\n\(raw.base64EncodedString().prefix(76))"))
     }
 }

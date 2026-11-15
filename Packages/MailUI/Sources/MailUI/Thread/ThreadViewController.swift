@@ -191,6 +191,12 @@ public final class ThreadViewController: UIViewController {
         return names.formatted(.list(type: .and, width: .narrow))
     }
 
+    private func answerAction(_ answer: Answer) -> UIAction {
+        UIAction(title: answer.title, image: UIImage(systemName: answer.symbol)) { [weak self] _ in
+            self?.viewModel.answer(answer)
+        }
+    }
+
     /// Archive, Trash, Snooze, Mute and Unread close the reader through the view model, which leaves the thread once.
     private func configureToolbar() {
         func item(_ action: ThreadAction) -> UIBarButtonItem {
@@ -205,20 +211,13 @@ public final class ThreadViewController: UIViewController {
         replyItem = UIBarButtonItem(
             title: String(localized: "Reply", table: "Thread", bundle: .module, comment: "Composer title for a reply"),
             image: UIImage(systemName: "arrowshape.turn.up.left"),
-            primaryAction: UIAction { [weak self] _ in self?.viewModel.reply(all: false) },
+            primaryAction: UIAction { [weak self] _ in self?.viewModel.answer(.reply) },
             // The alternatives only: a tap is Reply, and a toolbar that overflows into More lists the primary action
-            // beside these, so a Reply here would show twice.
+            // beside these, so a Reply here would show twice. Edit as New starts a message of its own, set apart.
             menu: UIMenu(children: [
-                UIAction(
-                    title: String(
-                        localized: "Reply All", table: "Thread", bundle: .module, comment: "Replies to everyone"),
-                    image: UIImage(systemName: "arrowshape.turn.up.left.2")
-                ) { [weak self] _ in self?.viewModel.reply(all: true) },
-                UIAction(
-                    title: String(
-                        localized: "Forward", table: "Thread", bundle: .module, comment: "Forwards the message"),
-                    image: UIImage(systemName: "arrowshape.turn.up.right")
-                ) { [weak self] _ in self?.viewModel.forward() },
+                UIMenu(
+                    options: .displayInline, children: [.replyAll, .forward, .forwardAsAttachment].map(answerAction)),
+                UIMenu(options: .displayInline, children: [answerAction(.editAsNew)]),
             ]))
         replyItem.menu = replyItem.menu?.replacingChildren(
             (replyItem.menu?.children ?? [])

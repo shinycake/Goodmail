@@ -127,6 +127,18 @@ public struct GmailClient: MailProvider, UploadSending {
         return data
     }
 
+    public func source(of message: Message.ID) async throws -> Data {
+        let raw: GmailRawMessage
+        do {
+            raw = try await get(
+                "users/me/messages/\(message.messageID)", query: [URLQueryItem(name: "format", value: "raw")])
+        } catch let error as GmailError where error.status == 404 {
+            throw ProviderError.notFound
+        }
+        guard let data = Data(base64URLEncoded: raw.raw) else { throw GmailError(status: 0, body: "Bad base64") }
+        return data
+    }
+
     public func perform(_ action: ThreadAction, onThread threadID: String) async throws {
         let path = "users/me/threads/\(threadID)"
         do {

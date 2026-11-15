@@ -287,6 +287,27 @@ struct IMAPClientTests {
         #expect(message.id.messageID == "INBOX\n7\n40")
     }
 
+    @Test func aMessageReadsWholeByItsFolderAndUID() async throws {
+        let raw = ["From: Dana <dana@example.com>", "Subject: Lunch", "", "Lunch at noon?"].joined(separator: "\r\n")
+        let client = Self.client(
+            Self.login + "\n" + Self.select("INBOX", tag: 5) + """
+
+                C: A6 UID FETCH 40 (UID FLAGS INTERNALDATE BODY.PEEK[])
+                S: * 1 FETCH (UID 40 FLAGS () INTERNALDATE "1-Nov-2026 09:00:00 +0000" BODY[] {\(raw.utf8.count)}\\r\\n\(raw.replacing("\r\n", with: "\\r\\n")))
+                S: A6 OK
+                """, index: MemoryIndex())
+        let message = Message.ID(
+            accountID: Self.account, messageID: MessageKey(folder: "INBOX", uidValidity: 7, uid: 40).rawValue)
+        #expect(try await client.source(of: message) == Data(raw.utf8))
+    }
+
+    @Test func aMessageInAFolderThatChangedIsNotFound() async throws {
+        let client = Self.client(Self.login + "\n" + Self.select("INBOX", tag: 5, uidValidity: 8), index: MemoryIndex())
+        let message = Message.ID(
+            accountID: Self.account, messageID: MessageKey(folder: "INBOX", uidValidity: 7, uid: 40).rawValue)
+        await #expect(throws: ProviderError.notFound) { try await client.source(of: message) }
+    }
+
     @Test func aDroppedConnectionIsOpenedAgain() async throws {
         let client = Self.client(
             "S: * OK ready\nC: A1 LOGIN \"dana@icloud.com\" \"abcd-efgh-ijkl-mnop\"\nS: A1 OK ok\nC: A2 CAPABILITY\nS: * CAPABILITY IMAP4rev1\nS: A2 OK\nC: A3 LIST \"\" \"*\"\nS: * BYE idle too long",

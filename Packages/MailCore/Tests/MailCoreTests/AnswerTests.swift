@@ -44,7 +44,23 @@ struct AnswerTests {
         #expect(draft.subject == "Fwd: Plan")
     }
 
-    @Test(arguments: [Answer.reply, .replyAll, .forward])
+    @Test func forwardAsAttachmentAttachesTheNewestSentMessage() throws {
+        let draft = try #require(
+            Answer.forwardAsAttachment.draft(answering: thread, accountEmail: me, wording: .english))
+        #expect(draft.subject == "Fwd: Plan")
+        #expect(draft.attachments.map(\.content) == [.message(thread[1].id, size: 8)])
+    }
+
+    @Test func editAsNewCopiesTheNewestMessageIWrote() throws {
+        let mine = message("m0", from: Contact(name: nil, address: "ME@example.com"), to: [avi])
+        let draft = try #require(
+            Answer.editAsNew.draft(answering: [mine] + thread, accountEmail: me, wording: .english))
+        #expect(draft.to == [avi], "m0, not Dana's newer message or the unsent draft")
+        let theirs = try #require(Answer.editAsNew.draft(answering: thread, accountEmail: me, wording: .english))
+        #expect(theirs.to == thread[1].to, "with none of mine, the newest sent message")
+    }
+
+    @Test(arguments: [Answer.reply, .replyAll, .forward, .forwardAsAttachment, .editAsNew])
     func aThreadOfOnlyDraftsHasNothingToAnswer(_ answer: Answer) {
         #expect(answer.draft(answering: Array(thread.suffix(1)), accountEmail: me, wording: .english) == nil)
         #expect(answer.draft(answering: [], accountEmail: me, wording: .english) == nil)

@@ -97,6 +97,17 @@
         }
       }
     },
+    "Edit as New" : {
+      "comment" : "Opens a copy of the message as a new message to change and send",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ערוך כהודעה חדשה"
+          }
+        }
+      }
+    },
     "Forward" : {
       "comment" : "Forwards the message",
       "localizations" : {
@@ -104,6 +115,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "העבר"
+          }
+        }
+      }
+    },
+    "Forward as Attachment" : {
+      "comment" : "Forwards the whole message as a file attached to a new one",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העבר כקובץ מצורף"
           }
         }
       }

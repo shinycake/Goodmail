@@ -121,6 +121,36 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
         )
     }
 
+    /// A forward of `message` to people yet to be chosen, carrying the whole original as a `message/rfc822` file
+    /// rather than quoting it, so its headers, body and files reach the recipient exactly as they came.
+    public static func forwardAsAttachment(_ message: Message, wording: QuoteWording = .english) -> Draft {
+        Draft(
+            accountID: message.id.accountID,
+            subject: prefixed(message.subject, with: "Fwd:", recognizing: ["fwd:", "fw:"]),
+            threadID: message.threadID,
+            references: message.references + (message.internetMessageID.map { [$0] } ?? []),
+            attachments: [
+                DraftAttachment(
+                    filename: emlName(message.subject, untitled: wording.untitledMessage), mimeType: "message/rfc822",
+                    content: .message(message.id, size: estimatedSize(of: message)))
+            ]
+        )
+    }
+
+    /// A new message written from a copy of `message`: its recipients, subject, body and files, outside its thread,
+    /// so a message already sent can go again, changed or to someone else.
+    public static func editAsNew(_ message: Message) -> Draft {
+        Draft(
+            accountID: message.id.accountID,
+            to: message.to,
+            cc: message.cc,
+            bcc: message.bcc,
+            subject: message.subject,
+            body: message.body,
+            attachments: forwardedFiles(of: message)
+        )
+    }
+
     /// A draft saved with the provider, reopened to edit and send. Its files stay with the provider until it goes.
     public static func editing(_ message: Message) -> Draft {
         Draft(
@@ -143,6 +173,20 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
         message.attachments.filter { !$0.isInline || $0.contentID == nil }.map {
             DraftAttachment(filename: $0.filename, mimeType: $0.mimeType, content: .forwarded($0, in: message.id))
         }
+    }
+
+    /// The subject as a file name, without the characters file systems refuse.
+    static func emlName(_ subject: String, untitled: String) -> String {
+        let refused = CharacterSet(charactersIn: "/\\:*?\"<>|").union(.controlCharacters)
+        let name = String(String.UnicodeScalarView(subject.unicodeScalars.filter { !refused.contains($0) }))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return "\(name.isEmpty ? untitled : String(name.prefix(100))).eml"
+    }
+
+    /// About how big the original is, for the composer's size limit, before its bytes are fetched.
+    private static func estimatedSize(of message: Message) -> Int {
+        (message.body.html?.utf8.count ?? 0) + (message.body.plain?.utf8.count ?? 0)
+            + message.attachments.reduce(0) { $0 + $1.size * 4 / 3 }
     }
 
     private static func prefixed(_ subject: String, with prefix: String, recognizing known: [String]) -> String {
@@ -221,6 +265,9 @@ public struct DraftAttachment: Identifiable, Hashable, Codable, Sendable {
         case data(Data)
         /// A file on a message the provider holds, such as one being forwarded. Fetched when the message goes.
         case forwarded(Attachment, in: Message.ID)
+        /// A whole message the provider holds, sent as `message/rfc822`, of about `size` bytes. Fetched when the
+        /// message goes.
+        case message(Message.ID, size: Int)
     }
 
     public let id: UUID
@@ -248,6 +295,7 @@ public struct DraftAttachment: Identifiable, Hashable, Codable, Sendable {
         switch content {
         case .data(let data): data.count
         case .forwarded(let attachment, _): attachment.size
+        case .message(_, let size): size
         }
     }
 

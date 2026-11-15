@@ -106,7 +106,7 @@ struct ThreadViewModelTests {
         #expect(model.draft?.id == draft.id)
 
         model.editDraft()
-        model.reply(all: false)
+        model.answer(.reply)
         guard case .compose(let edited) = routes.first, case .compose(let reply) = routes.last else {
             Issue.record("both should open the composer")
             return

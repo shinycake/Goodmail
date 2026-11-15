@@ -136,26 +136,6 @@ extension ThreadMenu {
     }
 }
 
-extension Answer {
-    var title: String {
-        switch self {
-        case .reply:
-            String(localized: "Reply", table: "Mailbox", bundle: .module, comment: "Composer title for a reply")
-        case .replyAll:
-            String(localized: "Reply All", table: "Mailbox", bundle: .module, comment: "Replies to everyone")
-        case .forward: String(localized: "Forward", table: "Mailbox", bundle: .module, comment: "Forwards the message")
-        }
-    }
-
-    var symbol: String {
-        switch self {
-        case .reply: "arrowshape.turn.up.left"
-        case .replyAll: "arrowshape.turn.up.left.2"
-        case .forward: "arrowshape.turn.up.right"
-        }
-    }
-}
-
 extension UIAlertController {
     /// Says that a reply or forward from the list found no message to answer, as when it isn't on the device and
     /// can't be fetched.

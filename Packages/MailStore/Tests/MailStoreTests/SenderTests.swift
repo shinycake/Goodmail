@@ -109,6 +109,32 @@ struct SenderTests {
         #expect(raw.contains(Data("m1/att-1".utf8).base64EncodedString()))
     }
 
+    @Test func aMessageForwardedWholeIsFetchedAndAttachedAsItIs() async throws {
+        var draft = draft()
+        draft.attachments = [
+            DraftAttachment(
+                filename: "Plan.eml", mimeType: "message/rfc822",
+                content: .message(Message.ID(accountID: account, messageID: "m1"), size: 40))
+        ]
+        try await commands().send(draft, after: .zero)
+        #expect(try await bench.deliver().count == 1)
+        let raw = String(decoding: server.sent[0].raw, as: UTF8.self)
+        #expect(raw.contains("Content-Transfer-Encoding: 7bit\r\n\r\nMessage-ID: <m1@example.com>\r\n\r\nHello\r\n--"))
+    }
+
+    @Test func aMessageForwardedWholeThatIsGoneFailsTheMessage() async throws {
+        var draft = draft()
+        draft.attachments = [
+            DraftAttachment(
+                filename: "Plan.eml", mimeType: "message/rfc822",
+                content: .message(Message.ID(accountID: account, messageID: "gone"), size: 40))
+        ]
+        try await commands().send(draft, after: .zero)
+        #expect(try await bench.deliver().isEmpty)
+        #expect(server.sent.isEmpty)
+        #expect(try await bench.failures() == [.forwardedAttachmentMissing])
+    }
+
     @Test func aForwardedFileThatIsGoneFailsTheMessage() async throws {
         var draft = draft()
         draft.attachments = [

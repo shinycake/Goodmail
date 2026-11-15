@@ -92,17 +92,6 @@
         }
       }
     },
-    "Forward" : {
-      "comment" : "Forwards the message",
-      "localizations" : {
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "העבר"
-          }
-        }
-      }
-    },
     "Go to Quoted Message" : {
       "comment" : "Scrolls to the message a bubble answers",
       "localizations" : {
@@ -237,17 +226,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "השב"
-          }
-        }
-      }
-    },
-    "Reply All" : {
-      "comment" : "Replies to everyone",
-      "localizations" : {
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "השב לכולם"
           }
         }
       }

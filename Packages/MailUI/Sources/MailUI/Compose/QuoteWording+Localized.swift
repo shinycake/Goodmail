@@ -29,6 +29,9 @@ extension QuoteWording {
                 comment: "Forwarded message header field: the recipients"),
             cc: String(
                 localized: "Forward header: Cc", defaultValue: "Cc:", table: "Compose", bundle: .module,
-                comment: "Forwarded message header field: the copied recipients"))
+                comment: "Forwarded message header field: the copied recipients"),
+            untitledMessage: String(
+                localized: "Forwarded file: untitled", defaultValue: "Message", table: "Compose", bundle: .module,
+                comment: "The file name of a message forwarded as an attachment when it has no subject"))
     }
 }

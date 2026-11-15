@@ -195,8 +195,12 @@ public actor Sender {
     private func fetchingForwardedFiles(of draft: Draft) async throws -> Draft {
         var draft = draft
         for index in draft.attachments.indices {
-            if case .forwarded(let attachment, let message) = draft.attachments[index].content {
+            switch draft.attachments[index].content {
+            case .data: continue
+            case .forwarded(let attachment, let message):
                 draft.attachments[index].content = .data(try await provider.data(for: attachment, in: message))
+            case .message(let message, _):
+                draft.attachments[index].content = .data(try await provider.source(of: message))
             }
         }
         return draft

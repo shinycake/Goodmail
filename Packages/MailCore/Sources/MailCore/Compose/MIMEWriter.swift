@@ -47,18 +47,40 @@ public enum MIMEWriter {
         }
         lines.append("--\(alternative)--")
         for (attachment, data) in files {
+            let (encoding, body) = encoded(data, as: attachment.mimeType)
             lines += [
                 "--\(boundary)",
                 "Content-Type: \(attachment.mimeType); \(parameter("name", attachment.filename))",
                 "Content-Disposition: attachment; \(parameter("filename", attachment.filename))",
-                "Content-Transfer-Encoding: base64",
+                "Content-Transfer-Encoding: \(encoding)",
                 "",
-                base64(data),
+                body,
             ]
         }
         if !files.isEmpty { lines.append("--\(boundary)--") }
         lines.append("")
         return Data(lines.joined(separator: "\r\n").utf8)
+    }
+
+    /// A file's transfer encoding and its body. A message attached whole goes as it is when it is 7-bit text, as
+    /// RFC 2046 asks of `message/rfc822`; one with 8-bit bytes or overlong lines goes as base64, which every reader
+    /// opens, since `8bit` would need every server on the way to accept 8BITMIME.
+    static func encoded(_ data: Data, as mimeType: String) -> (encoding: String, body: String) {
+        if mimeType.caseInsensitiveCompare("message/rfc822") == .orderedSame, let text = sevenBitText(data) {
+            return ("7bit", text)
+        }
+        return ("base64", base64(data))
+    }
+
+    /// `data` with CRLF line endings, or `nil` unless it is 7-bit with lines of at most 998 characters.
+    private static func sevenBitText(_ data: Data) -> String? {
+        guard data.allSatisfy({ $0 > 0 && $0 < 0x80 }) else { return nil }
+        // "\r\n" is a single Character, so every line ending, bare or not, splits once.
+        var lines = String(decoding: data, as: UTF8.self)
+            .split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)
+        if lines.last?.isEmpty == true { lines.removeLast() }
+        guard lines.allSatisfy({ $0.utf8.count <= 998 }) else { return nil }
+        return lines.joined(separator: "\r\n")
     }
 
     private static func base64(_ data: Data) -> String {

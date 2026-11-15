@@ -14,10 +14,13 @@ public struct QuoteWording: Sendable {
     public var subject: String
     public var to: String
     public var cc: String
+    /// The name of a message forwarded as a file when it has no subject.
+    public var untitledMessage: String
 
     public init(
         locale: Locale, attribution: @escaping @Sendable (_ date: String, _ sender: String) -> String,
-        forwardedMessage: String, from: String, date: String, subject: String, to: String, cc: String
+        forwardedMessage: String, from: String, date: String, subject: String, to: String, cc: String,
+        untitledMessage: String
     ) {
         self.locale = locale
         self.attribution = attribution
@@ -27,12 +30,13 @@ public struct QuoteWording: Sendable {
         self.subject = subject
         self.to = to
         self.cc = cc
+        self.untitledMessage = untitledMessage
     }
 
     public static let english = QuoteWording(
         locale: Locale(identifier: "en_US"), attribution: { "On \($0), \($1) wrote:" },
         forwardedMessage: "---------- Forwarded message ---------", from: "From:", date: "Date:", subject: "Subject:",
-        to: "To:", cc: "Cc:")
+        to: "To:", cc: "Cc:", untitledMessage: "Message")
 
     var isRightToLeft: Bool { locale.language.characterDirection == .rightToLeft }
 

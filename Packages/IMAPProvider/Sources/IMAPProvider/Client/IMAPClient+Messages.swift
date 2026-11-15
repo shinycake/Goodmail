@@ -34,14 +34,20 @@ extension IMAPClient {
 
     /// Reads the message again and takes the part out, since IMAP part IDs are its section numbers.
     public func data(for attachment: Attachment, in message: Message.ID) async throws -> Data {
+        guard let data = MIMEPart(parsing: try await source(of: message)).part(withID: attachment.id)?.data else {
+            throw ProviderError.notFound
+        }
+        return data
+    }
+
+    public func source(of message: Message.ID) async throws -> Data {
         guard let key = MessageKey(rawValue: message.messageID) else { throw ProviderError.notFound }
         return try await session.run { connection in
             guard Folders(try await connection.mailboxes()).contains(key.folder),
                 try await connection.select(key.folder).uidValidity == key.uidValidity,
-                let content = try await connection.messages([key.uid]).first,
-                let data = MIMEPart(parsing: content.raw).part(withID: attachment.id)?.data
+                let content = try await connection.messages([key.uid]).first
             else { throw ProviderError.notFound }
-            return data
+            return content.raw
         }
     }
 

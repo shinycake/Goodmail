@@ -207,10 +207,13 @@ public final class ThreadViewModel {
         navigate(.move([thread.id], from: mailbox))
     }
 
-    /// Replies to the newest message.
-    public func reply(all: Bool) {
-        guard let message = latestSent else { return }
-        navigate(.compose(Draft.reply(to: message, all: all, accountEmail: accountEmail, wording: .localized)))
+    /// Opens the composer with `answer`'s draft: replies and forwards answer the newest message that went, never an
+    /// unsent draft.
+    public func answer(_ answer: Answer) {
+        guard let draft = answer.draft(answering: messages, accountEmail: accountEmail, wording: .localized) else {
+            return
+        }
+        navigate(.compose(draft))
     }
 
     /// Sends a reply typed in the chat's field: to everyone on the newest message, like a reply in a group chat.
@@ -232,11 +235,6 @@ public final class ThreadViewModel {
         return reply
     }
 
-    public func forward() {
-        guard let message = latestSent else { return }
-        navigate(.compose(Draft.forward(message, wording: .localized)))
-    }
-
     /// The newest message when it is a draft not yet sent, which the reader finishes rather than answers.
     public var draft: Message? {
         messages.last.flatMap { $0.labelIDs.contains(SystemLabel.draft) ? $0 : nil }
@@ -247,7 +245,7 @@ public final class ThreadViewModel {
         navigate(.compose(Draft.editing(draft)))
     }
 
-    /// Replies and forwards answer the newest message that went, never an unsent draft.
+    /// The chat answers the newest message that went, never an unsent draft.
     private var latestSent: Message? {
         messages.last { !$0.labelIDs.contains(SystemLabel.draft) }
     }

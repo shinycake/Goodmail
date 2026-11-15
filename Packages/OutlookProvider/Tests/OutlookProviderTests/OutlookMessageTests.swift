@@ -47,12 +47,22 @@ struct OutlookMessageTests {
         #expect(try await outlook.data(for: pdf, in: reply.id) == Data("%PDF-1.4\n".utf8))
     }
 
+    @Test func aMessageReadsWholeAsExchangeKeepsIt() async throws {
+        let outlook = try await OutlookClient.signedIn(to: FixtureGraph(Self.mailbox))
+        let reply = try await outlook.messages(inThread: "c1")[1]
+        let source = try await outlook.source(of: reply.id)
+        let pdf = try #require(reply.attachments.first)
+        #expect(MIMEPart(parsing: source).part(withID: pdf.id)?.data == Data("%PDF-1.4\n".utf8))
+        #expect(String(decoding: source, as: UTF8.self).contains("Message-ID: <m3@example.com>"))
+    }
+
     @Test func aGoneConversationOrAttachmentIsNotFound() async throws {
         let outlook = try await OutlookClient.signedIn(to: FixtureGraph(Self.mailbox))
         await #expect(throws: ProviderError.notFound) { try await outlook.messages(inThread: "gone") }
         let gone = Message.ID(accountID: AccountID(rawValue: "o1"), messageID: "AAGone")
         let attachment = Attachment(id: "2", filename: "menu.pdf", mimeType: "application/pdf", size: 9)
         await #expect(throws: ProviderError.notFound) { try await outlook.data(for: attachment, in: gone) }
+        await #expect(throws: ProviderError.notFound) { try await outlook.source(of: gone) }
     }
 
     @Test func aMessageDeletedSinceTheListingIsLeftOut() async throws {

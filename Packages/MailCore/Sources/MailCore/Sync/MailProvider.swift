@@ -25,6 +25,10 @@ public protocol MailProvider: Sendable {
     /// The content of an attachment the provider didn't include with its message.
     func data(for attachment: Attachment, in message: Message.ID) async throws -> Data
 
+    /// The message as the RFC 5322 bytes the service keeps, to attach it whole. Throws `ProviderError.notFound` when
+    /// it is gone.
+    func source(of message: Message.ID) async throws -> Data
+
     /// Applies `action` to every message in the thread. Throws `ProviderError.notFound` when the thread is gone.
     func perform(_ action: ThreadAction, onThread threadID: String) async throws
 

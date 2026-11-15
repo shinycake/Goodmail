@@ -160,6 +160,12 @@ final class FakeMailServer: SignatureSyncing {
         guard let token = attachment.fetchToken else { throw ProviderError.notFound }
         return Data("\(message.messageID)/\(token)".utf8)
     }
+
+    /// A short RFC 5322 message naming the message; one whose ID begins `gone` is gone.
+    func source(of message: Message.ID) async throws -> Data {
+        guard !message.messageID.hasPrefix("gone") else { throw ProviderError.notFound }
+        return Data("Message-ID: <\(message.messageID)@example.com>\r\n\r\nHello\r\n".utf8)
+    }
 }
 
 extension FakeMailServer {

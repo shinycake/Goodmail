@@ -312,6 +312,23 @@
         }
       }
     },
+    "Forwarded file: untitled" : {
+      "comment" : "The file name of a message forwarded as an attachment when it has no subject",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Message"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הודעה"
+          }
+        }
+      }
+    },
     "From:" : {
       "comment" : "Compose field label",
       "localizations" : {

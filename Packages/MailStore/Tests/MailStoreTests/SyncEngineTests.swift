@@ -340,6 +340,7 @@ private struct DeviceSignatures: MailProvider {
     func data(for attachment: MailCore.Attachment, in message: Message.ID) async throws -> Data {
         try await server.data(for: attachment, in: message)
     }
+    func source(of message: Message.ID) async throws -> Data { try await server.source(of: message) }
     func perform(_ action: ThreadAction, onThread threadID: String) async throws {
         try await server.perform(action, onThread: threadID)
     }
