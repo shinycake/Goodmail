@@ -2,8 +2,10 @@ import Foundation
 import MailCore
 
 /// An action the reader can place on a side of a mailbox row.
-nonisolated public enum SwipeChoice: String, CaseIterable, Sendable {
+nonisolated public enum SwipeChoice: String, CaseIterable, Identifiable, Sendable {
     case read, star, archive, snooze, trash, spam
+
+    public var id: Self { self }
 
     /// What this choice does to `thread`, or `nil` where it means nothing there. Archive takes the thread out of the
     /// way where it is: out of the Inbox, out of Spam back to the Inbox, or out of Trash. Trash deletes a thread
@@ -62,8 +64,14 @@ extension SwipeChoice {
 /// Which actions sit on each side of a mailbox row, edge-most first. A full swipe fires the first. Each choice sits
 /// on one side at most, and a side holds at most `capacity`, so a full swipe still has room past the buttons.
 nonisolated public struct SwipeArrangement: Equatable, Sendable {
-    public enum Side: CaseIterable, Sendable {
+    public enum Side: CaseIterable, Hashable, Sendable {
         case leading, trailing
+    }
+
+    /// Where a choice can sit: on a side of the row, or set aside with the unused ones.
+    public enum Shelf: Hashable, Sendable {
+        case side(Side)
+        case unused
     }
 
     public static let capacity = 3
@@ -100,29 +108,21 @@ nonisolated public struct SwipeArrangement: Equatable, Sendable {
         self[side].count < Self.capacity
     }
 
-    /// Puts `choice` last on `side`, taking it off the other side. Does nothing when `side` is full.
-    public mutating func add(_ choice: SwipeChoice, to side: Side) {
-        guard hasRoom(on: side), !self[side].contains(choice) else { return }
-        leading.removeAll { $0 == choice }
-        trailing.removeAll { $0 == choice }
-        update(side) { $0.append(choice) }
-    }
-
-    /// Takes the choices at `offsets` off `side`.
-    public mutating func remove(at offsets: IndexSet, from side: Side) {
-        update(side) { choices in
-            choices = choices.enumerated().filter { !offsets.contains($0.offset) }.map(\.element)
+    /// Puts `choices` on `shelf` in their order, before `anchor` or last, taking them off wherever they sat: one
+    /// move covers adding, reordering, crossing sides and setting aside. Changes nothing when it would overfill a side,
+    /// or when the choices are dropped before one of themselves.
+    public mutating func move(_ choices: [SwipeChoice], to shelf: Shelf, before anchor: SwipeChoice? = nil) {
+        if let anchor, choices.contains(anchor) { return }
+        var moved = self
+        moved.leading.removeAll(where: choices.contains)
+        moved.trailing.removeAll(where: choices.contains)
+        if case .side(let side) = shelf {
+            var placed = moved[side]
+            placed.insert(contentsOf: choices, at: anchor.flatMap(placed.firstIndex) ?? placed.endIndex)
+            guard placed.count <= Self.capacity else { return }
+            moved.update(side) { $0 = placed }
         }
-    }
-
-    /// Moves the choices at `offsets` on `side` to before the one at `destination`, as a list's reordering does.
-    public mutating func move(from offsets: IndexSet, to destination: Int, on side: Side) {
-        update(side) { choices in
-            let moving = offsets.map { choices[$0] }
-            let target = destination - offsets.count { $0 < destination }
-            choices = choices.enumerated().filter { !offsets.contains($0.offset) }.map(\.element)
-            choices.insert(contentsOf: moving, at: min(max(0, target), choices.count))
-        }
+        self = moved
     }
 
     /// The swipes `side` shows for `thread`, edge-most first: each choice's swipe where it means something there.
