@@ -73,12 +73,13 @@ public struct ChatTranscript: Equatable, Sendable {
     /// New words longer than this make a letter, not a bubble.
     static let longestBubble = 1000
 
-    /// Unsent drafts are left out: they are the reader's to finish, not part of the conversation yet.
-    public init(messages: [Message], accountEmail: String) {
+    /// Unsent drafts are left out: they are the reader's to finish, not part of the conversation yet. Mine are the
+    /// messages the account sent, from its own address or one of its `aliases`.
+    public init(messages: [Message], accountEmail: String, aliases: [Contact] = []) {
         let sent = messages.filter { !$0.labelIDs.contains(SystemLabel.draft) }
+        let addresses = Set(([accountEmail] + aliases.map(\.address)).map { $0.lowercased() })
         let isMine = { (message: Message) in
-            message.labelIDs.contains(SystemLabel.sent)
-                || message.from.address.caseInsensitiveCompare(accountEmail) == .orderedSame
+            message.labelIDs.contains(SystemLabel.sent) || addresses.contains(message.from.address.lowercased())
         }
         let byInternetID = Dictionary(
             sent.compactMap { message in message.internetMessageID.map { ($0, message) } },
@@ -108,7 +109,7 @@ public struct ChatTranscript: Equatable, Sendable {
         self.entries = entries
 
         // Me is the account, and any address it sent from, such as an alias.
-        let me = Set(([accountEmail] + sent.filter(isMine).map(\.from.address)).map { $0.lowercased() })
+        let me = addresses.union(sent.filter(isMine).map { $0.from.address.lowercased() })
         var seen = me
         others = sent.flatMap { [$0.from] + $0.to + $0.cc }.filter { seen.insert($0.address.lowercased()).inserted }
     }

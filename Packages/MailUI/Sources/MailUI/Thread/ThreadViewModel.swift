@@ -70,7 +70,7 @@ public final class ThreadViewModel {
         self.trustedSenders = trustedSenders
         trustedAddresses = Set(trustedSenders.addresses)
         self.layout = layout
-        transcript = ChatTranscript(messages: [], accountEmail: accountEmail)
+        transcript = ChatTranscript(messages: [], accountEmail: accountEmail, aliases: accountAliases)
         self.actions = actions
         self.navigate = navigate
         self.close = close
@@ -101,7 +101,8 @@ public final class ThreadViewModel {
         do {
             for try await messages in stream() {
                 if expanded.isEmpty { expanded = Self.initiallyExpanded(messages) }
-                let transcript = await Self.transcript(of: messages, accountEmail: accountEmail)
+                let transcript = await Self.transcript(
+                    of: messages, accountEmail: accountEmail, aliases: accountAliases)
                 self.messages = messages
                 self.transcript = transcript
                 if !messages.isEmpty, mailbox.contains(thread) {
@@ -136,8 +137,10 @@ public final class ThreadViewModel {
 
     /// Reading the bodies for their new words parses every message, so it stays off the main actor.
     @concurrent
-    nonisolated static func transcript(of messages: [Message], accountEmail: String) async -> ChatTranscript {
-        ChatTranscript(messages: messages, accountEmail: accountEmail)
+    nonisolated static func transcript(of messages: [Message], accountEmail: String, aliases: [Contact]) async
+        -> ChatTranscript
+    {
+        ChatTranscript(messages: messages, accountEmail: accountEmail, aliases: aliases)
     }
 
     /// Reads this conversation the other way, without changing the layout others open in.

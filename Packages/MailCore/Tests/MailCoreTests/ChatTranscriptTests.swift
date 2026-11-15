@@ -46,6 +46,15 @@ struct ChatTranscriptTests {
         #expect(!chat.isGroup, "an alias is me, not another person")
     }
 
+    @Test func mailFromAnAliasIsMineWithoutTheSentLabel() {
+        let alias = Contact(name: "Me at Work", address: "Me@Work.example")
+        let chat = ChatTranscript(
+            messages: [message("1", from: dana, minutes: 0), message("2", from: alias, to: [dana], minutes: 1)],
+            accountEmail: "me@example.com", aliases: [Contact(name: nil, address: "me@work.example")])
+        #expect(runs(chat).map(\.side) == [.theirs, .mine])
+        #expect(chat.others == [dana], "the alias is me, not another person")
+    }
+
     @Test func aLongPauseStartsANewRunUnderATimestamp() {
         let chat = transcript([message("1", from: dana, minutes: 0), message("2", from: dana, minutes: 90)])
         #expect(chat.entries.count == 4)
