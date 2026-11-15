@@ -299,6 +299,13 @@ public final class MailDatabase: Sendable {
                 table.column("messageID", .text).notNull()
             }
         }
+        migrator.registerMigration("v25-contact-photos") { db in
+            try db.alter(table: "addressBook") { table in table.add(column: "photoURL", .text) }
+            // Senders' photos are looked up by address alone, across the accounts.
+            try db.execute(sql: "CREATE INDEX addressBookPhoto ON addressBook (address) WHERE photoURL IS NOT NULL")
+            // Address books fetched before photos were read are fetched again on the next sync.
+            try db.execute(sql: "UPDATE addressBook SET fetchedAt = ?", arguments: [Date.distantPast])
+        }
         return migrator
     }
 }

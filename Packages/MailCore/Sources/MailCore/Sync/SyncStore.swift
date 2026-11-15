@@ -95,10 +95,13 @@ public struct StoreChanges: Sendable {
 /// The people an account keeps contacts for, as fetched at one time.
 public struct AddressBook: Equatable, Sendable {
     public var contacts: [Contact]
+    /// The profile photos the service keeps for some of `contacts`, by lowercased address.
+    public var photos: [String: URL]
     public var fetchedAt: Date
 
-    public init(contacts: [Contact], fetchedAt: Date) {
+    public init(contacts: [Contact], photos: [String: URL] = [:], fetchedAt: Date) {
         self.contacts = contacts
+        self.photos = photos
         self.fetchedAt = fetchedAt
     }
 }

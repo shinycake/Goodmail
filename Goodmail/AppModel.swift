@@ -24,7 +24,7 @@ final class AppModel {
     /// How each account's syncs are going, for the mailbox lists to tell the reader of a problem.
     let health = AccountHealthBoard()
     /// Senders' photos and logos for the mail screens.
-    let senderPictures = SenderPictures.contactsThenLogos()
+    let senderPictures: SenderPictures
     private let senders: Senders
     /// Keeps each account's push subscription current; `nil` when the build names no push relay.
     let pushRegistrar: PushRegistrar?
@@ -45,6 +45,7 @@ final class AppModel {
     /// `pushRelay` is where accounts subscribe to push; `nil` keeps alerts off, as in synthetic mailboxes.
     init(database: MailDatabase, pushRelay: URL? = PushConfiguration.relayURL) throws {
         self.database = database
+        senderPictures = .cached(with: database)
         accounts = try database.accounts()
         pushRegistrar = pushRelay.map {
             PushRegistrar(relay: PushRelayClient(baseURL: $0), store: database)

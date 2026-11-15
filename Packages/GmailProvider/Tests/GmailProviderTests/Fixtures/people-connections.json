@@ -3,7 +3,8 @@
     {
       "resourceName": "people/c1",
       "names": [{ "displayName": "Dana Levi" }],
-      "emailAddresses": [{ "value": "dana@example.com" }, { "value": "dana@work.example" }]
+      "emailAddresses": [{ "value": "dana@example.com" }, { "value": "dana@work.example" }],
+      "photos": [{ "url": "https://lh3.googleusercontent.com/a-/dana=s100" }]
     },
     { "resourceName": "people/c2", "names": [{ "displayName": "No Email" }] }
   ],

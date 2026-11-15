@@ -314,6 +314,14 @@ struct SyncEngineTests {
         #expect(try database.contacts(matching: "dana") == [dana], "the last address book stays")
     }
 
+    @Test func theAddressBookKeepsTheServicesPhotos() async throws {
+        let photo = URL(string: "https://lh3.googleusercontent.com/a/dana=s160")!
+        server.setContacts(
+            [Contact(name: "Dana Levi", address: "dana@example.com")], photos: ["dana@example.com": photo])
+        try await engine().sync()
+        #expect(try database.photoURL(for: "dana@example.com") == photo)
+    }
+
     @Test func backfillSkipsAnotherAccountsLabel() async throws {
         seed(thread("t", daysAgo: 200, labels: ["Label_1"]))
         let other = Mailbox(labelID: "Label_1", accountID: AccountID(rawValue: "someone-else"))

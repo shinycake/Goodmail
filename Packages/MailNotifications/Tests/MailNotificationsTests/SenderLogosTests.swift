@@ -9,7 +9,7 @@ import UniformTypeIdentifiers
 
 struct SenderLogosTests {
     @Test func aFetchedLogoIsCachedForAMonth() async throws {
-        let site = FakeSite(image: png(side: 120))
+        let site = FakeSite(image: FakeSite.png(side: 120))
         let clock = Clock()
         let logos = SenderLogos(directory: try temporaryDirectory(), http: site, dns: FakeDNS(), now: { clock.now })
 
@@ -24,7 +24,7 @@ struct SenderLogosTests {
     }
 
     @Test func aSiteWithoutAUsableLogoIsAskedAgainOnlyAfterAWeek() async throws {
-        let site = FakeSite(image: png(side: 16))
+        let site = FakeSite(image: FakeSite.png(side: 16))
         let clock = Clock()
         let logos = SenderLogos(directory: try temporaryDirectory(), http: site, dns: FakeDNS(), now: { clock.now })
 
@@ -56,7 +56,7 @@ struct SenderLogosTests {
     }
 
     @Test func aDomainThatDeclinesBIMIFallsBackToItsSiteIcon() async throws {
-        let site = FakeSite(image: png(side: 120))
+        let site = FakeSite(image: FakeSite.png(side: 120))
         let dns = FakeDNS(["default._bimi.example.com": ["v=BIMI1; l=; a=;"]])
         let logos = SenderLogos(directory: try temporaryDirectory(), http: site, dns: dns)
 
@@ -65,7 +65,7 @@ struct SenderLogosTests {
     }
 
     @Test func freeMailIsNeverLookedUp() async throws {
-        let site = FakeSite(image: png(side: 120))
+        let site = FakeSite(image: FakeSite.png(side: 120))
         let logos = SenderLogos(directory: try temporaryDirectory(), http: site, dns: FakeDNS())
         #expect(await logos.logo(for: "someone@icloud.com") == nil)
         #expect(site.urls.isEmpty)
@@ -76,41 +76,12 @@ struct SenderLogosTests {
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }
-
-    private func png(side: Int) -> Data {
-        let context = CGContext(
-            data: nil, width: side, height: side, bitsPerComponent: 8, bytesPerRow: 0,
-            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
-        context.setFillColor(red: 0.2, green: 0.4, blue: 0.9, alpha: 1)
-        context.fill(CGRect(x: 0, y: 0, width: side, height: side))
-        let data = NSMutableData()
-        let destination = CGImageDestinationCreateWithData(data, UTType.png.identifier as CFString, 1, nil)!
-        CGImageDestinationAddImage(destination, context.makeImage()!, nil)
-        CGImageDestinationFinalize(destination)
-        return data as Data
-    }
 }
 
 private final class Clock: Sendable {
     private let date = Mutex(Date(timeIntervalSince1970: 1_800_000_000))
     var now: Date { date.withLock { $0 } }
     func advance(by seconds: TimeInterval) { date.withLock { $0.addTimeInterval(seconds) } }
-}
-
-private final class FakeSite: HTTPClient {
-    private let image: Data
-    private let requested = Mutex<[String]>([])
-
-    init(image: Data) {
-        self.image = image
-    }
-
-    var urls: [String] { requested.withLock { $0 } }
-
-    func data(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
-        requested.withLock { $0.append(request.url!.absoluteString) }
-        return (image, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
-    }
 }
 
 private final class FakeDNS: TXTResolving {

@@ -180,9 +180,16 @@ public actor SyncEngine {
         let last = [try store.addressBookDate(for: accountID), addressBookAttempt].compactMap(\.self).max()
         if let last, started.timeIntervalSince(last) < Self.addressBookAge { return }
         addressBookAttempt = started
-        guard let contacts = try? await provider.contacts() else { return }
-        try store.apply(
-            StoreChanges(accountID: accountID, addressBook: AddressBook(contacts: contacts, fetchedAt: started)))
+        guard let book = try? await Self.addressBook(from: provider, fetchedAt: started) else { return }
+        try store.apply(StoreChanges(accountID: accountID, addressBook: book))
+    }
+
+    private static func addressBook(from provider: any MailProvider, fetchedAt: Date) async throws -> AddressBook {
+        guard let service = provider as? any ContactPhotoSyncing else {
+            return AddressBook(contacts: try await provider.contacts(), fetchedAt: fetchedAt)
+        }
+        let listed = try await service.contactsWithPhotos()
+        return AddressBook(contacts: listed.contacts, photos: listed.photos, fetchedAt: fetchedAt)
     }
 
     private func startResync() async throws -> Resync {

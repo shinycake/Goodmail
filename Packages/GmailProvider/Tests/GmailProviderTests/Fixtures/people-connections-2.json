@@ -1,6 +1,11 @@
 {
   "connections": [
-    { "resourceName": "people/c3", "names": [{ "displayName": "יעל כהן" }], "emailAddresses": [{ "value": "yael@example.co.il" }] }
+    {
+      "resourceName": "people/c3",
+      "names": [{ "displayName": "יעל כהן" }],
+      "emailAddresses": [{ "value": "yael@example.co.il" }],
+      "photos": [{ "url": "https://lh3.googleusercontent.com/cm/yael=s100", "default": true }]
+    }
   ],
   "totalPeople": 3
 }

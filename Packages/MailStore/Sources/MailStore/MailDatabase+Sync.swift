@@ -47,9 +47,13 @@ extension MailDatabase: SyncStore {
                     // A person listed twice keeps the first name given.
                     try db.execute(
                         sql: """
-                            INSERT OR IGNORE INTO addressBook (accountID, address, name, fetchedAt) VALUES (?, ?, ?, ?)
+                            INSERT OR IGNORE INTO addressBook (accountID, address, name, photoURL, fetchedAt)
+                            VALUES (?, ?, ?, ?, ?)
                             """,
-                        arguments: [account, contact.address, contact.name, book.fetchedAt])
+                        arguments: [
+                            account, contact.address, contact.name, book.photos[contact.address.lowercased()],
+                            book.fetchedAt,
+                        ])
                 }
             }
             if let sweep = changes.sweep {

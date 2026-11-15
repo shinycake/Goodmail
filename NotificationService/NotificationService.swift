@@ -23,7 +23,7 @@ final class NotificationService: UNNotificationServiceExtension {
         guard let target = NewMailFetch.target(in: userInfo) else { return delivery.expire() }
         Task { @concurrent in
             do {
-                let fetch = try Self.fetch()
+                let (fetch, pictures) = try Self.fetch()
                 let outcome = try await fetch.run(target)
                 do {
                     let badge = try fetch.badgeCount()
@@ -32,7 +32,7 @@ final class NotificationService: UNNotificationServiceExtension {
                 } catch {
                     Logger.push.error("Couldn't set the badge after a push: \(error, privacy: .public)")
                 }
-                await delivery.finish(with: outcome)
+                await delivery.finish(with: outcome, pictures: pictures)
             } catch {
                 Logger.push.error("Couldn't fetch the new mail: \(error, privacy: .public)")
                 delivery.expire()
@@ -44,10 +44,12 @@ final class NotificationService: UNNotificationServiceExtension {
         delivery.withLock { $0 }?.expire()
     }
 
-    private static func fetch() throws -> NewMailFetch {
+    /// The fetch, and senders' pictures from the cache the app shares.
+    private static func fetch() throws -> (NewMailFetch, SenderPictureSources) {
         guard let directory = SharedContainer.directoryURL else { throw CocoaError(.fileNoSuchFile) }
         let database = try MailDatabase(url: directory.appending(path: "Mail/mail.sqlite"))
-        return NewMailFetch(database: database) { account in
+        let pictures = SenderPictureSources(directory: directory.appending(path: "SenderPictures"), database: database)
+        let fetch = NewMailFetch(database: database) { account in
             switch account.service {
             case .gmail: GmailClient(session: OAuthSession(accountID: account.id, client: .gmail, keychain: Keychain()))
             case .outlook:
@@ -58,6 +60,7 @@ final class NotificationService: UNNotificationServiceExtension {
             case .icloud, .imap: throw NewMailFetch.Failure.unknownAccount
             }
         }
+        return (fetch, pictures)
     }
 }
 
@@ -79,21 +82,18 @@ private final class Delivery: @unchecked Sendable {
         state = OSAllocatedUnfairLock(uncheckedState: .waiting(fallback: fallback, handler: handler))
     }
 
-    func finish(with outcome: NewMailFetch.Outcome) async {
+    func finish(with outcome: NewMailFetch.Outcome, pictures: SenderPictureSources) async {
         switch outcome {
         case .alerts(let mail, let account):
             guard let newest = mail.first else { return expire() }
-            let logos = SharedContainer.directoryURL.map {
-                SenderLogos(directory: $0.appending(path: "SenderPictures"))
-            }
             // The push shows the newest; each other thread gets its own alert, posted before the push's lands.
             for other in mail.dropFirst() {
-                let content = await SenderAlert.content(for: other, in: account, logos: logos)
+                let content = await SenderAlert.content(for: other, in: account, pictures: pictures)
                 let request = UNNotificationRequest(
                     identifier: NewMailAlert.identifier(for: other.thread.id), content: content, trigger: nil)
                 try? await UNUserNotificationCenter.current().add(request)
             }
-            let alert = await SenderAlert.content(for: newest, in: account, logos: logos)
+            let alert = await SenderAlert.content(for: newest, in: account, pictures: pictures)
             deliver { _ in alert }
         case .nothingNew:
             // One placeholder at a time: this one replaces any left from earlier pushes.

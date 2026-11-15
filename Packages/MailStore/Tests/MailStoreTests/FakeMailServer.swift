@@ -35,6 +35,7 @@ final class FakeMailServer: SendAsSyncing {
         var failSignatureWrite: (any Error)?
         var onSignatureRead: (@Sendable () async -> Void)?
         var contacts: [Contact]? = []
+        var photos: [String: URL] = [:]
         var contactRequests = 0
         var drafts: [String: (raw: Data, threadID: String?)] = [:]
         var nextDraft = 1
@@ -349,7 +350,12 @@ extension FakeMailServer {
     var drafts: [String: (raw: Data, threadID: String?)] { state.withLock { $0.drafts } }
 }
 
-extension FakeMailServer {
+extension FakeMailServer: ContactPhotoSyncing {
+    func contactsWithPhotos() async throws -> (contacts: [Contact], photos: [String: URL]) {
+        let contacts = try await contacts()
+        return (contacts, state.withLock { $0.photos })
+    }
+
     /// Fails like a People API that isn't enabled when `nil`.
     func contacts() async throws -> [Contact] {
         try state.withLock { state in
@@ -359,8 +365,11 @@ extension FakeMailServer {
         }
     }
 
-    func setContacts(_ contacts: [Contact]?) {
-        state.withLock { $0.contacts = contacts }
+    func setContacts(_ contacts: [Contact]?, photos: [String: URL] = [:]) {
+        state.withLock {
+            $0.contacts = contacts
+            $0.photos = photos
+        }
     }
 
     var contactRequests: Int { state.withLock(\.contactRequests) }

@@ -1,5 +1,9 @@
 {
   "otherContacts": [
-    { "resourceName": "otherContacts/o1", "emailAddresses": [{ "value": "billing@shop.example" }] }
+    {
+      "resourceName": "otherContacts/o1",
+      "emailAddresses": [{ "value": "Billing@Shop.example" }],
+      "photos": [{ "url": "https://lh3.googleusercontent.com/a/billing" }]
+    }
   ]
 }
