@@ -1,0 +1,142 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Delete" : {
+      "comment" : "Deletes a failed chat reply",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחק"
+          }
+        }
+      }
+    },
+    "Edit" : {
+      "comment" : "Opens a scheduled or failed chat reply in the composer",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ערוך"
+          }
+        }
+      }
+    },
+    "Hold to send later" : {
+      "comment" : "VoiceOver hint on the chat's Send button",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hold to send later"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "החזק כדי לשלוח מאוחר יותר"
+          }
+        }
+      }
+    },
+    "Move to Drafts" : {
+      "comment" : "Keeps a scheduled chat reply in Drafts instead of sending it",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move to Drafts"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העבר לטיוטות"
+          }
+        }
+      }
+    },
+    "Not Delivered" : {
+      "comment" : "Under a chat reply that failed to send",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not Delivered"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא נשלחה"
+          }
+        }
+      }
+    },
+    "Scheduled for %@" : {
+      "comment" : "Under a chat reply waiting to go; the argument is when",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scheduled for %@"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מתוזמן ל%@"
+          }
+        }
+      }
+    },
+    "Sending…" : {
+      "comment" : "Under a chat reply on its way",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sending…"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שולח…"
+          }
+        }
+      }
+    },
+    "Try Again" : {
+      "comment" : "Sends a failed chat reply again",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try Again"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נסה שוב"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

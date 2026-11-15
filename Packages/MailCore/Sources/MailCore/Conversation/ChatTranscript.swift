@@ -22,16 +22,45 @@ public struct ChatTranscript: Equatable, Sendable {
         public fileprivate(set) var bubbles: [Bubble]
     }
 
+    /// How far a bubble of mine got on its way. Every message synced into the conversation has gone.
+    public enum Delivery: Equatable, Sendable {
+        /// In its undo window, or being handed to the server.
+        case sending
+        /// Waiting under Scheduled until this time.
+        case scheduled(Date)
+        /// Failed for good, until the writer tries again, edits it or deletes it.
+        case failed(SendFailure)
+        case sent
+    }
+
     public struct Bubble: Identifiable, Equatable, Sendable {
+        /// Where a bubble's words come from: a synced message, or a reply still on its way.
+        public enum Origin: Hashable, Sendable {
+            case message(Message.ID)
+            case pending(Draft.ID)
+        }
+
         public struct ID: Hashable, Sendable {
-            public let message: Message.ID
+            public let origin: Origin
             /// The attachment the bubble shows, or nil for the message's words.
             public let attachment: Attachment.ID?
         }
 
-        public var id: ID { ID(message: message, attachment: content.attachment?.id) }
-        public let message: Message.ID
+        public var id: ID { ID(origin: origin, attachment: content.attachment?.id) }
+        public let origin: Origin
         public let content: Content
+        public let delivery: Delivery
+
+        init(origin: Origin, content: Content, delivery: Delivery = .sent) {
+            self.origin = origin
+            self.content = content
+            self.delivery = delivery
+        }
+
+        /// The synced message the bubble shows, or nil while it is still on its way.
+        public var message: Message.ID? {
+            if case .message(let id) = origin { id } else { nil }
+        }
     }
 
     public enum Content: Equatable, Sendable {
@@ -74,8 +103,9 @@ public struct ChatTranscript: Equatable, Sendable {
     static let longestBubble = 1000
 
     /// Unsent drafts are left out: they are the reader's to finish, not part of the conversation yet. Mine are the
-    /// messages the account sent, from its own address or one of its `aliases`.
-    public init(messages: [Message], accountEmail: String, aliases: [Contact] = []) {
+    /// messages the account sent, from its own address or one of its `aliases`. My `pending` replies follow the
+    /// synced messages, the ones that go now first and the scheduled ones last, without a timestamp of their own.
+    public init(messages: [Message], accountEmail: String, aliases: [Contact] = [], pending: [PendingReply] = []) {
         let sent = messages.filter { !$0.labelIDs.contains(SystemLabel.draft) }
         let addresses = Set(([accountEmail] + aliases.map(\.address)).map { $0.lowercased() })
         let isMine = { (message: Message) in
@@ -95,16 +125,18 @@ public struct ChatTranscript: Equatable, Sendable {
             let quote = parent.flatMap { parent in
                 parent.id == previous?.id ? nil : Self.quote(of: parent, side: isMine(parent) ? .mine : .theirs)
             }
-            let bubbles = Self.bubbles(for: message, replyingTo: quote)
-            if !paused, case .run(var run) = entries.last, run.side == side,
-                run.sender.address.caseInsensitiveCompare(message.from.address) == .orderedSame
-            {
-                run.bubbles += bubbles
-                entries[entries.count - 1] = .run(run)
-            } else {
-                entries.append(.run(Run(side: side, sender: message.from, bubbles: bubbles)))
-            }
+            Self.append(Self.bubbles(for: message, replyingTo: quote), from: message.from, side: side, to: &entries)
             previous = message
+        }
+        var last = previous?.date
+        for reply in pending {
+            if !reply.isScheduled {
+                if last.map({ reply.date.timeIntervalSince($0) >= Self.pause }) ?? true {
+                    entries.append(.timestamp(reply.date))
+                }
+                last = reply.date
+            }
+            Self.append(Self.bubbles(for: reply), from: reply.sender, side: .mine, to: &entries)
         }
         self.entries = entries
 
@@ -114,9 +146,33 @@ public struct ChatTranscript: Equatable, Sendable {
         others = sent.flatMap { [$0.from] + $0.to + $0.cc }.filter { seen.insert($0.address.lowercased()).inserted }
     }
 
+    /// Joins the run above when the same sender wrote it with no timestamp between, or starts a run.
+    private static func append(_ bubbles: [Bubble], from sender: Contact, side: Side, to entries: inout [Entry]) {
+        if case .run(var run) = entries.last, run.side == side,
+            run.sender.address.caseInsensitiveCompare(sender.address) == .orderedSame
+        {
+            run.bubbles += bubbles
+            entries[entries.count - 1] = .run(run)
+        } else {
+            entries.append(.run(Run(side: side, sender: sender, bubbles: bubbles)))
+        }
+    }
+
+    /// A reply on its way reads as what was typed, with each file it carries.
+    private static func bubbles(for reply: PendingReply) -> [Bubble] {
+        let segments = ReplyText(body: reply.draft.body).segments
+        let words: [Content] = segments.isEmpty ? [] : [.words(segments, replyingTo: nil)]
+        let files: [Content] = reply.draft.attachments.map { file in
+            .attachment(
+                Attachment(id: file.id.uuidString, filename: file.filename, mimeType: file.mimeType, size: file.size))
+        }
+        return (words + files).map { Bubble(origin: .pending(reply.id), content: $0, delivery: reply.delivery) }
+    }
+
     private static func bubbles(for message: Message, replyingTo quote: Quote?) -> [Bubble] {
+        let origin = Bubble.Origin.message(message.id)
         let files = message.attachments.filter { !$0.isInline }.map {
-            Bubble(message: message.id, content: .attachment($0))
+            Bubble(origin: origin, content: .attachment($0))
         }
         let reply = ReplyText(body: message.body)
         let words: Content?
@@ -129,7 +185,7 @@ public struct ChatTranscript: Equatable, Sendable {
         } else {
             words = nil
         }
-        return (words.map { [Bubble(message: message.id, content: $0)] } ?? []) + files
+        return (words.map { [Bubble(origin: origin, content: $0)] } ?? []) + files
     }
 
     /// Nested tables lay out newsletters and receipts, which read as pages, not as lines of a chat.

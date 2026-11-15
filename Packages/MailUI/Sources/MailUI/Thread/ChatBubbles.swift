@@ -110,7 +110,7 @@ final class ChatWordsBubble: UIView, UIContextMenuInteractionDelegate {
         let perform: () -> Void
     }
 
-    /// Copy, each link the words hold, the quoted message and the message in full.
+    /// Copy, each link the words hold, the quoted message and the message in full once there is one.
     private func actions() -> [Action] {
         var actions = [
             Action(
@@ -136,13 +136,16 @@ final class ChatWordsBubble: UIView, UIContextMenuInteractionDelegate {
                     symbol: "arrow.turn.left.up"
                 ) { [weak self] in self?.onShowQuoted?(quoted) })
         }
-        actions.append(
-            Action(
-                title: String(
-                    localized: "Show Full Message", table: "Thread", bundle: .module,
-                    comment: "Opens a bubble's whole email"),
-                symbol: "envelope.open"
-            ) { [weak self] in self?.onOpenFull?() })
+        // A reply still on its way has no message to open yet.
+        if onOpenFull != nil {
+            actions.append(
+                Action(
+                    title: String(
+                        localized: "Show Full Message", table: "Thread", bundle: .module,
+                        comment: "Opens a bubble's whole email"),
+                    symbol: "envelope.open"
+                ) { [weak self] in self?.onOpenFull?() })
+        }
         return actions
     }
 

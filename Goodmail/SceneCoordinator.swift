@@ -293,6 +293,7 @@ final class SceneCoordinator: NSObject {
             accountColor: account.color,
             messages: { model.database.messages(inThread: id) },
             pins: { model.database.pinnedThreads() },
+            outgoing: { model.database.outgoingMessages(inThread: id) },
             load: { try await model.open(id) },
             attachmentData: { try await model.attachmentData($0, in: $1) },
             actions: actions,

@@ -24,6 +24,8 @@ public final class ThreadViewController: UIViewController {
     /// Chat runs by their first bubble, which stays first as later messages join the run.
     private var runs: [ChatTranscript.Bubble.ID: ChatRunView] = [:]
     private var timestamps: [Date: ChatTimestampView] = [:]
+    /// My replies on their way that the chat has shown, so a new one scrolls the chat to it once.
+    private var shownReplies: Set<Draft.ID> = []
     private let layoutItem = UIBarButtonItem()
     /// The chat's message field and folded mail actions, in place of the toolbar while the chat layout shows.
     private let composer = ChatComposerBar()
@@ -142,17 +144,17 @@ public final class ThreadViewController: UIViewController {
         if atEnd { scrollToEnd() }
     }
 
-    private func scrollToEnd() {
+    private func scrollToEnd(animated: Bool = false) {
         let inset = scrollView.adjustedContentInset
         let end = max(-inset.top, scrollView.contentSize.height + inset.bottom - scrollView.bounds.height)
-        scrollView.setContentOffset(CGPoint(x: 0, y: end), animated: false)
+        scrollView.setContentOffset(CGPoint(x: 0, y: end), animated: animated)
     }
 
     private func configureComposer() {
         composer.presenter = self
         composer.setAccentColor(viewModel.accountColor.uiColor)
-        composer.onSend = { [weak self] text, attachments in
-            self?.viewModel.sendChatReply(text, attachments: attachments)
+        composer.onSend = { [weak self] text, attachments, time in
+            self?.viewModel.sendChatReply(text, attachments: attachments, at: time)
         }
         composer.onResize = { [weak self] in self?.view.setNeedsLayout() }
         composer.translatesAutoresizingMaskIntoConstraints = false
@@ -283,6 +285,20 @@ public final class ThreadViewController: UIViewController {
             arranged.forEach(stack.addArrangedSubview)
         }
         scrollToFocusOnce()
+        followNewReplies()
+    }
+
+    /// A reply just sent rises at the end of the chat, so the chat scrolls down to it.
+    private func followNewReplies() {
+        let replies = Set(
+            viewModel.transcript.entries.flatMap { entry -> [Draft.ID] in
+                guard case .run(let run) = entry else { return [] }
+                return run.bubbles.compactMap { if case .pending(let id) = $0.origin { id } else { nil } }
+            })
+        defer { shownReplies = replies }
+        guard viewModel.layout == .chat, !replies.isSubset(of: shownReplies) else { return }
+        view.layoutIfNeeded()
+        scrollToEnd(animated: !UIAccessibility.isReduceMotionEnabled)
     }
 
     /// The banner offering to leave the conversation's mailing list, when it came from one.
@@ -346,7 +362,12 @@ public final class ThreadViewController: UIViewController {
                 self?.open(attachment, in: message, loading: loading)
             },
             showQuoted: { [weak self] in self?.scroll(to: $0, animated: true) },
-            openURL: openURL)
+            openURL: openURL,
+            pending: ChatDeliveryView.Actions(
+                retry: { [weak self] in self?.viewModel.retry($0) },
+                edit: { [weak self] in self?.viewModel.edit($0) },
+                discard: { [weak self] in self?.viewModel.discard($0) },
+                moveToDrafts: { [weak self] in self?.viewModel.moveToDrafts($0) }))
         let times = Dictionary(
             viewModel.messages.map { ($0.id, viewModel.timestampText(for: $0.date)) },
             uniquingKeysWith: { first, _ in first })

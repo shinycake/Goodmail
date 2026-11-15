@@ -30,6 +30,9 @@ public final class MailActions {
     public private(set) var error: (any Error)?
     @ObservationIgnored private let commands: MailCommands
     @ObservationIgnored private var lastUndo: Undo?
+    /// Messages the writer took back out of the queue (undo, edit, delete), so a conversation tells a reply taken
+    /// back from one that went. Each is added before the queue drops it.
+    @ObservationIgnored private(set) var takenBack: Set<Draft.ID> = []
     /// Applies the actions in the order they were asked for (`run`).
     @ObservationIgnored private let chain = TaskChain()
     @ObservationIgnored private let toastDuration: Duration
@@ -107,6 +110,7 @@ public final class MailActions {
             case .actions(let undo):
                 try await commands.undo(undo)
             case .send(let id):
+                takenBack.insert(id)
                 if let draft = try await commands.cancelSend(id) { reopen?(draft) }
             }
         }
@@ -158,6 +162,7 @@ public final class MailActions {
     /// Takes a scheduled message back into the composer, out of the queue until it is sent again.
     public func editScheduled(_ id: Draft.ID) {
         run { [self] commands in
+            takenBack.insert(id)
             if let draft = try await commands.cancelSend(id) { reopen?(draft) }
         }
     }
@@ -175,6 +180,7 @@ public final class MailActions {
     /// Forgets a message that failed to send. With `edit`, opens its draft in the composer again.
     public func discardSend(_ message: OutgoingMessage, edit: Bool = false) {
         run { [self] commands in
+            takenBack.insert(message.id)
             try await commands.discardSend(message.id)
             if edit { reopen?(message.draft) }
         }

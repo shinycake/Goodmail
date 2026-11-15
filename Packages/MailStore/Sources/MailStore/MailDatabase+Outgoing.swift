@@ -165,6 +165,17 @@ extension MailDatabase: OutgoingStore {
         }
     }
 
+    /// Everything queued to go in one conversation, whatever its purpose and however far it got, in the order it
+    /// goes. The thread lives inside each draft, so the account's queue, a handful of rows, is read and filtered.
+    /// Emits now and after every change.
+    public func outgoingMessages(inThread thread: ThreadSummary.ID) -> AsyncThrowingStream<[OutgoingMessage], any Error>
+    {
+        observe { db in
+            try Self.outgoing(db, sql: "WHERE accountID = ? ORDER BY sendAt", arguments: [thread.accountID.rawValue])
+                .filter { $0.draft.threadID == thread.threadID }
+        }
+    }
+
     /// The earliest time a waiting message falls due, in any account.
     public func nextSendDate() throws -> Date? {
         try pool.read { db in

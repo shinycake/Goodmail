@@ -30,13 +30,24 @@ public final class ThreadViewModel {
     public private(set) var presence: Presence = .reading
     /// How this conversation reads. It opens in the reader's chosen layout, and the toolbar switches it.
     public private(set) var layout: ConversationLayout
-    /// The messages as chat bubbles, worked out off the main actor each time they change.
+    /// The messages as chat bubbles, with my replies still on their way at the end, worked out off the main actor
+    /// each time either changes.
     public private(set) var transcript: ChatTranscript
+    /// My replies to this conversation still on their way, kept up to date as each change arrives; the transcript
+    /// shows them.
+    @ObservationIgnored private var pending = PendingReplies()
     /// Whether the thread is pinned to the top of its lists.
     public private(set) var isPinned = false
 
     @ObservationIgnored private let stream: () -> AsyncThrowingStream<[Message], any Error>
     @ObservationIgnored private let pins: () -> AsyncThrowingStream<Set<ThreadSummary.ID>, any Error>
+    @ObservationIgnored private let outgoing: () -> AsyncThrowingStream<[OutgoingMessage], any Error>
+    /// The conversation's messages and outgoing queue as last read; `messages` shows them once the transcript is
+    /// worked out.
+    @ObservationIgnored private var received: [Message] = []
+    @ObservationIgnored private var queue: [OutgoingMessage] = []
+    /// Counts transcript requests, so one worked out for older messages or an older queue never replaces a newer one.
+    @ObservationIgnored private var transcriptRequest = 0
     @ObservationIgnored private let loadAction: () async throws -> Void
     @ObservationIgnored let attachmentData: (Attachment, Message.ID) async throws -> Data
     @ObservationIgnored private let actions: MailActions?
@@ -56,6 +67,9 @@ public final class ThreadViewModel {
         accountColor: AccountColor,
         messages: @escaping () -> AsyncThrowingStream<[Message], any Error>,
         pins: @escaping () -> AsyncThrowingStream<Set<ThreadSummary.ID>, any Error> = { AsyncThrowingStream { _ in } },
+        outgoing: @escaping () -> AsyncThrowingStream<[OutgoingMessage], any Error> = {
+            AsyncThrowingStream { $0.finish() }
+        },
         load: @escaping () async throws -> Void,
         attachmentData: @escaping (Attachment, Message.ID) async throws -> Data,
         actions: MailActions? = nil,
@@ -82,6 +96,7 @@ public final class ThreadViewModel {
         self.accountColor = accountColor
         stream = messages
         self.pins = pins
+        self.outgoing = outgoing
         loadAction = load
         self.attachmentData = attachmentData
         self.now = now
@@ -98,13 +113,12 @@ public final class ThreadViewModel {
         // Children of the observation, so leaving the thread cancels the fetch and the pins with it.
         async let loading: Void = load()
         async let pinning: Void = followPins()
+        async let sending: Void = followQueue()
         do {
             for try await messages in stream() {
                 if expanded.isEmpty { expanded = Self.initiallyExpanded(messages) }
-                let transcript = await Self.transcript(
-                    of: messages, accountEmail: accountEmail, aliases: accountAliases)
-                self.messages = messages
-                self.transcript = transcript
+                received = messages
+                await updateTranscript()
                 if !messages.isEmpty, mailbox.contains(thread) {
                     var now = thread
                     now.labelIDs = messages.reduce(into: []) { $0.formUnion($1.labelIDs) }
@@ -116,6 +130,33 @@ public final class ThreadViewModel {
         }
         await loading
         await pinning
+        await sending
+    }
+
+    /// Follows the replies queued in this conversation, so each shows as a bubble from the moment it is sent.
+    private func followQueue() async {
+        do {
+            for try await queue in outgoing() {
+                self.queue = queue
+                await updateTranscript()
+            }
+        } catch {}
+    }
+
+    /// Works out the pending replies from what was received, then the transcript off the main actor, and shows
+    /// them with the messages at once, unless a newer request overtook this one meanwhile.
+    private func updateTranscript() async {
+        transcriptRequest += 1
+        let request = transcriptRequest
+        let messages = received
+        pending.update(
+            queue: queue, takenBack: actions?.takenBack ?? [], conversation: messages, accountEmail: accountEmail,
+            now: now())
+        let transcript = await Self.transcript(
+            of: messages, accountEmail: accountEmail, aliases: accountAliases, pending: pending.replies)
+        guard request == transcriptRequest else { return }
+        self.messages = messages
+        self.transcript = transcript
     }
 
     private func followPins() async {
@@ -137,10 +178,10 @@ public final class ThreadViewModel {
 
     /// Reading the bodies for their new words parses every message, so it stays off the main actor.
     @concurrent
-    nonisolated static func transcript(of messages: [Message], accountEmail: String, aliases: [Contact]) async
-        -> ChatTranscript
-    {
-        ChatTranscript(messages: messages, accountEmail: accountEmail, aliases: aliases)
+    nonisolated static func transcript(
+        of messages: [Message], accountEmail: String, aliases: [Contact], pending: [PendingReply]
+    ) async -> ChatTranscript {
+        ChatTranscript(messages: messages, accountEmail: accountEmail, aliases: aliases, pending: pending)
     }
 
     /// Reads this conversation the other way, without changing the layout others open in.
@@ -264,10 +305,38 @@ public final class ThreadViewModel {
         navigate(.compose(draft))
     }
 
-    /// Sends a reply typed in the chat's field: to everyone on the newest message, like a reply in a group chat.
-    public func sendChatReply(_ text: String, attachments: [DraftAttachment]) {
+    /// Sends a reply typed in the chat's field, now or at `time`: to everyone on the newest message, like a reply
+    /// in a group chat.
+    public func sendChatReply(_ text: String, attachments: [DraftAttachment], at time: SendTime = .now) {
         guard let reply = chatReply(text, attachments: attachments) else { return }
-        actions?.send(reply)
+        actions?.send(reply, at: time)
+    }
+
+    /// Sends a reply that failed again.
+    public func retry(_ id: Draft.ID) {
+        guard let message = queued(id) else { return }
+        actions?.retrySend(message)
+    }
+
+    /// Takes a failed or scheduled reply back into the composer.
+    public func edit(_ id: Draft.ID) {
+        guard let message = queued(id) else { return }
+        if message.failure == nil { actions?.editScheduled(id) } else { actions?.discardSend(message, edit: true) }
+    }
+
+    /// Forgets a reply that failed.
+    public func discard(_ id: Draft.ID) {
+        guard let message = queued(id) else { return }
+        actions?.discardSend(message)
+    }
+
+    /// Keeps a scheduled reply in Drafts instead of sending it.
+    public func moveToDrafts(_ id: Draft.ID) {
+        actions?.unschedule(id)
+    }
+
+    private func queued(_ id: Draft.ID) -> OutgoingMessage? {
+        queue.first { $0.id == id }
     }
 
     /// The chat reply as a draft: each line its own `dir=auto` paragraph, so Hebrew and English lines each read

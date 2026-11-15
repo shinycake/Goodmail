@@ -5,8 +5,9 @@ import UIKit
 /// glass button that unfolds the mail actions (archive, trash, snooze, reply all…) above the field and folds them
 /// away again. Everything sits in one glass container, so the tray grows out of its button as one piece of glass.
 final class ChatComposerBar: UIView, UITextViewDelegate {
-    /// Sends what was typed and attached. The bar clears itself afterwards.
-    var onSend: ((String, [DraftAttachment]) -> Void)?
+    /// Sends what was typed and attached, now or at the time picked by holding Send. The bar clears itself
+    /// afterwards.
+    var onSend: ((String, [DraftAttachment], SendTime) -> Void)?
     /// Tells the reader the bar's height changed, so the conversation keeps clear of it.
     var onResize: (() -> Void)?
 
@@ -229,6 +230,40 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
             sendButton.heightAnchor.constraint(equalToConstant: 36),
         ])
         sendButton.addAction(UIAction { [weak self] _ in self?.send() }, for: .primaryActionTriggered)
+        // Holding Send offers later times, as the composer's Send Later does.
+        sendButton.menu = UIMenu(children: [
+            UIDeferredMenuElement.uncached { [weak self] in $0(self?.sendLaterItems() ?? []) }
+        ])
+        sendButton.accessibilityHint = String(
+            localized: "Hold to send later", table: "ChatDelivery", bundle: .module,
+            comment: "VoiceOver hint on the chat's Send button")
+    }
+
+    /// The times on offer now, then a picker for any other.
+    private func sendLaterItems() -> [UIMenuElement] {
+        let title = String(
+            localized: "Send Later", table: "Compose", bundle: .module, comment: "Menu of times to send a message")
+        let choices = LaterTime.sendChoices(at: .now).map { choice in
+            UIAction(title: choice.title, image: UIImage(systemName: choice.symbol)) { [weak self] _ in
+                self?.send(at: .at(choice.date))
+            }
+        }
+        let pick = UIAction(
+            title: String(
+                localized: "Choose a Time…", table: "Compose", bundle: .module,
+                comment: "Picks a later time from a calendar"),
+            image: UIImage(systemName: "calendar")
+        ) { [weak self] _ in
+            guard let self, let presenter else { return }
+            LaterPickerViewController.present(
+                from: presenter, title: title,
+                actionTitle: String(
+                    localized: "Schedule", table: "Compose", bundle: .module,
+                    comment: "Schedules the message for the picked time"),
+                initial: LaterTime.sendChoices(at: .now).first?.date
+            ) { [weak self] date in self?.send(at: .at(date)) }
+        }
+        return [UIMenu(title: title, options: .displayInline, children: choices + [pick])]
     }
 
     func textViewDidChange(_ textView: UITextView) {
@@ -272,9 +307,9 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
         onResize?()
     }
 
-    private func send() {
+    private func send(at time: SendTime = .now) {
         guard sendButton.isEnabled else { return }
-        onSend?(trimmedText, attachments)
+        onSend?(trimmedText, attachments, time)
         textView.text = ""
         attachments = []
         attachmentsChanged()

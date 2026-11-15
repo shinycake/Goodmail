@@ -40,7 +40,7 @@ struct ChatThreadViewModelTests {
     private let dana = Contact(name: "Dana", address: "dana@example.com")
 
     private func model(
-        layout: ConversationLayout, messages: [[Message]]
+        layout: ConversationLayout, messages: [[Message]], queue: [[OutgoingMessage]] = []
     ) -> ThreadViewModel {
         ThreadViewModel(
             thread: ThreadSummary(
@@ -50,6 +50,12 @@ struct ChatThreadViewModelTests {
             messages: {
                 AsyncThrowingStream { continuation in
                     for batch in messages { continuation.yield(batch) }
+                    continuation.finish()
+                }
+            },
+            outgoing: {
+                AsyncThrowingStream { continuation in
+                    for batch in queue { continuation.yield(batch) }
                     continuation.finish()
                 }
             }, load: {}, attachmentData: { _, _ in Data() }, layout: layout)
@@ -82,6 +88,23 @@ struct ChatThreadViewModelTests {
         }
         #expect(run.bubbles.map(\.message) == [first.id, message("2", minutes: 1).id])
         #expect(!model.transcript.isGroup)
+    }
+
+    @Test func aReplyShowsFromTheMomentItIsSentAndStaysOnceItGoes() async throws {
+        let first = message("1", minutes: 0)
+        let reply = OutgoingMessage(
+            draft: Draft(accountID: account, to: [dana], body: MessageBody(plain: "On my way"), threadID: "t"),
+            sendAt: Date(timeIntervalSince1970: 120))
+        let model = model(layout: .chat, messages: [[first]], queue: [[reply], []])
+        await model.observe()
+        guard case .run(let run) = model.transcript.entries.last else {
+            Issue.record("Expected a run of bubbles")
+            return
+        }
+        let bubble = try #require(run.bubbles.last)
+        #expect(run.side == .mine)
+        #expect(bubble.origin == .pending(reply.id))
+        #expect(bubble.delivery == .sent, "it left the queue without being taken back, so it went")
     }
 }
 

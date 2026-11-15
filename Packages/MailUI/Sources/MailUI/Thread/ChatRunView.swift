@@ -1,12 +1,14 @@
 import MailCore
 import UIKit
 
-/// What a bubble asks the reader for: open a letter or a file, or go to the message a reply quotes.
+/// What a bubble asks the reader for: open a letter or a file, or go to the message a reply quotes; and for a reply
+/// of mine still on its way, what its caption offers.
 struct ChatBubbleActions {
     var openLetter: (Message.ID) -> Void
     var openAttachment: (Attachment, Message.ID, _ loading: @escaping (Bool) -> Void) -> Void
     var showQuoted: (Message.ID) -> Void
     var openURL: (URL) -> Void
+    var pending: ChatDeliveryView.Actions
 }
 
 /// One sender's back-to-back bubbles. Mine sit on the trailing side in the account's color; theirs sit on the
@@ -16,6 +18,8 @@ final class ChatRunView: UIView {
     private let name = UILabel()
     private let avatar = ChatAvatarView()
     private var bubbles: [ChatTranscript.Bubble.ID: UIView] = [:]
+    /// The caption under each reply of mine still on its way, by the reply.
+    private var captions: [Draft.ID: ChatDeliveryView] = [:]
     /// Mine hang from the trailing edge; theirs from beside the avatar.
     private lazy var hangsFromTrailing = column.trailingAnchor.constraint(equalTo: trailingAnchor)
     private lazy var hangsFromAvatar = column.leadingAnchor.constraint(equalTo: avatar.trailingAnchor, constant: 8)
@@ -49,13 +53,15 @@ final class ChatRunView: UIView {
 
     /// The view of a bubble shown here, for the reader to scroll to.
     func view(for message: Message.ID) -> UIView? {
-        bubbles.first { $0.key.message == message && $0.key.attachment == nil }?.value
+        bubbles.first { $0.key.origin == .message(message) && $0.key.attachment == nil }?.value
     }
 
     func configure(
         _ run: ChatTranscript.Run, isGroup: Bool, accountColor: UIColor, actions: ChatBubbleActions,
         timeText: (Message.ID) -> String
     ) {
+        var shownCaptions: [Draft.ID: ChatDeliveryView] = [:]
+        defer { captions = shownCaptions }
         let mine = run.side == .mine
         column.alignment = mine ? .trailing : .leading
         avatar.isHidden = mine
@@ -76,7 +82,9 @@ final class ChatRunView: UIView {
                     localized: "You", table: "Thread", bundle: .module,
                     comment: "VoiceOver: the reader, as the sender of a bubble")
                 : run.sender.displayName
-            let voice = "\(sender), \(timeText(bubble.message))"
+            let status = bubble.message.map(timeText) ?? bubble.delivery.caption ?? ""
+            let voice = "\(sender), \(status)"
+            let isNew = bubbles[bubble.id] == nil
             let view = bubbleView(for: bubble, mine: mine, actions: actions)
             switch (bubble.content, view) {
             case (.words(let segments, let quote), let view as ChatWordsBubble):
@@ -90,7 +98,16 @@ final class ChatRunView: UIView {
             default:
                 break
             }
+            ChatDeliveryView.show(bubble.delivery, on: view, arriving: isNew && bubble.message == nil)
             arranged.append(view)
+            // The last bubble of a reply on its way says how far it got.
+            let next = index + 1 < run.bubbles.count ? run.bubbles[index + 1].origin : nil
+            if case .pending(let id) = bubble.origin, next != bubble.origin, bubble.delivery.caption != nil {
+                let caption = captions[id] ?? ChatDeliveryView()
+                caption.configure(bubble.delivery, reply: id, actions: actions.pending)
+                shownCaptions[id] = caption
+                arranged.append(caption)
+            }
         }
         if arranged != column.arrangedSubviews {
             for view in column.arrangedSubviews { view.removeFromSuperview() }
@@ -100,8 +117,20 @@ final class ChatRunView: UIView {
 
     private func bubbleView(for bubble: ChatTranscript.Bubble, mine: Bool, actions: ChatBubbleActions) -> UIView {
         if let view = bubbles[bubble.id] { return view }
-        let message = bubble.message
         let view: UIView
+        guard let message = bubble.message else {
+            // A reply on its way has nothing to open yet: its words and files read, and its caption offers the rest.
+            switch bubble.content {
+            case .attachment:
+                let file = ChatAttachmentBubble()
+                file.isUserInteractionEnabled = false
+                view = file
+            case .words, .letter:
+                view = ChatWordsBubble()
+            }
+            bubbles[bubble.id] = view
+            return view
+        }
         switch bubble.content {
         case .words:
             let words = ChatWordsBubble()
