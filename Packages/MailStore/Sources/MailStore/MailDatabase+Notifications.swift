@@ -25,11 +25,13 @@ extension MailDatabase: NotificationStore {
     }
 
     /// The threads among `arrived` that alert, newest first, recorded as seen in the same transaction, so two
-    /// processes catching up on the same change alert for it once.
+    /// processes catching up on the same change alert for it once. A reply to a thread muted on the device never
+    /// alerts.
     public func claimAlerts(among arrived: [ThreadSummary], in account: Account, now: Date) throws -> [ThreadSummary] {
         try write { db in
             var settings = try Self.notifications(for: account.id, now: now, in: db)
-            let (threads, seenThrough) = settings.alerts(among: arrived, in: account)
+            let audible = try arrived.filter { try !Self.isDeviceMuted($0.id, in: db) }
+            let (threads, seenThrough) = settings.alerts(among: audible, in: account)
             settings.seenThrough = seenThrough
             try NotificationSettingsRecord(account: account.id, settings).save(db)
             return threads

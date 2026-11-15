@@ -243,6 +243,8 @@ public final class ThreadViewController: UIViewController {
             .organize(
                 move: { [weak self] in self?.viewModel.move() },
                 changeLabels: { [weak self] in self?.viewModel.changeLabels() },
+                pinning: { [weak self] in self?.viewModel.isPinned == false },
+                pin: { [weak self] in self?.viewModel.pin($0) },
                 mute: { [weak self] in self?.viewModel.muteAction },
                 perform: { [weak self] in self?.viewModel.perform($0) }),
             .fixedSpace(0), replyItem,

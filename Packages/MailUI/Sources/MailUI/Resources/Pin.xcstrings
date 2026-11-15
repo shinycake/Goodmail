@@ -1,0 +1,57 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Pin" : {
+      "comment" : "Action: keep a thread at the top of its list",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pin"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצמד"
+          }
+        }
+      }
+    },
+    "Pinned" : {
+      "comment" : "Mailbox section header",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pinned"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מוצמדות"
+          }
+        }
+      }
+    },
+    "Unpin" : {
+      "comment" : "Action: let a pinned thread go back to its place in the list",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unpin"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בטל הצמדה"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

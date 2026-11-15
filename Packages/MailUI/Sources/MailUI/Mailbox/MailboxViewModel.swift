@@ -26,8 +26,9 @@ public struct InboxCategories {
     }
 }
 
-/// A part of a mailbox list: threads just back from snooze, at the top, then the time sections.
+/// A part of a mailbox list: pinned threads at the top, then threads just back from snooze, then the time sections.
 nonisolated public enum MailboxSection: Hashable, Sendable {
+    case pinned
     case backFromSnooze
     case time(TimeSection)
 }
@@ -52,8 +53,6 @@ public final class MailboxViewModel {
     /// The account's color in one account's mailbox; the combined theme in one that spans them.
     public let theme: Theme
     @ObservationIgnored private let accounts: [AccountID: Account]
-    /// Each account's service, which decides the actions its threads have.
-    var services: [AccountID: MailService] { accounts.mapValues(\.service) }
     public let actions: MailActions?
     public let mailbox: Mailbox
     /// Whether this is a Trash, of every account or of one, which Delete Forever can empty.
@@ -73,9 +72,12 @@ public final class MailboxViewModel {
     private var source: MailboxSource
     /// Threads put back by their snooze, with when they woke; the ones in this list lead it.
     @ObservationIgnored private let wokenThreads: (() -> AsyncThrowingStream<[ThreadSummary.ID: Date], any Error>)?
+    /// The pinned threads, which lead the list above all others; `nil` for a list that shows no pins.
+    @ObservationIgnored private let pinnedThreads: (() -> AsyncThrowingStream<Set<ThreadSummary.ID>, any Error>)?
     /// The latest of each stream `sections` is made from.
     @ObservationIgnored private var listed: [ThreadSummary] = []
     @ObservationIgnored private var woken: [ThreadSummary.ID: Date] = [:]
+    @ObservationIgnored private var pinned: Set<ThreadSummary.ID> = []
     @ObservationIgnored private let refreshAction: () async throws -> Void
     @ObservationIgnored private let loadOlderAction: () async throws -> Bool
     @ObservationIgnored private let navigate: (Route) -> Void
@@ -89,6 +91,7 @@ public final class MailboxViewModel {
         accounts: [Account],
         source: MailboxSource,
         woken: (() -> AsyncThrowingStream<[ThreadSummary.ID: Date], any Error>)? = nil,
+        pins: (() -> AsyncThrowingStream<Set<ThreadSummary.ID>, any Error>)? = nil,
         refresh: @escaping () async throws -> Void,
         loadOlder: @escaping () async throws -> Bool = { false },
         navigate: @escaping (Route) -> Void = { _ in },
@@ -105,6 +108,7 @@ public final class MailboxViewModel {
         self.accounts = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0) })
         self.source = source
         wokenThreads = woken
+        pinnedThreads = pins
         refreshAction = refresh
         loadOlderAction = loadOlder
         self.navigate = navigate
@@ -115,8 +119,10 @@ public final class MailboxViewModel {
     /// Follows the store until the calling task is cancelled.
     public func observe() async {
         async let woken: Void = followWoken()
+        async let pins: Void = followPins()
         await followSource()
         await woken
+        await pins
     }
 
     private func followSource() async {
@@ -159,6 +165,16 @@ public final class MailboxViewModel {
         } catch {}
     }
 
+    private func followPins() async {
+        guard let pinnedThreads else { return }
+        do {
+            for try await pinned in pinnedThreads() {
+                self.pinned = pinned
+                regroup()
+            }
+        } catch {}
+    }
+
     private func followUnreadCounts(_ categories: InboxCategories) async {
         do {
             for try await counts in categories.unreadCounts() { categoryUnreadCounts = counts }
@@ -185,16 +201,28 @@ public final class MailboxViewModel {
         }
     }
 
-    /// Threads back from snooze first, latest woken on top, then the rest by time.
+    /// Pinned threads first, newest on top, then threads back from snooze, latest woken on top, then the rest by
+    /// time.
     private func regroup() {
         let now = now()
-        let back = listed.compactMap { thread in woken[thread.id].map { (thread, $0) } }
+        let pinned = listed.filter { self.pinned.contains($0.id) }
+        let unpinned = listed.filter { !self.pinned.contains($0.id) }
+        let back = unpinned.compactMap { thread in woken[thread.id].map { (thread, $0) } }
             .sorted { $0.1 > $1.1 }.map(\.0)
-        let rest = listed.filter { woken[$0.id] == nil }
-        let title = String(
-            localized: "Back from snooze", table: "Mailbox", bundle: .module, comment: "Mailbox section header")
+        let rest = unpinned.filter { woken[$0.id] == nil }
+        let leading = [
+            Section(
+                id: .pinned,
+                title: String(localized: "Pinned", table: "Pin", bundle: .module, comment: "Mailbox section header"),
+                threads: pinned),
+            Section(
+                id: .backFromSnooze,
+                title: String(
+                    localized: "Back from snooze", table: "Mailbox", bundle: .module, comment: "Mailbox section header"),
+                threads: back),
+        ]
         sections =
-            (back.isEmpty ? [] : [Section(id: .backFromSnooze, title: title, threads: back)])
+            leading.filter { !$0.threads.isEmpty }
             + TimeSection.group(rest, by: \.date, now: now, calendar: calendar).map {
                 Section(id: .time($0.section), title: $0.section.title(now: now, calendar: calendar), threads: $0.items)
             }
@@ -270,20 +298,30 @@ public final class MailboxViewModel {
 
     /// The toolbar's actions for the threads selected in edit mode: their reading state, what takes all of them out
     /// of the way here, then Mute or Unmute when all of them allow it.
-    static func bulkActions(for threads: [ThreadSummary], services: [AccountID: MailService]) -> [ThreadAction] {
+    static func bulkActions(for threads: [ThreadSummary]) -> [ThreadAction] {
         guard let first = threads.first else { return [] }
         let common = threads.dropFirst().reduce(Self.trailingActions(for: first)) { common, thread in
             let theirs = Self.trailingActions(for: thread)
             return common.filter(theirs.contains)
         }
         return [.markRead(threads.contains(where: \.isUnread))] + common
-            + [muting(threads, services: services)].compactMap(\.self)
+            + [ThreadAction.muting(threads.map(\.labelIDs))].compactMap(\.self)
     }
 
-    /// Mute or Unmute, when every thread is in an account whose service has it and all of them allow it.
-    private static func muting(_ threads: [ThreadSummary], services: [AccountID: MailService]) -> ThreadAction? {
-        let known = threads.compactMap { thread in services[thread.id.accountID].map { (thread.labelIDs, $0) } }
-        return known.count == threads.count ? ThreadAction.muting(known) : nil
+    /// Whether the thread is pinned, or `nil` in a list that shows no pins, which offers neither Pin nor Unpin.
+    func isPinned(_ thread: ThreadSummary.ID) -> Bool? {
+        pinnedThreads == nil ? nil : pinned.contains(thread)
+    }
+
+    /// Pin for the threads unless all of them are pinned already, then Unpin; `nil` in a list that shows no pins.
+    func pinning(_ threads: [ThreadSummary.ID]) -> Bool? {
+        guard pinnedThreads != nil, !threads.isEmpty else { return nil }
+        return !threads.allSatisfy(pinned.contains)
+    }
+
+    /// Pins the threads to the top of their lists, or with `pinned` false unpins them.
+    public func pin(_ threads: [ThreadSummary.ID], _ pinned: Bool) {
+        actions?.pin(threads, pinned)
     }
 
     /// Whether the threads can be snoozed together: only threads in the Inbox can, since snoozing takes them out

@@ -167,8 +167,8 @@ struct MailboxesTests {
             viewModel.swipeActions(for: thread(labels: ["Label_1"]), leading: false).map(\.swipe) == [.perform(.trash)])
     }
 
-    private func bulkActions(_ threads: [ThreadSummary], service: MailService = .gmail) -> [ThreadAction] {
-        MailboxViewModel.bulkActions(for: threads, services: [account.id: service])
+    private func bulkActions(_ threads: [ThreadSummary]) -> [ThreadAction] {
+        MailboxViewModel.bulkActions(for: threads)
     }
 
     @Test func bulkActionsAreWhatEverySelectedThreadAllows() {
@@ -186,7 +186,7 @@ struct MailboxesTests {
             "archived mail can't be archived again")
         #expect(bulkActions([read, thread(labels: ["TRASH"])]) == [.markRead(true)])
         #expect(
-            bulkActions([thread(labels: ["TRASH"]), thread(labels: ["TRASH"])], service: .icloud)
+            bulkActions([thread(labels: ["TRASH"]), thread(labels: ["TRASH"])])
                 == [.markRead(true), .untrash, .deleteForever],
             "every service deletes forever from Trash")
         #expect(
@@ -197,7 +197,6 @@ struct MailboxesTests {
             bulkActions([thread(labels: ["MUTED"]), thread(labels: ["INBOX"])])
                 == [.markRead(true), .trash],
             "a mix of muted and unmuted offers neither")
-        #expect(bulkActions([read], service: .icloud) == [.markRead(false), .archive, .trash], "IMAP has no Mute")
     }
 
     @Test func onlyThreadsAllInTheInboxCanBeSnoozedTogether() {

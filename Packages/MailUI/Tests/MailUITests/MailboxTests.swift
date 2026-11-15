@@ -133,6 +133,57 @@ struct MailboxTests {
         #expect(viewModel.sections.map { $0.threads.map(\.id.threadID) } == [["3", "2"], ["0"], ["1"]])
     }
 
+    @Test func pinnedThreadsLeadTheListAboveThoseBackFromSnooze() async {
+        let account = Account(id: AccountID(rawValue: "a"), email: "a@example.com", color: .teal, service: .icloud)
+        let threads = [date(2026, 10, 21, 9), date(2026, 10, 20), date(2026, 9, 2)].enumerated().map { index, date in
+            ThreadSummary(
+                id: ThreadSummary.ID(accountID: account.id, threadID: "\(index)"),
+                subject: "", snippet: "", sender: Contact(name: nil, address: "x@example.com"),
+                date: date, isUnread: false, messageCount: 1, labelIDs: ["INBOX"]
+            )
+        }
+        let viewModel = MailboxViewModel(
+            accounts: [account],
+            source: .flat {
+                AsyncThrowingStream {
+                    $0.yield(threads)
+                    $0.finish()
+                }
+            },
+            woken: {
+                AsyncThrowingStream {
+                    $0.yield([threads[1].id: date(2026, 10, 21, 8)])
+                    $0.finish()
+                }
+            },
+            pins: {
+                AsyncThrowingStream {
+                    // Pinned and woken: pinned wins.
+                    $0.yield([threads[2].id, threads[1].id])
+                    $0.finish()
+                }
+            },
+            refresh: {},
+            now: { [now] in now },
+            calendar: calendar
+        )
+        await viewModel.observe()
+
+        #expect(viewModel.sections.map(\.title) == ["Pinned", "This morning"])
+        #expect(viewModel.sections.map { $0.threads.map(\.id.threadID) } == [["1", "2"], ["0"]])
+        #expect(viewModel.isPinned(threads[2].id) == true)
+        #expect(viewModel.pinning([threads[1].id, threads[2].id]) == false, "all pinned offers Unpin")
+        #expect(viewModel.pinning([threads[0].id, threads[2].id]) == true)
+    }
+
+    @Test func aListWithoutPinsOffersNoPinning() {
+        let viewModel = MailboxViewModel(
+            accounts: [], source: .flat { AsyncThrowingStream { $0.finish() } }, refresh: {})
+        let id = ThreadSummary.ID(accountID: AccountID(rawValue: "a"), threadID: "t")
+        #expect(viewModel.isPinned(id) == nil)
+        #expect(viewModel.pinning([id]) == nil)
+    }
+
     @Test func refreshFailureIsKeptUntilTheNextSuccess() async {
         struct Offline: Error {}
         var fail = true

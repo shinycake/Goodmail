@@ -7,20 +7,25 @@ import Foundation
 /// write can wait out another process's lock on the database (ADR-002).
 public actor MailCommands {
     /// Everything the commands change.
-    public typealias Store = OutboxStore & OutgoingStore & SnoozeStore
+    public typealias Store = OutboxStore & OutgoingStore & SnoozeStore & PinStore
 
-    /// What undoes one `perform` or `snooze`: per account, the actions that put each thread back, and each snoozed
-    /// thread's snooze from before (`nil` for none).
+    /// What undoes one `perform`, `snooze` or `pin`: per account, the actions that put each thread back, each
+    /// snoozed thread's snooze from before (`nil` for none), and each pinned or unpinned thread's pin from before.
     public struct Undo: Equatable, Sendable {
         public var intents: [AccountID: [OutboxIntent]]
         public var snoozes: [ThreadSummary.ID: SnoozeState?]
+        public var pins: [ThreadSummary.ID: Bool]
 
-        public init(intents: [AccountID: [OutboxIntent]] = [:], snoozes: [ThreadSummary.ID: SnoozeState?] = [:]) {
+        public init(
+            intents: [AccountID: [OutboxIntent]] = [:], snoozes: [ThreadSummary.ID: SnoozeState?] = [:],
+            pins: [ThreadSummary.ID: Bool] = [:]
+        ) {
             self.intents = intents
             self.snoozes = snoozes
+            self.pins = pins
         }
 
-        public var isEmpty: Bool { intents.values.allSatisfy(\.isEmpty) && snoozes.isEmpty }
+        public var isEmpty: Bool { intents.values.allSatisfy(\.isEmpty) && snoozes.isEmpty && pins.isEmpty }
     }
 
     private let store: any Store
@@ -135,6 +140,16 @@ public actor MailCommands {
         return undo
     }
 
+    /// Pins the threads to the top of their lists, or with `pinned` false unpins them. Only the device keeps pins,
+    /// so nothing is queued for the provider. Threads already as asked are left out of the undo.
+    @discardableResult
+    public func pin(_ threads: [ThreadSummary.ID], _ pinned: Bool) throws -> Undo {
+        let before = try store.pins(among: threads)
+        let changed = threads.filter { before.contains($0) != pinned }
+        try store.setPins(Dictionary(changed.map { ($0, pinned) }, uniquingKeysWith: { $1 }))
+        return Undo(pins: Dictionary(changed.map { ($0, !pinned) }, uniquingKeysWith: { $1 }))
+    }
+
     /// Puts back in the Inbox, unread, every thread whose snooze is over, then forgets snoozes that are done.
     /// Returns the threads it woke.
     @discardableResult
@@ -159,6 +174,7 @@ public actor MailCommands {
             replay(account)
         }
         if !undo.snoozes.isEmpty { try store.setSnoozes(undo.snoozes) }
+        if !undo.pins.isEmpty { try store.setPins(undo.pins) }
     }
 }
 

@@ -12,16 +12,23 @@ extension MailDatabase: OutboxStore {
                         intent.action, account: account.rawValue, thread: intent.threadID, in: db)
                 else { continue }
                 before[intent.threadID] = before[intent.threadID] ?? labels
-                try db.execute(
-                    sql: "INSERT INTO outbox (id, accountID, threadID, intent) VALUES (?, ?, ?, ?)",
-                    arguments: [
-                        intent.id.uuidString, account.rawValue, intent.threadID,
-                        String(decoding: try JSONEncoder().encode(intent), as: UTF8.self),
-                    ]
-                )
+                guard let queued = try Self.deviceMuting(intent, from: labels, account: account.rawValue, in: db)
+                else { continue }
+                try Self.queue(queued, account: account.rawValue, in: db)
             }
             return before
         }
+    }
+
+    /// Adds the intent to the end of the account's outbox.
+    static func queue(_ intent: OutboxIntent, account: String, in db: Database) throws {
+        try db.execute(
+            sql: "INSERT INTO outbox (id, accountID, threadID, intent) VALUES (?, ?, ?, ?)",
+            arguments: [
+                intent.id.uuidString, account, intent.threadID,
+                String(decoding: try JSONEncoder().encode(intent), as: UTF8.self),
+            ]
+        )
     }
 
     public func pendingIntents(for account: AccountID) throws -> [OutboxIntent] {
@@ -44,7 +51,7 @@ extension MailDatabase: OutboxStore {
 
     /// After a fetch rewrote these threads, re-applies the intents it can't show yet: unsent ones, and ones sent
     /// after it began. Intents sent before it began are in what it fetched, so they're done with. Without
-    /// `fetchedAt`, every intent is re-applied.
+    /// `fetchedAt`, every intent is re-applied. Then the threads muted on the device are shown muted again.
     static func reapplyPending(account: String, threadIDs: [String], fetchedAt: Date?, in db: Database) throws {
         guard !threadIDs.isEmpty else { return }
         if let fetchedAt {
@@ -58,6 +65,7 @@ extension MailDatabase: OutboxStore {
         for intent in try intents(account: account, unsentOnly: false, threadIDs: threadIDs, in: db) {
             _ = try apply(intent.action, account: account, thread: intent.threadID, in: db)
         }
+        try reapplyDeviceMutes(account: account, threadIDs: threadIDs, in: db)
     }
 
     private static func intents(account: String, unsentOnly: Bool, threadIDs: [String]?, in db: Database) throws
@@ -77,7 +85,7 @@ extension MailDatabase: OutboxStore {
 
     /// Applies `action` to a stored thread's labels and its cached messages, or deletes the thread and its messages
     /// when the action deletes it. Returns the thread's labels from before, or `nil` when the thread isn't stored.
-    private static func apply(_ action: ThreadAction, account: String, thread: String, in db: Database) throws
+    static func apply(_ action: ThreadAction, account: String, thread: String, in db: Database) throws
         -> Set<String>?
     {
         // Summaries keep unread as a flag, not a label; actions see it as Gmail's UNREAD label.

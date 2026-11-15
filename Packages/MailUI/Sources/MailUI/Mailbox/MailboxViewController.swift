@@ -496,7 +496,7 @@ extension MailboxViewController {
 
         // With nothing selected, show what the list as a whole allows, disabled, so the toolbar doesn't jump.
         let threads = (ids.isEmpty ? snapshot.itemIdentifiers : ids).compactMap { threadsByID[$0] }
-        let actions = MailboxViewModel.bulkActions(for: threads, services: viewModel.services)
+        let actions = MailboxViewModel.bulkActions(for: threads)
         let items = actions.map { action in
             // With nothing selected, Trash's Delete Forever empties it.
             let emptiesTrash = action == .deleteForever && ids.isEmpty && viewModel.isTrash
@@ -530,8 +530,17 @@ extension MailboxViewController {
             setEditing(false, animated: true)
         }
         snooze.isEnabled = !ids.isEmpty && MailboxViewModel.canSnooze(threads)
-        // Trash leaves out labels and snooze, which mean nothing there, so its Delete Forever fits without More.
-        let organize = viewModel.isTrash ? [move] : [labels, move, snooze]
+        let pin = viewModel.pinning(threads.map(\.id)).map { pin in
+            let item = UIBarButtonItem.pin(pin) { [weak self] in
+                guard let self else { return }
+                viewModel.pin(selectedIDs, pin)
+                setEditing(false, animated: true)
+            }
+            item.isEnabled = !ids.isEmpty
+            return item
+        }
+        // Trash leaves out labels, snooze and pins, which mean nothing there, so its Delete Forever fits without More.
+        let organize = viewModel.isTrash ? [move] : [labels, move, snooze] + [pin].compactMap(\.self)
         setToolbarItems(Array(items.prefix(1)) + organize + [.flexibleSpace()] + items.dropFirst(), animated: false)
     }
 

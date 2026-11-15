@@ -8,27 +8,37 @@ struct ThreadMenu: Equatable {
         case answer(Answer)
         case openInNewWindow
         case perform(ThreadAction)
+        /// Pin with `true`, Unpin with `false`.
+        case pin(Bool)
         case snooze
         case move
         case changeLabels
     }
 
+    /// What the list can do to its threads.
+    enum Reach: Equatable {
+        /// Nothing, which leaves only the answers and Open in New Window.
+        case readOnly
+        /// Everything; `pinned` says whether the thread is pinned, or is `nil` in a list that shows no pins.
+        case actions(pinned: Bool?)
+    }
+
     let sections: [[Item]]
 
-    /// `service` is the thread's account's, or `nil` when the list can't act on its threads, which leaves only the
-    /// answers and, with `opensWindows`, Open in New Window.
-    init(thread: ThreadSummary, in mailbox: Mailbox, service: MailService?, opensWindows: Bool) {
+    /// With `opensWindows`, the menu offers Open in New Window.
+    init(thread: ThreadSummary, in mailbox: Mailbox, reach: Reach, opensWindows: Bool) {
         // A draft is finished from the reader, not answered.
         let answers: [Item] =
             mailbox.labelID == SystemLabel.draft ? [] : [.answer(.reply), .answer(.replyAll), .answer(.forward)]
         let windows: [Item] = opensWindows ? [.openInNewWindow] : []
-        guard let service else {
+        guard case .actions(let pinned) = reach else {
             sections = [answers, windows].filter { !$0.isEmpty }
             return
         }
         let state: [Item] =
             [.markRead(thread.isUnread), .star(!thread.labelIDs.contains(SystemLabel.starred))].map(Item.perform)
-            + [ThreadAction.muting([(thread.labelIDs, service)])].compactMap { $0.map(Item.perform) }
+            + [pinned.map { Item.pin(!$0) }].compactMap(\.self)
+            + [ThreadAction.muting([thread.labelIDs])].compactMap { $0.map(Item.perform) }
         let organize: [Item] =
             (MailboxViewModel.canSnooze([thread]) ? [.snooze] : []) + [.move, .changeLabels]
         var away = MailboxViewModel.trailingActions(for: thread)
@@ -43,7 +53,7 @@ extension MailboxViewModel {
     /// The context menu for `thread`'s row.
     func menu(for thread: ThreadSummary) -> ThreadMenu {
         ThreadMenu(
-            thread: thread, in: mailbox, service: actions == nil ? nil : services[thread.id.accountID],
+            thread: thread, in: mailbox, reach: actions == nil ? .readOnly : .actions(pinned: isPinned(thread.id)),
             opensWindows: UIApplication.shared.supportsMultipleScenes)
     }
 }
@@ -103,6 +113,12 @@ extension ThreadMenu {
                     title: action.title, image: UIImage(systemName: action.symbol),
                     attributes: action.isDestructive ? .destructive : []
                 ) { _ in perform(action) }
+            case .pin(let pin):
+                return UIAction(
+                    title: PinPresentation.title(pin), image: UIImage(systemName: PinPresentation.symbol(pin))
+                ) {
+                    [weak viewModel] _ in viewModel?.pin([id], pin)
+                }
             case .openInNewWindow:
                 return UIAction(
                     title: String(

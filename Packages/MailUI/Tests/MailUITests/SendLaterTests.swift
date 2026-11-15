@@ -106,4 +106,6 @@ private final class OutgoingQueue: MailCommands.Store, @unchecked Sendable {
     func dueSnoozes(by date: Date) throws -> [ThreadSummary.ID] { [] }
     func nextWakeDate() throws -> Date? { nil }
     func pruneSnoozes(at date: Date) throws {}
+    func pins(among threads: [ThreadSummary.ID]) throws -> Set<ThreadSummary.ID> { [] }
+    func setPins(_ pins: [ThreadSummary.ID: Bool]) throws {}
 }

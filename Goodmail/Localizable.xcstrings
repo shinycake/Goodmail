@@ -120,6 +120,40 @@
         }
       }
     },
+    "Keeps conversations at the top of their lists, or lets them go." : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Keeps conversations at the top of their lists, or lets them go."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "משאיר שיחות בראש הרשימות שלהן, או משחרר אותן."
+          }
+        }
+      }
+    },
+    "Keeps replies to conversations out of the Inbox, or lets them in." : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Keeps replies to conversations out of the Inbox, or lets them in."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מונע מתשובות לשיחות להגיע לדואר הנכנס, או מאפשר להן."
+          }
+        }
+      }
+    },
     "Mailbox" : {
       "comment" : "App Intents: shown in Shortcuts and Siri",
       "localizations" : {
@@ -184,6 +218,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "מעביר שיחות לאשפה."
+          }
+        }
+      }
+    },
+    "Mute Conversations" : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Mute Conversations"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השתק שיחות"
+          }
+        }
+      }
+    },
+    "Muted" : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Muted"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מושתקות"
           }
         }
       }
@@ -321,6 +389,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "פותח את הדואר הנכנס ב־Goodmail."
+          }
+        }
+      }
+    },
+    "Pin Conversations" : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Pin Conversations"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצמד שיחות"
+          }
+        }
+      }
+    },
+    "Pinned" : {
+      "comment" : "App Intents: shown in Shortcuts and Siri",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Pinned"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מוצמדות"
           }
         }
       }

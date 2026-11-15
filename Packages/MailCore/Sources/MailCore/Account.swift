@@ -29,11 +29,12 @@ public enum MailService: String, CaseIterable, Codable, Hashable, Sendable {
         }
     }
 
-    /// Whether threads can be muted, keeping their replies out of the Inbox. Gmail has Mute; IMAP has no such thing.
-    public var hasMute: Bool {
+    /// Whether Mute is kept on the device rather than at the service. Gmail mutes with its `MUTED` label; Graph and
+    /// IMAP have no such thing, so the store remembers their muted threads and keeps new replies out of the Inbox.
+    public var mutesOnDevice: Bool {
         switch self {
-        case .gmail: true
-        case .icloud, .outlook, .imap: false
+        case .gmail: false
+        case .icloud, .outlook, .imap: true
         }
     }
 

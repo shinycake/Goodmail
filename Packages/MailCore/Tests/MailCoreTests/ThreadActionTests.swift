@@ -48,20 +48,29 @@ struct ThreadActionTests {
     }
 
     @Test func muteIsOfferedOnlyWhereItApplies() {
-        #expect(ThreadAction.muting(gmail([["INBOX"]])) == .mute)
-        #expect(ThreadAction.muting(gmail([["Label_1"], ["INBOX"]])) == .mute, "archived mail can be muted too")
-        #expect(ThreadAction.muting(gmail([["MUTED"]])) == .unmute)
-        #expect(ThreadAction.muting(gmail([["MUTED"], ["MUTED", "Label_1"]])) == .unmute)
-        #expect(ThreadAction.muting(gmail([["MUTED"], ["INBOX"]])) == nil, "a mix offers neither")
-        #expect(ThreadAction.muting(gmail([["INBOX"], ["SPAM"]])) == nil)
-        #expect(ThreadAction.muting(gmail([["TRASH", "MUTED"]])) == nil)
+        #expect(ThreadAction.muting([["INBOX"]]) == .mute)
+        #expect(ThreadAction.muting([["Label_1"], ["INBOX"]]) == .mute, "archived mail can be muted too")
+        #expect(ThreadAction.muting([["MUTED"]]) == .unmute)
+        #expect(ThreadAction.muting([["MUTED"], ["MUTED", "Label_1"]]) == .unmute)
+        #expect(ThreadAction.muting([["MUTED"], ["INBOX"]]) == nil, "a mix offers neither")
+        #expect(ThreadAction.muting([["INBOX"], ["SPAM"]]) == nil)
+        #expect(ThreadAction.muting([["TRASH", "MUTED"]]) == nil)
         #expect(ThreadAction.muting([]) == nil)
-        #expect(ThreadAction.muting([(["INBOX"], .icloud)]) == nil, "IMAP has no Mute")
-        #expect(ThreadAction.muting([(["INBOX"], .gmail), (["INBOX"], .icloud)]) == nil)
     }
 
-    private func gmail(_ threads: [Set<String>]) -> [(labels: Set<String>, service: MailService)] {
-        threads.map { ($0, .gmail) }
+    @Test func everyServiceButGmailMutesOnTheDevice() {
+        #expect(MailService.allCases.filter(\.mutesOnDevice) == [.icloud, .outlook, .imap])
+    }
+
+    @Test func withoutALabelAnActionKeepsTheRestOfItsChange() {
+        #expect(ThreadAction.mute.without(SystemLabel.muted) == .archive)
+        #expect(
+            ThreadAction.unmute.without(SystemLabel.muted) == .modifyLabels(add: [SystemLabel.inbox], remove: []))
+        #expect(
+            ThreadAction.modifyLabels(add: [SystemLabel.muted], remove: []).without(SystemLabel.muted) == nil,
+            "nothing is left to send")
+        #expect(ThreadAction.trash.without(SystemLabel.muted) == .trash)
+        #expect(ThreadAction.star(true).without(SystemLabel.muted) == .star(true))
     }
 }
 

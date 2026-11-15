@@ -19,11 +19,11 @@ extension UIBarButtonItem {
             image: UIImage(systemName: "folder"), primaryAction: UIAction { _ in handler() })
     }
 
-    /// Move, Change Labels and, when it applies, Mute or Unmute behind one button. The menu asks for `mute` each
-    /// time it opens, so it follows the thread as it is then.
+    /// Move, Change Labels, Pin or Unpin and, when it applies, Mute or Unmute behind one button. The menu asks for
+    /// `pinning` (Pin with `true`) and `mute` each time it opens, so it follows the thread as it is then.
     static func organize(
-        move: @escaping () -> Void, changeLabels: @escaping () -> Void, mute: @escaping () -> ThreadAction?,
-        perform: @escaping (ThreadAction) -> Void
+        move: @escaping () -> Void, changeLabels: @escaping () -> Void, pinning: @escaping () -> Bool,
+        pin: @escaping (Bool) -> Void, mute: @escaping () -> ThreadAction?, perform: @escaping (ThreadAction) -> Void
     ) -> UIBarButtonItem {
         UIBarButtonItem(
             title: String(
@@ -44,14 +44,18 @@ extension UIBarButtonItem {
                     image: UIImage(systemName: "tag")
                 ) { _ in changeLabels() },
                 UIDeferredMenuElement.uncached { completion in
-                    completion(
-                        mute().map { action in
-                            [
-                                UIAction(title: action.title, image: UIImage(systemName: action.symbol)) { _ in
-                                    perform(action)
-                                }
-                            ]
-                        } ?? [])
+                    let pinned = pinning()
+                    let pinItem = UIAction(
+                        title: PinPresentation.title(pinned), image: UIImage(systemName: PinPresentation.symbol(pinned))
+                    ) { _ in pin(pinned) }
+                    let muteItems = mute().map { action in
+                        [
+                            UIAction(title: action.title, image: UIImage(systemName: action.symbol)) { _ in
+                                perform(action)
+                            }
+                        ]
+                    }
+                    completion([pinItem] + (muteItems ?? []))
                 },
             ]))
     }

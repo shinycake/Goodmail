@@ -12,7 +12,8 @@ public enum ThreadAction: Codable, Equatable, Sendable {
     public static let archive = modifyLabels(add: [], remove: [SystemLabel.inbox])
     public static let moveToInbox = modifyLabels(add: [SystemLabel.inbox], remove: [SystemLabel.spam])
     public static let reportSpam = modifyLabels(add: [SystemLabel.spam], remove: [SystemLabel.inbox])
-    /// Gmail's Mute: the thread leaves the Inbox, and replies skip it while `MUTED` stays on.
+    /// Mute: the thread leaves the Inbox, and replies skip it while `MUTED` stays on. Gmail keeps the label; for the
+    /// other services the store keeps it on the device (`MailService.mutesOnDevice`).
     public static let mute = modifyLabels(add: [SystemLabel.muted], remove: [SystemLabel.inbox])
     public static let unmute = modifyLabels(add: [SystemLabel.inbox], remove: [SystemLabel.muted])
 
@@ -46,17 +47,20 @@ public enum ThreadAction: Codable, Equatable, Sendable {
         }
     }
 
-    /// The mute action all of these threads, given by their labels and their account's service, allow: Mute when
-    /// none is muted, Unmute when all are. `nil` for a mix, for none, for anything in Spam or Trash, where muting
-    /// means nothing, and for a service without Mute.
-    public static func muting(_ threads: [(labels: Set<String>, service: MailService)]) -> ThreadAction? {
-        guard !threads.isEmpty,
-            threads.allSatisfy({
-                $0.service.hasMute && $0.labels.isDisjoint(with: [SystemLabel.spam, SystemLabel.trash])
-            })
+    /// The mute action all of these threads, given by their labels, allow: Mute when none is muted, Unmute when all
+    /// are. `nil` for a mix, for none, and for anything in Spam or Trash, where muting means nothing.
+    public static func muting(_ threads: [Set<String>]) -> ThreadAction? {
+        guard !threads.isEmpty, threads.allSatisfy({ $0.isDisjoint(with: [SystemLabel.spam, SystemLabel.trash]) })
         else { return nil }
-        if threads.allSatisfy({ !$0.labels.contains(SystemLabel.muted) }) { return .mute }
-        return threads.allSatisfy { $0.labels.contains(SystemLabel.muted) } ? .unmute : nil
+        if threads.allSatisfy({ !$0.contains(SystemLabel.muted) }) { return .mute }
+        return threads.allSatisfy { $0.contains(SystemLabel.muted) } ? .unmute : nil
+    }
+
+    /// This action without any change to `label`, for a provider that doesn't keep it. `nil` when nothing is left.
+    public func without(_ label: String) -> ThreadAction? {
+        guard case .modifyLabels(let add, let remove) = self else { return self }
+        let rest = ThreadAction.modifyLabels(add: add.subtracting([label]), remove: remove.subtracting([label]))
+        return rest == .modifyLabels(add: [], remove: []) ? nil : rest
     }
 
     /// The actions that put back a thread that carried `labels` before this one. Empty when this one changed nothing,

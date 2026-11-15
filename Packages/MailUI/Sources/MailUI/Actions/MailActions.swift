@@ -74,6 +74,12 @@ public final class MailActions {
         ) { try await $0.snooze(threads, until: date) }
     }
 
+    /// Pins the threads to the top of their lists, or unpins them. They stay in view, so no toast; a shake undoes it.
+    public func pin(_ threads: [ThreadSummary.ID], _ pinned: Bool) {
+        feedback(.change)
+        apply(confirmation: nil) { try await $0.pin(threads, pinned) }
+    }
+
     /// Puts snoozed threads back in the Inbox now, with a toast to snooze them again.
     public func unsnooze(_ threads: [ThreadSummary.ID]) {
         feedback(.change)

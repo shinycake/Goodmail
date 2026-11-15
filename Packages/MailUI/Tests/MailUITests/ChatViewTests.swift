@@ -46,7 +46,7 @@ struct ChatThreadViewModelTests {
             thread: ThreadSummary(
                 id: .init(accountID: account, threadID: "t"), subject: "Plan", snippet: "", sender: dana,
                 date: .now, isUnread: false, messageCount: 1, labelIDs: []),
-            mailbox: .inbox, accountEmail: "me@example.com", accountColor: .blue, accountService: .gmail,
+            mailbox: .inbox, accountEmail: "me@example.com", accountColor: .blue,
             messages: {
                 AsyncThrowingStream { continuation in
                     for batch in messages { continuation.yield(batch) }

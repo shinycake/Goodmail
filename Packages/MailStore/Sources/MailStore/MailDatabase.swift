@@ -267,6 +267,25 @@ public final class MailDatabase: Sendable {
                 table.column("source", .text).notNull()
             }
         }
+        migrator.registerMigration("v21-pins") { db in
+            // One row per pinned thread. Tied to the account, not the thread: a sweep may drop a thread that comes
+            // back, and it comes back pinned.
+            try db.create(table: "pin") { table in
+                table.column("accountID", .text).notNull().references("account", onDelete: .cascade)
+                table.column("threadID", .text).notNull()
+                table.primaryKey(["accountID", "threadID"])
+            }
+        }
+        migrator.registerMigration("v22-device-mutes") { db in
+            // Threads muted on the device, for services without Mute (`MailService.mutesOnDevice`), with the date of
+            // the newest message the mute has seen: a newer one is a reply, kept out of the Inbox.
+            try db.create(table: "deviceMute") { table in
+                table.column("accountID", .text).notNull().references("account", onDelete: .cascade)
+                table.column("threadID", .text).notNull()
+                table.column("mutedThrough", .datetime).notNull()
+                table.primaryKey(["accountID", "threadID"])
+            }
+        }
         return migrator
     }
 }

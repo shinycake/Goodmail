@@ -77,7 +77,7 @@ struct ThreadViewModelTests {
                 id: .init(accountID: account, threadID: "t"), subject: "Plan", snippet: "",
                 sender: messages[0].from, date: .now, isUnread: false, messageCount: 1, labelIDs: []),
             mailbox: .inbox,
-            accountEmail: "me@example.com", accountColor: .blue, accountService: .gmail,
+            accountEmail: "me@example.com", accountColor: .blue,
             messages: { AsyncThrowingStream { $0.finish() } }, load: {}, attachmentData: { _, _ in Data() })
         model.toggle(messages[0].id)
         #expect(model.expanded == [messages[0].id])
@@ -95,7 +95,7 @@ struct ThreadViewModelTests {
                 id: .init(accountID: account, threadID: "t"), subject: "Plan", snippet: "",
                 sender: messages[0].from, date: .now, isUnread: false, messageCount: 2, labelIDs: []),
             mailbox: .inbox,
-            accountEmail: "me@example.com", accountColor: .blue, accountService: .gmail,
+            accountEmail: "me@example.com", accountColor: .blue,
             messages: {
                 AsyncThrowingStream {
                     $0.yield(messages)
@@ -128,7 +128,7 @@ extension ThreadViewModelTests {
                 id: .init(accountID: account, threadID: "t"), subject: "Plan", snippet: "",
                 sender: inbox.from, date: .now, isUnread: false, messageCount: 1, labelIDs: ["INBOX"]),
             mailbox: .inbox,
-            accountEmail: "me@example.com", accountColor: .blue, accountService: .gmail,
+            accountEmail: "me@example.com", accountColor: .blue,
             messages: {
                 AsyncThrowingStream {
                     $0.yield([inbox])
@@ -153,7 +153,7 @@ extension ThreadViewModelTests {
                 id: .init(accountID: account, threadID: "t"), subject: "Plan", snippet: "",
                 sender: muted.from, date: .now, isUnread: false, messageCount: 1, labelIDs: ["MUTED"]),
             mailbox: .allMail,
-            accountEmail: "me@example.com", accountColor: .blue, accountService: .gmail,
+            accountEmail: "me@example.com", accountColor: .blue,
             messages: {
                 AsyncThrowingStream {
                     $0.yield([muted])
@@ -180,7 +180,7 @@ struct AttachmentFileTests {
                 sender: Contact(name: nil, address: "a@example.com"), date: .now, isUnread: false, messageCount: 1,
                 labelIDs: []),
             mailbox: .inbox,
-            accountEmail: "me@example.com", accountColor: .blue, accountService: .gmail,
+            accountEmail: "me@example.com", accountColor: .blue,
             messages: { AsyncThrowingStream { $0.finish() } }, load: {},
             attachmentData: { _, _ in
                 fetches += 1
@@ -209,7 +209,7 @@ struct AttachmentFileTests {
                 sender: Contact(name: nil, address: "a@example.com"), date: today, isUnread: false, messageCount: 1,
                 labelIDs: []),
             mailbox: .inbox,
-            accountEmail: "me@example.com", accountColor: .blue, accountService: .gmail,
+            accountEmail: "me@example.com", accountColor: .blue,
             messages: { AsyncThrowingStream { $0.finish() } }, load: {},
             attachmentData: { _, _ in Data("%PDF".utf8) },
             attachmentsDirectory: directory,
@@ -250,7 +250,7 @@ extension ThreadViewModelTests {
                 id: .init(accountID: account, threadID: "t"), subject: "Plan", snippet: "",
                 sender: first.from, date: .now, isUnread: false, messageCount: 2, labelIDs: []),
             mailbox: .inbox,
-            accountEmail: "me@example.com", accountColor: .blue, accountService: .gmail,
+            accountEmail: "me@example.com", accountColor: .blue,
             messages: {
                 AsyncThrowingStream {
                     $0.yield([first, draft])

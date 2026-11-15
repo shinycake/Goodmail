@@ -42,6 +42,11 @@ struct FakeHost: MailIntentsHost {
             })
     }
 
+    func pin(_ threads: [ThreadSummary.ID], _ pinned: Bool) throws -> MailCommands.Undo {
+        performed.recordPin(pinned, on: threads)
+        return MailCommands.Undo(pins: Dictionary(uniqueKeysWithValues: threads.map { ($0, !pinned) }))
+    }
+
     func undo(_ undo: MailCommands.Undo) throws {
         performed.recordUndo(of: undo)
     }
@@ -53,6 +58,7 @@ struct FakeHost: MailIntentsHost {
 final class Performed: Sendable {
     private let actions = Mutex<[String: [ThreadAction]]>([:])
     private let undoneActions = Mutex<[ThreadAction]>([])
+    private let pinChanges = Mutex<[String: [Bool]]>([:])
 
     func record(_ action: ThreadAction, on threads: [ThreadSummary.ID]) {
         actions.withLock { actions in
@@ -61,6 +67,15 @@ final class Performed: Sendable {
     }
 
     func on(_ thread: String) -> [ThreadAction] { actions.withLock { $0[thread] ?? [] } }
+
+    func recordPin(_ pinned: Bool, on threads: [ThreadSummary.ID]) {
+        pinChanges.withLock { pins in
+            for thread in threads { pins[thread.threadID, default: []].append(pinned) }
+        }
+    }
+
+    /// Each pin (`true`) and unpin (`false`) asked for the thread, in order.
+    func pins(of thread: String) -> [Bool] { pinChanges.withLock { $0[thread] ?? [] } }
 
     func recordUndo(of undo: MailCommands.Undo) {
         undoneActions.withLock { $0.append(contentsOf: undo.intents.values.joined().map(\.action)) }

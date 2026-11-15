@@ -10,8 +10,6 @@ public final class ThreadViewModel {
     public let mailbox: Mailbox
     public let accountEmail: String
     public let accountColor: AccountColor
-    /// The account's service, which decides the actions it has, such as Mute.
-    public let accountService: MailService
     public private(set) var messages: [Message] = []
     /// Messages shown as cards; the rest are one-line rows in the timeline.
     public private(set) var expanded: Set<Message.ID> = []
@@ -29,8 +27,11 @@ public final class ThreadViewModel {
     public private(set) var layout: ConversationLayout
     /// The messages as chat bubbles, worked out off the main actor each time they change.
     public private(set) var transcript: ChatTranscript
+    /// Whether the thread is pinned to the top of its lists.
+    public private(set) var isPinned = false
 
     @ObservationIgnored private let stream: () -> AsyncThrowingStream<[Message], any Error>
+    @ObservationIgnored private let pins: () -> AsyncThrowingStream<Set<ThreadSummary.ID>, any Error>
     @ObservationIgnored private let loadAction: () async throws -> Void
     @ObservationIgnored let attachmentData: (Attachment, Message.ID) async throws -> Data
     @ObservationIgnored private let actions: MailActions?
@@ -46,8 +47,8 @@ public final class ThreadViewModel {
         mailbox: Mailbox,
         accountEmail: String,
         accountColor: AccountColor,
-        accountService: MailService,
         messages: @escaping () -> AsyncThrowingStream<[Message], any Error>,
+        pins: @escaping () -> AsyncThrowingStream<Set<ThreadSummary.ID>, any Error> = { AsyncThrowingStream { _ in } },
         load: @escaping () async throws -> Void,
         attachmentData: @escaping (Attachment, Message.ID) async throws -> Data,
         actions: MailActions? = nil,
@@ -68,8 +69,8 @@ public final class ThreadViewModel {
         self.mailbox = mailbox
         self.accountEmail = accountEmail
         self.accountColor = accountColor
-        self.accountService = accountService
         stream = messages
+        self.pins = pins
         loadAction = load
         self.attachmentData = attachmentData
         self.now = now
@@ -83,8 +84,9 @@ public final class ThreadViewModel {
             hasMarkedRead = true
             actions?.markOpened([thread.id])
         }
-        // A child of the observation, so leaving the thread cancels the fetch with it.
+        // Children of the observation, so leaving the thread cancels the fetch and the pins with it.
         async let loading: Void = load()
+        async let pinning: Void = followPins()
         do {
             for try await messages in stream() {
                 if expanded.isEmpty { expanded = Self.initiallyExpanded(messages) }
@@ -101,6 +103,13 @@ public final class ThreadViewModel {
             loadError = error
         }
         await loading
+        await pinning
+    }
+
+    private func followPins() async {
+        do {
+            for try await pins in pins() { isPinned = pins.contains(thread.id) }
+        } catch {}
     }
 
     public func load() async {
@@ -171,7 +180,7 @@ public final class ThreadViewModel {
     /// Mute or Unmute for the thread as it stands now, when it applies.
     public var muteAction: ThreadAction? {
         let labels = messages.reduce(into: Set<String>()) { $0.formUnion($1.labelIDs) }
-        return ThreadAction.muting([(messages.isEmpty ? thread.labelIDs : labels, accountService)])
+        return ThreadAction.muting([messages.isEmpty ? thread.labelIDs : labels])
     }
 
     /// Whether the thread was in Trash when opened, so its toolbar deletes it forever instead of trashing it.
@@ -182,6 +191,11 @@ public final class ThreadViewModel {
     public func perform(_ action: ThreadAction) {
         actions?.perform(action, on: [thread.id])
         if [.archive, .trash, .deleteForever, .reportSpam, .mute, .markRead(false)].contains(action) { leave() }
+    }
+
+    /// Pins the thread to the top of its lists, or with `pinned` false unpins it. The reader stays.
+    public func pin(_ pinned: Bool) {
+        actions?.pin([thread.id], pinned)
     }
 
     /// Takes the thread out of the Inbox until `date`, and leaves it.

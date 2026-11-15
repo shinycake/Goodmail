@@ -46,6 +46,16 @@ struct ActionTests {
             host.performed.undone == [.star(true), .markRead(true)], "newest first, and nothing for an empty change")
     }
 
+    @Test func pinningGoesThroughTheCommandsAndReturnsItsUndo() async throws {
+        let change = try await catalog.pin(true, onThreads: ["A1/t1"])
+        #expect(host.performed.pins(of: "t1") == [true])
+        #expect(change.pins.values.map(\.self) == [false])
+    }
+
+    @Test func pinningNothingStillOnTheDeviceFails() async {
+        await #expect(throws: IntentError.self) { try await catalog.pin(true, onThreads: ["nonsense"]) }
+    }
+
     @Test func notJunkUndoesNothingWhenNoMessageWasInJunk() async throws {
         #expect(try await catalog.markNotJunk([]).isEmpty)
     }
