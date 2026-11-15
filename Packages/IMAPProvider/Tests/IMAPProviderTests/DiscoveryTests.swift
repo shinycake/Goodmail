@@ -111,4 +111,68 @@ struct DiscoveryTests {
                 "https://autoconfig.thunderbird.net/v1.1/example.com",
             ])
     }
+
+    /// A JSON answer from the DNS resolver, as Google's writes it.
+    private static func dns(type: Int, _ records: [String]) -> Data {
+        let answers = records.map { #"{"name":"x.","type":\#(type),"TTL":300,"data":"\#($0)"}"# }
+        return Data(#"{"Status":0,"Answer":[\#(answers.joined(separator: ","))]}"#.utf8)
+    }
+
+    private static func lookup(_ name: String, type: Int) -> String {
+        "https://dns.google/resolve?name=\(name)&type=\(type)"
+    }
+
+    @Test func aCustomDomainFindsItsHostThroughItsMailExchangers() async {
+        let icloud = String(decoding: Self.fastmail, as: UTF8.self).replacing("fastmail.com", with: "mail.me.com")
+        let found = await discovery([
+            Self.lookup("example.com", type: 15): Self.dns(
+                type: 15, ["20 mx02.mail.icloud.com.", "10 mx01.mail.icloud.com."]),
+            "https://autoconfig.thunderbird.net/v1.1/icloud.com": Data(icloud.utf8),
+        ]).settings(for: "dana@example.com")
+        #expect(found?.imap == MailServer(host: "imap.mail.me.com", port: 993, security: .tls))
+        #expect(found?.username == "dana@example.com")
+    }
+
+    @Test func theDomainsOwnServiceRecordsComeBeforeItsMailExchangers() async {
+        let found = await discovery([
+            Self.lookup("_imap._tcp.example.com", type: 33): Self.dns(type: 33, ["0 1 143 mail.example.com."]),
+            Self.lookup("_imaps._tcp.example.com", type: 33): Self.dns(
+                type: 33, ["10 0 993 backup.example.com.", "0 5 993 imap.example.com.", "0 9 993 imap2.example.com."]),
+            Self.lookup("_submission._tcp.example.com", type: 33): Self.dns(
+                type: 33, ["0 1 587 smtp.example.com."]),
+            Self.lookup("example.com", type: 15): Self.dns(type: 15, ["10 mx.fastmail.com."]),
+            "https://autoconfig.thunderbird.net/v1.1/fastmail.com": Self.fastmail,
+        ]).settings(for: "dana@example.com")
+        #expect(
+            found
+                == MailServerSettings(
+                    imap: MailServer(host: "imap2.example.com", port: 993, security: .tls),
+                    smtp: MailServer(host: "smtp.example.com", port: 587, security: .startTLS),
+                    username: "dana@example.com"))
+    }
+
+    @Test func aServiceTheDomainSaysItDoesntOfferIsSkipped() async {
+        let found = await discovery([
+            Self.lookup("_imaps._tcp.example.com", type: 33): Self.dns(type: 33, ["0 0 0 ."]),
+            Self.lookup("_submissions._tcp.example.com", type: 33): Self.dns(type: 33, ["0 0 465 smtp.example.com."]),
+        ]).settings(for: "dana@example.com")
+        #expect(found == nil)
+    }
+
+    @Test(arguments: [
+        ("mx01.mail.icloud.com", ["mail.icloud.com", "icloud.com"]),
+        ("aspmx.l.google.com", ["l.google.com", "google.com"]),
+        ("mail.example.com", ["example.com"]),
+        ("example.com", []),
+    ])
+    func anExchangersParentDomainsAreTriedLongestFirst(host: String, domains: [String]) {
+        #expect(MailServerDiscovery.parentDomains(of: host) == domains)
+    }
+
+    @Test func recordsTheResolverCouldntReadAreDropped() {
+        #expect(MailExchanger(data: "10 mx.example.com.") == MailExchanger(data: "10 MX.Example.com"))
+        #expect(MailExchanger(data: "mx.example.com.") == nil)
+        #expect(ServiceRecord(data: "0 1 993") == nil)
+        #expect(ServiceRecord(data: "0 1 993 imap.example.com.")?.host == "imap.example.com")
+    }
 }
