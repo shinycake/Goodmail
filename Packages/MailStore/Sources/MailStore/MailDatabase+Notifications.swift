@@ -64,35 +64,6 @@ extension MailDatabase: NotificationStore {
         }
     }
 
-    /// The app badge: unread Inbox threads, counted as each account alerts: all of them, Primary only, or none.
-    public func badgeCount() throws -> Int {
-        try pool.read { db in try Self.badgeCount(in: db) }
-    }
-
-    /// `badgeCount()`, now and after every change.
-    public func badgeCounts() -> AsyncThrowingStream<Int, any Error> {
-        observe { db in try Self.badgeCount(in: db) }
-    }
-
-    static func badgeCount(in db: Database) throws -> Int {
-        let levels = Dictionary(
-            uniqueKeysWithValues: try NotificationSettingsRecord.fetchAll(db).map { ($0.accountID, $0.settings.level) })
-        var total = 0
-        for id in try String.fetchAll(db, sql: "SELECT id FROM account") {
-            let inbox = Mailbox(labelID: SystemLabel.inbox, accountID: AccountID(rawValue: id))
-            let query: (sql: String, arguments: StatementArguments)
-            switch levels[id] ?? .all {
-            case .off: continue
-            case .all: query = threadQuery(in: inbox)
-            case .primary: query = threadQuery(in: inbox, category: .primary, unsorted: [])
-            }
-            total +=
-                try Int.fetchOne(
-                    db, sql: "SELECT COUNT(*) " + query.sql + " AND thread.isUnread", arguments: query.arguments) ?? 0
-        }
-        return total
-    }
-
     private static func notifications(for account: AccountID, now: Date, in db: Database) throws
         -> AccountNotifications
     {

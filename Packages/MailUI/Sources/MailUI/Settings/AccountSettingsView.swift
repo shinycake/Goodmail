@@ -86,6 +86,10 @@ struct AccountSettingsView: View {
                 NotificationsSection(choices: notifications, account: account)
             }
 
+            if let badges = model.badges {
+                BadgeSection(choices: badges, account: account, sorted: model.sortsInbox(accountID))
+            }
+
             Section {
                 Button(role: .destructive) {
                     isConfirmingRemoval = true

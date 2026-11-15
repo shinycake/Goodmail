@@ -1,0 +1,83 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Badge App Icon" : {
+      "comment" : "Settings section for what an account counts on the app's icon",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תג על צלמית האפליקציה"
+          }
+        }
+      }
+    },
+    "Badges for Goodmail are turned off in Settings." : {
+      "comment" : "Explains why the app's icon shows no count",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "התגים של Goodmail כבויים בהגדרות."
+          }
+        }
+      }
+    },
+    "None" : {
+      "comment" : "Badge choice: the account adds nothing to the badge",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ללא"
+          }
+        }
+      }
+    },
+    "The number on Goodmail's icon counts unread mail from every account." : {
+      "comment" : "Explains the app badge setting",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "המספר על הצלמית של Goodmail סופר דואר שלא נקרא מכל החשבונות."
+          }
+        }
+      }
+    },
+    "Turn On in Settings" : {
+      "comment" : "Opens iOS Settings to allow the app badge",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הפעלה בהגדרות"
+          }
+        }
+      }
+    },
+    "Unread in Inbox" : {
+      "comment" : "Badge choice: every unread Inbox thread counts",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא נקראו בדואר הנכנס"
+          }
+        }
+      }
+    },
+    "Unread in Primary" : {
+      "comment" : "Badge choice: only unread Primary-category threads count",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא נקראו בראשי"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

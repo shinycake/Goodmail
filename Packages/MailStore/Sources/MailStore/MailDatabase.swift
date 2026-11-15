@@ -260,6 +260,13 @@ public final class MailDatabase: Sendable {
                 table.column("expiresAt", .datetime).notNull()
             }
         }
+        migrator.registerMigration("v20-badge") { db in
+            // Each account's choice of what counts toward the app badge (BadgeSource). No row counts the Inbox.
+            try db.create(table: "badgeSettings") { table in
+                table.primaryKey("accountID", .text).references("account", onDelete: .cascade)
+                table.column("source", .text).notNull()
+            }
+        }
         return migrator
     }
 }

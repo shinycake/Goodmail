@@ -129,6 +129,7 @@ final class SceneCoordinator: NSObject {
                     await UNUserNotificationCenter.current().notificationSettings().authorizationStatus == .denied
                 })
         }
+        viewModel.badges = model.badgeChoices()
         presenter.present(SettingsScreen.make(model: viewModel), animated: true)
     }
 

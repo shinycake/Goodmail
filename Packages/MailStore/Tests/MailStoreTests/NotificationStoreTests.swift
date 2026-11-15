@@ -40,24 +40,6 @@ struct NotificationStoreTests {
         #expect(try database.claimAlerts(among: [arrived], in: account, now: now).isEmpty)
     }
 
-    @Test func theBadgeCountsUnreadInboxMailAsEachAccountAlerts() throws {
-        func thread(_ id: String, unread: Bool = true, labels: Set<String> = [SystemLabel.inbox]) -> ThreadSummary {
-            ThreadSummary(
-                id: ThreadSummary.ID(accountID: account.id, threadID: id), subject: "", snippet: "",
-                sender: Contact(name: nil, address: "dana@example.com"), date: now, isUnread: unread, messageCount: 1,
-                labelIDs: labels)
-        }
-        try database.upsert([
-            thread("primary"), thread("promo", labels: [SystemLabel.inbox, InboxCategory.promotions.labelID]),
-            thread("read", unread: false), thread("archived", labels: []),
-        ])
-        #expect(try database.badgeCount() == 2)
-        try database.setNotificationLevel(.primary, for: account.id, now: now)
-        #expect(try database.badgeCount() == 1)
-        try database.setNotificationLevel(.off, for: account.id, now: now)
-        #expect(try database.badgeCount() == 0)
-    }
-
     @Test func aSubscriptionIsStoredReplacedAndForgotten() throws {
         let first = PushSubscription(
             device: DeviceToken(hex: "ab", environment: .sandbox), channel: .watch, renewedAt: now,

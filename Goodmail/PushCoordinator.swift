@@ -16,11 +16,12 @@ final class PushCoordinator: NSObject {
     /// The latest clearing of placeholder alerts.
     private var placeholders: Task<Void, Never>?
     /// Keeps the app badge on the unread count for the app's lifetime.
-    private var badge: Task<Void, Never>?
+    private let badge: AppBadge
 
     init(model: AppModel, routes: IntentRoutes) {
         self.model = model
         self.routes = routes
+        badge = AppBadge(database: model.database)
     }
 
     /// Call before launch finishes, so a tap that launched the app reaches the delegate.
@@ -28,7 +29,7 @@ final class PushCoordinator: NSObject {
         let center = UNUserNotificationCenter.current()
         center.delegate = self
         center.setNotificationCategories([NewMailAlert.category])
-        followBadgeCount()
+        badge.start()
         guard model.pushRegistrar != nil else {
             Logger.push.notice("No push relay in this build; alerts are off")
             return
@@ -51,20 +52,6 @@ final class PushCoordinator: NSObject {
         updateSubscriptions()
     }
 
-    /// Sets the badge whenever the count changes, here or in the notification extension. iOS shows it only when the
-    /// reader allows badges.
-    private func followBadgeCount() {
-        badge = Task { [database = model.database] in
-            do {
-                for try await count in database.badgeCounts() {
-                    try? await UNUserNotificationCenter.current().setBadgeCount(count)
-                }
-            } catch {
-                Logger.push.error("Stopped updating the badge: \(error, privacy: .public)")
-            }
-        }
-    }
-
     /// The reader is looking at the mail, so pushes that showed only "New mail" have nothing left to say.
     private func clearPlaceholders() {
         placeholders?.cancel()
@@ -74,17 +61,19 @@ final class PushCoordinator: NSObject {
     /// Asks for permission if it hasn't been asked, then brings every account's subscription up to date.
     private func updateSubscriptions() {
         update?.cancel()
-        update = Task { [model] in
+        update = Task { [model, badge] in
             await Self.requestAuthorization(for: model.accounts)
+            // A count set before the reader allowed badges didn't show.
+            badge.setAgain()
             guard !Task.isCancelled else { return }
             await model.refreshPush()
         }
     }
 
-    /// Asks once, and only when there is an account whose mail could alert: asking on first launch, before the
-    /// reader has added one, has nothing to explain it.
+    /// Asks once, and only when there is an account, whose mail can alert or at least count on the app's badge:
+    /// asking on first launch, before the reader has added one, has nothing to explain it.
     private static func requestAuthorization(for accounts: [Account]) async {
-        guard accounts.contains(where: \.service.pushesNewMail) else { return }
+        guard !accounts.isEmpty else { return }
         let center = UNUserNotificationCenter.current()
         guard await center.notificationSettings().authorizationStatus == .notDetermined else { return }
         do {
