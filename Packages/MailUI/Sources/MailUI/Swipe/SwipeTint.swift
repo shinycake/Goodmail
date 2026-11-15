@@ -30,13 +30,19 @@ nonisolated public enum SwipeTint: Hashable, Sendable {
         }
     }
 
-    /// The color the button is filled with, from the moment it shows; `nil` for clear glass.
-    var fill: UIColor? {
+    /// The color as picked, before it's shaded for light or dark mode; `nil` for clear glass.
+    var picked: UIColor? {
         switch self {
         case .clear: nil
         case .red: .systemRed
         case .custom(let color): UIColor(color)
         }
+    }
+
+    /// What the button wears from the moment it shows: the picked color shaded to suit light or dark mode, under a
+    /// symbol that stands out from it. `nil` for clear glass, which is never shaded.
+    var shade: (fill: UIColor, symbol: UIColor)? {
+        picked.map { ($0.shadedFill, $0.shadedSymbol) }
     }
 }
 

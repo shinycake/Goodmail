@@ -41,9 +41,20 @@ struct SwipeTintTests {
         #expect(tints[.star] == .custom(RGBColor(red: 255, green: 0, blue: 0)))
     }
 
-    @Test func clearGlassHasNoFillOfItsOwn() {
-        #expect(SwipeTint.clear.fill == nil)
-        #expect(SwipeTint.red.fill == .systemRed)
+    @Test func clearGlassIsNeverShaded() {
+        #expect(SwipeTint.clear.picked == nil)
+        #expect(SwipeTint.clear.shade == nil)
+        #expect(SwipeTint.red.picked == .systemRed)
+    }
+
+    @Test func aPickedTintIsDeepUnderWhiteInDarkModeAndPaleUnderADeepSymbolInLightMode() throws {
+        let shade = try #require(picked.shade)
+        let dark = UITraitCollection(userInterfaceStyle: .dark)
+        let light = UITraitCollection(userInterfaceStyle: .light)
+        #expect(shade.symbol.resolvedColor(with: dark) == .white)
+        #expect(shade.fill.contrastRatio(with: shade.symbol, in: dark) >= ButtonShade.minimumContrast)
+        #expect(shade.fill.contrastRatio(with: .white, in: light) < shade.fill.contrastRatio(with: .white, in: dark))
+        #expect(shade.fill.contrastRatio(with: shade.symbol, in: light) >= ButtonShade.minimumContrast)
     }
 
     @Test func swipeButtonsWearTheirActionsTints() {

@@ -388,16 +388,21 @@ final class GlassActionButton: UIControl {
         applyGlass()
     }
 
-    /// The action's tint, or for a clear one the theme's color once committed, with the symbol in white or black,
-    /// whichever reads better on it.
+    /// A picked color shaded for light or dark mode. Clear glass stays clear, with the label color for its symbol,
+    /// until a full swipe fills it with the theme's color, with the symbol in white or black, whichever reads better.
     private func applyGlass() {
         let glass = UIGlassEffect(style: .clear)
         glass.isInteractive = true
-        let fill = tint.fill ?? (isCommitted ? tintColor : nil)
+        let (fill, symbol): (UIColor?, UIColor) =
+            switch (tint.shade, isCommitted) {
+            case (let shade?, _): (shade.fill, shade.symbol)
+            case (nil, true): (tintColor, tintColor.readableForeground)
+            case (nil, false): (nil, .label)
+            }
         glass.tintColor = fill?.withAlphaComponent(isCommitted ? 0.9 : 0.8)
         effectView.effect = glass
-        imageView.tintColor = fill?.readableForeground ?? .label
-        titleLabel.textColor = imageView.tintColor
+        imageView.tintColor = symbol
+        titleLabel.textColor = symbol
     }
 
     /// The symbol alone in the middle; once wide enough, the symbol and title side by side, centered together.

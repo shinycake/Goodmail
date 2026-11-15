@@ -56,7 +56,7 @@ private struct SwipeTintRow: View {
             ColorPicker(
                 // A clear action's well is a neutral gray, so it never looks picked beside the clear swatch.
                 selection: Binding(
-                    get: { Color(uiColor: tint.fill ?? .systemGray4) },
+                    get: { Color(uiColor: tint.picked ?? .systemGray4) },
                     set: { tint = .custom(RGBColor($0.resolve(in: environment))) }),
                 supportsOpacity: false
             ) {
