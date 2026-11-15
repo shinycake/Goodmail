@@ -168,10 +168,8 @@ struct SenderTests {
         #expect(server.drafts.isEmpty)
     }
 
-    @Test func deletingADraftRemovesOnlyASavedOne() async throws {
+    @Test func deletingADraftRemovesItsSavedCopy() async throws {
         try await server.saveDraft(Data(), inThread: nil, replacing: nil)
-        try await commands().deleteDraft(draft())
-        #expect(try database.dueMessages(for: account, by: .distantFuture).isEmpty, "never saved: nothing to do")
         var saved = draft()
         saved.savedDraft = Message.ID(accountID: account, messageID: "d1")
         try await commands().deleteDraft(saved)

@@ -96,6 +96,14 @@ private final class OutgoingQueue: MailCommands.Store, @unchecked Sendable {
         return messages[index]
     }
     func remove(_ id: Draft.ID) throws { messages.removeAll { $0.id == id } }
+    func enqueueSave(_ message: OutgoingMessage) throws { messages.append(message) }
+    func finish(_ message: OutgoingMessage) throws -> Bool {
+        guard messages.contains(message) else { return false }
+        messages.removeAll { $0 == message }
+        return true
+    }
+    func savedCopy(of draft: Draft.ID) throws -> Message.ID? { nil }
+    func setSavedCopy(_ copy: Message.ID?, of draft: Draft.ID) throws {}
     func sender(for account: AccountID) throws -> Contact { Contact(name: nil, address: "me@example.com") }
     func enqueue(_ intents: [OutboxIntent], account: AccountID) throws -> [String: Set<String>] { [:] }
     func pendingIntents(for account: AccountID) throws -> [OutboxIntent] { [] }

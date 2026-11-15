@@ -150,7 +150,7 @@ nonisolated extension RichText.TextColor {
     /// One of the colors this writes, from a `span`'s `color` style or a `font` tag's `color`. Any other color reads
     /// as none.
     init?(htmlAttributes attributes: String) {
-        guard let hex = attributes.firstMatch(of: /color(?::\s*|=")(#[0-9a-fA-F]{6})/)?.1.lowercased(),
+        guard let hex = attributes.firstMatch(of: /(?:^|[^-\w])color(?::\s*|=")(#[0-9a-fA-F]{6})/)?.1.lowercased(),
             let color = Self.allCases.first(where: { $0.hex == hex })
         else { return nil }
         self = color

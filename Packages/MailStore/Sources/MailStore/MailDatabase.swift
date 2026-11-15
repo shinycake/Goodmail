@@ -290,6 +290,15 @@ public final class MailDatabase: Sendable {
             // The other addresses each account sends as (Account.aliases), as JSON; none until the next sync.
             try db.alter(table: "account") { table in table.add(column: "aliases", .text).notNull().defaults(to: "[]") }
         }
+        migrator.registerMigration("v24-saved-draft-copies") { db in
+            // The provider's copy of each draft the device saved, by the draft's own ID, so saving it again as it
+            // is written replaces that copy rather than adding one.
+            try db.create(table: "savedDraftCopy") { table in
+                table.primaryKey("draftID", .text)
+                table.column("accountID", .text).notNull().references("account", onDelete: .cascade)
+                table.column("messageID", .text).notNull()
+            }
+        }
         return migrator
     }
 }

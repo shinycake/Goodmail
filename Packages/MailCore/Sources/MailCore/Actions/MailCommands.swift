@@ -78,9 +78,17 @@ public actor MailCommands {
         try enqueueNow(draft, purpose: .saveDraft)
     }
 
-    /// Removes the provider's copy of a draft opened from it. A draft never saved needs nothing.
+    /// Keeps `draft` on the device now, and with the provider once `wait` passes since the first of the saves
+    /// still waiting: what autosave calls as the writer types.
+    public func autosave(_ draft: Draft, after wait: Duration) throws {
+        let date = now().addingTimeInterval(Double(wait.components.seconds))
+        try store.enqueueSave(OutgoingMessage(draft: draft, purpose: .saveDraft, sendAt: date))
+        deliver(draft.accountID, date)
+    }
+
+    /// Removes the provider's copy of a draft: the one it was opened from, or the one autosave left. It takes the
+    /// place of a save still waiting, so nothing is saved after.
     public func deleteDraft(_ draft: Draft) throws {
-        guard draft.savedDraft != nil else { return }
         try enqueueNow(draft, purpose: .deleteDraft)
     }
 

@@ -444,7 +444,7 @@ final class SceneCoordinator: NSObject {
                     draft: draft, accountEmail: account.email, senders: model.accounts,
                     signature: { [database = model.database] in try? database.signature(for: $0) },
                     suggest: { await suggester.suggestions(for: $0) },
-                    saveDraft: { actions.saveDraft($0) }, deleteDraft: { actions.deleteDraft($0) },
+                    saveDraft: { actions.saveDraft($0, $1) }, deleteDraft: { actions.deleteDraft($0) },
                     send: { actions.send($0, at: $1) }))
             let navigation = UINavigationController(rootViewController: composer)
             navigation.modalPresentationStyle = .pageSheet

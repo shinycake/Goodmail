@@ -59,9 +59,13 @@ final class FakeMailServer: SendAsSyncing {
     private let sendPath: SendPath
     private let state = Mutex(State())
 
-    init(pageSize: Int = 2, sendPath: SendPath = .upload) {
+    /// The account whose mail it serves, as the IDs it returns say.
+    let accountID: AccountID
+
+    init(pageSize: Int = 2, sendPath: SendPath = .upload, accountID: AccountID = AccountID(rawValue: "a")) {
         self.pageSize = pageSize
         self.sendPath = sendPath
+        self.accountID = accountID
     }
 
     var queries: [Query] { state.withLock { $0.queries } }
@@ -327,12 +331,15 @@ extension FakeMailServer {
 
 extension FakeMailServer {
     /// Keeps drafts by message ID; saving over one gives it a new ID, as Gmail does.
-    func saveDraft(_ raw: Data, inThread threadID: String?, replacing: Message.ID?) async throws {
-        state.withLock { state in
+    func saveDraft(_ raw: Data, inThread threadID: String?, replacing: Message.ID?) async throws -> Message.ID? {
+        let id = state.withLock { state in
             if let replacing { state.drafts[replacing.messageID] = nil }
-            state.drafts["d\(state.nextDraft)"] = (raw, threadID)
+            let id = "d\(state.nextDraft)"
+            state.drafts[id] = (raw, threadID)
             state.nextDraft += 1
+            return id
         }
+        return Message.ID(accountID: accountID, messageID: id)
     }
 
     func deleteDraft(_ message: Message.ID) async throws {

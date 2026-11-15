@@ -155,9 +155,11 @@ struct ICloudSendTests {
         let old = Message.ID(
             accountID: IMAPClientTests.account,
             messageID: MessageKey(folder: "Drafts", uidValidity: 4, uid: 7).rawValue)
-        try await client.saveDraft(Data(raw.utf8), inThread: "d@x", replacing: old)
+        let saved = try await client.saveDraft(Data(raw.utf8), inThread: "d@x", replacing: old)
 
-        #expect(index.all.map(\.key) == [MessageKey(folder: "Drafts", uidValidity: 4, uid: 8).rawValue])
+        let key = MessageKey(folder: "Drafts", uidValidity: 4, uid: 8).rawValue
+        #expect(saved == Message.ID(accountID: IMAPClientTests.account, messageID: key), "for the next save to replace")
+        #expect(index.all.map(\.key) == [key])
         #expect(index.all.map(\.threadID) == ["d@x"])
     }
 }

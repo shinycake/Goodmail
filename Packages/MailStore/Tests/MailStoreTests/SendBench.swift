@@ -13,7 +13,7 @@ struct SendBench {
     let uploadsDirectory: URL
 
     init(sendPath: FakeMailServer.SendPath = .upload) throws {
-        server = FakeMailServer(sendPath: sendPath)
+        server = FakeMailServer(sendPath: sendPath, accountID: AccountID(rawValue: "a1"))
         let folder = FileManager.default.temporaryDirectory.appending(path: "SendBench-\(UUID().uuidString)")
         database = try MailDatabase(url: folder.appending(path: "mail.sqlite"))
         try database.save(Account(id: account, email: "me@example.com", color: .teal, service: .gmail))

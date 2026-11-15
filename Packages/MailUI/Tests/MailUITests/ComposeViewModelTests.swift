@@ -95,7 +95,8 @@ struct ComposeViewModelTests {
             accountID: account, subject: "Plan", body: MessageBody(html: "<div>Hi</div>", plain: "Hi"),
             savedDraft: Message.ID(accountID: account, messageID: "d1"))
         let model = ComposeViewModel(
-            draft: draft, accountEmail: "me@example.com", signature: { _ in "Dana" }, saveDraft: { saved = $0 },
+            draft: draft, accountEmail: "me@example.com", signature: { _ in "Dana" },
+            saveDraft: { draft, _ in saved = draft },
             deleteDraft: { deleted = $0 }, send: { _, _ in })
         #expect(model.draft.body.plain == "Hi", "no second signature")
         #expect(!model.hasChanges(body: draft.body))
@@ -108,6 +109,46 @@ struct ComposeViewModelTests {
         #expect(saved?.savedDraft == draft.savedDraft)
         model.deleteDraft()
         #expect(deleted?.savedDraft == draft.savedDraft)
+    }
+
+    @Test func autosaveKeepsTheDraftOnceTypingRestsAndOnlyWhenItChanged() async {
+        var saves: [(Draft, DraftSave)] = []
+        let model = ComposeViewModel(
+            draft: Draft(accountID: account), accountEmail: "me@example.com",
+            saveDraft: { saves.append(($0, $1)) }, autosavePause: .zero, send: { _, _ in })
+        model.edited { MessageBody(html: "<div dir=\"auto\"><br></div>", plain: "") }
+        await model.settleAutosave()
+        #expect(saves.isEmpty, "nothing written yet")
+
+        model.edited { MessageBody(plain: "H") }
+        model.edited { MessageBody(plain: "Hi") }
+        await model.settleAutosave()
+        #expect(saves.map(\.0.body.plain) == ["Hi"], "the earlier edit was overtaken")
+        #expect(saves.map(\.1) == [.asWritten])
+
+        model.keepNow(body: MessageBody(plain: "Hi there"))
+        #expect(saves.last?.1 == .now)
+        model.deleteDraft()
+        model.edited { MessageBody(plain: "after closing") }
+        await model.settleAutosave()
+        #expect(saves.count == 2, "nothing is kept once it closes")
+    }
+
+    @Test func closingUnchangedAfterAnAutosaveUndoesIt() async {
+        var saved: [Draft] = []
+        var deleted: [Draft] = []
+        let fromDrafts = Draft(
+            accountID: account, subject: "Plan", body: MessageBody(html: "<div>Hi</div>", plain: "Hi"),
+            savedDraft: Message.ID(accountID: account, messageID: "d1"))
+        for draft in [fromDrafts, Draft(accountID: account)] {
+            let model = ComposeViewModel(
+                draft: draft, accountEmail: "me@example.com", saveDraft: { draft, _ in saved.append(draft) },
+                deleteDraft: { deleted.append($0) }, autosavePause: .zero, send: { _, _ in })
+            model.keepNow(body: MessageBody(plain: "Edited"))
+            model.closeUnchanged()
+        }
+        #expect(saved.map(\.body.plain) == ["Edited", "Hi", "Edited"], "the opened copy is put back")
+        #expect(deleted.map(\.savedDraft) == [nil], "the new one's kept copy is removed")
     }
 
     @Test func theSignatureFollowsTheSenderUntilTheWriterTypes() {

@@ -170,7 +170,7 @@ private struct ChangedThreads: MailProvider {
     func source(of message: Message.ID) async throws -> Data { Data() }
     func perform(_ action: ThreadAction, onThread threadID: String) async throws {}
     var sending: Sending { .direct { _, _ in } }
-    func saveDraft(_ raw: Data, inThread threadID: String?, replacing: Message.ID?) async throws {}
+    func saveDraft(_ raw: Data, inThread threadID: String?, replacing: Message.ID?) async throws -> Message.ID? { nil }
     func deleteDraft(_ message: Message.ID) async throws {}
     func contacts() async throws -> [Contact] { [] }
     func createLabel(named name: String) async throws -> MailLabel { MailLabel(id: name, name: name, kind: .user) }

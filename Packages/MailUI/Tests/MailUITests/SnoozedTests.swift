@@ -62,6 +62,10 @@ final class NoStore: MailCommands.Store, @unchecked Sendable {
         nil
     }
     func remove(_ id: Draft.ID) throws {}
+    func enqueueSave(_ message: OutgoingMessage) throws {}
+    func finish(_ message: OutgoingMessage) throws -> Bool { false }
+    func savedCopy(of draft: Draft.ID) throws -> Message.ID? { nil }
+    func setSavedCopy(_ copy: Message.ID?, of draft: Draft.ID) throws {}
     func sender(for account: AccountID) throws -> Contact { Contact(name: nil, address: "") }
     func enqueue(_ intents: [OutboxIntent], account: AccountID) throws -> [String: Set<String>] { [:] }
     func pendingIntents(for account: AccountID) throws -> [OutboxIntent] { [] }

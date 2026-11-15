@@ -16,22 +16,40 @@ public final class ComposeViewModel {
     /// The files going with the message.
     public private(set) var attachments: [DraftAttachment]
     @ObservationIgnored private let sendAction: (Draft, SendTime) -> Void
-    @ObservationIgnored private let saveAction: ((Draft) -> Void)?
+    @ObservationIgnored private let saveAction: ((Draft, DraftSave) -> Void)?
     @ObservationIgnored private let deleteAction: (Draft) -> Void
     @ObservationIgnored private let signature: (AccountID) -> String?
     @ObservationIgnored private let suggest: (String) async -> [Contact]
     /// A draft that comes back with text, after Undo or a failed send, holds work closing would lose.
     @ObservationIgnored let isRestored: Bool
+    @ObservationIgnored private var autosave: Autosave = .untouched
+    /// How long typing rests before the draft is kept on the device.
+    @ObservationIgnored private let autosavePause: Duration
 
-    /// `send` queues the finished draft to go now or later; the composer closes right after. `saveDraft` keeps it in the provider's
-    /// Drafts and `deleteDraft` removes the copy it was opened from. `suggest` finds people for what is typed. A new
+    /// Where the draft stands with autosave. Only the methods below move it.
+    private enum Autosave {
+        /// Nothing kept since the composer opened.
+        case untouched
+        /// A version was kept, which closing must settle: the writer's choice, or putting back what was opened.
+        case kept
+        /// An edit is waiting for typing to rest, then is kept; `hasKept` says whether an earlier version was.
+        case waiting(Task<Void, Never>, hasKept: Bool)
+        /// The composer is closing; nothing more is kept.
+        case closed
+    }
+
+    /// `send` queues the finished draft to go now or later; the composer closes right after. `saveDraft` keeps it in
+    /// the provider's Drafts, now or, as autosave does while it is written, after a wait; `deleteDraft` removes the copy
+    /// it was opened from or autosave left. `suggest` finds people for what is typed. A new
     /// draft starts with its account's `signature` below the line being written.
     public init(
         draft: Draft, accountEmail: String, senders: [Account] = [],
         signature: @escaping (AccountID) -> String? = { _ in nil },
-        suggest: @escaping (String) async -> [Contact] = { _ in [] }, saveDraft: ((Draft) -> Void)? = nil,
-        deleteDraft: @escaping (Draft) -> Void = { _ in }, send: @escaping (Draft, SendTime) -> Void
+        suggest: @escaping (String) async -> [Contact] = { _ in [] }, saveDraft: ((Draft, DraftSave) -> Void)? = nil,
+        deleteDraft: @escaping (Draft) -> Void = { _ in }, autosavePause: Duration = .seconds(2),
+        send: @escaping (Draft, SendTime) -> Void
     ) {
+        self.autosavePause = autosavePause
         let isNew = (draft.body.plain ?? "").isEmpty
         // A draft opened from the provider's Drafts is safe there until it changes.
         isRestored = !isNew && draft.savedDraft == nil
@@ -86,6 +104,7 @@ public final class ComposeViewModel {
     /// Queues the message with `body` as written, to go at `time`. Does nothing while `canSend` is false.
     public func send(body: MessageBody, at time: SendTime = .now) {
         guard canSend else { return }
+        close()
         sendAction(finished(body: body), time)
     }
 
@@ -120,12 +139,83 @@ public final class ComposeViewModel {
 
     /// Keeps the message as written in the provider's Drafts.
     public func saveDraft(body: MessageBody) {
-        saveAction?(finished(body: body))
+        close()
+        saveAction?(finished(body: body), .now)
     }
 
-    /// Throws the message away, with the provider's copy when it was opened from one.
+    /// Throws the message away, with the provider's copy when it was opened from one or autosave kept one.
     public func deleteDraft() {
+        close()
         deleteAction(draft)
+    }
+
+    /// Something changed: once typing rests, the draft is kept, if it differs from how it opened. `body` reads it
+    /// as it is then, `nil` once the editor is gone.
+    public func edited(body: @escaping () -> MessageBody?) {
+        guard saveAction != nil else { return }
+        let pause = autosavePause
+        let task = Task { [weak self] in
+            try? await Task.sleep(for: pause)
+            guard !Task.isCancelled, let body = body() else { return }
+            self?.keep(body: body, wait: .asWritten)
+        }
+        switch autosave {
+        case .closed: task.cancel()
+        case .untouched: autosave = .waiting(task, hasKept: false)
+        case .kept: autosave = .waiting(task, hasKept: true)
+        case .waiting(let earlier, let hasKept):
+            earlier.cancel()
+            autosave = .waiting(task, hasKept: hasKept)
+        }
+    }
+
+    /// The app is leaving the screen: keeps the draft with the provider now, in case it isn't reopened.
+    /// Waits for an edit waiting to be kept.
+    func settleAutosave() async {
+        if case .waiting(let task, _) = autosave { await task.value }
+    }
+
+    public func keepNow(body: MessageBody) {
+        keep(body: body, wait: .now)
+    }
+
+    /// Keeps the draft as written, once it differs from how it opened. After a version was kept it is always kept
+    /// again, so the copy follows the writer even back to how it started.
+    private func keep(body: MessageBody, wait: DraftSave) {
+        guard let saveAction else { return }
+        let hasKept: Bool
+        switch autosave {
+        case .closed: return
+        case .untouched: hasKept = false
+        case .kept: hasKept = true
+        case .waiting(let task, let kept):
+            task.cancel()
+            hasKept = kept
+        }
+        guard hasKept || hasChanges(body: body) else {
+            autosave = .untouched
+            return
+        }
+        saveAction(finished(body: body), wait)
+        autosave = .kept
+    }
+
+    /// Closes without a change. A version autosave kept is undone: the copy it was opened from is put back, or the
+    /// kept one removed.
+    public func closeUnchanged() {
+        let hasKept =
+            switch autosave {
+            case .kept, .waiting(_, hasKept: true): true
+            case .untouched, .waiting, .closed: false
+            }
+        close()
+        guard hasKept else { return }
+        if draft.savedDraft != nil { saveAction?(draft, .now) } else { deleteAction(draft) }
+    }
+
+    private func close() {
+        if case .waiting(let task, _) = autosave { task.cancel() }
+        autosave = .closed
     }
 
     func finished(body: MessageBody) -> Draft {
@@ -150,4 +240,12 @@ public final class ComposeViewModel {
                 + [accountEmail]).map { $0.lowercased() })
         return await suggest(typed).filter { !excluded.contains($0.address.lowercased()) }
     }
+}
+
+/// When a draft goes to the provider's Drafts.
+public enum DraftSave: Sendable {
+    /// Now, as when the writer chose Save Draft.
+    case now
+    /// After a wait, as autosave keeps it while it is written: kept on the device at once, sent on once per wait.
+    case asWritten
 }

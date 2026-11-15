@@ -117,9 +117,15 @@ public actor Sender {
                     return .next
                 }
             case .saveDraft:
-                try await provider.saveDraft(raw, inThread: draft.threadID, replacing: draft.savedDraft)
+                let copy = try await provider.saveDraft(
+                    raw, inThread: draft.threadID, replacing: try savedCopy(of: draft))
+                try store.setSavedCopy(copy, of: draft.id)
+                // A newer save that replaced this one while it went stays queued, and goes next.
+                guard try store.finish(message) else { return .next }
+                return .took(message.draft)
             case .deleteDraft:
-                if let saved = draft.savedDraft { try await provider.deleteDraft(saved) }
+                if let saved = try savedCopy(of: draft) { try await provider.deleteDraft(saved) }
+                try store.setSavedCopy(nil, of: draft.id)
             }
             _ = try store.update(message.id, from: .queued, to: nil)
             return .took(message.draft)
@@ -188,9 +194,16 @@ public actor Sender {
         return message.draft
     }
 
+    /// The provider's copy of `draft`: the one this device saved last, else the one it was opened from.
+    private func savedCopy(of draft: Draft) throws -> Message.ID? {
+        try store.savedCopy(of: draft.id) ?? draft.savedDraft
+    }
+
     /// A saved copy left behind is only a stale draft, not worth failing a sent message over.
     private func deleteSavedCopy(of draft: Draft) async {
-        if let saved = draft.savedDraft { try? await provider.deleteDraft(saved) }
+        guard let saved = try? savedCopy(of: draft) else { return }
+        try? await provider.deleteDraft(saved)
+        try? store.setSavedCopy(nil, of: draft.id)
     }
 
     private func fetchingForwardedFiles(of draft: Draft) async throws -> Draft {

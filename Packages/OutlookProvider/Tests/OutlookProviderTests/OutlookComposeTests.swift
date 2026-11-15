@@ -59,7 +59,8 @@ struct OutlookComposeTests {
     @Test func savingADraftCreatesTheNewOneThenDeletesTheOld() async throws {
         let (outlook, graph) = try await signedIn()
         let old = Message.ID(accountID: AccountID(rawValue: "o1"), messageID: "AADraftOld")
-        try await outlook.saveDraft(Self.raw, inThread: "c1", replacing: old)
+        let saved = try await outlook.saveDraft(Self.raw, inThread: "c1", replacing: old)
+        #expect(saved?.messageID == "AADraftNew", "for the next save to replace")
 
         let writes = graph.requests.filter { $0.httpMethod == "POST" && $0.url?.host() == "graph.microsoft.com" }
         #expect(writes.map(\.graphPath) == ["me/messages", "me/messages/AADraftOld/permanentDelete"])

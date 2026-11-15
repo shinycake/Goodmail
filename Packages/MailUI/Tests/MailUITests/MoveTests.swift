@@ -40,6 +40,10 @@ private final class LabelStore: MailCommands.Store, @unchecked Sendable {
         nil
     }
     func remove(_ id: Draft.ID) throws {}
+    func enqueueSave(_ message: OutgoingMessage) throws {}
+    func finish(_ message: OutgoingMessage) throws -> Bool { false }
+    func savedCopy(of draft: Draft.ID) throws -> Message.ID? { nil }
+    func setSavedCopy(_ copy: Message.ID?, of draft: Draft.ID) throws {}
     func sender(for account: AccountID) throws -> Contact { Contact(name: nil, address: "") }
     func snoozes(of threads: [ThreadSummary.ID]) throws -> [ThreadSummary.ID: SnoozeState] { [:] }
     func setSnoozes(_ snoozes: [ThreadSummary.ID: SnoozeState?]) throws {}

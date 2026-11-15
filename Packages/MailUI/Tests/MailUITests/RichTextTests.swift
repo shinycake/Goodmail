@@ -147,6 +147,11 @@ struct RichTextHTMLTests {
             ])
     }
 
+    @Test func aBackgroundColorIsNotTheTextColor() {
+        let text = RichText(html: ##"<div><span style="background-color:#e0352b">x</span></div>"##)
+        #expect(text.paragraphs == [Paragraph(runs: [Run(text: "x")])])
+    }
+
     @Test func aBodyWithoutHTMLReadsAsPlainLines() {
         let text = RichText(MessageBody(html: nil, plain: "\n\n-- \nDana"))
         #expect(text.paragraphs.map(\.text) == ["", "", "-- ", "Dana"])

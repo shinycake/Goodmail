@@ -357,7 +357,7 @@ private struct DeviceSignatures: MailProvider {
         try await server.perform(action, onThread: threadID)
     }
     var sending: Sending { server.sending }
-    func saveDraft(_ raw: Data, inThread threadID: String?, replacing: Message.ID?) async throws {
+    func saveDraft(_ raw: Data, inThread threadID: String?, replacing: Message.ID?) async throws -> Message.ID? {
         try await server.saveDraft(raw, inThread: threadID, replacing: replacing)
     }
     func deleteDraft(_ message: Message.ID) async throws { try await server.deleteDraft(message) }

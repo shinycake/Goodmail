@@ -113,11 +113,17 @@ public final class MailActions {
     }
 
     /// Keeps `draft` in the provider's Drafts.
-    public func saveDraft(_ draft: Draft) {
-        run { try await $0.saveDraft(draft) }
+    public func saveDraft(_ draft: Draft, _ when: DraftSave = .now) {
+        switch when {
+        case .now: run { try await $0.saveDraft(draft) }
+        case .asWritten: run { try await $0.autosave(draft, after: Self.autosaveWait) }
+        }
     }
 
-    /// Removes the provider's copy of a draft opened from it.
+    /// How often a draft being written goes on to the provider: it is on the device after each pause in typing.
+    static let autosaveWait: Duration = .seconds(20)
+
+    /// Removes the provider's copy of a draft: the one it was opened from, or the one autosave kept.
     public func deleteDraft(_ draft: Draft) {
         run { try await $0.deleteDraft(draft) }
     }

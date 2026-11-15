@@ -25,13 +25,13 @@ final class FormattingBar: UIToolbar {
             return (style, item)
         }
         sizeItem.image = UIImage(systemName: "textformat.size")
-        sizeItem.accessibilityLabel = String(
+        sizeItem.title = String(
             localized: "Text Size", table: "Formatting", bundle: .module, comment: "Formatting: the text size menu")
         colorItem.image = UIImage(systemName: "paintpalette")
-        colorItem.accessibilityLabel = String(
+        colorItem.title = String(
             localized: "Text Color", table: "Formatting", bundle: .module, comment: "Formatting: the text color menu")
         listItem.image = UIImage(systemName: "list.bullet")
-        listItem.accessibilityLabel = String(
+        listItem.title = String(
             localized: "List", table: "Compose", bundle: .module, comment: "Formatting: the list menu")
         quoteItem.primaryAction = UIAction(
             title: String(
@@ -44,9 +44,11 @@ final class FormattingBar: UIToolbar {
             image: UIImage(systemName: "link")
         ) { [weak self] _ in self?.onLink() }
         directionItem.image = UIImage(systemName: "arrow.left.arrow.right")
-        directionItem.accessibilityLabel = String(
+        directionItem.title = String(
             localized: "Text Direction", table: "Compose", bundle: .module,
             comment: "Formatting: the paragraph direction menu")
+        // A titled item keeps its symbol on the bar and shows its title where the bar overflows into "…".
+        for item in [sizeItem, colorItem, listItem, directionItem] { item.accessibilityLabel = item.title }
         let controls = styleItems.map(\.1) + [sizeItem, colorItem, listItem, quoteItem, linkItem, directionItem]
         items = controls.flatMap { [$0, .flexibleSpace()] }.dropLast()
         show(nil)

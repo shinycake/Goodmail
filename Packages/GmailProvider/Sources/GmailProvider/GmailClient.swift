@@ -222,7 +222,8 @@ public struct GmailClient: MailProvider, UploadSending {
         return !(list.messages ?? []).isEmpty
     }
 
-    public func saveDraft(_ raw: Data, inThread threadID: String?, replacing: Message.ID?) async throws {
+    @discardableResult
+    public func saveDraft(_ raw: Data, inThread threadID: String?, replacing: Message.ID?) async throws -> Message.ID? {
         var draftID: String?
         if let replacing { draftID = try await self.draftID(for: replacing) }
         let path = draftID.map { "users/me/drafts/\($0)" } ?? "users/me/drafts"
@@ -230,18 +231,20 @@ public struct GmailClient: MailProvider, UploadSending {
         // Creating a draft twice leaves two; replacing one twice leaves the same draft.
         let replay: Replay = draftID == nil ? .onlyIfRefused : .safe
         var draft = GmailDraftBody(message: .init(threadId: threadID))
+        let saved: GmailDraftList.Draft
         do {
             if raw.count <= Self.jsonSendLimit {
                 draft.message.raw = raw.base64URLEncodedString()
-                let _: GmailThreadRef = try await send(path, method: method, body: draft, replay: replay)
+                saved = try await send(path, method: method, body: draft, replay: replay)
             } else {
-                let _: GmailThreadRef = try await upload(raw, metadata: draft, to: path, method: method, replay: replay)
+                saved = try await upload(raw, metadata: draft, to: path, method: method, replay: replay)
             }
         } catch let error as GmailError where error.status == 400 {
             throw ProviderError.rejected
         } catch let error as GmailError where error.status == 404 {
             throw ProviderError.notFound
         }
+        return Message.ID(accountID: session.accountID, messageID: saved.message.id)
     }
 
     public func deleteDraft(_ message: Message.ID) async throws {

@@ -123,6 +123,8 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
   - the body modelled as `RichText`, written as email-safe HTML with `dir` per block and a direction on each list and quote, and read back for reopened drafts
 - **M5.4:**
   - sends go over a background `URLSession`, uploaded from a file once the undo window closes, so a send carries on while the app is suspended or after it is killed; each queued message's delivery is an explicit state (queued, uploading, failed), and an upload that ends unheard is checked against Sent mail by its `Message-ID` rather than sent again
+- **M5.5:**
+  - drafts autosave: a pause in typing keeps the draft on the device at once (in the send queue), and it goes on to the provider's Drafts at most every 20 s and when the app leaves the screen. Each save replaces the copy the last one left (`savedDraftCopy`, keyed by the draft's own ID, since providers give a new message ID per save); sending or deleting removes it, and closing unchanged after an autosave puts back the copy it was opened from
 - **Still to do:**
   - the device's Contacts
   - camera and scan attachments

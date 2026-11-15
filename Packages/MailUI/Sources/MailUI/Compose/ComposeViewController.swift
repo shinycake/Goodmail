@@ -113,6 +113,13 @@ public final class ComposeViewController: UIViewController {
             bodyView.heightAnchor.constraint(greaterThanOrEqualToConstant: 160),
         ])
         updateSendEnabled()
+        // Leaving the app keeps the draft with the provider, in case the app isn't opened again.
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(keepDraft), name: UIScene.didEnterBackgroundNotification, object: nil)
+    }
+
+    @objc private func keepDraft() {
+        viewModel.keepNow(body: body)
     }
 
     /// A draft that already copies someone opens with the Cc and Bcc lines showing.
@@ -385,10 +392,12 @@ public final class ComposeViewController: UIViewController {
         bodyView.typingAttributes = [.font: bodyFont]
     }
 
+    /// Called after every change: Send follows whether it can go, and autosave keeps the draft once typing rests.
     func updateSendEnabled() {
         sendItem.isEnabled = viewModel.canSend
         // A swipe down asks before losing what was written.
         navigationController?.isModalInPresentation = viewModel.hasChanges(body: body)
+        viewModel.edited { [weak self] in self?.body }
     }
 
     private var body: MessageBody {
@@ -444,7 +453,10 @@ public final class ComposeViewController: UIViewController {
 
     private func cancel() {
         fieldChanged()
-        guard viewModel.hasChanges(body: body) else { return dismiss(animated: true) }
+        guard viewModel.hasChanges(body: body) else {
+            viewModel.closeUnchanged()
+            return dismiss(animated: true)
+        }
         let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         sheet.addAction(
             UIAlertAction(

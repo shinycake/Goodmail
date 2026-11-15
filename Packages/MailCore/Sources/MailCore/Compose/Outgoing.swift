@@ -65,6 +65,18 @@ public enum SendFailure: String, Sendable {
 /// The persistence the send queue needs. `MailStore` implements it.
 public protocol OutgoingStore: Sendable {
     func enqueue(_ message: OutgoingMessage) throws
+    /// Queues a draft save. A save of the same draft still waiting takes the new draft but keeps its earlier time, so
+    /// a draft saved as it is written reaches the provider once per wait, not once per keystroke. Changes nothing
+    /// while that draft is queued for anything else: to go, going or failed.
+    func enqueueSave(_ message: OutgoingMessage) throws
+    /// Removes a message that went, only while the queue still holds it as it was taken: queued, with the same
+    /// draft. A newer save of the draft that replaced it meanwhile stays, to go next. Returns whether it was removed.
+    func finish(_ message: OutgoingMessage) throws -> Bool
+    /// The provider's copy of a draft, as its last save left it: what the next save replaces, and what sending or
+    /// deleting it removes.
+    func savedCopy(of draft: Draft.ID) throws -> Message.ID?
+    /// Records the copy a save left, or forgets it when `copy` is `nil`.
+    func setSavedCopy(_ copy: Message.ID?, of draft: Draft.ID) throws
     /// Removes a message that is still queued. Returns it, or `nil` when it already went or is going.
     func cancel(_ id: Draft.ID) throws -> OutgoingMessage?
     /// Gives a message that is still queued a new purpose and time, in one write. Returns it changed, or `nil` when

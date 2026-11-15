@@ -23,9 +23,12 @@ extension OutlookClient {
 
     /// Saves `raw` as a new draft, then deletes the one it replaces. Graph can't rewrite a draft from MIME, and
     /// creating first means a failure never loses the user's draft.
-    public func saveDraft(_ raw: Data, inThread threadID: String?, replacing: Message.ID?) async throws {
-        try await postMIME(raw, to: "me/messages")
+    @discardableResult
+    public func saveDraft(_ raw: Data, inThread threadID: String?, replacing: Message.ID?) async throws -> Message.ID? {
+        let reply = try await postMIME(raw, to: "me/messages")
         if let replacing { try await deleteDraft(replacing) }
+        let created = try? JSONDecoder().decode(CreatedMessage.self, from: reply)
+        return created.map { Message.ID(accountID: graph.session.accountID, messageID: $0.id) }
     }
 
     /// Deletes the draft for good, as Gmail does, rather than moving it to Deleted Items. One already gone is fine.
@@ -63,14 +66,21 @@ extension OutlookClient {
         }
     }
 
-    private func postMIME(_ raw: Data, to path: String) async throws {
+    /// Graph's reply: the created message for a draft, nothing for a send.
+    @discardableResult
+    private func postMIME(_ raw: Data, to path: String) async throws -> Data {
         guard raw.count <= Self.mimeLimit else { throw ProviderError.rejected }
         do {
-            try await graph.send(
+            return try await graph.send(
                 GraphTransport.baseURL.appending(path: path), method: "POST",
                 payload: (raw.base64EncodedData(), "text/plain"), replay: .onlyIfRefused)
         } catch let error as GraphError where error.status == 400 {
             throw ProviderError.rejected
         }
     }
+}
+
+/// The part of a created message the next draft save needs.
+private struct CreatedMessage: Decodable {
+    let id: String
 }

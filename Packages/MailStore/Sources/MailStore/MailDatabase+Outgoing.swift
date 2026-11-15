@@ -27,6 +27,52 @@ extension MailDatabase: OutgoingStore {
         }
     }
 
+    public func enqueueSave(_ message: OutgoingMessage) throws {
+        let queued = OutgoingMessage.Delivery.queued.condition
+        try write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO outgoing (id, accountID, purpose, sendAt, failure, upload, draft)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET draft = excluded.draft, sendAt = MIN(sendAt, excluded.sendAt)
+                    WHERE purpose = excluded.purpose AND \(queued.sql)
+                    """,
+                arguments: try Self.arguments(for: message) + queued.arguments)
+        }
+    }
+
+    public func finish(_ message: OutgoingMessage) throws -> Bool {
+        let queued = OutgoingMessage.Delivery.queued.condition
+        let draft = try Self.encoded(message.draft)
+        return try write { db in
+            try db.execute(
+                sql: "DELETE FROM outgoing WHERE id = ? AND draft = ? AND \(queued.sql)",
+                arguments: [message.id.uuidString, draft] + queued.arguments)
+            return db.changesCount > 0
+        }
+    }
+
+    public func savedCopy(of draft: Draft.ID) throws -> Message.ID? {
+        try pool.read { db in
+            try Row.fetchOne(
+                db, sql: "SELECT accountID, messageID FROM savedDraftCopy WHERE draftID = ?",
+                arguments: [draft.uuidString]
+            ).map { Message.ID(accountID: AccountID(rawValue: $0["accountID"]), messageID: $0["messageID"]) }
+        }
+    }
+
+    public func setSavedCopy(_ copy: Message.ID?, of draft: Draft.ID) throws {
+        try write { db in
+            if let copy {
+                try db.execute(
+                    sql: "INSERT OR REPLACE INTO savedDraftCopy (draftID, accountID, messageID) VALUES (?, ?, ?)",
+                    arguments: [draft.uuidString, copy.accountID.rawValue, copy.messageID])
+            } else {
+                try db.execute(sql: "DELETE FROM savedDraftCopy WHERE draftID = ?", arguments: [draft.uuidString])
+            }
+        }
+    }
+
     public func cancel(_ id: Draft.ID) throws -> OutgoingMessage? {
         try write { db in
             let queued = OutgoingMessage.Delivery.queued.condition
@@ -126,8 +172,15 @@ extension MailDatabase: OutgoingStore {
         }
     }
 
+    /// The draft column. The same draft encodes the same, which `finish` relies on to tell a newer save apart.
+    private static func encoded(_ draft: Draft) throws -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        return String(decoding: try encoder.encode(draft), as: UTF8.self)
+    }
+
     private static func arguments(for message: OutgoingMessage) throws -> StatementArguments {
-        let draft = String(decoding: try JSONEncoder().encode(message.draft), as: UTF8.self)
+        let draft = try encoded(message.draft)
         let columns = message.delivery.columns
         return [
             message.id.uuidString, message.draft.accountID.rawValue, message.purpose.rawValue, message.sendAt,

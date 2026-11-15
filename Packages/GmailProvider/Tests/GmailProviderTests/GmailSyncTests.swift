@@ -162,7 +162,8 @@ struct GmailSyncTests {
             "/gmail/v1/users/me/drafts/r-222": [.init(fixture: "draft")],
         ])
         let saved = Message.ID(accountID: AccountID(rawValue: "a"), messageID: "18f0b2")
-        try await gmail.saveDraft(Data("Subject: Hi".utf8), inThread: "18f0a1", replacing: saved)
+        let copy = try await gmail.saveDraft(Data("Subject: Hi".utf8), inThread: "18f0a1", replacing: saved)
+        #expect(copy?.messageID == "18f0b9", "the draft's new message, for the next save to replace")
         #expect(http.requests.last?.httpMethod == "PUT")
         #expect(http.requests.last?.url?.path() == "/gmail/v1/users/me/drafts/r-222")
     }
