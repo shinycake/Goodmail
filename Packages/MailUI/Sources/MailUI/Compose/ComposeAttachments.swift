@@ -31,7 +31,8 @@ final class ComposeAttachmentsView: UIStackView {
             button.menu = UIMenu(children: [
                 UIAction(
                     title: String(
-                        localized: "Remove", table: "Compose", bundle: .module, comment: "Takes a file off the message"),
+                        localized: "Remove", table: "Compose", bundle: .module,
+                        comment: "Takes a file or a recipient off the message"),
                     image: UIImage(systemName: "xmark"), attributes: .destructive
                 ) { [weak self] _ in self?.onRemove?(attachment.id) }
             ])

@@ -17,18 +17,17 @@ struct ComposeViewModelTests {
         let daniel = Contact(name: "Daniel, Jr.", address: "dan@example.com")
         var asked: [String] = []
         let model = ComposeViewModel(
-            draft: Draft(accountID: account), accountEmail: "me@example.com",
+            draft: Draft(accountID: account, to: [dana]), accountEmail: "me@example.com",
             suggest: {
                 asked.append($0)
                 return [dana, daniel]
             }, send: { _, _ in })
-        #expect(await model.suggestions(for: "Dana Levi <dana@example.com>, da").map(\.address) == ["dan@example.com"])
-        #expect(await model.suggestions(for: "\"Levi, Dana\" <x@example.com>, ").isEmpty, "nothing typed yet")
+        #expect(await model.suggestions(for: .to).isEmpty, "nothing typed yet")
+        model.recipients.to.type("da")
+        #expect(await model.suggestions(for: .to).map(\.address) == ["dan@example.com"])
         #expect(asked == ["da"])
-        #expect(
-            ComposeViewModel.completing("dana@example.com, da", with: daniel)
-                == "dana@example.com, \"Daniel, Jr.\" <dan@example.com>, ")
-        #expect(ComposeViewModel.completing("da", with: dana) == "Dana Levi <dana@example.com>, ")
+        model.recipients.to.complete(with: daniel)
+        #expect(model.recipients.to.contacts == [dana, daniel])
     }
 
     @Test func neverSuggestsTheAccountsTheMessageCanGoFrom() async {
@@ -39,7 +38,8 @@ struct ComposeViewModelTests {
             draft: Draft(accountID: account), accountEmail: "me@example.com",
             senders: [Account(id: account, email: "me@example.com", color: .blue, service: .gmail)],
             suggest: { _ in [me, other, dana] }, send: { _, _ in })
-        #expect(await model.suggestions(for: "m").map(\.address) == ["work@example.com", "dana@example.com"])
+        model.recipients.to.type("m")
+        #expect(await model.suggestions(for: .to).map(\.address) == ["work@example.com", "dana@example.com"])
     }
 
     @Test func filesGoWithTheMessageWithinGmailsLimit() {
@@ -66,7 +66,7 @@ struct ComposeViewModelTests {
     @Test func typingOrAddressingCountsAsAChange() {
         let model = model(Draft(accountID: account))
         #expect(model.hasChanges(body: MessageBody(plain: "Hi")))
-        model.toText = "dana@example.com"
+        model.recipients.to.type("dana@example.com")
         #expect(model.hasChanges(body: MessageBody(plain: "")))
     }
 
@@ -164,12 +164,12 @@ struct ComposeViewModelTests {
     @Test func sendsOnlyToAddresses() {
         var sent: [Draft] = []
         let model = model(Draft(accountID: account)) { sent.append($0) }
-        model.toText = "dana"
+        model.recipients.to.type("dana")
         #expect(!model.canSend)
         model.send(body: MessageBody(plain: "Hi"))
         #expect(sent.isEmpty)
 
-        model.toText = "Dana Levi <dana@example.com>, avi@example.com"
+        model.recipients.to.type("Dana Levi <dana@example.com>, avi@example.com")
         #expect(model.canSend)
         model.send(body: MessageBody(plain: "Hi"))
         #expect(sent.first?.to.map(\.address) == ["dana@example.com", "avi@example.com"])

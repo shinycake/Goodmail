@@ -10,10 +10,8 @@ public final class ComposeViewModel {
     public private(set) var accountEmail: String
     /// The accounts the message can go from, with their aliases.
     public let senders: [Account]
-    /// The recipient fields as typed, parsed into contacts when sending.
-    public var toText: String
-    public var ccText: String
-    public var bccText: String
+    /// The To, Cc and Bcc fields as the writer edits them: tokens, then what is still being typed.
+    public var recipients: Recipients
     public var subject: String
     /// The files going with the message.
     public private(set) var attachments: [DraftAttachment]
@@ -43,9 +41,7 @@ public final class ComposeViewModel {
         self.accountEmail = accountEmail
         self.senders = senders
         self.signature = signature
-        toText = Self.text(draft.to)
-        ccText = Self.text(draft.cc)
-        bccText = Self.text(draft.bcc)
+        recipients = Recipients(to: draft.to, cc: draft.cc, bcc: draft.bcc)
         subject = draft.subject
         attachments = draft.attachments
         sendAction = send
@@ -56,8 +52,8 @@ public final class ComposeViewModel {
 
     /// Every typed recipient looks like an address, and there is at least one.
     public var canSend: Bool {
-        let all = [toText, ccText, bccText].flatMap(Contact.list(parsing:))
-        return !all.isEmpty && all.allSatisfy { Self.isAddress($0.address) }
+        let all = recipients.all
+        return !all.isEmpty && all.allSatisfy(\.hasValidAddress)
     }
 
     public var isReply: Bool { draft.inReplyTo != nil }
@@ -134,51 +130,24 @@ public final class ComposeViewModel {
 
     func finished(body: MessageBody) -> Draft {
         var draft = draft
-        draft.to = Contact.list(parsing: toText)
-        draft.cc = Contact.list(parsing: ccText)
-        draft.bcc = Contact.list(parsing: bccText)
+        draft.to = recipients.to.all
+        draft.cc = recipients.cc.all
+        draft.bcc = recipients.bcc.all
         draft.subject = subject
         draft.body = body
         draft.attachments = attachments
         return draft
     }
 
-    /// People to offer for the recipient being typed at the end of `field`, leaving out those already in it and the
-    /// addresses the message can go from.
-    public func suggestions(for field: String) async -> [Contact] {
-        let typed = field[Self.lastEntryStart(in: field)...].trimmingCharacters(in: .whitespaces)
+    /// People to offer for what is typed in the `role` field, leaving out those already in it and the addresses the
+    /// message can go from.
+    public func suggestions(for role: Recipients.Role) async -> [Contact] {
+        let entry = recipients[role]
+        let typed = entry.typed.trimmingCharacters(in: .whitespaces)
         guard !typed.isEmpty else { return [] }
         let excluded = Set(
-            (Contact.list(parsing: field).map(\.address) + senders.flatMap { [$0.email] + $0.aliases.map(\.address) }
-                + [accountEmail]).map {
-                    $0.lowercased()
-                })
+            (entry.contacts.map(\.address) + senders.flatMap { [$0.email] + $0.aliases.map(\.address) }
+                + [accountEmail]).map { $0.lowercased() })
         return await suggest(typed).filter { !excluded.contains($0.address.lowercased()) }
-    }
-
-    /// `field` with the recipient being typed replaced by `contact`, ready for the next one.
-    public static func completing(_ field: String, with contact: Contact) -> String {
-        let kept = field[..<lastEntryStart(in: field)]
-        return (kept.isEmpty ? "" : kept + " ") + text([contact]) + ", "
-    }
-
-    /// Where the last recipient starts: after the last comma that isn't inside quotes or angle brackets.
-    private static func lastEntryStart(in field: String) -> String.Index {
-        Contact.separators(in: field).last.map(field.index(after:)) ?? field.startIndex
-    }
-
-    static func text(_ contacts: [Contact]) -> String {
-        contacts.map { contact in
-            guard let name = contact.name, !name.isEmpty else { return contact.address }
-            let quoted = name.contains(",") ? "\"\(name)\"" : name
-            return "\(quoted) <\(contact.address)>"
-        }
-        .joined(separator: ", ")
-    }
-
-    static func isAddress(_ text: String) -> Bool {
-        let parts = text.split(separator: "@", omittingEmptySubsequences: false)
-        return parts.count == 2 && !parts[0].isEmpty && parts[1].contains(".") && !text.contains(" ")
-            && !parts[1].hasPrefix(".") && !parts[1].hasSuffix(".")
     }
 }

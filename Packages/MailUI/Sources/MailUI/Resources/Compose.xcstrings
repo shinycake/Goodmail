@@ -1,6 +1,17 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@, not a valid address" : {
+      "comment" : "VoiceOver: a recipient whose address can't be sent to",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, כתובת לא תקינה"
+          }
+        }
+      }
+    },
     "(No Subject)" : {
       "comment" : "Shown in place of an empty email subject",
       "localizations" : {
@@ -129,6 +140,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "בחר שעה…"
+          }
+        }
+      }
+    },
+    "Copy Address" : {
+      "comment" : "Recipient menu: copies the address",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העתקת כתובת"
           }
         }
       }
@@ -467,6 +489,39 @@
         }
       }
     },
+    "Move to Bcc" : {
+      "comment" : "Recipient menu",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה ל״עותק מוסתר״"
+          }
+        }
+      }
+    },
+    "Move to Cc" : {
+      "comment" : "Recipient menu",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה ל״עותק״"
+          }
+        }
+      }
+    },
+    "Move to To" : {
+      "comment" : "Recipient menu",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה ל״אל״"
+          }
+        }
+      }
+    },
     "New Message" : {
       "comment" : "Composer title",
       "localizations" : {
@@ -534,7 +589,7 @@
       }
     },
     "Remove" : {
-      "comment" : "Takes a file off the message",
+      "comment" : "Takes a file or a recipient off the message",
       "localizations" : {
         "he" : {
           "stringUnit" : {

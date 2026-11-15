@@ -4,19 +4,20 @@ import UIKit
 /// Writing a message: recipients, subject, then the body as the page. The quoted conversation stays out of the way
 /// below, and goes with the message.
 public final class ComposeViewController: UIViewController {
-    private let viewModel: ComposeViewModel
+    let viewModel: ComposeViewModel
     private let scrollView = UIScrollView()
-    private let toField = UITextField()
-    private let ccField = UITextField()
-    private let bccField = UITextField()
-    private let subjectField = UITextField()
+    /// The Cc/Bcc button sits at the end of the To line until those lines show.
+    lazy var toField = recipientField(.to, accessory: startsWithCopyFields ? nil : ccToggle())
+    lazy var ccField = recipientField(.cc)
+    lazy var bccField = recipientField(.bcc)
+    let subjectField = UITextField()
     let bodyView = UITextView(usingTextLayoutManager: true)
     let formattingBar = FormattingBar()
     let quoteLayout = QuoteLayout()
     private let quoteButton = UIButton(configuration: .gray())
     private let quoteLabel = UILabel()
-    private var ccRow: UIView!
-    private var bccRow: UIView!
+    var ccRow: UIView!
+    var bccRow: UIView!
     private var toRow: UIView!
     private var fields: UIStackView!
     /// People matching the recipient being typed, shown under its field.
@@ -48,11 +49,9 @@ public final class ComposeViewController: UIViewController {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(scrollView)
 
-        configure(toField, text: viewModel.toText, isAddress: true)
-        configure(ccField, text: viewModel.ccText, isAddress: true)
-        configure(bccField, text: viewModel.bccText, isAddress: true)
-        configure(subjectField, text: viewModel.subject, isAddress: false)
-        toField.accessibilityIdentifier = "compose.to"
+        let showsCc = startsWithCopyFields
+        configure(subjectField, text: viewModel.subject)
+        toField.textField.accessibilityIdentifier = "compose.to"
         subjectField.accessibilityIdentifier = "compose.subject"
 
         bodyView.font = bodyFont
@@ -71,21 +70,17 @@ public final class ComposeViewController: UIViewController {
         bodyView.accessibilityLabel = String(
             localized: "Message", table: "Compose", bundle: .module, comment: "The body field")
 
-        let showsCc = !viewModel.ccText.isEmpty || !viewModel.bccText.isEmpty
-        ccRow = row(
-            String(localized: "Cc:", table: "Compose", bundle: .module, comment: "Compose field label"), ccField)
-        bccRow = row(
-            String(localized: "Bcc:", table: "Compose", bundle: .module, comment: "Compose field label"), bccField)
+        ccRow = row(ccField)
+        bccRow = row(bccField)
         ccRow.isHidden = !showsCc
         bccRow.isHidden = !showsCc
-        toRow = row(
-            String(localized: "To:", table: "Compose", bundle: .module, comment: "Compose field label"), toField,
-            ccToggle: !showsCc)
+        toRow = row(toField)
         let stack = UIStackView(arrangedSubviews: [
             toRow, ccRow, bccRow,
             row(
-                String(localized: "Subject:", table: "Compose", bundle: .module, comment: "Compose field label"),
-                subjectField),
+                labeled(
+                    String(localized: "Subject:", table: "Compose", bundle: .module, comment: "Compose field label"),
+                    subjectField)),
             bodyView, attachmentsView,
         ])
         stack.axis = .vertical
@@ -118,6 +113,11 @@ public final class ComposeViewController: UIViewController {
             bodyView.heightAnchor.constraint(greaterThanOrEqualToConstant: 160),
         ])
         updateSendEnabled()
+    }
+
+    /// A draft that already copies someone opens with the Cc and Bcc lines showing.
+    private var startsWithCopyFields: Bool {
+        !viewModel.recipients.cc.isEmpty || !viewModel.recipients.bcc.isEmpty
     }
 
     public override func viewWillAppear(_ animated: Bool) {
@@ -164,45 +164,32 @@ public final class ComposeViewController: UIViewController {
         navigationItem.rightBarButtonItems = [sendItem, attachItem()]
     }
 
-    private func configure(_ field: UITextField, text: String, isAddress: Bool) {
+    private func configure(_ field: UITextField, text: String) {
         field.text = text
         field.font = .preferredFont(forTextStyle: .body)
         field.adjustsFontForContentSizeCategory = true
-        if isAddress {
-            field.keyboardType = .emailAddress
-            field.textContentType = .emailAddress
-            field.autocapitalizationType = .none
-            field.autocorrectionType = .no
-        }
-        field.addAction(
-            UIAction { [weak self, weak field] _ in
-                guard let self, let field else { return }
-                fieldChanged()
-                if isAddress { showSuggestions(for: field) }
-            }, for: .editingChanged)
-        if isAddress {
-            field.addAction(
-                UIAction { [weak self] _ in
-                    self?.suggestionLookup?.cancel()
-                    self?.suggestionList.isHidden = true
-                }, for: .editingDidEnd)
-        }
+        field.addAction(UIAction { [weak self] _ in self?.fieldChanged() }, for: .editingChanged)
     }
 
     /// Looks up the people matching what is being typed in `field` and lists them right under it.
-    private func showSuggestions(for field: UITextField) {
+    func showSuggestions(for field: RecipientField) {
         suggestionLookup?.cancel()
-        let typed = field.text ?? ""
+        let role = field.role
         suggestionLookup = Task { [weak self, weak field] in
             guard let self, let field else { return }
-            let contacts = await viewModel.suggestions(for: typed)
+            let contacts = await viewModel.suggestions(for: role)
             guard !Task.isCancelled else { return }
             list(contacts, under: field)
         }
     }
 
-    /// Shows `contacts` under `field`. A tap completes the recipient.
-    private func list(_ contacts: [Contact], under field: UITextField) {
+    func hideSuggestions() {
+        suggestionLookup?.cancel()
+        suggestionList.isHidden = true
+    }
+
+    /// Shows `contacts` under `field`. A tap adds the recipient.
+    private func list(_ contacts: [Contact], under field: RecipientField) {
         for view in suggestionList.arrangedSubviews { view.removeFromSuperview() }
         suggestionList.removeFromSuperview()
         let row = [toField: toRow, ccField: ccRow, bccField: bccRow][field] ?? nil
@@ -226,9 +213,8 @@ public final class ComposeViewController: UIViewController {
                 configuration: configuration,
                 primaryAction: UIAction { [weak self, weak field] _ in
                     guard let self, let field else { return }
-                    field.text = ComposeViewModel.completing(field.text ?? "", with: contact)
-                    fieldChanged()
-                    suggestionList.isHidden = true
+                    edit(field) { $0.complete(with: contact) }
+                    hideSuggestions()
                 })
             button.contentHorizontalAlignment = .leading
             suggestionList.addArrangedSubview(button)
@@ -237,7 +223,8 @@ public final class ComposeViewController: UIViewController {
         suggestionList.isHidden = false
     }
 
-    private func row(_ title: String, _ field: UITextField, ccToggle: Bool = false) -> UIView {
+    /// A field's title before it, on one line.
+    private func labeled(_ title: String, _ field: UITextField) -> UIView {
         let label = UILabel()
         label.text = title
         label.font = .preferredFont(forTextStyle: .body)
@@ -248,27 +235,35 @@ public final class ComposeViewController: UIViewController {
         let line = UIStackView(arrangedSubviews: [label, field])
         line.spacing = 6
         line.alignment = .firstBaseline
-        if ccToggle {
-            let toggle = UIButton(configuration: .plain())
-            toggle.configuration?.title = String(
-                localized: "Cc/Bcc", table: "Compose", bundle: .module, comment: "Shows Cc and Bcc")
-            toggle.configuration?.contentInsets = .zero
-            toggle.setContentHuggingPriority(.required, for: .horizontal)
-            // A long recipient line scrolls in its field rather than squeezing the button.
-            toggle.setContentCompressionResistancePriority(.required, for: .horizontal)
-            field.setContentHuggingPriority(.defaultLow, for: .horizontal)
-            field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-            toggle.addAction(
-                UIAction { [weak self, weak toggle] _ in
-                    toggle?.isHidden = true
-                    UIView.animate(springDuration: 0.3) {
-                        self?.ccRow.isHidden = false
-                        self?.bccRow.isHidden = false
-                    }
-                    self?.ccField.becomeFirstResponder()
-                }, for: .primaryActionTriggered)
-            line.addArrangedSubview(toggle)
+        return line
+    }
+
+    /// Shows Cc and Bcc, at the end of the To line until it's used.
+    private func ccToggle() -> UIView {
+        let toggle = UIButton(configuration: .plain())
+        toggle.configuration?.title = String(
+            localized: "Cc/Bcc", table: "Compose", bundle: .module, comment: "Shows Cc and Bcc")
+        toggle.configuration?.contentInsets = .zero
+        toggle.addAction(
+            UIAction { [weak self] _ in
+                self?.showCopyFields()
+                self?.ccField.becomeFirstResponder()
+            }, for: .primaryActionTriggered)
+        return toggle
+    }
+
+    /// Shows the Cc and Bcc lines, which also takes the Cc/Bcc button away.
+    func showCopyFields() {
+        guard ccRow.isHidden else { return }
+        toField.removeAccessory()
+        UIView.animate(springDuration: 0.3) {
+            self.ccRow.isHidden = false
+            self.bccRow.isHidden = false
         }
+    }
+
+    /// A line of the header, with a hairline under it.
+    private func row(_ line: UIView) -> UIView {
         let separator = UIView()
         separator.backgroundColor = .separator
         let container = UIStackView(arrangedSubviews: [line, separator])
@@ -381,9 +376,6 @@ public final class ComposeViewController: UIViewController {
     }
 
     private func fieldChanged() {
-        viewModel.toText = toField.text ?? ""
-        viewModel.ccText = ccField.text ?? ""
-        viewModel.bccText = bccField.text ?? ""
         viewModel.subject = subjectField.text ?? ""
         updateSendEnabled()
     }

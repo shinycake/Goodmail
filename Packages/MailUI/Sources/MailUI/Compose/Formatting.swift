@@ -1,3 +1,4 @@
+import MailCore
 import UIKit
 
 /// The formatting at the writer's selection: what the controls show as on, and what a tap on them turns off.
@@ -178,7 +179,7 @@ enum FormattingCommand: Equatable {
             else { return nil }
             return url
         }
-        if ComposeViewModel.isAddress(typed) { return URL(string: "mailto:" + typed) }
+        if Contact.isAddress(typed) { return URL(string: "mailto:" + typed) }
         guard typed.contains(".") else { return nil }
         return URL(string: "https://" + typed)
     }
