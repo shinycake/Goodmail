@@ -6,8 +6,8 @@ import MailStore
 /// what alerts. The mail it fetches is stored, so the app shows it on open without fetching it again (ADR-002).
 public struct NewMailFetch: Sendable {
     public enum Outcome: Sendable, Equatable {
-        /// Threads to alert for, newest first.
-        case alerts([ThreadSummary], in: Account)
+        /// Mail to alert for, newest first.
+        case alerts([NewMail], in: Account)
         /// Nothing in the push alerts: a read, an archive, mail already seen, or alerts turned off.
         case nothingNew
     }
@@ -60,9 +60,27 @@ public struct NewMailFetch: Sendable {
             case .account(let id): accounts.first { $0.id == id }
             }
         guard let account = match else { throw Failure.unknownAccount }
-        let arrived = try await SyncEngine(accountID: account.id, provider: try provider(account), store: database)
-            .catchUp()
+        let client = try provider(account)
+        let arrived = try await SyncEngine(accountID: account.id, provider: client, store: database).catchUp()
         let threads = try database.claimAlerts(among: arrived, in: account, now: now())
-        return threads.isEmpty ? .nothingNew : .alerts(threads, in: account)
+        guard !threads.isEmpty else { return .nothingNew }
+        let codes = await withTaskGroup(of: (Int, OneTimeCode?).self) { group in
+            for (index, thread) in threads.enumerated() {
+                group.addTask { (index, await Self.unshownCode(in: thread, from: client)) }
+            }
+            return await group.reduce(into: [Int: OneTimeCode]()) { $0[$1.0] = $1.1 }
+        }
+        return .alerts(threads.enumerated().map { NewMail(thread: $1, code: codes[$0]) }, in: account)
+    }
+
+    /// The one-time code in a thread's latest message when its subject or snippet names one without giving it, as
+    /// "Your sign-in code" over a snippet that ends before the code does. A body that can't be read costs only the
+    /// code: the alert shows the snippet, as for any mail.
+    private static func unshownCode(in thread: ThreadSummary, from provider: any MailProvider) async -> OneTimeCode? {
+        let shown = "\(thread.subject)\n\(thread.snippet)"
+        guard OneTimeCode.isNamed(in: shown), OneTimeCode(in: shown) == nil,
+            let latest = try? await provider.messages(inThread: thread.id.threadID).last
+        else { return nil }
+        return OneTimeCode(in: latest.body.text)
     }
 }

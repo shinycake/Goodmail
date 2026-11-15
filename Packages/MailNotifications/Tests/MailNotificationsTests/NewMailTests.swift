@@ -37,6 +37,12 @@ struct NewMailAlertTests {
         #expect(NewMailAlert.thread(in: placeholder.userInfo) == nil)
     }
 
+    @Test func aCodePastTheSnippetPreviewsInItsPlace() throws {
+        let code = try #require(OneTimeCode(in: "Use this code to sign in: 482913"))
+        #expect(NewMailAlert.content(for: NewMail(thread: thread(), code: code), in: account).body == code.passage)
+        #expect(NewMailAlert.content(for: NewMail(thread: thread()), in: account).body == "Tomorrow at one")
+    }
+
     @Test func mailWithoutASubjectSaysSo() {
         #expect(NewMailAlert.content(for: thread(subject: ""), in: account).subtitle == "No Subject")
     }
@@ -71,9 +77,11 @@ struct NewMailFetchTests {
         NewMailFetch(database: database, provider: { _ in provider }, now: { [now] in now })
     }
 
-    private func thread(_ id: String, unread: Bool = true) -> ThreadSummary {
+    private func thread(_ id: String, unread: Bool = true, subject: String? = nil, snippet: String = "")
+        -> ThreadSummary
+    {
         ThreadSummary(
-            id: ThreadSummary.ID(accountID: account.id, threadID: id), subject: id, snippet: "",
+            id: ThreadSummary.ID(accountID: account.id, threadID: id), subject: subject ?? id, snippet: snippet,
             sender: Contact(name: nil, address: "dana@example.com"), date: now, isUnread: unread, messageCount: 1,
             labelIDs: [SystemLabel.inbox])
     }
@@ -81,8 +89,28 @@ struct NewMailFetchTests {
     @Test func newMailAlertsOnceAndIsStored() async throws {
         let provider = ChangedThreads([thread("t1")])
         let first = try await fetch(provider).run(.address("me@example.com"))
-        #expect(first == .alerts([thread("t1")], in: account))
+        #expect(first == .alerts([NewMail(thread: thread("t1"))], in: account))
         #expect(try await fetch(provider).run(.address("me@example.com")) == .nothingNew)
+    }
+
+    @Test func aCodeTheSubjectNamesButTheSnippetCutsOffIsReadFromTheBody() async throws {
+        let signIn = thread("t1", subject: "Your Acme sign-in code", snippet: "Hi Idan, someone asked to sign in. Use")
+        let provider = ChangedThreads([signIn], body: "Hi Idan, someone asked to sign in. Use this code: 482913")
+        let outcome = try await fetch(provider).run(.address(account.email))
+        let code = try #require(OneTimeCode(in: "Use this code: 482913"))
+        #expect(outcome == .alerts([NewMail(thread: signIn, code: code)], in: account))
+    }
+
+    @Test(arguments: [
+        // The snippet already gives the code, so iOS reads it from there.
+        ("Your Acme sign-in code", "Your code is 482913"),
+        // Nothing names a code.
+        ("Lunch?", "Tomorrow at one"),
+    ])
+    func otherMailAlertsWithItsSnippet(subject: String, snippet: String) async throws {
+        let mail = thread("t1", subject: subject, snippet: snippet)
+        let outcome = try await fetch(ChangedThreads([mail], body: "Your code is 777111")).run(.address(account.email))
+        #expect(outcome == .alerts([NewMail(thread: mail)], in: account))
     }
 
     @Test func aReadChangeAlertsForNothing() async throws {
@@ -110,12 +138,14 @@ struct NewMailFetchTests {
     }
 }
 
-/// A provider whose every change set holds `threads`.
+/// A provider whose every change set holds `threads`, each with one message whose body is `body`.
 private struct ChangedThreads: MailProvider {
     let threads: [ThreadSummary]
+    let body: String
 
-    init(_ threads: [ThreadSummary]) {
+    init(_ threads: [ThreadSummary], body: String = "") {
         self.threads = threads
+        self.body = body
     }
 
     func changes(since cursor: String) async throws -> ChangeSet {
@@ -128,7 +158,14 @@ private struct ChangedThreads: MailProvider {
     func threads(matching query: ThreadQuery, pageToken: String?) async throws -> ThreadPage {
         ThreadPage(threads: [], nextPageToken: nil)
     }
-    func messages(inThread threadID: String) async throws -> [Message] { [] }
+    func messages(inThread threadID: String) async throws -> [Message] {
+        let id = Message.ID(accountID: AccountID(rawValue: "a1"), messageID: threadID)
+        return [
+            Message(
+                id: id, threadID: threadID, from: Contact(name: nil, address: "dana@example.com"), subject: "",
+                date: .now, body: MessageBody(plain: body))
+        ]
+    }
     func data(for attachment: MailCore.Attachment, in message: Message.ID) async throws -> Data { Data() }
     func source(of message: Message.ID) async throws -> Data { Data() }
     func perform(_ action: ThreadAction, onThread threadID: String) async throws {}

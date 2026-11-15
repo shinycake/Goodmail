@@ -81,14 +81,14 @@ private final class Delivery: @unchecked Sendable {
 
     func finish(with outcome: NewMailFetch.Outcome) async {
         switch outcome {
-        case .alerts(let threads, let account):
-            guard let newest = threads.first else { return expire() }
+        case .alerts(let mail, let account):
+            guard let newest = mail.first else { return expire() }
             let logos = SharedContainer.directoryURL.map { SenderLogos(directory: $0.appending(path: "SenderLogos")) }
             // The push shows the newest; each other thread gets its own alert, posted before the push's lands.
-            for thread in threads.dropFirst() {
-                let content = await SenderAlert.content(for: thread, in: account, logos: logos)
+            for other in mail.dropFirst() {
+                let content = await SenderAlert.content(for: other, in: account, logos: logos)
                 let request = UNNotificationRequest(
-                    identifier: NewMailAlert.identifier(for: thread.id), content: content, trigger: nil)
+                    identifier: NewMailAlert.identifier(for: other.thread.id), content: content, trigger: nil)
                 try? await UNUserNotificationCenter.current().add(request)
             }
             let alert = await SenderAlert.content(for: newest, in: account, logos: logos)

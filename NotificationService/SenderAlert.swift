@@ -7,11 +7,10 @@ import UserNotifications
 
 /// A new-mail alert as a communication alert: iOS shows the sender's picture, with Goodmail's icon as its badge.
 enum SenderAlert {
-    /// The alert for `thread`, or the plain one when iOS refuses the sender's details.
-    static func content(for thread: ThreadSummary, in account: Account, logos: SenderLogos?) async
-        -> UNNotificationContent
-    {
-        let plain = NewMailAlert.content(for: thread, in: account)
+    /// The alert for `mail`, or the plain one when iOS refuses the sender's details.
+    static func content(for mail: NewMail, in account: Account, logos: SenderLogos?) async -> UNNotificationContent {
+        let plain = NewMailAlert.content(for: mail, in: account)
+        let thread = mail.thread
         let address = thread.sender.address
         var picture = await logos?.logo(for: address)
         if picture == nil { picture = monogram(for: thread.sender.displayName) }

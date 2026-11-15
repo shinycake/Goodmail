@@ -11,6 +11,14 @@ public enum NewMailAlert {
         case reply, markRead, archive, trash
     }
 
+    /// The alert for `mail`: its one-time code, when the snippet doesn't give it, previews in the snippet's place,
+    /// so iOS offers the code above the keyboard.
+    public static func content(for mail: NewMail, in account: Account) -> UNMutableNotificationContent {
+        let content = content(for: mail.thread, in: account)
+        if let code = mail.code { content.body = code.passage }
+        return content
+    }
+
     /// The alert for `thread`. Alerts stack by account, so each account's mail stays together however many
     /// accounts there are.
     public static func content(for thread: ThreadSummary, in account: Account) -> UNMutableNotificationContent {

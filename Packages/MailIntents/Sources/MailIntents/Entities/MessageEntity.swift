@@ -34,7 +34,7 @@ public struct MessageEntity {
         id = EntityID.string(message.id, inThread: message.threadID)
         senderName = message.from.displayName
         subject = message.subject.isEmpty ? nil : message.subject
-        body = Self.text(of: message.body)
+        body = message.body.text.isEmpty ? nil : message.body.text
         sender = IntentPerson(message.from)
         to = message.to.map(IntentPerson.init)
         cc = message.cc.map(IntentPerson.init)
@@ -49,12 +49,6 @@ public struct MessageEntity {
         self.mailbox = mailbox
         self.account = account
         category = MailCategoryEntity(labels: message.labelIDs)
-    }
-
-    /// The body as plain text: the plain part, or else the HTML's text.
-    private static func text(of body: MessageBody) -> String? {
-        let text = body.plain.flatMap { $0.isEmpty ? nil : $0 } ?? body.html.map(HTMLEntities.plainText(fromHTML:))
-        return text?.isEmpty == false ? text : nil
     }
 
     var threadID: ThreadSummary.ID? { EntityID.message(id)?.thread }
