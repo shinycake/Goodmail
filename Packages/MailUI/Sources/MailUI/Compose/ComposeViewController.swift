@@ -115,10 +115,12 @@ public final class ComposeViewController: UIViewController {
         updateSendEnabled()
         // Leaving the app keeps the draft with the provider, in case the app isn't opened again.
         NotificationCenter.default.addObserver(
-            self, selector: #selector(keepDraft), name: UIScene.didEnterBackgroundNotification, object: nil)
+            self, selector: #selector(keepDraft(_:)), name: UIScene.didEnterBackgroundNotification, object: nil)
     }
 
-    @objc private func keepDraft() {
+    /// Only this composer's own scene going to the background keeps its draft, not another window's.
+    @objc private func keepDraft(_ notification: Notification) {
+        guard let scene = notification.object as? UIScene, scene === view.window?.windowScene else { return }
         viewModel.keepNow(body: body)
     }
 

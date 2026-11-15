@@ -169,12 +169,12 @@ public final class ComposeViewModel {
         }
     }
 
-    /// The app is leaving the screen: keeps the draft with the provider now, in case it isn't reopened.
     /// Waits for an edit waiting to be kept.
     func settleAutosave() async {
         if case .waiting(let task, _) = autosave { await task.value }
     }
 
+    /// The app is leaving the screen: keeps the draft with the provider now, in case it isn't reopened.
     public func keepNow(body: MessageBody) {
         keep(body: body, wait: .now)
     }
