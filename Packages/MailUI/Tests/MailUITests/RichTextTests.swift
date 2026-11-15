@@ -123,6 +123,30 @@ struct RichTextHTMLTests {
             ])
     }
 
+    @Test func sizeAndColorGoInOneSpanAndReadBack() {
+        let text = RichText([
+            Paragraph(runs: [
+                Run(text: "big", styles: [.bold], size: .large, color: .red), Run(text: " small", size: .small),
+                Run(text: " blue", color: .blue),
+            ])
+        ])
+        #expect(
+            text.html
+                == ##"<div dir="auto"><span style="font-size:1.4em;color:#e0352b"><b>big</b></span>"##
+                + ##"<span style="font-size:0.8em"> small</span><span style="color:#1a73e8"> blue</span></div>"##)
+        #expect(text.plain == "big small blue")
+        #expect(RichText(html: text.html) == text)
+    }
+
+    @Test func oldFontTagsReadAsTheNearestSizeAndAKnownColor() {
+        let text = RichText(
+            html: ##"<div><font size="6" color="#2E9E44">huge</font><font color="#123456">x</font></div>"##)
+        #expect(
+            text.paragraphs == [
+                Paragraph(runs: [Run(text: "huge", size: .huge, color: .green), Run(text: "x")])
+            ])
+    }
+
     @Test func aBodyWithoutHTMLReadsAsPlainLines() {
         let text = RichText(MessageBody(html: nil, plain: "\n\n-- \nDana"))
         #expect(text.paragraphs.map(\.text) == ["", "", "-- ", "Dana"])
@@ -224,6 +248,34 @@ struct FormattingTests {
         let off = apply(
             .toggle(.italic), to: text, selection: NSRange(location: 2, length: 0), typing: edit.typingAttributes)
         #expect(Set(attributes: off.typingAttributes) == [])
+    }
+
+    @Test func sizeAndColorApplyToTheSelectionAndKeepItsStyles() throws {
+        let text = editor(RichText([Paragraph(runs: [Run(text: "one "), Run(text: "two", styles: [.bold])])]))
+        let all = NSRange(location: 0, length: 7)
+        _ = apply(.size(.huge), to: text, selection: all)
+        _ = apply(.color(.purple), to: text, selection: NSRange(location: 4, length: 3))
+        #expect(
+            RichText(text).paragraphs == [
+                Paragraph(runs: [
+                    Run(text: "one ", size: .huge), Run(text: "two", styles: [.bold], size: .huge, color: .purple),
+                ])
+            ])
+        #expect(Formatting(text: text, selection: all, typingAttributes: [:]).size == .huge)
+        #expect(Formatting(text: text, selection: all, typingAttributes: [:]).color == nil, "mixed")
+        _ = apply(.size(.normal), to: text, selection: all)
+        _ = apply(.color(.automatic), to: text, selection: all)
+        #expect(
+            RichText(text).paragraphs == [Paragraph(runs: [Run(text: "one "), Run(text: "two", styles: [.bold])])])
+        let font = try #require(text.attribute(.font, at: 0, effectiveRange: nil) as? UIFont)
+        #expect(font.pointSize == 17)
+    }
+
+    @Test func aSizeAtTheCaretAppliesToWhatIsTypedNext() {
+        let text = editor(RichText(plain: "hi"))
+        let edit = apply(.size(.large), to: text, selection: NSRange(location: 2, length: 0))
+        #expect(RichText.Size(edit.typingAttributes) == .large)
+        #expect((edit.typingAttributes[.font] as? UIFont)?.pointSize ?? 0 > 17)
     }
 
     @Test func aBlockAppliesToEveryTouchedParagraphAndTogglesBack() {

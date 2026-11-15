@@ -8,7 +8,8 @@ extension ComposeViewController {
     func configureFormatting() {
         bodyView.inputAccessoryView = formattingBar
         bodyView.textLayoutManager?.delegate = quoteLayout
-        // Styles and lists only: fonts, sizes and colors wouldn't survive in the HTML that is sent.
+        // Styles and lists only: the bar's sizes and colors are the ones the HTML that is sent carries; the panel's
+        // fonts and free sizes and colors would be lost.
         typealias Component = UITextFormattingViewController.Component
         bodyView.textFormattingConfiguration = UITextFormattingViewController.Configuration(groups: [
             UITextFormattingViewController.ComponentGroup(components: [

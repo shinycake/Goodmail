@@ -5,6 +5,9 @@ import UIKit
 struct Formatting: Equatable {
     /// The styles every selected character has, or the next typed one gets.
     var styles: Set<RichText.Style>
+    /// The size and color all of the selection has, or the next typed character gets; `nil` when it is mixed.
+    var size: RichText.Size?
+    var color: RichText.TextColor?
     /// The link the selection is, or the caret is inside.
     var link: URL?
     /// The layout and direction of the paragraph the selection starts in.
@@ -14,12 +17,20 @@ struct Formatting: Equatable {
     init(text: NSAttributedString, selection: NSRange, typingAttributes: [NSAttributedString.Key: Any]) {
         if selection.length == 0 {
             styles = Set(attributes: typingAttributes)
+            size = RichText.Size(typingAttributes)
+            color = RichText.TextColor(typingAttributes)
         } else {
             var common = Set(RichText.Style.allCases)
+            var sizes: Set<RichText.Size> = []
+            var colors: Set<RichText.TextColor> = []
             text.enumerateAttributes(in: selection) { attributes, _, _ in
                 common.formIntersection(Set(attributes: attributes))
+                sizes.insert(RichText.Size(attributes))
+                colors.insert(RichText.TextColor(attributes))
             }
             styles = common
+            size = sizes.count == 1 ? sizes.first : nil
+            color = colors.count == 1 ? colors.first : nil
         }
         link = FormattingCommand.linkRange(in: text, selection: selection).flatMap { range in
             var whole = NSRange()
@@ -39,6 +50,8 @@ struct Formatting: Equatable {
 enum FormattingCommand: Equatable {
     /// Turns a style on for the selection, or off when all of it already has it.
     case toggle(RichText.Style)
+    case size(RichText.Size)
+    case color(RichText.TextColor)
     /// Lays out the selected paragraphs as `block`, or back as plain paragraphs when they already are.
     case block(RichText.Block)
     case direction(RichText.Direction)
@@ -61,23 +74,17 @@ enum FormattingCommand: Equatable {
         switch self {
         case .toggle(let style):
             let turnOn = !current.styles.contains(style)
-            func toggled(_ attributes: [NSAttributedString.Key: Any]) -> [NSAttributedString.Key: Any] {
+            return Self.restyle(text, selection: selection, typingAttributes: typingAttributes) { attributes in
                 var styles = Set(attributes: attributes)
                 if turnOn { styles.insert(style) } else { styles.remove(style) }
-                return styles.attributes(font: attributes[.font] as? UIFont ?? font)
+                attributes.merge(styles.attributes(font: attributes[.font] as? UIFont ?? font)) { $1 }
             }
-            guard selection.length > 0 else {
-                return Edit(
-                    range: selection, replacement: NSAttributedString(), selection: selection,
-                    typingAttributes: typingAttributes.merging(toggled(typingAttributes)) { $1 })
+        case .size(let size):
+            return Self.restyle(text, selection: selection, typingAttributes: typingAttributes) {
+                size.apply(to: &$0, font: font)
             }
-            let replacement = NSMutableAttributedString(attributedString: text.attributedSubstring(from: selection))
-            replacement.enumerateAttributes(in: NSRange(location: 0, length: replacement.length)) {
-                attributes, run, _ in
-                replacement.addAttributes(toggled(attributes), range: run)
-            }
-            return Edit(
-                range: selection, replacement: replacement, selection: selection, typingAttributes: typingAttributes)
+        case .color(let color):
+            return Self.restyle(text, selection: selection, typingAttributes: typingAttributes) { color.apply(to: &$0) }
         case .block(let block):
             let target = current.block == block ? .body : block
             return Self.relayout(text, selection: selection, typingAttributes: typingAttributes, font: font) {
@@ -109,6 +116,28 @@ enum FormattingCommand: Equatable {
                 selection: NSRange(location: selection.location + replacement.length, length: 0),
                 typingAttributes: typingAttributes)
         }
+    }
+
+    /// Makes `change` to every character of the selection, or to what the caret types next.
+    private static func restyle(
+        _ text: NSAttributedString, selection: NSRange, typingAttributes: [NSAttributedString.Key: Any],
+        change: (inout [NSAttributedString.Key: Any]) -> Void
+    ) -> Edit {
+        guard selection.length > 0 else {
+            var typing = typingAttributes
+            change(&typing)
+            return Edit(
+                range: selection, replacement: NSAttributedString(), selection: selection, typingAttributes: typing)
+        }
+        let replacement = NSMutableAttributedString(attributedString: text.attributedSubstring(from: selection))
+        replacement.enumerateAttributes(in: NSRange(location: 0, length: replacement.length)) { attributes, run, _ in
+            var attributes = attributes
+            change(&attributes)
+            // Set whole, so a size or color taken back to normal loses its attribute.
+            replacement.setAttributes(attributes, range: run)
+        }
+        return Edit(
+            range: selection, replacement: replacement, selection: selection, typingAttributes: typingAttributes)
     }
 
     /// Gives every paragraph the selection touches the layout `change` makes, keeping each one's own block and

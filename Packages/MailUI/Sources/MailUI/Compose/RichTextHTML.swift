@@ -2,7 +2,8 @@ import Foundation
 import MailCore
 
 /// Email-safe HTML for formatted text, and reading it back for a reopened draft. Only tags every mail client keeps
-/// (`div`, `ul`, `ol`, `li`, `blockquote`, `b`, `i`, `u`, `s`, `a`) and inline styles: each paragraph is its own block
+/// (`div`, `ul`, `ol`, `li`, `blockquote`, `b`, `i`, `u`, `s`, `a`, `span`) and inline styles, sizes in `em` of the
+/// reader's own and colors as fixed values: each paragraph is its own block
 /// with `dir`, and a list or quote states the direction of its first line, so bullets and the quote bar sit on the
 /// side it starts from even where `dir="auto"` is ignored.
 nonisolated extension RichText {
@@ -34,6 +35,11 @@ nonisolated extension RichText {
     private static func html(of run: Run) -> String {
         var html = HTMLText.escape(run.text)
         for style in Style.allCases where run.styles.contains(style) { html = "<\(style.tag)>\(html)</\(style.tag)>" }
+        let css = [
+            run.size == .normal ? nil : "font-size:\(run.size.scale)em",
+            run.color.hex.map { "color:\($0)" },
+        ].compactMap(\.self)
+        if !css.isEmpty { html = "<span style=\"\(css.joined(separator: ";"))\">\(html)</span>" }
         if let link = run.link { html = "<a href=\"\(HTMLText.escape(link.absoluteString))\">\(html)</a>" }
         return html
     }
@@ -45,6 +51,9 @@ nonisolated extension RichText {
         var containers: [Block] = []
         var styles: [Style: Int] = [:]
         var links: [URL?] = []
+        /// The size and color each open `span` or `font` sets, innermost last; `nil` where it sets none.
+        var sizes: [Size?] = []
+        var colors: [TextColor?] = []
         func startParagraph(direction: Direction = .auto) {
             paragraphs.append(Paragraph(block: containers.last ?? .body, direction: direction))
         }
@@ -54,7 +63,9 @@ nonisolated extension RichText {
                 paragraphs[paragraphs.count - 1].append(
                     Run(
                         text: Self.unescape(String(text)),
-                        styles: Set(Style.allCases.filter { styles[$0, default: 0] > 0 }), link: links.last ?? nil))
+                        styles: Set(Style.allCases.filter { styles[$0, default: 0] > 0 }), link: links.last ?? nil,
+                        size: sizes.compactMap(\.self).last ?? .normal,
+                        color: colors.compactMap(\.self).last ?? .automatic))
                 continue
             }
             guard let name = match.output.2?.lowercased() else { continue }
@@ -68,6 +79,14 @@ nonisolated extension RichText {
             case "ul": containers.toggle(.bulleted, isClosing: isClosing)
             case "ol": containers.toggle(.numbered, isClosing: isClosing)
             case "blockquote": containers.toggle(.quote, isClosing: isClosing)
+            case "span", "font":
+                if isClosing {
+                    _ = sizes.popLast()
+                    _ = colors.popLast()
+                } else {
+                    sizes.append(Size(htmlAttributes: String(attributes)))
+                    colors.append(TextColor(htmlAttributes: String(attributes)))
+                }
             case "a" where isClosing: _ = links.popLast()
             case "a":
                 let href = attributes.firstMatch(of: /href="([^"]*)"/).map { Self.unescape(String($0.1)) }
@@ -108,6 +127,33 @@ nonisolated extension RichText.Style {
         case "s", "strike", "del": self = .strikethrough
         default: return nil
         }
+    }
+}
+
+nonisolated extension RichText.Size {
+    /// The size a `span`'s `font-size` in `em`, or an old `font` tag's `size`, comes closest to.
+    init?(htmlAttributes attributes: String) {
+        let scale: Double
+        if let em = attributes.firstMatch(of: /font-size:\s*([\d.]+)em/).flatMap({ Double($0.1) }) {
+            scale = em
+        } else if let size = attributes.firstMatch(of: /size="?(\d)/).flatMap({ Int($0.1) }) {
+            // HTML's seven sizes, 3 being the reader's own.
+            scale = [1: 0.6, 2: 0.8, 3: 1, 4: 1.2, 5: 1.5, 6: 2, 7: 3][size] ?? 1
+        } else {
+            return nil
+        }
+        self = Self.allCases.min { abs($0.scale - scale) < abs($1.scale - scale) } ?? .normal
+    }
+}
+
+nonisolated extension RichText.TextColor {
+    /// One of the colors this writes, from a `span`'s `color` style or a `font` tag's `color`. Any other color reads
+    /// as none.
+    init?(htmlAttributes attributes: String) {
+        guard let hex = attributes.firstMatch(of: /color(?::\s*|=")(#[0-9a-fA-F]{6})/)?.1.lowercased(),
+            let color = Self.allCases.first(where: { $0.hex == hex })
+        else { return nil }
+        self = color
     }
 }
 

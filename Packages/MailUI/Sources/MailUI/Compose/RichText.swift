@@ -18,7 +18,7 @@ nonisolated struct RichText: Equatable {
     struct Paragraph: Equatable {
         var block: Block = .body
         var direction: Direction = .auto
-        /// Never two neighbours with the same style and link, and never an empty one.
+        /// Never two neighbours with the same format, and never an empty one.
         private(set) var runs: [Run] = []
 
         init(block: Block = .body, direction: Direction = .auto, runs: [Run] = []) {
@@ -31,7 +31,7 @@ nonisolated struct RichText: Equatable {
 
         mutating func append(_ run: Run) {
             guard !run.text.isEmpty else { return }
-            if let last = runs.last, last.styles == run.styles, last.link == run.link {
+            if let last = runs.last, last.hasFormat(of: run) {
                 runs[runs.count - 1].text += run.text
             } else {
                 runs.append(run)
@@ -72,6 +72,45 @@ nonisolated struct RichText: Equatable {
         var text: String
         var styles: Set<Style> = []
         var link: URL?
+        var size: Size = .normal
+        var color: TextColor = .automatic
+
+        func hasFormat(of other: Run) -> Bool {
+            styles == other.styles && link == other.link && size == other.size && color == other.color
+        }
+    }
+
+    /// Text sizes relative to the message's own, as Gmail and Apple Mail offer them.
+    enum Size: String, CaseIterable, Equatable {
+        case small, normal, large, huge
+
+        var scale: Double {
+            switch self {
+            case .small: 0.8
+            case .normal: 1
+            case .large: 1.4
+            case .huge: 2
+            }
+        }
+    }
+
+    /// The reader's own text color, or one of a few strong colors that read on light and dark backgrounds alike,
+    /// since a recipient's client may show either. Each is sent as its fixed value.
+    enum TextColor: String, CaseIterable, Equatable {
+        case automatic, red, orange, green, blue, purple, gray
+
+        /// The color as sent, `#rrggbb`; `nil` leaves the text the reader's color.
+        var hex: String? {
+            switch self {
+            case .automatic: nil
+            case .red: "#e0352b"
+            case .orange: "#e8790c"
+            case .green: "#2e9e44"
+            case .blue: "#1a73e8"
+            case .purple: "#8e44ad"
+            case .gray: "#8e8e93"
+            }
+        }
     }
 
     enum Style: CaseIterable, Hashable {

@@ -1,13 +1,15 @@
 import UIKit
 
-/// The formatting controls above the keyboard while the body is being written: the four styles, lists, quote, link
-/// and the paragraph's direction. Each shows whether the selection has it. The system's Format menu and panel, on a
+/// The formatting controls above the keyboard while the body is being written: the four styles, size, color, lists,
+/// quote, link and the paragraph's direction. Each shows whether the selection has it. The system's Format menu and panel, on a
 /// selection, offer the styles and lists too.
 final class FormattingBar: UIToolbar {
     /// A control was used. `.link` asks for an address first, so it comes through `onLink`.
     var onCommand: (FormattingCommand) -> Void = { _ in }
     var onLink: () -> Void = {}
     private var styleItems: [(RichText.Style, UIBarButtonItem)] = []
+    private let sizeItem = UIBarButtonItem()
+    private let colorItem = UIBarButtonItem()
     private let listItem = UIBarButtonItem()
     private let quoteItem = UIBarButtonItem()
     private let linkItem = UIBarButtonItem()
@@ -22,6 +24,12 @@ final class FormattingBar: UIToolbar {
             item.accessibilityLabel = style.title
             return (style, item)
         }
+        sizeItem.image = UIImage(systemName: "textformat.size")
+        sizeItem.accessibilityLabel = String(
+            localized: "Text Size", table: "Formatting", bundle: .module, comment: "Formatting: the text size menu")
+        colorItem.image = UIImage(systemName: "paintpalette")
+        colorItem.accessibilityLabel = String(
+            localized: "Text Color", table: "Formatting", bundle: .module, comment: "Formatting: the text color menu")
         listItem.image = UIImage(systemName: "list.bullet")
         listItem.accessibilityLabel = String(
             localized: "List", table: "Compose", bundle: .module, comment: "Formatting: the list menu")
@@ -39,7 +47,7 @@ final class FormattingBar: UIToolbar {
         directionItem.accessibilityLabel = String(
             localized: "Text Direction", table: "Compose", bundle: .module,
             comment: "Formatting: the paragraph direction menu")
-        let controls = styleItems.map(\.1) + [listItem, quoteItem, linkItem, directionItem]
+        let controls = styleItems.map(\.1) + [sizeItem, colorItem, listItem, quoteItem, linkItem, directionItem]
         items = controls.flatMap { [$0, .flexibleSpace()] }.dropLast()
         show(nil)
     }
@@ -50,6 +58,28 @@ final class FormattingBar: UIToolbar {
     /// Shows which controls are on for `formatting`; `nil` shows them all off.
     func show(_ formatting: Formatting?) {
         for (style, item) in styleItems { item.isSelected = formatting?.styles.contains(style) ?? false }
+        sizeItem.menu = UIMenu(
+            title: String(
+                localized: "Text Size", table: "Formatting", bundle: .module, comment: "Formatting: the text size menu"),
+            options: .singleSelection,
+            children: RichText.Size.allCases.reversed().map { size in
+                UIAction(title: size.title, state: formatting?.size == size ? .on : .off) { [weak self] _ in
+                    self?.onCommand(.size(size))
+                }
+            })
+        colorItem.menu = UIMenu(
+            title: String(
+                localized: "Text Color", table: "Formatting", bundle: .module,
+                comment: "Formatting: the text color menu"),
+            options: .singleSelection,
+            children: RichText.TextColor.allCases.map { color in
+                UIAction(
+                    title: color.title,
+                    image: UIImage(systemName: "circle.fill")?.withTintColor(
+                        color.color, renderingMode: .alwaysOriginal),
+                    state: formatting?.color == color ? .on : .off
+                ) { [weak self] _ in self?.onCommand(.color(color)) }
+            })
         let block = formatting?.block ?? .body
         listItem.isSelected = block == .bulleted || block == .numbered
         listItem.menu = UIMenu(
@@ -107,6 +137,34 @@ extension RichText.Style {
         case .italic: "italic"
         case .underline: "underline"
         case .strikethrough: "strikethrough"
+        }
+    }
+}
+
+extension RichText.Size {
+    fileprivate var title: String {
+        switch self {
+        case .small: String(localized: "Small", table: "Formatting", bundle: .module, comment: "Text size")
+        case .normal: String(localized: "Normal", table: "Formatting", bundle: .module, comment: "Text size")
+        case .large: String(localized: "Large", table: "Formatting", bundle: .module, comment: "Text size")
+        case .huge: String(localized: "Huge", table: "Formatting", bundle: .module, comment: "Text size")
+        }
+    }
+}
+
+extension RichText.TextColor {
+    fileprivate var title: String {
+        switch self {
+        case .automatic:
+            String(
+                localized: "Default Color", table: "Formatting", bundle: .module,
+                comment: "Text color: the reader's own, black or white")
+        case .red: String(localized: "Red", table: "Formatting", bundle: .module, comment: "Text color")
+        case .orange: String(localized: "Orange", table: "Formatting", bundle: .module, comment: "Text color")
+        case .green: String(localized: "Green", table: "Formatting", bundle: .module, comment: "Text color")
+        case .blue: String(localized: "Blue", table: "Formatting", bundle: .module, comment: "Text color")
+        case .purple: String(localized: "Purple", table: "Formatting", bundle: .module, comment: "Text color")
+        case .gray: String(localized: "Gray", table: "Formatting", bundle: .module, comment: "Text color")
         }
     }
 }

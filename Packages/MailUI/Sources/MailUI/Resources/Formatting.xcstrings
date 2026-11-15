@@ -1,0 +1,149 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Blue" : {
+      "comment" : "Text color",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כחול"
+          }
+        }
+      }
+    },
+    "Default Color" : {
+      "comment" : "Text color: the reader's own, black or white",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "צבע ברירת מחדל"
+          }
+        }
+      }
+    },
+    "Gray" : {
+      "comment" : "Text color",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אפור"
+          }
+        }
+      }
+    },
+    "Green" : {
+      "comment" : "Text color",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ירוק"
+          }
+        }
+      }
+    },
+    "Huge" : {
+      "comment" : "Text size",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ענק"
+          }
+        }
+      }
+    },
+    "Large" : {
+      "comment" : "Text size",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "גדול"
+          }
+        }
+      }
+    },
+    "Normal" : {
+      "comment" : "Text size",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "רגיל"
+          }
+        }
+      }
+    },
+    "Orange" : {
+      "comment" : "Text color",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כתום"
+          }
+        }
+      }
+    },
+    "Purple" : {
+      "comment" : "Text color",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סגול"
+          }
+        }
+      }
+    },
+    "Red" : {
+      "comment" : "Text color",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אדום"
+          }
+        }
+      }
+    },
+    "Small" : {
+      "comment" : "Text size",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קטן"
+          }
+        }
+      }
+    },
+    "Text Color" : {
+      "comment" : "Formatting: the text color menu",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "צבע טקסט"
+          }
+        }
+      }
+    },
+    "Text Size" : {
+      "comment" : "Formatting: the text size menu",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "גודל טקסט"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

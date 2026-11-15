@@ -4,6 +4,10 @@ nonisolated extension NSAttributedString.Key {
     /// Marks a paragraph as quoted. Lists live in `NSParagraphStyle.textLists`, which the system's formatting panel
     /// also sets; UIKit has no quote of its own.
     static let blockQuote = NSAttributedString.Key("GoodmailBlockQuote")
+    /// A run's `RichText.Size` and `RichText.TextColor`, by raw value, so reading the text back doesn't guess them
+    /// from point sizes and color values. Absent means normal size and the reader's color.
+    static let textSize = NSAttributedString.Key("GoodmailTextSize")
+    static let textColor = NSAttributedString.Key("GoodmailTextColor")
 }
 
 /// The editor's side: formatted text as the attributes a `UITextView` shows and the system's formatting controls
@@ -32,7 +36,7 @@ nonisolated extension RichText {
                 paragraph.append(
                     Run(
                         text: string.substring(with: run), styles: Set(attributes: attributes),
-                        link: Self.link(in: attributes)))
+                        link: Self.link(in: attributes), size: Size(attributes), color: TextColor(attributes)))
             }
             paragraphs.append(paragraph)
             location = NSMaxRange(range)
@@ -50,7 +54,10 @@ nonisolated extension RichText {
         for (index, paragraph) in paragraphs.enumerated() {
             let lineAttributes = paragraph.layoutAttributes(font: font).merging([.font: font]) { $1 }
             for run in paragraph.runs {
-                var attributes = lineAttributes.merging(run.styles.attributes(font: font)) { $1 }
+                var attributes = lineAttributes
+                run.size.apply(to: &attributes, font: font)
+                run.color.apply(to: &attributes)
+                attributes.merge(run.styles.attributes(font: attributes[.font] as? UIFont ?? font)) { $1 }
                 if let link = run.link { attributes[.link] = link }
                 text.append(NSAttributedString(string: run.text, attributes: attributes))
             }
@@ -140,5 +147,38 @@ nonisolated extension Set<RichText.Style> {
             .underlineStyle: contains(.underline) ? NSUnderlineStyle.single.rawValue : 0,
             .strikethroughStyle: contains(.strikethrough) ? NSUnderlineStyle.single.rawValue : 0,
         ]
+    }
+}
+
+nonisolated extension RichText.Size {
+    init(_ attributes: [NSAttributedString.Key: Any]) {
+        self = (attributes[.textSize] as? String).flatMap(Self.init(rawValue:)) ?? .normal
+    }
+
+    /// Gives `attributes` this size of the message's `font`, keeping their bold and italic.
+    func apply(to attributes: inout [NSAttributedString.Key: Any], font: UIFont) {
+        let current = attributes[.font] as? UIFont ?? font
+        attributes[.font] = UIFont(descriptor: current.fontDescriptor, size: font.pointSize * scale)
+        attributes[.textSize] = self == .normal ? nil : rawValue
+    }
+}
+
+nonisolated extension RichText.TextColor {
+    init(_ attributes: [NSAttributedString.Key: Any]) {
+        self = (attributes[.textColor] as? String).flatMap(Self.init(rawValue:)) ?? .automatic
+    }
+
+    /// How the editor shows it: the same value that is sent, or the label color that follows Dark Mode.
+    var color: UIColor {
+        guard let hex else { return .label }
+        let value = Int(hex.dropFirst(), radix: 16) ?? 0
+        return UIColor(
+            red: CGFloat((value >> 16) & 0xFF) / 255, green: CGFloat((value >> 8) & 0xFF) / 255,
+            blue: CGFloat(value & 0xFF) / 255, alpha: 1)
+    }
+
+    func apply(to attributes: inout [NSAttributedString.Key: Any]) {
+        attributes[.foregroundColor] = self == .automatic ? nil : color
+        attributes[.textColor] = self == .automatic ? nil : rawValue
     }
 }
