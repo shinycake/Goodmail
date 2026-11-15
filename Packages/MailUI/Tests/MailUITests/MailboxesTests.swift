@@ -160,10 +160,11 @@ struct MailboxesTests {
             accounts: [], source: .flat { AsyncThrowingStream { $0.finish() } }, refresh: {},
             actions: MailActions(commands: MailCommands(store: NoStore(), replay: { _ in })))
         #expect(
-            viewModel.swipeActions(for: thread(labels: ["INBOX"]), leading: false) == [
+            viewModel.swipeActions(for: thread(labels: ["INBOX"]), leading: false).map(\.swipe) == [
                 .perform(.archive), .snooze, .perform(.trash),
             ])
-        #expect(viewModel.swipeActions(for: thread(labels: ["Label_1"]), leading: false) == [.perform(.trash)])
+        #expect(
+            viewModel.swipeActions(for: thread(labels: ["Label_1"]), leading: false).map(\.swipe) == [.perform(.trash)])
     }
 
     private func bulkActions(_ threads: [ThreadSummary], service: MailService = .gmail) -> [ThreadAction] {

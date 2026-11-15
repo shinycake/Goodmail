@@ -21,6 +21,10 @@ public final class SettingsViewModel {
     public var swipeArrangement: SwipeArrangement {
         didSet { Preferences.swipeArrangement = swipeArrangement }
     }
+    /// What each swipe action's button wears.
+    public var swipeTints: SwipeTints {
+        didSet { Preferences.swipeTints = swipeTints }
+    }
     /// How conversations open.
     public var conversationLayout: ConversationLayout {
         didSet { Preferences.conversationLayout = conversationLayout }
@@ -72,6 +76,7 @@ public final class SettingsViewModel {
         undoSendSeconds = Preferences.undoSendSeconds
         rowDisplay = Preferences.rowDisplay
         swipeArrangement = Preferences.swipeArrangement
+        swipeTints = Preferences.swipeTints
         conversationLayout = Preferences.conversationLayout
         removalAnimation = Preferences.removalAnimation
         unsortedInboxAccounts = Preferences.unsortedInboxAccounts

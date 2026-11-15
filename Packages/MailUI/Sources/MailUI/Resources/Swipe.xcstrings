@@ -1,6 +1,28 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ Color" : {
+      "comment" : "Picks the color of a swipe action's button; the argument is the action, as Archive",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "צבע %@"
+          }
+        }
+      }
+    },
+    "A clear action shows the message through it, and takes the theme's color on a full swipe." : {
+      "comment" : "Explains the Clear swipe action color",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פעולה שקופה מראה את ההודעה מבעדה, ומקבלת את צבע ערכת הנושא בהחלקה מלאה."
+          }
+        }
+      }
+    },
     "A full swipe does the first action on its side. Each side fits up to three." : {
       "comment" : "Explains the swipe settings",
       "localizations" : {
@@ -45,6 +67,17 @@
         }
       }
     },
+    "Colors" : {
+      "comment" : "Swipe settings section: each action's color",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "צבעים"
+          }
+        }
+      }
+    },
     "Full Swipe" : {
       "comment" : "Marks the swipe action a full swipe fires",
       "localizations" : {
@@ -52,6 +85,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "החלקה מלאה"
+          }
+        }
+      }
+    },
+    "Make %@ Clear" : {
+      "comment" : "Makes a swipe action's button clear glass; the argument is the action, as Archive",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הפיכת %@ לשקוף"
           }
         }
       }
@@ -96,6 +140,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "דיווח כספאם"
+          }
+        }
+      }
+    },
+    "Restore Default Colors" : {
+      "comment" : "Puts the standard colors of the swipe actions back",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שחזור צבעי ברירת המחדל"
           }
         }
       }

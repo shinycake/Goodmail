@@ -247,10 +247,17 @@ public final class MailboxViewModel {
         case snooze
     }
 
-    /// The swipe actions for a row, edge-most first, as the reader arranged them.
-    func swipeActions(for thread: ThreadSummary, leading: Bool) -> [Swipe] {
+    /// A swipe button: what it does, and what it wears.
+    nonisolated struct SwipeButton: Equatable {
+        let swipe: Swipe
+        let tint: SwipeTint
+    }
+
+    /// The swipe buttons for a row, edge-most first, as the reader arranged and tinted them.
+    func swipeActions(for thread: ThreadSummary, leading: Bool) -> [SwipeButton] {
         guard actions != nil else { return [] }
-        return Preferences.swipeArrangement.swipes(for: thread, on: leading ? .leading : .trailing)
+        return Preferences.swipeArrangement.buttons(
+            for: thread, on: leading ? .leading : .trailing, tints: Preferences.swipeTints)
     }
 
     /// What takes `thread` out of the way, by where it is: out of Trash, or gone for good from it, out of Spam, or out

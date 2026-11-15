@@ -2,7 +2,8 @@ import MailCore
 import UIKit
 
 extension AccountColor {
-    /// System colors, so every account color adapts to dark mode and Increase Contrast for free.
+    /// System colors, so every offered account color adapts to dark mode and Increase Contrast for free. A picked
+    /// color keeps its hue in both, lightened or deepened only as far as it takes to stand out from the background.
     public var uiColor: UIColor {
         switch self {
         case .blue: .systemBlue
@@ -17,6 +18,7 @@ extension AccountColor {
         case .cyan: .systemCyan
         case .brown: .systemBrown
         case .graphite: .systemGray
+        case .custom(let color): UIColor(color).legibleOnBackground
         }
     }
 
@@ -35,6 +37,10 @@ extension AccountColor {
         case .cyan: String(localized: "Cyan", table: "Theme", bundle: .module, comment: "An account color")
         case .brown: String(localized: "Brown", table: "Theme", bundle: .module, comment: "An account color")
         case .graphite: String(localized: "Graphite", table: "Theme", bundle: .module, comment: "An account color")
+        case .custom:
+            String(
+                localized: "Custom Color", table: "Theme", bundle: .module,
+                comment: "An account color the reader picked with the color picker")
         }
     }
 }

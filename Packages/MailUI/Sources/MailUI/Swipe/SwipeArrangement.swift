@@ -125,9 +125,12 @@ nonisolated public struct SwipeArrangement: Equatable, Sendable {
         }
     }
 
-    /// The swipes `side` shows for `thread`, edge-most first: each choice's swipe where it means something there.
-    func swipes(for thread: ThreadSummary, on side: Side) -> [MailboxViewModel.Swipe] {
-        self[side].compactMap { $0.swipe(for: thread) }
+    /// The buttons `side` shows for `thread`, edge-most first: each choice's swipe where it means something there,
+    /// in the choice's tint.
+    func buttons(for thread: ThreadSummary, on side: Side, tints: SwipeTints) -> [MailboxViewModel.SwipeButton] {
+        self[side].compactMap { choice in
+            choice.swipe(for: thread).map { MailboxViewModel.SwipeButton(swipe: $0, tint: tints[choice]) }
+        }
     }
 
     private mutating func update(_ side: Side, _ change: (inout [SwipeChoice]) -> Void) {

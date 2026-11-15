@@ -12,28 +12,35 @@ struct SwipeArrangementTests {
             labelIDs: labels)
     }
 
+    /// What `side` does for `thread`, leaving out the tints.
+    private func swipes(_ arrangement: SwipeArrangement, _ thread: ThreadSummary, _ side: SwipeArrangement.Side)
+        -> [MailboxViewModel.Swipe]
+    {
+        arrangement.buttons(for: thread, on: side, tints: .standard).map(\.swipe)
+    }
+
     @Test func theStandardArrangementKeepsTheUsualSwipesInEveryMailbox() {
         let standard = SwipeArrangement.standard
         #expect(
-            standard.swipes(for: thread(["INBOX"]), on: .leading) == [.perform(.markRead(true)), .perform(.star(true))])
+            swipes(standard, thread(["INBOX"]), .leading) == [.perform(.markRead(true)), .perform(.star(true))])
         #expect(
-            standard.swipes(for: thread(["INBOX"]), on: .trailing) == [.perform(.archive), .snooze, .perform(.trash)])
-        #expect(standard.swipes(for: thread(["SPAM"]), on: .trailing) == [.perform(.moveToInbox), .perform(.trash)])
+            swipes(standard, thread(["INBOX"]), .trailing) == [.perform(.archive), .snooze, .perform(.trash)])
+        #expect(swipes(standard, thread(["SPAM"]), .trailing) == [.perform(.moveToInbox), .perform(.trash)])
         #expect(
-            standard.swipes(for: thread(["TRASH"]), on: .trailing) == [.perform(.untrash), .perform(.deleteForever)])
-        #expect(standard.swipes(for: thread(["SENT"]), on: .trailing) == [.perform(.trash)])
+            swipes(standard, thread(["TRASH"]), .trailing) == [.perform(.untrash), .perform(.deleteForever)])
+        #expect(swipes(standard, thread(["SENT"]), .trailing) == [.perform(.trash)])
     }
 
     @Test func choicesFollowTheThreadsState() {
         let arrangement = SwipeArrangement(leading: [.read, .star], trailing: [])
-        let swipes = arrangement.swipes(for: thread(["INBOX", "STARRED"], unread: false), on: .leading)
-        #expect(swipes == [.perform(.markRead(false)), .perform(.star(false))])
+        let shown = swipes(arrangement, thread(["INBOX", "STARRED"], unread: false), .leading)
+        #expect(shown == [.perform(.markRead(false)), .perform(.star(false))])
     }
 
     @Test func aChoiceThatMeansNothingHereIsLeftOut() {
         let arrangement = SwipeArrangement(leading: [.spam, .snooze], trailing: [])
-        #expect(arrangement.swipes(for: thread(["SPAM"]), on: .leading).isEmpty)
-        #expect(arrangement.swipes(for: thread(["INBOX"]), on: .leading) == [.perform(.reportSpam), .snooze])
+        #expect(swipes(arrangement, thread(["SPAM"]), .leading).isEmpty)
+        #expect(swipes(arrangement, thread(["INBOX"]), .leading) == [.perform(.reportSpam), .snooze])
     }
 
     @Test func eachChoiceSitsOnOneSideAtMostAndASideHoldsThree() {
@@ -65,7 +72,7 @@ struct SwipeArrangementTests {
         var arrangement = SwipeArrangement.standard
         arrangement.remove(at: [0, 1], from: .leading)
         #expect(arrangement.leading.isEmpty)
-        #expect(arrangement.swipes(for: thread(["INBOX"]), on: .leading).isEmpty)
+        #expect(swipes(arrangement, thread(["INBOX"]), .leading).isEmpty)
     }
 
     @MainActor @Test func anEmptiedSideStaysEmptyOnceStored() {

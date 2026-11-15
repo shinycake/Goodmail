@@ -23,6 +23,17 @@
         }
       }
     },
+    "Custom Color" : {
+      "comment" : "An account color the reader picked with the color picker",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "צבע מותאם אישית"
+          }
+        }
+      }
+    },
     "Cyan" : {
       "comment" : "An account color",
       "localizations" : {

@@ -45,6 +45,7 @@ struct SwipeSettingsView: View {
                         comment: "Swipe actions on neither side, waiting to be added")
                 }
             }
+            SwipeTintsSection(model: model)
             Section {
                 Button {
                     model.swipeArrangement = .standard

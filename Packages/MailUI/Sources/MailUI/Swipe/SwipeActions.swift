@@ -5,7 +5,7 @@ import UIKit
 struct SwipeAction {
     var title: String
     var symbol: String
-    var isDestructive = false
+    var tint: SwipeTint
     /// The box the row is seen going into when the action puts it away; `nil` when the buttons just close.
     var stow: StowKind?
     /// Runs the action. For one that stows, `stowing` carries the opened box on the action's button, and the
@@ -342,10 +342,10 @@ final class SwipeOverlayView: UIView {
     }
 }
 
-/// A round button of clear Liquid Glass showing an action's symbol, so the row shows through it; destructive ones
-/// are tinted red. Stretched wide, as on a full swipe, it names the action beside the symbol.
+/// A round button of Liquid Glass showing an action's symbol: clear, so the row shows through it, or filled with
+/// the action's tint. Stretched wide, as on a full swipe, it names the action beside the symbol.
 final class GlassActionButton: UIControl {
-    private let isDestructive: Bool
+    private let tint: SwipeTint
     private let effectView = UIVisualEffectView()
     private let imageView = UIImageView()
     private let titleLabel = UILabel()
@@ -361,7 +361,7 @@ final class GlassActionButton: UIControl {
     }
 
     init(action: SwipeAction) {
-        isDestructive = action.isDestructive
+        tint = action.tint
         super.init(frame: .zero)
         effectView.cornerConfiguration = .capsule()
         effectView.isUserInteractionEnabled = false
@@ -388,14 +388,15 @@ final class GlassActionButton: UIControl {
         applyGlass()
     }
 
-    /// Clear glass, tinted red for a destructive action and with the theme's color once committed.
+    /// The action's tint, or for a clear one the theme's color once committed, with the symbol in white or black,
+    /// whichever reads better on it.
     private func applyGlass() {
         let glass = UIGlassEffect(style: .clear)
         glass.isInteractive = true
-        let fill: UIColor? = isDestructive ? .systemRed : isCommitted ? tintColor : nil
+        let fill = tint.fill ?? (isCommitted ? tintColor : nil)
         glass.tintColor = fill?.withAlphaComponent(isCommitted ? 0.9 : 0.8)
         effectView.effect = glass
-        imageView.tintColor = fill == nil ? .label : .white
+        imageView.tintColor = fill?.readableForeground ?? .label
         titleLabel.textColor = imageView.tintColor
     }
 

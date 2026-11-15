@@ -83,6 +83,13 @@ public enum Preferences {
         }
     }
 
+    /// The tint of each swipe action. One never changed, or stored by a newer build, wears its standard tint.
+    public static var swipeTints: SwipeTints {
+        get { SwipeTints(stored: defaults.dictionary(forKey: swipeTintsKey) as? [String: String] ?? [:]) }
+        set { defaults.set(newValue.stored, forKey: swipeTintsKey) }
+    }
+
+    private static let swipeTintsKey = "swipeTints"
     private static let undoSendKey = "undoSendSeconds"
     private static let swipeLeadingKey = "swipeLeadingActions"
     private static let swipeTrailingKey = "swipeTrailingActions"
