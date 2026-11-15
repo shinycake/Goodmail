@@ -19,6 +19,8 @@ enum IMAPCommand: Equatable, Sendable {
     /// The selected mailbox's messages whose flags changed after `modSeq` (RFC 7162 §3.1.4), and with QRESYNC
     /// enabled, the UIDs expunged since (`VANISHED`, RFC 7162 §3.2.6).
     case uidFetchChanged(sinceModSeq: UInt64, vanished: Bool)
+    /// The UIDs and flags of the selected mailbox's messages from sequence number `from` to the last.
+    case fetchFlags(from: Int)
     /// Adds or removes flags, without the server echoing them back.
     case uidStore(uids: [UInt32], flags: Set<String>, add: Bool)
     /// Files copies of messages in another mailbox; the originals stay.
@@ -90,6 +92,7 @@ enum IMAPCommand: Equatable, Sendable {
             case .uidFetch(let uids, let items): [.text("UID FETCH \(Self.sequenceSet(uids)) \(items)")]
             case .uidFetchChanged(let modSeq, let vanished):
                 [.text("UID FETCH 1:* (UID FLAGS) (CHANGEDSINCE \(modSeq)\(vanished ? " VANISHED" : ""))")]
+            case .fetchFlags(let from): [.text("FETCH \(from):* (UID FLAGS)")]
             case .uidStore(let uids, let flags, let add):
                 [
                     .text(

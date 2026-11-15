@@ -160,13 +160,14 @@ struct DiscoveryTests {
     }
 
     @Test(arguments: [
-        ("mx01.mail.icloud.com", ["mail.icloud.com", "icloud.com"]),
-        ("aspmx.l.google.com", ["l.google.com", "google.com"]),
-        ("mail.example.com", ["example.com"]),
-        ("example.com", []),
+        ("mx01.mail.icloud.com", ["mx01.mail.icloud.com", "mail.icloud.com", "icloud.com"]),
+        ("aspmx.l.google.com", ["aspmx.l.google.com", "l.google.com", "google.com"]),
+        ("mail.example.com", ["mail.example.com", "example.com"]),
+        ("example.com", ["example.com"]),
+        ("localhost", []),
     ])
-    func anExchangersParentDomainsAreTriedLongestFirst(host: String, domains: [String]) {
-        #expect(MailServerDiscovery.parentDomains(of: host) == domains)
+    func anExchangerAndItsParentDomainsAreTriedLongestFirst(host: String, domains: [String]) {
+        #expect(MailServerDiscovery.domains(of: host) == domains)
     }
 
     @Test func recordsTheResolverCouldntReadAreDropped() {

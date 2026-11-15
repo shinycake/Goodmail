@@ -4,11 +4,11 @@ import MailCore
 /// one label: a role folder its `SystemLabel`, Archive none (archived mail is only in All Mail), and any other folder
 /// its wire name. STARRED and UNREAD are flags, so they span folders.
 struct Folders: Sendable {
-    /// The folders that hold messages.
+    /// The folders that hold messages of their own.
     let all: [IMAPMailbox]
 
     init(_ mailboxes: [IMAPMailbox]) {
-        let selectable = mailboxes.filter(\.isSelectable)
+        let selectable = mailboxes.filter { $0.isSelectable && !$0.isVirtual }
         // Servers without special-use attributes (RFC 6154), and iCloud for all but Sent and Trash, leave roles
         // unmarked. A role no folder claims goes to the first folder with a usual name for it.
         var claimed = Set(selectable.compactMap(\.role))

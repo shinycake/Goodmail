@@ -223,6 +223,22 @@ actor IMAPConnection {
         }
     }
 
+    /// The read and starred flags of the selected mailbox's last `count` messages, by UID, for a server without
+    /// CONDSTORE to compare with what they were.
+    func flagMarks(ofLast count: Int) async throws -> [UInt32: FlagMarks] {
+        try await exclusively { connection in
+            guard case .selected(let selection) = connection.state else { throw IMAPError.wrongState }
+            guard selection.messageCount > 0 else { return [:] }
+            let reply = try await connection.run(.fetchFlags(from: max(1, selection.messageCount - count + 1)))
+            var marks: [UInt32: FlagMarks] = [:]
+            for fetch in reply.data.compactMap(IMAPFetch.init(response:)) {
+                guard let uid = fetch.items["UID"]?.number else { continue }
+                marks[uid] = FlagMarks(Set(fetch.items["FLAGS"]?.list?.compactMap(\.atom) ?? []))
+            }
+            return marks
+        }
+    }
+
     /// Adds `flags` to these messages of the selected mailbox, or removes them.
     func store(_ flags: Set<String>, add: Bool, on uids: [UInt32]) async throws {
         guard !uids.isEmpty, !flags.isEmpty else { return }

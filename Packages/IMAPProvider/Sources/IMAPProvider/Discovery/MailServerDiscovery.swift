@@ -49,7 +49,7 @@ public struct MailServerDiscovery: Sendable {
     /// ISPDB's servers for the domains of the address's most preferred mail exchanger.
     private func exchangerSettings(for address: Address, dns: DNSRecords) async -> MailServerSettings? {
         guard let host = await dns.mailExchangers(of: address.domain).first else { return nil }
-        let domains = Self.parentDomains(of: host).filter { $0 != address.domain }
+        let domains = Self.domains(of: host).filter { $0 != address.domain }
         return await firstFile(at: domains.compactMap(Self.databaseURL), for: address)
     }
 
@@ -67,13 +67,13 @@ public struct MailServerDiscovery: Sendable {
         return MailServerSettings(imap: incoming, smtp: outgoing, username: address.email)
     }
 
-    /// A host's parent domains of two labels or more, longest first, so `mx01.mail.icloud.com` gives
-    /// `mail.icloud.com` and then `icloud.com`. A public suffix such as `co.uk` among them is harmless: ISPDB has
-    /// no entry for it.
-    static func parentDomains(of host: String) -> [String] {
+    /// A host and its parent domains of two labels or more, longest first, so `mx01.mail.icloud.com` gives itself,
+    /// `mail.icloud.com` and then `icloud.com`, and a two-label exchanger such as `fastmail.com` is tried as it is.
+    /// A public suffix such as `co.uk` among them is harmless: ISPDB has no entry for it.
+    static func domains(of host: String) -> [String] {
         let labels = host.split(separator: ".")
-        guard labels.count > 2 else { return [] }
-        return (1...(labels.count - 2)).map { labels[$0...].joined(separator: ".") }
+        guard labels.count >= 2 else { return [] }
+        return (0...(labels.count - 2)).map { labels[$0...].joined(separator: ".") }
     }
 
     /// The first answer, in the order of `attempts`, that isn't `nil`. Every attempt starts at once, and the result

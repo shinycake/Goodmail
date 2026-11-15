@@ -15,6 +15,9 @@ struct IMAPMailbox: Equatable, Sendable {
     var role: Role?
     /// `\Noselect` and `\NonExistent` mailboxes only hold other mailboxes.
     var isSelectable: Bool
+    /// `\All` and `\Flagged` mailboxes (RFC 6154) show messages filed in other mailboxes, as Gmail's All Mail and
+    /// Starred and Dovecot's virtual folders do. Goodmail has its own All Mail and Starred.
+    var isVirtual: Bool
 
     /// From `* LIST (\HasNoChildren \Sent) "/" "Sent Messages"`.
     init?(listResponse values: [IMAPValue]) {
@@ -25,6 +28,7 @@ struct IMAPMailbox: Equatable, Sendable {
         wireName = String(decoding: wireBytes, as: UTF8.self)
         name = ModifiedUTF7.decode(wireName)
         isSelectable = flags.isDisjoint(with: [#"\noselect"#, #"\nonexistent"#])
+        isVirtual = !flags.isDisjoint(with: [#"\all"#, #"\flagged"#])
         role =
             wireName.uppercased() == "INBOX"
             ? .inbox : Self.roles.first { flags.contains($0.attribute) }?.role

@@ -1,12 +1,16 @@
 import Foundation
 import MailCore
 
-/// Where `changes(since:)` picks up: every folder's STATUS when the cursor was taken, keyed by wire name.
+/// Where `changes(since:)` picks up: every folder's STATUS when the cursor was taken, keyed by wire name, and on a
+/// server without CONDSTORE the read and starred flags of each folder's latest messages, to compare.
 struct IMAPCursor: Codable, Equatable {
     var folders: [String: IMAPFolderStatus]
+    /// By wire name, then UID. `nil` in a cursor from before these were kept, and on servers with CONDSTORE.
+    var marks: [String: [UInt32: FlagMarks]]?
 
-    init(folders: [String: IMAPFolderStatus]) {
+    init(folders: [String: IMAPFolderStatus], marks: [String: [UInt32: FlagMarks]] = [:]) {
         self.folders = folders
+        self.marks = marks.isEmpty ? nil : marks
     }
 
     /// Throws `ProviderError.cursorExpired` for a cursor this client didn't write.
