@@ -16,7 +16,7 @@ The owner decided these on 2026-10-20 after talking through the options. Each en
 
 ## ADR-002: App and Notification Service Extension both write
 
-- **Decision:** the app and the NSE both write to the shared database in the App Group container, using a GRDB `DatabasePool`. Widgets only read.
+- **Decision:** the app and the NSE both write to the shared database in the App Group container, using a GRDB `DatabasePool`. Widgets read, and their buttons change mail only through `MailCommands`, which queues the change in the outbox for the app to send on its next sync.
 - **Why:** the NSE can persist the messages it fetches, so the app shows them on open without fetching them again.
 - **Obligations:**
   - Writes are short transactions, finished before the extension returns. iOS kills a suspended process that holds a lock in a shared container (`0xdead10cc`).

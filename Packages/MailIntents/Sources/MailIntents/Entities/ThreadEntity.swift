@@ -21,7 +21,8 @@ public struct ThreadEntity {
         DisplayRepresentation(title: "\(title)", subtitle: "\(sender)")
     }
 
-    init(_ thread: ThreadSummary, messages: [MessageEntity]) {
+    /// A conversation with the cached messages it holds; extensions that only point at it pass none.
+    public init(_ thread: ThreadSummary, messages: [MessageEntity] = []) {
         id = EntityID.string(thread.id)
         sender = thread.sender.displayName
         date = thread.date

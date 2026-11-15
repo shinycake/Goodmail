@@ -4,6 +4,7 @@ import UIKit
 
 #if canImport(MailIntents)
     import MailIntents
+    import WidgetKit
 #endif
 
 @main
@@ -37,7 +38,11 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         #if canImport(MailIntents)
             let host = IntentsHost(database: model.database, commands: model.commands, routes: intentRoutes)
             host.register()
-            model.didChange = SpotlightIndexer(host: host).follow
+            let spotlight = SpotlightIndexer(host: host)
+            model.didChange = { change in
+                await spotlight.follow(change)
+                WidgetCenter.shared.reloadAllTimelines()
+            }
         #endif
         #if DEBUG
             TestDelivery.scheduleIfRequested(model: model)

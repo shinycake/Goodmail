@@ -1,6 +1,16 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Archive" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה לארכיון"
+          }
+        }
+      }
+    },
     "Inbox" : {
       "comment" : "Widget name in the widget gallery",
       "localizations" : {
@@ -8,6 +18,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "דואר נכנס"
+          }
+        }
+      }
+    },
+    "Inbox Zero" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תיבת הדואר ריקה"
+          }
+        }
+      }
+    },
+    "Mail Unavailable" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הדואר לא זמין"
           }
         }
       }
