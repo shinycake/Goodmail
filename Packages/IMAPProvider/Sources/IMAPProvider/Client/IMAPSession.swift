@@ -10,18 +10,15 @@ actor IMAPSession {
     }
 
     private var state = State.disconnected
-    private let credentials: IMAPCredentials
-    private let security: MailServer.Security
-    private let connect: @Sendable () async throws -> any MailTransport
+    /// Opens this session's connections, and any other the account needs, such as the one that waits in IDLE.
+    nonisolated let connector: IMAPConnector
     private var queue = SerialQueue()
 
     init(
         credentials: IMAPCredentials, security: MailServer.Security,
         connect: @escaping @Sendable () async throws -> any MailTransport
     ) {
-        self.credentials = credentials
-        self.security = security
-        self.connect = connect
+        connector = IMAPConnector(credentials: credentials, security: security, connect: connect)
     }
 
     /// Runs `operation` after every operation started before it. Servers drop idle connections, saying BYE, ending
@@ -50,20 +47,7 @@ actor IMAPSession {
     private func connection() async throws -> IMAPConnection {
         if case .connected(let connection) = state, await connection.state != .closed { return connection }
         await disconnect()
-        let connection = try await IMAPConnection(transport: try await connect(), security: security)
-        do {
-            if await connection.state == .notAuthenticated {
-                try await connection.login(user: credentials.user, password: credentials.password)
-            }
-            if await connection.capabilities == nil { try await connection.refreshCapabilities() }
-            // QRESYNC names the messages expunged since a cursor (RFC 7162 §3.2.6).
-            if await connection.capabilities?.contains("QRESYNC") == true {
-                try await connection.enable("QRESYNC")
-            }
-        } catch {
-            await connection.close()
-            throw error
-        }
+        let connection = try await connector.open()
         state = .connected(connection)
         return connection
     }

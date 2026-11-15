@@ -8,7 +8,19 @@ actor IMAPConnection {
         case notAuthenticated
         case authenticated
         case selected(IMAPSelection)
+        /// Waiting in IDLE for the server to report changes (RFC 2177).
+        case idling(IMAPSelection)
+        /// DONE is sent; the server's answer ends the IDLE.
+        case endingIdle(IMAPSelection)
         case closed
+    }
+
+    /// Why an IDLE ended.
+    enum IdleEnd: Equatable, Sendable {
+        /// The server reported a change in the mailbox: a message arrived or went, or flags changed.
+        case changed
+        /// The time to wait passed with no change, so the IDLE can start again before the server drops it.
+        case renewal
     }
 
     private(set) var state: State
@@ -274,6 +286,85 @@ actor IMAPConnection {
         }
     }
 
+    /// Waits in the selected mailbox for the server to report a change (RFC 2177), for up to `renewal`, then ends
+    /// the IDLE. Cancelling closes the connection, since only the server's answer to DONE ends a read in progress,
+    /// and throws `CancellationError`.
+    func idle(renewingAfter renewal: Duration) async throws -> IdleEnd {
+        do {
+            return try await queue.run { try await self.idling(renewingAfter: renewal) }.cancellableValue
+        } catch _ where Task.isCancelled {
+            throw CancellationError()
+        }
+    }
+
+    private func idling(renewingAfter renewal: Duration) async throws -> IdleEnd {
+        guard case .selected(let selection) = state else { throw IMAPError.wrongState }
+        let tag = newTag()
+        try await send(Data("\(tag) IDLE\r\n".utf8))
+        var changed = false
+        return try await withThrowingTaskGroup(of: Void.self) { group in
+            while true {
+                // A server can stay quiet for the whole wait, so the read waits as long, and a minute more for the
+                // answer to DONE. One that still hasn't answered has gone away.
+                switch try await nextResponse(timeout: renewal + .seconds(60)) {
+                case .continuation:
+                    state = .idling(selection)
+                    if changed {
+                        try await endIdle()
+                    } else {
+                        group.addTask { await self.endIdle(after: renewal) }
+                    }
+                case .data(let values):
+                    guard Self.isChange(values) else { continue }
+                    changed = true
+                    try await endIdle()
+                case .status(let status):
+                    // `* OK Still here` keeps the connection alive; a BYE is followed by the stream's end.
+                    remember(capabilitiesIn: status)
+                case .completion(tag, let status):
+                    state = .selected(selection)
+                    group.cancelAll()
+                    switch status.condition {
+                    case .ok: return changed ? .changed : .renewal
+                    case .no: throw IMAPError.refused(status)
+                    case .bad, .bye, .preauth: throw IMAPError.invalid(status)
+                    }
+                case .completion:
+                    continue
+                }
+            }
+        }
+    }
+
+    /// Ends the IDLE once `renewal` passes. Cancelled while the IDLE lasts, it closes the connection, which ends the
+    /// read waiting on the server; cancelled once the IDLE is over, it does nothing.
+    private func endIdle(after renewal: Duration) async {
+        do {
+            try await Task.sleep(for: renewal)
+            try await endIdle()
+        } catch {
+            switch state {
+            case .idling, .endingIdle: await close()
+            case .notAuthenticated, .authenticated, .selected, .closed: break
+            }
+        }
+    }
+
+    /// Sends DONE, once, while the connection is idling.
+    private func endIdle() async throws {
+        guard case .idling(let selection) = state else { return }
+        state = .endingIdle(selection)
+        try await send(Data("DONE\r\n".utf8))
+    }
+
+    /// Whether an untagged response reports a change in the selected mailbox: `* 4 EXISTS`, `* 2 EXPUNGE`,
+    /// `* 3 FETCH (FLAGS (\Seen))` or, with QRESYNC, `* VANISHED 41`. `RECENT` comes with `EXISTS`.
+    static func isChange(_ values: [IMAPValue]) -> Bool {
+        if values.first?.atom?.uppercased() == "VANISHED" { return true }
+        guard values.count > 1, values[0].number != nil, let name = values[1].atom?.uppercased() else { return false }
+        return ["EXISTS", "EXPUNGE", "FETCH"].contains(name)
+    }
+
     /// Logs out and closes the connection, also when the server doesn't answer.
     func logout() async throws {
         try await exclusively { connection in
@@ -301,8 +392,7 @@ actor IMAPConnection {
     /// literals sends each one when the server asks for it.
     private func run(_ command: IMAPCommand) async throws -> IMAPReply {
         guard state != .closed else { throw IMAPError.closed }
-        let tag = "A\(nextTag)"
-        nextTag += 1
+        let tag = newTag()
         var parts = try command.parts(tag: tag)[...]
         try await send(parts.removeFirst())
         var reply = IMAPReply()
@@ -333,10 +423,15 @@ actor IMAPConnection {
         }
     }
 
-    private func nextResponse() async throws -> IMAPResponse {
+    private func newTag() -> String {
+        defer { nextTag += 1 }
+        return "A\(nextTag)"
+    }
+
+    private func nextResponse(timeout: Duration = .seconds(60)) async throws -> IMAPResponse {
         while true {
             if let response = framer.next() { return try IMAPParser.response(from: response) }
-            let bytes = try await receive()
+            let bytes = try await receive(timeout: timeout)
             guard !bytes.isEmpty else {
                 await close()
                 throw IMAPError.closed
@@ -358,9 +453,9 @@ actor IMAPConnection {
     }
 
     /// Reads from the socket, closing the connection when the socket fails, as `send(_:)` does.
-    private func receive() async throws -> Data {
+    private func receive(timeout: Duration) async throws -> Data {
         do {
-            return try await transport.receive()
+            return try await transport.receive(timeout: timeout)
         } catch {
             await close()
             throw error
@@ -375,7 +470,7 @@ actor IMAPConnection {
     private func requireAuthenticated() throws {
         switch state {
         case .authenticated, .selected: return
-        case .notAuthenticated, .closed: throw IMAPError.wrongState
+        case .notAuthenticated, .idling, .endingIdle, .closed: throw IMAPError.wrongState
         }
     }
 

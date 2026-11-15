@@ -31,7 +31,7 @@ final class AppModel {
     var didChange: (@Sendable (MailChange) async -> Void)?
 
     nonisolated enum MailChange: Sendable {
-        /// A sync of every account finished.
+        /// A sync finished, of every account or of one whose server reported a change.
         case synced
         /// An account and its mail left the device.
         case accountRemoved

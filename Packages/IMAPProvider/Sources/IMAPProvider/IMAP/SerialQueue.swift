@@ -14,3 +14,17 @@ struct SerialQueue {
         return task
     }
 }
+
+extension Task where Failure == any Error {
+    /// The task's value. Cancelling the caller cancels the task, which a queued operation, unlike a child task,
+    /// doesn't otherwise hear of.
+    var cancellableValue: Success {
+        get async throws {
+            try await withTaskCancellationHandler {
+                try await value
+            } onCancel: {
+                cancel()
+            }
+        }
+    }
+}

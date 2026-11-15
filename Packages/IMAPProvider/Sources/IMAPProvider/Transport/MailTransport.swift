@@ -9,12 +9,20 @@ import MailCore
 /// `StreamTransport`; tests replay a transcript.
 protocol MailTransport: Sendable {
     func send(_ data: Data) async throws
-    /// The next bytes from the server, empty once it has closed the connection.
-    func receive() async throws -> Data
+    /// The next bytes from the server, empty once it has closed the connection. Throws when none come within
+    /// `timeout`, as from a server that has gone away without closing the connection.
+    func receive(timeout: Duration) async throws -> Data
     /// Starts TLS on the open connection, checking the server's certificate against its host name.
     func startTLS() async throws
     /// Closes the connection. Closing it again does nothing.
     func close() async
+}
+
+extension MailTransport {
+    /// The next bytes from the server, within the minute a server gets to answer a command.
+    func receive() async throws -> Data {
+        try await receive(timeout: .seconds(60))
+    }
 }
 
 #if canImport(Network)
@@ -40,9 +48,10 @@ protocol MailTransport: Sendable {
             }
         }
 
-        func receive() async throws -> Data {
-            try await firstReply { reply in
-                task.readData(ofMinLength: 1, maxLength: 64 * 1024, timeout: 60) { data, _, error in
+        func receive(timeout: Duration) async throws -> Data {
+            let seconds = TimeInterval(timeout.components.seconds)
+            return try await firstReply { reply in
+                task.readData(ofMinLength: 1, maxLength: 64 * 1024, timeout: seconds) { data, _, error in
                     reply(error.map { .failure($0) } ?? .success(data ?? Data()))
                 }
             }
