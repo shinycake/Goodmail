@@ -74,6 +74,14 @@ struct ThreadMenuTests {
         #expect(!menu.sections.contains { $0.contains(.perform(.deleteForever)) })
     }
 
+    @Test func aThreadWithAnInboxReplySeenInTrashIsNotSnoozed() {
+        let menu = ThreadMenu(
+            thread: thread([SystemLabel.inbox, SystemLabel.trash]), in: .trash, reach: .actions(pinned: false),
+            opensWindows: false)
+        #expect(menu.sections[2] == [.move, .changeLabels], "Snooze takes threads out of the Inbox, not Trash")
+        #expect(menu.sections[3] == [.perform(.untrash), .perform(.deleteForever)])
+    }
+
     @Test func draftsAreFinishedNotAnswered() {
         let menu = ThreadMenu(
             thread: thread([SystemLabel.draft]), in: .drafts, reach: .actions(pinned: false), opensWindows: false)

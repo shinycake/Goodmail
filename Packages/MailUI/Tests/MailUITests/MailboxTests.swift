@@ -4,7 +4,9 @@ import Testing
 
 @testable import MailUI
 
+// They follow the store's streams, so one that never finishes fails the test instead of hanging the run.
 @MainActor
+@Suite(.timeLimit(.minutes(1)))
 struct MailboxTests {
     private let calendar: Calendar = {
         var calendar = Calendar(identifier: .gregorian)

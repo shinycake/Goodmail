@@ -19,7 +19,7 @@ nonisolated public enum SwipeChoice: String, CaseIterable, Sendable {
             case .inbox: return .perform(.archive)
             case .elsewhere: return nil
             }
-        case .snooze: return MailboxViewModel.canSnooze([thread]) ? .snooze : nil
+        case .snooze: return place == .inbox ? .snooze : nil
         case .trash: return .perform(place == .trash ? .deleteForever : .trash)
         case .spam: return place.canReportSpam ? .perform(.reportSpam) : nil
         }

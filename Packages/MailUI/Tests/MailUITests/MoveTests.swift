@@ -54,7 +54,9 @@ private final class LabelStore: MailCommands.Store, @unchecked Sendable {
     func setPins(_ pins: [ThreadSummary.ID: Bool]) throws {}
 }
 
+// They follow the store's streams, so one that never finishes fails the test instead of hanging the run.
 @MainActor
+@Suite(.timeLimit(.minutes(1)))
 struct MoveViewModelTests {
     private let work = AccountID(rawValue: "work")
     private let home = AccountID(rawValue: "home")

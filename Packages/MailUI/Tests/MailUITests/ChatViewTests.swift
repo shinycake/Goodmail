@@ -34,7 +34,9 @@ struct ChatTimestampTests {
     }
 }
 
+// They follow the store's streams, so one that never finishes fails the test instead of hanging the run.
 @MainActor
+@Suite(.timeLimit(.minutes(1)))
 struct ChatThreadViewModelTests {
     private let account = AccountID(rawValue: "a")
     private let dana = Contact(name: "Dana", address: "dana@example.com")

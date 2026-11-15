@@ -4,7 +4,9 @@ import Testing
 
 @testable import MailUI
 
+// They follow the store's streams, so one that never finishes fails the test instead of hanging the run.
 @MainActor
+@Suite(.timeLimit(.minutes(1)))
 struct LabelEditingTests {
     private let gmail = Account(id: AccountID(rawValue: "g"), email: "g@example.com", color: .teal, service: .gmail)
     private let icloud = Account(id: AccountID(rawValue: "i"), email: "i@icloud.com", color: .blue, service: .icloud)

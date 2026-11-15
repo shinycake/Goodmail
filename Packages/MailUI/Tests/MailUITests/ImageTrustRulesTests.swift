@@ -6,7 +6,9 @@ import Testing
 
 /// Trust rules load remote images in every message they match, from a sender or a whole domain, on this device until
 /// Settings removes them.
+// They follow the store's streams, so one that never finishes fails the test instead of hanging the run.
 @MainActor
+@Suite(.timeLimit(.minutes(1)))
 struct ImageTrustRulesTests {
     private let account = AccountID(rawValue: "a1")
     private let defaults = UserDefaults(suiteName: "ImageTrustRulesTests.\(UUID())")!

@@ -39,9 +39,9 @@ struct ThreadMenu: Equatable {
             [.markRead(thread.isUnread), .star(!thread.labelIDs.contains(SystemLabel.starred))].map(Item.perform)
             + [pinned.map { Item.pin(!$0) }].compactMap(\.self)
             + [ThreadAction.muting([thread.labelIDs])].compactMap { $0.map(Item.perform) }
-        let organize: [Item] =
-            (MailboxViewModel.canSnooze([thread]) ? [.snooze] : []) + [.move, .changeLabels]
         let place = ThreadPlace(thread, in: mailbox)
+        // Snooze takes a thread out of the Inbox, so only the Inbox list offers it, not Trash showing a reply in it.
+        let organize: [Item] = (place == .inbox ? [.snooze] : []) + [.move, .changeLabels]
         var away = place.awayActions
         if place.canReportSpam {
             away.insert(.reportSpam, at: away.firstIndex(of: .trash) ?? away.endIndex)

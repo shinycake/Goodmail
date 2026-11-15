@@ -5,7 +5,9 @@ import Testing
 @testable import MailUI
 
 /// The Snoozed list shows each thread by its sender and subject, and opens it to read where it now is.
+// They follow the store's streams, so one that never finishes fails the test instead of hanging the run.
 @MainActor
+@Suite(.timeLimit(.minutes(1)))
 struct SnoozedTests {
     private let account = Account(id: AccountID(rawValue: "a1"), email: "me@example.com", color: .teal, service: .gmail)
 

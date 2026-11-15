@@ -51,7 +51,8 @@ struct SwipeTintTests {
         let shade = try #require(picked.shade)
         let dark = UITraitCollection(userInterfaceStyle: .dark)
         let light = UITraitCollection(userInterfaceStyle: .light)
-        #expect(shade.symbol.resolvedColor(with: dark) == .white)
+        // Compared by components: the shade's white is an RGB color, which never equals the grayscale `.white`.
+        #expect(components(shade.symbol.resolvedColor(with: dark)) == components(.white))
         #expect(shade.fill.contrastRatio(with: shade.symbol, in: dark) >= ButtonShade.minimumContrast)
         #expect(shade.fill.contrastRatio(with: .white, in: light) < shade.fill.contrastRatio(with: .white, in: dark))
         #expect(shade.fill.contrastRatio(with: shade.symbol, in: light) >= ButtonShade.minimumContrast)
@@ -75,4 +76,14 @@ struct SwipeTintTests {
         #expect(yellow.readableForeground.resolvedColor(with: traits) == .black)
         #expect(navy.readableForeground.resolvedColor(with: traits) == .white)
     }
+}
+
+/// A resolved color's red, green, blue and alpha, whatever color space it was made in.
+private func components(_ color: UIColor) -> [CGFloat] {
+    var red: CGFloat = 0
+    var green: CGFloat = 0
+    var blue: CGFloat = 0
+    var alpha: CGFloat = 0
+    color.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+    return [red, green, blue, alpha]
 }

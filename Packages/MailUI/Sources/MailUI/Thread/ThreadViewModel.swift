@@ -66,7 +66,9 @@ public final class ThreadViewModel {
         accountAliases: [Contact] = [],
         accountColor: AccountColor,
         messages: @escaping () -> AsyncThrowingStream<[Message], any Error>,
-        pins: @escaping () -> AsyncThrowingStream<Set<ThreadSummary.ID>, any Error> = { AsyncThrowingStream { _ in } },
+        pins: @escaping () -> AsyncThrowingStream<Set<ThreadSummary.ID>, any Error> = {
+            AsyncThrowingStream { $0.finish() }
+        },
         outgoing: @escaping () -> AsyncThrowingStream<[OutgoingMessage], any Error> = {
             AsyncThrowingStream { $0.finish() }
         },

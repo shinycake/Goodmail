@@ -49,7 +49,9 @@ struct MessageDocumentTests {
     }
 }
 
+// They follow the store's streams, so one that never finishes fails the test instead of hanging the run.
 @MainActor
+@Suite(.timeLimit(.minutes(1)))
 struct ThreadViewModelTests {
     private let account = AccountID(rawValue: "a")
 
@@ -167,7 +169,9 @@ extension ThreadViewModelTests {
     }
 }
 
+// They follow the store's streams, so one that never finishes fails the test instead of hanging the run.
 @MainActor
+@Suite(.timeLimit(.minutes(1)))
 struct AttachmentFileTests {
     @Test func attachmentsDownloadOnceAndKeepTheirName() async throws {
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
