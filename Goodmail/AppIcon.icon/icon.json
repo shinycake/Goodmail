@@ -19,57 +19,94 @@
     {
       "layers": [
         {
-          "image-name": "flap.svg",
-          "name": "flap",
+          "image-name": "front-flap.svg",
+          "name": "front flap",
+          "glass": true
+        }
+      ],
+      "shadow": {
+        "kind": "layer-color",
+        "opacity": 0.5
+      },
+      "translucency": {
+        "enabled": false,
+        "value": 0
+      }
+    },
+    {
+      "layers": [
+        {
+          "image-name": "front-pocket.svg",
+          "name": "front pocket",
           "glass": true
         },
         {
-          "image-name": "front.svg",
-          "name": "front",
+          "image-name": "front-body.svg",
+          "name": "front body",
           "glass": true
         }
       ],
       "shadow": {
-        "kind": "neutral",
+        "kind": "layer-color",
         "opacity": 0.5
       },
       "translucency": {
-        "enabled": true,
-        "value": 0.4
+        "enabled": false,
+        "value": 0
       }
     },
     {
       "layers": [
         {
-          "image-name": "mid.svg",
-          "name": "mid",
+          "image-name": "mid-flap.svg",
+          "name": "mid flap",
+          "glass": true
+        },
+        {
+          "image-name": "mid-pocket.svg",
+          "name": "mid pocket",
+          "glass": true
+        },
+        {
+          "image-name": "mid-body.svg",
+          "name": "mid body",
           "glass": true
         }
       ],
       "shadow": {
-        "kind": "neutral",
+        "kind": "layer-color",
         "opacity": 0.5
       },
       "translucency": {
-        "enabled": true,
-        "value": 0.4
+        "enabled": false,
+        "value": 0
       }
     },
     {
       "layers": [
         {
-          "image-name": "back.svg",
-          "name": "back",
+          "image-name": "back-flap.svg",
+          "name": "back flap",
+          "glass": true
+        },
+        {
+          "image-name": "back-pocket.svg",
+          "name": "back pocket",
+          "glass": true
+        },
+        {
+          "image-name": "back-body.svg",
+          "name": "back body",
           "glass": true
         }
       ],
       "shadow": {
-        "kind": "neutral",
+        "kind": "layer-color",
         "opacity": 0.5
       },
       "translucency": {
-        "enabled": true,
-        "value": 0.4
+        "enabled": false,
+        "value": 0
       }
     }
   ],
