@@ -41,6 +41,9 @@ public final class MailboxesViewController: UIViewController {
         super.viewDidLoad()
         var list = UICollectionLayoutListConfiguration(appearance: style == .sidebar ? .sidebar : .insetGrouped)
         list.headerMode = .supplementary
+        list.trailingSwipeActionsConfigurationProvider = { [weak self] indexPath in
+            self?.swipeActions(at: indexPath)
+        }
         collectionView = UICollectionView(
             frame: view.bounds, collectionViewLayout: UICollectionViewCompositionalLayout.list(using: list))
         collectionView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -215,26 +218,63 @@ extension MailboxesViewController: UICollectionViewDelegate {
         _ collectionView: UICollectionView, contextMenuConfigurationForItemsAt indexPaths: [IndexPath],
         point: CGPoint
     ) -> UIContextMenuConfiguration? {
-        guard indexPaths.count == 1, let item = indexPaths.first.flatMap(dataSource.itemIdentifier(for:)),
-            let label = viewModel.label(at: item.destination), let account = label.mailbox.accountID,
-            let labelID = label.mailbox.labelID, let flow = labelFlow(for: account)
-        else { return nil }
-        return UIContextMenuConfiguration(actionProvider: { [weak self] _ in
+        guard indexPaths.count == 1, let edits = indexPaths.first.flatMap(labelEdits(at:)) else { return nil }
+        return UIContextMenuConfiguration(actionProvider: { _ in
             UIMenu(children: [
-                UIAction(
-                    title: String(
-                        localized: "Rename Label", table: "LabelEditing", bundle: .module,
-                        comment: "Action: renames the label, and the title of the alert that names it"),
-                    image: UIImage(systemName: "pencil")
-                ) { _ in flow.rename(labelID, named: label.name) },
-                UIAction(
-                    title: String(
-                        localized: "Delete Label", table: "LabelEditing", bundle: .module,
-                        comment: "Action: deletes the label"),
-                    image: UIImage(systemName: "trash"), attributes: .destructive
-                ) { _ in flow.delete(labelID, named: label.name) { self?.leave(item.destination) } },
+                UIAction(title: LabelEdits.renameTitle, image: UIImage(systemName: "pencil")) { _ in edits.rename() },
+                UIAction(title: LabelEdits.deleteTitle, image: UIImage(systemName: "trash"), attributes: .destructive) {
+                    _ in edits.delete()
+                },
             ])
         })
+    }
+}
+
+/// Renaming and deleting the user label a row shows, from its context menu or a swipe.
+private struct LabelEdits {
+    static let renameTitle = String(
+        localized: "Rename Label", table: "LabelEditing", bundle: .module,
+        comment: "Action: renames the label, and the title of the alert that names it")
+    static let deleteTitle = String(
+        localized: "Delete Label", table: "LabelEditing", bundle: .module, comment: "Action: deletes the label")
+    /// The shorter names a swipe has room for, the alerts' own buttons.
+    static let swipeRenameTitle = String(
+        localized: "Rename", table: "LabelEditing", bundle: .module, comment: "Button: renames the label")
+    static let swipeDeleteTitle = String(
+        localized: "Delete", table: "LabelEditing", bundle: .module, comment: "Button: deletes the label")
+
+    let rename: () -> Void
+    /// Asks first, as every delete of a label does.
+    let delete: () -> Void
+}
+
+extension MailboxesViewController {
+    /// What can change the label at a row; `nil` for the standard mailboxes and folders that are no label.
+    private func labelEdits(at indexPath: IndexPath) -> LabelEdits? {
+        guard let item = dataSource.itemIdentifier(for: indexPath), let label = viewModel.label(at: item.destination),
+            let account = label.mailbox.accountID, let labelID = label.mailbox.labelID,
+            let flow = labelFlow(for: account)
+        else { return nil }
+        return LabelEdits(
+            rename: { flow.rename(labelID, named: label.name) },
+            delete: { [weak self] in flow.delete(labelID, named: label.name) { self?.leave(item.destination) } })
+    }
+
+    /// Delete, then Rename, swiped in from a user label's trailing edge. Each goes on in its alert; Delete reports
+    /// itself undone, since the row stays until the service has deleted the label.
+    private func swipeActions(at indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        guard let edits = labelEdits(at: indexPath) else { return nil }
+        let delete = UIContextualAction(style: .destructive, title: LabelEdits.swipeDeleteTitle) { _, _, done in
+            edits.delete()
+            done(false)
+        }
+        delete.image = UIImage(systemName: "trash")
+        let rename = UIContextualAction(style: .normal, title: LabelEdits.swipeRenameTitle) { _, _, done in
+            edits.rename()
+            done(true)
+        }
+        rename.image = UIImage(systemName: "pencil")
+        return UISwipeActionsConfiguration(actions: [delete, rename])
     }
 }
 
