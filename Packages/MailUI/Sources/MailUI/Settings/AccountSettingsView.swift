@@ -7,7 +7,7 @@ struct AccountSettingsView: View {
     let model: SettingsViewModel
     let accountID: AccountID
     @State private var name = ""
-    @State private var isConfirmingRemoval = false
+    @State private var removing: Account?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -92,7 +92,7 @@ struct AccountSettingsView: View {
 
             Section {
                 Button(role: .destructive) {
-                    isConfirmingRemoval = true
+                    removing = account
                 } label: {
                     Text(
                         "Remove Account", tableName: "Settings", bundle: .module,
@@ -105,23 +105,7 @@ struct AccountSettingsView: View {
         .onAppear { name = account.name ?? "" }
         // Leaving without pressing Done keeps what was typed.
         .onDisappear { model.rename(accountID, to: name) }
-        .confirmationDialog(
-            Text("Remove Account?", tableName: "Settings", bundle: .module, comment: "Asks before removing an account"),
-            isPresented: $isConfirmingRemoval, titleVisibility: .visible
-        ) {
-            Button(role: .destructive) {
-                dismiss()
-                Task { await model.removeAccount(accountID) }
-            } label: {
-                Text(
-                    "Remove Account", tableName: "Settings", bundle: .module,
-                    comment: "Removes an account from the device")
-            }
-        } message: {
-            Text(
-                "\(account.email) and its mail are removed from this device. Nothing is deleted from Gmail.",
-                tableName: "Settings", bundle: .module, comment: "Explains what removing an account does")
-        }
+        .removeAccountConfirmation($removing, model: model) { dismiss() }
     }
 }
 

@@ -90,13 +90,17 @@ public final class SettingsViewModel {
         signatures.failed = { [weak self] in self?.error = $0 }
     }
 
-    public func removeAccount(_ id: AccountID) async {
-        do {
-            try await remove(id)
-        } catch {
-            self.error = error
+    /// Takes the account and its mail off the device once the changes asked for before it are stored; a change
+    /// asked for after it finds no account to store. A failure shows as `error`; `settled()` waits for it.
+    public func removeAccount(_ id: AccountID) {
+        changes.run { [self] in
+            do {
+                try await remove(id)
+            } catch {
+                self.error = error
+            }
+            refresh()
         }
-        refresh()
     }
 
     /// Sends the account's mail under `name`, without its surrounding spaces; a blank name sends the address alone.

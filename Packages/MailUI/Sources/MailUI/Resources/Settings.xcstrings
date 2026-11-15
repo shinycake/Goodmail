@@ -2,12 +2,45 @@
   "sourceLanguage" : "en",
   "strings" : {
     "%@ and its mail are removed from this device. Nothing is deleted from Gmail." : {
-      "comment" : "Explains what removing an account does",
+      "comment" : "Explains what removing a Gmail account does",
       "localizations" : {
         "he" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "‏%@ והדואר שלו יוסרו מהמכשיר הזה. שום דבר לא יימחק מ-Gmail."
+          }
+        }
+      }
+    },
+    "%@ and its mail are removed from this device. Nothing is deleted from Outlook." : {
+      "comment" : "Explains what removing an Outlook account does",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‏%@ והדואר שלו יוסרו מהמכשיר הזה. שום דבר לא יימחק מ-Outlook."
+          }
+        }
+      }
+    },
+    "%@ and its mail are removed from this device. Nothing is deleted from iCloud." : {
+      "comment" : "Explains what removing an iCloud account does",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‏%@ והדואר שלו יוסרו מהמכשיר הזה. שום דבר לא יימחק מ-iCloud."
+          }
+        }
+      }
+    },
+    "%@ and its mail are removed from this device. Nothing is deleted from its mail server." : {
+      "comment" : "Explains what removing an account on another mail server does",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‏%@ והדואר שלו יוסרו מהמכשיר הזה. שום דבר לא יימחק משרת הדואר שלו."
           }
         }
       }

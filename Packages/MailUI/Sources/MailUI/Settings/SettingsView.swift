@@ -144,24 +144,7 @@ struct SettingsView: View {
                 Button(role: .close) { dismiss() }
             }
         }
-        .confirmationDialog(
-            Text("Remove Account?", tableName: "Settings", bundle: .module, comment: "Asks before removing an account"),
-            isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
-            titleVisibility: .visible,
-            presenting: removing
-        ) { account in
-            Button(role: .destructive) {
-                Task { await model.removeAccount(account.id) }
-            } label: {
-                Text(
-                    "Remove Account", tableName: "Settings", bundle: .module,
-                    comment: "Removes an account from the device")
-            }
-        } message: { account in
-            Text(
-                "\(account.email) and its mail are removed from this device. Nothing is deleted from Gmail.",
-                tableName: "Settings", bundle: .module, comment: "Explains what removing an account does")
-        }
+        .removeAccountConfirmation($removing, model: model)
         .alert(
             Text(
                 "Something Went Wrong", tableName: "Settings", bundle: .module,

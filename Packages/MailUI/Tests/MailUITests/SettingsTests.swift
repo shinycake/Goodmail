@@ -26,11 +26,38 @@ struct SettingsTests {
         await model.adder.add(.gmail)
         #expect(model.accounts == [personal, work])
         #expect(model.adder.state == .choosing)
-        await model.removeAccount(personal.id)
+        model.removeAccount(personal.id)
+        await model.settled()
         #expect(model.accounts == [work])
         model.didClose()
         await model.settled()
         #expect(closed)
+    }
+
+    @Test func removingWaitsForEarlierChangesAndLaterOnesStoreNothing() async {
+        var stored = [personal, work]
+        var events: [String] = []
+        let model = SettingsViewModel(
+            accounts: { stored }, signIn: { _ in true },
+            remove: { id in
+                events.append("removed \(id.rawValue)")
+                stored.removeAll { $0.id == id }
+            },
+            update: { account in
+                // A slow write, so the removal is asked for before this one is stored.
+                try await Task.sleep(for: .milliseconds(20))
+                events.append("stored \(account.name ?? "-")")
+                stored = stored.map { $0.id == account.id ? account : $0 }
+            },
+            closed: {})
+        model.rename(personal.id, to: "Me")
+        model.removeAccount(personal.id)
+        // Leaving the account's screen renames it once more, after it is gone.
+        model.rename(personal.id, to: "Late")
+        await model.settled()
+        #expect(events == ["stored Me", "removed a"])
+        #expect(model.accounts == [work])
+        #expect(model.error == nil)
     }
 
     @Test func quickChangesAreAllStoredInOrderBeforeTheScreenCloses() async {
