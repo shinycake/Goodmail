@@ -34,6 +34,7 @@ final class SceneCoordinator: NSObject {
         let actions = MailActions(commands: model.commands)
         self.actions = actions
         window = ShakeToUndoWindow(windowScene: windowScene, undo: { actions.undoLast() })
+        window.traitOverrides.senderPictures = model.senderPictures
         super.init()
         actions.reopen = { [weak self] draft in self?.handle(.compose(draft)) }
     }

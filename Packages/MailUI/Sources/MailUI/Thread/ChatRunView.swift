@@ -177,11 +177,14 @@ struct ChatBubbleShape: Equatable {
     }
 }
 
-/// The sender's initials in a small neutral circle beside their last bubble. Tapping it shows who that really is:
+/// The sender's picture, or their initials in a small neutral circle, beside their last bubble. Tapping it shows who that really is:
 /// the name over the address, which a name in a chat could otherwise hide.
 final class ChatAvatarView: UIButton {
     static let diameter: CGFloat = 28
     private let initials = UILabel()
+    private let picture = UIImageView()
+    private let pictureBinding = SenderPictureBinding()
+    private var address: String?
 
     init() {
         super.init(frame: .zero)
@@ -191,14 +194,34 @@ final class ChatAvatarView: UIButton {
         initials.font = UIFont.systemFont(ofSize: 11, weight: .semibold).rounded
         initials.textColor = .secondaryLabel
         initials.isUserInteractionEnabled = false
-        initials.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(initials)
+        picture.contentMode = .scaleAspectFill
+        picture.clipsToBounds = true
+        picture.layer.cornerRadius = Self.diameter / 2
+        picture.isUserInteractionEnabled = false
+        picture.isHidden = true
+        // A hairline edge, as on the mailbox rows' pictures.
+        picture.layer.borderWidth = 1 / 3
+        picture.layer.borderColor = UIColor.separator.cgColor
+        for view in [initials, picture] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(view)
+        }
         NSLayoutConstraint.activate([
             widthAnchor.constraint(equalToConstant: Self.diameter),
             heightAnchor.constraint(equalToConstant: Self.diameter),
             initials.centerXAnchor.constraint(equalTo: centerXAnchor),
             initials.centerYAnchor.constraint(equalTo: centerYAnchor),
+            picture.leadingAnchor.constraint(equalTo: leadingAnchor),
+            picture.trailingAnchor.constraint(equalTo: trailingAnchor),
+            picture.topAnchor.constraint(equalTo: topAnchor),
+            picture.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
+        registerForTraitChanges([SenderPicturesTrait.self]) { (view: ChatAvatarView, _) in
+            view.bindPicture()
+        }
+        registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (view: ChatAvatarView, _) in
+            view.picture.layer.borderColor = UIColor.separator.resolvedColor(with: view.traitCollection).cgColor
+        }
     }
 
     @available(*, unavailable)
@@ -212,6 +235,8 @@ final class ChatAvatarView: UIButton {
 
     func configure(sender: Contact) {
         initials.text = Monogram.initials(for: sender.displayName)
+        address = sender.address
+        bindPicture()
         accessibilityLabel =
             sender.displayName == sender.address ? sender.address : "\(sender.displayName), \(sender.address)"
         let copy = UIAction(
@@ -221,6 +246,15 @@ final class ChatAvatarView: UIButton {
             subtitle: sender.address, image: UIImage(systemName: "doc.on.doc")
         ) { _ in UIPasteboard.general.string = sender.address }
         menu = UIMenu(title: sender.displayName, children: [copy])
+    }
+}
+
+extension ChatAvatarView {
+    fileprivate func bindPicture() {
+        pictureBinding.bind(address: address, pictures: traitCollection.senderPictures) { [weak self] image in
+            self?.picture.image = image
+            self?.picture.isHidden = image == nil
+        }
     }
 }
 

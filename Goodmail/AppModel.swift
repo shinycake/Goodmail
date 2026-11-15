@@ -23,6 +23,8 @@ final class AppModel {
     let outboxes: Outboxes
     /// How each account's syncs are going, for the mailbox lists to tell the reader of a problem.
     let health = AccountHealthBoard()
+    /// Senders' logos for the mail screens.
+    let senderPictures = SenderPictures.logos()
     private let senders: Senders
     /// Keeps each account's push subscription current; `nil` when the build names no push relay.
     let pushRegistrar: PushRegistrar?

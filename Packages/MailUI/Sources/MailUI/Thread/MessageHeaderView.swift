@@ -97,7 +97,7 @@ final class MessageHeaderView: UIView {
         shown = (header, accountEmail)
         sender.setContentText(header.sender.displayName, alignedToContent: false)
         date.text = dateText
-        avatar.configure(name: header.sender.displayName, badge: badge)
+        avatar.configure(name: header.sender.displayName, address: header.sender.address, badge: badge)
         address.show(header.senderAddress.map { [Contact(name: nil, address: $0)] } ?? [], style: .addresses)
         replyTo.show(header.replyTo, style: .replyTo)
         identity.accessibilityLabel = [header.sender.displayName, header.senderAddress, dateText, replyTo.text]

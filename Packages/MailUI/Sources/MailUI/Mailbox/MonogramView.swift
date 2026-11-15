@@ -1,8 +1,8 @@
 import MailCore
 import UIKit
 
-/// A neutral gray circle with the sender's initials, and an optional account-colored badge on its top corner. Without
-/// the monogram, the badge stands alone in a narrow column.
+/// The sender's picture, or their initials on a neutral gray circle when there is none, and an optional
+/// account-colored badge on its top corner. Without the monogram, the badge stands alone in a narrow column.
 final class MonogramView: UIView {
     /// The account's mark: a dot for unread mail, or a quieter ring for read mail in a view spanning accounts.
     enum Badge: Equatable {
@@ -14,7 +14,11 @@ final class MonogramView: UIView {
     private static let badgeDiameter: CGFloat = 12
 
     private let initials = UILabel()
+    private let picture = UIImageView()
     private let badge = UIView()
+    private let pictureBinding = SenderPictureBinding()
+    /// Whose picture to show; `nil` while the monogram is hidden.
+    private var address: String?
     private var size: [NSLayoutConstraint] = []
     /// The badge overhangs the monogram's corner by this much, and sits flush when it stands alone.
     private static let badgeOverhang: CGFloat = 1
@@ -39,8 +43,13 @@ final class MonogramView: UIView {
         initials.textColor = .secondaryLabel
         initials.textAlignment = .center
         badge.layer.cornerRadius = Self.badgeDiameter / 2
+        picture.contentMode = .scaleAspectFill
+        picture.clipsToBounds = true
+        picture.layer.cornerRadius = Self.diameter / 2
+        picture.isHidden = true
+        picture.layer.borderWidth = 1 / 3
 
-        for view in [initials, badge] {
+        for view in [initials, picture, badge] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
         }
@@ -53,11 +62,19 @@ final class MonogramView: UIView {
                 badgeTop, badgeTrailing,
                 initials.centerXAnchor.constraint(equalTo: centerXAnchor),
                 initials.centerYAnchor.constraint(equalTo: centerYAnchor),
+                picture.leadingAnchor.constraint(equalTo: leadingAnchor),
+                picture.trailingAnchor.constraint(equalTo: trailingAnchor),
+                picture.topAnchor.constraint(equalTo: topAnchor),
+                picture.bottomAnchor.constraint(equalTo: bottomAnchor),
                 badge.widthAnchor.constraint(equalToConstant: Self.badgeDiameter),
                 badge.heightAnchor.constraint(equalToConstant: Self.badgeDiameter),
             ])
         registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (view: MonogramView, _) in
             view.applyBadge()
+        }
+        // The window's pictures arrive once the view is in it.
+        registerForTraitChanges([SenderPicturesTrait.self]) { (view: MonogramView, _) in
+            view.bindPicture()
         }
     }
 
@@ -66,11 +83,26 @@ final class MonogramView: UIView {
 
     private var shownBadge: Badge?
 
-    func configure(name: String, badge: Badge?, showingMonogram: Bool = true) {
+    /// Shows `address`'s picture when there is one, else `name`'s initials.
+    func configure(name: String, address: String?, badge: Badge?, showingMonogram: Bool = true) {
         initials.text = Monogram.initials(for: name)
         shownBadge = badge
+        self.address = showingMonogram ? address : nil
         applyMonogram(showingMonogram)
         applyBadge()
+        bindPicture()
+    }
+
+    private func bindPicture() {
+        pictureBinding.bind(address: address, pictures: traitCollection.senderPictures) { [weak self] image in
+            self?.showPicture(image)
+        }
+    }
+
+    /// The picture covers the initials, which stay for when it goes.
+    private func showPicture(_ image: UIImage?) {
+        picture.image = image
+        picture.isHidden = image == nil
     }
 
     private func applyMonogram(_ shown: Bool) {
@@ -87,6 +119,9 @@ final class MonogramView: UIView {
 
     /// Layer colors don't follow the appearance, so they are resolved again when it changes.
     private func applyBadge() {
+        // A hairline edge, so a logo on white doesn't float in a light row and a dark logo keeps its shape on a
+        // dark one.
+        picture.layer.borderColor = UIColor.separator.resolvedColor(with: traitCollection).cgColor
         let background = UIColor.systemBackground.resolvedColor(with: traitCollection)
         badge.isHidden = shownBadge == nil
         switch shownBadge {

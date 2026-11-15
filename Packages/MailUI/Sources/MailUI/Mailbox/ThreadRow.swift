@@ -119,7 +119,7 @@ final class ThreadRowContentView: UIView, UIContentView {
         preview.numberOfLines = current.display.previewLines
         preview.isHidden = current.display.previewLines == 0 || thread.snippet.isEmpty
         avatar.configure(
-            name: name, badge: current.account?.badge(unread: thread.isUnread),
+            name: name, address: thread.sender.address, badge: current.account?.badge(unread: thread.isUnread),
             showingMonogram: current.display.showsAvatars)
 
         accessibilityLabel = [
