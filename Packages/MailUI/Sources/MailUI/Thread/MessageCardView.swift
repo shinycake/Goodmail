@@ -5,8 +5,8 @@ import UIKit
 final class MessageCardView: UIView {
     var onToggle: (() -> Void)?
     var onAllowRemoteContent: (() -> Void)?
-    /// Trusts the sender, so their remote images always load.
-    var onTrustSender: (() -> Void)?
+    /// Keeps a rule the reader chose for the sender or their domain, so those remote images always load.
+    var onTrust: ((ImageTrustRule) -> Void)?
     var onOpenAttachment: ((Attachment) -> Void)? {
         didSet { attachments.onOpen = onOpenAttachment }
     }
@@ -27,7 +27,7 @@ final class MessageCardView: UIView {
         layer.cornerCurve = .continuous
 
         remoteNotice.onLoad = { [weak self] in self?.onAllowRemoteContent?() }
-        remoteNotice.onTrustSender = { [weak self] in self?.onTrustSender?() }
+        remoteNotice.onTrust = { [weak self] in self?.onTrust?($0) }
 
         header.onFold = { [weak self] in self?.onToggle?() }
 
@@ -57,7 +57,7 @@ final class MessageCardView: UIView {
         header.configure(
             MessageHeader(message), dateText: dateText, accountEmail: accountEmail,
             badge: message.isUnread ? .dot(accountColor) : nil)
-        remoteNotice.configure(sender: message.from.address)
+        remoteNotice.configure(offers: ImageTrustRule.offers(for: message.from.address))
         body.show(MessageWebView.Content(message: message, allowsRemoteContent: allowsRemoteContent))
         attachments.show(AttachmentListView.listed(in: message))
     }

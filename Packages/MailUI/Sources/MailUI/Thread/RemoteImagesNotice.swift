@@ -1,10 +1,11 @@
+import MailCore
 import UIKit
 
 /// Under a message's header while its remote images are blocked: Load Remote Images loads them this once, and the
-/// menu beside it trusts the sender, naming the address, so their images always load on this device.
+/// menu beside it trusts the sender or their domain, naming which, so those images always load on this device.
 final class RemoteImagesNotice: UIView {
     var onLoad: (() -> Void)?
-    var onTrustSender: (() -> Void)?
+    var onTrust: ((ImageTrustRule) -> Void)?
 
     private let load = UIButton(configuration: .gray())
     private let more = UIButton(configuration: .gray())
@@ -47,19 +48,29 @@ final class RemoteImagesNotice: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("Programmatic UI only") }
 
-    /// Offers to trust `sender`; a message without a sender address offers only to load once.
-    func configure(sender: String) {
-        more.isHidden = sender.isEmpty
-        more.menu = UIMenu(children: [Self.trustAction(sender: sender) { [weak self] in self?.onTrustSender?() }])
+    /// Offers the rules `ImageTrustRule.offers(for:)` made from the sender; with none, as for a message without a
+    /// sender address, only loading once.
+    func configure(offers: [ImageTrustRule]) {
+        more.isHidden = offers.isEmpty
+        more.menu = UIMenu(
+            children: offers.map { rule in Self.trustAction(rule) { [weak self] in self?.onTrust?(rule) } })
     }
 
-    /// The menu's one choice. Its subtitle names the address it trusts, since a display name can be anyone's.
-    static func trustAction(sender: String, perform: @escaping () -> Void) -> UIAction {
-        UIAction(
-            title: String(
-                localized: "Always Load from This Sender", table: "RemoteImages", bundle: .module,
-                comment: "Menu item: always load remote images in mail from this message's sender"),
-            subtitle: sender, image: UIImage(systemName: "checkmark.shield")
-        ) { _ in perform() }
+    /// One choice in the menu. Its subtitle names the address or domain it trusts, since a display name can be
+    /// anyone's.
+    static func trustAction(_ rule: ImageTrustRule, perform: @escaping () -> Void) -> UIAction {
+        let title =
+            switch rule.kind {
+            case .sender:
+                String(
+                    localized: "Always Load from This Sender", table: "RemoteImages", bundle: .module,
+                    comment: "Menu item: always load remote images in mail from this message's sender")
+            case .domain:
+                String(
+                    localized: "Always Load from This Domain", table: "RemoteImages", bundle: .module,
+                    comment: "Menu item: always load remote images in mail from any address at the sender's domain")
+            }
+        let image = rule.kind == .sender ? "person.crop.circle.badge.checkmark" : "building.2"
+        return UIAction(title: title, subtitle: rule.value, image: UIImage(systemName: image)) { _ in perform() }
     }
 }

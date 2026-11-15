@@ -20,7 +20,7 @@ final class LetterSheetController: UIViewController {
         super.init(nibName: nil, bundle: nil)
         card.openURL = openURL
         card.onAllowRemoteContent = { [weak viewModel] in viewModel?.allowRemoteContent(in: message) }
-        card.onTrustSender = { [weak viewModel] in viewModel?.alwaysAllowRemoteContent(from: message) }
+        card.onTrust = { [weak viewModel] in viewModel?.alwaysAllowRemoteContent(by: $0) }
         card.onOpenAttachment = { [weak card] attachment in
             openAttachment(attachment) { card?.setLoading($0, for: attachment) }
         }

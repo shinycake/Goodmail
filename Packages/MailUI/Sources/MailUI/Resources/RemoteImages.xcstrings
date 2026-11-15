@@ -1,6 +1,50 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Add" : {
+      "comment" : "Adds a trust rule by hand",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הוספה"
+          }
+        }
+      }
+    },
+    "Add Rule" : {
+      "comment" : "Title of the sheet adding a rule",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הוספת כלל"
+          }
+        }
+      }
+    },
+    "Address" : {
+      "comment" : "Field label: the trusted address",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כתובת"
+          }
+        }
+      }
+    },
+    "Always Load from This Domain" : {
+      "comment" : "Menu item: always load remote images in mail from any address at the sender's domain",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לטעון תמיד תמונות מהדומיין הזה"
+          }
+        }
+      }
+    },
     "Always Load from This Sender" : {
       "comment" : "Menu item: always load remote images in mail from this message's sender",
       "localizations" : {
@@ -12,13 +56,112 @@
         }
       }
     },
-    "Images from these senders load as soon as you open their mail." : {
-      "comment" : "Explains the list of trusted senders",
+    "Anyone can get an address at %@, so this loads images from strangers too." : {
+      "comment" : "Warns that a domain rule for a public mail provider trusts everyone there",
       "localizations" : {
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "תמונות מהשולחים האלה נטענות מיד כשפותחים את הדואר שלהם."
+            "value" : "כל אחד יכול לפתוח כתובת ב־%@, כך שייטענו גם תמונות מזרים."
+          }
+        }
+      }
+    },
+    "Anyone can get an address here" : {
+      "comment" : "Under a trusted domain that is a public mail provider",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כל אחד יכול לפתוח כאן כתובת"
+          }
+        }
+      }
+    },
+    "Domain" : {
+      "comment" : "Rule kind and field label: a whole domain",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דומיין"
+          }
+        }
+      }
+    },
+    "Domains" : {
+      "comment" : "Header of the trusted domains",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דומיינים"
+          }
+        }
+      }
+    },
+    "Edit Rule" : {
+      "comment" : "Title of the sheet changing a rule",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עריכת כלל"
+          }
+        }
+      }
+    },
+    "Images load in mail from any address at exactly this domain." : {
+      "comment" : "Explains a domain rule without subdomains",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תמונות ייטענו בדואר מכל כתובת בדומיין הזה בדיוק."
+          }
+        }
+      }
+    },
+    "Images load in mail from any address at this domain or under it, like news.example.com." : {
+      "comment" : "Explains a domain rule with subdomains",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תמונות ייטענו בדואר מכל כתובת בדומיין הזה או מתחתיו, כמו news.example.com."
+          }
+        }
+      }
+    },
+    "Images load in mail from this address." : {
+      "comment" : "Explains a sender rule",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תמונות ייטענו בדואר מהכתובת הזו."
+          }
+        }
+      }
+    },
+    "Include Subdomains" : {
+      "comment" : "Toggle: a domain rule also covers the domains under it",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כולל תת-דומיינים"
+          }
+        }
+      }
+    },
+    "Includes subdomains" : {
+      "comment" : "Under a trusted domain whose subdomains are trusted too",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כולל תת-דומיינים"
           }
         }
       }
@@ -67,19 +210,52 @@
         }
       }
     },
-    "To always load a sender’s images, open the menu beside Load Remote Images in their message." : {
-      "comment" : "Explains how to trust a sender",
+    "Rule Type" : {
+      "comment" : "Label of the choice between trusting a domain or one sender",
       "localizations" : {
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "כדי לטעון תמיד את התמונות של שולח, פתח את התפריט שליד „טעינת תמונות מרוחקות” בהודעה שלו."
+            "value" : "סוג הכלל"
+          }
+        }
+      }
+    },
+    "Sender" : {
+      "comment" : "Rule kind: one address",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שולח"
+          }
+        }
+      }
+    },
+    "Senders" : {
+      "comment" : "Header of the trusted senders",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שולחים"
+          }
+        }
+      }
+    },
+    "To always load images from a sender or their domain, open the menu beside Load Remote Images in their message, or tap Add." : {
+      "comment" : "Explains how to trust a sender or domain",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כדי לטעון תמיד תמונות משולח או מהדומיין שלו, פותחים את התפריט שליד ״טעינת תמונות מרוחקות״ בהודעה שלו, או מקישים על ״הוספה״."
           }
         }
       }
     },
     "Trusted Senders" : {
-      "comment" : "Title of the list of senders whose remote images always load",
+      "comment" : "Title of the list of senders and domains whose remote images always load",
       "localizations" : {
         "he" : {
           "stringUnit" : {

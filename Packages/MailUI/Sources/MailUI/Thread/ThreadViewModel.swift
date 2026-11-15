@@ -17,8 +17,8 @@ public final class ThreadViewModel {
     public private(set) var expanded: Set<Message.ID> = []
     /// Messages whose remote content the reader loaded once.
     private var loadedOnce: Set<Message.ID> = []
-    /// The senders whose remote images always load, as of opening the thread and trusting from it.
-    private var trustedAddresses: Set<String>
+    /// The rules that load remote images without asking, as of opening the thread and trusting from it.
+    private var trustRules: [ImageTrustRule]
     public private(set) var isLoading = false
     public private(set) var loadError: (any Error)?
     /// Whether the reader is still on the thread. It leaves once, when an action or a move takes the thread out of
@@ -57,7 +57,7 @@ public final class ThreadViewModel {
     @ObservationIgnored private let attachmentsDirectory: URL
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let calendar: Calendar
-    @ObservationIgnored private let trustedSenders: TrustedImageSenders
+    @ObservationIgnored private let imageTrust: ImageTrustRules
 
     public init(
         thread: ThreadSummary,
@@ -79,10 +79,10 @@ public final class ThreadViewModel {
         now: @escaping () -> Date = Date.init,
         calendar: Calendar = .autoupdatingCurrent,
         layout: ConversationLayout = Preferences.conversationLayout,
-        trustedSenders: TrustedImageSenders = TrustedImageSenders()
+        imageTrust: ImageTrustRules = ImageTrustRules()
     ) {
-        self.trustedSenders = trustedSenders
-        trustedAddresses = Set(trustedSenders.addresses)
+        self.imageTrust = imageTrust
+        trustRules = imageTrust.all
         self.layout = layout
         transcript = ChatTranscript(messages: [], accountEmail: accountEmail, aliases: accountAliases)
         self.actions = actions
@@ -197,25 +197,25 @@ public final class ThreadViewModel {
         }
     }
 
-    /// The messages that may load remote content: those the reader loaded once, and every one from a trusted sender.
+    /// The messages that may load remote content: those the reader loaded once, and every one a trust rule matches.
     public var remoteContentAllowed: Set<Message.ID> {
         Set(messages.lazy.filter(allowsRemoteContent).map(\.id))
     }
 
     public func allowsRemoteContent(in message: Message) -> Bool {
         loadedOnce.contains(message.id)
-            || trustedAddresses.contains(TrustedImageSenders.normalized(message.from.address))
+            || trustRules.trust(message.from.address)
     }
 
     public func allowRemoteContent(in id: Message.ID) {
         loadedOnce.insert(id)
     }
 
-    /// Trusts the sender of `id` on this device, so their remote images load in this message and all their others.
-    public func alwaysAllowRemoteContent(from id: Message.ID) {
-        guard let address = messages.first(where: { $0.id == id })?.from.address else { return }
-        trustedSenders.trust(address)
-        trustedAddresses = Set(trustedSenders.addresses)
+    /// Keeps `rule` on this device, one of `ImageTrustRule.offers(for:)` a message's sender, so remote images load
+    /// in every message it matches, here and in threads opened later.
+    public func alwaysAllowRemoteContent(by rule: ImageTrustRule) {
+        imageTrust.add(rule)
+        trustRules = imageTrust.all
     }
 
     /// A local copy of an attachment for Quick Look, named as the sender named it. Fetched once per message part.
