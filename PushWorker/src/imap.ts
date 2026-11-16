@@ -32,6 +32,11 @@ export const connectToServer: Connect = (login) =>
 const TIMEOUT_MS = 20_000;
 /** Watching stops this long before its deadline, to leave time to log out before the next check starts. */
 const IDLE_MARGIN_MS = 3_000;
+/**
+ * IDLE is ended and started again this often. A connection with no traffic for about 4.5 minutes was closed on every
+ * run (seen on iCloud from Workers, 2026-11-16), so the watch renews well before that.
+ */
+const IDLE_RENEW_MS = 120_000;
 
 /**
  * Logs in and reads the Inbox's STATUS: one short conversation, so the relay holds no connection between checks.
@@ -65,6 +70,7 @@ export async function watchInbox(
   until: number,
   onStatus: (status: InboxStatus) => Promise<void>,
   open: Connect = connectToServer,
+  renewMs = IDLE_RENEW_MS,
 ): Promise<void> {
   const deadline = until - IDLE_MARGIN_MS;
   let socket = open(login);
@@ -92,7 +98,7 @@ export async function watchInbox(
       timeout(TIMEOUT_MS),
     ]);
     if (Date.now() < deadline) {
-      await Promise.race([idle(conversation, deadline, onStatus), timeout(deadline - Date.now() + TIMEOUT_MS)]).catch(
+      await Promise.race([idle(conversation, deadline, renewMs, onStatus), timeout(deadline - Date.now() + TIMEOUT_MS)]).catch(
         (error: unknown) => {
           if (error instanceof LoginRefused) throw error;
           console.warn(`IMAP watch ended early: ${error instanceof Error ? error.message : String(error)}`);
@@ -114,12 +120,13 @@ async function status(conversation: Conversation): Promise<InboxStatus> {
 }
 
 /**
- * Selects the Inbox read-only and idles in it until `deadline`, reading the STATUS again whenever the server says the
+ * Selects the Inbox read-only and idles in it until `deadline`, starting IDLE again every `renewMs`, reading the STATUS again whenever the server says the
  * Inbox grew (`* n EXISTS`). Returns at once when the server doesn't take IDLE.
  */
 async function idle(
   conversation: Conversation,
   deadline: number,
+  renewMs: number,
   onStatus: (status: InboxStatus) => Promise<void>,
 ): Promise<void> {
   await conversation.command("EXAMINE INBOX");
@@ -132,7 +139,8 @@ async function idle(
       throw error;
     }
     let arrived = false;
-    for (let line = await conversation.lineBy(deadline); line !== undefined; line = await conversation.lineBy(deadline)) {
+    const renewal = Math.min(deadline, Date.now() + renewMs);
+    for (let line = await conversation.lineBy(renewal); line !== undefined; line = await conversation.lineBy(renewal)) {
       if (/^\* \d+ EXISTS\b/i.test(line)) {
         arrived = true;
         break;
