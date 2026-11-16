@@ -38,15 +38,22 @@ nonisolated public enum SwipeTint: Hashable, Sendable {
         case .custom(let color): UIColor(color)
         }
     }
-
-    /// What the button wears from the moment it shows: the picked color shaded to suit light or dark mode, under a
-    /// symbol that stands out from it. `nil` for clear glass, which is never shaded.
-    var shade: (fill: UIColor, symbol: UIColor)? {
-        picked.map { ($0.shadedFill, $0.shadedSymbol) }
-    }
 }
 
 extension SwipeChoice {
+    /// The action's own color, which a clear button fills with on a full swipe: blue for reading state, as on the
+    /// unread dot, yellow for the star, purple for Archive and indigo for Snooze, as in Apple's Mail, and red for the
+    /// actions that delete or report.
+    nonisolated var color: UIColor {
+        switch self {
+        case .read: .systemBlue
+        case .star: .systemYellow
+        case .archive: .systemPurple
+        case .snooze: .systemIndigo
+        case .trash, .spam: .systemRed
+        }
+    }
+
     /// Red for the actions that delete or report a thread, clear glass for the rest.
     nonisolated var standardTint: SwipeTint {
         switch self {

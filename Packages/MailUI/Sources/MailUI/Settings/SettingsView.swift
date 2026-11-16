@@ -183,15 +183,31 @@ extension SettingsView {
 
 /// The settings screen, for UIKit to present.
 public enum SettingsScreen {
-    public static func make(model: SettingsViewModel) -> UIViewController {
-        Controller(model: model)
+    public static func make(model: SettingsViewModel, at page: SettingsPage = .main) -> UIViewController {
+        Controller(model: model, page: page)
     }
 
     private struct Root: View {
         let model: SettingsViewModel
+        /// The pages pushed over the first screen. Seeded once from the page Settings opens at; the reader moves on
+        /// from there.
+        @State private var path: [SettingsPage]
+
+        init(model: SettingsViewModel, page: SettingsPage) {
+            self.model = model
+            _path = State(initialValue: page == .main ? [] : [page])
+        }
 
         var body: some View {
-            NavigationStack { SettingsView(model: model) }
+            NavigationStack(path: $path) {
+                SettingsView(model: model)
+                    .navigationDestination(for: SettingsPage.self) { page in
+                        switch page {
+                        case .main: SettingsView(model: model)
+                        case .swipeActions: SwipeSettingsView(model: model)
+                        }
+                    }
+            }
         }
     }
 
@@ -201,9 +217,9 @@ public enum SettingsScreen {
     private final class Controller: UIHostingController<Root> {
         private let model: SettingsViewModel
 
-        init(model: SettingsViewModel) {
+        init(model: SettingsViewModel, page: SettingsPage) {
             self.model = model
-            super.init(rootView: Root(model: model))
+            super.init(rootView: Root(model: model, page: page))
         }
 
         @available(*, unavailable)

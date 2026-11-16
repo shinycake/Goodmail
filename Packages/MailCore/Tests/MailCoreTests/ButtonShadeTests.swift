@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import MailCore
@@ -24,46 +25,45 @@ struct ButtonShadeTests {
         #expect(black.contrastRatio(with: white) == white.contrastRatio(with: black))
     }
 
-    @Test(arguments: picks)
-    func darkModeWearsADeepShadeWithAWhiteSymbol(pick: RGBColor) {
-        let shade = ButtonShade(for: pick, in: .dark)
-        #expect(shade.symbol == RGBColor(red: 255, green: 255, blue: 255))
+    @Test(arguments: picks, [Appearance.light, .dark])
+    func theSymbolStandsOutFromTheFill(pick: RGBColor, appearance: Appearance) {
+        let shade = ButtonShade(for: pick, in: appearance)
         #expect(shade.fill.contrastRatio(with: shade.symbol) >= ButtonShade.minimumContrast)
-        #expect(shade.fill.lightness <= ButtonShade.darkLightness.upperBound + 0.01)
     }
 
     @Test(arguments: picks)
-    func lightModeWearsAPaleTintWithADeepSymbol(pick: RGBColor) {
+    func darkModeWearsADeepTintUnderABrightSymbol(pick: RGBColor) {
+        let shade = ButtonShade(for: pick, in: .dark)
+        #expect(ButtonShade.darkLightness.contains(shade.fill.lightness.rounded(toPlaces: 2)))
+        #expect(shade.symbol.lightness > shade.fill.lightness)
+    }
+
+    @Test(arguments: picks)
+    func lightModeWearsAPaleTintUnderADeepSymbol(pick: RGBColor) {
         let shade = ButtonShade(for: pick, in: .light)
-        #expect(shade.fill.lightness >= ButtonShade.lightLightness.lowerBound - 0.01)
-        #expect(shade.fill.contrastRatio(with: shade.symbol) >= ButtonShade.minimumContrast)
+        #expect(ButtonShade.lightLightness.contains(shade.fill.lightness.rounded(toPlaces: 2)))
         #expect(shade.symbol.lightness < shade.fill.lightness)
     }
 
-    @Test(arguments: picks)
-    func darkShadesStayVisibleOnABlackList(pick: RGBColor) {
-        #expect(ButtonShade(for: pick, in: .dark).fill.lightness >= ButtonShade.darkLightness.lowerBound - 0.01)
-    }
-
-    @Test func aShadeKeepsThePicksHue() {
+    @Test(arguments: [Appearance.light, .dark])
+    func aShadeKeepsThePicksHue(appearance: Appearance) {
         let green = RGBColor(red: 0x34, green: 0xC7, blue: 0x59)
-        for appearance in [Appearance.light, .dark] {
-            let shade = ButtonShade(for: green, in: appearance)
-            #expect(shade.fill.green > shade.fill.red)
-            #expect(shade.fill.green > shade.fill.blue)
+        let shade = ButtonShade(for: green, in: appearance)
+        for color in [shade.fill, shade.symbol] {
+            #expect(color.green > color.red && color.green > color.blue)
         }
-        let symbol = ButtonShade(for: green, in: .light).symbol
-        #expect(symbol.green > symbol.red && symbol.green > symbol.blue)
-    }
-
-    @Test func aDeepPickAlreadyInRangeIsLeftAsItIsInDarkMode() {
-        let maroon = RGBColor(red: 0x6B, green: 0x1A, blue: 0x1F)
-        #expect(ButtonShade(for: maroon, in: .dark).fill == maroon)
     }
 
     @Test func aGrayPickStaysGray() {
         let shade = ButtonShade(for: RGBColor(red: 0x80, green: 0x80, blue: 0x80), in: .light)
         #expect(shade.fill.red == shade.fill.green && shade.fill.green == shade.fill.blue)
         #expect(shade.symbol.red == shade.symbol.green && shade.symbol.green == shade.symbol.blue)
+    }
+}
+
+extension Double {
+    fileprivate func rounded(toPlaces places: Int) -> Double {
+        let scale = pow(10, Double(places))
+        return (self * scale).rounded() / scale
     }
 }

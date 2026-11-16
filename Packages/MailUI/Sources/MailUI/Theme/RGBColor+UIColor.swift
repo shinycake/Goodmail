@@ -25,16 +25,6 @@ extension UIColor {
         }
     }
 
-    /// White or black, whichever reads better on this color: for a symbol on a button filled with it.
-    var readableForeground: UIColor {
-        UIColor { [self] traits in
-            let white = contrastRatio(with: .white, in: traits)
-            let black = contrastRatio(with: .black, in: traits)
-            // White wins ties and near ties, as on the system's own tinted buttons.
-            return white * 1.4 >= black ? .white : .black
-        }
-    }
-
     /// Both already resolved: `fraction` of the way from this color to `other`, channel by channel.
     private func mixed(with other: UIColor, by fraction: CGFloat) -> UIColor {
         var mine = (red: CGFloat(0), green: CGFloat(0), blue: CGFloat(0), alpha: CGFloat(0))

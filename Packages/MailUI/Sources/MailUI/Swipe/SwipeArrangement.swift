@@ -132,7 +132,9 @@ nonisolated public struct SwipeArrangement: Equatable, Sendable {
         -> [MailboxViewModel.SwipeButton]
     {
         self[side].compactMap { choice in
-            choice.swipe(for: thread, at: place).map { MailboxViewModel.SwipeButton(swipe: $0, tint: tints[choice]) }
+            choice.swipe(for: thread, at: place).map {
+                MailboxViewModel.SwipeButton(choice: choice, swipe: $0, tint: tints[choice])
+            }
         }
     }
 

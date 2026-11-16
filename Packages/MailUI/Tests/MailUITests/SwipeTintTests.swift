@@ -41,21 +41,31 @@ struct SwipeTintTests {
         #expect(tints[.star] == .custom(RGBColor(red: 255, green: 0, blue: 0)))
     }
 
-    @Test func clearGlassIsNeverShaded() {
+    @Test func clearGlassHasNoColorOfItsOwn() {
         #expect(SwipeTint.clear.picked == nil)
-        #expect(SwipeTint.clear.shade == nil)
         #expect(SwipeTint.red.picked == .systemRed)
     }
 
-    @Test func aPickedTintIsDeepUnderWhiteInDarkModeAndPaleUnderADeepSymbolInLightMode() throws {
-        let shade = try #require(picked.shade)
+    @Test(arguments: [UIUserInterfaceStyle.light, .dark])
+    func aShadedColorIsATintUnderASymbolThatStandsOut(style: UIUserInterfaceStyle) throws {
+        let color = try #require(picked.picked)
+        let traits = UITraitCollection(userInterfaceStyle: style)
+        #expect(color.shadedFill.contrastRatio(with: color.shadedSymbol, in: traits) >= ButtonShade.minimumContrast)
+        // Light mode wears the paler fill.
         let dark = UITraitCollection(userInterfaceStyle: .dark)
         let light = UITraitCollection(userInterfaceStyle: .light)
-        // Compared by components: the shade's white is an RGB color, which never equals the grayscale `.white`.
-        #expect(components(shade.symbol.resolvedColor(with: dark)) == components(.white))
-        #expect(shade.fill.contrastRatio(with: shade.symbol, in: dark) >= ButtonShade.minimumContrast)
-        #expect(shade.fill.contrastRatio(with: .white, in: light) < shade.fill.contrastRatio(with: .white, in: dark))
-        #expect(shade.fill.contrastRatio(with: shade.symbol, in: light) >= ButtonShade.minimumContrast)
+        #expect(
+            color.shadedFill.contrastRatio(with: .white, in: light)
+                < color.shadedFill.contrastRatio(with: .white, in: dark))
+    }
+
+    @Test func aClearButtonFillsWithItsActionsOwnColorNotTheThemes() {
+        let thread = ThreadSummary(
+            id: ThreadSummary.ID(accountID: AccountID(rawValue: "a"), threadID: "t"), subject: "", snippet: "",
+            sender: Contact(name: nil, address: "x@example.com"), date: .now, isUnread: true, messageCount: 1,
+            labelIDs: ["INBOX"])
+        let buttons = SwipeArrangement.standard.buttons(for: thread, at: .inbox, on: .leading, tints: .standard)
+        #expect(buttons.map(\.choice.color) == [.systemBlue, .systemYellow])
     }
 
     @Test func swipeButtonsWearTheirActionsTints() {
@@ -68,22 +78,4 @@ struct SwipeTintTests {
         let buttons = SwipeArrangement.standard.buttons(for: thread, at: .inbox, on: .trailing, tints: tints)
         #expect(buttons.map(\.tint) == [picked, .clear, .red])
     }
-
-    @Test func symbolsOnAFilledButtonAreWhiteOrBlackWhicheverReads() {
-        let traits = UITraitCollection(userInterfaceStyle: .light)
-        let yellow = UIColor(RGBColor(red: 255, green: 230, blue: 0))
-        let navy = UIColor(RGBColor(red: 0, green: 0, blue: 120))
-        #expect(yellow.readableForeground.resolvedColor(with: traits) == .black)
-        #expect(navy.readableForeground.resolvedColor(with: traits) == .white)
-    }
-}
-
-/// A resolved color's red, green, blue and alpha, whatever color space it was made in.
-private func components(_ color: UIColor) -> [CGFloat] {
-    var red: CGFloat = 0
-    var green: CGFloat = 0
-    var blue: CGFloat = 0
-    var alpha: CGFloat = 0
-    color.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-    return [red, green, blue, alpha]
 }

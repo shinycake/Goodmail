@@ -12,13 +12,13 @@
         }
       }
     },
-    "A clear action shows the message through it, and takes the theme's color on a full swipe." : {
+    "A clear action shows the message through it, and fills with the action's own color on a full swipe." : {
       "comment" : "Explains the Clear swipe action color",
       "localizations" : {
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "פעולה שקופה מראה את ההודעה מבעדה, ומקבלת את צבע ערכת הנושא בהחלקה מלאה."
+            "value" : "פעולה שקופה מראה את ההודעה מבעדה, ומתמלאת בצבע של הפעולה בהחלקה מלאה."
           }
         }
       }

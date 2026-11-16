@@ -22,7 +22,7 @@ struct StowTests {
     /// when the button lays out again.
     @Test(arguments: [CGSize(width: 64, height: 64), CGSize(width: 320, height: 80)])
     func theBoxTakesTheSymbolsPlace(size: CGSize) {
-        let action = SwipeAction(title: "Trash", symbol: "trash", tint: .red, stow: .trash) { _ in }
+        let action = SwipeAction(title: "Trash", symbol: "trash", tint: .red, color: .systemRed, stow: .trash) { _ in }
         let button = GlassActionButton(action: action)
         button.frame = CGRect(origin: .zero, size: size)
         button.layoutIfNeeded()

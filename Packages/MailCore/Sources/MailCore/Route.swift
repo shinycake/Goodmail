@@ -19,8 +19,16 @@ public enum Route: Hashable, Sendable {
     case scheduled
     /// The threads snoozed out of the Inbox until later.
     case snoozed
-    /// Accounts and preferences.
-    case settings
+    /// Accounts and preferences, open at `page`.
+    case settings(SettingsPage)
     /// The account's sign-in, again, after its service turned the stored one down: its web page, or its password.
     case signInAgain(AccountID)
+}
+
+/// Where Settings opens.
+public enum SettingsPage: Hashable, Sendable {
+    /// Its first screen.
+    case main
+    /// The swipe actions, as from a swipe button touched and held.
+    case swipeActions
 }

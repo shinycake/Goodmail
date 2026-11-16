@@ -6,59 +6,39 @@ public enum Appearance: Hashable, Sendable {
     case dark
 }
 
-/// How a button filled with a picked color is drawn, so any pick suits the appearance: in dark mode a deep, slightly
-/// muted shade under a white symbol; in light mode a pale tint under a deep symbol of the same hue. Either way the
-/// symbol stands out from the fill by `minimumContrast`.
+/// How a button filled with a picked color is drawn, so any pick suits the appearance: a tint of the pick under a
+/// symbol in the same hue. In light mode the tint is pale and the symbol deep; in dark mode the tint is deep and the
+/// symbol bright. Either way the symbol stands out from the fill by `minimumContrast`.
 public struct ButtonShade: Hashable, Sendable {
     public let fill: RGBColor
     public let symbol: RGBColor
 
     /// WCAG AA for text, so a full swipe's title reads as well as its symbol.
     public static let minimumContrast = 4.5
-    /// The lightness a dark-mode fill is brought into: deep, but never lost on a black list.
-    static let darkLightness = 0.18...0.32
+    /// The lightness a dark-mode fill is brought into: a deep tint that still shows on a black list.
+    static let darkLightness = 0.16...0.24
     /// The lightness a light-mode fill is brought into: a pale tint that still shows its hue.
     static let lightLightness = 0.86...0.93
-    /// How much of its saturation a dark-mode fill keeps, so a vivid pick doesn't glare.
-    private static let darkSaturation = 0.85
-    /// How deep a light-mode symbol starts, before it darkens further for contrast.
+    /// How bright a dark-mode symbol is at least, before it lightens further for contrast.
+    private static let darkSymbolLightness = 0.68
+    /// How deep a light-mode symbol is at most, before it darkens further for contrast.
     private static let lightSymbolLightness = 0.32
-    private static let white = RGBColor(red: 255, green: 255, blue: 255)
 
     public init(for color: RGBColor, in appearance: Appearance) {
         let picked = HSL(color)
-        switch appearance {
-        case .dark:
-            let start = HSL(
-                hue: picked.hue, saturation: picked.saturation * Self.darkSaturation,
-                lightness: picked.lightness.clamped(to: Self.darkLightness))
-            // A pick already deep enough keeps its exact color.
-            let base = Self.darkLightness.contains(picked.lightness) ? color : start.rgb
-            fill = Self.darkened(start, from: base, until: { $0.contrastRatio(with: Self.white) })
-            symbol = Self.white
-        case .light:
-            let tint = HSL(
-                hue: picked.hue, saturation: picked.saturation,
-                lightness: picked.lightness.clamped(to: Self.lightLightness))
-            fill = tint.rgb
-            let deep = HSL(
-                hue: picked.hue, saturation: picked.saturation,
-                lightness: min(picked.lightness, Self.lightSymbolLightness))
-            symbol = Self.darkened(deep, from: deep.rgb, until: { [fill] in $0.contrastRatio(with: fill) })
+        let (fillRange, symbolStart, step): (ClosedRange<Double>, Double, Double) =
+            switch appearance {
+            case .dark: (Self.darkLightness, max(picked.lightness, Self.darkSymbolLightness), 0.02)
+            case .light: (Self.lightLightness, min(picked.lightness, Self.lightSymbolLightness), -0.02)
+            }
+        let fill = picked.with(lightness: picked.lightness.clamped(to: fillRange)).rgb
+        var symbol = picked.with(lightness: symbolStart)
+        // Brightens a dark-mode symbol, or deepens a light-mode one, until it stands out; white or black at worst.
+        while symbol.rgb.contrastRatio(with: fill) < Self.minimumContrast, (0...1).contains(symbol.lightness + step) {
+            symbol.lightness += step
         }
-    }
-
-    /// `base`, or `color` darkened step by step, until `contrast` reaches `minimumContrast`; black at worst.
-    private static func darkened(_ color: HSL, from base: RGBColor, until contrast: (RGBColor) -> Double)
-        -> RGBColor
-    {
-        var candidate = base
-        var lightness = color.lightness
-        while contrast(candidate) < minimumContrast, lightness > 0 {
-            lightness = max(0, lightness - 0.02)
-            candidate = HSL(hue: color.hue, saturation: color.saturation, lightness: lightness).rgb
-        }
-        return candidate
+        self.fill = fill
+        self.symbol = symbol.rgb
     }
 }
 
@@ -94,6 +74,10 @@ private struct HSL {
         self.hue = hue
         self.saturation = saturation
         self.lightness = lightness
+    }
+
+    func with(lightness: Double) -> HSL {
+        HSL(hue: hue, saturation: saturation, lightness: lightness)
     }
 
     init(_ color: RGBColor) {

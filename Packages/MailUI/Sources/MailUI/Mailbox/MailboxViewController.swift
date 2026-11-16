@@ -216,6 +216,7 @@ public final class MailboxViewController: UIViewController {
             guard let self, !isEditing else { return [] }
             return swipeActions(for: id, leading: edge == .leading)
         }
+        swipes.openSettings = { [weak self] in self?.viewModel.openSwipeSettings() }
     }
 
     private func swipeActions(for id: ThreadSummary.ID, leading: Bool) -> [SwipeAction] {
@@ -223,7 +224,10 @@ public final class MailboxViewController: UIViewController {
         return viewModel.swipeActions(for: thread, leading: leading).map { button in
             switch button.swipe {
             case .perform(let action):
-                SwipeAction(title: action.title, symbol: action.symbol, tint: button.tint, stow: action.stow) {
+                SwipeAction(
+                    title: action.title, symbol: action.symbol, tint: button.tint, color: button.choice.color,
+                    stow: action.stow
+                ) {
                     [weak self] stowing in
                     guard let self else { return }
                     guard let stowing else { return perform(action, on: [id]) }
@@ -234,7 +238,7 @@ public final class MailboxViewController: UIViewController {
                     title: String(
                         localized: "Snooze", table: "Actions", bundle: .module,
                         comment: "Hides threads until a later time"),
-                    symbol: "clock", tint: button.tint
+                    symbol: "clock", tint: button.tint, color: button.choice.color
                 ) { [weak self] _ in self?.askToSnooze(id) }
             }
         }

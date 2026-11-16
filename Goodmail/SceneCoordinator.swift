@@ -97,8 +97,8 @@ final class SceneCoordinator: NSObject {
         signingInAgain = Task { [weak self] in await self?.signIn(againTo: account) }
     }
 
-    /// Accounts and preferences. The mail screens are rebuilt once it closes if the accounts or how they look changed.
-    private func showSettings() {
+    /// Accounts and preferences, open at `page`. The mail screens are rebuilt once it closes if the accounts or how they look changed.
+    private func showSettings(at page: SettingsPage) {
         guard let presenter = topViewController() else { return }
         let model = model
         let before = model.accounts
@@ -130,7 +130,7 @@ final class SceneCoordinator: NSObject {
                 })
         }
         viewModel.badges = model.badgeChoices()
-        presenter.present(SettingsScreen.make(model: viewModel), animated: true)
+        presenter.present(SettingsScreen.make(model: viewModel, at: page), animated: true)
     }
 
     private func topViewController() -> UIViewController? {
@@ -415,8 +415,8 @@ final class SceneCoordinator: NSObject {
             let navigation = UINavigationController(rootViewController: picker)
             navigation.sheetPresentationController?.detents = [.medium(), .large()]
             presenter.present(navigation, animated: true)
-        case .settings:
-            showSettings()
+        case .settings(let page):
+            showSettings(at: page)
         case .signInAgain(let id):
             signInAgain(id)
         case .answer(let id, let answer):

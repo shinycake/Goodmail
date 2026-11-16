@@ -22,7 +22,7 @@ struct SwipeTintsSection: View {
             Text("Colors", tableName: "Swipe", bundle: .module, comment: "Swipe settings section: each action's color")
         } footer: {
             Text(
-                "A clear action shows the message through it, and takes the theme's color on a full swipe.",
+                "A clear action shows the message through it, and fills with the action's own color on a full swipe.",
                 tableName: "Swipe", bundle: .module, comment: "Explains the Clear swipe action color")
         }
     }

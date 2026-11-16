@@ -195,7 +195,7 @@ public final class MailboxesViewModel {
     }
 
     public func openSettings() {
-        navigate(.settings)
+        navigate(.settings(.main))
     }
 
     /// A new message from the first account. The composer's From menu changes it.

@@ -6,6 +6,8 @@ struct SwipeAction {
     var title: String
     var symbol: String
     var tint: SwipeTint
+    /// The action's own color, which a clear button fills with on a full swipe.
+    var color: UIColor
     /// The box the row is seen going into when the action puts it away; `nil` when the buttons just close.
     var stow: StowKind?
     /// Runs the action. For one that stows, `stowing` carries the opened box on the action's button, and the
@@ -37,6 +39,8 @@ final class SwipeActionsController: NSObject {
 
     /// The actions for a row and edge, edge-most first. Empty means that edge has none.
     var actions: (ThreadSummary.ID, Edge) -> [SwipeAction] = { _, _ in [] }
+    /// Opens the swipe settings, as when a button is touched and held.
+    var openSettings: () -> Void = {}
 
     private weak var collectionView: UICollectionView?
     private let rowID: (IndexPath) -> ThreadSummary.ID?
@@ -140,6 +144,11 @@ final class SwipeActionsController: NSObject {
         overlay.onAction = { [weak self] action, button in
             guard let self, let row = state.close() else { return }
             fire(action, from: button, on: row)
+        }
+        overlay.onSettings = { [weak self] in
+            guard let self else { return }
+            close()
+            openSettings()
         }
         attach(overlay, to: cell)
         let feedback = UIImpactFeedbackGenerator(style: .medium, view: collectionView)
@@ -289,6 +298,8 @@ final class SwipeOverlayView: UIView {
     let actions: [SwipeAction]
     let side: SwipeSide
     var onAction: ((SwipeAction, GlassActionButton) -> Void)?
+    /// Asks for the swipe settings, from a button touched and held.
+    var onSettings: (() -> Void)?
     var reveal: SwipeReveal = .tracking(0) {
         didSet { layoutButtons() }
     }
@@ -308,6 +319,7 @@ final class SwipeOverlayView: UIView {
             button.addAction(
                 // A plain `UIControl` sends touch events, not `.primaryActionTriggered`.
                 UIAction { [weak self, unowned button] _ in self?.onAction?(action, button) }, for: .touchUpInside)
+            button.onLongPress = { [weak self] in self?.onSettings?() }
             buttons.append(button)
             // The edge-most button stays on top, so the inner ones fan out from under it.
             insertSubview(button, at: 0)
@@ -346,6 +358,7 @@ final class SwipeOverlayView: UIView {
 /// the action's tint. Stretched wide, as on a full swipe, it names the action beside the symbol.
 final class GlassActionButton: UIControl {
     private let tint: SwipeTint
+    private let color: UIColor
     private let effectView = UIVisualEffectView()
     private let imageView = UIImageView()
     private let titleLabel = UILabel()
@@ -360,8 +373,12 @@ final class GlassActionButton: UIControl {
         didSet { if isCommitted != oldValue { applyGlass() } }
     }
 
+    /// Touching and holding the button asks for this, as to open the swipe settings.
+    var onLongPress: (() -> Void)?
+
     init(action: SwipeAction) {
         tint = action.tint
+        color = action.color
         super.init(frame: .zero)
         effectView.cornerConfiguration = .capsule()
         effectView.isUserInteractionEnabled = false
@@ -380,29 +397,34 @@ final class GlassActionButton: UIControl {
         isAccessibilityElement = true
         accessibilityLabel = action.title
         accessibilityTraits = .button
+        accessibilityCustomActions = [
+            UIAccessibilityCustomAction(name: SwipeSettingsView.title) { [weak self] _ in
+                self?.onLongPress?()
+                return true
+            }
+        ]
+        addGestureRecognizer(UILongPressGestureRecognizer(target: self, action: #selector(longPressed)))
         applyGlass()
     }
 
-    override func tintColorDidChange() {
-        super.tintColorDidChange()
-        applyGlass()
+    @objc private func longPressed(_ press: UILongPressGestureRecognizer) {
+        guard press.state == .began else { return }
+        // The touch that began the hold must not also fire the action when it lifts.
+        cancelTracking(with: nil)
+        onLongPress?()
     }
 
-    /// A picked color shaded for light or dark mode. Clear glass stays clear, with the label color for its symbol,
-    /// until a full swipe fills it with the theme's color, with the symbol in white or black, whichever reads better.
+    /// A picked color, as a tint shaded for light or dark mode under a symbol in its hue. Clear glass stays clear,
+    /// with the label color for its symbol, until a full swipe fills it with the action's own color, shaded the same
+    /// way.
     private func applyGlass() {
         let glass = UIGlassEffect(style: .clear)
         glass.isInteractive = true
-        let (fill, symbol): (UIColor?, UIColor) =
-            switch (tint.shade, isCommitted) {
-            case (let shade?, _): (shade.fill, shade.symbol)
-            case (nil, true): (tintColor, tintColor.readableForeground)
-            case (nil, false): (nil, .label)
-            }
-        glass.tintColor = fill?.withAlphaComponent(isCommitted ? 0.9 : 0.8)
+        let fill = tint.picked ?? (isCommitted ? color : nil)
+        glass.tintColor = fill?.shadedFill.withAlphaComponent(isCommitted ? 0.9 : 0.8)
         effectView.effect = glass
-        imageView.tintColor = symbol
-        titleLabel.textColor = symbol
+        imageView.tintColor = fill?.shadedSymbol ?? .label
+        titleLabel.textColor = imageView.tintColor
     }
 
     /// The symbol alone in the middle; once wide enough, the symbol and title side by side, centered together.

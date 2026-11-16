@@ -288,10 +288,16 @@ public final class MailboxViewModel {
         case snooze
     }
 
-    /// A swipe button: what it does, and what it wears.
+    /// A swipe button: the choice it stands for, what it does here, and what it wears.
     nonisolated struct SwipeButton: Equatable {
+        let choice: SwipeChoice
         let swipe: Swipe
         let tint: SwipeTint
+    }
+
+    /// The swipe settings, as from a swipe button touched and held.
+    func openSwipeSettings() {
+        navigate(.settings(.swipeActions))
     }
 
     /// The swipe buttons for a row, edge-most first, as the reader arranged and tinted them.
