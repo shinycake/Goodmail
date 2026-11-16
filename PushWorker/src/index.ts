@@ -9,7 +9,9 @@ import {
 } from "./apns";
 import { base64Decode } from "./encoding";
 import type { Env } from "./env";
-import { GoogleKeys, TokenError, verifyIdToken, verifyPubSubToken } from "./google";
+import { TokenError, verifyIdToken, verifyPubSubToken } from "./google";
+import { forgetGrant, grantsFor, grantStatus, removeGrant, storeGrant } from "./grant-routes";
+import { BadRequest, googleKeys, mailboxCheck, nowSeconds, readJson } from "./shared";
 import {
   registerGraphSubscription,
   removeGraphToken,
@@ -30,8 +32,7 @@ import {
 
 export type { Env } from "./env";
 
-/** Shared by every request this isolate serves, so the JWKS and the APNs token are fetched and signed rarely. */
-const googleKeys = new GoogleKeys();
+/** Shared by every request this isolate serves, so the APNs token is signed rarely. */
 let apnsSigner: ApnsSigner | undefined;
 
 const DEVICE_TOKEN = /^[0-9a-f]{64,200}$/i;
@@ -50,10 +51,14 @@ export default {
       if (pathname === "/v1/devices" && request.method === "POST") return await register(request, env);
       if (pathname === "/v1/devices" && request.method === "DELETE") return await unregister(request, env);
       if (pathname === "/v1/pubsub" && request.method === "POST") return await pubSubPush(request, env);
+      if (pathname === "/v1/gmail/grants" && request.method === "POST") return await storeGrant(request, env);
+      if (pathname === "/v1/gmail/grants" && request.method === "DELETE") return await removeGrant(request, env);
+      if (pathname === "/v1/gmail/grants/status" && request.method === "POST") return await grantStatus(request, env);
       if (pathname === "/v1/graph" && request.method === "POST") return await graphNotification(request, url, env, context);
       if (pathname === "/v1/graph/subscriptions" && request.method === "POST") return await registerGraph(request, env);
       if (pathname === "/v1/graph/subscriptions" && request.method === "DELETE") return await unregisterGraph(request, env);
-      if (["/v1/devices", "/v1/pubsub", "/v1/graph", "/v1/graph/subscriptions"].includes(pathname)) {
+      const known = ["/v1/devices", "/v1/pubsub", "/v1/graph", "/v1/graph/subscriptions", "/v1/gmail/grants"];
+      if ([...known, "/v1/gmail/grants/status"].includes(pathname)) {
         return new Response(null, { status: 405 });
       }
       return new Response(null, { status: 404 });
@@ -65,15 +70,6 @@ export default {
   },
 } satisfies ExportedHandler<Env>;
 
-class BadRequest extends Error {}
-
-const nowSeconds = () => Math.floor(Date.now() / 1000);
-
-async function readJson(request: Request): Promise<Record<string, unknown>> {
-  const body = await request.json().catch(() => undefined);
-  if (typeof body !== "object" || body === null) throw new BadRequest("expected a JSON object");
-  return body as Record<string, unknown>;
-}
 
 /** Verifies the ID token in the body and returns the account ID it proves, plus the validated device token. */
 async function authenticateDevice(body: Record<string, unknown>, env: Env): Promise<{ account: string; token: string }> {
@@ -96,6 +92,8 @@ async function register(request: Request, env: Env): Promise<Response> {
 async function unregister(request: Request, env: Env): Promise<Response> {
   const { account, token } = await authenticateDevice(await readJson(request), env);
   await unregisterDevice(env.DB, account, token);
+  // No device is left to alert, so the relay has no reason to keep looking at the mailbox.
+  if ((await devicesFor(env.DB, account)).length === 0) await forgetGrant(env, account);
   return new Response(null, { status: 204 });
 }
 
@@ -117,6 +115,9 @@ async function pubSubPush(request: Request, env: Env): Promise<Response> {
   if (devices.length === 0) return new Response(null, { status: 204 });
   const claim = await claimHistoryId(env.DB, account, historyId);
   if (!claim) return new Response(null, { status: 204 });
+  // A read, archive, delete or label change on mail already there has nothing to alert for.
+  const verdict = await mailboxCheck.verdict(grantsFor(env), env.GOOGLE_CLIENT_ID, account, claim.previous);
+  if (verdict === "quiet") return new Response(null, { status: 204 });
   const now = Date.now();
   const slot = await claimPushSlot(env.DB, account, now);
   if (slot === false) return new Response(null, { status: 204 });

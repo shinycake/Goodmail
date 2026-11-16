@@ -1,0 +1,39 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Alert Only for New Mail" : {
+      "comment" : "Switch that lets the push server skip alerts for reads, archives and deletes",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "התראה רק על דואר חדש"
+          }
+        }
+      }
+    },
+    "Couldn't reach Goodmail's push server." : {
+      "comment" : "Shown when the alert filter's status can't be read",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אין חיבור לשרת ההתראות של Goodmail."
+          }
+        }
+      }
+    },
+    "Lets Goodmail's push server read this account's labels and message headers, never message bodies, so reading, archiving or deleting mail doesn't show a “New mail” alert. Google may ask you to turn this on again after a week." : {
+      "comment" : "Explains the alert filter switch",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מאפשר לשרת ההתראות של Goodmail לקרוא את התוויות וכותרות ההודעות בחשבון הזה, אף פעם לא את תוכן ההודעות, כדי שקריאה, העברה לארכיון או מחיקה של דואר לא יציגו התראת „דואר חדש”. ייתכן ש-Google תבקש להפעיל את זה שוב אחרי שבוע."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

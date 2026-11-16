@@ -122,6 +122,8 @@ final class SceneCoordinator: NSObject {
             })
         viewModel.autoReply = { model.autoReplyService(for: $0) }
         viewModel.serverSettings = { model.serverSettingsService(for: $0) }
+        viewModel.mailboxCheck = { [window] in model.mailboxCheckService(for: $0) { WebAuthentication(window: window) }
+        }
         if model.pushRegistrar != nil {
             viewModel.notifications = NotificationChoices(
                 read: { await model.notificationLevels() },

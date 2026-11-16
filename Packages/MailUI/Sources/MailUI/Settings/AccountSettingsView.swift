@@ -96,6 +96,10 @@ struct AccountSettingsView: View {
                 NotificationsSection(choices: notifications, account: account)
             }
 
+            if let check = model.mailboxCheck(accountID) {
+                MailboxCheckSection(service: check)
+            }
+
             if let badges = model.badges {
                 BadgeSection(choices: badges, account: account, sorted: model.sortsInbox(accountID))
             }

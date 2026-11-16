@@ -40,14 +40,16 @@ public struct PushRelayClient: PushRelay {
         try await send("DELETE", "v1/graph/subscriptions", ["subscriptionId": id, "clientState": clientState])
     }
 
-    private func send(_ method: String, _ path: String, _ body: some Encodable) async throws {
+    /// Sends `body` as JSON and returns what the relay answered.
+    @discardableResult
+    func send(_ method: String, _ path: String, _ body: some Encodable) async throws -> Data {
         var request = URLRequest(url: baseURL.appending(path: path))
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(body)
-        let (_, response) = try await http.data(for: request)
+        let (data, response) = try await http.data(for: request)
         switch response.statusCode {
-        case 200..<300: return
+        case 200..<300: return data
         case 401, 403: throw Failure.unauthorized
         default: throw Failure.status(response.statusCode)
         }
