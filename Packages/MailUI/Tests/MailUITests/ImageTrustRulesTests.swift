@@ -32,7 +32,7 @@ struct ImageTrustRulesTests {
                     $0.yield(messages)
                     $0.finish()
                 }
-            }, load: {}, attachmentData: { _, _ in Data() }, imageTrust: rules)
+            }, load: {}, attachmentData: { _, _ in Data() }, source: { _ in Data() }, imageTrust: rules)
     }
 
     @Test func rulesListDomainsFirstThenSendersAlphabetically() {

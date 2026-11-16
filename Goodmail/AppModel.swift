@@ -378,6 +378,10 @@ final class AppModel {
         try await providers.provider(for: message.accountID).data(for: attachment, in: message)
     }
 
+    func source(of message: Message.ID) async throws -> Data {
+        try await providers.provider(for: message.accountID).source(of: message)
+    }
+
     private func prefetcher(for id: AccountID) throws -> BodyPrefetcher {
         if let prefetcher = prefetchers[id] { return prefetcher }
         let (database, attachments) = (database, attachmentsDirectory)

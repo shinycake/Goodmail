@@ -50,6 +50,8 @@ public final class ThreadViewModel {
     @ObservationIgnored private var transcriptRequest = 0
     @ObservationIgnored private let loadAction: () async throws -> Void
     @ObservationIgnored let attachmentData: (Attachment, Message.ID) async throws -> Data
+    /// A message's raw RFC 5322 source, for sharing it as an `.eml` file or `.mbox` archive.
+    @ObservationIgnored let source: (Message.ID) async throws -> Data
     @ObservationIgnored private let actions: MailActions?
     @ObservationIgnored private let navigate: (Route) -> Void
     @ObservationIgnored private let close: () -> Void
@@ -74,6 +76,7 @@ public final class ThreadViewModel {
         },
         load: @escaping () async throws -> Void,
         attachmentData: @escaping (Attachment, Message.ID) async throws -> Data,
+        source: @escaping (Message.ID) async throws -> Data,
         actions: MailActions? = nil,
         navigate: @escaping (Route) -> Void = { _ in },
         close: @escaping () -> Void = {},
@@ -101,6 +104,7 @@ public final class ThreadViewModel {
         self.outgoing = outgoing
         loadAction = load
         self.attachmentData = attachmentData
+        self.source = source
         self.now = now
         self.calendar = calendar
     }

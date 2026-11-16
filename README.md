@@ -52,7 +52,7 @@ Apple Mail has no push for Gmail. Gmail's own app is cluttered. Most other clien
 - **Chat view**: a conversation reads as a chat of bubbles, mine on my side, quotes and signatures folded away. Or switch it to classic letters, per conversation or for all of them.
 - **Privacy by default**: remote images and tracking pixels are blocked, with "Always Load from This Sender" for the ones you trust.
 - **One-tap Unsubscribe** from mailing lists (RFC 8058 one-click, mailto or the list's page).
-- **Print and Share as PDF** for a whole conversation.
+- **Share or print** a whole conversation, as a PDF, plain text, `.eml` files or an `.mbox` archive.
 - **Right to left done right**: every paragraph, quote and list takes its own direction, so Hebrew and English mix cleanly in the reader and the composer.
 
 ### Acting on mail

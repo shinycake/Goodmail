@@ -1,58 +1,77 @@
 import XCTest
 
-/// The reader's Reply menu offers Print and Share as PDF, in English and in Hebrew, and a PDF lays out the
-/// conversation. Nothing is printed or sent: the sheets are only opened.
+/// The reader's Share menu offers the conversation as a PDF, plain text, `.eml` files and an `.mbox` archive, and
+/// Print, in English and in Hebrew. Nothing is printed or sent: the sheets are only opened. Synthetic mailboxes
+/// have no provider to fetch raw sources from, so `.eml` and `.mbox` are only checked to be on offer.
 final class PrintTests: XCTestCase {
     override func setUp() {
         continueAfterFailure = false
     }
 
     @MainActor
-    func testTheReplyMenuSharesAConversationAsAPDFInEnglish() {
+    func testTheShareMenuSharesAConversationAsAPDFInEnglish() {
         let app = launch(language: "en", locale: "en_US")
         open("Review → Thursday?", in: app)
-        openReplyMenu(in: app)
-        XCTAssertTrue(app.buttons["Print…"].waitForExistence(timeout: 5), "the Reply menu offers Print")
-        XCTAssertTrue(app.buttons["Share as PDF…"].exists, "the Reply menu offers Share as PDF")
-        attach(app, "print-menu-en")
-        app.buttons["Share as PDF…"].tap()
+        openShareMenu(in: app)
+        XCTAssertTrue(app.buttons["Print…"].waitForExistence(timeout: 5), "the Share menu offers Print")
+        for format in ["PDF", "Plain Text", "Email File (.eml)", "Mailbox Archive (.mbox)"] {
+            XCTAssertTrue(app.buttons[format].exists, "the Share menu offers \(format)")
+        }
+        attach(app, "share-menu-en")
+        app.buttons["PDF"].tap()
         let sheet = app.otherElements["ActivityListView"]
         XCTAssertTrue(sheet.waitForExistence(timeout: 30), "the share sheet opens")
-        XCTAssertTrue(
-            sheet.otherElements["LP.CaptionBar.BottomCaption"].label.hasPrefix("PDF Document"),
-            "the share sheet offers the PDF")
+        // The caption fills in a moment after the sheet appears, so wait for it rather than reading it once.
+        let caption = sheet.otherElements["LP.CaptionBar.BottomCaption"]
+        let offersPDF = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label BEGINSWITH 'PDF Document'"), object: caption)
+        XCTAssertEqual(XCTWaiter.wait(for: [offersPDF], timeout: 10), .completed, "the share sheet offers the PDF")
         attach(app, "print-share-en")
     }
 
     @MainActor
-    func testTheReplyMenuPrintsAConversationInEnglish() {
+    func testTheShareMenuSharesAConversationAsTextInEnglish() {
         let app = launch(language: "en", locale: "en_US")
         open("Review → Thursday?", in: app)
-        openReplyMenu(in: app)
+        openShareMenu(in: app)
+        app.buttons["Plain Text"].tap()
+        let sheet = app.otherElements["ActivityListView"]
+        XCTAssertTrue(sheet.waitForExistence(timeout: 30), "the share sheet opens")
+        attach(app, "share-text-en")
+    }
+
+    @MainActor
+    func testTheShareMenuPrintsAConversationInEnglish() {
+        let app = launch(language: "en", locale: "en_US")
+        open("Review → Thursday?", in: app)
+        openShareMenu(in: app)
         app.buttons["Print…"].tap()
         XCTAssertTrue(app.buttons["Print"].waitForExistence(timeout: 30), "the print options open")
         attach(app, "print-preview-en")
     }
 
     @MainActor
-    func testTheReplyMenuOffersPrintInHebrew() {
+    func testTheShareMenuOffersEveryFormatInHebrew() {
         let app = launch(language: "he", locale: "he_IL")
         open("Review → Thursday?", in: app)
-        openReplyMenu(in: app)
+        openShareMenu(in: app)
         XCTAssertTrue(app.buttons["הדפסה…"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["שיתוף כ־PDF…"].exists)
-        attach(app, "print-menu-he")
+        for format in ["PDF", "טקסט פשוט", "קובץ דוא״ל (\u{200E}.eml)", "ארכיון תיבת דואר (\u{200E}.mbox)"] {
+            XCTAssertTrue(app.buttons[format].exists, "the Share menu offers \(format)")
+        }
+        attach(app, "share-menu-he")
     }
 
-    /// On a phone the Reply button folds into the toolbar's More menu, as a submenu holding the Reply menu.
+    /// On a phone the Share button folds into the toolbar's More menu, as a top-level submenu.
     @MainActor
-    private func openReplyMenu(in app: XCUIApplication) {
+    private func openShareMenu(in app: XCUIApplication) {
         let more = app.buttons["BottomOverflowBarButtonItem"]
         XCTAssertTrue(more.waitForExistence(timeout: 5))
         more.tap()
-        let reply = app.buttons.matching(NSPredicate(format: "label == 'Reply' OR label == 'השב'")).firstMatch
-        XCTAssertTrue(reply.waitForExistence(timeout: 5), "More holds the Reply menu")
-        reply.tap()
+        let share = app.buttons.matching(NSPredicate(format: "label == 'Share' OR label == 'שיתוף'")).firstMatch
+        XCTAssertTrue(share.waitForExistence(timeout: 5), "More holds the Share menu")
+        attach(app, "more-menu")
+        share.tap()
     }
 
     @MainActor

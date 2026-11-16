@@ -60,7 +60,7 @@ struct ChatThreadViewModelTests {
                     for batch in queue { continuation.yield(batch) }
                     continuation.finish()
                 }
-            }, load: {}, attachmentData: { _, _ in Data() }, layout: layout)
+            }, load: {}, attachmentData: { _, _ in Data() }, source: { _ in Data() }, layout: layout)
     }
 
     private func message(_ id: String, minutes: Double) -> Message {

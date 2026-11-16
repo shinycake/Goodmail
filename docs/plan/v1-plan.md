@@ -77,7 +77,7 @@ Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main
 
 **Evidence:** rendering tests on tricky real-world MIME fixtures, including Hebrew mail from Gmail, Outlook and Apple Mail with mixed English, numbers, links and nested quotes. Screenshots of a Hebrew/English mixed thread and an HTML newsletter.
 
-**Status:** done (PRs #6, #7, #8). Body prefetch and an attachment cache limit are deferred. Since then: Unsubscribe for mail from a mailing list, from its `List-Unsubscribe` headers: a banner under the subject asks first, then sends the one-click request (RFC 8058), the list's unsubscribe message from the reader's account, or opens the list's page, and the device remembers lists it left. Print and Share as PDF from the Reply menu: every message of the conversation on paper-sized pages, under its From, To, Cc and date, each laid out by its own off-screen web view with the reader's remote-content choice.
+**Status:** done (PRs #6, #7, #8). Body prefetch and an attachment cache limit are deferred. Since then: Unsubscribe for mail from a mailing list, from its `List-Unsubscribe` headers: a banner under the subject asks first, then sends the one-click request (RFC 8058), the list's unsubscribe message from the reader's account, or opens the list's page, and the device remembers lists it left. A Share button in the reader's toolbar (in its More menu on iPhone) shares the conversation as a PDF, plain text, `.eml` files of each message's original source, or one `.mbox` archive, and prints it. The PDF and print put every message on paper-sized pages, under its From, To, Cc and date, each laid out by its own off-screen web view with the reader's remote-content choice.
 
 ### M4: Actions and outbox
 

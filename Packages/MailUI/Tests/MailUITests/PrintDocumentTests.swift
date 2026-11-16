@@ -42,16 +42,3 @@ struct PrintDocumentTests {
         #expect(document == "<html><head></head><header></header><p>Hi</p></html>")
     }
 }
-
-/// A shared PDF is named after the conversation, safely.
-@MainActor
-struct PDFFilenameTests {
-    @Test(arguments: [
-        ("Q3 plan", "Q3 plan.pdf"),
-        ("Re: a/b: c?", "Re  a b  c.pdf"),
-        ("  ", "Conversation.pdf"),
-    ])
-    func theSubjectNamesTheFile(subject: String, filename: String) {
-        #expect(ConversationExporter.filename(for: subject) == filename)
-    }
-}

@@ -297,6 +297,7 @@ final class SceneCoordinator: NSObject {
             outgoing: { model.database.outgoingMessages(inThread: id) },
             load: { try await model.open(id) },
             attachmentData: { try await model.attachmentData($0, in: $1) },
+            source: { try await model.source(of: $0) },
             actions: actions,
             navigate: { [weak self] route in self?.handle(route) },
             close: { [weak self] in self?.closeThread() },

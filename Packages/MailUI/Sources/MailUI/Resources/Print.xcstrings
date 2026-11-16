@@ -13,7 +13,7 @@
       }
     },
     "Conversation" : {
-      "comment" : "PDF file name, no subject",
+      "comment" : "Exported file name, no subject",
       "localizations" : {
         "he" : {
           "stringUnit" : {
@@ -23,13 +23,13 @@
         }
       }
     },
-    "Couldn’t Make a PDF" : {
-      "comment" : "Alert title when laying out the conversation for print or PDF fails",
+    "Couldn’t Export the Conversation" : {
+      "comment" : "Alert title when making the conversation's PDF, text or mail files for sharing or print fails",
       "localizations" : {
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "לא ניתן היה ליצור PDF"
+            "value" : "לא ניתן היה לייצא את השיחה"
           }
         }
       }
@@ -45,6 +45,17 @@
         }
       }
     },
+    "Email File (.eml)" : {
+      "comment" : "Share menu: each message's original source as an .eml file",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קובץ דוא״ל (‎.eml)"
+          }
+        }
+      }
+    },
     "From:" : {
       "comment" : "Printed header label",
       "localizations" : {
@@ -52,6 +63,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "מאת:"
+          }
+        }
+      }
+    },
+    "Mailbox Archive (.mbox)" : {
+      "comment" : "Share menu: the whole conversation as one .mbox mailbox file",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ארכיון תיבת דואר (‎.mbox)"
           }
         }
       }
@@ -67,6 +89,28 @@
         }
       }
     },
+    "PDF" : {
+      "comment" : "Share menu: the conversation as a PDF",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PDF"
+          }
+        }
+      }
+    },
+    "Plain Text" : {
+      "comment" : "Share menu: the conversation as a text file",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "טקסט פשוט"
+          }
+        }
+      }
+    },
     "Print…" : {
       "comment" : "Prints the conversation",
       "localizations" : {
@@ -78,13 +122,13 @@
         }
       }
     },
-    "Share as PDF…" : {
-      "comment" : "Shares the conversation as a PDF file",
+    "Share" : {
+      "comment" : "Toolbar menu: share or print the conversation",
       "localizations" : {
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "שיתוף כ־PDF…"
+            "value" : "שיתוף"
           }
         }
       }

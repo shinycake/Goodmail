@@ -80,7 +80,8 @@ struct ThreadViewModelTests {
                 sender: messages[0].from, date: .now, isUnread: false, messageCount: 1, labelIDs: []),
             mailbox: .inbox,
             accountEmail: "me@example.com", accountColor: .blue,
-            messages: { AsyncThrowingStream { $0.finish() } }, load: {}, attachmentData: { _, _ in Data() })
+            messages: { AsyncThrowingStream { $0.finish() } }, load: {}, attachmentData: { _, _ in Data() },
+            source: { _ in Data() })
         model.toggle(messages[0].id)
         #expect(model.expanded == [messages[0].id])
         model.toggle(messages[0].id)
@@ -103,7 +104,7 @@ struct ThreadViewModelTests {
                     $0.yield(messages)
                     $0.finish()
                 }
-            }, load: {}, attachmentData: { _, _ in Data() }, navigate: { routes.append($0) })
+            }, load: {}, attachmentData: { _, _ in Data() }, source: { _ in Data() }, navigate: { routes.append($0) })
         await model.observe()
         #expect(model.draft?.id == draft.id)
 
@@ -136,7 +137,7 @@ extension ThreadViewModelTests {
                     $0.yield([inbox])
                     $0.finish()
                 }
-            }, load: {}, attachmentData: { _, _ in Data() }, close: { closes += 1 })
+            }, load: {}, attachmentData: { _, _ in Data() }, source: { _ in Data() }, close: { closes += 1 })
         #expect(model.muteAction == .mute, "before the messages load, the summary's labels decide")
         await model.observe()
         #expect(model.muteAction == .mute)
@@ -161,7 +162,7 @@ extension ThreadViewModelTests {
                     $0.yield([muted])
                     $0.finish()
                 }
-            }, load: {}, attachmentData: { _, _ in Data() }, close: { closes += 1 })
+            }, load: {}, attachmentData: { _, _ in Data() }, source: { _ in Data() }, close: { closes += 1 })
         await model.observe()
         #expect(model.muteAction == .unmute)
         model.perform(.unmute)
@@ -190,6 +191,7 @@ struct AttachmentFileTests {
                 fetches += 1
                 return Data("%PDF".utf8)
             },
+            source: { _ in Data() },
             attachmentsDirectory: directory)
         let attachment = Attachment(id: "1", filename: "../Quote 2026.pdf", mimeType: "application/pdf", size: 4)
         let message = Message.ID(accountID: account, messageID: "m")
@@ -215,7 +217,7 @@ struct AttachmentFileTests {
             mailbox: .inbox,
             accountEmail: "me@example.com", accountColor: .blue,
             messages: { AsyncThrowingStream { $0.finish() } }, load: {},
-            attachmentData: { _, _ in Data("%PDF".utf8) },
+            attachmentData: { _, _ in Data("%PDF".utf8) }, source: { _ in Data() },
             attachmentsDirectory: directory,
             now: { today })
         let attachment = Attachment(id: "1", filename: "Quote.pdf", mimeType: "application/pdf", size: 4)
@@ -260,7 +262,7 @@ extension ThreadViewModelTests {
                     $0.yield([first, draft])
                     $0.finish()
                 }
-            }, load: {}, attachmentData: { _, _ in Data() })
+            }, load: {}, attachmentData: { _, _ in Data() }, source: { _ in Data() })
         await model.observe()
         let file = DraftAttachment(filename: "a.txt", mimeType: "text/plain", content: .data(Data("a".utf8)))
 
@@ -291,7 +293,7 @@ extension ThreadViewModelTests {
                     $0.yield([first])
                     $0.finish()
                 }
-            }, load: {}, attachmentData: { _, _ in Data() }, navigate: { opened.append($0) })
+            }, load: {}, attachmentData: { _, _ in Data() }, source: { _ in Data() }, navigate: { opened.append($0) })
         await model.observe()
         let file = DraftAttachment(filename: "a.txt", mimeType: "text/plain", content: .data(Data("a".utf8)))
 

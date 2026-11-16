@@ -41,7 +41,7 @@ public final class ThreadViewController: UIViewController {
     private lazy var unsubscribeBanner = UnsubscribeBanner()
     /// The reader's request to leave the list, cancelled if the reader leaves first.
     private var unsubscribing: Task<Void, Never>?
-    /// Print and Share as PDF, from the Reply button's menu.
+    /// The toolbar's Share menu: the conversation as files to share, or printed.
     private lazy var exporter = ConversationExporter(presenter: self)
 
     public init(
@@ -224,15 +224,6 @@ public final class ThreadViewController: UIViewController {
                     options: .displayInline, children: [.replyAll, .forward, .forwardAsAttachment].map(answerAction)),
                 UIMenu(options: .displayInline, children: [answerAction(.editAsNew)]),
             ]))
-        replyItem.menu = replyItem.menu?.replacingChildren(
-            (replyItem.menu?.children ?? [])
-                + [
-                    UIMenu(
-                        options: .displayInline,
-                        children: exporter.menuElements(anchor: replyItem) { [weak self] in
-                            self?.exportedConversation
-                        })
-                ])
         let deleteForever = UIBarButtonItem(
             title: ThreadAction.deleteForever.title, image: UIImage(systemName: ThreadAction.deleteForever.symbol),
             primaryAction: UIAction { [weak self] _ in
@@ -252,7 +243,7 @@ public final class ThreadViewController: UIViewController {
                 pin: { [weak self] in self?.viewModel.pin($0) },
                 mute: { [weak self] in self?.viewModel.muteAction },
                 perform: { [weak self] in self?.viewModel.perform($0) }),
-            .fixedSpace(0), replyItem,
+            exporter.shareItem { [weak self] in self?.exportedConversation }, .fixedSpace(0), replyItem,
         ]
     }
 
@@ -328,12 +319,12 @@ public final class ThreadViewController: UIViewController {
         viewModel.thread.subject.isEmpty ? ThreadRowMetrics.noSubject : viewModel.thread.subject
     }
 
-    /// The conversation as it is now, for Print and Share as PDF.
+    /// The conversation as it is now, for Share and Print.
     private var exportedConversation: ConversationExporter.Conversation {
         ConversationExporter.Conversation(
             subject: displaySubject,
             messages: viewModel.messages, allowsRemoteContent: viewModel.remoteContentAllowed,
-            attachmentData: viewModel.attachmentData)
+            attachmentData: viewModel.attachmentData, source: viewModel.source)
     }
 
     /// Cards for the open messages and one-line rows for the rest.

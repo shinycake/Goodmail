@@ -158,7 +158,7 @@ struct MoveViewModelTests {
                     $0.yield([message(["Label_3"])])
                     $0.finish()
                 }
-            }, load: {}, attachmentData: { _, _ in Data() }, navigate: { routes.append($0) },
+            }, load: {}, attachmentData: { _, _ in Data() }, source: { _ in Data() }, navigate: { routes.append($0) },
             close: { closes += 1 })
         model.move()
         #expect(routes == [.move([id("t")], from: Mailbox(labelID: "Label_1", accountID: work))])
@@ -179,6 +179,7 @@ struct MoveViewModelTests {
                 thread: thread, mailbox: .inbox, accountEmail: "me@example.com", accountColor: .blue,
 
                 messages: { AsyncThrowingStream { $0.finish() } }, load: {}, attachmentData: { _, _ in Data() },
+                source: { _ in Data() },
                 close: { closes += 1 })
         }
         let starring = reader()
@@ -202,7 +203,8 @@ struct MoveViewModelTests {
             date: .now, isUnread: false, messageCount: 2, labelIDs: ["INBOX", "TRASH"])
         let model = ThreadViewModel(
             thread: thread, mailbox: mailbox, accountEmail: "me@example.com", accountColor: .blue,
-            messages: { AsyncThrowingStream { $0.finish() } }, load: {}, attachmentData: { _, _ in Data() })
+            messages: { AsyncThrowingStream { $0.finish() } }, load: {}, attachmentData: { _, _ in Data() },
+            source: { _ in Data() })
         #expect(model.isInTrash == deletesForever)
     }
 }
