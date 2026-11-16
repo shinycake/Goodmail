@@ -29,14 +29,15 @@
         }
 
         /// A placeholder sign-in under each key, for `share` to copy.
-        private struct MemorySignIns: SecretStore {
-            let keys: Set<String>
+        private struct MemorySignIns: SecretDirectory {
+            let signIns: Set<String>
 
-            init(_ keys: [String]) { self.keys = Set(keys) }
+            init(_ keys: [String]) { signIns = Set(keys) }
 
-            func data(for key: String) throws -> Data? { keys.contains(key) ? Data("placeholder".utf8) : nil }
+            func data(for key: String) throws -> Data? { signIns.contains(key) ? Data("placeholder".utf8) : nil }
             func set(_ data: Data, for key: String) throws {}
             func remove(_ key: String) throws {}
+            func keys() throws -> [String] { Array(signIns) }
         }
     }
 #endif

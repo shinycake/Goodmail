@@ -23,7 +23,15 @@ extension AppModel {
         let new = payload.entries(newTo: accounts)
         try await Self.keepSignIns(of: new)
         let added = new.map { $0.profile.account($0.id) }
-        try await adopt(added)
+        do {
+            try await adopt(added)
+        } catch {
+            // The sign-ins of accounts that didn't make it in would be left with nothing to use them. Only this
+            // device's copies go: a shared one may be another device's sign-in for the same account.
+            let left = new.filter { entry in !accounts.contains { $0.id == entry.id } }
+            try? await Self.forgetSignIns(of: left)
+            throw error
+        }
         for account in added { await didSignIn(account.id) }
         await syncAfterAdding()
         return added
@@ -34,5 +42,10 @@ extension AppModel {
         for entry in entries {
             try secrets.set(entry.signIn, for: Providers.signInKey(entry.id, entry.profile.service))
         }
+    }
+
+    @concurrent private nonisolated static func forgetSignIns(of entries: [TransferPayload.Entry]) async throws {
+        let secrets = Keychain()
+        for entry in entries { try secrets.remove(Providers.signInKey(entry.id, entry.profile.service)) }
     }
 }

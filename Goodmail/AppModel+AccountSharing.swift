@@ -14,14 +14,6 @@ extension AppModel {
     /// Where accounts are shared, while this device shares them.
     var activeSharing: AccountSharing? { AccountSharingMode.current.shares ? sharing : nil }
 
-    /// The other devices' accounts to offer this one: only while it offers rather than follows, and without the ones
-    /// the reader turned down. Settings lists those too (`sharedElsewhere`).
-    var sharedOffers: [Account] {
-        guard AccountSharingMode.current == .offering else { return [] }
-        let declined = Preferences.declinedSharedAccounts
-        return sharedElsewhere.filter { !declined.contains($0.id) }
-    }
-
     /// Brings this device in step with the others: takes up renames, and, when it follows them, adds and removes
     /// accounts as they did, then shares what only this device has. Passes run one at a time, each after the last.
     func followSharedAccounts() async throws {
@@ -90,6 +82,12 @@ extension AppModel {
     /// other devices it was removed. An account removed from this device only isn't taken back on its own.
     func signOut(_ account: Account, _ removal: AccountRemoval) async {
         if removal == .thisDevice, activeSharing != nil { Preferences.declinedSharedAccounts.insert(account.id) }
+        // Each goes on its own, since either one gone keeps a reinstall from offering the account back.
+        do {
+            try await sharing?.forget(account.id)
+        } catch {
+            Logger.sharing.error("Couldn't forget an account's record: \(error, privacy: .public)")
+        }
         do {
             try await Self.forgetSignIn(of: account, everywhere: removal == .everyDevice)
         } catch {
@@ -105,6 +103,12 @@ extension AppModel {
     /// Shares this device's accounts, in their order, with the other devices. A failure waits for the next pass.
     func shareAccounts() async {
         do {
+            // Remembered on this device whether or not it shares, so a reinstall can bring them back.
+            try await sharing?.remember(accounts)
+        } catch {
+            Logger.sharing.error("Couldn't remember the accounts: \(error, privacy: .public)")
+        }
+        do {
             try await activeSharing?.share(accounts)
         } catch {
             Logger.sharing.error("Couldn't share the accounts: \(error, privacy: .public)")
@@ -113,7 +117,14 @@ extension AppModel {
 
     private func runSharingPass() async throws {
         defer { NotificationCenter.default.post(name: Self.sharedAccountsDidUpdate, object: self) }
+        do {
+            restorable = try await sharing?.restorable(for: accounts) ?? []
+        } catch {
+            // Only the offer after a reinstall needs it, so the rest of the pass goes on.
+            Logger.sharing.error("Couldn't read the accounts to restore: \(error, privacy: .public)")
+        }
         guard let sharing = activeSharing else {
+            await shareAccounts()
             sharedElsewhere = []
             return
         }

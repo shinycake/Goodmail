@@ -30,15 +30,14 @@ extension SceneCoordinator {
         offerSharedAccounts()
     }
 
-    /// Offers the other devices' accounts: in place of the welcome screen on a device with none, or as a sheet over
+    /// Offers the accounts in `AppModel.accountOffer`: in place of the welcome screen on a device with none, or as a sheet over
     /// the mail screens of the key window. One offer at a time; answering it, either way, stops it coming back on its
     /// own.
     func offerSharedAccounts() {
-        let offers = model.sharedOffers
-        guard !offers.isEmpty else { return }
+        guard let offered = model.accountOffer else { return }
         let offer = SharedAccountsOffer(
-            accounts: offers,
-            add: { [model] in try await model.addSharedAccounts($0, declining: $1) },
+            accounts: offered.accounts, origin: offered.origin,
+            add: { [model] in try await model.addOfferedAccounts($0, declining: $1) },
             decline: { Preferences.declinedSharedAccounts.formUnion($0) })
         let sheet = SharedAccountsOfferScreen.make(offer: offer)
         switch screen {

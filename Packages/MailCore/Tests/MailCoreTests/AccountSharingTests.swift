@@ -116,6 +116,29 @@ struct AccountSharingTests {
         #expect(plan.order(of: [gmail, icloud, outlook]) == [outlook.id, gmail.id, icloud.id])
     }
 
+    @Test func aReinstallFindsTheAccountsThisDeviceRememberedWithoutSyncing() async throws {
+        let device = MemoryDirectory(["gmail.g": "t", "outlook.o": "t"])
+        let shared = MemoryDirectory()
+        try await sharing(shared: shared, device: device).remember([outlook, gmail])
+
+        // The app's database is gone; the Keychain isn't.
+        let restorable = try await sharing(shared: shared, device: device).restorable(for: [])
+
+        #expect(restorable == [outlook, gmail], "in the order they were in")
+        #expect(try shared.keys().isEmpty, "remembering on the device shares nothing")
+    }
+
+    @Test func anAccountRemovedFromThisDeviceOrWithoutItsSignInIsntRestored() async throws {
+        let device = MemoryDirectory(["gmail.g": "t", "icloud.i": "p", "outlook.o": "t"])
+        let accounts = sharing(shared: MemoryDirectory(), device: device)
+        try await accounts.remember([gmail, icloud, outlook])
+        try await accounts.forget(icloud.id)
+        try device.remove("outlook.o")
+
+        #expect(try await accounts.restorable(for: []) == [gmail])
+        #expect(try await accounts.restorable(for: [gmail]).isEmpty, "nothing that's here already")
+    }
+
     @Test func signInsPreferTheSharedCopyAndKeepItOnTheDevice() throws {
         let device = MemoryDirectory(["k": "old"])
         let secrets = SharedSecrets(device: device, shared: MemoryDirectory(["k": "rotated"]))

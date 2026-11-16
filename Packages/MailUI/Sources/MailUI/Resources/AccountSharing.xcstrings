@@ -108,6 +108,17 @@
         }
       }
     },
+    "Goodmail still has the accounts you used on this device. Restore them without signing in again." : {
+      "comment" : "Explains the offer to restore accounts after Goodmail was deleted and installed again",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ל-Goodmail עדיין יש את החשבונות שהשתמשת בהם במכשיר הזה. אפשר לשחזר אותם בלי להתחבר שוב."
+          }
+        }
+      }
+    },
     "Not Now" : {
       "comment" : "Puts off adding the accounts from the reader's other devices",
       "localizations" : {
@@ -207,6 +218,47 @@
         }
       }
     },
+    "Restore %lld Accounts" : {
+      "comment" : "Adds back the chosen accounts this device had before Goodmail was deleted",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Restore 1 Account"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Restore %lld Accounts"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "שחזור חשבון אחד"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "שחזור %lld חשבונות"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "Something Went Wrong" : {
       "comment" : "Title of an alert when a change to syncing accounts failed",
       "localizations" : {
@@ -240,6 +292,17 @@
         }
       }
     },
+    "Their sign-ins stayed in this device's Keychain when Goodmail was deleted. Turn off any you don't want back." : {
+      "comment" : "Explains where the sign-ins of accounts restored after a reinstall come from",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פרטי ההתחברות שלהם נשארו במחזיק המפתחות של המכשיר כש-Goodmail נמחק. אפשר לכבות את מה שלא רוצים להחזיר."
+          }
+        }
+      }
+    },
     "These accounts are already set up on your other devices. Add them here without signing in again." : {
       "comment" : "Explains the offer of accounts from the reader's other devices",
       "localizations" : {
@@ -258,6 +321,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "כיבוי של חשבון מסיר אותו ואת הדואר שלו מהמכשיר הזה בלבד. הוא נשאר במכשירים האחרים שלך."
+          }
+        }
+      }
+    },
+    "Welcome Back" : {
+      "comment" : "Title of the offer to restore the accounts this device had before Goodmail was deleted",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ברוכים השבים"
           }
         }
       }

@@ -1,8 +1,8 @@
 public import MailCore
 public import Observation
 
-/// Accounts set up on the reader's other devices, offered to this one: each starts chosen, and adding them needs no
-/// sign-in, because their sign-ins came with them through iCloud Keychain.
+/// Accounts offered to this device without signing in, because their sign-ins are in the Keychain already: set up on
+/// the reader's other devices, or on this one before the app was deleted. Each starts chosen.
 @Observable
 public final class SharedAccountsOffer {
     public enum State: Equatable {
@@ -13,6 +13,7 @@ public final class SharedAccountsOffer {
     }
 
     public let accounts: [Account]
+    public let origin: AccountOffer.Origin
     public var chosen: Set<AccountID>
     public private(set) var state = State.choosing
     /// The last add that failed, for the view to show.
@@ -25,10 +26,12 @@ public final class SharedAccountsOffer {
     /// `add` adds the chosen accounts and remembers the rest as declined; `decline` remembers them all, so the offer
     /// doesn't come back on its own. Settings still lists them.
     public init(
-        accounts: [Account], add: @escaping (_ chosen: [AccountID], _ declined: [AccountID]) async throws -> Void,
+        accounts: [Account], origin: AccountOffer.Origin = .otherDevices,
+        add: @escaping (_ chosen: [AccountID], _ declined: [AccountID]) async throws -> Void,
         decline: @escaping ([AccountID]) -> Void
     ) {
         self.accounts = accounts
+        self.origin = origin
         chosen = Set(accounts.map(\.id))
         self.add = add
         self.decline = decline

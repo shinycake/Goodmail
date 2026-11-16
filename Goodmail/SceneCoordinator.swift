@@ -68,8 +68,8 @@ final class SceneCoordinator: NSObject {
     func start() {
         observeSharedAccounts()
         if model.accounts.isEmpty {
-            // A new device whose reader has accounts on another one offers those first.
-            if model.sharedOffers.isEmpty { showWelcome() } else { offerSharedAccounts() }
+            // A new device whose reader has accounts on another one, or a reinstall, offers those first.
+            if model.accountOffer == nil { showWelcome() } else { offerSharedAccounts() }
         } else {
             showMailbox(shown)
             checkGmailSignIns()

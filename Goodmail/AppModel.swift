@@ -41,6 +41,9 @@ final class AppModel {
     let sharing: AccountSharing?
     /// The accounts the other devices share that this one doesn't have, as the last pass found them.
     var sharedElsewhere: [Account] = []
+    /// Accounts this device had before the app was deleted, whose sign-ins are still in its Keychain
+    /// (`AccountSharing.restorable`).
+    var restorable: [Account] = []
     /// The pass bringing this device in step with the others, while one runs (`followSharedAccounts`).
     var sharingPass: Task<Void, any Error>?
 
