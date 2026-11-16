@@ -27,6 +27,8 @@ final class SceneCoordinator: NSObject {
     private(set) var screen = Screen.starting
     /// Follows each pass that brings this device in step with the reader's other devices.
     var sharingObserver: (any NSObjectProtocol)?
+    /// The screen receiving accounts from another device, so a code the Camera app opens while it's up goes to it.
+    var receivingTransfer: ReceivingTransfer?
     /// The window's root, which holds the mail screens and the messages minimized below them.
     private let drafts = DraftShelfViewController()
     /// Names this window's minimized messages in the database. Fresh each launch, so the next one finds them unclaimed.
@@ -152,6 +154,7 @@ final class SceneCoordinator: NSObject {
         viewModel.autoReply = { model.autoReplyService(for: $0) }
         viewModel.serverSettings = { model.serverSettingsService(for: $0) }
         viewModel.sharing = model.sharingChoices()
+        viewModel.transfer = transferActions
         if model.pushRegistrar != nil {
             viewModel.notifications = NotificationChoices(
                 read: { await model.notificationLevels() },
@@ -252,7 +255,7 @@ final class SceneCoordinator: NSObject {
     func showWelcome() {
         let adder = AccountAdder { [weak self] in try await self?.signIn(to: $0) ?? false }
         adder.onAdded = { [weak self] in self?.showMailbox() }
-        enter(.welcome(WelcomeScreen.make(adder: adder)))
+        enter(.welcome(WelcomeScreen.make(adder: adder, receiveTransfer: transferActions?.receive)))
     }
 
     /// `state`, the Inbox unless a restored window says otherwise, with the mailboxes beside it in a wide window or

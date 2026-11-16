@@ -1,0 +1,459 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Added %lld accounts. Their mail is on its way." : {
+      "comment" : "Shown after accounts arrived from another device",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Added 1 account. Its mail is on its way."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Added %lld accounts. Their mail is on its way."
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "נוסף חשבון אחד. הדואר שלו בדרך."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "נוספו %lld חשבונות. הדואר שלהם בדרך."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Choose the accounts to send here, and keep both devices close until it's done." : {
+      "comment" : "Third step of receiving accounts by QR code",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "יש לבחור כאן את החשבונות לשליחה, ולהשאיר את שני המכשירים קרובים עד שההעברה תסתיים."
+          }
+        }
+      }
+    },
+    "Couldn't reach your other device. Keep both close, with Wi-Fi and Bluetooth on, and scan its code again." : {
+      "comment" : "Shown when receiving accounts failed",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא הצלחנו להתחבר למכשיר השני. יש להשאיר את שניהם קרובים, עם Wi-Fi ו-Bluetooth פועלים, ולסרוק את הקוד שוב."
+          }
+        }
+      }
+    },
+    "Don't Send" : {
+      "comment" : "Turns the other device's request down",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא לשלוח"
+          }
+        }
+      }
+    },
+    "Done" : {
+      "comment" : "Closes the transfer screen",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סיום"
+          }
+        }
+      }
+    },
+    "Finding your other device. Keep it close, with the code showing." : {
+      "comment" : "Shown while connecting to the device that showed the code",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחפש את המכשיר השני. יש להשאיר אותו קרוב, כשהקוד מוצג."
+          }
+        }
+      }
+    },
+    "It gets each account and its sign-in. Only send to a device you own." : {
+      "comment" : "Explains what sending accounts gives the other device",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הוא יקבל כל חשבון עם פרטי ההתחברות שלו. יש לשלוח רק למכשיר שלך."
+          }
+        }
+      }
+    },
+    "Moves accounts to a device nearby, even one signed in to a different Apple Account. Both devices need Goodmail open and to be on the same Wi-Fi or close together." : {
+      "comment" : "Explains moving accounts by QR code",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מעביר חשבונות למכשיר קרוב, גם אם הוא מחובר לחשבון Apple אחר. Goodmail צריך להיות פתוח בשני המכשירים, והם צריכים להיות באותה רשת Wi-Fi או קרובים זה לזה."
+          }
+        }
+      }
+    },
+    "Nothing was sent." : {
+      "comment" : "Shown after the reader turned a transfer down",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא נשלח דבר."
+          }
+        }
+      }
+    },
+    "On the device that has your accounts, open Goodmail Settings, then Other Devices." : {
+      "comment" : "First step of sending accounts by QR code",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "במכשיר שבו נמצאים החשבונות, יש לפתוח את ההגדרות של Goodmail ואז את ״מכשירים אחרים״."
+          }
+        }
+      }
+    },
+    "On your other device, choose the accounts to send here." : {
+      "comment" : "Shown while the sending device asks its reader to approve",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "במכשיר השני, יש לבחור את החשבונות שיישלחו לכאן."
+          }
+        }
+      }
+    },
+    "Open Goodmail on your other device." : {
+      "comment" : "First step of receiving accounts by QR code",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "יש לפתוח את Goodmail במכשיר השני."
+          }
+        }
+      }
+    },
+    "QR Code Transfer" : {
+      "comment" : "Header of the settings for moving accounts between devices by QR code",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה בקוד QR"
+          }
+        }
+      }
+    },
+    "Scan Again" : {
+      "comment" : "Goes back to scanning a transfer code",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סריקה חוזרת"
+          }
+        }
+      }
+    },
+    "Scan the code it shows." : {
+      "comment" : "Third step of sending accounts by QR code",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "יש לסרוק את הקוד שמוצג בו."
+          }
+        }
+      }
+    },
+    "Send %lld Accounts" : {
+      "comment" : "Sends the chosen accounts to the other device",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Send 1 Account"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Send %lld Accounts"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "שליחת חשבון אחד"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "שליחת %lld חשבונות"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Send to “%@”?" : {
+      "comment" : "Asks which accounts go to the device that scanned the code; the value is its name",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לשלוח אל ״%@״?"
+          }
+        }
+      }
+    },
+    "Sent %lld accounts. They're ready on your other device." : {
+      "comment" : "Shown after accounts were sent to another device",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Sent 1 account. It's ready on your other device."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Sent %lld accounts. They're ready on your other device."
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "נשלח חשבון אחד. הוא מוכן במכשיר השני."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "נשלחו %lld חשבונות. הם מוכנים במכשיר השני."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Show a New Code" : {
+      "comment" : "Starts a new transfer with a fresh code",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצגת קוד חדש"
+          }
+        }
+      }
+    },
+    "Show the code that moves your accounts to another device." : {
+      "comment" : "Why Face ID or the passcode is asked for before showing a transfer code",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצגת הקוד שמעביר את החשבונות שלך למכשיר אחר."
+          }
+        }
+      }
+    },
+    "Tap Transfer from Another Device, or point its Camera app at this code." : {
+      "comment" : "Second step of receiving accounts by QR code",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "יש להקיש על ״העברה ממכשיר אחר״, או לכוון את אפליקציית המצלמה שלו אל הקוד הזה."
+          }
+        }
+      }
+    },
+    "Tap Transfer to Another Device and unlock it." : {
+      "comment" : "Second step of sending accounts by QR code",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "יש להקיש על ״העברה למכשיר אחר״ ולבטל את הנעילה."
+          }
+        }
+      }
+    },
+    "The code expired before another device used it." : {
+      "comment" : "Shown when nobody scanned the transfer code in time",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תוקף הקוד פג לפני שמכשיר אחר השתמש בו."
+          }
+        }
+      }
+    },
+    "The transfer stopped before your other device got the accounts. Keep both close and try again." : {
+      "comment" : "Shown when sending accounts failed",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ההעברה נעצרה לפני שהחשבונות הגיעו למכשיר השני. יש להשאיר את שניהם קרובים ולנסות שוב."
+          }
+        }
+      }
+    },
+    "This code gives access to your mail. Only show it to your own devices. It works once and expires in 5 minutes." : {
+      "comment" : "Warns about who sees the transfer code",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הקוד הזה נותן גישה לדואר שלך. יש להציג אותו רק למכשירים שלך. הוא עובד פעם אחת ותוקפו פג אחרי 5 דקות."
+          }
+        }
+      }
+    },
+    "This device can't scan here. Point its Camera app at the code instead." : {
+      "comment" : "Shown on a device whose camera can't scan inside the app",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אי אפשר לסרוק כאן במכשיר הזה. במקום זאת, יש לכוון את אפליקציית המצלמה אל הקוד."
+          }
+        }
+      }
+    },
+    "Those accounts are already on this device." : {
+      "comment" : "Shown when every account another device sent was already here",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "החשבונות האלה כבר נמצאים במכשיר הזה."
+          }
+        }
+      }
+    },
+    "Transfer code" : {
+      "comment" : "VoiceOver label of the QR code that sends accounts",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קוד העברה"
+          }
+        }
+      }
+    },
+    "Transfer from Another Device" : {
+      "comment" : "Title of the screen that receives accounts from another device by QR code",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה ממכשיר אחר"
+          }
+        }
+      }
+    },
+    "Transfer to Another Device" : {
+      "comment" : "Shows a QR code another device scans to get this device's accounts",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה למכשיר אחר"
+          }
+        }
+      }
+    },
+    "Try Again" : {
+      "comment" : "Asks for Face ID or the passcode again",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ניסיון חוזר"
+          }
+        }
+      }
+    },
+    "Unlock to show the code. It hands over your sign-ins, so only you can show it." : {
+      "comment" : "Shown when Face ID or the passcode was cancelled",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "יש לבטל את הנעילה כדי להציג את הקוד. הוא מעביר את פרטי ההתחברות שלך, ולכן רק בעל המכשיר יכול להציג אותו."
+          }
+        }
+      }
+    },
+    "Your other device didn't send any accounts." : {
+      "comment" : "Shown when the sending device turned the transfer down",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "המכשיר השני לא שלח חשבונות."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

@@ -30,10 +30,13 @@ public struct AccountSharing: Sendable {
     /// Shares `accounts`, in this order, with their sign-ins. An account already shared gets its name, color and
     /// place updated; one removed on another device stays removed.
     @concurrent public func share(_ accounts: [Account]) async throws {
-        for (position, account) in accounts.enumerated() {
+        let records = try records()
+        let places = SharedOrder.places(
+            of: accounts.map(\.id), shared: records.compactMapValues(\.profile).mapValues(\.position))
+        for account in accounts {
             let key = Self.recordKey(account.id)
-            let record = SharedAccount.present(SharedAccount.Profile(account, position: position))
-            let stored = try shared.data(for: key).flatMap { try? JSONDecoder().decode(SharedAccount.self, from: $0) }
+            let record = SharedAccount.present(SharedAccount.Profile(account, position: places[account.id] ?? 0))
+            let stored = records[account.id]
             guard stored != .removed, stored != record else { continue }
             let signIn = signInKey(account.id, account.service)
             // The shared sign-in, when there is one, is at least as new as the device's.

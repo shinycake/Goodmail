@@ -56,6 +56,9 @@ public final class SettingsViewModel {
     @ObservationIgnored public var sharing: AccountSharingChoices? {
         didSet { sharing?.onAccountsChanged = { [weak self] in self?.refresh() } }
     }
+    /// Moving accounts to or from another device by QR code; `nil` where accounts can't be moved, as in synthetic
+    /// mailboxes.
+    @ObservationIgnored public var transfer: TransferActions?
     /// Accounts whose Inbox isn't split into categories.
     public var unsortedInboxAccounts: Set<AccountID> {
         didSet { Preferences.unsortedInboxAccounts = unsortedInboxAccounts }

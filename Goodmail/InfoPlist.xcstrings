@@ -38,19 +38,19 @@
       }
     },
     "NSCameraUsageDescription" : {
-      "comment" : "Shown when Goodmail first asks to use the camera, for taking a photo or scanning a document to attach",
+      "comment" : "Shown when Goodmail first asks to use the camera, for taking a photo or scanning a document to attach, or scanning a transfer code",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Goodmail uses the camera to take photos and scan documents you attach to a message."
+            "value" : "Goodmail uses the camera to take photos and scan documents you attach to a message, and to scan the code that moves your accounts from another device."
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Goodmail משתמש במצלמה לצילום תמונות ולסריקת מסמכים שאתם מצרפים להודעה."
+            "value" : "Goodmail משתמש במצלמה לצילום תמונות ולסריקת מסמכים שאתם מצרפים להודעה, וגם לסריקת הקוד שמעביר את החשבונות שלכם ממכשיר אחר."
           }
         }
       }
@@ -69,6 +69,42 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Goodmail מציע אנשים מאנשי הקשר שלך בזמן שמקלידים נמען. אנשי הקשר נשארים במכשיר."
+          }
+        }
+      }
+    },
+    "NSFaceIDUsageDescription" : {
+      "comment" : "Shown when Goodmail first asks to use Face ID, before it shows a transfer code",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Goodmail asks for Face ID before it shows the code that moves your accounts to another device."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Goodmail מבקש Face ID לפני שהוא מציג את הקוד שמעביר את החשבונות שלכם למכשיר אחר."
+          }
+        }
+      }
+    },
+    "NSLocalNetworkUsageDescription" : {
+      "comment" : "Shown when Goodmail first asks to use the local network, to find the other device in a transfer",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Goodmail finds your other device nearby to move your accounts to it, when you show or scan a transfer code."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Goodmail מאתר את המכשיר השני שלכם בסביבה כדי להעביר אליו את החשבונות, כשאתם מציגים או סורקים קוד העברה."
           }
         }
       }

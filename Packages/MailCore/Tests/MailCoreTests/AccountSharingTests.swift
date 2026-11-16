@@ -89,6 +89,33 @@ struct AccountSharingTests {
         #expect(plan.order(of: [icloud, gmail] + plan.missing) == [outlook.id, gmail.id, icloud.id])
     }
 
+    @Test func aDeviceWithFewerAccountsKeepsTheSharedPlacesInsteadOfRenumbering() async throws {
+        let shared = MemoryDirectory()
+        let tokens = ["gmail.g": "t", "icloud.i": "p", "outlook.o": "t"]
+        let phone = sharing(shared: shared, device: MemoryDirectory(tokens))
+        let pad = sharing(shared: shared, device: MemoryDirectory(tokens))
+        try await phone.share([gmail, icloud, outlook])
+        let written = shared.writes
+
+        // The pad has no iCloud; its Outlook is still third, after the phone's iCloud.
+        try await pad.share([gmail, outlook])
+        try await phone.share([gmail, icloud, outlook])
+
+        #expect(shared.writes == written, "neither device rewrites the other's places, round after round")
+    }
+
+    @Test func aReorderOnADeviceWithFewerAccountsKeepsTheOthersNextToTheirNeighbors() async throws {
+        let shared = MemoryDirectory()
+        let tokens = ["gmail.g": "t", "icloud.i": "p", "outlook.o": "t"]
+        try await sharing(shared: shared, device: MemoryDirectory(tokens)).share([gmail, icloud, outlook])
+        let pad = sharing(shared: shared, device: MemoryDirectory(tokens))
+
+        try await pad.share([outlook, gmail])
+
+        let plan = try await pad.plan(for: [gmail, icloud, outlook])
+        #expect(plan.order(of: [gmail, icloud, outlook]) == [outlook.id, gmail.id, icloud.id])
+    }
+
     @Test func signInsPreferTheSharedCopyAndKeepItOnTheDevice() throws {
         let device = MemoryDirectory(["k": "old"])
         let secrets = SharedSecrets(device: device, shared: MemoryDirectory(["k": "rotated"]))
@@ -123,13 +150,20 @@ struct AccountSharingTests {
 /// A Keychain in memory.
 final class MemoryDirectory: SecretDirectory {
     private let items: Mutex<[String: Data]>
+    private let written = Mutex(0)
 
     init(_ strings: [String: String] = [:]) {
         items = Mutex(strings.mapValues { Data($0.utf8) })
     }
 
     func data(for key: String) throws -> Data? { items.withLock { $0[key] } }
-    func set(_ data: Data, for key: String) throws { items.withLock { $0[key] = data } }
+    func set(_ data: Data, for key: String) throws {
+        items.withLock { $0[key] = data }
+        written.withLock { $0 += 1 }
+    }
+
+    /// How many times anything was written, so a test can tell nothing was.
+    var writes: Int { written.withLock { $0 } }
     func remove(_ key: String) throws { _ = items.withLock { $0.removeValue(forKey: key) } }
     func keys() throws -> [String] { items.withLock { Array($0.keys) } }
 

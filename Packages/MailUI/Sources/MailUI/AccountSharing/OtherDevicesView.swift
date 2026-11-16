@@ -60,6 +60,8 @@ struct OtherDevicesView: View {
                         comment: "Explains turning an account off in the list of accounts on this device")
                 }
             }
+
+            if let transfer = model.transfer { TransferSection(transfer: transfer) }
         }
         .navigationTitle(OtherDevicesView.title)
         .confirmationDialog(

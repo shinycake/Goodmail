@@ -22,6 +22,17 @@
           }
         }
       }
+    },
+    "Transfer from Another Device" : {
+      "comment" : "Welcome screen: scans the QR code another device shows to get its accounts",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה ממכשיר אחר"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

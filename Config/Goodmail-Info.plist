@@ -16,6 +16,18 @@
 				<string>mailto</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.idanbirman.goodmail.transfer</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>goodmail-transfer</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_goodmail-xfer._tcp</string>
 	</array>
 	<key>GoodmailPushRelayURL</key>
 	<string>$(GOODMAIL_PUSH_RELAY_URL)</string>

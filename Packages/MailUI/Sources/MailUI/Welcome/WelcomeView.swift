@@ -4,6 +4,8 @@ public import SwiftUI
 /// Shown while no account has been added: what Goodmail is, then a button for each service to sign in to.
 struct WelcomeView: View {
     let adder: AccountAdder
+    /// Scans another device's transfer code; `nil` where accounts can't be transferred.
+    let receiveTransfer: (() -> Void)?
     @ScaledMetric(relativeTo: .largeTitle) private var symbolSize = 56
 
     var body: some View {
@@ -32,6 +34,19 @@ struct WelcomeView: View {
                 ServiceChooser(adder: adder)
                     .buttonStyle(.glassProminent)
                     .controlSize(.large)
+                if let receiveTransfer {
+                    Button(action: receiveTransfer) {
+                        Label {
+                            Text(
+                                "Transfer from Another Device", tableName: "Welcome", bundle: .module,
+                                comment: "Welcome screen: scans the QR code another device shows to get its accounts")
+                        } icon: {
+                            Image(systemName: "qrcode.viewfinder")
+                        }
+                    }
+                    .buttonStyle(.borderless)
+                    .padding(.top, 8)
+                }
             }
             .frame(maxWidth: 360)
         }
@@ -43,7 +58,7 @@ struct WelcomeView: View {
 
 /// The welcome screen, for UIKit to show.
 public enum WelcomeScreen {
-    public static func make(adder: AccountAdder) -> UIViewController {
-        UIHostingController(rootView: WelcomeView(adder: adder))
+    public static func make(adder: AccountAdder, receiveTransfer: (() -> Void)? = nil) -> UIViewController {
+        UIHostingController(rootView: WelcomeView(adder: adder, receiveTransfer: receiveTransfer))
     }
 }

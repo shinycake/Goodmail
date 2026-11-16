@@ -5,7 +5,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private enum State {
         /// UIKit hasn't connected the scene yet.
         case notConnected
-        /// The database is still opening; the window shows nothing yet. `link` is the `mailto:` link to open once
+        /// The database is still opening; the window shows nothing yet. `link` is the link to open once
         /// it has.
         case opening(Task<Void, Never>, link: URL?)
         case running(SceneCoordinator)
@@ -54,15 +54,15 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         coordinator.window.makeKeyAndVisible()
         window?.isHidden = true
         window = coordinator.window
-        // The composer needs a visible window to present on.
-        if let link { coordinator.compose(mailto: link) }
+        // The composer and the transfer screen need a visible window to present on.
+        if let link { coordinator.open(link) }
     }
 
-    /// A `mailto:` link opened while the window is up, or while the database is still opening.
+    /// A `mailto:` link or transfer code opened while the window is up, or while the database is still opening.
     func scene(_ scene: UIScene, openURLContexts contexts: Set<UIOpenURLContext>) {
         guard let link = contexts.first?.url else { return }
         switch state {
-        case .running(let coordinator): coordinator.compose(mailto: link)
+        case .running(let coordinator): coordinator.open(link)
         case .opening(let task, _): state = .opening(task, link: link)
         case .notConnected, .unavailable: break
         }
