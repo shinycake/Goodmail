@@ -1,20 +1,14 @@
-import {
-  type ApnsConfig,
-  type ApnsEnvironment,
-  ApnsSigner,
-  accountMailPayload,
-  newMailPayload,
-  type PushOutcome,
-  sendPush,
-} from "./apns";
+import { type ApnsConfig, type ApnsEnvironment, ApnsSigner, type PushOutcome, sendAlert } from "./apns";
 import { base64Decode } from "./encoding";
 import type { Env } from "./env";
 import { TokenError, verifyIdToken, verifyPubSubToken } from "./google";
 import { forgetGrant, grantsFor, storeGrant } from "./grant-routes";
 import { pollWatches } from "./imap-poll";
 import { registerWatch, unregisterWatch } from "./imap-routes";
-import { BadRequest, googleKeys, mailboxCheck, nowSeconds, readJson } from "./shared";
+import { OutlookGrantRevoked, OutlookGrants, ownAddress, refreshOutlookToken } from "./outlook";
+import { BadRequest, googleKeys, mailboxCheck, nowSeconds, outlookCheck, readJson } from "./shared";
 import {
+  hasGraphSubscriptions,
   registerGraphSubscription,
   unregisterGraphSubscription,
   verifiedSubscription,
@@ -56,6 +50,7 @@ export default {
       if (pathname === "/v1/graph" && request.method === "POST") return await graphNotification(request, url, env, context);
       if (pathname === "/v1/graph/subscriptions" && request.method === "POST") return await registerGraph(request, env);
       if (pathname === "/v1/graph/subscriptions" && request.method === "DELETE") return await unregisterGraph(request, env);
+      if (pathname === "/v1/graph/grants" && request.method === "POST") return await storeGraphGrant(request, env);
       if (pathname === "/v1/imap/watches" && request.method === "POST") return await registerWatch(request, env, Date.now());
       if (pathname === "/v1/imap/watches" && request.method === "DELETE") return await unregisterWatch(request, env);
       const known = [
@@ -63,6 +58,7 @@ export default {
         "/v1/pubsub",
         "/v1/graph",
         "/v1/graph/subscriptions",
+        "/v1/graph/grants",
         "/v1/gmail/grants",
         "/v1/imap/watches",
       ];
@@ -127,9 +123,14 @@ async function pubSubPush(request: Request, env: Env): Promise<Response> {
   if (devices.length === 0) return new Response(null, { status: 204 });
   const claim = await claimHistoryId(env.DB, account, historyId);
   if (!claim) return new Response(null, { status: 204 });
-  // A read, archive, delete or label change on mail already there has nothing to alert for.
-  const verdict = await mailboxCheck.verdict(grantsFor(env), env.GOOGLE_CLIENT_ID, account, claim.previous);
-  if (verdict === "quiet") return new Response(null, { status: 204 });
+  // Only mail the relay has read alerts (new-mail.ts). One it couldn't read yet gives the claim back and asks
+  // Pub/Sub to deliver the notification again.
+  const arrival = await mailboxCheck.arrival(grantsFor(env), env.GOOGLE_CLIENT_ID, account, claim.previous);
+  if (arrival.kind === "retry") {
+    await releaseHistoryId(env.DB, claim);
+    return new Response(null, { status: 503 });
+  }
+  if (arrival.kind === "none") return new Response(null, { status: 204 });
   const now = Date.now();
   const slot = await claimPushSlot(env.DB, account, now);
   if (slot === false) return new Response(null, { status: 204 });
@@ -142,10 +143,9 @@ async function pubSubPush(request: Request, env: Env): Promise<Response> {
   let outcomes: PushOutcome[];
   try {
     const signer = signerFor(env);
-    const payload = newMailPayload(emailAddress, historyId);
     outcomes = await Promise.all(
       devices.map(async (device) => {
-        const outcome = await sendPush(signer, device, payload);
+        const outcome = await sendAlert(signer, device, arrival.newest, { account: emailAddress, historyId });
         if (outcome === "gone") await forgetDeviceToken(env.DB, device.token);
         return outcome;
       }),
@@ -192,14 +192,52 @@ async function registerGraph(request: Request, env: Env): Promise<Response> {
 
 async function unregisterGraph(request: Request, env: Env): Promise<Response> {
   const { subscriptionId, clientState } = graphCredentials(await readJson(request));
+  const subscription = await verifiedSubscription(env.DB, subscriptionId, clientState);
   await unregisterGraphSubscription(env.DB, subscriptionId, clientState);
+  // No device is left to alert, so the relay has no reason to keep the account's token.
+  if (subscription && !(await hasGraphSubscriptions(env.DB, subscription.account))) {
+    await new OutlookGrants(env.DB, env.EMAIL_HMAC_SECRET).remove(subscription.account);
+    outlookCheck.forget(subscription.account);
+  }
   return new Response(null, { status: 204 });
 }
 
 /**
+ * Stores the app's Outlook refresh token for the account of a Graph subscription, which the device proves with its
+ * clientState. The app sends it each time it brings push up to date, so a token already held answers at once. A new
+ * one must refresh; 401 when Microsoft refuses it, 403 for a subscription that isn't the caller's.
+ */
+async function storeGraphGrant(request: Request, env: Env): Promise<Response> {
+  const body = await readJson(request);
+  const { subscriptionId, clientState } = graphCredentials(body);
+  const { refreshToken } = body;
+  if (typeof refreshToken !== "string" || refreshToken.length === 0 || refreshToken.length > 4096) {
+    throw new BadRequest("bad refreshToken");
+  }
+  const subscription = await verifiedSubscription(env.DB, subscriptionId, clientState);
+  if (!subscription) return new Response(null, { status: 403 });
+  const grants = new OutlookGrants(env.DB, env.EMAIL_HMAC_SECRET);
+  if (await grants.holds(subscription.account, refreshToken)) return new Response(null, { status: 204 });
+  try {
+    const token = await refreshOutlookToken(refreshToken, env.OUTLOOK_CLIENT_ID, Date.now());
+    const address = await ownAddress(token);
+    await grants.store(subscription.account, refreshToken, token.refreshToken ?? refreshToken, address, Date.now());
+  } catch (error) {
+    if (error instanceof OutlookGrantRevoked) return new Response(null, { status: 401 });
+    throw error;
+  }
+  outlookCheck.forget(subscription.account);
+  return new Response(null, { status: 204 });
+}
+
+/** Waits before each new try at reading a notification's mail that Graph couldn't hand over yet. */
+const GRAPH_RETRY_DELAYS_MS = [3_000, 10_000];
+
+/**
  * Graph's change notifications. Creating a subscription first checks the URL by sending a `validationToken`, which
- * must come straight back as text. A notification batch is acknowledged at once, as Graph wants within seconds, and
- * each subscription it names with the right clientState gets one alert.
+ * must come straight back as text. A notification batch is acknowledged at once, as Graph wants within seconds. Each
+ * subscription it names with the right clientState gets one alert, for the newest message it named that the app
+ * alerts for (`new-mail.ts`), tried again a couple of times when the mail can't be read yet.
  */
 async function graphNotification(request: Request, url: URL, env: Env, context: ExecutionContext): Promise<Response> {
   const validationToken = url.searchParams.get("validationToken");
@@ -208,19 +246,32 @@ async function graphNotification(request: Request, url: URL, env: Env, context: 
   }
   const body = (await request.json().catch(() => undefined)) as { value?: unknown } | undefined;
   const notifications = Array.isArray(body?.value) ? body.value : [];
-  const named = new Map<string, string>();
+  const named = new Map<string, { clientState: string; messageIds: Set<string> }>();
   for (const notification of notifications) {
-    const { subscriptionId, clientState } = (notification ?? {}) as Record<string, unknown>;
-    if (typeof subscriptionId === "string" && typeof clientState === "string") {
-      named.set(subscriptionId.toLowerCase(), clientState);
-    }
+    const { subscriptionId, clientState, resourceData } = (notification ?? {}) as Record<string, unknown>;
+    if (typeof subscriptionId !== "string" || typeof clientState !== "string") continue;
+    const entry = named.get(subscriptionId.toLowerCase()) ?? { clientState, messageIds: new Set<string>() };
+    const id = (resourceData as { id?: unknown } | undefined)?.id;
+    if (typeof id === "string") entry.messageIds.add(id);
+    named.set(subscriptionId.toLowerCase(), entry);
   }
+  const grants = new OutlookGrants(env.DB, env.EMAIL_HMAC_SECRET);
   context.waitUntil(
     Promise.all(
-      [...named].map(async ([subscriptionId, clientState]) => {
+      [...named].map(async ([subscriptionId, { clientState, messageIds }]) => {
         const subscription = await verifiedSubscription(env.DB, subscriptionId, clientState);
         if (!subscription) return;
-        const outcome = await sendPush(signerFor(env), subscription.device, accountMailPayload(subscription.account));
+        const ids = [...messageIds];
+        let arrival = await outlookCheck.arrival(grants, env.OUTLOOK_CLIENT_ID, subscription.account, ids);
+        for (const delay of GRAPH_RETRY_DELAYS_MS) {
+          if (arrival.kind !== "retry") break;
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          arrival = await outlookCheck.arrival(grants, env.OUTLOOK_CLIENT_ID, subscription.account, ids);
+        }
+        if (arrival.kind !== "mail") return;
+        const outcome = await sendAlert(signerFor(env), subscription.device, arrival.newest, {
+          accountID: subscription.account,
+        });
         if (outcome === "gone") await forgetDeviceToken(env.DB, subscription.device.token);
       }),
     ),

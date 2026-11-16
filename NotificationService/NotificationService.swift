@@ -9,9 +9,11 @@ import Synchronization
 import UserNotifications
 import os
 
-/// Turns the relay's bare new-mail push into alerts for the mail it announced: catches the account up, alerts for
-/// each new thread, and stores what it fetched for the app (ADR-002). A push that brings no new inbox mail, or whose
-/// mail couldn't be fetched in time, never shows the push's bare "New mail" with a sound (`NewMailSilence`).
+/// Turns the relay's new-mail push into alerts for the mail it announced: catches the account up, alerts for each new
+/// thread with the sender's picture and a preview, and stores what it fetched for the app (ADR-002). The relay only
+/// sends a push it has read the email for, with its sender and subject (PushWorker/README.md), so a push whose mail
+/// can't be fetched in time shows as the relay sent it. One whose mail the app doesn't alert for here (already
+/// alerted, muted, or out of Focus) shows quietly (`NewMailSilence`).
 final class NotificationService: UNNotificationServiceExtension {
     private let delivery = Mutex<Delivery?>(nil)
 
@@ -38,7 +40,7 @@ final class NotificationService: UNNotificationServiceExtension {
                 await delivery.finish(with: outcome, pictures: pictures)
             } catch {
                 Logger.push.error("Couldn't fetch the new mail: \(error, privacy: .public)")
-                delivery.silence()
+                delivery.asSent()
             }
         }
     }
@@ -47,7 +49,7 @@ final class NotificationService: UNNotificationServiceExtension {
         // The fetch may still be writing, and iOS suspends the extension next: holding a lock in the shared container
         // then gets it killed (0xdead10cc).
         MailDatabase.suspendAll()
-        delivery.withLock { $0 }?.silence()
+        delivery.withLock { $0 }?.asSent()
     }
 
     /// The fetch, and senders' pictures from the cache the app shares.
@@ -121,6 +123,12 @@ private final class Delivery: @unchecked Sendable {
     /// Hands iOS the push's silence, unless an alert was already handed over.
     func silence() {
         deliver(silenceKind.content(for:))
+    }
+
+    /// Hands iOS the push as the relay sent it, with the email's sender and subject, unless an alert was already
+    /// handed over.
+    func asSent() {
+        deliver { $0 }
     }
 
     /// Hands iOS `content` made from the push as it came.

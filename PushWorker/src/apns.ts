@@ -1,4 +1,5 @@
 import { base64Decode, base64UrlEncode, encodeUtf8 } from "./encoding";
+import { alertPayload, type NewMail, type Target } from "./new-mail";
 
 export type ApnsEnvironment = "sandbox" | "production";
 
@@ -60,29 +61,14 @@ export interface Device {
 export type PushOutcome = "delivered" | "gone" | "failed";
 
 /**
- * The new-mail push: a mutable alert whose NSE fetches the change for `account` from `historyId` on. The text is a
- * key in the app's string catalog, so the alert shown when the NSE can't fetch is in the reader's language.
+ * Sends the alert for `mail` (`alertPayload`): the only way the relay reaches a device, so every alert carries a real
+ * email's sender and subject.
  */
-export function newMailPayload(account: string, historyId: string): object {
-  return {
-    aps: { alert: { "loc-key": "NEW_MAIL_PUSH" }, sound: "default", "mutable-content": 1 },
-    account,
-    historyId,
-  };
+export async function sendAlert(signer: ApnsSigner, device: Device, mail: NewMail, target: Target): Promise<PushOutcome> {
+  return sendPayload(signer, device, alertPayload(mail, target));
 }
 
-/**
- * The new-mail push for Outlook and IMAP accounts. The relay knows their subscriptions and watches by the app's own
- * account ID, so the NSE finds the account by that rather than by address.
- */
-export function accountMailPayload(accountID: string): object {
-  return {
-    aps: { alert: { "loc-key": "NEW_MAIL_PUSH" }, sound: "default", "mutable-content": 1 },
-    accountID,
-  };
-}
-
-export async function sendPush(signer: ApnsSigner, device: Device, payload: object): Promise<PushOutcome> {
+async function sendPayload(signer: ApnsSigner, device: Device, payload: object): Promise<PushOutcome> {
   const response = await fetch(`${APNS_ORIGINS[device.environment]}/3/device/${device.token}`, {
     method: "POST",
     headers: {

@@ -163,7 +163,7 @@ private final class FakeSource: PushSource {
         if failingUnsubscribe { throw PushRelayClient.Failure.status(500) }
     }
 
-    func shareMailbox(with relay: any PushRelay) async throws {
+    func shareMailbox(with relay: any PushRelay, channel: PushChannel, level: NotificationLevel) async throws {
         sharedCount.withLock { $0 += 1 }
     }
 }
@@ -172,7 +172,8 @@ private struct NoRelay: PushRelay {
     var graphNotificationURL: URL { URL(string: "https://relay.example.test/v1/graph")! }
     func register(_ device: DeviceToken, proof: String) async throws {}
     func unregister(deviceToken: String, proof: String) async throws {}
-    func shareMailbox(refreshToken: String) async throws {}
+    func shareMailbox(refreshToken: String, primaryOnly: Bool) async throws {}
+    func shareGraphMailbox(subscriptionID: String, clientState: String, refreshToken: String) async throws {}
     func register(_ subscription: RelayGraphSubscription) async throws {}
     func unregisterGraphSubscription(id: String, clientState: String) async throws {}
     func register(_ watch: RelayMailboxWatch) async throws {}

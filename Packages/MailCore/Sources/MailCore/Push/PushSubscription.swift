@@ -47,14 +47,15 @@ public protocol PushSource: Sendable {
     /// Stops sending the account's mail to `deviceToken` through `channel`.
     func unsubscribe(_ channel: PushChannel, deviceToken: String, relay: any PushRelay) async throws
 
-    /// Gives `relay` what it needs to look at the account's mailbox before alerting, so it alerts only for new
-    /// Inbox mail. Runs on every refresh while alerts are on, so a new sign-in reaches the relay at once.
-    func shareMailbox(with relay: any PushRelay) async throws
+    /// Gives `relay` what it needs to read the account's new mail, since it alerts only with a real email's sender
+    /// and subject, at `level`. Runs on every refresh while alerts are on, with the subscription as stored, so a
+    /// new sign-in reaches the relay at once.
+    func shareMailbox(with relay: any PushRelay, channel: PushChannel, level: NotificationLevel) async throws
 }
 
 extension PushSource {
-    /// Most services notify only for new mail, so the relay needs nothing.
-    public func shareMailbox(with relay: any PushRelay) async throws {}
+    /// A service whose subscription already hands the relay its way in, as an IMAP watch does, shares nothing more.
+    public func shareMailbox(with relay: any PushRelay, channel: PushChannel, level: NotificationLevel) async throws {}
 }
 
 /// An Outlook device's Graph subscription, as the relay stores it.
@@ -82,13 +83,16 @@ public protocol PushRelay: Sendable {
     /// Gmail: registers the device for the address `proof` vouches for.
     func register(_ device: DeviceToken, proof: String) async throws
     func unregister(deviceToken: String, proof: String) async throws
-    /// Gmail: hands the relay the account's refresh token, so it can check the history a notification announces
-    /// and stay quiet for reads, archives and deletes. The relay finds the account from the token itself.
-    func shareMailbox(refreshToken: String) async throws
+    /// Gmail: hands the relay the account's refresh token, so it can read the mail a notification announces, and
+    /// whether the account alerts for its Primary category only. The relay finds the account from the token itself.
+    func shareMailbox(refreshToken: String, primaryOnly: Bool) async throws
 
     /// Outlook: stores or renews the device's Graph subscription.
     func register(_ subscription: RelayGraphSubscription) async throws
     func unregisterGraphSubscription(id: String, clientState: String) async throws
+    /// Outlook: hands the relay the account's refresh token, so it can read the mail Graph notifies about. The
+    /// subscription's clientState proves the device made it.
+    func shareGraphMailbox(subscriptionID: String, clientState: String, refreshToken: String) async throws
 
     /// IMAP: stores or renews the device's watch on the account's Inbox, which hands the relay the login.
     func register(_ watch: RelayMailboxWatch) async throws

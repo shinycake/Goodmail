@@ -1,7 +1,9 @@
 import { createExecutionContext, env, waitOnExecutionContext } from "cloudflare:test";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { base64Decode } from "../src/encoding";
+import { GMAIL_API, GOOGLE_TOKEN_URL } from "../src/gmail";
 import { GOOGLE_JWKS_URL } from "../src/google";
+import { GmailGrants } from "../src/grants";
 import worker, { type Env } from "../src/index";
 import { accountId, BURST_MS } from "../src/store";
 import { generateApnsKey, generateGoogleKey, idTokenClaims, jwksResponse, signGoogleToken, type TestGoogleKey } from "./keys";
@@ -36,12 +38,27 @@ beforeEach(async () => {
     env.DB.prepare("DELETE FROM deliveries"),
     env.DB.prepare("DELETE FROM graph_subscriptions"),
     env.DB.prepare("DELETE FROM push_times"),
+    env.DB.prepare("DELETE FROM gmail_grants"),
   ]);
+  // The app's token for the account, so the relay can read what each notification brought.
+  await new GmailGrants(env.DB, testEnv.EMAIL_HMAC_SECRET).store(
+    await accountId(EMAIL, testEnv.EMAIL_HMAC_SECRET),
+    "1//app-token",
+    false,
+    "1",
+    0,
+  );
   apnsCalls = [];
   apnsReplies = new Map();
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const request = new Request(input, init);
     if (request.url === GOOGLE_JWKS_URL) return jwksResponse([google]);
+    // A mailbox where every notification brought one unread email from Dana.
+    if (request.url === GOOGLE_TOKEN_URL) return Response.json({ access_token: "ya29.app", expires_in: 3599 });
+    if (request.url.startsWith(`${GMAIL_API}/history`)) {
+      return Response.json({ history: [{ id: "2", messagesAdded: [{ message: { id: "m1" } }] }] });
+    }
+    if (request.url.startsWith(`${GMAIL_API}/messages/m1`)) return Response.json(DANA);
     if (request.url.includes("push.apple.com")) {
       apnsCalls.push({ url: request.url, headers: request.headers, body: await request.json() });
       const token = request.url.split("/").pop() ?? "";
@@ -56,6 +73,13 @@ afterEach(() => {
 });
 
 const now = () => Math.floor(Date.now() / 1000);
+
+const DANA = {
+  id: "m1",
+  labelIds: ["INBOX", "UNREAD"],
+  internalDate: "1800000000000",
+  payload: { headers: [{ name: "From", value: '"Dana Levi" <dana@example.com>' }, { name: "Subject", value: "Lunch?" }] },
+};
 
 /** Runs a request through the Worker, including the work it hands to `waitUntil`. */
 async function send(request: Request): Promise<Response> {
@@ -152,7 +176,7 @@ describe("device registration", () => {
 });
 
 describe("Pub/Sub push", () => {
-  it("sends a mutable alert to APNs with a signed provider token", async () => {
+  it("sends an alert with the email's sender and subject to APNs, with a signed provider token", async () => {
     await register(DEVICE, "sandbox");
     await register(OTHER_DEVICE, "production");
     expect((await pubSubPush("4242")).status).toBe(204);
@@ -166,7 +190,7 @@ describe("Pub/Sub push", () => {
     expect(call.headers.get("apns-topic")).toBe("com.idanbirman.goodmail");
     expect(call.headers.get("apns-priority")).toBe("10");
     expect(call.body).toEqual({
-      aps: { alert: { "loc-key": "NEW_MAIL_PUSH" }, sound: "default", "mutable-content": 1 },
+      aps: { alert: { title: "Dana Levi", body: "Lunch?" }, sound: "default", "mutable-content": 1 },
       account: EMAIL,
       historyId: "4242",
     });

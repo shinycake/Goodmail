@@ -1,6 +1,14 @@
-import { accountMailPayload, type ApnsSigner, sendPush } from "./apns";
+import { type ApnsSigner, sendAlert } from "./apns";
 import type { Env } from "./env";
-import { type Connect, connectToServer, type ImapLogin, type InboxStatus, LoginRefused, watchInbox } from "./imap";
+import {
+  type Connect,
+  connectToServer,
+  type FreshMail,
+  type ImapLogin,
+  type InboxStatus,
+  LoginRefused,
+  watchInbox,
+} from "./imap";
 import { advanceWatch, type ImapWatch, loginSealer, refuseLogin, watchesDue } from "./imap-watches";
 import { forgetDeviceToken } from "./tokens";
 
@@ -45,8 +53,9 @@ async function watchMailbox(env: Env, signer: ApnsSigner, watches: ImapWatch[], 
   const sealed = await loginSealer(env.EMAIL_HMAC_SECRET).open(first.login);
   if (sealed === undefined) return console.warn("An IMAP login couldn't be opened");
   try {
-    const onStatus = async (inbox: InboxStatus) => {
-      await Promise.all(watches.map((watch) => alert(env, signer, watch, inbox)));
+    const onStatus = async (inbox: InboxStatus, fresh: FreshMail) => {
+      // One at a time: the new-mail check talks over the one connection.
+      for (const watch of watches) await alert(env, signer, watch, inbox, fresh);
     };
     await watchInbox(JSON.parse(sealed) as ImapLogin, until, onStatus, open);
   } catch (error) {
@@ -55,16 +64,26 @@ async function watchMailbox(env: Env, signer: ApnsSigner, watches: ImapWatch[], 
   }
 }
 
-/** Moves `watch` to `inbox`, alerting its device when new mail arrived. Keeps `watch.inbox` as the stored baseline. */
-async function alert(env: Env, signer: ApnsSigner, watch: ImapWatch, inbox: InboxStatus) {
+/** Mail this far below UIDNEXT and older is left alone: after a long gap, only the newest is worth an alert. */
+const MOST_CHECKED = 50;
+
+/**
+ * Moves `watch` to `inbox`, alerting its device with the newest mail that arrived and that the app alerts for
+ * (`FreshMail`): mail sent to oneself, or read or deleted before the check, stays quiet. Mail the server couldn't be
+ * asked about, or an alert APNs didn't take, moves the watch back, so the next STATUS or run tries again. Keeps
+ * `watch.inbox` as the stored baseline.
+ */
+async function alert(env: Env, signer: ApnsSigner, watch: ImapWatch, inbox: InboxStatus, fresh: FreshMail) {
   const before = watch.inbox;
   if (before.uidValidity === inbox.uidValidity && before.uidNext === inbox.uidNext) return;
   if (!(await advanceWatch(env.DB, watch.watchId, before, inbox))) return;
   watch.inbox = inbox;
   const arrived = before.uidValidity === inbox.uidValidity && inbox.uidNext > before.uidNext;
   if (!arrived) return;
-  const outcome = await sendPush(signer, watch.device, accountMailPayload(watch.account));
+  const arrival = await fresh(Math.max(before.uidNext, inbox.uidNext - MOST_CHECKED));
+  if (arrival.kind === "none") return;
+  const outcome =
+    arrival.kind === "mail" ? await sendAlert(signer, watch.device, arrival.newest, { accountID: watch.account }) : "failed";
   if (outcome === "gone") await forgetDeviceToken(env.DB, watch.device.token);
-  // The next STATUS or run alerts for it instead.
   if (outcome === "failed" && (await advanceWatch(env.DB, watch.watchId, inbox, before))) watch.inbox = before;
 }

@@ -11,15 +11,33 @@ export class GmailGrants {
     this.sealer = new Sealer(secret, "goodmail gmail grants v1");
   }
 
-  async store(account: string, refreshToken: string, now: number): Promise<void> {
+  /** Stores the token, with the account's history ID now, which the first notification checks from. */
+  async store(account: string, refreshToken: string, primaryOnly: boolean, historyId: string, now: number): Promise<void> {
     await this.db
       .prepare(
-        `INSERT INTO gmail_grants (account, refresh_token, token_hash, updated_at) VALUES (?1, ?2, ?3, ?4)
-         ON CONFLICT (account) DO UPDATE SET refresh_token = excluded.refresh_token,
-           token_hash = excluded.token_hash, updated_at = excluded.updated_at`,
+        `INSERT INTO gmail_grants (account, refresh_token, token_hash, primary_only, history_id, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+         ON CONFLICT (account) DO UPDATE SET refresh_token = excluded.refresh_token, token_hash = excluded.token_hash,
+           primary_only = excluded.primary_only, history_id = excluded.history_id, updated_at = excluded.updated_at`,
       )
-      .bind(account, await this.sealer.seal(refreshToken), await this.sealer.hash(refreshToken), now)
+      .bind(
+        account,
+        await this.sealer.seal(refreshToken),
+        await this.sealer.hash(refreshToken),
+        primaryOnly ? 1 : 0,
+        historyId,
+        now,
+      )
       .run();
+  }
+
+  /** The account's Primary Only choice and the history ID its token was stored at. */
+  async settings(account: string): Promise<{ primaryOnly: boolean; historyId: string | null }> {
+    const row = await this.db
+      .prepare("SELECT primary_only, history_id FROM gmail_grants WHERE account = ?1")
+      .bind(account)
+      .first<{ primary_only: number; history_id: string | null }>();
+    return { primaryOnly: row?.primary_only === 1, historyId: row?.history_id ?? null };
   }
 
   /** The account's refresh token, or undefined when it has no grant or the stored one can't be opened. */
@@ -31,13 +49,16 @@ export class GmailGrants {
     return row ? this.sealer.open(row.refresh_token) : undefined;
   }
 
-  /** Whether this exact refresh token is already stored, for any account. */
-  async holds(refreshToken: string): Promise<boolean> {
-    const row = await this.db
-      .prepare("SELECT 1 FROM gmail_grants WHERE token_hash = ?1")
-      .bind(await this.sealer.hash(refreshToken))
-      .first();
-    return row !== null;
+  /**
+   * Takes `primaryOnly` for the account this exact refresh token is stored under. `false` when no account holds it,
+   * so the token has to prove itself first.
+   */
+  async update(refreshToken: string, primaryOnly: boolean): Promise<boolean> {
+    const result = await this.db
+      .prepare("UPDATE gmail_grants SET primary_only = ?2 WHERE token_hash = ?1")
+      .bind(await this.sealer.hash(refreshToken), primaryOnly ? 1 : 0)
+      .run();
+    return result.meta.changes > 0;
   }
 
   async remove(account: string): Promise<void> {

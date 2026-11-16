@@ -4,6 +4,7 @@ compatibility_date = "2026-11-01"
 
 # Secrets are not here. Set them with `wrangler secret put` (see README.md): APNS_PRIVATE_KEY, EMAIL_HMAC_SECRET.
 [vars]
+OUTLOOK_CLIENT_ID = "aedf9c24-b8ba-4a4e-bb1a-cc594dec2bab"
 GOOGLE_CLIENT_ID = "847337870740-fpj7hd07nfsueispeug4nell21pf3vi2.apps.googleusercontent.com"
 # Must match the push subscription's audience.
 PUBSUB_AUDIENCE = "https://goodmail-push.goodmail-push-worker.workers.dev/v1/pubsub"

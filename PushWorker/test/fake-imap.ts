@@ -11,8 +11,23 @@ export interface FakeImap {
 
 export type Reply = (tag: string, command: string) => string[];
 
-/** iCloud as it answers the relay: LOGIN, STATUS and LOGOUT, with `status` as the Inbox's UIDs. */
-export function inboxServer(status: { uidValidity: number; uidNext: number }, login: "ok" | "refused" = "ok"): Reply {
+/** A message as the fake server's FETCH hands it over. */
+export interface FakeMessage {
+  uid: number;
+  flags?: string[];
+  from: string;
+  subject: string;
+}
+
+/**
+ * iCloud as it answers the relay: LOGIN, STATUS, EXAMINE, IDLE, the new-mail FETCH and LOGOUT, with `status` as the
+ * Inbox's UIDs. The FETCH hands over `messages()`, by default one unread email from Dana as the newest message.
+ */
+export function inboxServer(
+  status: { uidValidity: number; uidNext: number },
+  login: "ok" | "refused" = "ok",
+  messages: () => FakeMessage[] = () => [{ uid: status.uidNext - 1, from: "Dana Levi <dana@example.com>", subject: "Lunch?" }],
+): Reply {
   let idling = "";
   return (tag, command) => {
     if (tag === "DONE") return [`${idling} OK IDLE terminated`];
@@ -28,6 +43,19 @@ export function inboxServer(status: { uidValidity: number; uidNext: number }, lo
     }
     if (command.startsWith("STATUS")) {
       return [`* STATUS "INBOX" (UIDNEXT ${status.uidNext} UIDVALIDITY ${status.uidValidity})`, `${tag} OK STATUS done`];
+    }
+    if (command.startsWith("UID FETCH")) {
+      return [
+        ...messages().flatMap((message, index) => {
+          const headers = `From: ${message.from}\r\nSubject: ${message.subject}\r\n\r\n`;
+          return [
+            `* ${index + 1} FETCH (UID ${message.uid} FLAGS (${(message.flags ?? []).join(" ")}) BODY[HEADER.FIELDS (FROM SUBJECT)] {${headers.length}}`,
+            ...headers.split("\r\n").slice(0, -1),
+            ")",
+          ];
+        }),
+        `${tag} OK FETCH done`,
+      ];
     }
     if (command === "STARTTLS") return [`${tag} OK Begin TLS`];
     if (command === "LOGOUT") return ["* BYE", `${tag} OK LOGOUT completed`];

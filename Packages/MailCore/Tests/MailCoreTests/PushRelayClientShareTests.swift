@@ -14,20 +14,33 @@ struct PushRelayClientShareTests {
         let server = RecordingServer(status: 204)
         let relay = PushRelayClient(baseURL: URL(string: "https://relay.example.test/")!, http: server)
 
-        try await relay.shareMailbox(refreshToken: "1//app")
+        try await relay.shareMailbox(refreshToken: "1//app", primaryOnly: true)
 
         let request = try #require(server.requests.first)
         #expect(request.httpMethod == "POST")
         #expect(request.url?.path == "/v1/gmail/grants")
+        let body = try JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any]
+        #expect(body?["refreshToken"] as? String == "1//app")
+        #expect(body?["primaryOnly"] as? Bool == true)
+    }
+
+    @Test func outlookSharesUnderTheSubscriptionsClientState() async throws {
+        let server = RecordingServer(status: 204)
+        let relay = PushRelayClient(baseURL: URL(string: "https://relay.example.test/")!, http: server)
+
+        try await relay.shareGraphMailbox(subscriptionID: "s1", clientState: "secret", refreshToken: "M.app")
+
+        let request = try #require(server.requests.first)
+        #expect(request.url?.path == "/v1/graph/grants")
         let body = try JSONDecoder().decode([String: String].self, from: request.httpBody ?? Data())
-        #expect(body == ["refreshToken": "1//app"])
+        #expect(body == ["subscriptionId": "s1", "clientState": "secret", "refreshToken": "M.app"])
     }
 
     @Test func aTokenGoogleRefusesThrows() async {
         let relay = PushRelayClient(
             baseURL: URL(string: "https://relay.example.test/")!, http: RecordingServer(status: 401))
         await #expect(throws: PushRelayClient.Failure.unauthorized) {
-            try await relay.shareMailbox(refreshToken: "1//revoked")
+            try await relay.shareMailbox(refreshToken: "1//revoked", primaryOnly: false)
         }
     }
 }

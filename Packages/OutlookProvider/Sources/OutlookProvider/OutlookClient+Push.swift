@@ -50,6 +50,14 @@ extension OutlookClient: PushSource {
         return (.subscription(id: created.id, clientState: clientState), created.expirationDateTime)
     }
 
+    /// Hands the relay this account's refresh token, proven by the subscription's clientState, so it can read the
+    /// mail Graph notifies about and alert with its sender and subject.
+    public func shareMailbox(with relay: any PushRelay, channel: PushChannel, level: NotificationLevel) async throws {
+        guard case .subscription(let id, let clientState) = channel else { return }
+        try await relay.shareGraphMailbox(
+            subscriptionID: id, clientState: clientState, refreshToken: try await graph.session.refreshToken())
+    }
+
     public func unsubscribe(_ channel: PushChannel, deviceToken: String, relay: any PushRelay) async throws {
         guard case .subscription(let id, let clientState) = channel else { return }
         try await relay.unregisterGraphSubscription(id: id, clientState: clientState)

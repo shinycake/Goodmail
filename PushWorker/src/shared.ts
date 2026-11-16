@@ -1,9 +1,11 @@
 import { GoogleKeys } from "./google";
 import { MailboxCheck } from "./mailbox-check";
+import { OutlookCheck } from "./outlook";
 
 /** Shared by every request this isolate serves, so the JWKS and Gmail access tokens are fetched rarely. */
 export const googleKeys = new GoogleKeys();
 export const mailboxCheck = new MailboxCheck();
+export const outlookCheck = new OutlookCheck();
 
 /** A request the Worker answers with 400 and the message. */
 export class BadRequest extends Error {}

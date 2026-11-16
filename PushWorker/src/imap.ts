@@ -1,4 +1,5 @@
 import { connect } from "cloudflare:sockets";
+import { type Arrival, decodeEncodedWords, newestOf, RETRY, senderAddress, senderName } from "./new-mail";
 
 /** How the relay reaches an account's IMAP server. Never without TLS: the password goes over it. */
 export interface ImapLogin {
@@ -15,6 +16,12 @@ export interface InboxStatus {
   uidValidity: number;
   uidNext: number;
 }
+
+/**
+ * The newest mail at or above UID `since` that the app alerts for (unread, not deleted, not sent by the account
+ * itself), read as it is now, as `new-mail.ts` wants it. `retry` when the server couldn't answer.
+ */
+export type FreshMail = (since: number) => Promise<Arrival>;
 
 /** The server refused the login. The relay stops logging in with it, so it never locks the account. */
 export class LoginRefused extends Error {}
@@ -68,7 +75,7 @@ export async function inboxStatus(login: ImapLogin, open: Connect = connectToSer
 export async function watchInbox(
   login: ImapLogin,
   until: number,
-  onStatus: (status: InboxStatus) => Promise<void>,
+  onStatus: (status: InboxStatus, fresh: FreshMail) => Promise<void>,
   open: Connect = connectToServer,
   renewMs = IDLE_RENEW_MS,
 ): Promise<void> {
@@ -80,7 +87,7 @@ export async function watchInbox(
       timers.push(setTimeout(() => reject(new Error("IMAP server timed out")), ms));
     });
   try {
-    let conversation = await Promise.race([
+    const inbox = await Promise.race([
       (async () => {
         let conversation = new Conversation(socket);
         const greeting = await conversation.line();
@@ -92,20 +99,21 @@ export async function watchInbox(
           conversation = new Conversation(socket, conversation.tagsSent);
         }
         if (!/^\* PREAUTH\b/i.test(greeting)) await logIn(conversation, login);
-        await onStatus(await status(conversation));
-        return conversation;
+        const inbox = new Inbox(conversation, login.username);
+        await onStatus(await status(conversation), inbox.fresh);
+        return inbox;
       })(),
       timeout(TIMEOUT_MS),
     ]);
     if (Date.now() < deadline) {
-      await Promise.race([idle(conversation, deadline, renewMs, onStatus), timeout(deadline - Date.now() + TIMEOUT_MS)]).catch(
+      await Promise.race([idle(inbox, deadline, renewMs, onStatus), timeout(deadline - Date.now() + TIMEOUT_MS)]).catch(
         (error: unknown) => {
           if (error instanceof LoginRefused) throw error;
           console.warn(`IMAP watch ended early: ${error instanceof Error ? error.message : String(error)}`);
         },
       );
     }
-    await Promise.race([conversation.command("LOGOUT"), timeout(TIMEOUT_MS)]).catch(() => undefined);
+    await Promise.race([inbox.conversation.command("LOGOUT"), timeout(TIMEOUT_MS)]).catch(() => undefined);
   } finally {
     for (const timer of timers) clearTimeout(timer);
     await socket.close().catch(() => undefined);
@@ -124,12 +132,13 @@ async function status(conversation: Conversation): Promise<InboxStatus> {
  * Inbox grew (`* n EXISTS`). Returns at once when the server doesn't take IDLE.
  */
 async function idle(
-  conversation: Conversation,
+  inbox: Inbox,
   deadline: number,
   renewMs: number,
-  onStatus: (status: InboxStatus) => Promise<void>,
+  onStatus: (status: InboxStatus, fresh: FreshMail) => Promise<void>,
 ): Promise<void> {
-  await conversation.command("EXAMINE INBOX");
+  await inbox.examine();
+  const { conversation } = inbox;
   while (Date.now() < deadline) {
     let tag;
     try {
@@ -147,8 +156,109 @@ async function idle(
       }
     }
     await conversation.finish(tag, "DONE");
-    if (arrived) await onStatus(await status(conversation));
+    if (arrived) await onStatus(await status(conversation), inbox.fresh);
   }
+}
+
+/** The Inbox on one logged-in conversation, selected read-only once something needs it selected. */
+class Inbox {
+  private selection: "none" | "examined" = "none";
+
+  constructor(
+    readonly conversation: Conversation,
+    private readonly ownAddress: string,
+  ) {}
+
+  async examine(): Promise<void> {
+    if (this.selection === "examined") return;
+    await this.conversation.command("EXAMINE INBOX");
+    this.selection = "examined";
+  }
+
+  readonly fresh: FreshMail = async (since) => {
+    try {
+      await this.examine();
+      const untagged = await this.conversation.command(
+        `UID FETCH ${since}:* (UID FLAGS BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)])`,
+      );
+      const own = this.ownAddress.toLowerCase();
+      // `since:*` always matches the newest message, even one below `since`.
+      const found = parseFetch(untagged).filter(
+        (message) =>
+          message.uid >= since &&
+          !message.flags.some((flag) => /^\\(Seen|Deleted)$/i.test(flag)) &&
+          senderAddress(message.from) !== own,
+      );
+      return newestOf(found.map((message) => ({ mail: { sender: senderName(message.from), subject: message.subject }, at: message.uid })));
+    } catch (error) {
+      console.warn(`IMAP new-mail check failed: ${error instanceof Error ? error.message : String(error)}`);
+      return RETRY;
+    }
+  };
+}
+
+/** One message from a `UID FETCH (UID FLAGS BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)])`, its headers decoded. */
+export interface FetchedHeaders {
+  uid: number;
+  flags: string[];
+  from: string;
+  subject: string;
+}
+
+/**
+ * Reads a FETCH response's untagged lines. The headers come as a literal (`{n}` then the lines), which ends at its
+ * blank line; UID and FLAGS may come before or after it. A message without a UID or a From header is left out.
+ */
+export function parseFetch(lines: string[]): FetchedHeaders[] {
+  const messages: FetchedHeaders[] = [];
+  let current: { items: string; headers: string[] } | undefined;
+  let inLiteral = false;
+  const close = () => {
+    if (!current) return;
+    const uid = Number(/\bUID (\d+)/i.exec(current.items)?.[1]);
+    const flags = /\bFLAGS \(([^)]*)\)/i.exec(current.items)?.[1]?.trim().split(/\s+/).filter(Boolean) ?? [];
+    const headers = unfold(current.headers);
+    const from = headers.get("from");
+    if (Number.isSafeInteger(uid) && from) {
+      messages.push({ uid, flags, from: decodeEncodedWords(from), subject: decodeEncodedWords(headers.get("subject") ?? "") });
+    }
+    current = undefined;
+  };
+  for (const line of lines) {
+    if (inLiteral) {
+      if (line === "") inLiteral = false;
+      else current?.headers.push(line);
+      continue;
+    }
+    if (/^\* \d+ FETCH /i.test(line)) {
+      close();
+      current = { items: "", headers: [] };
+    }
+    if (!current) continue;
+    const literal = /\{\d+\}$/.exec(line);
+    current.items += ` ${literal ? line.slice(0, literal.index) : line}`;
+    if (literal) inLiteral = true;
+  }
+  close();
+  return messages;
+}
+
+/** Header lines, with continuation lines joined, by lowercased name; the first of a repeated name wins. */
+function unfold(lines: string[]): Map<string, string> {
+  const headers = new Map<string, string>();
+  let last: string | undefined;
+  for (const line of lines) {
+    if (/^[ \t]/.test(line) && last !== undefined) {
+      headers.set(last, `${headers.get(last)} ${line.trim()}`);
+      continue;
+    }
+    const colon = line.indexOf(":");
+    if (colon <= 0) continue;
+    const name = line.slice(0, colon).trim().toLowerCase();
+    last = headers.has(name) ? undefined : name;
+    if (last !== undefined) headers.set(name, line.slice(colon + 1).trim());
+  }
+  return headers;
 }
 
 /** Response codes that say the login may work later (RFC 5530), so it isn't refused for good. */

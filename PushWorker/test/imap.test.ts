@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
-import { type ImapLogin, type InboxStatus, inboxStatus, LoginRefused, parseStatus, watchInbox } from "../src/imap";
+import {
+  type ImapLogin,
+  type InboxStatus,
+  inboxStatus,
+  LoginRefused,
+  parseFetch,
+  parseStatus,
+  watchInbox,
+} from "../src/imap";
 import { fakeImap, inboxServer } from "./fake-imap";
 
 const ICLOUD: ImapLogin = {
@@ -19,6 +27,33 @@ describe("parseStatus", () => {
   it("ignores other lines and missing items", () => {
     expect(parseStatus("* CAPABILITY IMAP4rev1")).toBeUndefined();
     expect(parseStatus("* STATUS INBOX (UIDNEXT 12)")).toBeUndefined();
+  });
+});
+
+describe("parseFetch", () => {
+  it("reads UID, flags and the decoded headers, wherever the server puts UID and FLAGS", () => {
+    expect(
+      parseFetch([
+        "* 1 FETCH (UID 12 FLAGS (\\Seen) BODY[HEADER.FIELDS (FROM SUBJECT)] {60}",
+        "From: Dana <dana@example.com>",
+        "Subject: =?UTF-8?B?16nXnNeV150=?=",
+        " continued",
+        "",
+        ")",
+        "* 2 FETCH (BODY[HEADER.FIELDS (FROM SUBJECT)] {40}",
+        "Subject: Hi",
+        "From: noa@example.com",
+        "",
+        " UID 13 FLAGS ())",
+      ]),
+    ).toEqual([
+      { uid: 12, flags: ["\\Seen"], from: "Dana <dana@example.com>", subject: "שלום continued" },
+      { uid: 13, flags: [], from: "noa@example.com", subject: "Hi" },
+    ]);
+  });
+
+  it("leaves out a message without a From header", () => {
+    expect(parseFetch(["* 1 FETCH (UID 12 FLAGS () BODY[HEADER.FIELDS (FROM SUBJECT)] {2}", "", ")"])).toEqual([]);
   });
 });
 

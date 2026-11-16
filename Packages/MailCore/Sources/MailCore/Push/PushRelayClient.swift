@@ -33,8 +33,14 @@ public struct PushRelayClient: PushRelay {
         try await send("DELETE", "v1/devices", ["idToken": proof, "deviceToken": deviceToken])
     }
 
-    public func shareMailbox(refreshToken: String) async throws {
-        try await send("POST", "v1/gmail/grants", ["refreshToken": refreshToken])
+    public func shareMailbox(refreshToken: String, primaryOnly: Bool) async throws {
+        try await send("POST", "v1/gmail/grants", GmailGrant(refreshToken: refreshToken, primaryOnly: primaryOnly))
+    }
+
+    public func shareGraphMailbox(subscriptionID: String, clientState: String, refreshToken: String) async throws {
+        try await send(
+            "POST", "v1/graph/grants",
+            ["subscriptionId": subscriptionID, "clientState": clientState, "refreshToken": refreshToken])
     }
 
     public func register(_ subscription: RelayGraphSubscription) async throws {
@@ -112,4 +118,10 @@ private struct MailboxWatchRegistration: Encodable {
         username = watch.username
         password = watch.password
     }
+}
+
+/// The body of `POST /v1/gmail/grants`.
+private struct GmailGrant: Encodable {
+    let refreshToken: String
+    let primaryOnly: Bool
 }

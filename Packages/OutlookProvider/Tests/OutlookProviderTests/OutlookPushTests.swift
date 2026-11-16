@@ -28,6 +28,17 @@ struct OutlookPushTests {
         }
     }
 
+    @Test func sharingHandsTheRelayTheRefreshTokenUnderTheSubscriptionsClientState() async throws {
+        let relay = RecordingRelay()
+        let client = try await OutlookClient.signedIn(to: graph())
+
+        try await client.shareMailbox(
+            with: relay, channel: .subscription(id: subscriptionID, clientState: "secret"), level: .all)
+        try await client.shareMailbox(with: relay, channel: .watch, level: .all)
+
+        #expect(relay.shared == [[subscriptionID, "secret", "refresh"]])
+    }
+
     @Test func subscribingAsksForNewInboxMailAndRegistersItWithTheRelay() async throws {
         let graph = graph()
         let relay = RecordingRelay()
@@ -97,6 +108,10 @@ struct OutlookPushTests {
 private final class RecordingRelay: PushRelay {
     private let graphs = Mutex<[RelayGraphSubscription]>([])
     private let removed = Mutex<[String]>([])
+    private let shares = Mutex<[[String]]>([])
+
+    /// Each share's subscription ID, clientState and refresh token.
+    var shared: [[String]] { shares.withLock { $0 } }
 
     var registered: [RelayGraphSubscription] { graphs.withLock { $0 } }
     var unregistered: [String] { removed.withLock { $0 } }
@@ -104,7 +119,10 @@ private final class RecordingRelay: PushRelay {
     var graphNotificationURL: URL { URL(string: "https://relay.example.test/v1/graph")! }
     func register(_ device: DeviceToken, proof: String) async throws {}
     func unregister(deviceToken: String, proof: String) async throws {}
-    func shareMailbox(refreshToken: String) async throws {}
+    func shareMailbox(refreshToken: String, primaryOnly: Bool) async throws {}
+    func shareGraphMailbox(subscriptionID: String, clientState: String, refreshToken: String) async throws {
+        shares.withLock { $0.append([subscriptionID, clientState, refreshToken]) }
+    }
     func register(_ subscription: RelayGraphSubscription) async throws { graphs.withLock { $0.append(subscription) } }
     func unregisterGraphSubscription(id: String, clientState: String) async throws {
         removed.withLock { $0.append(id) }

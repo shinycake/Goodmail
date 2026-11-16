@@ -169,7 +169,7 @@ describe("polling", () => {
     expect(apnsCalls).toHaveLength(1);
     expect(apnsCalls[0]?.url).toBe(`https://api.sandbox.push.apple.com/3/device/${DEVICE}`);
     expect(apnsCalls[0]?.body).toEqual({
-      aps: { alert: { "loc-key": "NEW_MAIL_PUSH" }, sound: "default", "mutable-content": 1 },
+      aps: { alert: { title: "Dana Levi", body: "Lunch?" }, sound: "default", "mutable-content": 1 },
       accountID: "account-1",
     });
     await poll();
@@ -190,6 +190,44 @@ describe("polling", () => {
     await run;
     expect(imap.sessions).toHaveLength(1);
     expect((await findWatch(env.DB, WATCH_ID))?.inbox.uidNext).toBe(101);
+  });
+
+  it("stays quiet for mail sent to oneself, or already read or deleted, reading only what arrived", async () => {
+    await register();
+    server = inboxServer({ uidValidity: 7, uidNext: 104 }, "ok", () => [
+      // `100:*` also matches the newest message below 100, which must not count.
+      { uid: 99, from: "Dana <dana@example.com>", subject: "Old" },
+      { uid: 100, from: "Me <Someone@iCloud.com>", subject: "Goodmail send timing test" },
+      { uid: 101, flags: ["\\Seen"], from: "Dana <dana@example.com>", subject: "Read" },
+      { uid: 102, flags: ["\\Deleted"], from: "Dana <dana@example.com>", subject: "Deleted" },
+    ]);
+    imap.sessions.length = 0;
+    await poll();
+    expect(apnsCalls).toHaveLength(0);
+    expect(imap.sessions[0]?.lines).toContain("g4 UID FETCH 100:* (UID FLAGS BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)])");
+    expect((await findWatch(env.DB, WATCH_ID))?.inbox.uidNext).toBe(104);
+  });
+
+  it("alerts with the newest email's decoded sender and subject", async () => {
+    await register();
+    server = inboxServer({ uidValidity: 7, uidNext: 102 }, "ok", () => [
+      { uid: 100, from: "Dana <dana@example.com>", subject: "First" },
+      { uid: 101, from: "=?UTF-8?B?16DXldei?= <noa@example.com>", subject: "=?UTF-8?Q?=D7=A9=D7=9C=D7=95=D7=9D?=" },
+    ]);
+    await poll();
+    expect(apnsCalls[0]?.body).toMatchObject({ aps: { alert: { title: "נוע", body: "שלום" } } });
+  });
+
+  it("tries again on the next check when the server can't answer the new-mail check", async () => {
+    await register();
+    const plain = inboxServer({ uidValidity: 7, uidNext: 102 });
+    server = (tag, command) => (command.startsWith("UID FETCH") ? [`${tag} BAD no`] : plain(tag, command));
+    await poll();
+    expect(apnsCalls).toHaveLength(0);
+    expect((await findWatch(env.DB, WATCH_ID))?.inbox.uidNext).toBe(100);
+    server = plain;
+    await poll();
+    expect(apnsCalls).toHaveLength(1);
   });
 
   it("stays quiet when nothing arrived", async () => {

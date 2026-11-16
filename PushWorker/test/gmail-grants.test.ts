@@ -20,6 +20,18 @@ let refreshes: number;
 /** What the fake history endpoint answers, and the start IDs it was asked for. */
 let historyReply: () => Response;
 let historyStarts: string[];
+/** The fake mailbox's messages by ID, as Gmail answers `format=metadata`. */
+let messages: Map<string, Record<string, unknown>>;
+/** The last alert APNs was sent. */
+let lastAlert: unknown;
+
+function gmailMessage(labelIds: string[], from = '"Dana Levi" <dana@example.com>', subject = "Lunch?", at = "1800000000000") {
+  return {
+    labelIds,
+    internalDate: at,
+    payload: { headers: [{ name: "From", value: from }, { name: "Subject", value: subject }] },
+  };
+}
 
 beforeAll(async () => {
   google = await generateGoogleKey("grant-test-key");
@@ -32,6 +44,8 @@ beforeEach(async () => {
   );
   apnsPushes = 0;
   historyStarts = [];
+  messages = new Map([["m1", gmailMessage(["INBOX", "UNREAD"])]]);
+  lastAlert = undefined;
   refreshes = 0;
   tokenReply = () => Response.json({ access_token: "ya29.app", expires_in: 3599, scope: FULL_SCOPE });
   historyReply = () => Response.json({ history: [{ id: "12", messagesAdded: [{ message: { id: "m1" } }] }] });
@@ -41,6 +55,7 @@ beforeEach(async () => {
     if (request.url === GOOGLE_JWKS_URL) return jwksResponse([google]);
     if (request.url.includes("push.apple.com")) {
       apnsPushes += 1;
+      lastAlert = await request.json();
       return new Response(null, { status: 200 });
     }
     if (request.url === GOOGLE_TOKEN_URL) {
@@ -55,6 +70,11 @@ beforeEach(async () => {
       expect(url.searchParams.get("labelId")).toBe("INBOX");
       expect(url.searchParams.get("historyTypes")).toBe("messageAdded");
       return historyReply();
+    }
+    if (url.pathname.includes("/users/me/messages/")) {
+      expect(url.searchParams.get("format")).toBe("metadata");
+      const found = messages.get(decodeURIComponent(url.pathname.split("/").pop() ?? ""));
+      return found ? Response.json(found) : new Response(null, { status: 404 });
     }
     throw new Error(`unexpected fetch ${request.url}`);
   });
@@ -134,11 +154,25 @@ describe("Gmail grants", () => {
 });
 
 describe("Pub/Sub push with a grant", () => {
-  it("alerts when the history shows a message added to the Inbox, checking from the last history ID", async () => {
+  it("alerts with the new email's sender and subject, checking from the last history ID", async () => {
     await primed();
     expect((await pubSub(12)).status).toBe(204);
     expect(apnsPushes).toBe(1);
-    expect(historyStarts).toEqual(["10"]);
+    expect(historyStarts.at(-1)).toBe("10");
+    expect(lastAlert).toEqual({
+      aps: { alert: { title: "Dana Levi", body: "Lunch?" }, sound: "default", "mutable-content": 1 },
+      account: EMAIL,
+      historyId: "12",
+    });
+  });
+
+  it("alerts for the newest of several new emails", async () => {
+    await primed();
+    messages.set("m2", gmailMessage(["INBOX", "UNREAD"], "Noa <noa@example.com>", "Later", "1800000005000"));
+    historyReply = () =>
+      Response.json({ history: [{ id: "12", messagesAdded: [{ message: { id: "m1" } }, { message: { id: "m2" } }] }] });
+    await pubSub(12);
+    expect(lastAlert).toMatchObject({ aps: { alert: { title: "Noa", body: "Later" } } });
   });
 
   it("sends nothing for a read, archive, delete or label change", async () => {
@@ -148,14 +182,45 @@ describe("Pub/Sub push with a grant", () => {
     expect(apnsPushes).toBe(0);
   });
 
-  it("alerts when Gmail can't say, as for a history ID too old to list", async () => {
+  it("sends nothing for mail sent to oneself, read or archived already, or gone", async () => {
     await primed();
-    historyReply = () => new Response(null, { status: 404 });
-    await pubSub(14);
+    messages.set("own", gmailMessage(["INBOX", "UNREAD", "SENT"]));
+    messages.set("read", gmailMessage(["INBOX"]));
+    messages.set("archived", gmailMessage(["UNREAD"]));
+    historyReply = () =>
+      Response.json({
+        history: [{ id: "13", messagesAdded: ["own", "read", "archived", "gone"].map((id) => ({ message: { id } })) }],
+      });
+    expect((await pubSub(13)).status).toBe(204);
+    expect(apnsPushes).toBe(0);
+  });
+
+  it("skips other categories when the app alerts for Primary only", async () => {
+    await registerDevice();
+    expect((await send("/v1/gmail/grants", "POST", { refreshToken: GRANT, primaryOnly: true })).status).toBe(204);
+    messages.set("m1", gmailMessage(["INBOX", "UNREAD", "CATEGORY_PROMOTIONS"]));
+    await pubSub(12);
+    expect(apnsPushes).toBe(0);
+  });
+
+  it("asks Pub/Sub to deliver again when Gmail can't answer, and alerts then", async () => {
+    await primed();
+    historyReply = () => new Response(null, { status: 500 });
+    expect((await pubSub(14)).status).toBe(503);
+    expect(apnsPushes).toBe(0);
+    historyReply = () => Response.json({ history: [{ id: "14", messagesAdded: [{ message: { id: "m1" } }] }] });
+    expect((await pubSub(14)).status).toBe(204);
     expect(apnsPushes).toBe(1);
   });
 
-  it("alerts and forgets the grant once Google stops honoring it", async () => {
+  it("sends nothing when the history is too old to list, as nothing can say what arrived", async () => {
+    await primed();
+    historyReply = () => new Response(null, { status: 404 });
+    expect((await pubSub(14)).status).toBe(204);
+    expect(apnsPushes).toBe(0);
+  });
+
+  it("sends nothing and forgets the token once Google stops honoring it", async () => {
     await registerDevice();
     expect((await send("/v1/gmail/grants", "POST", { refreshToken: GRANT })).status).toBe(204);
     await env.DB.prepare("INSERT INTO deliveries (account, history_id) VALUES (?1, ?2)")
@@ -163,15 +228,21 @@ describe("Pub/Sub push with a grant", () => {
       .run();
     tokenReply = () => Response.json({ error: "invalid_grant" }, { status: 400 });
     await pubSub(15);
-    expect(apnsPushes).toBe(1);
+    expect(apnsPushes).toBe(0);
     expect(await storedGrant()).toBeNull();
   });
 
-  it("alerts for the first notification, which has no history ID to check from", async () => {
+  it("checks the first notification from the history ID the token was stored at", async () => {
     await registerDevice();
     expect((await send("/v1/gmail/grants", "POST", { refreshToken: GRANT })).status).toBe(204);
-    await pubSub(10);
+    await pubSub(11);
     expect(apnsPushes).toBe(1);
-    expect(historyStarts).toEqual([]);
+    expect(historyStarts).toEqual(["10"]);
+  });
+
+  it("sends nothing for an account without a token, since it can't read the mail", async () => {
+    await registerDevice();
+    await pubSub(11);
+    expect(apnsPushes).toBe(0);
   });
 });

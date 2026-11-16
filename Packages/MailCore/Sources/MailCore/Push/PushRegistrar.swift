@@ -59,7 +59,9 @@ public actor PushRegistrar {
         case .none:
             break
         }
-        if level != .off { try await source.shareMailbox(with: relay) }
+        if level != .off, let current = try store.pushSubscription(for: account) {
+            try await source.shareMailbox(with: relay, channel: current.channel, level: level)
+        }
     }
 
     /// Takes this device off the relay for an account about to be removed.

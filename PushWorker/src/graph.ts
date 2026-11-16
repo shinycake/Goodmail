@@ -89,3 +89,8 @@ export async function verifiedSubscription(
     expiresAt: row.expires_at,
   };
 }
+
+/** Whether any device still has a subscription for the account. */
+export async function hasGraphSubscriptions(db: D1Database, account: string): Promise<boolean> {
+  return (await db.prepare("SELECT 1 FROM graph_subscriptions WHERE account = ?1").bind(account).first()) !== null;
+}

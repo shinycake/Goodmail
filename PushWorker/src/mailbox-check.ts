@@ -1,13 +1,14 @@
-import { type AccessToken, GrantRevoked, inboxChange, refreshAccessToken } from "./gmail";
+import { type AccessToken, GrantRevoked, inboxArrival, refreshAccessToken } from "./gmail";
 import type { GmailGrants } from "./grants";
+import { type Arrival, NONE, RETRY } from "./new-mail";
 
 /** Access tokens are reused until this close to expiry. */
 const TOKEN_MARGIN_MS = 60_000;
 
 /**
- * Decides whether a Gmail notification alerts: only when its history shows new Inbox mail. Anything it can't tell
- * (no grant, no earlier history ID, Google unreachable) alerts, as before the check existed, and the device's
- * extension sorts it out.
+ * Reads what a Gmail notification brought, with the app's own token for the account (`new-mail.ts` decides what
+ * alerts). Without a token there is no way to read the mail, so nothing alerts; a token Google stopped honoring is
+ * forgotten until the app sends a new one.
  */
 export class MailboxCheck {
   /** Access tokens by account, shared by the requests this isolate serves. */
@@ -15,24 +16,25 @@ export class MailboxCheck {
 
   constructor(private readonly now: () => number = () => Date.now()) {}
 
-  async verdict(
-    grants: GmailGrants,
-    clientId: string,
-    account: string,
-    previousHistoryId: string | null,
-  ): Promise<"alert" | "quiet"> {
-    if (previousHistoryId === null) return "alert";
+  /** What arrived since `previousHistoryId`, or since the token was stored when this is the first notification. */
+  async arrival(grants: GmailGrants, clientId: string, account: string, previousHistoryId: string | null): Promise<Arrival> {
     try {
       const token = await this.token(grants, clientId, account);
-      if (!token) return "alert";
-      const change = await inboxChange(token, previousHistoryId.replace(/^0+(?=\d)/, ""));
-      if (change === "unknown") this.tokens.delete(account);
-      return change === "none" ? "quiet" : "alert";
+      if (!token) return NONE;
+      const settings = await grants.settings(account);
+      const start = previousHistoryId ?? settings.historyId;
+      if (start === null) return NONE;
+      const arrival = await inboxArrival(token, start.replace(/^0+(?=\d)/, ""), settings.primaryOnly);
+      if (arrival.kind === "retry") this.tokens.delete(account);
+      return arrival;
     } catch (error) {
       this.tokens.delete(account);
-      if (error instanceof GrantRevoked) await grants.remove(account);
-      else console.warn(`Gmail check failed: ${String(error)}`);
-      return "alert";
+      if (error instanceof GrantRevoked) {
+        await grants.remove(account);
+        return NONE;
+      }
+      console.warn(`Gmail check failed: ${String(error)}`);
+      return RETRY;
     }
   }
 
