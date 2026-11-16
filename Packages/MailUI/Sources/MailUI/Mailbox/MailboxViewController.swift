@@ -518,6 +518,8 @@ extension MailboxViewController {
         // With nothing selected, show what the list as a whole allows, disabled, so the toolbar doesn't jump.
         let threads = (ids.isEmpty ? snapshot.itemIdentifiers : ids).compactMap { threadsByID[$0] }
         let actions = MailboxViewModel.bulkActions(for: threads, in: viewModel.mailbox)
+        // What takes the threads out of the way is what selecting is most for, so it's the last to fold into More.
+        let away = threads.first.map { ThreadPlace($0, in: viewModel.mailbox).awayActions } ?? []
         let items = actions.map { action in
             // With nothing selected, Trash's Delete Forever empties it.
             let emptiesTrash = action == .deleteForever && ids.isEmpty && viewModel.isTrash
@@ -530,6 +532,7 @@ extension MailboxViewController {
                     performOnSelection(action, all: emptiesTrash)
                 })
             item.isEnabled = !ids.isEmpty || emptiesTrash
+            if away.contains(action) { item.visibilityPriority = .high }
             return item
         }
         // Labels belong to an account, so the picker opens for one account's threads at a time.

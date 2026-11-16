@@ -120,14 +120,29 @@ public final class ThreadViewController: UIViewController {
 
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        navigationController?.setToolbarHidden(viewModel.layout == .chat, animated: animated)
+        showToolbar(animated: animated)
         wear(.account(viewModel.accountColor))
+    }
+
+    /// Again once on screen, for a swipe back that was let go of before the list took over: the list set its toolbar
+    /// as it started to appear.
+    public override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        showToolbar(animated: animated)
     }
 
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        navigationController?.setToolbarHidden(true, animated: animated)
         if isMovingFromParent || isBeingDismissed { composer.finish() }
+    }
+
+    /// Letters keep the toolbar; the chat's composer takes its place. The toolbar belongs to the stack, and each
+    /// screen sets it as it appears, so the reader touches it only while it is the one on top: once it is going back
+    /// to the list, the list has set its own, and a change to the thread then must not hide the list's Search,
+    /// New Message and selection actions.
+    private func showToolbar(animated: Bool) {
+        guard let navigationController, navigationController.topViewController === self else { return }
+        navigationController.setToolbarHidden(viewModel.layout == .chat, animated: animated)
     }
 
     /// Keeps the conversation's end clear of the composer, which rides on top of the keyboard.
@@ -177,7 +192,7 @@ public final class ThreadViewController: UIViewController {
         NSLayoutConstraint.activate(chat ? chatWidth : readableWidth)
         stack.arrangedSubviews.first?.isHidden = chat
         composer.isHidden = !chat
-        if viewIfLoaded?.window != nil { navigationController?.setToolbarHidden(chat, animated: true) }
+        if viewIfLoaded?.window != nil { showToolbar(animated: true) }
         let subject = displaySubject
         navigationItem.title = chat ? subject : nil
         navigationItem.subtitle = chat ? participantsText : nil
