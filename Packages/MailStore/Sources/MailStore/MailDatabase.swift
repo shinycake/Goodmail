@@ -20,6 +20,8 @@ public final class MailDatabase: Sendable {
 
         var configuration = Configuration()
         configuration.busyMode = .timeout(5)
+        // So `suspendAll()` can release the locks before iOS suspends the process (0xdead10cc).
+        configuration.observesSuspensionNotifications = true
         let pool = try DatabasePool(path: url.path, configuration: configuration)
         try Self.migrator.migrate(pool)
         try Self.fillMessageText(in: pool)

@@ -114,7 +114,11 @@ extension PushCoordinator: UNUserNotificationCenterDelegate {
         let reply = (response as? UNTextInputNotificationResponse)?.userText
         let done = MainActorCompletion(completionHandler)
         Task { @MainActor in
-            if let thread { await answer(thread, action: action, reply: reply) }
+            if let thread {
+                await BackgroundDatabaseWork.shared.run("Notification action") {
+                    await answer(thread, action: action, reply: reply)
+                }
+            }
             done.call()
         }
     }

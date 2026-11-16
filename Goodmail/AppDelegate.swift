@@ -32,6 +32,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
+        _ = BackgroundDatabaseWork.shared
         syncScheduler.start()
         push.start(application)
         snoozeAlarms.start()

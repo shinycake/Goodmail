@@ -47,19 +47,23 @@ final class SyncScheduler {
         foreground?.cancel()
         watchers.start()
         foreground = Task { [model, log, watchers] in
-            async let prefetch: Void = model.prefetchWhenConnectionAllows()
-            while !Task.isCancelled {
-                // Accounts added or removed meanwhile.
-                watchers.follow()
-                do {
-                    try await model.syncAll()
-                    await model.markInboxSeen()
-                } catch {
-                    log.error("Foreground sync failed: \(error, privacy: .public)")
+            // Leaving the foreground cancels this, and the sync under way may be writing: the app stays awake, and the
+            // database usable, until it stops.
+            await BackgroundDatabaseWork.shared.run("Foreground sync") {
+                async let prefetch: Void = model.prefetchWhenConnectionAllows()
+                while !Task.isCancelled {
+                    // Accounts added or removed meanwhile.
+                    watchers.follow()
+                    do {
+                        try await model.syncAll()
+                        await model.markInboxSeen()
+                    } catch {
+                        log.error("Foreground sync failed: \(error, privacy: .public)")
+                    }
+                    try? await Task.sleep(for: Self.foregroundInterval)
                 }
-                try? await Task.sleep(for: Self.foregroundInterval)
+                await prefetch
             }
-            await prefetch
         }
     }
 }

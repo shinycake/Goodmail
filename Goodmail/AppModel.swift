@@ -446,7 +446,8 @@ final class Senders {
     private var senders: [AccountID: Sender] = [:]
     /// Made with the app model at launch, so iOS can hand over outcomes from earlier launches.
     private(set) lazy var uploads = BackgroundUploads { [weak self] ticket, outcome in
-        await self?.complete(ticket, with: outcome)
+        // iOS may have woken the app in the background just for this.
+        await BackgroundDatabaseWork.shared.run("Upload outcome") { await self?.complete(ticket, with: outcome) }
     }
 
     init(make: @escaping (AccountID, any UploadTransport) throws -> Sender) {
@@ -460,14 +461,13 @@ final class Senders {
 
     func deliver(_ id: AccountID, at date: Date) async {
         guard date.timeIntervalSinceNow <= Self.longestHeldWait else { return }
-        let application = UIApplication.shared
-        let background = application.beginBackgroundTask(withName: "Send")
-        defer { if background != .invalid { application.endBackgroundTask(background) } }
-        let wait = date.timeIntervalSinceNow
-        if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
-        guard let sender = sender(for: id) else { return }
-        let went = await sender.flush()
-        if !went.isEmpty { await onSent?(id, went) }
+        await BackgroundDatabaseWork.shared.run("Send") {
+            let wait = date.timeIntervalSinceNow
+            if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
+            guard let sender = sender(for: id) else { return }
+            let went = await sender.flush()
+            if !went.isEmpty { await onSent?(id, went) }
+        }
     }
 
     private func complete(_ ticket: UploadTicket, with outcome: UploadOutcome) async {

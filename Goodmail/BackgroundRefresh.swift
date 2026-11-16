@@ -50,13 +50,17 @@ nonisolated struct BackgroundRefresh: Sendable {
         schedule()
         let completion = Completion(task)
         let sync = Task { [model] in
-            do {
-                try await model.syncAll(prefetch: false)
-                completion.finish(success: true)
-            } catch {
-                Self.log.error("Background sync failed: \(error, privacy: .public)")
-                completion.finish(success: false)
+            let success = await BackgroundDatabaseWork.shared.run("Background refresh") {
+                do {
+                    try await model.syncAll(prefetch: false)
+                    return true
+                } catch {
+                    Self.log.error("Background sync failed: \(error, privacy: .public)")
+                    return false
+                }
             }
+            // After the database is suspended again: completing lets iOS suspend the app.
+            completion.finish(success: success)
         }
         task.expirationHandler = { sync.cancel() }
     }

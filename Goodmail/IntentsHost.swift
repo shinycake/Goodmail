@@ -48,16 +48,17 @@
             try database.cachedMessages(inThread: id)
         }
 
+        // Intents can run with the app in the background, as from Siri or a widget, so their writes keep it awake.
         func perform(_ action: ThreadAction, on threads: [ThreadSummary.ID]) async throws -> MailCommands.Undo {
-            try await commands.perform(action, on: threads)
+            try await BackgroundDatabaseWork.shared.run("Intent") { try await commands.perform(action, on: threads) }
         }
 
         func pin(_ threads: [ThreadSummary.ID], _ pinned: Bool) async throws -> MailCommands.Undo {
-            try await commands.pin(threads, pinned)
+            try await BackgroundDatabaseWork.shared.run("Intent") { try await commands.pin(threads, pinned) }
         }
 
         func undo(_ undo: MailCommands.Undo) async throws {
-            try await commands.undo(undo)
+            try await BackgroundDatabaseWork.shared.run("Intent") { try await commands.undo(undo) }
         }
 
         @MainActor func open(_ route: Route) { routes.open(route) }

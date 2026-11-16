@@ -41,6 +41,9 @@ final class NotificationService: UNNotificationServiceExtension {
     }
 
     override func serviceExtensionTimeWillExpire() {
+        // The fetch may still be writing, and iOS suspends the extension next: holding a lock in the shared container
+        // then gets it killed (0xdead10cc).
+        MailDatabase.suspendAll()
         delivery.withLock { $0 }?.expire()
     }
 
