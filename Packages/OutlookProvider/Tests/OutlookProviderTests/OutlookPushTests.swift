@@ -104,6 +104,7 @@ private final class RecordingRelay: PushRelay {
     var graphNotificationURL: URL { URL(string: "https://relay.example.test/v1/graph")! }
     func register(_ device: DeviceToken, proof: String) async throws {}
     func unregister(deviceToken: String, proof: String) async throws {}
+    func shareMailbox(refreshToken: String) async throws {}
     func register(_ subscription: RelayGraphSubscription) async throws { graphs.withLock { $0.append(subscription) } }
     func unregisterGraphSubscription(id: String, clientState: String) async throws {
         removed.withLock { $0.append(id) }

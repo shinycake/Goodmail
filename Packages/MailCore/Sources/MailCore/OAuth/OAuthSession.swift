@@ -96,11 +96,16 @@ public actor OAuthSession {
         try keychain.remove(refreshTokenKey)
     }
 
+    /// The stored refresh token, for the push relay's look at the mailbox (`PushSource.shareMailbox`).
+    public func refreshToken() throws -> String {
+        guard let stored = try keychain.data(for: refreshTokenKey) else { throw Failure.signedOut }
+        return String(decoding: stored, as: UTF8.self)
+    }
+
     public nonisolated var refreshTokenKey: String { "\(client.name).refresh-token.\(accountID.rawValue)" }
 
     private func refresh() async throws -> String {
-        guard let stored = try keychain.data(for: refreshTokenKey) else { throw Failure.signedOut }
-        let request = client.refreshRequest(refreshToken: String(decoding: stored, as: UTF8.self))
+        let request = client.refreshRequest(refreshToken: try refreshToken())
         let (data, response) = try await http.data(for: request)
         let tokens = try OAuthClient.tokens(from: data, status: response.statusCode, receivedAt: .now)
         try remember(tokens)

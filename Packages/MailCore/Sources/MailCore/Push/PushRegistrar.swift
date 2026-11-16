@@ -40,8 +40,9 @@ public actor PushRegistrar {
         return due ? .subscribe(renewing: subscription.channel) : .none
     }
 
-    /// Brings one account's subscription up to date. Throws what the relay or the service threw; what was done
-    /// before is kept, and the next call takes it from there.
+    /// Brings one account's subscription up to date, and while alerts are on, shares the mailbox with the relay.
+    /// Throws what the relay or the service threw; what was done before is kept, and the next call takes it from
+    /// there.
     public func refresh(_ account: AccountID, source: any PushSource, device: DeviceToken) async throws {
         let at = now()
         let level = try store.notifications(for: account, now: at).level
@@ -58,6 +59,7 @@ public actor PushRegistrar {
         case .none:
             break
         }
+        if level != .off { try await source.shareMailbox(with: relay) }
     }
 
     /// Takes this device off the relay for an account about to be removed.

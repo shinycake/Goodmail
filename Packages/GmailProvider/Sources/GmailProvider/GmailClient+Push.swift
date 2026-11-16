@@ -19,6 +19,12 @@ extension GmailClient: PushSource {
         try await relay.unregister(deviceToken: deviceToken, proof: try await session.validIDToken())
     }
 
+    /// Hands the relay this account's refresh token, so it alerts only when the history a notification announces
+    /// added mail to the Inbox. The watch covers every change to the Inbox, reads, archives and deletes included.
+    public func shareMailbox(with relay: any PushRelay) async throws {
+        try await relay.shareMailbox(refreshToken: try await session.refreshToken())
+    }
+
     /// Starts or renews the account's watch on its Inbox. Returns when it lapses.
     func watch() async throws -> Date {
         let body = GmailWatchRequest(

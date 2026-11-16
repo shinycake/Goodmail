@@ -102,6 +102,19 @@ struct PushRegistrarTests {
         #expect(try store.pushSubscription(for: account)?.device == device)
     }
 
+    @Test func theMailboxIsSharedOnEveryRefreshWhileAlertsAreOn() async throws {
+        let store = MemoryNotificationStore()
+        try store.setPushSubscription(subscription(), for: account)
+        let source = FakeSource(expires: now)
+        let registrar = PushRegistrar(relay: NoRelay(), store: store, now: { [now] in now })
+
+        try await registrar.refresh(account, source: source, device: device)
+        try await registrar.refresh(account, source: source, device: device)
+
+        #expect(source.calls.isEmpty, "the subscription was current")
+        #expect(source.shares == 2)
+    }
+
     @Test func turningAlertsOffForgetsTheSubscription() async throws {
         let store = MemoryNotificationStore()
         try store.setPushSubscription(subscription(), for: account)
@@ -112,6 +125,7 @@ struct PushRegistrarTests {
         try await registrar.refresh(account, source: source, device: device)
 
         #expect(source.calls == ["unsubscribe ab12"])
+        #expect(source.shares == 0)
         #expect(try store.notifications(for: account, now: now).level == .off)
         #expect(try store.pushSubscription(for: account) == nil)
     }
@@ -124,6 +138,7 @@ private final class FakeSource: PushSource {
     private let failing: Bool
     private let failingUnsubscribe: Bool
     private let recorded = Mutex<[String]>([])
+    private let sharedCount = Mutex(0)
 
     init(expires: Date, failing: Bool = false, failingUnsubscribe: Bool = false) {
         self.expires = expires
@@ -132,6 +147,8 @@ private final class FakeSource: PushSource {
     }
 
     var calls: [String] { recorded.withLock { $0 } }
+    /// How often the mailbox was shared, apart from `calls` since it happens on every refresh while alerts are on.
+    var shares: Int { sharedCount.withLock { $0 } }
 
     func subscribe(_ device: DeviceToken, renewing channel: PushChannel?, relay: any PushRelay) async throws
         -> (channel: PushChannel, expiresAt: Date)
@@ -145,12 +162,17 @@ private final class FakeSource: PushSource {
         recorded.withLock { $0.append("unsubscribe \(deviceToken)") }
         if failingUnsubscribe { throw PushRelayClient.Failure.status(500) }
     }
+
+    func shareMailbox(with relay: any PushRelay) async throws {
+        sharedCount.withLock { $0 += 1 }
+    }
 }
 
 private struct NoRelay: PushRelay {
     var graphNotificationURL: URL { URL(string: "https://relay.example.test/v1/graph")! }
     func register(_ device: DeviceToken, proof: String) async throws {}
     func unregister(deviceToken: String, proof: String) async throws {}
+    func shareMailbox(refreshToken: String) async throws {}
     func register(_ subscription: RelayGraphSubscription) async throws {}
     func unregisterGraphSubscription(id: String, clientState: String) async throws {}
 }

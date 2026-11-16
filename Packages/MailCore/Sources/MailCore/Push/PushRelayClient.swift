@@ -32,6 +32,10 @@ public struct PushRelayClient: PushRelay {
         try await send("DELETE", "v1/devices", ["idToken": proof, "deviceToken": deviceToken])
     }
 
+    public func shareMailbox(refreshToken: String) async throws {
+        try await send("POST", "v1/gmail/grants", ["refreshToken": refreshToken])
+    }
+
     public func register(_ subscription: RelayGraphSubscription) async throws {
         try await send("POST", "v1/graph/subscriptions", GraphRegistration(subscription))
     }
