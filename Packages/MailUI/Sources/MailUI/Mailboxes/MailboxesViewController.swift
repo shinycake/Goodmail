@@ -241,7 +241,7 @@ extension MailboxesViewController: UICollectionViewDelegate {
         return false
     }
 
-    /// Rename and Delete on a user label.
+    /// Rename and Delete on a user label, or on a folder that only holds labels.
     public func collectionView(
         _ collectionView: UICollectionView, contextMenuConfigurationForItemsAt indexPaths: [IndexPath],
         point: CGPoint
@@ -249,8 +249,8 @@ extension MailboxesViewController: UICollectionViewDelegate {
         guard indexPaths.count == 1, let edits = indexPaths.first.flatMap(labelEdits(at:)) else { return nil }
         return UIContextMenuConfiguration(actionProvider: { _ in
             UIMenu(children: [
-                UIAction(title: LabelEdits.renameTitle, image: UIImage(systemName: "pencil")) { _ in edits.rename() },
-                UIAction(title: LabelEdits.deleteTitle, image: UIImage(systemName: "trash"), attributes: .destructive) {
+                UIAction(title: edits.renameTitle, image: UIImage(systemName: "pencil")) { _ in edits.rename() },
+                UIAction(title: edits.deleteTitle, image: UIImage(systemName: "trash"), attributes: .destructive) {
                     _ in edits.delete()
                 },
             ])
@@ -258,33 +258,69 @@ extension MailboxesViewController: UICollectionViewDelegate {
     }
 }
 
-/// Renaming and deleting the user label a row shows, from its context menu or a swipe.
+/// Renaming and deleting the user label a row shows, or the labels in a folder that is no label, from its context
+/// menu or a swipe.
 private struct LabelEdits {
-    static let renameTitle = String(
-        localized: "Rename Label", table: "LabelEditing", bundle: .module,
-        comment: "Action: renames the label, and the title of the alert that names it")
-    static let deleteTitle = String(
-        localized: "Delete Label", table: "LabelEditing", bundle: .module, comment: "Action: deletes the label")
+    /// What the row is, which names the context menu's actions.
+    enum Target {
+        case label, folder
+    }
+
     /// The shorter names a swipe has room for, the alerts' own buttons.
     static let swipeRenameTitle = String(
         localized: "Rename", table: "LabelEditing", bundle: .module, comment: "Button: renames the label")
     static let swipeDeleteTitle = String(
         localized: "Delete", table: "LabelEditing", bundle: .module, comment: "Button: deletes the label")
 
+    let target: Target
     let rename: () -> Void
     /// Asks first, as every delete of a label does.
     let delete: () -> Void
+
+    var renameTitle: String {
+        switch target {
+        case .label:
+            String(
+                localized: "Rename Label", table: "LabelEditing", bundle: .module,
+                comment: "Action: renames the label, and the title of the alert that names it")
+        case .folder:
+            String(
+                localized: "Rename Folder", table: "LabelEditing", bundle: .module,
+                comment: "Action: renames a folder that only holds labels, with the labels in it")
+        }
+    }
+
+    var deleteTitle: String {
+        switch target {
+        case .label:
+            String(
+                localized: "Delete Label", table: "LabelEditing", bundle: .module, comment: "Action: deletes the label")
+        case .folder:
+            String(
+                localized: "Delete Folder", table: "LabelEditing", bundle: .module,
+                comment: "Action: deletes a folder that only holds labels, with the labels in it")
+        }
+    }
 }
 
 extension MailboxesViewController {
-    /// What can change the label at a row; `nil` for the standard mailboxes and folders that are no label.
+    /// What can change the label at a row, or the labels in a folder that is no label; `nil` for the standard
+    /// mailboxes.
     private func labelEdits(at indexPath: IndexPath) -> LabelEdits? {
-        guard let item = dataSource.itemIdentifier(for: indexPath), let label = viewModel.label(at: item.destination),
-            let account = label.mailbox.accountID, let labelID = label.mailbox.labelID,
-            let flow = labelFlow(for: account)
+        guard let item = dataSource.itemIdentifier(for: indexPath) else { return nil }
+        if let group = viewModel.labelGroup(at: item.destination), let flow = labelFlow(for: group.accountID) {
+            return LabelEdits(
+                target: .folder, rename: { flow.rename(group) },
+                delete: { [weak self, viewModel] in
+                    let leaves = viewModel.group(group, holds: self?.selected)
+                    flow.delete(group) { if leaves { self?.leaveDeletedLabel() } }
+                })
+        }
+        guard let label = viewModel.label(at: item.destination), let account = label.mailbox.accountID,
+            let labelID = label.mailbox.labelID, let flow = labelFlow(for: account)
         else { return nil }
         return LabelEdits(
-            rename: { flow.rename(labelID, named: label.name) },
+            target: .label, rename: { flow.rename(labelID, named: label.name) },
             delete: { [weak self, viewModel] in
                 flow.delete(labelID, named: label.name, nested: viewModel.nestedLabelCount(in: label)) {
                     self?.leave(item.destination)
@@ -345,6 +381,12 @@ extension MailboxesViewController {
     /// After its label is deleted, the sidebar stops showing a mailbox that no longer exists.
     private func leave(_ destination: MailboxesViewModel.Destination) {
         guard style == .sidebar, selected == destination else { return }
+        viewModel.open(.mailbox(.inbox))
+    }
+
+    /// After the labels in a folder are deleted, the sidebar stops showing the one it showed.
+    private func leaveDeletedLabel() {
+        guard style == .sidebar else { return }
         viewModel.open(.mailbox(.inbox))
     }
 }

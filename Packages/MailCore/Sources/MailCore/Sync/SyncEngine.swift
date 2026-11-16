@@ -14,9 +14,9 @@ public actor SyncEngine {
     public static let shortWindow: TimeInterval = 30 * 86_400
 
     public nonisolated let accountID: AccountID
-    private let provider: any MailProvider
-    private let store: any SyncStore
-    private let now: @Sendable () -> Date
+    let provider: any MailProvider
+    let store: any SyncStore
+    let now: @Sendable () -> Date
     private var running: Task<Void, any Error>?
     /// When this engine last asked for the address book, so a provider that refuses isn't asked on every sync.
     private var addressBookAttempt: Date?
@@ -117,21 +117,12 @@ public actor SyncEngine {
     /// carried it or a label nested in it: the service may move or remove their mail without reporting it changed.
     public func deleteLabel(_ id: String) async throws {
         let labels = try store.labels(for: accountID)
-        let doomed = labels.first { $0.id == id }.map { label in
-            labels.filter { $0.id == label.id || $0.name.hasPrefix(label.name + "/") }.map(\.id)
-        }
-        let affected = try store.threadIDs(labeled: Set(doomed ?? [id]), account: accountID)
-        try await provider.deleteLabel(id)
-        try await refreshLabels()
-        guard !affected.isEmpty else { return }
-        let fetchedAt = now()
-        let fetch = try await provider.threads(withIDs: affected.sorted())
-        try store.apply(
-            StoreChanges(accountID: accountID, upserts: fetch.found, deletions: fetch.missing, fetchedAt: fetchedAt))
+        let nested = labels.first { $0.id == id }.map { labels.nested(under: $0.name) } ?? []
+        try await deleteLabels([id], carrying: Set(nested.map(\.id) + [id]))
     }
 
     /// Reads and stores the account's labels, unless a newer read started meanwhile.
-    private func refreshLabels() async throws {
+    func refreshLabels() async throws {
         labelReads += 1
         let read = labelReads
         let labels = try await provider.labels()

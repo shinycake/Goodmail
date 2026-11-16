@@ -78,6 +78,17 @@
         }
       }
     },
+    "Delete Folder" : {
+      "comment" : "Action: deletes a folder that only holds labels, with the labels in it",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחיקת התיקייה"
+          }
+        }
+      }
+    },
     "Delete Label" : {
       "comment" : "Action: deletes the label",
       "localizations" : {
@@ -166,6 +177,17 @@
         }
       }
     },
+    "Rename Folder" : {
+      "comment" : "Action: renames a folder that only holds labels, with the labels in it",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שינוי שם התיקייה"
+          }
+        }
+      }
+    },
     "Rename Label" : {
       "comment" : "Action: renames the label, and the title of the alert that names it",
       "localizations" : {
@@ -173,6 +195,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "שינוי שם התווית"
+          }
+        }
+      }
+    },
+    "Rename “%@”" : {
+      "comment" : "Title of the alert that renames a folder holding labels, with its name",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שינוי השם של ״%@״"
           }
         }
       }
@@ -231,6 +264,97 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "התווית תוסר מהשיחות שלה, והן יישארו בדואר שלך."
+          }
+        }
+      }
+    },
+    "The labels inside move with it." : {
+      "comment" : "Rename folder alert: the folder is no label, so renaming it renames the labels in it",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "גם התוויות שבפנים יקבלו את השם החדש."
+          }
+        }
+      }
+    },
+    "The server deletes their mail for good. You can’t undo this." : {
+      "comment" : "Delete folder alert, iCloud and IMAP: the folders' messages are deleted",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השרת ימחק את הדואר שלהן לצמיתות. אי אפשר לבטל את הפעולה."
+          }
+        }
+      }
+    },
+    "Their conversations stay in your mail." : {
+      "comment" : "Delete folder alert, Gmail: no mail is deleted",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השיחות שלהן יישארו בדואר שלך."
+          }
+        }
+      }
+    },
+    "They move to Deleted Items with their mail." : {
+      "comment" : "Delete folder alert, Outlook: the folders and their mail go to Deleted Items",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הן יועברו אל ״פריטים שנמחקו״ יחד עם הדואר שלהן."
+          }
+        }
+      }
+    },
+    "This deletes the %lld labels inside it." : {
+      "comment" : "Delete folder alert: how many labels inside the folder are deleted with it",
+      "localizations" : {
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "פעולה זו תמחק את התווית שבפנים."
+                }
+              },
+              "two" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "פעולה זו תמחק את שתי התוויות שבפנים."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "פעולה זו תמחק את %lld התוויות שבפנים."
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "This deletes the label inside it."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "This deletes the %lld labels inside it."
+                }
+              }
+            }
           }
         }
       }

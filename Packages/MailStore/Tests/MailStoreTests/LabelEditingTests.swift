@@ -93,6 +93,56 @@ struct LabelEditingTests {
         #expect(try database.threadIDs(labeled: [nested.id], account: account.id).isEmpty)
     }
 
+    @Test func deletingAPathThatIsNoLabelDeletesEveryLabelUnderIt() async throws {
+        let engine = engine()
+        try await engine.sync()
+        let unsubscribed = try await engine.createLabel(named: "Extra/Unsubscribed")
+        let old = try await engine.createLabel(named: "Extra/Unsubscribed/Old")
+        let other = try await engine.createLabel(named: "Extra/Other")
+        _ = try await engine.createLabel(named: "Extras")
+        server.set("t1", thread("t1", labels: ["INBOX", old.id]))
+        server.set("t2", thread("t2", labels: ["INBOX", other.id]))
+        try await engine.sync()
+
+        try await engine.deleteLabels(under: "Extra")
+
+        #expect(
+            Set(try storedLabels().values) == ["INBOX", "Receipts", "Extras"], "not a name that only starts the same")
+        #expect(try storedLabels()[unsubscribed.id] == nil)
+        #expect(try database.threadIDs(labeled: [old.id, other.id], account: account.id).isEmpty)
+        #expect(try database.threadIDs(labeled: ["INBOX"], account: account.id).sorted() == ["t1", "t2"])
+    }
+
+    @Test func renamingAPathThatIsNoLabelMovesEveryLabelUnderIt() async throws {
+        let engine = engine()
+        try await engine.sync()
+        let unsubscribed = try await engine.createLabel(named: "Extra/Unsubscribed")
+        let old = try await engine.createLabel(named: "Extra/Unsubscribed/Old")
+        let other = try await engine.createLabel(named: "Extra/Other")
+        let extras = try await engine.createLabel(named: "Extras")
+
+        try await engine.renameLabels(under: "Extra", to: "נוספים")
+
+        let stored = try storedLabels()
+        #expect(stored[unsubscribed.id] == "נוספים/Unsubscribed")
+        #expect(stored[old.id] == "נוספים/Unsubscribed/Old")
+        #expect(stored[other.id] == "נוספים/Other")
+        #expect(stored[extras.id] == "Extras")
+    }
+
+    @Test func aGroupRenameRefusedPartwayStoresWhatTheServiceDid() async throws {
+        let engine = engine()
+        try await engine.sync()
+        let first = try await engine.createLabel(named: "Extra/A")
+        let second = try await engine.createLabel(named: "Extra/B")
+        _ = try await engine.createLabel(named: "Moved/B")
+
+        await #expect(throws: ProviderError.rejected) { try await engine.renameLabels(under: "Extra", to: "Moved") }
+
+        #expect(try storedLabels()[first.id] == "Moved/A", "the service renamed it before refusing the next")
+        #expect(try storedLabels()[second.id] == "Extra/B")
+    }
+
     @Test func labelsASyncReadBeforeALabelEditAreDropped() async throws {
         let engine = engine()
         try await engine.sync()

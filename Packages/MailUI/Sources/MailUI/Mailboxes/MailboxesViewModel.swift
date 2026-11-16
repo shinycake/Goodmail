@@ -180,9 +180,12 @@ public final class MailboxesViewModel {
 
     /// How many of the account's labels are nested in `label`, which deleting it deletes too.
     func nestedLabelCount(in label: MailboxDirectory.Label) -> Int {
-        directory.labels.count {
-            $0.mailbox.accountID == label.mailbox.accountID && $0.name.hasPrefix(label.name + "/")
-        }
+        label.mailbox.accountID.map { labelCount(under: label.name, account: $0) } ?? 0
+    }
+
+    /// How many of `account`'s labels have paths under `path`, as `Extra/Unsubscribed` does under `Extra`.
+    func labelCount(under path: String, account: AccountID) -> Int {
+        directory.labels.count { $0.mailbox.accountID == account && $0.name.hasPrefix(path + "/") }
     }
 
     public func open(_ destination: Destination) {

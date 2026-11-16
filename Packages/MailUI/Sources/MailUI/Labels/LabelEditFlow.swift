@@ -71,6 +71,48 @@ final class LabelEditFlow {
         presenter?.present(alert, animated: true)
     }
 
+    /// Asks for the folder's new path, saying the labels inside it move with it, and renames them.
+    func rename(_ group: LabelGroup) {
+        let alert = UIAlertController.labelName(
+            title: String(
+                localized: "Rename “\(group.path)”", table: "LabelEditing", bundle: .module,
+                comment: "Title of the alert that renames a folder holding labels, with its name"),
+            message: String(
+                localized: "The labels inside move with it.", table: "LabelEditing", bundle: .module,
+                comment: "Rename folder alert: the folder is no label, so renaming it renames the labels in it"),
+            name: group.path,
+            action: String(
+                localized: "Rename", table: "LabelEditing", bundle: .module, comment: "Button: renames the label")
+        ) { [weak self, editor] newPath in
+            guard newPath != group.path else { return }
+            self?.send(.rename) { try await editor.renameGroup(group.path, newPath) }
+        }
+        presenter?.present(alert, animated: true)
+    }
+
+    /// Asks first, saying how many labels inside it go and what happens to their mail; `deleted` runs once the
+    /// service deleted them.
+    func delete(_ group: LabelGroup, then deleted: @escaping () -> Void) {
+        let alert = UIAlertController(
+            title: String(
+                localized: "Delete “\(group.path)”?", table: "LabelEditing", bundle: .module,
+                comment: "Title of the alert before deleting a label, with its name"),
+            message: editor.deletion.groupMessage(labels: group.labelCount), preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: Self.cancel, style: .cancel))
+        alert.addAction(
+            UIAlertAction(
+                title: String(
+                    localized: "Delete", table: "LabelEditing", bundle: .module, comment: "Button: deletes the label"),
+                style: .destructive
+            ) { [weak self, editor] _ in
+                self?.send(.delete) {
+                    try await editor.deleteGroup(group.path)
+                    deleted()
+                }
+            })
+        presenter?.present(alert, animated: true)
+    }
+
     /// Runs `change`, in place of one still running, and shows why the service refused it. A cancelled change
     /// shows nothing.
     private func send(_ kind: Kind, _ change: @escaping () async throws -> Void) {
@@ -105,6 +147,31 @@ extension LabelDeletion {
         return nestedToo + "\n" + consequence
     }
 
+    /// What the confirmation before deleting a folder that only holds labels says: how many labels go, then what
+    /// happens to their mail.
+    func groupMessage(labels: Int) -> String {
+        let count = String(
+            localized: "This deletes the \(labels) labels inside it.", table: "LabelEditing", bundle: .module,
+            comment: "Delete folder alert: how many labels inside the folder are deleted with it")
+        let consequence =
+            switch self {
+            case .keepsMail:
+                String(
+                    localized: "Their conversations stay in your mail.", table: "LabelEditing",
+                    bundle: .module, comment: "Delete folder alert, Gmail: no mail is deleted")
+            case .movesMailToTrash:
+                String(
+                    localized: "They move to Deleted Items with their mail.", table: "LabelEditing", bundle: .module,
+                    comment: "Delete folder alert, Outlook: the folders and their mail go to Deleted Items")
+            case .deletesMail:
+                String(
+                    localized: "The server deletes their mail for good. You can’t undo this.",
+                    table: "LabelEditing", bundle: .module,
+                    comment: "Delete folder alert, iCloud and IMAP: the folders' messages are deleted")
+            }
+        return count + "\n" + consequence
+    }
+
     /// What the delete confirmation says happens to the label's mail.
     var consequence: String {
         switch self {
@@ -129,9 +196,9 @@ extension UIAlertController {
     /// Asks for a label's name, starting from `name`. The action is on only while the name names something, and
     /// hands `submit` the name without its outer spaces.
     fileprivate static func labelName(
-        title: String, name: String?, action: String, submit: @escaping (String) -> Void
+        title: String, message: String? = nil, name: String?, action: String, submit: @escaping (String) -> Void
     ) -> UIAlertController {
-        let alert = UIAlertController(title: title, message: nil, preferredStyle: .alert)
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
         let confirm = UIAlertAction(title: action, style: .default) { [weak alert] _ in
             guard let name = LabelName.normalized(alert?.textFields?.first?.text) else { return }
             submit(name)

@@ -13,7 +13,7 @@ struct LabelEditingTests {
 
     private static let editor = LabelEditor(
         deletion: .keepsMail, create: { MailLabel(id: "Label_9", name: $0, kind: .user) }, rename: { _, _ in },
-        delete: { _ in })
+        delete: { _ in }, renameGroup: { _, _ in }, deleteGroup: { _ in })
 
     @Test(arguments: [
         ("Receipts", "Receipts"), ("  Receipts  ", "Receipts"), ("Projects / Goodmail", "Projects/Goodmail"),
@@ -102,6 +102,45 @@ struct LabelEditingTests {
         #expect(LabelDeletion.keepsMail.message(nested: 0) == LabelDeletion.keepsMail.consequence)
         #expect(LabelDeletion.keepsMail.message(nested: 2).hasSuffix(LabelDeletion.keepsMail.consequence))
         #expect(LabelDeletion.keepsMail.message(nested: 2).contains("2"))
+    }
+
+    @Test func aFolderThatIsNoLabelCanBeEditedAsItsLabels() async {
+        let unsubscribed = Mailbox(labelID: "Label_1", accountID: gmail.id)
+        let directory = MailboxDirectory(labels: [
+            MailboxDirectory.Label(mailbox: unsubscribed, name: "Extra/Unsubscribed", color: nil),
+            MailboxDirectory.Label(
+                mailbox: Mailbox(labelID: "Label_2", accountID: gmail.id), name: "Extra/Unsubscribed/Old", color: nil),
+            MailboxDirectory.Label(
+                mailbox: Mailbox(labelID: "Label_3", accountID: gmail.id), name: "Extras", color: nil),
+            MailboxDirectory.Label(
+                mailbox: Mailbox(labelID: "Extra/Other", accountID: icloud.id), name: "Extra/Other", color: nil),
+        ])
+        let viewModel = MailboxesViewModel(
+            accounts: [gmail, icloud],
+            directory: {
+                AsyncThrowingStream {
+                    $0.yield(directory)
+                    $0.finish()
+                }
+            })
+        await viewModel.observe()
+
+        #expect(
+            viewModel.labelGroup(at: .folder(path: "Extra", accountID: gmail.id))
+                == LabelGroup(path: "Extra", accountID: gmail.id, labelCount: 2),
+            "not a name that only starts the same, nor another account's")
+        #expect(viewModel.labelGroup(at: .mailbox(unsubscribed)) == nil, "a label is edited as itself")
+        let extra = LabelGroup(path: "Extra", accountID: gmail.id, labelCount: 2)
+        #expect(viewModel.group(extra, holds: .mailbox(unsubscribed)), "the sidebar leaves a label the delete takes")
+        #expect(!viewModel.group(extra, holds: .mailbox(Mailbox(labelID: "Label_3", accountID: gmail.id))))
+        #expect(!viewModel.group(extra, holds: .mailbox(Mailbox(labelID: "Extra/Other", accountID: icloud.id))))
+        #expect(!viewModel.group(extra, holds: .mailbox(.inbox)))
+        #expect(!viewModel.group(extra, holds: nil))
+        #expect(viewModel.labelGroup(at: .snoozed) == nil)
+        #expect(LabelDeletion.keepsMail.groupMessage(labels: 2).contains("2"))
+        #expect(
+            Set([LabelDeletion.keepsMail, .movesMailToTrash, .deletesMail].map { $0.groupMessage(labels: 2) }).count
+                == 3)
     }
 
     @Test func theDeleteConfirmationSaysWhatHappensToTheMail() {

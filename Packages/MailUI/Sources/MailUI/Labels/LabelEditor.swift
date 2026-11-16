@@ -9,17 +9,25 @@ public struct LabelEditor {
     let create: (_ name: String) async throws -> MailLabel
     let rename: (_ id: String, _ name: String) async throws -> Void
     let delete: (_ id: String) async throws -> Void
+    /// Gives every label under `path`, a step of their paths that is no label itself, the path `name` in its place.
+    let renameGroup: (_ path: String, _ name: String) async throws -> Void
+    /// Deletes every label under `path`, a step of their paths that is no label itself.
+    let deleteGroup: (_ path: String) async throws -> Void
 
     public init(
         deletion: LabelDeletion,
         create: @escaping (_ name: String) async throws -> MailLabel,
         rename: @escaping (_ id: String, _ name: String) async throws -> Void,
-        delete: @escaping (_ id: String) async throws -> Void
+        delete: @escaping (_ id: String) async throws -> Void,
+        renameGroup: @escaping (_ path: String, _ name: String) async throws -> Void,
+        deleteGroup: @escaping (_ path: String) async throws -> Void
     ) {
         self.deletion = deletion
         self.create = create
         self.rename = rename
         self.delete = delete
+        self.renameGroup = renameGroup
+        self.deleteGroup = deleteGroup
     }
 }
 

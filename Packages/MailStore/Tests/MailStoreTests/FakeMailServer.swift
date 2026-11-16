@@ -405,8 +405,15 @@ extension FakeMailServer {
 
     func renameLabel(_ id: String, to name: String) async throws {
         try state.withLock { state in
-            guard let index = state.labels.firstIndex(where: { $0.id == id }) else { throw ProviderError.notFound }
-            state.labels[index].name = name
+            guard let old = state.labels.first(where: { $0.id == id })?.name else { throw ProviderError.notFound }
+            guard !state.labels.contains(where: { $0.name == name && $0.id != id }) else {
+                throw ProviderError.rejected
+            }
+            // With the labels nested in it, as every service's renameLabel does.
+            for index in state.labels.indices where state.labels[index].name.hasPrefix(old + "/") {
+                state.labels[index].name = name + state.labels[index].name.dropFirst(old.count)
+            }
+            if let index = state.labels.firstIndex(where: { $0.id == id }) { state.labels[index].name = name }
         }
     }
 
