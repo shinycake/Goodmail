@@ -1,6 +1,7 @@
 import BackgroundTasks
 import MailStore
 import OSLog
+import Synchronization
 
 /// What background app refresh needs of the task iOS hands it. `BGAppRefreshTask` is the real one; the launch tests
 /// run the refresh with a stand-in, since only iOS can make a `BGAppRefreshTask`.
@@ -62,20 +63,30 @@ nonisolated struct BackgroundRefresh: Sendable {
             // After the database is suspended again: completing lets iOS suspend the app.
             completion.finish(success: success)
         }
-        task.expirationHandler = { sync.cancel() }
+        // Out of time: the task is completed now, not when the cancelled sync gets round to returning, since iOS
+        // ends an app that holds an expired task. The sync's own background task keeps the app awake while it
+        // unwinds, and suspends the database under it if that runs out too.
+        task.expirationHandler = {
+            sync.cancel()
+            completion.finish(success: false)
+        }
     }
 }
 
-/// Hands the task to the sync that completes it. `BGTask` is documented as safe to complete from any thread, but
-/// isn't marked `Sendable`.
+/// Completes the task once: when the sync ends, or when iOS says its time is up, whichever comes first.
+///
+/// `@unchecked Sendable` because `BGTask` isn't marked `Sendable`, though it is documented as safe to complete from
+/// any thread. Safe: `task` is never changed, and `completed` lets only the first `finish` through to it.
 private nonisolated final class Completion: @unchecked Sendable {
     private let task: any RefreshTask
+    private let completed = Atomic(false)
 
     init(_ task: any RefreshTask) {
         self.task = task
     }
 
     func finish(success: Bool) {
+        guard !completed.exchange(true, ordering: .acquiringAndReleasing) else { return }
         task.setTaskCompleted(success: success)
     }
 }

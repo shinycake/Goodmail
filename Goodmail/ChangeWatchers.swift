@@ -50,11 +50,14 @@ final class ChangeWatchers {
         state = .stopped
     }
 
-    /// The watch runs off the main actor, and hops to it only to sync.
+    /// The watch runs off the main actor, and hops to it only to sync. Leaving the foreground cancels the watch, and
+    /// the sync under way may be writing: the app stays awake, and the database usable, until it stops.
     private func watch(_ id: AccountID, with provider: any ChangeWatching) -> Task<Void, Never> {
         Task { @concurrent [model, log] in
             do {
-                try await provider.watchChanges { await model.syncChanged(id) }
+                try await provider.watchChanges {
+                    await BackgroundDatabaseWork.shared.run("Reported change") { await model.syncChanged(id) }
+                }
             } catch is CancellationError {
                 // The app left the foreground, or the account was removed.
             } catch {
