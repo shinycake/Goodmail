@@ -54,6 +54,12 @@ final class SyncScheduler {
             await BackgroundDatabaseWork.shared.run("Foreground sync") {
                 async let prefetch: Void = model.prefetchWhenConnectionAllows()
                 while !Task.isCancelled {
+                    // Accounts the reader's other devices added, removed or offer since the last round.
+                    do {
+                        try await model.followSharedAccounts()
+                    } catch {
+                        log.error("Following the shared accounts failed: \(error, privacy: .public)")
+                    }
                     // Accounts added or removed meanwhile.
                     watchers.follow()
                     do {

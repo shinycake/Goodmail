@@ -51,12 +51,17 @@ public final class SettingsViewModel {
     /// The sign-in of an account that logs in with a password: an Other Mail Account's servers and password, or
     /// iCloud's app-specific password; `nil` for an account that signs in with its service, as Gmail and Outlook do.
     @ObservationIgnored public var serverSettings: (AccountID) -> ServerSettingsEditor.Service? = { _ in nil }
+    /// This device's part in sharing accounts with the reader's other devices; `nil` where accounts aren't shared,
+    /// as in synthetic mailboxes.
+    @ObservationIgnored public var sharing: AccountSharingChoices? {
+        didSet { sharing?.onAccountsChanged = { [weak self] in self?.refresh() } }
+    }
     /// Accounts whose Inbox isn't split into categories.
     public var unsortedInboxAccounts: Set<AccountID> {
         didSet { Preferences.unsortedInboxAccounts = unsortedInboxAccounts }
     }
 
-    @ObservationIgnored private let remove: (AccountID) async throws -> Void
+    @ObservationIgnored private let remove: (AccountID, AccountRemoval) async throws -> Void
     @ObservationIgnored private let update: (Account) async throws -> Void
     @ObservationIgnored private let reorder: ([AccountID]) async throws -> Void
     /// Stores name, color and order changes in the order the reader made them (`change`).
@@ -67,13 +72,13 @@ public final class SettingsViewModel {
     @ObservationIgnored private let closed: () -> Void
 
     /// `signIn` signs in to a service and adds its account, returning `false` if the reader cancelled; `remove`
-    /// takes an account and its mail off the device; `update` stores an account's new name or color; `reorder`
+    /// takes an account and its mail off this device, or off every device that shares accounts; `update` stores an account's new name or color; `reorder`
     /// stores the order the reader put the accounts in. `accounts` reads them back after each. `signatures` reads and saves each account's signature; a failure shows as `error`.
     /// `closed` runs once the screen is gone, however it was dismissed.
     public init(
         accounts: @escaping () -> [Account],
         signIn: @escaping (MailService) async throws -> Bool,
-        remove: @escaping (AccountID) async throws -> Void,
+        remove: @escaping (AccountID, AccountRemoval) async throws -> Void,
         update: @escaping (Account) async throws -> Void,
         reorder: @escaping ([AccountID]) async throws -> Void = { _ in },
         signatures: Signatures = Signatures(read: { _ in nil }, store: { _, _ in }),
@@ -99,16 +104,18 @@ public final class SettingsViewModel {
         signatures.failed = { [weak self] in self?.error = $0 }
     }
 
-    /// Takes the account and its mail off the device once the changes asked for before it are stored; a change
-    /// asked for after it finds no account to store. A failure shows as `error`; `settled()` waits for it.
-    public func removeAccount(_ id: AccountID) {
+    /// Takes the account and its mail off this device, or every device that shares accounts, once the changes asked
+    /// for before it are stored; a change asked for after it finds no account to store. A failure shows as `error`;
+    /// `settled()` waits for it.
+    public func removeAccount(_ id: AccountID, _ removal: AccountRemoval = .thisDevice) {
         changes.run { [self] in
             do {
-                try await remove(id)
+                try await remove(id, removal)
             } catch {
                 self.error = error
             }
             refresh()
+            sharing?.refresh()
         }
     }
 

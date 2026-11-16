@@ -89,7 +89,8 @@ public struct IMAPSignIn: Sendable {
         }
     }
 
-    private static func key(_ accountID: AccountID) -> String { "imap.\(accountID.rawValue).login" }
+    /// Where the account's login is stored.
+    public static func key(_ accountID: AccountID) -> String { "imap.\(accountID.rawValue).login" }
 }
 
 /// What an account logs in with: its servers and its password.

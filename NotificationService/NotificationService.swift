@@ -57,18 +57,20 @@ final class NotificationService: UNNotificationServiceExtension {
         let pictures = SenderPictureSources(directory: directory.appending(path: "SenderPictures"), database: database)
         let fetch = NewMailFetch(database: database, notify: RuleNotification.post) { account in
             switch account.service {
-            case .gmail: GmailClient(session: OAuthSession(accountID: account.id, client: .gmail, keychain: Keychain()))
+            case .gmail:
+                GmailClient(session: OAuthSession(accountID: account.id, client: .gmail, keychain: Keychain.signIns()))
             case .outlook:
                 OutlookClient(
-                    session: OAuthSession(accountID: account.id, client: .outlook, keychain: Keychain()),
+                    session: OAuthSession(accountID: account.id, client: .outlook, keychain: Keychain.signIns()),
                     index: database)
             case .icloud:
                 IMAPClient(
                     accountID: account.id, settings: .icloud(email: account.email),
-                    password: try ICloudSignIn(secrets: Keychain()).appPassword(for: account.id), index: database)
+                    password: try ICloudSignIn(secrets: Keychain.signIns()).appPassword(for: account.id),
+                    index: database)
             case .imap:
                 IMAPClient(
-                    accountID: account.id, login: try IMAPSignIn(secrets: Keychain()).login(for: account.id),
+                    accountID: account.id, login: try IMAPSignIn(secrets: Keychain.signIns()).login(for: account.id),
                     index: database)
             }
         }

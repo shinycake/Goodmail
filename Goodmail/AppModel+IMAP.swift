@@ -7,7 +7,8 @@ extension AppModel {
     /// Throws `IMAPSignIn.Failure` when a server refuses or can't be reached.
     func addIMAPAccount(email: String, name: String?, settings: MailServerSettings, password: String) async throws {
         try await addPasswordAccount(.imap, email: email, name: name) { _, id in
-            try await IMAPSignIn(secrets: Keychain()).signIn(settings: settings, password: password, accountID: id)
+            try await IMAPSignIn(secrets: Keychain.signIns()).signIn(
+                settings: settings, password: password, accountID: id)
         }
     }
 

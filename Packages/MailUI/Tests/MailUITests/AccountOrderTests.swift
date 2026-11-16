@@ -23,7 +23,7 @@ struct AccountOrderTests {
 
         func model() -> SettingsViewModel {
             SettingsViewModel(
-                accounts: { self.accounts }, signIn: { _ in true }, remove: { _ in },
+                accounts: { self.accounts }, signIn: { _ in true }, remove: { _, _ in },
                 update: { account in self.accounts = self.accounts.map { $0.id == account.id ? account : $0 } },
                 reorder: { order in
                     try await Task.sleep(for: .milliseconds(20))
@@ -100,7 +100,7 @@ struct AccountOrderTests {
     @Test func aFailedReorderIsShownAndTheAccountsReadBackAsStored() async {
         struct Refused: Error {}
         let model = SettingsViewModel(
-            accounts: { [home, work] }, signIn: { _ in true }, remove: { _ in }, update: { _ in },
+            accounts: { [home, work] }, signIn: { _ in true }, remove: { _, _ in }, update: { _ in },
             reorder: { _ in throw Refused() }, closed: {})
 
         model.moveAccounts(from: [1], to: 0)

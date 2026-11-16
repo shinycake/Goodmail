@@ -102,7 +102,7 @@ public actor OAuthSession {
         return String(decoding: stored, as: UTF8.self)
     }
 
-    public nonisolated var refreshTokenKey: String { "\(client.name).refresh-token.\(accountID.rawValue)" }
+    public nonisolated var refreshTokenKey: String { client.refreshTokenKey(accountID) }
 
     private func refresh() async throws -> String {
         let request = client.refreshRequest(refreshToken: try refreshToken())

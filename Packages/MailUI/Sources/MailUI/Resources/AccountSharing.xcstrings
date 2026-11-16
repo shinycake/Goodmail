@@ -1,0 +1,278 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@ and its mail are removed from this device. Your other devices keep it, and you can turn it back on here." : {
+      "comment" : "Explains removing an account from this device only",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‏%@ והדואר שלו יוסרו מהמכשיר הזה. הוא יישאר במכשירים האחרים שלך, ואפשר להפעיל אותו כאן שוב."
+          }
+        }
+      }
+    },
+    "%@ can leave this device only, or every device that syncs your accounts. Its mail stays with its service." : {
+      "comment" : "Explains the choice of removing an account from this device or from all devices",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‏אפשר להסיר את %@ מהמכשיר הזה בלבד, או מכל המכשירים שמסנכרנים את החשבונות שלך. הדואר שלו נשאר אצל הספק."
+          }
+        }
+      }
+    },
+    "Accounts from Your Other Devices" : {
+      "comment" : "Title of the offer to add accounts set up on the reader's other devices",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חשבונות מהמכשירים האחרים שלך"
+          }
+        }
+      }
+    },
+    "Accounts stay on this device and aren't shared with your other devices." : {
+      "comment" : "Explains syncing accounts, when it's off",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "החשבונות נשארים במכשיר הזה ולא משותפים עם המכשירים האחרים שלך."
+          }
+        }
+      }
+    },
+    "Add %lld Accounts" : {
+      "comment" : "Adds the chosen accounts from the reader's other devices",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Add 1 Account"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Add %lld Accounts"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "הוספת חשבון אחד"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "הוספת %lld חשבונות"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "comment" : "Keeps the account",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ביטול"
+          }
+        }
+      }
+    },
+    "Couldn't Add the Accounts" : {
+      "comment" : "Title of the alert when adding accounts from other devices failed",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן להוסיף את החשבונות"
+          }
+        }
+      }
+    },
+    "Not Now" : {
+      "comment" : "Puts off adding the accounts from the reader's other devices",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא עכשיו"
+          }
+        }
+      }
+    },
+    "Off" : {
+      "comment" : "Syncing accounts with other devices is off",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כבוי"
+          }
+        }
+      }
+    },
+    "On" : {
+      "comment" : "Syncing accounts with other devices is on",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מופעל"
+          }
+        }
+      }
+    },
+    "On This Device" : {
+      "comment" : "Header of the list of accounts, each with a switch for whether it's on this device",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "במכשיר הזה"
+          }
+        }
+      }
+    },
+    "Other Devices" : {
+      "comment" : "Title of the settings page for syncing accounts with the reader's other devices",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מכשירים אחרים"
+          }
+        }
+      }
+    },
+    "Remove from All Devices" : {
+      "comment" : "Removes an account from every device that syncs accounts",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הסרה מכל המכשירים"
+          }
+        }
+      }
+    },
+    "Remove from This Device" : {
+      "comment" : "Removes an account from this device only",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הסרה מהמכשיר הזה"
+          }
+        }
+      }
+    },
+    "Remove from This Device Only" : {
+      "comment" : "Removes an account from this device and keeps it on the reader's other devices",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הסרה מהמכשיר הזה בלבד"
+          }
+        }
+      }
+    },
+    "Remove from This Device?" : {
+      "comment" : "Asks before removing an account from this device only",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "להסיר מהמכשיר הזה?"
+          }
+        }
+      }
+    },
+    "Something Went Wrong" : {
+      "comment" : "Title of an alert when a change to syncing accounts failed",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "משהו השתבש"
+          }
+        }
+      }
+    },
+    "Sync Accounts" : {
+      "comment" : "Setting for syncing accounts with the reader's other devices",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סנכרון חשבונות"
+          }
+        }
+      }
+    },
+    "Their sign-ins are kept in iCloud Keychain, end-to-end encrypted. Adding or removing an account on one device then does the same on the others. You can change this in Settings." : {
+      "comment" : "Explains where the offered sign-ins come from and what accepting turns on",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פרטי ההתחברות שלהם שמורים במחזיק המפתחות של iCloud, בהצפנה מקצה לקצה. מעכשיו, הוספה או הסרה של חשבון במכשיר אחד יחולו גם על האחרים. אפשר לשנות זאת בהגדרות."
+          }
+        }
+      }
+    },
+    "These accounts are already set up on your other devices. Add them here without signing in again." : {
+      "comment" : "Explains the offer of accounts from the reader's other devices",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "החשבונות האלה כבר מוגדרים במכשירים האחרים שלך. אפשר להוסיף אותם כאן בלי להתחבר שוב."
+          }
+        }
+      }
+    },
+    "Turning an account off removes it and its mail from this device only. Your other devices keep it." : {
+      "comment" : "Explains turning an account off in the list of accounts on this device",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כיבוי של חשבון מסיר אותו ואת הדואר שלו מהמכשיר הזה בלבד. הוא נשאר במכשירים האחרים שלך."
+          }
+        }
+      }
+    },
+    "Your accounts and their sign-ins are kept in iCloud Keychain, end-to-end encrypted. Adding or removing an account on one device does the same on your others." : {
+      "comment" : "Explains syncing accounts, when it's on",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "החשבונות שלך ופרטי ההתחברות שלהם שמורים במחזיק המפתחות של iCloud, בהצפנה מקצה לקצה. הוספה או הסרה של חשבון במכשיר אחד חלות גם על המכשירים האחרים שלך."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

@@ -89,6 +89,14 @@ public enum Preferences {
         set { defaults.set(newValue.stored, forKey: swipeTintsKey) }
     }
 
+    /// Accounts from the reader's other devices that this device doesn't take on its own: ones the reader left out
+    /// of an offer, or removed from this device only. Settings still lists them, to add by hand.
+    public static var declinedSharedAccounts: Set<AccountID> {
+        get { Set((defaults.stringArray(forKey: declinedSharedKey) ?? []).map(AccountID.init(rawValue:))) }
+        set { defaults.set(newValue.map(\.rawValue).sorted(), forKey: declinedSharedKey) }
+    }
+
+    private static let declinedSharedKey = "declinedSharedAccounts"
     private static let swipeTintsKey = "swipeTints"
     private static let undoSendKey = "undoSendSeconds"
     private static let swipeLeadingKey = "swipeLeadingActions"

@@ -6,3 +6,8 @@ public protocol SecretStore: Sendable {
     func set(_ data: Data, for key: String) throws
     func remove(_ key: String) throws
 }
+
+/// A store that can list what it holds, as the shared records of `AccountSharing` need.
+public protocol SecretDirectory: SecretStore {
+    func keys() throws -> [String]
+}

@@ -35,6 +35,9 @@ public struct OAuthClient: Sendable {
         self.refreshesWithScopes = refreshesWithScopes
     }
 
+    /// Where the account's refresh token is stored.
+    public func refreshTokenKey(_ accountID: AccountID) -> String { "\(name).refresh-token.\(accountID.rawValue)" }
+
     /// The scheme the sign-in page redirects to, which the web authentication session listens for.
     public var redirectScheme: String { redirectURI.scheme ?? "" }
 

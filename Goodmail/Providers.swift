@@ -52,36 +52,44 @@ nonisolated final class Providers: Sendable {
         case .icloud:
             return IMAPPushSource(
                 accountID: account.id, settings: .icloud(email: account.email),
-                password: try ICloudSignIn(secrets: Keychain()).appPassword(for: account.id))
+                password: try ICloudSignIn(secrets: Keychain.signIns()).appPassword(for: account.id))
         case .imap:
-            let login = try IMAPSignIn(secrets: Keychain()).login(for: account.id)
+            let login = try IMAPSignIn(secrets: Keychain.signIns()).login(for: account.id)
             return IMAPPushSource(accountID: account.id, settings: login.settings, password: login.password)
         }
     }
 
-    /// Forgets the account's credentials on the device. Nothing changes at the service.
-    static func signOut(_ account: Account) async throws {
-        switch account.service {
-        case .gmail: try await OAuthSession(accountID: account.id, client: .gmail, keychain: Keychain()).signOut()
-        case .icloud: try ICloudSignIn(secrets: Keychain()).signOut(account.id)
-        case .outlook: try await OAuthSession(accountID: account.id, client: .outlook, keychain: Keychain()).signOut()
-        case .imap: try IMAPSignIn(secrets: Keychain()).signOut(account.id)
+    /// Forgets the account's credentials in `secrets`: this device's alone, or with the copy the reader's other
+    /// devices share. Nothing changes at the service.
+    static func signOut(_ account: Account, from secrets: any SecretStore) throws {
+        try secrets.remove(signInKey(account.id, account.service))
+    }
+
+    /// Where the account's sign-in is stored, which depends on its service.
+    static func signInKey(_ id: AccountID, _ service: MailService) -> String {
+        switch service {
+        case .gmail: OAuthClient.gmail.refreshTokenKey(id)
+        case .icloud: ICloudSignIn.key(id)
+        case .outlook: OAuthClient.outlook.refreshTokenKey(id)
+        case .imap: IMAPSignIn.key(id)
         }
     }
 
     private func make(for account: Account) throws -> any MailProvider {
         switch account.service {
-        case .gmail: GmailClient(session: OAuthSession(accountID: account.id, client: .gmail, keychain: Keychain()))
+        case .gmail:
+            GmailClient(session: OAuthSession(accountID: account.id, client: .gmail, keychain: Keychain.signIns()))
         case .icloud:
             IMAPClient(
                 accountID: account.id, settings: .icloud(email: account.email),
-                password: try ICloudSignIn(secrets: Keychain()).appPassword(for: account.id), index: database)
+                password: try ICloudSignIn(secrets: Keychain.signIns()).appPassword(for: account.id), index: database)
         case .outlook:
             OutlookClient(
-                session: OAuthSession(accountID: account.id, client: .outlook, keychain: Keychain()), index: database)
+                session: OAuthSession(accountID: account.id, client: .outlook, keychain: Keychain.signIns()),
+                index: database)
         case .imap:
             IMAPClient(
-                accountID: account.id, login: try IMAPSignIn(secrets: Keychain()).login(for: account.id),
+                accountID: account.id, login: try IMAPSignIn(secrets: Keychain.signIns()).login(for: account.id),
                 index: database)
         }
     }

@@ -22,7 +22,7 @@
             Task {
                 do {
                     let gmail = DebugGmail(
-                        session: OAuthSession(accountID: account.id, client: .gmail, keychain: Keychain()))
+                        session: OAuthSession(accountID: account.id, client: .gmail, keychain: Keychain.signIns()))
                     try await seed(corpus, into: gmail)
                     if let fixtures { try await record(corpus, into: fixtures, from: gmail) }
                     log.notice("done")

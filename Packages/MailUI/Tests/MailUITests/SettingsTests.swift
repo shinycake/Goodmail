@@ -19,7 +19,7 @@ struct SettingsTests {
                 stored.append(work)
                 return true
             },
-            remove: { id in stored.removeAll { $0.id == id } },
+            remove: { id, _ in stored.removeAll { $0.id == id } },
             update: { _ in },
             closed: { closed = true })
         #expect(model.accounts == [personal])
@@ -39,7 +39,7 @@ struct SettingsTests {
         var events: [String] = []
         let model = SettingsViewModel(
             accounts: { stored }, signIn: { _ in true },
-            remove: { id in
+            remove: { id, _ in
                 events.append("removed \(id.rawValue)")
                 stored.removeAll { $0.id == id }
             },
@@ -64,7 +64,7 @@ struct SettingsTests {
         var stored = [personal]
         var events: [String] = []
         let model = SettingsViewModel(
-            accounts: { stored }, signIn: { _ in true }, remove: { _ in },
+            accounts: { stored }, signIn: { _ in true }, remove: { _, _ in },
             update: { account in
                 // A slow write, so the next change is made before this one is stored.
                 try await Task.sleep(for: .milliseconds(20))
@@ -89,7 +89,7 @@ struct SettingsTests {
         struct Refused: Error {}
         var stored = [personal]
         let model = SettingsViewModel(
-            accounts: { stored }, signIn: { _ in true }, remove: { _ in },
+            accounts: { stored }, signIn: { _ in true }, remove: { _, _ in },
             update: { account in
                 try await Task.sleep(for: .milliseconds(20))
                 if account.name != personal.name { throw Refused() }
@@ -112,7 +112,7 @@ struct SettingsTests {
     @Test func aFailedChangeIsShownAndTheAccountReadsBackAsStored() async {
         struct Refused: Error {}
         let model = SettingsViewModel(
-            accounts: { [personal] }, signIn: { _ in true }, remove: { _ in }, update: { _ in throw Refused() },
+            accounts: { [personal] }, signIn: { _ in true }, remove: { _, _ in }, update: { _ in throw Refused() },
             closed: {})
         model.setColor(.green, for: personal.id)
         await model.settled()
@@ -123,7 +123,7 @@ struct SettingsTests {
     @Test func aFailedSignInIsShownAndChangesNothing() async {
         struct Denied: Error {}
         let model = SettingsViewModel(
-            accounts: { [personal] }, signIn: { _ in throw Denied() }, remove: { _ in }, update: { _ in },
+            accounts: { [personal] }, signIn: { _ in throw Denied() }, remove: { _, _ in }, update: { _ in },
             closed: {})
         await model.adder.add(.gmail)
         #expect(model.adder.error is Denied)
@@ -135,7 +135,7 @@ struct SettingsTests {
         defer { Preferences.unsortedInboxAccounts = saved }
         Preferences.unsortedInboxAccounts = []
         let model = SettingsViewModel(
-            accounts: { [personal, work] }, signIn: { _ in true }, remove: { _ in }, update: { _ in }, closed: {})
+            accounts: { [personal, work] }, signIn: { _ in true }, remove: { _, _ in }, update: { _ in }, closed: {})
         #expect(model.sortsInbox(work.id), "categories are on by default")
 
         model.setSortsInbox(false, for: work.id)
@@ -153,12 +153,12 @@ struct SettingsTests {
         Preferences.unsortedInboxAccounts = []
         let icloud = Account(id: AccountID(rawValue: "c"), email: "me@icloud.com", color: .green, service: .icloud)
         let model = SettingsViewModel(
-            accounts: { [personal, icloud, work] }, signIn: { _ in true }, remove: { _ in }, update: { _ in },
+            accounts: { [personal, icloud, work] }, signIn: { _ in true }, remove: { _, _ in }, update: { _ in },
             closed: {})
         #expect(model.categorisedAccounts.map(\.id) == [personal.id, work.id])
 
         let onlyICloud = SettingsViewModel(
-            accounts: { [icloud] }, signIn: { _ in true }, remove: { _ in }, update: { _ in }, closed: {})
+            accounts: { [icloud] }, signIn: { _ in true }, remove: { _, _ in }, update: { _ in }, closed: {})
         #expect(onlyICloud.categorisedAccounts.isEmpty, "no switch without an account that has categories")
     }
 
@@ -167,7 +167,7 @@ struct SettingsTests {
         defer { Preferences.rowDisplay = saved }
         Preferences.rowDisplay = .standard
         let model = SettingsViewModel(
-            accounts: { [personal] }, signIn: { _ in true }, remove: { _ in }, update: { _ in }, closed: {})
+            accounts: { [personal] }, signIn: { _ in true }, remove: { _, _ in }, update: { _ in }, closed: {})
         #expect(model.rowDisplay == RowDisplay(previewLines: 2, showsAvatars: true), "two lines and avatars at first")
 
         model.rowDisplay.previewLines = 0
@@ -183,7 +183,7 @@ struct SettingsTests {
         defer { Preferences.combinedTheme = saved }
         Preferences.combinedTheme = .gradient
         let model = SettingsViewModel(
-            accounts: { [work, personal] }, signIn: { _ in true }, remove: { _ in }, update: { _ in }, closed: {})
+            accounts: { [work, personal] }, signIn: { _ in true }, remove: { _, _ in }, update: { _ in }, closed: {})
         #expect(model.wearsGradient, "the gradient is the standard")
         #expect(model.gradient == AccountBlend([work.color, personal.color]))
 
@@ -201,7 +201,7 @@ struct SettingsTests {
         defer { Preferences.removalAnimation = saved }
         Preferences.removalAnimation = .playful
         let model = SettingsViewModel(
-            accounts: { [personal] }, signIn: { _ in true }, remove: { _ in }, update: { _ in }, closed: {})
+            accounts: { [personal] }, signIn: { _ in true }, remove: { _, _ in }, update: { _ in }, closed: {})
         #expect(model.removalAnimation == .playful, "the box and dissolve animations are the standard")
 
         model.removalAnimation = .subtle
@@ -228,7 +228,7 @@ struct SettingsTests {
         var stored = [personal, work]
         var updates = 0
         let model = SettingsViewModel(
-            accounts: { stored }, signIn: { _ in true }, remove: { _ in },
+            accounts: { stored }, signIn: { _ in true }, remove: { _, _ in },
             update: { account in
                 updates += 1
                 stored = stored.map { $0.id == account.id ? account : $0 }
@@ -249,7 +249,7 @@ struct SettingsTests {
         var stored = [personal]
         var updates = 0
         let model = SettingsViewModel(
-            accounts: { stored }, signIn: { _ in true }, remove: { _ in },
+            accounts: { stored }, signIn: { _ in true }, remove: { _, _ in },
             update: { account in
                 updates += 1
                 stored = [account]
@@ -268,7 +268,7 @@ struct SettingsTests {
     @Test func aFailedUpdateIsShownAndChangesNothing() async {
         struct Locked: Error {}
         let model = SettingsViewModel(
-            accounts: { [personal] }, signIn: { _ in true }, remove: { _ in }, update: { _ in throw Locked() },
+            accounts: { [personal] }, signIn: { _ in true }, remove: { _, _ in }, update: { _ in throw Locked() },
             closed: {})
         model.setColor(.mint, for: personal.id)
         await model.settled()

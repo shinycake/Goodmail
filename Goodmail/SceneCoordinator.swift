@@ -23,8 +23,10 @@ final class SceneCoordinator: NSObject {
     private var answering: Task<Void, Never>?
     /// Failed sends already shown, so each is offered once per launch.
     private var shownFailures: Set<Draft.ID> = []
-    /// The mail screens, once there is an account.
-    private var split: MailSplitViewController?
+    /// What fills the window. Only `enter(_:)` changes it.
+    private(set) var screen = Screen.starting
+    /// Follows each pass that brings this device in step with the reader's other devices.
+    var sharingObserver: (any NSObjectProtocol)?
     /// The window's root, which holds the mail screens and the messages minimized below them.
     private let drafts = DraftShelfViewController()
     /// What the mail screens show, kept so either arrangement can be rebuilt when the window changes width, and
@@ -46,15 +48,18 @@ final class SceneCoordinator: NSObject {
         drafts.newMessage = { [weak self] account in self?.handle(.compose(Draft(accountID: account))) }
     }
 
-    deinit {
+    isolated deinit {
+        if let sharingObserver { NotificationCenter.default.removeObserver(sharingObserver) }
         failures?.cancel()
         signingInAgain?.cancel()
         answering?.cancel()
     }
 
     func start() {
+        observeSharedAccounts()
         if model.accounts.isEmpty {
-            showWelcome()
+            // A new device whose reader has accounts on another one offers those first.
+            if model.sharedOffers.isEmpty { showWelcome() } else { offerSharedAccounts() }
         } else {
             showMailbox(shown)
             checkGmailSignIns()
@@ -115,7 +120,11 @@ final class SceneCoordinator: NSObject {
         let viewModel = SettingsViewModel(
             accounts: { model.accounts },
             signIn: { [weak self] in try await self?.signIn(to: $0) ?? false },
-            remove: { try await model.removeAccount($0) },
+            remove: {
+                try await model.removeAccount($0, $1)
+                // An account removed from this device alone joins the other devices' accounts it could add.
+                try await model.followSharedAccounts()
+            },
             update: { try await model.update($0) },
             reorder: { try await model.reorderAccounts($0) },
             signatures: Signatures(
@@ -130,6 +139,7 @@ final class SceneCoordinator: NSObject {
         viewModel.rules = model.rulesService()
         viewModel.autoReply = { model.autoReplyService(for: $0) }
         viewModel.serverSettings = { model.serverSettingsService(for: $0) }
+        viewModel.sharing = model.sharingChoices()
         if model.pushRegistrar != nil {
             viewModel.notifications = NotificationChoices(
                 read: { await model.notificationLevels() },
@@ -140,6 +150,26 @@ final class SceneCoordinator: NSObject {
         }
         viewModel.badges = model.badgeChoices()
         presenter.present(SettingsScreen.make(model: viewModel, at: page), animated: true)
+    }
+
+    /// The mail screens, while the window shows them.
+    private var split: MailSplitViewController? {
+        guard case .mailbox(let split, _, _) = screen else { return nil }
+        return split
+    }
+
+    /// Moves the window to `next`, filling it with that screen unless only the mail screens' sheet changed.
+    func enter(_ next: Screen) {
+        let before = screen
+        screen = next
+        switch next {
+        case .starting: break
+        case .welcome(let content), .offer(let content): show(content)
+        case .mailbox(let split, _, _):
+            if case .mailbox(let shown, _, _) = before, shown === split { return }
+            show(split)
+        }
+        publishActivity()
     }
 
     /// Fills the window with `screen`, fading over whatever showed before.
@@ -154,7 +184,7 @@ final class SceneCoordinator: NSObject {
         }
     }
 
-    private func topViewController() -> UIViewController? {
+    func topViewController() -> UIViewController? {
         var top = window.rootViewController
         while let presented = top?.presentedViewController { top = presented }
         return top
@@ -207,27 +237,26 @@ final class SceneCoordinator: NSObject {
         }
     }
 
-    private func showWelcome() {
+    func showWelcome() {
         let adder = AccountAdder { [weak self] in try await self?.signIn(to: $0) ?? false }
         adder.onAdded = { [weak self] in self?.showMailbox() }
-        split = nil
-        show(WelcomeScreen.make(adder: adder))
-        publishActivity()
+        enter(.welcome(WelcomeScreen.make(adder: adder)))
     }
 
     /// `state`, the Inbox unless a restored window says otherwise, with the mailboxes beside it in a wide window or
     /// behind it in a narrow one.
-    private func showMailbox(_ state: WindowState = WindowState()) {
+    func showMailbox(_ state: WindowState = WindowState()) {
         shown = state
         // A restored or handed-off thread may be gone from this device, or not on it yet.
         if let thread = shown.openThread?.id, (try? model.database.thread(thread)) == nil { shown.setThread(nil) }
         let split = MailSplitViewController(actions: actions)
         split.delegate = self
-        self.split = split
+        // The sheet offering the other devices' accounts stays up over the rebuilt screens.
+        var offer: UIViewController?
+        if case .mailbox(_, _, let shownOffer) = screen { offer = shownOffer }
+        enter(.mailbox(split, accounts: model.accounts.map(\.id), offer: offer))
         buildColumns()
         buildStack()
-        show(split)
-        publishActivity()
     }
 
     private func mailboxesViewController(style: MailboxesViewController.Style) -> MailboxesViewController {
@@ -554,6 +583,11 @@ extension SceneCoordinator {
     private func publishActivity() {
         window.windowScene?.userActivity = activity
         window.windowScene?.userActivity?.becomeCurrent()
+    }
+
+    /// Rebuilds the mail screens for the accounts here now, keeping what they show where it's still here.
+    func showMailboxKeepingPlace() {
+        showMailbox(shown.keeping(model.accounts.map(\.id)))
     }
 
     /// Shows what another device handed off, in this window.

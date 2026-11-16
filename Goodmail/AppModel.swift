@@ -34,6 +34,13 @@ final class AppModel {
     var didAddAccount: (() -> Void)?
     /// Told after the stored mail changes in bulk, so the system's copies (Spotlight) can follow.
     var didChange: (@Sendable (MailChange) async -> Void)?
+    /// Where accounts are shared with the reader's other devices; `nil` keeps every account on this device alone, as
+    /// in synthetic mailboxes.
+    let sharing: AccountSharing?
+    /// The accounts the other devices share that this one doesn't have, as the last pass found them.
+    var sharedElsewhere: [Account] = []
+    /// The pass bringing this device in step with the others, while one runs (`followSharedAccounts`).
+    var sharingPass: Task<Void, any Error>?
 
     nonisolated enum MailChange: Sendable {
         /// A sync finished, of every account or of one whose server reported a change.
@@ -42,9 +49,11 @@ final class AppModel {
         case accountRemoved
     }
 
-    /// `pushRelay` is where accounts subscribe to push; `nil` keeps alerts off, as in synthetic mailboxes.
-    init(database: MailDatabase, pushRelay: URL? = PushConfiguration.relayURL) throws {
+    /// `pushRelay` is where accounts subscribe to push; `nil` keeps alerts off, as in synthetic mailboxes. `sharing`
+    /// is where accounts are shared with the reader's other devices.
+    init(database: MailDatabase, pushRelay: URL? = PushConfiguration.relayURL, sharing: AccountSharing? = nil) throws {
         self.database = database
+        self.sharing = sharing
         senderPictures = .cached(with: database)
         accounts = try database.accounts()
         pushRegistrar = pushRelay.map {
@@ -84,7 +93,9 @@ final class AppModel {
 
     /// The shared container's database, so the extensions see the same mail (ADR-002).
     static func openShared() async throws -> AppModel {
-        try AppModel(database: await openSharedDatabase())
+        try AppModel(
+            database: await openSharedDatabase(),
+            sharing: AccountSharing(shared: Keychain.iCloud, device: Keychain(), signInKey: Providers.signInKey))
     }
 
     /// Off the main actor: opening migrates the database and fills in what older builds left out, which can take a
@@ -124,13 +135,14 @@ final class AppModel {
         else { return false }
 
         let code = try OAuthClient.code(fromRedirect: redirect, expectedState: state)
-        let existing = accounts.filter { $0.service == service }
+        // An address the reader's other devices have keeps their ID, so it stays one account across devices.
+        let existing = (accounts + sharedElsewhere).filter { $0.service == service }
         let (session, email) = try await OAuthSession.signIn(
             client: client, code: code, pkce: pkce,
             accountID: { email in
                 existing.first { $0.email.caseInsensitiveCompare(email) == .orderedSame }?.id ?? .generate()
             },
-            keychain: Keychain())
+            keychain: Keychain.signIns())
         providers.use(provider(session), for: session.accountID)
         engines[session.accountID] = nil
         if !accounts.contains(where: { $0.id == session.accountID }) {
@@ -144,6 +156,7 @@ final class AppModel {
             accounts.append(account)
             didAddAccount?()
         }
+        await didSignIn(session.accountID)
         await syncAfterAdding()
         return true
     }
@@ -152,7 +165,8 @@ final class AppModel {
     /// the one already here. Throws `ICloudSignIn.Failure.wrongPassword` when iCloud refuses it.
     func addICloudAccount(email: String, appPassword: String) async throws {
         try await addPasswordAccount(.icloud, email: email) { email, id in
-            try await ICloudSignIn(secrets: Keychain()).signIn(email: email, appPassword: appPassword, accountID: id)
+            try await ICloudSignIn(secrets: Keychain.signIns()).signIn(
+                email: email, appPassword: appPassword, accountID: id)
         }
     }
 
@@ -167,7 +181,7 @@ final class AppModel {
         let existing = accounts.first {
             $0.service == service && $0.email.caseInsensitiveCompare(email) == .orderedSame
         }
-        let id = existing?.id ?? .generate()
+        let id = existing?.id ?? sharedID(of: service, email) ?? .generate()
         try await signIn(email, id)
         providers.forget(id)
         engines[id] = nil
@@ -178,12 +192,24 @@ final class AppModel {
             try await Self.store { [database] in try database.save(account) }
             accounts.append(account)
         }
+        await didSignIn(id)
         await syncAfterAdding()
+    }
+
+    /// Adds accounts from the other devices, whose sign-ins came with them. The next sync fills them in.
+    func adopt(_ shared: [Account]) async throws {
+        let new = shared.filter { account in !accounts.contains { $0.id == account.id } }
+        guard !new.isEmpty else { return }
+        for account in new {
+            try await Self.store { [database] in try database.save(account) }
+            accounts.append(account)
+        }
+        didAddAccount?()
     }
 
     /// Syncs every account once one was added. The account is already here, so a failed sync doesn't undo it or say
     /// the sign-in failed, least of all when it's another account that can't sync. The next sync tries again.
-    private func syncAfterAdding() async {
+    func syncAfterAdding() async {
         do {
             try await syncAll()
         } catch {
@@ -192,11 +218,15 @@ final class AppModel {
         }
     }
 
-    /// Signs the account out and takes it and its mail off the device. Nothing changes at its service.
-    func removeAccount(_ id: AccountID) async throws {
+    /// Signs the account out and takes it and its mail off this device, or off every device that shares accounts.
+    /// Nothing changes at its service.
+    func removeAccount(_ id: AccountID, _ removal: AccountRemoval) async throws {
+        // Told to the other devices before anything goes: if that fails, the account stays everywhere, rather than a
+        // device that follows the others taking back what the reader removed here.
+        if removal == .everyDevice { try await activeSharing?.retire(id) }
         // While the account can still prove its address to the relay.
         await unsubscribePush(id)
-        if let account = accounts.first(where: { $0.id == id }) { try? await Providers.signOut(account) }
+        if let account = accounts.first(where: { $0.id == id }) { await signOut(account, removal) }
         providers.forget(id)
         engines[id] = nil
         await prefetchers[id]?.cancel()
@@ -211,14 +241,26 @@ final class AppModel {
         await didChange?(.accountRemoved)
     }
 
-    /// Stores the account's new name or color.
+    /// Stores the account's new name or color, and shares it with the reader's other devices.
     func update(_ account: Account) async throws {
+        try await keep(account)
+        await shareAccounts()
+    }
+
+    /// Stores the order the reader put the accounts in, which every list of accounts follows, and shares it.
+    func reorderAccounts(_ order: [AccountID]) async throws {
+        try await keep(order: order)
+        await shareAccounts()
+    }
+
+    /// Stores the account's name and color on this device alone, as when another device changed them.
+    func keep(_ account: Account) async throws {
         try await Self.store { [database] in try database.update(account) }
         accounts = accounts.map { $0.id == account.id ? account : $0 }
     }
 
-    /// Stores the order the reader put the accounts in, which every list of accounts follows.
-    func reorderAccounts(_ order: [AccountID]) async throws {
+    /// Stores the accounts' order on this device alone, as when another device changed it.
+    func keep(order: [AccountID]) async throws {
         accounts = try await Self.offMain { [database] in
             try database.reorderAccounts(order)
             return try database.accounts()
@@ -385,7 +427,7 @@ final class AppModel {
 
     /// Runs a database write off the main actor. Any write can wait out another process's lock for seconds
     /// (ADR-002), and the larger ones take long enough by themselves to drop frames.
-    @concurrent private static func store(_ write: @Sendable () throws -> Void) async throws {
+    @concurrent static func store(_ write: @Sendable () throws -> Void) async throws {
         try write()
     }
 

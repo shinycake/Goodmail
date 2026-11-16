@@ -54,5 +54,6 @@ public struct ICloudSignIn: Sendable {
         try secrets.remove(Self.key(accountID))
     }
 
-    private static func key(_ accountID: AccountID) -> String { "icloud.\(accountID.rawValue).appPassword" }
+    /// Where the account's app-specific password is stored.
+    public static func key(_ accountID: AccountID) -> String { "icloud.\(accountID.rawValue).appPassword" }
 }

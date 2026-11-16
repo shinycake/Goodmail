@@ -24,7 +24,7 @@ extension SceneCoordinator {
     /// Asks for the new password and checks it with the servers the account already has. An account whose login
     /// left the Keychain has no servers to keep, so it is set up again from the start.
     private func updatePassword(of account: Account) async {
-        guard let login = try? IMAPSignIn(secrets: Keychain()).login(for: account.id) else {
+        guard let login = try? IMAPSignIn(secrets: Keychain.signIns()).login(for: account.id) else {
             _ = await signInToOtherAccount()
             return
         }

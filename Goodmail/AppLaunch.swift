@@ -88,6 +88,15 @@ struct AppServices {
 
     static func open(routes: IntentRoutes) async throws -> AppServices {
         let model = try await openModel()
+        #if DEBUG
+            await TestSharedAccounts.seedIfRequested()
+        #endif
+        // Before any window shows, so a new device opens on the accounts its reader's other devices offer.
+        do {
+            try await model.followSharedAccounts()
+        } catch {
+            Logger.sharing.error("Couldn't read the accounts other devices share: \(error, privacy: .public)")
+        }
         return AppServices(
             model: model, syncScheduler: SyncScheduler(model: model),
             push: PushCoordinator(model: model, routes: routes), snoozeAlarms: SnoozeAlarms(model: model),

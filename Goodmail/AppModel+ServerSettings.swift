@@ -13,7 +13,7 @@ extension AppModel {
             return ServerSettingsEditor.Service(
                 kind: .servers,
                 load: {
-                    let login = try IMAPSignIn(secrets: Keychain()).login(for: id)
+                    let login = try IMAPSignIn(secrets: Keychain.signIns()).login(for: id)
                     return ServerSettingsEditor.Login(settings: login.settings, password: login.password)
                 },
                 save: { [weak self] login in
@@ -30,7 +30,7 @@ extension AppModel {
                 kind: .appPassword,
                 load: {
                     ServerSettingsEditor.Login(
-                        settings: nil, password: try ICloudSignIn(secrets: Keychain()).appPassword(for: id))
+                        settings: nil, password: try ICloudSignIn(secrets: Keychain.signIns()).appPassword(for: id))
                 },
                 save: { [weak self] login in
                     do {

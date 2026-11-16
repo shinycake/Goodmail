@@ -46,6 +46,7 @@ struct SettingsView: View {
                         Image(systemName: "plus")
                     }
                 }
+                if let sharing = model.sharing { OtherDevicesRow(model: model, sharing: sharing) }
             } header: {
                 Text(
                     "Accounts", tableName: "Settings", bundle: .module, comment: "Settings section listing the accounts"

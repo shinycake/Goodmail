@@ -13,16 +13,47 @@ extension View {
             titleVisibility: .visible,
             presenting: account.wrappedValue
         ) { account in
-            Button(role: .destructive) {
-                removed()
-                model.removeAccount(account.id)
-            } label: {
-                Text(
-                    "Remove Account", tableName: "Settings", bundle: .module,
-                    comment: "Removes an account from the device")
+            if model.sharing?.syncs == true {
+                // The account is on the reader's other devices too, so they choose how far removing it reaches.
+                Button(role: .destructive) {
+                    removed()
+                    model.removeAccount(account.id, .everyDevice)
+                } label: {
+                    Text(
+                        "Remove from All Devices", tableName: "AccountSharing", bundle: .module,
+                        comment: "Removes an account from every device that syncs accounts")
+                }
+                Button(role: .destructive) {
+                    removed()
+                    model.removeAccount(account.id, .thisDevice)
+                } label: {
+                    Text(
+                        "Remove from This Device Only", tableName: "AccountSharing", bundle: .module,
+                        comment: "Removes an account from this device and keeps it on the reader's other devices")
+                }
+                Button(role: .cancel) {
+                } label: {
+                    Text("Cancel", tableName: "AccountSharing", bundle: .module, comment: "Keeps the account")
+                }
+            } else {
+                Button(role: .destructive) {
+                    removed()
+                    model.removeAccount(account.id)
+                } label: {
+                    Text(
+                        "Remove Account", tableName: "Settings", bundle: .module,
+                        comment: "Removes an account from the device")
+                }
             }
         } message: { account in
-            RemovalExplanation(account: account)
+            if model.sharing?.syncs == true {
+                Text(
+                    "\(account.email) can leave this device only, or every device that syncs your accounts. Its mail stays with its service.",
+                    tableName: "AccountSharing", bundle: .module,
+                    comment: "Explains the choice of removing an account from this device or from all devices")
+            } else {
+                RemovalExplanation(account: account)
+            }
         }
     }
 }
