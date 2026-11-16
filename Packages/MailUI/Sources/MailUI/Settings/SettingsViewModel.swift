@@ -55,7 +55,8 @@ public final class SettingsViewModel {
 
     @ObservationIgnored private let remove: (AccountID) async throws -> Void
     @ObservationIgnored private let update: (Account) async throws -> Void
-    /// Stores name and color changes in the order the reader made them (`change`).
+    @ObservationIgnored private let reorder: ([AccountID]) async throws -> Void
+    /// Stores name, color and order changes in the order the reader made them (`change`).
     @ObservationIgnored private let changes = TaskChain()
     /// The changes not stored yet, oldest first. The screen shows the stored accounts with these applied.
     @ObservationIgnored private var pending: [Change] = []
@@ -63,14 +64,15 @@ public final class SettingsViewModel {
     @ObservationIgnored private let closed: () -> Void
 
     /// `signIn` signs in to a service and adds its account, returning `false` if the reader cancelled; `remove`
-    /// takes an account and its mail off the device; `update` stores an account's new name or color. `accounts`
-    /// reads them back after each. `signatures` reads and saves each account's signature; a failure shows as `error`.
+    /// takes an account and its mail off the device; `update` stores an account's new name or color; `reorder`
+    /// stores the order the reader put the accounts in. `accounts` reads them back after each. `signatures` reads and saves each account's signature; a failure shows as `error`.
     /// `closed` runs once the screen is gone, however it was dismissed.
     public init(
         accounts: @escaping () -> [Account],
         signIn: @escaping (MailService) async throws -> Bool,
         remove: @escaping (AccountID) async throws -> Void,
         update: @escaping (Account) async throws -> Void,
+        reorder: @escaping ([AccountID]) async throws -> Void = { _ in },
         signatures: Signatures = Signatures(read: { _ in nil }, store: { _, _ in }),
         closed: @escaping () -> Void
     ) {
@@ -87,6 +89,7 @@ public final class SettingsViewModel {
         reload = accounts
         self.remove = remove
         self.update = update
+        self.reorder = reorder
         self.closed = closed
         self.signatures = signatures
         adder.onAdded = { [weak self] in self?.refresh() }
@@ -109,46 +112,81 @@ public final class SettingsViewModel {
     /// Sends the account's mail under `name`, without its surrounding spaces; a blank name sends the address alone.
     func rename(_ id: AccountID, to name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        change(id) { $0.name = trimmed.isEmpty ? nil : trimmed }
+        change(.edit(id) { $0.name = trimmed.isEmpty ? nil : trimmed })
     }
 
     func setColor(_ color: AccountColor, for id: AccountID) {
-        change(id) { $0.color = color }
+        change(.edit(id) { $0.color = color })
     }
 
-    /// One edit of one account's name or color.
-    private struct Change {
-        let id: AccountID
-        let edit: (inout Account) -> Void
+    /// Moves the accounts at `offsets` to before the one at `destination`, as a list's drag reports it.
+    func moveAccounts(from offsets: IndexSet, to destination: Int) {
+        var order = accounts.map(\.id)
+        order.move(fromOffsets: offsets, toOffset: destination)
+        change(.reorder(order))
+    }
+
+    /// Moves the account one place up (`by: -1`) or down (`by: 1`), as VoiceOver's actions do. Nothing at either end.
+    func moveAccount(_ id: AccountID, by step: Int) {
+        guard let index = accounts.firstIndex(where: { $0.id == id }), accounts.indices.contains(index + step) else {
+            return
+        }
+        moveAccounts(from: [index], to: step > 0 ? index + step + 1 : index + step)
+    }
+
+    /// One change the reader made to the accounts.
+    private enum Change {
+        /// An edit of one account's name or color.
+        case edit(AccountID, (inout Account) -> Void)
+        /// The accounts in a new order. Any it doesn't name, as one added since, follow in the order they had.
+        case reorder([AccountID])
 
         func apply(to accounts: inout [Account]) {
-            guard let index = accounts.firstIndex(where: { $0.id == id }) else { return }
-            edit(&accounts[index])
+            switch self {
+            case .edit(let id, let edit):
+                guard let index = accounts.firstIndex(where: { $0.id == id }) else { return }
+                edit(&accounts[index])
+            case .reorder(let order):
+                let rank = Dictionary(order.enumerated().map { ($1, $0) }, uniquingKeysWith: { first, _ in first })
+                // The sort is stable, so the accounts `order` leaves out keep their order after the ones it names.
+                accounts.sort { rank[$0.id, default: order.count] < rank[$1.id, default: order.count] }
+            }
         }
     }
 
     /// Shows the change at once and stores it after any change before it. Each one is applied, when its turn
-    /// comes, to the account as stored, so a rename and a color change made in quick succession both stick, and
+    /// comes, to the accounts as stored, so a rename and a color change made in quick succession both stick, and
     /// one that fails is shown and carried by no later change.
-    private func change(_ id: AccountID, _ edit: @escaping (inout Account) -> Void) {
-        pending.append(Change(id: id, edit: edit))
+    private func change(_ change: Change) {
+        pending.append(change)
         refresh()
         changes.run { [self] in
             // The chain runs changes in the order they were appended, so this one is first. It stays pending, and
             // shown, until it is stored or has failed.
             let change = pending[0]
-            var stored = reload()
-            let before = stored.first { $0.id == change.id }
-            change.apply(to: &stored)
-            if let account = stored.first(where: { $0.id == change.id }), account != before {
-                do {
-                    try await update(account)
-                } catch {
-                    self.error = error
-                }
+            let before = reload()
+            var after = before
+            change.apply(to: &after)
+            do {
+                try await store(change, from: before, to: after)
+            } catch {
+                self.error = error
             }
             pending.removeFirst()
             refresh()
+        }
+    }
+
+    /// Stores what `change` made of the stored accounts, if it made anything of them.
+    private func store(_ change: Change, from before: [Account], to after: [Account]) async throws {
+        switch change {
+        case .edit(let id, _):
+            guard let account = after.first(where: { $0.id == id }), !before.contains(account) else { return }
+            try await update(account)
+        case .reorder:
+            let order = after.map(\.id)
+            guard order != before.map(\.id) else { return }
+            try await reorder(order)
         }
     }
 

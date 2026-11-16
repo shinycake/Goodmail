@@ -273,6 +273,28 @@
         }
       }
     },
+    "Move Down" : {
+      "comment" : "Moves an account one place down the list",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הזזה למטה"
+          }
+        }
+      }
+    },
+    "Move Up" : {
+      "comment" : "Moves an account one place up the list",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הזזה למעלה"
+          }
+        }
+      }
+    },
     "Name" : {
       "comment" : "Label of an account's sender name field",
       "localizations" : {

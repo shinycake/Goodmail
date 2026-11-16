@@ -306,6 +306,19 @@ public final class MailDatabase: Sendable {
             // Address books fetched before photos were read are fetched again on the next sync.
             try db.execute(sql: "UPDATE addressBook SET fetchedAt = ?", arguments: [Date.distantPast])
         }
+        migrator.registerMigration("v26-account-order") { db in
+            // Where each account stands among the others, which the reader can change. Until now that was the order
+            // they were added in, so that is where each one starts.
+            try db.alter(table: "account") { table in table.add(column: "position", .integer).notNull().defaults(to: 0)
+            }
+            try db.execute(
+                sql: """
+                    UPDATE account SET position = (
+                        SELECT COUNT(*) FROM account AS earlier
+                        WHERE earlier.createdAt < account.createdAt
+                            OR (earlier.createdAt = account.createdAt AND earlier.id < account.id))
+                    """)
+        }
         return migrator
     }
 }

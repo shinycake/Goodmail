@@ -31,7 +31,11 @@ struct SettingsView: View {
                     }
                     .swipeActions { removeButton(account) }
                     .contextMenu { removeButton(account) }
+                    .accessibilityActions { moveActions(account) }
                 }
+                // Edit shows each row's handle to drag it by: the long press is the row's context menu. Mailboxes, the
+                // unified Inbox and every account picker follow the order.
+                .onMove { model.moveAccounts(from: $0, to: $1) }
                 NavigationLink {
                     AddAccountView(model: model)
                 } label: {
@@ -148,6 +152,9 @@ struct SettingsView: View {
             Text("Settings", tableName: "Settings", bundle: .module, comment: "Title of the settings screen")
         )
         .toolbar {
+            if model.accounts.count > 1 {
+                ToolbarItem(placement: .topBarLeading) { EditButton() }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button(role: .close) { dismiss() }
             }
@@ -166,6 +173,28 @@ struct SettingsView: View {
 }
 
 extension SettingsView {
+    /// VoiceOver's way to reorder the accounts, one place at a time. Only the moves the account can make are offered.
+    @ViewBuilder private func moveActions(_ account: Account) -> some View {
+        if account.id != model.accounts.first?.id {
+            Button {
+                model.moveAccount(account.id, by: -1)
+            } label: {
+                Text(
+                    "Move Up", tableName: "Settings", bundle: .module, comment: "Moves an account one place up the list"
+                )
+            }
+        }
+        if account.id != model.accounts.last?.id {
+            Button {
+                model.moveAccount(account.id, by: 1)
+            } label: {
+                Text(
+                    "Move Down", tableName: "Settings", bundle: .module,
+                    comment: "Moves an account one place down the list")
+            }
+        }
+    }
+
     private func removeButton(_ account: Account) -> some View {
         Button(role: .destructive) {
             removing = account

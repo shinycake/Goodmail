@@ -211,6 +211,14 @@ final class AppModel {
         accounts = accounts.map { $0.id == account.id ? account : $0 }
     }
 
+    /// Stores the order the reader put the accounts in, which every list of accounts follows.
+    func reorderAccounts(_ order: [AccountID]) async throws {
+        accounts = try await Self.offMain { [database] in
+            try database.reorderAccounts(order)
+            return try database.accounts()
+        }
+    }
+
     /// Sends queued actions, then syncs, every account at once, and tells `health` how each went. Each engine
     /// coalesces overlapping calls, so this is safe to call often. One account that fails doesn't stop the others;
     /// once all are done, the first failure is thrown. With `prefetch`, each account that synced then starts

@@ -3,8 +3,14 @@ import GRDB
 import MailCore
 
 extension MailDatabase {
+    /// Stores the account. A new one goes after the others; one stored before keeps its place.
     public func save(_ account: Account) throws {
-        try write { db in try AccountRecord(account).save(db) }
+        try write { db in
+            let position =
+                try Int.fetchOne(db, sql: "SELECT position FROM account WHERE id = ?", arguments: [account.id.rawValue])
+                ?? Int.fetchOne(db, sql: "SELECT MAX(position) + 1 FROM account") ?? 0
+            try AccountRecord(account, position: position).save(db)
+        }
     }
 
     /// Changes the account's name and color. Its mail and its place among the accounts stay as they are.
@@ -16,10 +22,21 @@ extension MailDatabase {
         }
     }
 
-    /// In the order they were added.
+    /// In the order the reader put them, which starts as the order they were added.
     public func accounts() throws -> [Account] {
         try pool.read { db in
-            try AccountRecord.order(Column("createdAt")).fetchAll(db).compactMap(\.account)
+            try AccountRecord.order(Column("position"), Column("createdAt")).fetchAll(db).compactMap(\.account)
+        }
+    }
+
+    /// Puts the accounts in `order`. Any it leaves out follow, in the order they had.
+    public func reorderAccounts(_ order: [AccountID]) throws {
+        try write { db in
+            // Every account moves past the places `order` takes, keeping its order, and then the named ones take them.
+            try db.execute(sql: "UPDATE account SET position = position + ?", arguments: [order.count])
+            for (position, id) in order.enumerated() {
+                try db.execute(sql: "UPDATE account SET position = ? WHERE id = ?", arguments: [position, id.rawValue])
+            }
         }
     }
 
@@ -52,8 +69,9 @@ struct AccountRecord: Codable, FetchableRecord, PersistableRecord {
     var name: String?
     var aliases: [Contact]
     var createdAt: Date
+    var position: Int
 
-    init(_ account: Account, createdAt: Date = .now) {
+    init(_ account: Account, position: Int, createdAt: Date = .now) {
         id = account.id.rawValue
         email = account.email
         color = account.color.rawValue
@@ -61,6 +79,7 @@ struct AccountRecord: Codable, FetchableRecord, PersistableRecord {
         name = account.name
         aliases = account.aliases
         self.createdAt = createdAt
+        self.position = position
     }
 
     /// `nil` if the stored color is no longer offered, or the service isn't one this build knows.
