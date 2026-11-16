@@ -5,8 +5,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private enum State {
         /// UIKit hasn't connected the scene yet.
         case notConnected
-        /// The database is still opening; the window shows nothing yet.
-        case opening(Task<Void, Never>)
+        /// The database is still opening; the window shows nothing yet. `link` is the `mailto:` link to open once
+        /// it has.
+        case opening(Task<Void, Never>, link: URL?)
         case running(SceneCoordinator)
         /// The database couldn't open; the window says so.
         case unavailable
@@ -26,22 +27,26 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // A handoff from another device wins over what this window showed when it was last saved.
         let restoring = (connectionOptions.userActivities + [session.stateRestorationActivity].compactMap(\.self))
             .lazy.compactMap(Self.windowState(in:)).first
+        let link = connectionOptions.urlContexts.first?.url
         if let services = launch.running {
-            return connect(windowScene, to: services, restoring: restoring)
+            return connect(windowScene, to: services, restoring: restoring, link: link)
         }
         show(LaunchViewController(), in: windowScene)
         state = .opening(
             Task {
                 do {
-                    connect(windowScene, to: try await launch.services(), restoring: restoring)
+                    let services = try await launch.services()
+                    guard case .opening(_, let link) = state else { return }
+                    connect(windowScene, to: services, restoring: restoring, link: link)
                 } catch {
                     show(LaunchViewController(failure: error), in: windowScene)
                     state = .unavailable
                 }
-            })
+            },
+            link: link)
     }
 
-    private func connect(_ windowScene: UIWindowScene, to services: AppServices, restoring: WindowState?) {
+    private func connect(_ windowScene: UIWindowScene, to services: AppServices, restoring: WindowState?, link: URL?) {
         let coordinator = SceneCoordinator(windowScene: windowScene, model: services.model, restoring: restoring)
         state = .running(coordinator)
         coordinator.start()
@@ -49,6 +54,18 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         coordinator.window.makeKeyAndVisible()
         window?.isHidden = true
         window = coordinator.window
+        // The composer needs a visible window to present on.
+        if let link { coordinator.compose(mailto: link) }
+    }
+
+    /// A `mailto:` link opened while the window is up, or while the database is still opening.
+    func scene(_ scene: UIScene, openURLContexts contexts: Set<UIOpenURLContext>) {
+        guard let link = contexts.first?.url else { return }
+        switch state {
+        case .running(let coordinator): coordinator.compose(mailto: link)
+        case .opening(let task, _): state = .opening(task, link: link)
+        case .notConnected, .unavailable: break
+        }
     }
 
     /// Shows `controller` in a window of its own, until the coordinator's window replaces it.

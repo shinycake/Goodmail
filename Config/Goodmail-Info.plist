@@ -6,6 +6,17 @@
 	<array>
 		<string>com.idanbirman.goodmail.refresh</string>
 	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.idanbirman.goodmail.mailto</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>mailto</string>
+			</array>
+		</dict>
+	</array>
 	<key>GoodmailPushRelayURL</key>
 	<string>$(GOODMAIL_PUSH_RELAY_URL)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>

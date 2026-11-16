@@ -376,6 +376,13 @@ final class SceneCoordinator: NSObject {
         return .categorised(categories, selected: shown.category)
     }
 
+    /// Opens a `mailto:` link in the composer, from the first account. Without an account there is nothing to send
+    /// from, so the welcome screen stays.
+    func compose(mailto link: URL) {
+        guard let account = model.accounts.first?.id, let draft = Draft(mailto: link, from: account) else { return }
+        handle(.compose(draft))
+    }
+
     /// The one place navigation happens (ADR-011).
     func handle(_ route: Route) {
         switch route {
