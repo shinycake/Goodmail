@@ -100,6 +100,18 @@ struct FakeHost: MailIntentsHost {
         return unsubscribing
     }
 
+    /// Answers the cached message as the app does, quoted in English.
+    func answer(_ answer: Answer, to message: Message.ID, inThread thread: ThreadSummary.ID) throws -> Draft? {
+        guard let messages = cached[thread], let index = messages.firstIndex(where: { $0.id == message }),
+            let account = accountList.first(where: { $0.id == thread.accountID })
+        else { return nil }
+        return answer.draft(
+            answering: Array(messages[...index]), accountEmail: account.email, aliases: account.aliases,
+            wording: .english)
+    }
+
+    func send(_ draft: Draft, at date: Date?) throws { performed.recordSend(draft, at: date) }
+
     func refresh() throws { performed.recordRefresh() }
 
     func undo(_ undo: MailCommands.Undo) throws {
@@ -117,6 +129,12 @@ final class Performed: Sendable {
     private let snoozeChanges = Mutex<[String: [Date?]]>([:])
     private let unsubscribes = Mutex<[Unsubscribe]>([])
     private let refreshes = Mutex(0)
+    private let sends = Mutex<[(draft: Draft, date: Date?)]>([])
+
+    func recordSend(_ draft: Draft, at date: Date?) { sends.withLock { $0.append((draft, date)) } }
+
+    /// Each message sent, with when it was asked to go (`nil` for now), in order.
+    var sent: [(draft: Draft, date: Date?)] { sends.withLock { $0 } }
 
     func record(_ action: ThreadAction, on threads: [ThreadSummary.ID]) {
         actions.withLock { actions in

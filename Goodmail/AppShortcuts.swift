@@ -25,6 +25,16 @@
                 phrases: ["Open \(\.$target) in \(.applicationName)", "Show \(\.$target) in \(.applicationName)"],
                 shortTitle: "Open Mailbox",
                 systemImageName: "folder")
+            AppShortcut(
+                intent: SendEmailIntent(),
+                phrases: ["Send an email with \(.applicationName)", "Email someone with \(.applicationName)"],
+                shortTitle: "Send Email",
+                systemImageName: "paperplane")
+            AppShortcut(
+                intent: CheckForNewMailIntent(),
+                phrases: ["Check for new mail in \(.applicationName)", "Get new \(.applicationName) mail"],
+                shortTitle: "Check for New Mail",
+                systemImageName: "arrow.clockwise")
         }
     }
 #endif

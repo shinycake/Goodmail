@@ -117,19 +117,14 @@ struct NewMessageTests {
     private let second = Account(
         id: AccountID(rawValue: "A2"), email: "two@example.com", color: .orange, service: .icloud)
 
-    private func account(of route: Route?) -> AccountID? {
-        guard case .compose(let draft)? = route else { return nil }
-        return draft.accountID
-    }
-
     @Test func aNewMessageComesFromTheAccountGivenOrElseTheFirst() throws {
         let catalog = Catalog(host: FakeHost(accountList: [first, second]))
-        #expect(account(of: try catalog.newMessage(from: nil)) == first.id)
-        #expect(account(of: try catalog.newMessage(from: "A2")) == second.id)
-        #expect(try catalog.newMessage(from: "gone") == nil)
+        #expect(try catalog.account(nil)?.id == first.id)
+        #expect(try catalog.account("A2")?.id == second.id)
+        #expect(try catalog.account("gone") == nil)
     }
 
     @Test func thereIsNoNewMessageWithoutAnAccount() throws {
-        #expect(try Catalog(host: FakeHost()).newMessage(from: nil) == nil)
+        #expect(try Catalog(host: FakeHost()).account(nil) == nil)
     }
 }

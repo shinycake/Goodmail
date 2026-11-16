@@ -31,6 +31,11 @@ public protocol MailIntentsHost: Sendable {
     /// Snoozes the threads until `date`, or with `nil` wakes them now, through `MailCommands`. Returns what undoes it.
     @discardableResult
     func snooze(_ threads: [ThreadSummary.ID], until date: Date?) async throws -> MailCommands.Undo
+    /// The draft that answers `message` as `answer` does, from the account or the alias the message involves, quoted
+    /// in the reader's language. `nil` when the message is gone. Fetches the thread's messages when none are cached.
+    func answer(_ answer: Answer, to message: Message.ID, inThread thread: ThreadSummary.ID) async throws -> Draft?
+    /// Queues `draft` to go now, or at `date`, through `MailCommands`.
+    func send(_ draft: Draft, at date: Date?) async throws
     /// Leaves a mailing list for `account`'s reader (`ListUnsubscriber`).
     func unsubscribe(_ unsubscribe: Unsubscribe, account: AccountID) async throws -> ListUnsubscriber.Outcome
     /// Fetches new mail for every account.

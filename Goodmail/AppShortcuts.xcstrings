@@ -17,6 +17,54 @@
         }
       }
     },
+    "Check for new mail in ${applicationName}" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Check for new mail in ${applicationName}"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בדוק אם יש דואר חדש ב־${applicationName}"
+          }
+        }
+      }
+    },
+    "Email someone with ${applicationName}" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Email someone with ${applicationName}"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כתוב אימייל ב־${applicationName}"
+          }
+        }
+      }
+    },
+    "Get new ${applicationName} mail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Get new ${applicationName} mail"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "משוך דואר חדש ב־${applicationName}"
+          }
+        }
+      }
+    },
     "New ${applicationName} message from ${account}" : {
       "localizations" : {
         "en" : {
@@ -77,6 +125,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "פתח את תיבת הדואר הנכנס ב־${applicationName}"
+          }
+        }
+      }
+    },
+    "Send an email with ${applicationName}" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Send an email with ${applicationName}"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שלח אימייל עם ${applicationName}"
           }
         }
       }

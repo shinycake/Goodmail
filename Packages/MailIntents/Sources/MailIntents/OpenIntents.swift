@@ -56,9 +56,22 @@ enum IntentError: Error, CustomLocalizedStringResourceConvertible {
     case notAPlace
     /// Unsubscribe was asked of a message that isn't from a mailing list.
     case notAList
+    /// A recipient that doesn't read as an email address, as it was given.
+    case notAnAddress(String)
+    /// A message with no one to send it to.
+    case noRecipients
+
+    init(_ error: WrittenMailError) {
+        switch error {
+        case .notAnAddress(let text): self = .notAnAddress(text)
+        case .noRecipients: self = .noRecipients
+        }
+    }
 
     var localizedStringResource: LocalizedStringResource {
         switch self {
+        case .notAnAddress(let text): "“\(text)” isn't an email address."
+        case .noRecipients: "Choose someone to send it to."
         case .gone: "That mail is no longer on this device."
         case .notAPlace: "Mail can't be moved there. Choose the Inbox, Spam, Trash or a label."
         case .notAList: "That message isn't from a mailing list."
@@ -90,32 +103,38 @@ public struct OpenInboxIntent: AppIntent {
     }
 }
 
-/// Starts a new message, from the account given or else the first.
+/// Starts a new message, from the account given or else the first, filled in with what the shortcut wrote.
 public struct NewMessageIntent: AppIntent {
     public static let title: LocalizedStringResource = "New Message"
-    public static let description = IntentDescription("Starts a new message in Goodmail.")
+    public static let description = IntentDescription(
+        "Starts a new message in Goodmail, with the recipients, subject, text and files you give it.")
     public static let supportedModes: IntentModes = .foreground
 
     @Parameter(title: "From")
     public var account: AccountEntity?
+    @Parameter(title: "To")
+    public var to: [IntentPerson]?
+    @Parameter(title: "CC")
+    public var cc: [IntentPerson]?
+    @Parameter(title: "BCC")
+    public var bcc: [IntentPerson]?
+    @Parameter(title: "Subject")
+    public var subject: String?
+    @Parameter(title: "Body", inputOptions: String.IntentInputOptions(multiline: true))
+    public var body: String?
+    @Parameter(title: "Attachments")
+    public var attachments: [IntentFile]?
 
     @Dependency private var host: any MailIntentsHost
 
     public init() {}
 
     public func perform() async throws -> some IntentResult {
-        guard let route = try Catalog(host: host).newMessage(from: account?.id) else { throw IntentError.gone }
-        await host.open(route)
+        let draft = try Catalog(host: host).newDraft(
+            WrittenMail(
+                to: to.recipients, cc: cc.recipients, bcc: bcc.recipients, subject: subject, text: body ?? "",
+                attachments: attachments.drafted), from: account?.id)
+        await host.open(.compose(draft))
         return .result()
-    }
-}
-
-extension Catalog {
-    /// The composer with an empty message from `account`, or from the first account when none is given. `nil` when
-    /// that account is gone or there is none.
-    func newMessage(from account: String?) throws -> Route? {
-        let accounts = try host.accounts()
-        let chosen = account.map { id in accounts.first { $0.id.rawValue == id } } ?? accounts.first
-        return chosen.map { .compose(Draft(id: UUID(), accountID: $0.id)) }
     }
 }

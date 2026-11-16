@@ -63,13 +63,20 @@
             }
         }
 
-        /// Unsubscribing and checking for mail need the network and the app's sign-ins, which the widget doesn't
-        /// hold. If one of these intents runs here, it fails with that reason instead of half-running.
+        /// Unsubscribing, checking for mail and sending need the network and the app's sign-ins, which the widget
+        /// doesn't hold. If one of these intents runs here, it fails with that reason instead of half-running.
         func unsubscribe(_ unsubscribe: Unsubscribe, account: AccountID) async throws -> ListUnsubscriber.Outcome {
             throw WidgetHostError.needsTheApp
         }
 
         func refresh() async throws { throw WidgetHostError.needsTheApp }
+
+        func answer(_ answer: Answer, to message: Message.ID, inThread thread: ThreadSummary.ID) async throws -> Draft?
+        {
+            throw WidgetHostError.needsTheApp
+        }
+
+        func send(_ draft: Draft, at date: Date?) async throws { throw WidgetHostError.needsTheApp }
 
         func undo(_ undo: MailCommands.Undo) async throws {
             try await commands.undo(undo)

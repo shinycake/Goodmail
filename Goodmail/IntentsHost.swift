@@ -21,6 +21,8 @@
         let commands: MailCommands
         let routes: IntentRoutes
         let unsubscriber: ListUnsubscriber
+        /// Fetches a thread's messages when the device has none of them cached.
+        let providers: Providers
         /// Syncs every account, as pulling down the Inbox does.
         let syncAll: @Sendable () async throws -> Void
 
@@ -91,6 +93,31 @@
 
         func unsubscribe(_ unsubscribe: Unsubscribe, account: AccountID) async throws -> ListUnsubscriber.Outcome {
             try await unsubscriber.unsubscribe(unsubscribe, account: account)
+        }
+
+        func answer(_ answer: Answer, to message: Message.ID, inThread thread: ThreadSummary.ID) async throws -> Draft?
+        {
+            guard let account = try database.accounts().first(where: { $0.id == thread.accountID }) else { return nil }
+            var messages = try database.cachedMessages(inThread: thread)
+            if !messages.contains(where: { $0.id == message }) {
+                messages = try await providers.provider(for: thread.accountID).messages(inThread: thread.threadID)
+                    .sorted { $0.date < $1.date }
+            }
+            // Answering the message means answering it as the newest of its thread.
+            guard let index = messages.firstIndex(where: { $0.id == message }) else { return nil }
+            return answer.draft(
+                answering: Array(messages[...index]), accountEmail: account.email, aliases: account.aliases,
+                wording: .localized)
+        }
+
+        func send(_ draft: Draft, at date: Date?) async throws {
+            try await BackgroundDatabaseWork.shared.run("Intent") {
+                if let date {
+                    try await commands.schedule(draft, at: date)
+                } else {
+                    try await commands.send(draft, after: .zero)
+                }
+            }
         }
 
         func refresh() async throws {
