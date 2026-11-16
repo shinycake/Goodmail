@@ -2,12 +2,13 @@
 
 The M11 privacy review: what Goodmail stores, where it goes, the privacy manifests, and the App Store privacy label. It checks the code against the product brief's [Data and privacy](../product-brief.md#data-and-privacy) and [Backend](../product-brief.md#backend-cloudflare-workers) sections. Re-run it whenever a change adds storage, a network destination, a log line with user data, or a required-reason API.
 
-Reviewed 2026-11-13, against `main` at 42720fc.
+Reviewed 2026-11-13, against `main` at 42720fc. The push Worker section was updated on 2026-11-16 for Outlook, the Gmail history check (#232) and iCloud/IMAP watches (#241, #243).
 
 ## Summary
 
-- Mail, credentials and settings stay on the device or go straight to the user's mail provider. Goodmail has no server that sees mail.
-- The push Worker stores only a keyed hash of the address and the APNs device token. It logs nothing personal.
+- Mail and settings stay on the device or go straight to the user's mail provider. Goodmail has no server that sees mail.
+- Credentials live in the Keychain. The push Worker also keeps two kinds, encrypted, so it can tell when new mail arrives: each Gmail account's refresh token, and each iCloud or IMAP login. It uses them only to read Gmail's change history or the Inbox's UID counters.
+- Otherwise the push Worker stores keyed hashes of addresses, opaque account IDs and APNs device tokens. It logs nothing personal.
 - No tracking, no analytics SDKs, no third-party code besides GRDB, which ships its own privacy manifest.
 - The release build today collects no data in Apple's sense. When the app starts registering with the push Worker, the label changes to one entry, **User ID**. See [Privacy label](#app-store-privacy-label).
 
@@ -40,39 +41,53 @@ Removing an account (`AppModel.removeAccount`) deletes its refresh token, its ro
 | `gmail.googleapis.com` | Mail: read, send, modify, delete forever, settings (`https://mail.google.com/`, `gmail.settings.basic`) | The user's own mail, to the user's own provider |
 | `people.googleapis.com` | Contacts for address completion (`contacts.readonly`, `contacts.other.readonly`) | Read only |
 | Remote content in messages | Images, only when the reader allows them for a message | The image request (IP address, user agent). Blocked by default |
-| The push Worker | Device registration (not wired in the app yet) | Google ID token and APNs device token |
+| The push Worker | Push registration | Gmail: Google ID token, APNs device token, and the account's refresh token. Outlook: the Graph subscription's ID and secret, the app's account ID, the device token. iCloud/IMAP: the server, user name and app password, the app's account ID, the device token |
 
 Google here is the user's own mail provider, acting for the user. Data the app exchanges with it isn't collected by Goodmail.
 
 ## The push Worker
 
-`PushWorker/` is a Cloudflare Worker with a D1 database (ADR-006). The brief says Durable Objects; the Worker uses D1, with the same data.
+`PushWorker/` is a Cloudflare Worker with a D1 database (ADR-006). Its README documents every route.
 
 **What it receives**
 
 - `POST`/`DELETE /v1/devices`: a Google ID token (it verifies the token and reads the `email` claim), the APNs device token, and `sandbox` or `production`.
 - `POST /v1/pubsub`: Gmail's notification, `{emailAddress, historyId}`, signed by Google. No mail content, subjects or senders.
+- `POST /v1/gmail/grants`: the Gmail account's refresh token, on every push refresh.
+- `POST`/`DELETE /v1/graph/subscriptions` and `POST /v1/graph`: Outlook's Graph subscriptions and their change notifications, which name a subscription and carry no mail.
+- `POST`/`DELETE /v1/imap/watches`: an iCloud or IMAP account's server, user name and app password, the app's account ID, the device token, and a watch ID and secret the device made.
 
-**What it stores** (`migrations/0001_init.sql`)
+**What it stores** (`migrations/`)
 
-- `devices`: `HMAC-SHA256(lowercased email, EMAIL_HMAC_SECRET)`, the APNs token, the environment, and when it was last registered.
-- `deliveries`: the same hash and the newest Gmail history ID pushed.
-- No addresses, OAuth tokens or mail. The ID token is verified and dropped.
+- `devices`, `deliveries`, `push_times`: `HMAC-SHA256(lowercased email, EMAIL_HMAC_SECRET)`, APNs tokens, the newest Gmail history ID pushed, and when the last push went out.
+- `gmail_grants`: the refresh token, AES-GCM encrypted, and an HMAC of it to recognize it when sent again.
+- `graph_subscriptions`: the subscription ID, a SHA-256 of its secret, the app's opaque account ID, the device token and the expiry.
+- `imap_watches`: the login (server, user name and password) as AES-GCM encrypted JSON, an HMAC of it, a SHA-256 of the watch secret, the app's account ID, the device token, the Inbox's UIDVALIDITY and UIDNEXT, and whether the server refused the login.
+- No addresses in the clear and no mail. The ID token is verified and dropped.
+- **Encryption:** the AES-GCM keys are derived with HKDF from the Worker secret `EMAIL_HMAC_SECRET`, one key per kind of secret. A copy of the database alone reveals no token or password. Someone who controls the Cloudflare account, or Cloudflare itself, could run code with the secret and decrypt them. D1 is also encrypted at rest by Cloudflare.
+
+**What it does with the credentials**
+
+- Gmail: refreshes an access token and lists history since the last notification (`messageAdded`, Inbox only), to stay silent when nothing new reached the Inbox.
+- iCloud/IMAP: every 5 minutes it logs in, reads `STATUS INBOX (UIDNEXT UIDVALIDITY)`, selects the Inbox read-only and holds IDLE until the next run. It never fetches a message, a header or a flag. A refused login is never tried again until the device sends a different one.
 
 **What it sends**
 
-- APNs: the alert `Goodmail` / `New mail`, plus `account` (the email address) and `historyId`, so the Notification Service Extension knows which account to sync. Apple relays this and keeps it only until delivery.
-- Follow-up to consider: send an opaque per-account ID instead of the address, so the address doesn't transit APNs. Low risk either way, since the payload goes over TLS and only to the user's own device.
+- APNs: the alert `Goodmail` / `New mail`, plus `account` (the email address) and `historyId` for Gmail, or `accountID` (the app's opaque ID) for Outlook and IMAP, so the Notification Service Extension knows which account to sync. Apple relays this and keeps it only until delivery.
+- Follow-up to consider: send an opaque per-account ID for Gmail too, so the address doesn't transit APNs. Low risk either way, since the payload goes over TLS and only to the user's own device.
 
-**What it logs** (checked line by line)
+**What it logs**
 
-- The only `console` call is `apns.ts`, which logs the APNs status and reason, such as `APNs 429 TooManyRequests`. No token, address or account ID.
-- Thrown errors reach the Workers runtime log. Their messages are fixed strings (`malformed token`, `JWKS fetch failed with 500`, and so on), with no request data. `TokenError`s and bad requests are answered, not thrown.
+- `console.warn` lines: the APNs status and reason, and why a Gmail or IMAP check failed (fixed messages or the server's own error text, such as `IMAP NO [UNAVAILABLE]`). No token, password, address or account ID.
+- Thrown errors reach the Workers runtime log. Their messages are fixed strings with no request data.
 - `wrangler.toml` doesn't turn on Workers Logs or Logpush, so nothing is retained. `wrangler tail` shows live requests to the owner only, and the URLs carry no personal data.
 
-**Retention.** A registration lasts until the app unregisters it or APNs reports the token gone (`410` or `BadDeviceToken`). There is no time-based expiry yet. When push ships, add one (for example, drop rows whose `updated_at` is older than 60 days, since the app re-registers on launch).
+**Retention**
 
-The brief's Outlook webhook and iCloud Email Worker aren't built yet. Their privacy claims (iCloud: envelope recipient only, message discarded unread, HPKE for any preview) must be checked here when they land.
+- A Gmail registration lasts until the app unregisters it or APNs reports the token gone (`410` or `BadDeviceToken`). There is no time-based expiry yet.
+- The Gmail refresh token is deleted when the account's last device leaves or Google answers `invalid_grant`.
+- Graph subscription rows are dropped a day after they expire. IMAP watches, with their logins, are dropped 30 days after the device last registered them, or when the app removes the account or turns its alerts off.
+- A token APNs reports gone is removed from every table.
 
 ## Privacy manifests
 

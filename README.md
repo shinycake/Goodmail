@@ -37,7 +37,7 @@ Apple Mail has no push for Gmail. Gmail's own app is cluttered. Most other clien
 - **Unified inbox** across every account, with a color per account and a gradient through all of them on the views that span accounts.
 - **Mailboxes** for each account: Inbox, Starred, Sent, Drafts, All Mail, Spam, Trash, Snoozed and Scheduled, plus labels and folders (nested too) in their own colors. Create, rename and delete labels on every service.
 - **Gmail categories** (Primary, Promotions, Social, Updates, Forums), chosen per account.
-- **Push**: new mail alerts within seconds, through a tiny Cloudflare Worker that only relays a content-free nudge. Mail is fetched on the device and never touches the server. Alerts per account (All, Primary Only, None) with Reply, Mark as Read, Archive and Trash actions.
+- **Push**: new mail alerts within seconds, through a tiny Cloudflare Worker that sends a content-free nudge. For iCloud and other IMAP accounts the Worker watches the Inbox itself, since those servers don't push to other apps. Mail is fetched on the device and never touches the server. Alerts per account (All, Primary Only, None) with Reply, Mark as Read, Archive and Trash actions.
 - **Instant IMAP**: IMAP IDLE keeps iCloud and IMAP inboxes live while the app is open.
 - **Offline first**: everything is cached locally in SQLite, and actions queue in an outbox until the network comes back.
 
@@ -99,7 +99,7 @@ Apple Mail has no push for Gmail. Gmail's own app is cluttered. Most other clien
 
 ## Privacy
 
-Credentials (OAuth tokens and app passwords) stay in the device's Keychain. There is no analytics, no telemetry and no AI of its own. The push relay stores only which device to wake for which account. It holds no tokens and never sees mail. See [docs/release/privacy.md](docs/release/privacy.md).
+Credentials (OAuth tokens and app passwords) live in the device's Keychain. There is no analytics, no telemetry and no AI of its own. The push relay stores which device to wake for which account, with addresses only as keyed hashes. So it can tell when new mail arrives, it also keeps each Gmail account's refresh token and each iCloud or IMAP login, encrypted with AES-GCM. It uses them only to read Gmail's change history or the Inbox's UID counters, and it never reads or stores mail. See [docs/release/privacy.md](docs/release/privacy.md).
 
 ## How it's built
 

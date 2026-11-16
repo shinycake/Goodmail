@@ -30,22 +30,20 @@ Simple, beautiful, lean, performant, robust. Bring stability and delight. The hi
 
 ## Data and privacy
 
-- **Credentials** (OAuth tokens, iCloud app passwords) never leave the device. They live in the Keychain, shared with the app's extensions.
+- **Credentials** (OAuth tokens, iCloud and IMAP app passwords) live in the Keychain, shared with the app's extensions. Two copies also go to the push relay, so it can tell when new mail arrives: each Gmail account's refresh token, and each iCloud or IMAP login. The relay keeps them encrypted and uses them only to look at the Inbox (see below).
 - **Offline-first:** a local cache, plus an outbox that queues actions while offline.
 - **Telemetry:** none. MetricKit and Xcode Organizer only.
 
 ## Backend: Cloudflare Workers
 
-The backend relays push and nothing else.
+The backend relays push and nothing else. It never reads or stores mail.
 
-- **What it stores:** the account → APNs device token mapping, kept in Durable Objects (SQLite). It holds no tokens and no mail.
+- **What it stores:** which APNs device token to wake for which account, kept in D1 (SQLite). Addresses are stored only as keyed hashes. It also keeps the Gmail refresh token and the iCloud/IMAP logins it needs to look at the Inbox, encrypted with AES-GCM (decided 2026-11-16).
 - **Gmail:** a Pub/Sub push subscription calls the Worker, which sends a content-free APNs push. The Notification Service Extension fetches the message on the device.
   - Watches expire every 7 days, so the device renews them (app launch, background refresh, extension runs).
 - **Outlook:** a Graph change-notification webhook calls the Worker, which pushes the same way. The device renews subscriptions.
-- **iCloud:** a user-configured forwarding rule sends a copy to a per-account address handled by a Cloudflare Email Worker.
-  - The Worker reads only the envelope recipient, discards the message unread, and pushes. The device fetches over IMAP.
-  - If a header preview is ever needed, the Worker encrypts it straight away to a device-held key (HPKE). Nothing is stored or logged.
-  - The Worker is to be open-sourced so this can be verified.
+- **iCloud and other IMAP accounts:** the servers push to no one but Apple Mail, so the Worker watches the Inbox itself with the login the device registers. Every 5 minutes a run logs in, checks the Inbox's UIDNEXT and holds IDLE until the next run, and it pushes when new mail arrives. It reads only UID counters, never messages. The device fetches over IMAP.
+  - Forwarding to a Cloudflare Email Worker was the earlier plan. It's kept as a fallback, since it would send a copy of every message through the relay (research in the project files, 2026-11-16).
 - **Testing caveat:** APNs needs HTTP/2, which works from deployed Workers but not from `wrangler dev`. Push tests run against a deployed preview.
 
 ## Engineering
