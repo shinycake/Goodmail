@@ -14,7 +14,9 @@ struct UndoToastPlacementTests {
         let placement = UndoToastPlacement.choose(
             ends: ends, midX: 201, toastSize: CGSize(width: 208, height: 44), aboveInset: 98)
         #expect(placement == .inToolbar(centerY: 822))
-        #expect(placement.bottomConstant(in: bounds, toastHeight: 44) == 822 + 22 - 874)
+        // The toast's bottom, 22 points below the line, sits this far above the bottom of the window.
+        let bottom: CGFloat = 822 + 22 - 874
+        #expect(placement.bottomConstant(in: bounds, toastHeight: 44) == bottom)
     }
 
     @Test("A toast that would come within the gap of a button goes above the toolbar")
