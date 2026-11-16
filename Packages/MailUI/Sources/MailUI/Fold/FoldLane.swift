@@ -12,16 +12,21 @@ import UIKit
 /// the bar already sit low, in the lower region meant for touch.
 nonisolated enum FoldLane {
     /// The part of `area` to the side of the first fold in `folds` that runs top to bottom through it, or all of
-    /// `area` when none does. Frames are in one coordinate space.
-    static func lane(in area: CGRect, folds: [CGRect]) -> CGRect {
+    /// `area` when none does. The side is chosen from the two regions the fold leaves across `screen`, the whole of
+    /// the view, so the bar of controls down one side of the device, which `area` leaves out, doesn't tip it. Frames
+    /// are in one coordinate space.
+    static func lane(in area: CGRect, across screen: CGRect, folds: [CGRect]) -> CGRect {
         guard
             let fold = folds.first(where: { fold in
                 fold.height > fold.width && fold.minX > area.minX && fold.maxX < area.maxX
             })
         else { return area }
-        let left = CGRect(x: area.minX, y: area.minY, width: fold.minX - area.minX, height: area.height)
-        let right = CGRect(x: fold.maxX, y: area.minY, width: area.maxX - fold.maxX, height: area.height)
-        return left.width > right.width ? left : right
+        let leftWidth = fold.minX - screen.minX
+        let rightWidth = screen.maxX - fold.maxX
+        if leftWidth > rightWidth {
+            return CGRect(x: area.minX, y: area.minY, width: fold.minX - area.minX, height: area.height)
+        }
+        return CGRect(x: fold.maxX, y: area.minY, width: area.maxX - fold.maxX, height: area.height)
     }
 }
 
@@ -33,6 +38,6 @@ extension UIView {
         let area = bounds.inset(
             by: UIEdgeInsets(top: 0, left: safeAreaInsets.left, bottom: 0, right: safeAreaInsets.right))
         let folds = reservedRegions(kind: .division).filter(\.isActive).map(\.frame)
-        return FoldLane.lane(in: area, folds: folds)
+        return FoldLane.lane(in: area, across: bounds, folds: folds)
     }
 }
