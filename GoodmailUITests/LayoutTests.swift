@@ -24,7 +24,8 @@ final class LayoutTests: XCTestCase {
             XCTAssertTrue(list.isHittable, "the list stays beside the thread")
         } else {
             XCTAssertFalse(list.isHittable, "the thread covers the list")
-            app.navigationBars.buttons.element(boundBy: 0).tap()
+            // Back sits in the navigation bar, or in the bar of controls down the side of iPhone Duo.
+            app.buttons["BackButton"].tap()
             XCTAssertTrue(list.waitForExistence(timeout: 5))
         }
     }

@@ -306,8 +306,12 @@ final class SwipeOverlayView: UIView {
     /// One for each action, in the same order.
     private(set) var buttons: [GlassActionButton] = []
 
+    /// Laid out inside the row's safe area side to side, so no button sits under the bar of controls down the side of
+    /// iPhone Duo, or under a landscape iPhone's camera.
     var layout: SwipeLayout {
-        SwipeLayout(count: actions.count, rowWidth: bounds.width, rowHeight: bounds.height)
+        SwipeLayout(
+            count: actions.count, rowWidth: bounds.width - safeAreaInsets.left - safeAreaInsets.right,
+            rowHeight: bounds.height)
     }
 
     init(actions: [SwipeAction], side: SwipeSide) {
@@ -340,9 +344,17 @@ final class SwipeOverlayView: UIView {
         layoutButtons()
     }
 
+    override func safeAreaInsetsDidChange() {
+        super.safeAreaInsetsDidChange()
+        setNeedsLayout()
+    }
+
     private func layoutButtons() {
         for (button, placement) in zip(buttons, layout.placements(for: reveal)) {
-            let x = side == .right ? bounds.width - placement.offset - placement.width : placement.offset
+            let x =
+                side == .right
+                ? bounds.width - safeAreaInsets.right - placement.offset - placement.width
+                : safeAreaInsets.left + placement.offset
             button.frame = CGRect(
                 x: x, y: bounds.midY - placement.height / 2, width: placement.width, height: placement.height)
             // Fading rather than hiding keeps the slide smooth inside the spring animations.

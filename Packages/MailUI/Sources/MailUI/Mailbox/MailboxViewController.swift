@@ -103,6 +103,8 @@ public final class MailboxViewController: UIViewController {
             title: String(localized: "New Message", table: "Mailbox", bundle: .module, comment: "Composer title"),
             image: UIImage(systemName: "square.and.pencil"),
             primaryAction: UIAction { [weak self] _ in self?.viewModel.compose() })
+        // New Message is the last to go into More when the toolbar runs short, as in a bar down iPhone Duo's side.
+        compose.visibilityPriority = .high
         browsingToolbarItems = [
             search ?? .flexibleSpace(), .flexibleSpace(), problemsItem.item, .flexibleSpace(), compose,
         ]
@@ -583,8 +585,9 @@ extension MailboxViewController {
         }
         // The action's button may be in the toolbar's overflow menu, so a box pops up above the toolbar to take them.
         let badge = StowBadgeView(kind: kind)
-        // Well above the toolbar and the confirmation that shows over it, still within reach of the lower rows.
-        badge.show(at: CGPoint(x: window.bounds.midX, y: window.bounds.height * 0.72), in: window)
+        // Well above the toolbar and the confirmation that shows over it, still within reach of the lower rows, and
+        // off iPhone Duo's fold.
+        badge.show(at: CGPoint(x: window.foldLane.midX, y: window.bounds.height * 0.72), in: window)
         stow(ids, into: badge.box, doing: action) { [weak self] in
             badge.dismiss()
             self?.setEditing(false, animated: true)

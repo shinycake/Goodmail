@@ -60,6 +60,8 @@ public final class MailboxesViewController: UIViewController {
             title: String(localized: "New Message", table: "Mailboxes", bundle: .module, comment: "Composer title"),
             image: UIImage(systemName: "square.and.pencil"),
             primaryAction: UIAction { [weak self] _ in self?.viewModel.compose() })
+        // New Message is the last to go into More when the toolbar runs short, as in a bar down iPhone Duo's side.
+        compose.visibilityPriority = .high
         toolbarItems = [settings, .flexibleSpace()] + [newLabelItem()].compactMap(\.self) + [compose]
         observation = Task { [viewModel] in await viewModel.observe() }
     }

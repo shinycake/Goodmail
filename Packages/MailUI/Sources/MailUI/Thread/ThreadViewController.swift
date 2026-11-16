@@ -224,6 +224,9 @@ public final class ThreadViewController: UIViewController {
                     options: .displayInline, children: [.replyAll, .forward, .forwardAsAttachment].map(answerAction)),
                 UIMenu(options: .displayInline, children: [answerAction(.editAsNew)]),
             ]))
+        // Answering is the last to go into More when the toolbar runs short, as in a bar down iPhone Duo's side.
+        replyItem.visibilityPriority = .high
+        editDraftItem.visibilityPriority = .high
         let deleteForever = UIBarButtonItem(
             title: ThreadAction.deleteForever.title, image: UIImage(systemName: ThreadAction.deleteForever.symbol),
             primaryAction: UIAction { [weak self] _ in

@@ -44,4 +44,13 @@ struct UndoToastPlacementTests {
             ends: [], midX: 201, toastSize: CGSize(width: 208, height: 44), aboveInset: 46)
         #expect(placement == .above(inset: 46))
     }
+
+    @Test("Buttons stacked in a bar down the side never carry the toast")
+    func sideBar() {
+        // iPhone Duo's outer display puts the toolbar in a column on the right: Search above Compose.
+        let column = [CGRect(x: 418, y: 420, width: 38, height: 38), CGRect(x: 418, y: 600, width: 38, height: 38)]
+        let placement = UndoToastPlacement.choose(
+            ends: column, midX: 205, toastSize: CGSize(width: 208, height: 44), aboveInset: 34)
+        #expect(placement == .above(inset: 34))
+    }
 }

@@ -25,11 +25,14 @@ nonisolated enum UndoToastPlacement: Equatable {
     static let buttonGap: CGFloat = 12
 
     /// On the line of `ends`, the frames of the toolbar's end buttons, when a toast of `toastSize` centered on
-    /// `midX` stays clear of them; else above the toolbar, `aboveInset` from the bottom.
+    /// `midX` stays clear of them; else above the toolbar, `aboveInset` from the bottom. Buttons that don't share a
+    /// line are in a bar down the side, as on iPhone Duo, with no middle for the toast.
     static func choose(ends: [CGRect], midX: CGFloat, toastSize: CGSize, aboveInset: CGFloat) -> UndoToastPlacement {
         // How far the toast may reach either way from the middle before it comes too near a button.
         let room = ends.map { $0.midX < midX ? midX - $0.maxX : $0.minX - midX }.min()
-        guard let first = ends.first, let room, toastSize.width / 2 <= room - buttonGap else {
+        guard let first = ends.first, let room, toastSize.width / 2 <= room - buttonGap,
+            ends.allSatisfy({ abs($0.midY - first.midY) < first.height / 2 })
+        else {
             return .above(inset: aboveInset)
         }
         return .inToolbar(centerY: first.midY)

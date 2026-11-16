@@ -2,18 +2,25 @@ public import UIKit
 
 /// A window's mail screens: mailboxes, a mailbox's list and a thread side by side when the window is wide, one
 /// stack when it is narrow. The undo toast floats over them, above the toolbars, or
-/// in the middle of a toolbar that leaves it room (`UndoToastLane`). Shaking to undo is
+/// in the middle of a toolbar that leaves it room (`UndoToastLane`), and off iPhone Duo's fold (`FoldLane`). Shaking to undo is
 /// the window's (`ShakeToUndoWindow`), so that no screen holds first responder and raises the keyboard with a menu.
 public final class MailSplitViewController: UISplitViewController {
     private let actions: MailActions
     private let toast = UndoToastView()
     private var shownToast: MailActions.Toast.ID?
     private var toastBottom: NSLayoutConstraint!
+    /// Centers the toast in its lane, measured from the physical left as the lane is, and keeps it within the
+    /// lane's width.
+    private var toastCenter: NSLayoutConstraint!
+    private var toastWidth: NSLayoutConstraint!
+    /// The column arrangement last asked for, so a width that keeps it doesn't undo the sidebar button.
+    private var preferredColumns: DisplayMode?
 
     public init(actions: MailActions) {
         self.actions = actions
         super.init(style: .tripleColumn)
         preferredSplitBehavior = .tile
+        minimumSecondaryColumnWidth = MailColumns.minimumThreadWidth
     }
 
     @available(*, unavailable)
@@ -28,11 +35,23 @@ public final class MailSplitViewController: UISplitViewController {
         toast.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(toast)
         toastBottom = toast.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-        NSLayoutConstraint.activate([
-            toastBottom,
-            toast.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            toast.leadingAnchor.constraint(greaterThanOrEqualTo: view.layoutMarginsGuide.leadingAnchor),
-        ])
+        toastCenter = toast.centerXAnchor.constraint(equalTo: view.leftAnchor)
+        toastWidth = toast.widthAnchor.constraint(lessThanOrEqualToConstant: 0)
+        NSLayoutConstraint.activate([toastBottom, toastCenter, toastWidth])
+    }
+
+    public override func viewWillLayoutSubviews() {
+        super.viewWillLayoutSubviews()
+        let columns = MailColumns.displayMode(forWidth: view.bounds.width)
+        guard columns != preferredColumns else { return }
+        preferredColumns = columns
+        preferredDisplayMode = columns
+    }
+
+    /// Shows the list after the reader picked a mailbox, closing the sidebar when it took the list's place.
+    public func showList() {
+        show(.supplementary)
+        if preferredColumns == .oneBesideSecondary { hide(.primary) }
     }
 
     public override func viewDidLayoutSubviews() {
@@ -42,12 +61,20 @@ public final class MailSplitViewController: UISplitViewController {
 
     private func placeToast() {
         view.bringSubviewToFront(toast)
+        let lane = view.foldLane
+        let center = lane.midX - view.bounds.minX
+        if toastCenter.constant != center { toastCenter.constant = center }
+        let width = max(lane.width - 2 * Self.toastMargin, 0)
+        if toastWidth.constant != width { toastWidth.constant = width }
         let size = toast.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
         let placement = UndoToastPlacement.choose(
-            ends: toolbarEnds(), midX: view.bounds.midX, toastSize: size, aboveInset: aboveToolbars() + 12)
+            ends: toolbarEnds(), midX: lane.midX, toastSize: size, aboveInset: aboveToolbars() + 12)
         let constant = placement.bottomConstant(in: view.bounds, toastHeight: size.height)
         if toastBottom.constant != constant { toastBottom.constant = constant }
     }
+
+    /// The least room the toast leaves to either side of its lane.
+    private static let toastMargin: CGFloat = 16
 
     /// How far the shown screens' content ends above the bottom: a screen's safe area ends above its toolbar when
     /// there is one, else above the home indicator.
@@ -60,9 +87,11 @@ public final class MailSplitViewController: UISplitViewController {
     /// its toolbar's middle is open for the toast. Side by side, the toast stays centered on the window, not on one
     /// column's toolbar. The buttons' own frames, as the toolbar view's is the whole window on iOS 27. Search's item
     /// stands for a button the search controller draws, and reports an empty frame: the toast, centered, keeps the
-    /// same room from both ends, so the buttons that do report one are enough.
+    /// same room from both ends, so the buttons that do report one are enough. A toolbar in a bar down the side, as
+    /// on iPhone Duo's outer display, has no middle for the toast.
     private func toolbarEnds() -> [CGRect] {
-        guard isCollapsed, let lane = shownScreens.first as? any UndoToastLane,
+        guard isCollapsed, traitCollection.verticalBarEdge == .unspecified,
+            let lane = shownScreens.first as? any UndoToastLane,
             lane.navigationController?.isToolbarHidden == false
         else { return [] }
         return lane.toolbarEnds.compactMap { $0.frame(in: view) }.filter { !$0.isEmpty }

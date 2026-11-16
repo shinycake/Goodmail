@@ -406,8 +406,14 @@ final class SceneCoordinator: NSObject {
         case .newWindow(let id, let mailbox):
             let options = UIScene.ActivationRequestOptions()
             options.requestingScene = window.windowScene
-            UIApplication.shared.requestSceneSessionActivation(
-                nil, userActivity: shown.opening(id, in: mailbox).activity, options: options, errorHandler: nil)
+            var request = UISceneSessionActivationRequest()
+            request.userActivity = shown.opening(id, in: mailbox).activity
+            request.options = options
+            // iPhone Duo opens new windows only on its inner display, so closed, the thread opens here instead. UIKit
+            // doesn't say which queue the handler runs on; the hop to the main actor is all it does, and it ends there.
+            UIApplication.shared.activateSceneSession(for: request) { @Sendable [weak self] _ in
+                Task { @MainActor in self?.handle(.thread(id, in: mailbox)) }
+            }
         case .changeLabels(let ids):
             let threads = ids.compactMap { try? model.database.thread($0) }
             guard let account = threads.first?.id.accountID,
@@ -482,7 +488,7 @@ extension SceneCoordinator {
             navigation(for: .secondary)?.setViewControllers([NoThreadViewController()], animated: false)
             (navigation(for: .primary)?.viewControllers.first as? MailboxesViewController)?.selected =
                 shown.destination
-            split.show(.supplementary)
+            split.showList()
         }
     }
 }

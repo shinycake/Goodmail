@@ -9,6 +9,9 @@ public final class DraftShelfViewController: UIViewController {
     private let bar = MinimizedDraftsBar()
     /// Ends the content at the bar while messages are minimized, else at the bottom of the screen.
     private var contentBottom: NSLayoutConstraint?
+    /// The bar's sides, from the physical left and right: inside the safe area, and off iPhone Duo's fold (`FoldLane`).
+    private var barLeft: NSLayoutConstraint!
+    private var barRight: NSLayoutConstraint!
     /// Starts a new message from the account, after the picker's New Message button. It comes back through `open`.
     public var newMessage: ((AccountID) -> Void)?
 
@@ -20,6 +23,7 @@ public final class DraftShelfViewController: UIViewController {
             oldValue?.view.removeFromSuperview()
             oldValue?.removeFromParent()
             if let content { embed(content) }
+            setNeedsUpdateOfVerticalBarConfiguration()
         }
     }
 
@@ -41,9 +45,11 @@ public final class DraftShelfViewController: UIViewController {
         let fitted = bar.topAnchor.constraint(
             equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -MinimizedDraftsBar.height)
         fitted.priority = .defaultHigh
+        barLeft = bar.leftAnchor.constraint(equalTo: view.leftAnchor)
+        barRight = bar.rightAnchor.constraint(equalTo: view.rightAnchor)
         NSLayoutConstraint.activate([
-            bar.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
-            bar.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -8),
+            barLeft,
+            barRight,
             bar.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             bar.topAnchor.constraint(
                 lessThanOrEqualTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -MinimizedDraftsBar.height),
@@ -51,7 +57,21 @@ public final class DraftShelfViewController: UIViewController {
         ])
     }
 
+    public override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        let lane = view.foldLane
+        let left = lane.minX - view.bounds.minX + Self.barInset
+        let right = lane.maxX - view.bounds.maxX - Self.barInset
+        if barLeft.constant != left { barLeft.constant = left }
+        if barRight.constant != right { barRight.constant = right }
+    }
+
+    /// The room between the bar and the sides of its lane.
+    private static let barInset: CGFloat = 8
+
     public override var childForStatusBarStyle: UIViewController? { content }
+    /// The mail screens decide whether their bars may run down the side, as on iPhone Duo.
+    public override var childForPreferredVerticalBarBehavior: UIViewController? { content }
 
     private func embed(_ content: UIViewController) {
         addChild(content)
