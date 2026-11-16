@@ -33,17 +33,19 @@ final class AccountProblemsItem {
         button.addAction(UIAction { [unowned self] _ in tapped(shown) }, for: .primaryActionTriggered)
     }
 
-    /// Shows `notices`. Only a change touches the button, as it lays the toolbar out again.
-    func show(_ notices: [AccountProblemNotice]) {
-        guard notices != shown else { return }
+    /// Shows `notices`, and says whether that changed anything. Only a change touches the button, as it lays the
+    /// toolbar out again.
+    func show(_ notices: [AccountProblemNotice]) -> Bool {
+        guard notices != shown else { return false }
         shown = notices
         guard let summary = notices.summary else {
             item.isHidden = true
-            return
+            return true
         }
         button.configuration?.title = summary.title
         button.configuration?.subtitle = summary.subtitle
         item.isHidden = false
+        return true
     }
 }
 

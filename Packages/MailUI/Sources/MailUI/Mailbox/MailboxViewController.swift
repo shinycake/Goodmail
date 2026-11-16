@@ -42,6 +42,8 @@ public final class MailboxViewController: UIViewController {
         case empty(pointingTo: InboxCategory?)
     }
     private var browsingToolbarItems: [UIBarButtonItem] = []
+    /// The buttons at the ends of the browsing toolbar: Search, when there is search, and Compose.
+    private var browsingEnds: [UIBarButtonItem] = []
     private lazy var problemsItem = AccountProblemsItem { [weak self] notices in self?.explain(notices) }
     /// The Inbox's category menu, when the list is split into categories.
     private let categoryButton: UIButton?
@@ -96,16 +98,15 @@ public final class MailboxViewController: UIViewController {
         view.addSubview(collectionView)
         configureDataSource()
         configureSwipes()
+        let search = searchItem()
+        let compose = UIBarButtonItem(
+            title: String(localized: "New Message", table: "Mailbox", bundle: .module, comment: "Composer title"),
+            image: UIImage(systemName: "square.and.pencil"),
+            primaryAction: UIAction { [weak self] _ in self?.viewModel.compose() })
         browsingToolbarItems = [
-            searchItem(),
-            .flexibleSpace(),
-            problemsItem.item,
-            .flexibleSpace(),
-            UIBarButtonItem(
-                title: String(localized: "New Message", table: "Mailbox", bundle: .module, comment: "Composer title"),
-                image: UIImage(systemName: "square.and.pencil"),
-                primaryAction: UIAction { [weak self] _ in self?.viewModel.compose() }),
+            search ?? .flexibleSpace(), .flexibleSpace(), problemsItem.item, .flexibleSpace(), compose,
         ]
+        browsingEnds = [search, compose].compactMap(\.self)
         toolbarItems = browsingToolbarItems
 
         observation = Task { [viewModel] in await viewModel.observe() }
@@ -122,9 +123,9 @@ public final class MailboxViewController: UIViewController {
         wear(viewModel.theme)
     }
 
-    /// Search as a glass button in the toolbar that expands into the field, or a gap when there is no search.
-    private func searchItem() -> UIBarButtonItem {
-        guard let searchResults else { return .flexibleSpace() }
+    /// Search as a glass button in the toolbar that expands into the field, or none when there is no search.
+    private func searchItem() -> UIBarButtonItem? {
+        guard let searchResults else { return nil }
         let search = UISearchController(searchResultsController: searchResults)
         search.searchResultsUpdater = searchResults
         search.searchBar.placeholder = String(
@@ -142,7 +143,7 @@ public final class MailboxViewController: UIViewController {
         super.updateProperties()
         applySections(viewModel.sections)
         updateEmptyState()
-        problemsItem.show(viewModel.problems)
+        if problemsItem.show(viewModel.problems) { toolbarEndsChanged() }
         if let categoryButton, let category = viewModel.category {
             Self.update(categoryButton, selected: category, unreadCounts: viewModel.categoryUnreadCounts) {
                 [weak self] in self?.show($0)
@@ -480,6 +481,7 @@ extension MailboxViewController {
             title = viewModel.title
             setToolbarItems(browsingToolbarItems, animated: animated)
         }
+        toolbarEndsChanged()
     }
 
     private var selectedIDs: [ThreadSummary.ID] {
@@ -591,6 +593,17 @@ extension MailboxViewController {
         for indexPath in collectionView.indexPathsForSelectedItems ?? [] {
             collectionView.deselectItem(at: indexPath, animated: false)
         }
+    }
+}
+
+// MARK: - The undo toast
+
+extension MailboxViewController: UndoToastLane {
+    /// Browsing, the toolbar holds Search and Compose at its ends, and the account status between them when an
+    /// account has a problem. Selecting fills it with actions.
+    var toolbarEnds: [UIBarButtonItem] {
+        guard !isEditing, problemsItem.item.isHidden else { return [] }
+        return browsingEnds
     }
 }
 

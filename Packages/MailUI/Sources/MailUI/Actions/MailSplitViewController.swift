@@ -1,7 +1,8 @@
 public import UIKit
 
 /// A window's mail screens: mailboxes, a mailbox's list and a thread side by side when the window is wide, one
-/// stack when it is narrow. The undo toast floats over them, above the toolbars. Shaking to undo is
+/// stack when it is narrow. The undo toast floats over them, above the toolbars, or
+/// in the middle of a toolbar that leaves it room (`UndoToastLane`). Shaking to undo is
 /// the window's (`ShakeToUndoWindow`), so that no screen holds first responder and raises the keyboard with a menu.
 public final class MailSplitViewController: UISplitViewController {
     private let actions: MailActions
@@ -41,17 +42,41 @@ public final class MailSplitViewController: UISplitViewController {
 
     private func placeToast() {
         view.bringSubviewToFront(toast)
-        // A shown screen's safe area ends above its toolbar when there is one, else above the home indicator.
+        let size = toast.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
+        let placement = UndoToastPlacement.choose(
+            ends: toolbarEnds(), midX: view.bounds.midX, toastSize: size, aboveInset: aboveToolbars() + 12)
+        let constant = placement.bottomConstant(in: view.bounds, toastHeight: size.height)
+        if toastBottom.constant != constant { toastBottom.constant = constant }
+    }
+
+    /// How far the shown screens' content ends above the bottom: a screen's safe area ends above its toolbar when
+    /// there is one, else above the home indicator.
+    private func aboveToolbars() -> CGFloat {
+        let insets = shownScreens.map(\.view.safeAreaInsets.bottom)
+        return insets.max() ?? view.safeAreaInsets.bottom
+    }
+
+    /// The frames of the toolbar's end buttons, in this view's coordinates, when one screen fills the window and
+    /// its toolbar's middle is open for the toast. Side by side, the toast stays centered on the window, not on one
+    /// column's toolbar. The buttons' own frames, as the toolbar view's is the whole window on iOS 27. Search's item
+    /// stands for a button the search controller draws, and reports an empty frame: the toast, centered, keeps the
+    /// same room from both ends, so the buttons that do report one are enough.
+    private func toolbarEnds() -> [CGRect] {
+        guard isCollapsed, let lane = shownScreens.first as? any UndoToastLane,
+            lane.navigationController?.isToolbarHidden == false
+        else { return [] }
+        return lane.toolbarEnds.compactMap { $0.frame(in: view) }.filter { !$0.isEmpty }
+    }
+
+    /// The screen on top in each shown column.
+    private var shownScreens: [UIViewController] {
         let columns: [Column] = isCollapsed ? [.compact] : [.primary, .supplementary, .secondary]
-        let insets = columns.compactMap { column -> CGFloat? in
+        return columns.compactMap { column in
             let shown = viewController(for: column)
             let top = (shown as? UINavigationController)?.topViewController ?? shown
             guard let top, top.view.window != nil else { return nil }
-            return top.view.safeAreaInsets.bottom
+            return top
         }
-        let inset = insets.max() ?? view.safeAreaInsets.bottom
-        let constant = -inset - 12
-        if toastBottom.constant != constant { toastBottom.constant = constant }
     }
 
     /// Called by UIKit whenever the observed toast changes.
