@@ -219,12 +219,13 @@ public enum SettingsScreen {
     private struct Root: View {
         let model: SettingsViewModel
         /// The pages pushed over the first screen. Seeded once from the page Settings opens at; the reader moves on
-        /// from there.
-        @State private var path: [SettingsPage]
+        /// from there. Untyped, because the screens push more than pages: an account row pushes its `AccountID`, and a
+        /// path typed to `SettingsPage` silently drops that push.
+        @State private var path: NavigationPath
 
         init(model: SettingsViewModel, page: SettingsPage) {
             self.model = model
-            _path = State(initialValue: page == .main ? [] : [page])
+            _path = State(initialValue: NavigationPath(page == .main ? [] : [page]))
         }
 
         var body: some View {
