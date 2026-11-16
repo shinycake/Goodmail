@@ -104,6 +104,8 @@ struct ICloudSendTests {
             smtp: SMTPTests.submission, index: index)
 
         try await client.send(Data(raw.utf8), inThread: "a0@x")
+        #expect(index.all.isEmpty, "the copy is filed once the message counts as sent")
+        await client.fileSent(Data(raw.utf8), inThread: "a0@x")
 
         #expect(
             index.all == [
@@ -125,6 +127,7 @@ struct ICloudSendTests {
             ].joined(separator: "\n"),
             smtp: SMTPTests.submission, index: index)
         try await client.send(Data(SMTPTests.message.utf8), inThread: nil)
+        await client.fileSent(Data(SMTPTests.message.utf8), inThread: nil)
         #expect(index.all.isEmpty, "the next changes(since:) indexes iCloud's copy")
     }
 

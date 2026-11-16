@@ -36,6 +36,13 @@ public final class ThreadViewModel {
     /// My replies to this conversation still on their way, kept up to date as each change arrives; the transcript
     /// shows them.
     @ObservationIgnored private var pending = PendingReplies()
+    /// My replies on their way, as `transcript` last showed them, for the classic layout to show as letters.
+    /// `pending` runs ahead of it while a transcript is being worked out.
+    public private(set) var replies: [PendingReply] = []
+    /// Synced copies of replies that left `pending`, to open as cards once a transcript shows them.
+    @ObservationIgnored private var syncedCopies: Set<Message.ID> = []
+    /// When `pending` was last worked out, which its deliveries hold for.
+    @ObservationIgnored private var transcriptDate = Date.distantPast
     /// Whether the thread is pinned to the top of its lists.
     public private(set) var isPinned = false
 
@@ -141,12 +148,26 @@ public final class ThreadViewModel {
 
     /// Follows the replies queued in this conversation, so each shows as a bubble from the moment it is sent.
     private func followQueue() async {
-        do {
-            for try await queue in outgoing() {
-                self.queue = queue
-                await updateTranscript()
-            }
-        } catch {}
+        await withDiscardingTaskGroup { group in
+            // The clock matters only while there's a queue to follow, and stops with it.
+            group.addTask { await self.followClock() }
+            do {
+                for try await queue in outgoing() {
+                    self.queue = queue
+                    await updateTranscript()
+                }
+            } catch {}
+            group.cancelAll()
+        }
+    }
+
+    /// Updates the transcript when a reply's delivery changes with the time: when its scheduled time comes, or when it
+    /// is overdue and shows as still sending. Looked at each second, so a reply queued meanwhile is never missed.
+    private func followClock() async {
+        while (try? await Task.sleep(for: .seconds(1))) != nil {
+            guard let next = pending.nextChange(after: transcriptDate), next <= now() else { continue }
+            await updateTranscript()
+        }
     }
 
     /// Works out the pending replies from what was received, then the transcript off the main actor, and shows
@@ -155,14 +176,21 @@ public final class ThreadViewModel {
         transcriptRequest += 1
         let request = transcriptRequest
         let messages = received
+        transcriptDate = now()
+        // A reply's synced copy opens as its card did, rather than folding into a row. Kept until a request is
+        // shown, since `pending` forgets the reply now, before a newer request may overtake this one.
+        syncedCopies.formUnion(pending.copies(in: messages))
         pending.update(
             queue: queue, takenBack: actions?.takenBack ?? [], conversation: messages, accountEmail: accountEmail,
-            now: now())
+            now: transcriptDate)
         let transcript = await Self.transcript(
             of: messages, accountEmail: accountEmail, aliases: accountAliases, pending: pending.replies)
         guard request == transcriptRequest else { return }
+        expanded.formUnion(syncedCopies)
+        syncedCopies = []
         self.messages = messages
         self.transcript = transcript
+        replies = pending.replies
     }
 
     private func followPins() async {
@@ -237,7 +265,13 @@ public final class ThreadViewModel {
                 [.modificationDate: now()], ofItemAtPath: url.path(percentEncoded: false))
             return url
         }
-        let data = try await attachmentData(attachment, message)
+        // A reply on its way has its files in its draft, not with the provider.
+        let data: Data
+        if let draftData = replies.first(where: { $0.letterID == message })?.data(for: attachment) {
+            data = draftData
+        } else {
+            data = try await attachmentData(attachment, message)
+        }
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         try data.write(to: url, options: .atomic)
         return url

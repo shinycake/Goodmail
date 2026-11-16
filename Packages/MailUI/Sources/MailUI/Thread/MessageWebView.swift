@@ -15,6 +15,9 @@ final class MessageWebView: UIView {
     var openURL: ((URL) -> Void)?
 
     private let webView: WKWebView
+    /// The message's new words, shown at once while the web view starts, which can take seconds; the first height
+    /// it reports replaces them.
+    private let preview = UILabel()
     private let messageHandler = MessageHandler()
     private let cidHandler: CIDSchemeHandler
     private var heightConstraint: NSLayoutConstraint!
@@ -49,14 +52,20 @@ final class MessageWebView: UIView {
         webView.scrollView.isScrollEnabled = false
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.navigationDelegate = self
-        webView.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(webView)
+        preview.font = .preferredFont(forTextStyle: .body)
+        preview.adjustsFontForContentSizeCategory = true
+        preview.numberOfLines = 8
+        preview.isHidden = true
+        let stack = UIStackView(arrangedSubviews: [preview, webView])
+        stack.axis = .vertical
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
         heightConstraint = webView.heightAnchor.constraint(equalToConstant: 1)
         NSLayoutConstraint.activate([
-            webView.topAnchor.constraint(equalTo: topAnchor),
-            webView.bottomAnchor.constraint(equalTo: bottomAnchor),
-            webView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            webView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            stack.topAnchor.constraint(equalTo: topAnchor),
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor),
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
             heightConstraint,
         ])
         messageHandler.onMessage = { [weak self] body in self?.handle(body) }
@@ -67,6 +76,12 @@ final class MessageWebView: UIView {
 
     func show(_ content: Content) {
         guard content != self.content else { return }
+        // Loading remote images keeps the body that shows; only another message starts from its words.
+        if content.message.id != self.content?.message.id {
+            let words = ReplyText(body: content.message.body).text
+            preview.setContentText(words)
+            preview.isHidden = words.isEmpty
+        }
         self.content = content
         cidHandler.message = content.message
         loading?.cancel()
@@ -86,9 +101,14 @@ final class MessageWebView: UIView {
         }
     }
 
-    private func handle(_ body: Any) {
+    /// The words that show while the body loads, or nil once it has its height.
+    var previewText: String? { preview.isHidden ? nil : preview.text }
+
+    /// Takes what the script reports: the body's height, and whether it blocked remote content.
+    func handle(_ body: Any) {
         guard let body = body as? [String: Any], let height = body["height"] as? Double else { return }
         heightConstraint.constant = max(1, height)
+        preview.isHidden = true
         let hasRemote = body["hasRemote"] as? Bool ?? false
         onLayout?(heightConstraint.constant, hasRemote && content?.allowsRemoteContent == false)
     }

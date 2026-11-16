@@ -45,11 +45,27 @@ public struct PreparedSend: Sendable {
 
 /// How a provider sends a message.
 public enum Sending: Sendable {
-    /// Over the provider's own connection, while the app runs, as SMTP does: sends an RFC 5322 message, in the
-    /// thread it answers when there is one. Throws `ProviderError.rejected` for a message the service won't send.
-    case direct(@Sendable (_ raw: Data, _ threadID: String?) async throws -> Void)
+    /// Over the provider's own connection, while the app runs, as SMTP does.
+    case direct(any DirectSending)
     /// As a single upload that a transfer outliving the app carries, as Gmail's API allows.
     case upload(any UploadSending)
+}
+
+/// A provider that sends over its own connection while the app runs (`Sending.direct`). The send queue counts a
+/// message as gone the moment `send` returns, and only then files its copy, so the writer never waits on the copy.
+public protocol DirectSending: Sendable {
+    /// Sends an RFC 5322 message, in the thread it answers when there is one, returning once the service has taken
+    /// it. Throws `ProviderError.rejected` for a message the service won't send.
+    func send(_ raw: Data, inThread threadID: String?) async throws
+
+    /// Files a copy of a message `send` sent among the account's sent mail, where the service doesn't do that
+    /// itself. A copy that fails to file is only a missing copy, never a reason to send the message again.
+    func fileSent(_ raw: Data, inThread threadID: String?) async
+}
+
+extension DirectSending {
+    /// A service that files what it sends, as Gmail and Exchange do, has nothing left to do.
+    public func fileSent(_ raw: Data, inThread threadID: String?) async {}
 }
 
 /// A provider whose sends are uploads (`Sending.upload`): it prepares each one, reads the answer, and says

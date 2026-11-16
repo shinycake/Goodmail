@@ -20,12 +20,20 @@ public final class ThreadViewController: UIViewController {
     private let subject = UILabel()
     private let metadata = UILabel()
     private var cards: [Message.ID: MessageCardView] = [:]
+    /// The classic layout's letters for my replies on their way.
+    private var pendingLetters: [Draft.ID: PendingLetterView] = [:]
+    /// Where the chat's field began when the undo toast was last placed above it.
+    private var placedFloorTop: CGFloat?
+    /// How much the undo toast covers above the chat's field, which the chat's end scrolls clear of.
+    private var toastHeight: CGFloat = 0
     private var rows: [Message.ID: TimelineRowView] = [:]
     /// Chat runs by their first bubble, which stays first as later messages join the run.
     private var runs: [ChatTranscript.Bubble.ID: ChatRunView] = [:]
     private var timestamps: [Date: ChatTimestampView] = [:]
     /// My replies on their way that the chat has shown, so a new one scrolls the chat to it once.
     private var shownReplies: Set<Draft.ID> = []
+    /// The classic letter just sent and where scrolling to it left the view, until its body takes its height.
+    private var followedLetter: FollowedLetter?
     private let layoutItem = UIBarButtonItem()
     /// The chat's message field and folded mail actions, in place of the toolbar while the chat layout shows.
     private let composer = ChatComposerBar()
@@ -148,8 +156,15 @@ public final class ThreadViewController: UIViewController {
     /// Keeps the conversation's end clear of the composer, which rides on top of the keyboard.
     public override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        // The undo toast sits above the chat's field, which rides on the keyboard.
+        let floorTop = composer.isHidden ? nil : composer.frame.minY
+        if floorTop != placedFloorTop {
+            placedFloorTop = floorTop
+            toastFloorChanged()
+        }
         let covered =
-            composer.isHidden ? 0 : max(0, view.bounds.height - view.safeAreaInsets.bottom - composer.frame.minY)
+            composer.isHidden
+            ? 0 : max(0, view.bounds.height - view.safeAreaInsets.bottom - composer.frame.minY) + toastHeight
         guard scrollView.contentInset.bottom != covered else { return }
         let atEnd =
             scrollView.contentOffset.y + scrollView.bounds.height
@@ -291,7 +306,8 @@ public final class ThreadViewController: UIViewController {
         let header = stack.arrangedSubviews[0]
         let arranged =
             [header] + unsubscribeViews(messages)
-            + (viewModel.layout == .chat ? chatViews(viewModel.transcript) : letterViews(messages))
+            + (viewModel.layout == .chat
+                ? chatViews(viewModel.transcript) : letterViews(messages) + replyViews(viewModel.replies))
         if arranged != stack.arrangedSubviews {
             for view in stack.arrangedSubviews { view.removeFromSuperview() }
             arranged.forEach(stack.addArrangedSubview)
@@ -300,17 +316,35 @@ public final class ThreadViewController: UIViewController {
         followNewReplies()
     }
 
-    /// A reply just sent rises at the end of the chat, so the chat scrolls down to it.
+    /// A reply just sent rises at the end of the conversation, in either layout, so it scrolls down to it.
     private func followNewReplies() {
-        let replies = Set(
-            viewModel.transcript.entries.flatMap { entry -> [Draft.ID] in
-                guard case .run(let run) = entry else { return [] }
-                return run.bubbles.compactMap { if case .pending(let id) = $0.origin { id } else { nil } }
-            })
+        let replies = Set(viewModel.replies.map(\.id))
         defer { shownReplies = replies }
-        guard viewModel.layout == .chat, !replies.isSubset(of: shownReplies) else { return }
+        let new = replies.subtracting(shownReplies)
+        guard !new.isEmpty else { return }
         view.layoutIfNeeded()
-        scrollToEnd(animated: !SystemAccessibility.reducesMotion)
+        let animated = !SystemAccessibility.reducesMotion
+        switch viewModel.layout {
+        case .chat:
+            scrollToEnd(animated: animated)
+        case .classic:
+            // A letter is taller than the screen's end, and its body lays out after, so its top is what shows.
+            guard let reply = viewModel.replies.last(where: { new.contains($0.id) }),
+                let letter = pendingLetters[reply.id]
+            else { return }
+            followedLetter = FollowedLetter(reply: reply.id, offset: scrollToTop(of: letter, animated: animated))
+        }
+    }
+
+    /// The followed letter's body grew under its header, so its top shows again, unless the reader scrolled away.
+    private func letterLaidOut(_ reply: Draft.ID) {
+        guard let followed = followedLetter, followed.reply == reply else { return }
+        followedLetter = nil
+        guard let letter = pendingLetters[reply], abs(scrollView.contentOffset.y - followed.offset.y) < 1 else {
+            return
+        }
+        view.layoutIfNeeded()
+        scrollToTop(of: letter, animated: !SystemAccessibility.reducesMotion)
     }
 
     /// The banner offering to leave the conversation's mailing list, when it came from one.
@@ -366,6 +400,40 @@ public final class ThreadViewController: UIViewController {
         return arranged
     }
 
+    /// My replies on their way, after the messages, as the letters they will be once their copies sync.
+    private func replyViews(_ replies: [PendingReply]) -> [UIView] {
+        var shown: [Draft.ID: PendingLetterView] = [:]
+        defer { pendingLetters = shown }
+        return replies.map { reply in
+            let view = pendingLetters[reply.id] ?? makePendingLetter(for: reply)
+            shown[reply.id] = view
+            view.configure(
+                reply, dateText: viewModel.dateText(for: reply.letter), accountEmail: viewModel.accountEmail,
+                accountColor: viewModel.accountColor.uiColor, actions: deliveryActions)
+            return view
+        }
+    }
+
+    private func makePendingLetter(for reply: PendingReply) -> PendingLetterView {
+        let id = reply.letterID
+        let view = PendingLetterView(attachmentData: viewModel.attachmentData)
+        view.card.openURL = openURL
+        view.card.onBodyLayout = { [weak self, replyID = reply.id] in self?.letterLaidOut(replyID) }
+        view.card.onOpenAttachment = { [weak self, weak view] attachment in
+            self?.open(attachment, in: id) { view?.card.setLoading($0, for: attachment) }
+        }
+        return view
+    }
+
+    /// What the caption under a reply on its way does, in either layout.
+    private var deliveryActions: ChatDeliveryView.Actions {
+        ChatDeliveryView.Actions(
+            retry: { [weak self] in self?.viewModel.retry($0) },
+            edit: { [weak self] in self?.viewModel.edit($0) },
+            discard: { [weak self] in self?.viewModel.discard($0) },
+            moveToDrafts: { [weak self] in self?.viewModel.moveToDrafts($0) })
+    }
+
     /// Timestamps and runs of bubbles, reusing the views already made for them.
     private func chatViews(_ transcript: ChatTranscript) -> [UIView] {
         let actions = ChatBubbleActions(
@@ -375,11 +443,7 @@ public final class ThreadViewController: UIViewController {
             },
             showQuoted: { [weak self] in self?.scroll(to: $0, animated: true) },
             openURL: openURL,
-            pending: ChatDeliveryView.Actions(
-                retry: { [weak self] in self?.viewModel.retry($0) },
-                edit: { [weak self] in self?.viewModel.edit($0) },
-                discard: { [weak self] in self?.viewModel.discard($0) },
-                moveToDrafts: { [weak self] in self?.viewModel.moveToDrafts($0) }))
+            pending: deliveryActions)
         let times = Dictionary(
             viewModel.messages.map { ($0.id, viewModel.timestampText(for: $0.date)) },
             uniquingKeysWith: { first, _ in first })
@@ -482,11 +546,19 @@ public final class ThreadViewController: UIViewController {
             }
         guard let shown, shown.isDescendant(of: scrollView) else { return false }
         view.layoutIfNeeded()
+        scrollToTop(of: shown, animated: animated)
+        return true
+    }
+
+    /// Scrolls `shown`'s top to just under the bar, or as near as the content's end allows, and returns that offset.
+    @discardableResult
+    private func scrollToTop(of shown: UIView, animated: Bool) -> CGPoint {
         let inset = scrollView.adjustedContentInset
         let target = shown.convert(shown.bounds, to: scrollView).minY - inset.top - 8
         let bottom = max(-inset.top, scrollView.contentSize.height + inset.bottom - scrollView.bounds.height)
-        scrollView.setContentOffset(CGPoint(x: 0, y: min(bottom, max(-inset.top, target))), animated: animated)
-        return true
+        let offset = CGPoint(x: 0, y: min(bottom, max(-inset.top, target)))
+        scrollView.setContentOffset(offset, animated: animated)
+        return offset
     }
 
     static func countText(_ count: Int) -> String {
@@ -505,4 +577,20 @@ extension ThreadViewController: QLPreviewControllerDataSource {
     public func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> any QLPreviewItem {
         (previewURL ?? URL(filePath: "/")) as NSURL
     }
+}
+
+extension ThreadViewController: UndoToastFloor {
+    var toastFloor: UIView? { composer.isHidden ? nil : composer }
+
+    func toastCovers(_ height: CGFloat) {
+        guard height != toastHeight else { return }
+        toastHeight = height
+        viewIfLoaded?.setNeedsLayout()
+    }
+}
+
+/// A letter just sent that the classic layout scrolled to, and the offset that scroll left.
+private struct FollowedLetter {
+    let reply: Draft.ID
+    let offset: CGPoint
 }

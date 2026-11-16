@@ -48,6 +48,8 @@ final class FakeMailServer: SendAsSyncing {
         ]
         var nextLabel = 2
         var onLabelsRead: (@Sendable () async -> Void)?
+        var onFileSent: (@Sendable () -> Void)?
+        var filedSent: [Data] = []
     }
 
     /// How the fake takes sends: as Gmail's uploads, or over its own connection, as iCloud's SMTP.
@@ -210,16 +212,18 @@ extension FakeMailServer {
     }
 }
 
-extension FakeMailServer: UploadSending {
+extension FakeMailServer {
     var sending: Sending {
         switch sendPath {
         case .upload: .upload(self)
-        case .direct: .direct { [self] raw, threadID in try sendDirectly(raw, inThread: threadID) }
+        case .direct: .direct(self)
         }
     }
+}
 
+extension FakeMailServer: DirectSending {
     /// A direct send goes, or is refused when `answerSends` set a status outside 2xx.
-    private func sendDirectly(_ raw: Data, inThread threadID: String?) throws {
+    func send(_ raw: Data, inThread threadID: String?) async throws {
         try state.withLock { state in
             if let failure = state.failPrepare { throw failure }
             guard let status = state.sendStatus, !(200..<300).contains(status) else {
@@ -230,6 +234,23 @@ extension FakeMailServer: UploadSending {
         }
     }
 
+    /// Files the copy as an IMAP server that doesn't file its own would, running what `whileFilingSent` was given first.
+    func fileSent(_ raw: Data, inThread threadID: String?) async {
+        let hook = state.withLock { $0.onFileSent }
+        hook?()
+        state.withLock { $0.filedSent.append(raw) }
+    }
+
+    /// Copies of direct sends filed in Sent.
+    var filedSent: [Data] { state.withLock { $0.filedSent } }
+
+    /// Runs `body` as each copy of a direct send is filed, to see what the queue holds then.
+    func whileFilingSent(_ body: @escaping @Sendable () -> Void) {
+        state.withLock { $0.onFileSent = body }
+    }
+}
+
+extension FakeMailServer: UploadSending {
     func prepareSend(_ raw: Data, inThread threadID: String?) async throws -> PreparedSend {
         try state.withLock { state in
             if let failure = state.failPrepare { throw failure }

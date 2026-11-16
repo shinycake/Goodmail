@@ -24,12 +24,13 @@ public struct ChatTranscript: Equatable, Sendable {
 
     /// How far a bubble of mine got on its way. Every message synced into the conversation has gone.
     public enum Delivery: Equatable, Sendable {
-        /// In its undo window, or being handed to the server.
+        /// Still on its way a while after its time (`PendingReply.overdueAfter`), as with no connection.
         case sending
         /// Waiting under Scheduled until this time.
         case scheduled(Date)
         /// Failed for good, until the writer tries again, edits it or deletes it.
         case failed(SendFailure)
+        /// Gone, or on its way and not yet overdue: in its undo window, or being handed to the server.
         case sent
     }
 

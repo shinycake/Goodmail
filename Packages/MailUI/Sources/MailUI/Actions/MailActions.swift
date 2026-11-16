@@ -133,7 +133,8 @@ public final class MailActions {
     }
 
     /// Queues a message to go at `time`, with a toast to take it back: for the undo window when it goes now, or
-    /// for the usual toast time when it waits under Scheduled.
+    /// for the usual toast time when it waits under Scheduled. One that goes now reads as sent at once, as a chat's
+    /// does; the undo window is the writer's to use, not a wait.
     public func send(_ draft: Draft, at time: SendTime = .now) {
         feedback(.sent)
         run { [self] commands in
@@ -146,8 +147,8 @@ public final class MailActions {
                 show(
                     Toast(
                         message: String(
-                            localized: "Sending…", table: "Actions", bundle: .module,
-                            comment: "Toast while a message waits to go"),
+                            localized: "Sent", table: "Actions", bundle: .module,
+                            comment: "Toast with Undo after sending a message, while it can still be taken back"),
                         undo: .send(draft.id)),
                     for: delay)
             case .at(let date):

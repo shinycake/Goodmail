@@ -109,9 +109,13 @@ public actor Sender {
             switch message.purpose {
             case .send, .scheduledSend:
                 switch provider.sending {
-                case .direct(let send):
-                    try await send(raw, draft.threadID)
+                case .direct(let direct):
+                    try await direct.send(raw, inThread: draft.threadID)
+                    // Out of the queue first, so it shows as sent while its copy is filed and its draft removed.
+                    _ = try? store.update(message.id, from: .queued, to: nil)
+                    await direct.fileSent(raw, inThread: draft.threadID)
                     await deleteSavedCopy(of: draft)
+                    return .took(message.draft)
                 case .upload(let uploads):
                     try await handOff(message, raw: raw, via: uploads)
                     return .next

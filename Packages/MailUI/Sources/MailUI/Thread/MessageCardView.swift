@@ -13,6 +13,8 @@ final class MessageCardView: UIView {
     var openURL: ((URL) -> Void)? {
         didSet { body.openURL = openURL }
     }
+    /// Called each time the body takes its height, which can come seconds after the card shows.
+    var onBodyLayout: (() -> Void)?
 
     private let header = MessageHeaderView()
     private let remoteNotice = RemoteImagesNotice()
@@ -44,6 +46,7 @@ final class MessageCardView: UIView {
         ])
         body.onLayout = { [weak self] _, blocked in
             self?.remoteNotice.isHidden = !blocked
+            self?.onBodyLayout?()
         }
         remoteNotice.isHidden = true
     }

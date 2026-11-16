@@ -1,5 +1,6 @@
 import Foundation
 import MailCore
+import Synchronization
 import Testing
 
 @testable import MailStore
@@ -179,6 +180,19 @@ struct BackgroundSendTests {
         #expect(bench.uploads.started.isEmpty)
         #expect(bench.server.sent.count == 1)
         #expect(try bench.database.dueMessages(for: bench.account, by: .distantFuture).isEmpty)
+    }
+
+    @Test func aDirectSendLeavesTheQueueBeforeItsCopyIsFiled() async throws {
+        let bench = try SendBench(sendPath: .direct)
+        let queuedWhileFiling = Mutex<[OutgoingMessage]?>(nil)
+        bench.server.whileFilingSent { [database = bench.database, account = bench.account] in
+            queuedWhileFiling.withLock { $0 = try? database.dueMessages(for: account, by: .distantFuture) }
+        }
+        try await bench.commands().send(bench.draft(), after: .zero)
+
+        #expect(await bench.sender().flush().map(\.subject) == ["Hello"])
+        #expect(queuedWhileFiling.withLock { $0 } == [], "the chat shows it as sent while the copy is filed")
+        #expect(bench.server.filedSent == bench.server.sent.map { $0.raw })
     }
 
     @Test func aDirectSendThatIsRefusedIsKeptForTheWriter() async throws {

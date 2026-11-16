@@ -1,12 +1,11 @@
 public import Foundation
 public import MailCore
 
-extension IMAPClient {
+extension IMAPClient: DirectSending {
     /// SMTP needs the app running, so iCloud sends go over its own connection.
-    public var sending: Sending { .direct { try await send($0, inThread: $1) } }
+    public var sending: Sending { .direct(self) }
 
-    /// Sends over SMTP, then files the message in Sent, unless iCloud already did. Filing never fails a send: the
-    /// outbox would send the message again, and the next `changes(since:)` finds a copy iCloud filed late.
+    /// Sends over SMTP. The copy in Sent is filed after, by `fileSent`, once the message counts as gone.
     public func send(_ raw: Data, inThread threadID: String?) async throws {
         guard let envelope = SMTPEnvelope(raw) else { throw ProviderError.rejected }
         do {
@@ -14,6 +13,11 @@ extension IMAPClient {
         } catch SMTPError.refused(let reply) where reply.isPermanentFailure {
             throw ProviderError.rejected
         }
+    }
+
+    /// Files a sent message in Sent, unless the server already did. Filing never fails a send: the outbox would send
+    /// the message again, and the next `changes(since:)` finds a copy the server filed late.
+    public func fileSent(_ raw: Data, inThread threadID: String?) async {
         _ = try? await file(raw, as: SystemLabel.sent, flags: [#"\Seen"#], inThread: threadID, unlessFiled: true)
     }
 

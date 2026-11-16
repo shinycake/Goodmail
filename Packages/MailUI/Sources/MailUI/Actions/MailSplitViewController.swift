@@ -68,18 +68,32 @@ public final class MailSplitViewController: UISplitViewController {
         if toastWidth.constant != width { toastWidth.constant = width }
         let size = toast.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
         let placement = UndoToastPlacement.choose(
-            ends: toolbarEnds(), midX: lane.midX, toastSize: size, aboveInset: aboveToolbars() + 12)
+            ends: toolbarEnds(), midX: lane.midX, toastSize: size, aboveInset: aboveToolbars() + Self.toastGap)
         let constant = placement.bottomConstant(in: view.bounds, toastHeight: size.height)
         if toastBottom.constant != constant { toastBottom.constant = constant }
+        tellFloors(toastHeight: actions.toast == nil ? 0 : size.height + Self.toastGap)
+    }
+
+    /// The room between the toast and what it sits above.
+    private static let toastGap: CGFloat = 12
+
+    /// Tells screens with a bar of their own how much the toast covers above it.
+    private func tellFloors(toastHeight: CGFloat) {
+        for case let floor as any UndoToastFloor in shownScreens { floor.toastCovers(toastHeight) }
     }
 
     /// The least room the toast leaves to either side of its lane.
     private static let toastMargin: CGFloat = 16
 
     /// How far the shown screens' content ends above the bottom: a screen's safe area ends above its toolbar when
-    /// there is one, else above the home indicator.
+    /// there is one, else above the home indicator, and a bar of its own, such as the chat's field, may end higher.
     private func aboveToolbars() -> CGFloat {
-        let insets = shownScreens.map(\.view.safeAreaInsets.bottom)
+        let insets = shownScreens.map { screen in
+            guard let floor = (screen as? any UndoToastFloor)?.toastFloor, floor.window != nil else {
+                return screen.view.safeAreaInsets.bottom
+            }
+            return max(screen.view.safeAreaInsets.bottom, view.bounds.maxY - floor.convert(floor.bounds, to: view).minY)
+        }
         return insets.max() ?? view.safeAreaInsets.bottom
     }
 
@@ -114,6 +128,7 @@ public final class MailSplitViewController: UISplitViewController {
         let current = actions.toast
         guard current?.id != shownToast else { return }
         shownToast = current?.id
+        if current == nil { tellFloors(toastHeight: 0) }
         if let current {
             toast.show(current.message)
             placeToast()

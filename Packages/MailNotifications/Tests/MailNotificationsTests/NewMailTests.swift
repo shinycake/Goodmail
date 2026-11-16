@@ -156,7 +156,7 @@ struct NewMailFetchTests {
 }
 
 /// A provider whose every change set holds `threads`, each with one message whose body is `body`.
-private struct ChangedThreads: MailProvider {
+private struct ChangedThreads: MailProvider, DirectSending {
     let threads: [ThreadSummary]
     let body: String
 
@@ -186,7 +186,8 @@ private struct ChangedThreads: MailProvider {
     func data(for attachment: MailCore.Attachment, in message: Message.ID) async throws -> Data { Data() }
     func source(of message: Message.ID) async throws -> Data { Data() }
     func perform(_ action: ThreadAction, onThread threadID: String) async throws {}
-    var sending: Sending { .direct { _, _ in } }
+    var sending: Sending { .direct(self) }
+    func send(_ raw: Data, inThread threadID: String?) async throws {}
     func saveDraft(_ raw: Data, inThread threadID: String?, replacing: Message.ID?) async throws -> Message.ID? { nil }
     func deleteDraft(_ message: Message.ID) async throws {}
     func contacts() async throws -> [Contact] { [] }

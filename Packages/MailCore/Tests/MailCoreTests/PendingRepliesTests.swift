@@ -37,21 +37,47 @@ struct PendingRepliesTests {
         return pending.replies.map(\.delivery)
     }
 
-    @Test(arguments: [
-        (OutgoingMessage.Delivery.queued, ChatTranscript.Delivery.sending),
-        (.uploading(UploadID()), .sending),
-        (.failed(.rejected), .failed(.rejected)),
-    ])
-    func aQueuedReplyShowsHowFarItGot(queued: OutgoingMessage.Delivery, shown: ChatTranscript.Delivery) {
+    @Test(arguments: [OutgoingMessage.Delivery.queued, .uploading(UploadID())])
+    func aReplyOnItsWayReadsAsSentUntilItIsOverdue(delivery: OutgoingMessage.Delivery) {
+        let reply = outgoing("Hi", delivery: delivery)
         var pending = PendingReplies()
-        #expect(updated(&pending, queue: [outgoing("Hi", delivery: queued)]) == [shown])
+        #expect(updated(&pending, queue: [reply]) == [.sent])
+        let overdue = reply.sendAt.addingTimeInterval(PendingReply.overdueAfter)
+        #expect(updated(&pending, queue: [reply], now: overdue.addingTimeInterval(-1)) == [.sent])
+        #expect(updated(&pending, queue: [reply], now: overdue) == [.sending])
+    }
+
+    @Test func aFailedReplySaysSo() {
+        var pending = PendingReplies()
+        #expect(updated(&pending, queue: [outgoing("Hi", delivery: .failed(.rejected))]) == [.failed(.rejected)])
     }
 
     @Test func aScheduledReplyWaitsUntilItsTimeThenSends() {
         let later = outgoing("Later", purpose: .scheduledSend, minutes: 60)
         var pending = PendingReplies()
         #expect(updated(&pending, queue: [later]) == [.scheduled(later.sendAt)])
-        #expect(updated(&pending, queue: [later], now: later.sendAt) == [.sending])
+        #expect(updated(&pending, queue: [later], now: later.sendAt) == [.sent])
+        #expect(
+            updated(&pending, queue: [later], now: later.sendAt.addingTimeInterval(PendingReply.overdueAfter))
+                == [.sending])
+    }
+
+    @Test func theNextChangeIsWhenAReplyGoesOrIsOverdue() {
+        let now = outgoing("Now", minutes: 0)
+        let later = outgoing("Later", purpose: .scheduledSend, minutes: 60)
+        var pending = PendingReplies()
+        _ = updated(&pending, queue: [now, later])
+        let overdue = now.sendAt.addingTimeInterval(PendingReply.overdueAfter)
+        #expect(pending.nextChange(after: start) == overdue)
+        #expect(pending.nextChange(after: overdue) == later.sendAt)
+        _ = updated(&pending, queue: [])
+        #expect(pending.nextChange(after: start) == nil, "replies that went don't change with the time")
+    }
+
+    @Test func aFailedReplyDoesntChangeWithTheTime() {
+        var pending = PendingReplies()
+        _ = updated(&pending, queue: [outgoing("Hi", delivery: .failed(.rejected))])
+        #expect(pending.nextChange(after: start) == nil)
     }
 
     @Test func draftSavesAreNotReplies() {
@@ -64,6 +90,7 @@ struct PendingRepliesTests {
         var pending = PendingReplies()
         _ = updated(&pending, queue: [reply])
         #expect(updated(&pending, queue: []) == [.sent])
+        #expect(pending.replies.map(\.phase) == [.gone])
         let copy = synced("s", from: me, minutes: 0, internetID: "<\(reply.headerID)>")
         #expect(updated(&pending, queue: [], conversation: [copy]).isEmpty)
     }
@@ -98,6 +125,37 @@ struct PendingRepliesTests {
         #expect(pending.replies.map(\.id) == [first.id, second.id, scheduled.id])
     }
 
+    // MARK: In the classic layout
+
+    @Test func aReplyReadsAsALetterWithWhatItSends() throws {
+        let file = DraftAttachment(filename: "plan.pdf", mimeType: "application/pdf", data: Data(count: 10))
+        var message = outgoing("See you", attachments: [file])
+        message.draft.subject = "Re: Lunch"
+        message.draft.quote = MessageBody(plain: "> Lunch?")
+        let reply = PendingReply(message, accountEmail: me.address, now: start)
+
+        let letter = reply.letter
+        #expect(letter.id == reply.letterID)
+        #expect(letter.from == Contact(name: nil, address: me.address))
+        #expect(letter.to == [dana])
+        #expect(letter.subject == "Re: Lunch")
+        #expect(letter.date == message.sendAt)
+        #expect(letter.body.plain == "See you\n\n> Lunch?")
+        #expect(letter.internetMessageID == message.headerID)
+        let attachment = try #require(letter.attachments.first)
+        #expect(attachment.filename == "plan.pdf")
+        #expect(reply.data(for: attachment) == Data(count: 10))
+    }
+
+    @Test func aSyncedCopyTakesItsRepliesPlace() {
+        let reply = outgoing("Hi")
+        var pending = PendingReplies()
+        _ = updated(&pending, queue: [reply])
+        let copy = synced("s", from: me, minutes: 0, internetID: "<\(reply.headerID)>")
+        let other = synced("o", from: dana, minutes: 0)
+        #expect(pending.copies(in: [other, copy]) == [copy.id])
+    }
+
     // MARK: In the transcript
 
     private func transcript(_ messages: [Message], pending queue: [OutgoingMessage]) -> ChatTranscript {
@@ -119,7 +177,7 @@ struct PendingRepliesTests {
         #expect(
             run.bubbles.map(\.origin) == [.message(Message.ID(accountID: account, messageID: "2")), .pending(reply.id)])
         #expect(run.bubbles.last?.content == .words([.text("On my way")], replyingTo: nil))
-        #expect(run.bubbles.map(\.delivery) == [.sent, .sending])
+        #expect(run.bubbles.map(\.delivery) == [.sent, .sent])
     }
 
     @Test func aPendingReplyCarriesItsFilesAsBubbles() throws {

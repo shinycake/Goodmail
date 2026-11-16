@@ -1,7 +1,8 @@
 public import Foundation
 
 /// A message of mine for this conversation that hasn't synced into it yet: on its way, waiting for its time, failed,
-/// or gone but not yet back from the server. The chat draws it as my bubble at the end, with how far it got.
+/// or gone but not yet back from the server. One on its way reads as sent until it is overdue. The chat draws it as
+/// my bubble at the end, and the classic layout as my letter there, with how far it got.
 public struct PendingReply: Identifiable, Equatable, Sendable {
     public var id: Draft.ID { draft.id }
     public let draft: Draft
@@ -11,25 +12,73 @@ public struct PendingReply: Identifiable, Equatable, Sendable {
     public let date: Date
     /// The `Message-ID` it goes out with, which its synced copy carries.
     let headerID: String
-    public fileprivate(set) var delivery: ChatTranscript.Delivery
+    /// How far it got.
+    public let phase: Phase
+    /// How it reads as of the update that made it: what `phase` means at that time.
+    public let delivery: ChatTranscript.Delivery
+
+    /// How far a reply got. Only the queue moves it on, through `PendingReplies.update`.
+    public enum Phase: Equatable, Sendable {
+        /// Waiting under Scheduled until this time.
+        case scheduled(Date)
+        /// In its undo window or being sent. It reads as sent until `overdueAt`, then as still sending.
+        case onItsWay(overdueAt: Date)
+        /// Failed for good, until the writer tries again, edits it or deletes it.
+        case failed(SendFailure)
+        /// It left the queue without being taken back, so it went; it stays until its copy syncs.
+        case gone
+    }
+
+    /// How long after its time a reply may take to go before it shows as still sending. Until then it reads as sent,
+    /// as a chat's does the moment it is sent: the undo toast is there to take it back, and a send takes a moment.
+    public static let overdueAfter: TimeInterval = 5
 
     public init(_ message: OutgoingMessage, accountEmail: String, now: Date) {
-        draft = message.draft
-        sender = message.draft.alias ?? Contact(name: nil, address: accountEmail)
-        date = message.sendAt
-        headerID = message.headerID
-        delivery =
+        let phase: Phase =
             switch message.delivery {
             case .failed(let failure): .failed(failure)
-            case .uploading: .sending
-            case .queued:
-                message.purpose == .scheduledSend && message.sendAt > now ? .scheduled(message.sendAt) : .sending
+            case .queued where message.purpose == .scheduledSend && message.sendAt > now: .scheduled(message.sendAt)
+            case .queued, .uploading: .onItsWay(overdueAt: message.sendAt.addingTimeInterval(Self.overdueAfter))
             }
+        self.init(
+            draft: message.draft, sender: message.draft.alias ?? Contact(name: nil, address: accountEmail),
+            date: message.sendAt, headerID: message.headerID, phase: phase, now: now)
+    }
+
+    private init(draft: Draft, sender: Contact, date: Date, headerID: String, phase: Phase, now: Date) {
+        self.draft = draft
+        self.sender = sender
+        self.date = date
+        self.headerID = headerID
+        self.phase = phase
+        delivery =
+            switch phase {
+            case .scheduled(let date): .scheduled(date)
+            case .onItsWay(let overdueAt): now < overdueAt ? .sent : .sending
+            case .failed(let failure): .failed(failure)
+            case .gone: .sent
+            }
+    }
+
+    /// This reply once it left the queue without being taken back.
+    fileprivate var gone: PendingReply {
+        PendingReply(draft: draft, sender: sender, date: date, headerID: headerID, phase: .gone, now: date)
     }
 
     /// Whether it waits for a later time, so it sits after everything that goes now.
     var isScheduled: Bool {
-        if case .scheduled = delivery { true } else { false }
+        if case .scheduled = phase { true } else { false }
+    }
+
+    /// The times after `now` its delivery changes on its own: when a scheduled reply goes, and when it is overdue.
+    fileprivate func changes(after now: Date) -> [Date] {
+        let changes =
+            switch phase {
+            case .scheduled(let date): [date, date.addingTimeInterval(Self.overdueAfter)]
+            case .onItsWay(let overdueAt): [overdueAt]
+            case .failed, .gone: [Date]()
+            }
+        return changes.filter { $0 > now }
     }
 }
 
@@ -54,14 +103,24 @@ public struct PendingReplies: Equatable, Sendable {
         }.map { PendingReply($0, accountEmail: accountEmail, now: now) }
         let went = replies.filter { reply in
             !queued.contains(reply.id) && !takenBack.contains(reply.id) && !synced.contains(reply.headerID)
-        }.map { reply in
-            var reply = reply
-            reply.delivery = .sent
-            return reply
-        }
+        }.map(\.gone)
         replies = (onTheirWay + went).sorted { first, second in
             first.isScheduled == second.isScheduled ? first.date < second.date : !first.isScheduled
         }
+    }
+
+    /// The messages in `conversation` that are synced copies of replies shown here, which take their place.
+    public func copies(in conversation: [Message]) -> [Message.ID] {
+        let shown = Set(replies.map(\.headerID))
+        return conversation.filter { message in
+            message.internetMessageID.map { shown.contains(Self.bare($0)) } ?? false
+        }.map(\.id)
+    }
+
+    /// The next time after `now` a reply's delivery changes with no change to the queue, for the chat to update
+    /// then; `nil` when none will.
+    public func nextChange(after now: Date) -> Date? {
+        replies.flatMap { $0.changes(after: now) }.min()
     }
 
     /// A `Message-ID` without the angle brackets some headers keep.

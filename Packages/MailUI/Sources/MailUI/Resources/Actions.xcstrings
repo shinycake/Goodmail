@@ -421,13 +421,13 @@
         }
       }
     },
-    "Sending…" : {
-      "comment" : "Toast while a message waits to go",
+    "Sent" : {
+      "comment" : "Toast with Undo after sending a message, while it can still be taken back",
       "localizations" : {
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "שולח…"
+            "value" : "נשלח"
           }
         }
       }
@@ -526,7 +526,7 @@
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ביטול"
+            "value" : "בטל"
           }
         }
       }
