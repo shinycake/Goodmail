@@ -74,3 +74,15 @@ struct FactsStoreTests {
         #expect(found.map(\.envelope.thread.threadID) == ["t"])
     }
 }
+
+extension FactsStoreTests {
+    @Test func threadFactsByIDAreNewestFirstWithTheirPins() throws {
+        try store("old", minutesAgo: 10, body: "")
+        try store("new", minutesAgo: 1, body: "")
+        let ids = ["old", "gone", "new"].map { ThreadSummary.ID(accountID: account, threadID: $0) }
+        try database.setPins([ids[0]: true])
+        let found = try database.threadFacts(ids, mailboxNames: names)
+        #expect(found.map(\.envelope.thread.threadID) == ["new", "old"])
+        #expect(found.map(\.local.isPinned) == [false, true])
+    }
+}

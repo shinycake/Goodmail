@@ -95,7 +95,11 @@ struct AppServices {
     }
 
     #if canImport(MailIntents)
-        var intents: IntentsHost { IntentsHost(database: model.database, commands: model.commands, routes: routes) }
+        var intents: IntentsHost {
+            IntentsHost(
+                database: model.database, commands: model.commands, routes: routes,
+                unsubscriber: model.listUnsubscriber, syncAll: { [model] in try await model.syncAll() })
+        }
     #endif
 
     private static func openModel() async throws -> AppModel {

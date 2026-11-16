@@ -11,6 +11,8 @@ struct FakeHost: MailIntentsHost {
     var labels: [AccountID: [NamedMailbox]] = [:]
     var stored: [ThreadSummary] = []
     var cached: [ThreadSummary.ID: [Message]] = [:]
+    /// What leaving a list comes to.
+    var unsubscribing: ListUnsubscriber.Outcome = .done
     let performed = Performed()
 
     func accounts() throws -> [Account] { accountList }
@@ -31,7 +33,48 @@ struct FakeHost: MailIntentsHost {
         Array(stored.filter { $0.subject.localizedCaseInsensitiveContains(text) }.prefix(limit))
     }
 
-    func cachedMessages(inThread id: ThreadSummary.ID) throws -> [Message] { cached[id] ?? [] }
+    func threadFacts(_ ids: [ThreadSummary.ID]) throws -> [MailFacts] {
+        stored.filter { ids.contains($0.id) }.sorted { $0.date > $1.date }.compactMap(facts(of:))
+    }
+
+    func messageFacts(inThreads ids: [ThreadSummary.ID]) throws -> [MailFacts] {
+        allMessageFacts.filter { ids.contains($0.envelope.thread) }
+    }
+
+    func messageFacts(matching condition: MailCondition, in context: MailCondition.Context) throws -> [MailFacts] {
+        allMessageFacts.filter { condition.matches($0, in: context) }
+    }
+
+    func threadFacts(matching condition: MailCondition, in context: MailCondition.Context) throws -> [MailFacts] {
+        try threadFacts(stored.map(\.id)).filter { condition.matches($0, in: context) }
+    }
+
+    private func facts(of thread: ThreadSummary) -> MailFacts? {
+        accountList.first { $0.id == thread.id.accountID }.map {
+            MailFacts(thread: thread, account: $0, labelNames: names(in: $0.id))
+        }
+    }
+
+    /// The mailboxes' names by label ID, as the store gives them.
+    private func names(in account: AccountID) -> [String: String] {
+        let mailboxes = (try? mailboxes(of: account)) ?? []
+        return Dictionary(
+            mailboxes.compactMap { named in named.mailbox.labelID.map { ($0, named.name) } },
+            uniquingKeysWith: { first, _ in first })
+    }
+
+    /// Every cached message, newest first, with the body text the store would keep.
+    private var allMessageFacts: [MailFacts] {
+        stored.flatMap { thread in
+            (cached[thread.id] ?? []).compactMap { message in
+                accountList.first { $0.id == thread.id.accountID }.map {
+                    MailFacts(
+                        message: message, bodyText: message.body.text, thread: thread, account: $0,
+                        labelNames: names(in: $0.id))
+                }
+            }
+        }.sorted { $0.envelope.date > $1.envelope.date }
+    }
 
     /// Returns an undo that names `action` itself, so a test can tell which change an undo takes back.
     func perform(_ action: ThreadAction, on threads: [ThreadSummary.ID]) throws -> MailCommands.Undo {
@@ -47,6 +90,18 @@ struct FakeHost: MailIntentsHost {
         return MailCommands.Undo(pins: Dictionary(uniqueKeysWithValues: threads.map { ($0, !pinned) }))
     }
 
+    func snooze(_ threads: [ThreadSummary.ID], until date: Date?) throws -> MailCommands.Undo {
+        performed.recordSnooze(until: date, on: threads)
+        return MailCommands.Undo(snoozes: Dictionary(uniqueKeysWithValues: threads.map { ($0, SnoozeState?.none) }))
+    }
+
+    func unsubscribe(_ unsubscribe: Unsubscribe, account: AccountID) throws -> ListUnsubscriber.Outcome {
+        performed.recordUnsubscribe(unsubscribe)
+        return unsubscribing
+    }
+
+    func refresh() throws { performed.recordRefresh() }
+
     func undo(_ undo: MailCommands.Undo) throws {
         performed.recordUndo(of: undo)
     }
@@ -59,6 +114,9 @@ final class Performed: Sendable {
     private let actions = Mutex<[String: [ThreadAction]]>([:])
     private let undoneActions = Mutex<[ThreadAction]>([])
     private let pinChanges = Mutex<[String: [Bool]]>([:])
+    private let snoozeChanges = Mutex<[String: [Date?]]>([:])
+    private let unsubscribes = Mutex<[Unsubscribe]>([])
+    private let refreshes = Mutex(0)
 
     func record(_ action: ThreadAction, on threads: [ThreadSummary.ID]) {
         actions.withLock { actions in
@@ -82,4 +140,21 @@ final class Performed: Sendable {
     }
 
     var undone: [ThreadAction] { undoneActions.withLock { $0 } }
+
+    func recordSnooze(until date: Date?, on threads: [ThreadSummary.ID]) {
+        snoozeChanges.withLock { snoozes in
+            for thread in threads { snoozes[thread.threadID, default: []].append(date) }
+        }
+    }
+
+    /// Each wake date asked for the thread, in order; `nil` for an unsnooze.
+    func snoozes(of thread: String) -> [Date?] { snoozeChanges.withLock { $0[thread] ?? [] } }
+
+    func recordUnsubscribe(_ unsubscribe: Unsubscribe) { unsubscribes.withLock { $0.append(unsubscribe) } }
+
+    var unsubscribed: [Unsubscribe] { unsubscribes.withLock { $0 } }
+
+    func recordRefresh() { refreshes.withLock { $0 += 1 } }
+
+    var refreshCount: Int { refreshes.withLock { $0 } }
 }

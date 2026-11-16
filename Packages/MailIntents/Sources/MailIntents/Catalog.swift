@@ -1,3 +1,4 @@
+import Foundation
 import MailCore
 
 /// Builds the entities from what the host stores. Each call reads the accounts and their mailboxes once, so the
@@ -6,6 +7,8 @@ struct Catalog {
     let host: any MailIntentsHost
     /// How many threads a picker or a widget suggests.
     static let suggestionLimit = 20
+    /// The calendar a message's weekday and hour are read in.
+    var calendar: Calendar = .current
 
     func accounts() throws -> [AccountEntity] {
         try host.accounts().map(AccountEntity.init)
@@ -20,51 +23,79 @@ struct Catalog {
     /// With `withMessages: false` the threads carry no messages, which spares decoding every cached body when only
     /// the thread itself is wanted, as Spotlight does.
     func threads(_ identifiers: [String], withMessages: Bool = true) throws -> [ThreadEntity] {
-        let threads = try host.threads(identifiers.compactMap(EntityID.thread))
-        return withMessages ? try entities(for: threads) : threads.map { ThreadEntity($0, messages: []) }
+        try threads(ids: identifiers.compactMap(EntityID.thread), withMessages: withMessages)
     }
 
     func threads(matching text: String) throws -> [ThreadEntity] {
-        try entities(for: host.threads(matching: text, limit: Self.suggestionLimit))
+        try threads(ids: host.threads(matching: text, limit: Self.suggestionLimit).map(\.id))
     }
 
     /// The newest threads in the Inbox.
     func recentThreads() throws -> [ThreadEntity] {
-        try entities(for: host.threads(in: .inbox, limit: Self.suggestionLimit))
+        try threads(ids: host.threads(in: .inbox, limit: Self.suggestionLimit).map(\.id))
+    }
+
+    /// The stored threads among `ids`, newest first.
+    func threads(ids: [ThreadSummary.ID], withMessages: Bool = true) throws -> [ThreadEntity] {
+        // In the order asked for, as the identifiers were given.
+        let position = Dictionary(ids.enumerated().map { ($1, $0) }, uniquingKeysWith: { first, _ in first })
+        let threads = try host.threadFacts(ids).sorted {
+            position[$0.envelope.thread, default: .max] < position[$1.envelope.thread, default: .max]
+        }
+        guard withMessages else { return threads.map { ThreadEntity($0, messages: []) } }
+        let byThread = Dictionary(grouping: try host.messageFacts(inThreads: ids), by: \.envelope.thread)
+        let messages = try Messages(catalog: self)
+        return threads.map { thread in
+            // Oldest first, as a conversation reads.
+            ThreadEntity(thread, messages: messages.entities((byThread[thread.envelope.thread] ?? []).reversed()))
+        }
     }
 
     func messages(_ identifiers: [String]) throws -> [MessageEntity] {
         let ids = identifiers.compactMap(EntityID.message)
         let wanted = Set(ids.map(\.message))
-        let mailboxes = try Mailboxes(catalog: self)
-        return try Set(ids.map(\.thread)).flatMap { thread in
-            try host.cachedMessages(inThread: thread).filter { wanted.contains($0.id) }.compactMap(
-                mailboxes.entity(for:))
-        }
+        let facts = try host.messageFacts(inThreads: Array(Set(ids.map(\.thread))))
+        return try Messages(catalog: self).entities(facts.filter { $0.content.map { wanted.contains($0.id) } ?? false })
     }
 
-    private func entities(for threads: [ThreadSummary]) throws -> [ThreadEntity] {
-        let mailboxes = try Mailboxes(catalog: self)
-        return try threads.map { thread in
-            ThreadEntity(
-                thread, messages: try host.cachedMessages(inThread: thread.id).compactMap(mailboxes.entity(for:)))
-        }
+    /// The cached messages that meet `condition`, in `sorts`' order, at most `limit` of them. Reads every cached body
+    /// the condition's dates allow, so it runs off the caller's actor.
+    @concurrent func messages(matching condition: MailCondition, sortedBy sorts: [MailSort], limit: Int?)
+        async throws -> [MessageEntity]
+    {
+        let found = try host.messageFacts(matching: condition, in: MailCondition.Context(calendar: calendar))
+        let sorted = MailSort.sorted(found, by: sorts)
+        return try Messages(catalog: self).entities(limit.map { Array(sorted.prefix($0)) } ?? sorted)
     }
 
-    /// Every account's mailboxes, to give each message the one it's in.
-    private struct Mailboxes {
+    /// The stored threads that meet `condition`, in `sorts`' order, at most `limit` of them, without their messages.
+    @concurrent func threads(matching condition: MailCondition, sortedBy sorts: [MailSort], limit: Int?)
+        async throws -> [ThreadEntity]
+    {
+        let found = try host.threadFacts(matching: condition, in: MailCondition.Context(calendar: calendar))
+        let sorted = MailSort.sorted(found, by: sorts)
+        return (limit.map { Array(sorted.prefix($0)) } ?? sorted).map { ThreadEntity($0, messages: []) }
+    }
+
+    /// Makes message entities, each in the mailbox it's in among every account's.
+    private struct Messages {
         private let byID: [String: MailboxEntity]
+        private let calendar: Calendar
 
         init(catalog: Catalog) throws {
             byID = Dictionary(try catalog.mailboxes().map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+            calendar = catalog.calendar
         }
 
-        /// The message's entity, or `nil` when its account is gone.
-        func entity(for message: Message) -> MessageEntity? {
-            let account = message.id.accountID
-            let mailbox = Mailbox.holding(message.labelIDs)
-            guard let entity = byID[EntityID.string(mailbox, account: account)] else { return nil }
-            return MessageEntity(message, mailbox: entity, account: entity.account)
+        /// The messages' entities, leaving out any whose account is gone or that isn't cached.
+        func entities(_ facts: [MailFacts]) -> [MessageEntity] {
+            facts.compactMap { facts in
+                let mailbox = Mailbox.holding(facts.envelope.labelIDs)
+                guard let content = facts.content,
+                    let entity = byID[EntityID.string(mailbox, account: facts.envelope.account.id)]
+                else { return nil }
+                return MessageEntity(facts, content: content, mailbox: entity, calendar: calendar)
+            }
         }
     }
 }

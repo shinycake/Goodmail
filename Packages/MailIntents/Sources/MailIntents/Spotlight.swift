@@ -63,7 +63,7 @@ extension Catalog {
     /// What Spotlight should hold: the newest `window` conversations outside Spam and Trash, without their
     /// messages, and the newest in Spam and Trash to take out.
     func spotlightChange(window: Int) throws -> (index: [ThreadEntity], remove: [String]) {
-        let current = try host.threads(in: .allMail, limit: window).map { ThreadEntity($0, messages: []) }
+        let current = try threads(ids: host.threads(in: .allMail, limit: window).map(\.id), withMessages: false)
         let gone = try [Mailbox.spam, .trash].flatMap { try host.threads(in: $0, limit: window) }
         return (current, gone.map { EntityID.string($0.id) })
     }

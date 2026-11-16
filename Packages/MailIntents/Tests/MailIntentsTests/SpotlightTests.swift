@@ -52,7 +52,7 @@ struct SpotlightTests {
     }
 
     @Test func spotlightShowsTheSubjectSnippetAndSender() throws {
-        let entity = ThreadEntity(thread("inbox", labels: [SystemLabel.inbox]), messages: [])
+        let entity = ThreadEntity(thread("inbox", labels: [SystemLabel.inbox]))
         #expect(entity.attributeSet.title == "Subject inbox")
         #expect(entity.attributeSet.contentDescription == "Snippet")
         #expect(entity.attributeSet.authorNames == ["Yael"])

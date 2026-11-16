@@ -52,10 +52,16 @@ public struct OpenMailboxIntent: OpenIntent {
 enum IntentError: Error, CustomLocalizedStringResourceConvertible {
     /// What it was asked about is no longer on the device, as when its account was removed.
     case gone
+    /// A move or label change named a mailbox that isn't a place mail can go, as Sent or Starred.
+    case notAPlace
+    /// Unsubscribe was asked of a message that isn't from a mailing list.
+    case notAList
 
     var localizedStringResource: LocalizedStringResource {
         switch self {
         case .gone: "That mail is no longer on this device."
+        case .notAPlace: "Mail can't be moved there. Choose the Inbox, Spam, Trash or a label."
+        case .notAList: "That message isn't from a mailing list."
         }
     }
 }

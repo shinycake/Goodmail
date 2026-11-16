@@ -20,6 +20,9 @@
         let database: MailDatabase
         let commands: MailCommands
         let routes: IntentRoutes
+        let unsubscriber: ListUnsubscriber
+        /// Syncs every account, as pulling down the Inbox does.
+        let syncAll: @Sendable () async throws -> Void
 
         func accounts() throws -> [Account] { try database.accounts() }
 
@@ -44,8 +47,27 @@
             try database.threads(matching: text, limit: limit)
         }
 
-        func cachedMessages(inThread id: ThreadSummary.ID) throws -> [Message] {
-            try database.cachedMessages(inThread: id)
+        func threadFacts(_ ids: [ThreadSummary.ID]) throws -> [MailFacts] {
+            try database.threadFacts(ids, mailboxNames: Self.mailboxNames)
+        }
+
+        func messageFacts(inThreads ids: [ThreadSummary.ID]) throws -> [MailFacts] {
+            try database.messageFacts(inThreads: ids, mailboxNames: Self.mailboxNames)
+        }
+
+        func messageFacts(matching condition: MailCondition, in context: MailCondition.Context) throws -> [MailFacts] {
+            try database.messageFacts(matching: condition, in: context, mailboxNames: Self.mailboxNames)
+        }
+
+        func threadFacts(matching condition: MailCondition, in context: MailCondition.Context) throws -> [MailFacts] {
+            try database.threadFacts(matching: condition, in: context, mailboxNames: Self.mailboxNames)
+        }
+
+        /// The standard mailboxes' names, as the mailbox list shows them, by label ID.
+        private static var mailboxNames: [String: String] {
+            Dictionary(
+                Mailbox.standard.compactMap { mailbox in mailbox.labelID.map { ($0, mailbox.title(labels: [])) } },
+                uniquingKeysWith: { first, _ in first })
         }
 
         // Intents can run with the app in the background, as from Siri or a widget, so their writes keep it awake.
@@ -55,6 +77,24 @@
 
         func pin(_ threads: [ThreadSummary.ID], _ pinned: Bool) async throws -> MailCommands.Undo {
             try await BackgroundDatabaseWork.shared.run("Intent") { try await commands.pin(threads, pinned) }
+        }
+
+        func snooze(_ threads: [ThreadSummary.ID], until date: Date?) async throws -> MailCommands.Undo {
+            try await BackgroundDatabaseWork.shared.run("Intent") {
+                if let date {
+                    try await commands.snooze(threads, until: date)
+                } else {
+                    try await commands.unsnooze(threads)
+                }
+            }
+        }
+
+        func unsubscribe(_ unsubscribe: Unsubscribe, account: AccountID) async throws -> ListUnsubscriber.Outcome {
+            try await unsubscriber.unsubscribe(unsubscribe, account: account)
+        }
+
+        func refresh() async throws {
+            try await BackgroundDatabaseWork.shared.run("Intent") { try await syncAll() }
         }
 
         func undo(_ undo: MailCommands.Undo) async throws {

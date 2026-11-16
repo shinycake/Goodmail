@@ -45,6 +45,15 @@ extension MailDatabase {
         }
     }
 
+    /// The stored threads among `ids`, newest first, each as its list row shows it.
+    public func threadFacts(_ ids: [ThreadSummary.ID], mailboxNames: [String: String]) throws -> [MailFacts] {
+        let threads = try threads(ids)
+        return try pool.read { db in
+            let lookup = try FactsLookup(db, mailboxNames: mailboxNames)
+            return threads.compactMap(lookup.facts(of:))
+        }
+    }
+
     /// The stored threads that meet `condition`, newest first, up to `factsMatchLimit`, each as its list row shows
     /// it: what only a cached message knows is unknown, so a condition on it doesn't hold.
     public func threadFacts(

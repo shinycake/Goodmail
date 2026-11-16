@@ -37,8 +37,14 @@
             try database.threads(matching: text, limit: limit)
         }
 
-        func cachedMessages(inThread id: ThreadSummary.ID) throws -> [Message] {
-            try database.cachedMessages(inThread: id)
+        // The widget's buttons only point at threads, so it reads no facts.
+        func threadFacts(_ ids: [ThreadSummary.ID]) throws -> [MailFacts] { [] }
+        func messageFacts(inThreads ids: [ThreadSummary.ID]) throws -> [MailFacts] { [] }
+        func messageFacts(matching condition: MailCondition, in context: MailCondition.Context) throws -> [MailFacts] {
+            []
+        }
+        func threadFacts(matching condition: MailCondition, in context: MailCondition.Context) throws -> [MailFacts] {
+            []
         }
 
         func perform(_ action: ThreadAction, on threads: [ThreadSummary.ID]) async throws -> MailCommands.Undo {
@@ -49,11 +55,31 @@
             try await commands.pin(threads, pinned)
         }
 
+        func snooze(_ threads: [ThreadSummary.ID], until date: Date?) async throws -> MailCommands.Undo {
+            if let date {
+                try await commands.snooze(threads, until: date)
+            } else {
+                try await commands.unsnooze(threads)
+            }
+        }
+
+        /// Network intents run in the app (`allowedExecutionTargets`), never here.
+        func unsubscribe(_ unsubscribe: Unsubscribe, account: AccountID) async throws -> ListUnsubscriber.Outcome {
+            throw WidgetHostError.needsTheApp
+        }
+
+        func refresh() async throws { throw WidgetHostError.needsTheApp }
+
         func undo(_ undo: MailCommands.Undo) async throws {
             try await commands.undo(undo)
         }
 
         /// Opening intents run in the app, which the system launches for them.
         @MainActor func open(_ route: Route) {}
+    }
+
+    /// An intent that needs the network reached the widget, which can't fetch or send.
+    enum WidgetHostError: Error {
+        case needsTheApp
     }
 #endif
