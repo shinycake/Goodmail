@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# The strictest Swift the toolchain offers, in one list (ADR-021): Swift 6 with complete concurrency checking, the
+# Swift 7 upcoming features, the lifetime checker, strict memory safety and every warning an error.
+#
+#   scripts/strict-swift --check         fail unless every package target and the Xcode project use exactly this
+#   scripts/strict-swift --swiftc-flags  the flags, for scripts/ios-build's swiftc type-check of the app targets
+#
+# Adding a feature: add it here, run --check, and copy the block it prints into each Package.swift.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+UPCOMING=(
+    ExistentialAny
+    ImmutableWeakCaptures
+    InferIsolatedConformances
+    InternalImportsByDefault
+    MemberImportVisibility
+    NonisolatedNonsendingByDefault
+)
+EXPERIMENTAL=(Lifetimes)
+
+# What Goodmail.xcodeproj must set for every target, each the Xcode spelling of an entry above.
+XCODE_SETTINGS=(
+    '"SWIFT_VERSION": "6.0"'
+    '"SWIFT_STRICT_CONCURRENCY": "complete"'
+    '"SWIFT_STRICT_MEMORY_SAFETY": "YES"'
+    '"SWIFT_TREAT_WARNINGS_AS_ERRORS": "YES"'
+    '"GCC_TREAT_WARNINGS_AS_ERRORS": "YES"'
+    '"SWIFT_ENFORCE_EXCLUSIVE_ACCESS": "on"'
+    '"SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY": "YES"'
+    '"SWIFT_UPCOMING_FEATURE_INFER_ISOLATED_CONFORMANCES": "YES"'
+    '"SWIFT_UPCOMING_FEATURE_INTERNAL_IMPORTS_BY_DEFAULT": "YES"'
+    '"SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY": "YES"'
+    '"SWIFT_UPCOMING_FEATURE_NONISOLATED_NONSENDING_BY_DEFAULT": "YES"'
+    # The two Xcode has no named setting for.
+    '"OTHER_SWIFT_FLAGS": "$(inherited) -enable-upcoming-feature ImmutableWeakCaptures -enable-experimental-feature Lifetimes"'
+)
+
+manifest_block() {
+    echo 'let strictSwift: [SwiftSetting] = ['
+    for feature in "${UPCOMING[@]}"; do echo "    .enableUpcomingFeature(\"$feature\"),"; done
+    for feature in "${EXPERIMENTAL[@]}"; do echo "    .enableExperimentalFeature(\"$feature\"),"; done
+    echo '    .strictMemorySafety(),'
+    echo '    .treatAllWarnings(as: .error),'
+    echo ']'
+}
+
+swiftc_flags() {
+    printf -- '-swift-version 6 -strict-concurrency=complete -strict-memory-safety -warnings-as-errors'
+    for feature in "${UPCOMING[@]}"; do printf -- ' -enable-upcoming-feature %s' "$feature"; done
+    for feature in "${EXPERIMENTAL[@]}"; do printf -- ' -enable-experimental-feature %s' "$feature"; done
+    echo
+}
+
+check() {
+    local expected failed=0
+    expected=$(manifest_block)
+    for manifest in Packages/*/Package.swift; do
+        if [[ "$(sed -n '/^let strictSwift: \[SwiftSetting\] = \[$/,/^]$/p' "$manifest")" != "$expected" ]]; then
+            echo "✘ $manifest doesn't declare strictSwift as scripts/strict-swift lists it:"
+            echo "$expected"
+            failed=1
+        fi
+        grep -q 'swiftLanguageModes: \[.v6\]' "$manifest" || { echo "✘ $manifest isn't in Swift 6 mode."; failed=1; }
+        # Every target, tests included, takes the settings: only targets take swiftSettings, one each.
+        local targets with_settings
+        targets=$(grep -cE '\.(target|testTarget|executableTarget)\(' "$manifest" || true)
+        with_settings=$(grep -c 'swiftSettings: strictSwift' "$manifest" || true)
+        if [[ "$targets" != "$with_settings" ]]; then
+            echo "✘ $manifest: $targets targets, but $with_settings use swiftSettings: strictSwift."
+            failed=1
+        fi
+        if grep -nE 'unsafeFlags|treatWarning\(|treatAllWarnings\(as: \.warning\)' "$manifest"; then
+            echo "✘ $manifest loosens a setting strictSwift sets."
+            failed=1
+        fi
+    done
+    for setting in "${XCODE_SETTINGS[@]}"; do
+        if ! grep -qF "$setting" Goodmail.xcodeproj/project.xcproj; then
+            echo "✘ Goodmail.xcodeproj doesn't set $setting."
+            failed=1
+        fi
+    done
+    # A target may not override the project's strict settings with looser ones.
+    local key
+    for setting in "${XCODE_SETTINGS[@]}"; do
+        key=${setting%%:*}
+        if (($(grep -cF "$key:" Goodmail.xcodeproj/project.xcproj) > 1)); then
+            echo "✘ Goodmail.xcodeproj sets $key more than once; set it only at the project level."
+            failed=1
+        fi
+    done
+    ((failed == 0)) && echo "Every package target and the Xcode project use the strict Swift settings."
+    return "$failed"
+}
+
+case "${1:-}" in
+    --check) check ;;
+    --swiftc-flags) swiftc_flags ;;
+    *)
+        echo "usage: scripts/strict-swift --check | --swiftc-flags" >&2
+        exit 2
+        ;;
+esac

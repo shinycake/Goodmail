@@ -37,7 +37,7 @@ final class StowBoxView: UIView {
         let scale = min(bounds.width, bounds.height) / Self.grid
         let origin = CGPoint(
             x: (bounds.width - Self.grid * scale) / 2, y: (bounds.height - Self.grid * scale) / 2)
-        var place = CGAffineTransform(translationX: origin.x, y: origin.y).scaledBy(x: scale, y: scale)
+        let place = CGAffineTransform(translationX: origin.x, y: origin.y).scaledBy(x: scale, y: scale)
         let paths = Self.paths(for: kind)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -46,7 +46,9 @@ final class StowBoxView: UIView {
             shape.bounds = bounds
             shape.position = CGPoint(x: bounds.midX, y: bounds.midY)
             shape.lineWidth = 1.9 * scale
-            shape.path = path.copy(using: &place)
+            let placed = CGMutablePath()
+            placed.addPath(path, transform: place)
+            shape.path = placed
         }
         lidHinge = paths.hinge.applying(place)
         CATransaction.commit()

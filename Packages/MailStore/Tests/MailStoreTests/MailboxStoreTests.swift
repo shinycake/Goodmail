@@ -31,7 +31,7 @@ struct MailboxStoreTests {
 
     private func first<Value>(_ stream: AsyncThrowingStream<Value, any Error>) async throws -> Value? {
         var iterator = stream.makeAsyncIterator()
-        return try await iterator.next()
+        return try await iterator.next(isolation: #isolation)
     }
 
     private func ids(in mailbox: Mailbox) async throws -> [String] {

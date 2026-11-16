@@ -53,6 +53,9 @@ done < <(git ls-files --cached --others --exclude-standard -- . "${LINE_CAP_EXEM
 done)
 ((over_cap == 0)) || exit 1
 
+step "Strict Swift settings (scripts/strict-swift)"
+scripts/strict-swift --check
+
 [[ "${1:-}" == "--lint" ]] && exit 0
 
 # The push Worker (ADR-006): typecheck and tests, only where its dev tooling is installed (npm install in PushWorker/).
@@ -92,17 +95,28 @@ if [[ "$CHECK_NAME" != "Goodmail Check" ]]; then
     trap 'xcrun simctl shutdown "$check_simulator" >/dev/null 2>&1; xcrun simctl delete "$check_simulator" >/dev/null 2>&1' EXIT
 fi
 
+# Every Swift warning is an error (ADR-021), but a few slip past the compiler's flag, such as ones an Objective-C
+# header downgrades, so the Mac build fails on any warning in our sources that reaches the log too.
+strict_xcodebuild() {
+    local log="$BUILD_DIR/xcodebuild-$$.log"
+    xcodebuild "$@" 2>&1 | tee "$log"
+    if grep -E '^/.*\.swift:[0-9]+:[0-9]+: warning:' "$log" | grep -v '/SourcePackages/checkouts/'; then
+        echo "✘ Swift warnings above. Fix them: every warning is an error (ADR-021)."
+        exit 1
+    fi
+}
+
 # Each module is its own package (ADR-005); test every one that has tests.
 for package in Packages/*/; do
     package=$(basename "$package")
     [[ -d "Packages/$package/Tests" ]] || continue
     step "$package tests ($DESTINATION)"
-    (cd "Packages/$package" && xcodebuild test -quiet -scheme "$package" -destination "$DESTINATION" \
+    (cd "Packages/$package" && strict_xcodebuild test -quiet -scheme "$package" -destination "$DESTINATION" \
         -derivedDataPath "$BUILD_DIR/DerivedData-Packages")
 done
 
 step "App build and launch tests in English and Hebrew ($DESTINATION)"
-xcodebuild test -quiet -project Goodmail.xcodeproj -scheme Goodmail -destination "$DESTINATION" \
+strict_xcodebuild test -quiet -project Goodmail.xcodeproj -scheme Goodmail -destination "$DESTINATION" \
     -derivedDataPath "$BUILD_DIR/DerivedData" -resultBundlePath "$BUILD_DIR/results/check-$(date +%Y%m%d-%H%M%S).xcresult" \
     CODE_SIGNING_ALLOWED=NO
 

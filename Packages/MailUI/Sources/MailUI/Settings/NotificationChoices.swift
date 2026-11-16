@@ -1,5 +1,6 @@
-import MailCore
-import Observation
+import Foundation
+public import MailCore
+public import Observation
 
 /// Each account's alert choice, and whether iOS lets the app alert at all.
 @Observable

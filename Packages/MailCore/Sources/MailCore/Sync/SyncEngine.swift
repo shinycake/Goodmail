@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// Keeps one account's local mail in step with its provider.
 ///

@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// Messages saved as one mbox file, in the mboxrd variant: each message's raw source after a `From ` line naming
 /// its sender and date, with body lines that read like a `From ` line quoted one level deeper so they can be told
@@ -53,8 +53,13 @@ public enum MboxArchive {
         let parts = calendar.dateComponents([.weekday, .month, .day, .hour, .minute, .second, .year], from: date)
         let weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
         let months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-        func two(_ value: Int?) -> String { String(format: "%02d", value ?? 0) }
-        let day = String(format: "%2d", parts.day ?? 1)
+        // Padded by hand: `String(format:)` takes C variadic arguments, which strict memory safety rejects.
+        func padded(_ value: Int, with pad: Character) -> String {
+            let digits = String(value)
+            return String(repeating: pad, count: max(0, 2 - digits.count)) + digits
+        }
+        func two(_ value: Int?) -> String { padded(value ?? 0, with: "0") }
+        let day = padded(parts.day ?? 1, with: " ")
         return "\(weekdays[(parts.weekday ?? 1) - 1]) \(months[(parts.month ?? 1) - 1]) \(day) "
             + "\(two(parts.hour)):\(two(parts.minute)):\(two(parts.second)) \(parts.year ?? 1970)"
     }

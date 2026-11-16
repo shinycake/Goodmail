@@ -1,5 +1,6 @@
-import MailCore
-import Observation
+import Foundation
+public import MailCore
+public import Observation
 
 /// What each account counts toward the app's badge, and whether iOS shows the badge at all.
 @Observable

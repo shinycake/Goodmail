@@ -4,6 +4,10 @@ import Testing
 
 @testable import GmailProvider
 
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
+
 /// The vacation responder reads and writes as an `AutoReply`.
 struct GmailAutoReplyTests {
     private let keychain = InMemorySecretStore()

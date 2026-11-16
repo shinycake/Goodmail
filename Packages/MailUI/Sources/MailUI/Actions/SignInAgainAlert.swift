@@ -1,4 +1,4 @@
-import UIKit
+public import UIKit
 
 extension UIAlertController {
     /// Asks a Gmail account whose sign-in predates Delete Forever to sign in again, which Gmail needs before it

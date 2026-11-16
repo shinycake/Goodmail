@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// When a finished message goes: once the undo window closes, or at a time the writer picked.
 public enum SendTime: Equatable, Sendable {

@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 extension MIMEPart {
     /// Parses a raw RFC 5322 message, as IMAP's `BODY[]` or Graph's `$value` return it: headers unfolded and their

@@ -1,6 +1,6 @@
 import Foundation
-import MailCore
-import Observation
+public import MailCore
+public import Observation
 
 /// Threads snoozed out of the Inbox, soonest to come back first.
 @Observable

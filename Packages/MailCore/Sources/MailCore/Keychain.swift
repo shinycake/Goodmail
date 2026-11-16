@@ -1,5 +1,5 @@
 #if canImport(Security)
-    import Foundation
+    public import Foundation
     import Security
 
     /// Secrets shared by the app and its extensions. Items are readable after first unlock, so the NSE can
@@ -24,7 +24,9 @@
             query[kSecReturnData as String] = true
             query[kSecMatchLimit as String] = kSecMatchLimitOne
             var result: CFTypeRef?
-            let status = SecItemCopyMatching(query as CFDictionary, &result)
+            // Unsafe because `&result` passes a pointer. Safe: Security writes one retained object through it before
+            // returning, and nothing keeps the pointer.
+            let status = unsafe SecItemCopyMatching(query as CFDictionary, &result)
             if status == errSecItemNotFound { return nil }
             guard status == errSecSuccess else { throw Failure(status: status) }
             return result as? Data

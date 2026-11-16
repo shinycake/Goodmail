@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 import MailCore
 
 /// An action the reader can place on a side of a mailbox row.

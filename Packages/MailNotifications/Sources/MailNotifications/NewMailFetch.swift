@@ -1,6 +1,6 @@
-import Foundation
-import MailCore
-import MailStore
+public import Foundation
+public import MailCore
+public import MailStore
 
 /// What the notification extension does with a new-mail push: catches the account up on what changed and picks
 /// what alerts. The mail it fetches is stored, so the app shows it on open without fetching it again (ADR-002).

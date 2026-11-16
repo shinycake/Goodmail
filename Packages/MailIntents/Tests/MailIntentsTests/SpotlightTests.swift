@@ -1,3 +1,4 @@
+import CoreSpotlight
 import Foundation
 import MailCore
 import Synchronization

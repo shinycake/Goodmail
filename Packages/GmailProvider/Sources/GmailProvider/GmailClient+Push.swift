@@ -1,5 +1,5 @@
-import Foundation
-import MailCore
+public import Foundation
+public import MailCore
 
 extension GmailClient: PushSource {
     /// Watches last seven days; renewing with two left keeps one renewal failure from losing pushes.

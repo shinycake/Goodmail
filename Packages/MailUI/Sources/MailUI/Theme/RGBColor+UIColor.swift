@@ -27,13 +27,21 @@ extension UIColor {
 
     /// Both already resolved: `fraction` of the way from this color to `other`, channel by channel.
     private func mixed(with other: UIColor, by fraction: CGFloat) -> UIColor {
-        var mine = (red: CGFloat(0), green: CGFloat(0), blue: CGFloat(0), alpha: CGFloat(0))
-        var theirs = mine
-        getRed(&mine.red, green: &mine.green, blue: &mine.blue, alpha: &mine.alpha)
-        other.getRed(&theirs.red, green: &theirs.green, blue: &theirs.blue, alpha: &theirs.alpha)
+        let (mine, theirs) = (rgba, other.rgba)
         func mix(_ from: CGFloat, _ to: CGFloat) -> CGFloat { from + (to - from) * fraction }
         return UIColor(
             red: mix(mine.red, theirs.red), green: mix(mine.green, theirs.green), blue: mix(mine.blue, theirs.blue),
             alpha: mine.alpha)
+    }
+}
+
+nonisolated extension UIColor {
+    /// The components of an already resolved color, in the extended sRGB space. The one caller of
+    /// `getRed(_:green:blue:alpha:)`, so the pointers it writes through stay here.
+    var rgba: (red: CGFloat, green: CGFloat, blue: CGFloat, alpha: CGFloat) {
+        var (red, green, blue, alpha) = (CGFloat(0), CGFloat(0), CGFloat(0), CGFloat(0))
+        // Unsafe because it writes through pointers. Safe: each points at a local that outlives the call.
+        _ = unsafe getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        return (red, green, blue, alpha)
     }
 }

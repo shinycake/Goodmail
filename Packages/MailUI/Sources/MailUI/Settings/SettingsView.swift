@@ -1,5 +1,5 @@
-import MailCore
-import SwiftUI
+public import MailCore
+public import SwiftUI
 
 /// Accounts, the mail list and sending, as a system form.
 struct SettingsView: View {

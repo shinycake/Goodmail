@@ -1,4 +1,5 @@
-import MailCore
+import Foundation
+public import MailCore
 
 /// Where Move offers to send threads the reader sees in one mailbox: the system places first, then the account's
 /// labels. The mailbox they are in isn't offered.

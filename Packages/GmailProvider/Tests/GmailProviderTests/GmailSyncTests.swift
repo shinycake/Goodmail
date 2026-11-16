@@ -4,6 +4,10 @@ import Testing
 
 @testable import GmailProvider
 
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
+
 /// The provider half of sync: cursors, history, windowed queries and the failure paths, on fixtures.
 struct GmailSyncTests {
     private let keychain = InMemorySecretStore()

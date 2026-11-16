@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// How an account's syncs are going, as far as the reader needs to know. Changed only by `after(_:at:)`.
 ///

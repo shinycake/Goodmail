@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 extension Message {
     /// A message read from its MIME tree: its people, subject and threading headers from the top-level headers,

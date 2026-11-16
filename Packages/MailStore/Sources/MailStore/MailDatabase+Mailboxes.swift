@@ -1,6 +1,6 @@
 import Foundation
 import GRDB
-import MailCore
+public import MailCore
 
 extension MailDatabase {
     /// The user labels and unread counts for the mailbox list. Emits now and after every change.

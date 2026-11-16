@@ -1,4 +1,4 @@
-import MailCore
+public import MailCore
 
 // What the IMAP side says when the server, or the Keychain, no longer has a login that works, so the account asks to
 // have its password typed again rather than waiting for the server to come round.

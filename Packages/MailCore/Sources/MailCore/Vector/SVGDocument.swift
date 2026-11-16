@@ -1,7 +1,7 @@
-import Foundation
+public import Foundation
 
 #if canImport(FoundationXML)
-    import FoundationXML  // XMLParser on Linux
+    public import FoundationXML  // XMLParser on Linux
 #endif
 
 /// Parses an SVG file into a `VectorImage`. Covers what logos use, the SVG Tiny 1.2 that BIMI requires and the
@@ -78,10 +78,9 @@ private final class SVGTreeBuilder: NSObject, XMLParserDelegate {
     static func root(of data: Data) -> SVGElement? {
         let parser = XMLParser(data: data)
         let builder = SVGTreeBuilder()
-        parser.delegate = builder
         parser.shouldResolveExternalEntities = false
         parser.shouldProcessNamespaces = false
-        guard parser.parse() else { return nil }
+        guard parser.parse(with: builder) else { return nil }
         return builder.root
     }
 

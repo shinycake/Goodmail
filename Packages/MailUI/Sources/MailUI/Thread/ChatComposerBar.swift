@@ -161,7 +161,7 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
             onResize?()
         }
         let focus = {
-            UIAccessibility.post(notification: .layoutChanged, argument: unfolded ? self.actionsRow : self.trayButton)
+            SystemAccessibility.post(.layoutChanged, argument: unfolded ? self.actionsRow : self.trayButton)
         }
         guard animated else {
             change()
@@ -169,7 +169,7 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
             return
         }
         // The glass grows out of its button with a little give; with Reduce Motion it only fades.
-        if UIAccessibility.isReduceMotionEnabled {
+        if SystemAccessibility.reducesMotion {
             UIView.animate(withDuration: 0.2, animations: change, completion: { _ in focus() })
         } else {
             UIView.animate(

@@ -1,6 +1,6 @@
-import Foundation
-import MailCore
-import Observation
+public import Foundation
+public import MailCore
+public import Observation
 
 /// A message being written: its recipients, subject and body, and whether it can go.
 @Observable

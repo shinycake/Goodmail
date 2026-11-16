@@ -1,6 +1,6 @@
-import Foundation
-import MailCore
-import Observation
+public import Foundation
+public import MailCore
+public import Observation
 
 /// Performs the reader's actions through `MailCommands` and keeps the last one undoable, shared by every screen of
 /// a window so an archive in the thread view can be undone from the list it returns to. The commands run on their

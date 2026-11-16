@@ -1,5 +1,5 @@
 import Foundation
-import MailCore
+public import MailCore
 
 /// Changes one account's user labels at its service: Gmail's labels, Outlook's folders and IMAP's mailboxes. Each
 /// change waits for the service's answer, since it can refuse a name, so none is queued for later.

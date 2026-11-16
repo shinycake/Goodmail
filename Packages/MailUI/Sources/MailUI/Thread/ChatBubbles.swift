@@ -321,10 +321,7 @@ extension UIColor {
     /// Black or white, whichever reads better on this color, in each appearance.
     var readableInk: UIColor {
         UIColor { traits in
-            var red: CGFloat = 0
-            var green: CGFloat = 0
-            var blue: CGFloat = 0
-            self.resolvedColor(with: traits).getRed(&red, green: &green, blue: &blue, alpha: nil)
+            let (red, green, blue, _) = self.resolvedColor(with: traits).rgba
             let luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
             return luminance > 0.6 ? .black : .white
         }

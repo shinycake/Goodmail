@@ -1,4 +1,4 @@
-import MailCore
+public import MailCore
 
 /// What a view that spans accounts, such as the unified inbox, wears: the reader's choice in Settings.
 public enum CombinedTheme: Equatable, Sendable {

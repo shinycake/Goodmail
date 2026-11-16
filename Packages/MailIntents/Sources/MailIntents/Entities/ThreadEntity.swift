@@ -1,6 +1,6 @@
-import AppIntents
-import CoreSpotlight
-import MailCore
+public import AppIntents
+public import CoreSpotlight
+public import MailCore
 
 /// A conversation, as Siri, Shortcuts and Spotlight see it.
 @AppEntity(schema: .mail.thread)

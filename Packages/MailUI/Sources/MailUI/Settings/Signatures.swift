@@ -1,5 +1,5 @@
-import MailCore
-import Observation
+public import MailCore
+public import Observation
 
 /// Each account's signature as its editor shows it, and saving edits: to the service when it keeps the signature,
 /// else on the device. An account whose signature hasn't been read yet has no entry.

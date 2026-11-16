@@ -1,5 +1,5 @@
-import MailCore
-import UIKit
+public import MailCore
+public import UIKit
 
 /// A sheet listing where threads can move: the system places, then the account's labels in their colors. A tap
 /// moves them and closes the sheet.

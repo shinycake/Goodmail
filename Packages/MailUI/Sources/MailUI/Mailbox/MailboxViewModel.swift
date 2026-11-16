@@ -1,7 +1,7 @@
-import Foundation
-import MailCore
+public import Foundation
+public import MailCore
 import OSLog
-import Observation
+public import Observation
 
 /// What a mailbox list shows: one list of threads, or the Inbox split into Gmail's categories with one of them shown.
 public enum MailboxSource {

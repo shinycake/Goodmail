@@ -1,6 +1,6 @@
 import Foundation
 import GRDB
-import MailCore
+public import MailCore
 
 extension MailDatabase {
     /// Threads whose subject, sender, snippet or cached bodies hold each word of `text` (as a word prefix), with

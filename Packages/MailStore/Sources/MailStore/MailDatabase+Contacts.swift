@@ -1,6 +1,6 @@
 import Foundation
 import GRDB
-import MailCore
+public import MailCore
 
 extension MailDatabase {
     /// People whose name or address starts with `text` (or has a word that does): those who wrote to any account,

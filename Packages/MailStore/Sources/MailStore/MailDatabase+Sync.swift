@@ -1,6 +1,6 @@
-import Foundation
-import GRDB
-import MailCore
+public import Foundation
+public import GRDB
+public import MailCore
 
 extension MailDatabase: SyncStore {
     public func syncState(for account: AccountID) throws -> SyncState? {

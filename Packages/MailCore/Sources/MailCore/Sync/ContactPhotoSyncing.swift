@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// A service whose address book carries people's profile photos, read with the contacts in the same requests. Gmail's
 /// does, through the People API. Graph keeps a photo per contact behind a request each, and IMAP has no address book,

@@ -1,6 +1,6 @@
 import Foundation
-import MailCore
-import Observation
+public import MailCore
+public import Observation
 
 /// Adds an account: the reader picks a service, then signs in to it. The one place both the welcome screen and
 /// Settings add accounts through, so each service's sign-in plugs in once, in the app's `signIn`.

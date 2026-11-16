@@ -1,5 +1,5 @@
 import Contacts
-import MailCore
+public import MailCore
 
 /// The device's Contacts, through `CNContactStore`.
 nonisolated public struct SystemAddressBook: DeviceContacts {
@@ -24,10 +24,12 @@ nonisolated public struct SystemAddressBook: DeviceContacts {
     @concurrent
     public func people() async throws -> [Contact] {
         let request = CNContactFetchRequest(keysToFetch: [
-            CNContactFormatter.descriptorForRequiredKeys(for: .fullName), CNContactEmailAddressesKey as CNKeyDescriptor,
+            CNContactFormatter.descriptorForRequiredKeys(for: .fullName),
+            CNContactEmailAddressesKey as any CNKeyDescriptor,
         ])
         var people: [Contact] = []
-        try CNContactStore().enumerateContacts(with: request) { contact, _ in
+        // Unsafe because the closure is handed a stop pointer. Safe: it's never touched.
+        try unsafe CNContactStore().enumerateContacts(with: request) { contact, _ in
             let name = CNContactFormatter.string(from: contact, style: .fullName)
             people += contact.emailAddresses.map { Contact(name: name, address: $0.value as String) }
         }

@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// Writes a draft as an RFC 5322 message: UTF-8 throughout, `multipart/alternative` with plain text and HTML (inside
 /// `multipart/mixed` with the files, when there are any), and the threading headers replies need.

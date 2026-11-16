@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// One message as the reader shows it: its people, its body and its attachments.
 public struct Message: Identifiable, Equatable, Codable, Sendable {

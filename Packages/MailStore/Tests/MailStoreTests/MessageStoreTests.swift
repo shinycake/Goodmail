@@ -38,7 +38,7 @@ struct MessageStoreTests {
 
     private func stored() async throws -> [Message] {
         var iterator = database.messages(inThread: threadID).makeAsyncIterator()
-        return try await iterator.next() ?? []
+        return try await iterator.next(isolation: #isolation) ?? []
     }
 
     @Test func messagesRoundTripOldestFirst() async throws {

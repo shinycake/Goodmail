@@ -1,5 +1,5 @@
 import Foundation
-import MailCore
+public import MailCore
 
 /// Signing in to iCloud Mail with an app-specific password: iCloud's IMAP doesn't take the Apple Account password,
 /// and has no OAuth. The password is checked by logging in, then kept in the `SecretStore` for the account.

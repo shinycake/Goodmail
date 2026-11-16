@@ -1,3 +1,4 @@
+import Foundation
 import MailCore
 
 /// How each answer reads in a menu, in the mailbox list's and the reader's alike.

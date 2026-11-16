@@ -1,5 +1,5 @@
 import Foundation
-import MailCore
+public import MailCore
 
 /// Search as the user types: the store's matches at once, then the provider's merged in once typing pauses, and its
 /// further pages as the list nears its end.

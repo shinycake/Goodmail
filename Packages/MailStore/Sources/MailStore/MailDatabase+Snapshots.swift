@@ -1,6 +1,6 @@
 import Foundation
 import GRDB
-import MailCore
+public import MailCore
 
 /// One-shot reads for App Intents, Spotlight and widgets, which answer once instead of following the store.
 extension MailDatabase {

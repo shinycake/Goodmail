@@ -1,6 +1,6 @@
 import Foundation
-import GRDB
-import MailCore
+public import GRDB
+public import MailCore
 
 /// The number on the app's icon, and what each account counts toward it.
 extension MailDatabase {

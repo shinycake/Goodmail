@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// A message queued for the provider: to send once the undo window closes, or to keep in its drafts.
 public struct OutgoingMessage: Identifiable, Equatable, Sendable {

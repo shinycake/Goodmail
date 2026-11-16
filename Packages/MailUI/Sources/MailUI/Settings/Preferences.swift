@@ -1,5 +1,5 @@
 import Foundation
-import MailCore
+public import MailCore
 
 /// The reader's choices, kept on this device.
 public enum Preferences {

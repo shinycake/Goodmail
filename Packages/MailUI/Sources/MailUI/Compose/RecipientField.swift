@@ -229,7 +229,8 @@ extension RecipientField: UITextFieldDelegate {
 }
 
 extension RecipientField: UIDragInteractionDelegate, UIDropInteractionDelegate {
-    func dragInteraction(_ interaction: UIDragInteraction, itemsForBeginning session: UIDragSession) -> [UIDragItem] {
+    func dragInteraction(_ interaction: UIDragInteraction, itemsForBeginning session: any UIDragSession) -> [UIDragItem]
+    {
         guard let token = interaction.view as? RecipientToken, let index = tokens.firstIndex(of: token) else {
             return []
         }
@@ -238,15 +239,17 @@ extension RecipientField: UIDragInteractionDelegate, UIDropInteractionDelegate {
         return [item]
     }
 
-    func dropInteraction(_ interaction: UIDropInteraction, canHandle session: UIDropSession) -> Bool {
+    func dropInteraction(_ interaction: UIDropInteraction, canHandle session: any UIDropSession) -> Bool {
         session.canLoadObjects(ofClass: NSString.self)
     }
 
-    func dropInteraction(_ interaction: UIDropInteraction, sessionDidUpdate session: UIDropSession) -> UIDropProposal {
+    func dropInteraction(_ interaction: UIDropInteraction, sessionDidUpdate session: any UIDropSession)
+        -> UIDropProposal
+    {
         UIDropProposal(operation: session.localDragSession == nil ? .copy : .move)
     }
 
-    func dropInteraction(_ interaction: UIDropInteraction, performDrop session: UIDropSession) {
+    func dropInteraction(_ interaction: UIDropInteraction, performDrop session: any UIDropSession) {
         let index = insertionIndex(at: session.location(in: self))
         if let dragged = session.items.first?.localObject as? DraggedRecipient {
             return onIntent(.move(dragged, to: role, at: index))

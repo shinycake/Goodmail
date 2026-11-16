@@ -1,4 +1,4 @@
-import AppIntents
+public import AppIntents
 import MailCore
 
 /// The Inbox tab Gmail sorts a message into.

@@ -1,7 +1,8 @@
-import Foundation
-
 #if canImport(FoundationNetworking)
-    import FoundationNetworking  // URLSession on Linux
+    import Foundation
+    public import FoundationNetworking  // URLSession on Linux
+#else
+    public import Foundation
 #endif
 
 /// One signed-in account at an OAuth service: keeps a fresh access token, refreshing it from the Keychain's refresh

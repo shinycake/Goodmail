@@ -1,6 +1,6 @@
-import Foundation
-import MailCore
-import Observation
+public import Foundation
+public import MailCore
+public import Observation
 
 /// The way off the mailing list a conversation came from, and how far the reader has got leaving it. Progress
 /// changes only in `unsubscribe(_:)`; which list is offered follows the messages.

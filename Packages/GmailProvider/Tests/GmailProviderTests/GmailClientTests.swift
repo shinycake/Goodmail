@@ -4,6 +4,10 @@ import Testing
 
 @testable import GmailProvider
 
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
+
 struct GmailClientTests {
     private let keychain = InMemorySecretStore()
 

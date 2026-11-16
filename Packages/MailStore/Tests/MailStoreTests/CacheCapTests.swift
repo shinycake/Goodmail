@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 import MailCore
 import Testing
 
@@ -52,7 +53,7 @@ struct CacheCapTests {
 
     private func listed() async throws -> [String] {
         var iterator = database.threads(in: .inbox).makeAsyncIterator()
-        return try await iterator.next()?.map(\.id.threadID) ?? []
+        return try await iterator.next(isolation: #isolation)?.map(\.id.threadID) ?? []
     }
 
     /// What each thread cached by `cache` weighs; all of them weigh the same.

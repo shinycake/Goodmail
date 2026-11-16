@@ -1,5 +1,5 @@
-import Foundation
-import MailCore
+public import Foundation
+public import MailCore
 
 #if canImport(FoundationNetworking)
     import FoundationNetworking  // URLSession on Linux

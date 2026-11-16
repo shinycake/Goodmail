@@ -1,4 +1,4 @@
-import UIKit
+public import UIKit
 
 /// A window's mail screens: mailboxes, a mailbox's list and a thread side by side when the window is wide, one
 /// stack when it is narrow. The undo toast floats over them, above the toolbars. Shaking to undo is
@@ -65,7 +65,7 @@ public final class MailSplitViewController: UISplitViewController {
             placeToast()
             view.layoutIfNeeded()
             toast.transform = Motion.entrance(CGAffineTransform(translationX: 0, y: 20).scaledBy(x: 0.9, y: 0.9))
-            UIAccessibility.post(notification: .announcement, argument: current.message)
+            SystemAccessibility.post(.announcement, argument: current.message)
         }
         UIView.animate(springDuration: 0.35, bounce: Motion.bounce(0.2)) {
             self.toast.alpha = current == nil ? 0 : 1

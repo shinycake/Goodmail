@@ -82,7 +82,7 @@ struct TextDirectionTests {
         let label = UILabel()
         label.setContentText("שלום עולם.")
         let style = try #require(
-            label.attributedText?.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
+            label.attributedText?.attribute(.paragraphStyle, at: 0) as? NSParagraphStyle
         )
         #expect(style.baseWritingDirection == .rightToLeft)
         #expect(style.alignment == .right)

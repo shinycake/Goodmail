@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// How a mailing list lets a reader leave it, from the message's `List-Unsubscribe` header (RFC 2369) and its
 /// one-click marker `List-Unsubscribe-Post` (RFC 8058). One way is kept, the one that asks least of the reader:

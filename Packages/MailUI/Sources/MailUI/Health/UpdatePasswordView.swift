@@ -1,5 +1,5 @@
 import MailCore
-import SwiftUI
+public import SwiftUI
 
 /// Why a new password didn't work, as the form explains it.
 public enum UpdatePasswordFailure: Error {

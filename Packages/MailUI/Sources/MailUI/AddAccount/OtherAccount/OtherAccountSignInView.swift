@@ -1,5 +1,5 @@
-import MailCore
-import SwiftUI
+public import MailCore
+public import SwiftUI
 
 /// Why a sign-in to another mail account failed, as the form explains it.
 nonisolated public enum OtherAccountSignInFailure: Error, Equatable {

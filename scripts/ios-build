@@ -42,12 +42,13 @@ for package in "$@"; do
 done
 $app_targets || exit 0
 
-# SwiftPM can't build the Xcode targets, so type-check their sources against the package modules built above. The
-# flags mirror Goodmail.xcodeproj's Debug settings: Swift 6, approachable concurrency, member import visibility, and
-# the app's MainActor default isolation. Change them here when the project's Swift settings change.
+# SwiftPM can't build the Xcode targets, so type-check their sources against the package modules built above, with
+# the strict settings Goodmail.xcodeproj shares with every package (scripts/strict-swift) and the app's MainActor
+# default isolation.
 deployment_target=$(grep -oE '"IPHONEOS_DEPLOYMENT_TARGET": "[0-9.]+"' Goodmail.xcodeproj/project.xcproj | grep -oE '[0-9.]+')
 module_paths=()
 for package in Packages/*/; do module_paths+=(-I "$package.build/out/Products/Debug-iphoneos"); done
+read -ra strict_flags <<<"$(scripts/strict-swift --swiftc-flags)"
 grdb_sqlite=Packages/MailStore/.build/checkouts/GRDB.swift/Sources/GRDBSQLite/module.modulemap
 typecheck() {
     local target="$1" sources="$2"
@@ -56,9 +57,7 @@ typecheck() {
     swiftc -typecheck -target "arm64-apple-ios$deployment_target" \
         -sdk "$bundle/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk" \
         -resource-dir "$bundle/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift" \
-        -swift-version 6 -D DEBUG -enable-upcoming-feature NonisolatedNonsendingByDefault \
-        -enable-upcoming-feature InferIsolatedConformances -enable-upcoming-feature MemberImportVisibility \
-        "${module_paths[@]}" -Xcc -fmodule-map-file="$grdb_sqlite" "$@" "$sources"/*.swift
+        -D DEBUG "${strict_flags[@]}" "${module_paths[@]}" -Xcc -fmodule-map-file="$grdb_sqlite" "$@" "$sources"/*.swift
     echo "Type-check complete."
 }
 typecheck Goodmail Goodmail -default-isolation MainActor

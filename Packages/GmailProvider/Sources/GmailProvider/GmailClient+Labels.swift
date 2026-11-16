@@ -1,5 +1,5 @@
 import Foundation
-import MailCore
+public import MailCore
 
 /// The user's labels. Gmail nests a label by its name, as `Projects/Goodmail` sits under `Projects`, and keeps each
 /// one apart: renaming or deleting `Projects` changes none of the labels under it, so the client changes them too.

@@ -1,4 +1,4 @@
-import UIKit
+public import UIKit
 
 /// What the message column shows beside a list while no thread is open.
 public final class NoThreadViewController: UIViewController {

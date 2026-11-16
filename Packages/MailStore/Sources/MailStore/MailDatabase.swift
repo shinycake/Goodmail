@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 import GRDB
 
 /// The shared mail database. The app and the Notification Service Extension both write to it (ADR-002),

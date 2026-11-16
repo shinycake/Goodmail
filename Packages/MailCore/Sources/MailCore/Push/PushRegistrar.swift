@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// Keeps each account's push subscription in step with its alert choice and this device's token: subscribes, renews
 /// before the service lets the subscription lapse, and unsubscribes when alerts are off.

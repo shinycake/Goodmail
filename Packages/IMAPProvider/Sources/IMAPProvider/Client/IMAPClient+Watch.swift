@@ -1,4 +1,4 @@
-import MailCore
+public import MailCore
 
 extension IMAPClient: ChangeWatching {
     /// Keeps the Inbox in IDLE on a second connection, beside the one sync uses, since a connection in IDLE can do

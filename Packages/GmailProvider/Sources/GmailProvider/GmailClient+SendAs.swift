@@ -1,5 +1,5 @@
 import Foundation
-import MailCore
+public import MailCore
 
 /// Gmail keeps a signature on each address the account sends as; the app reads and edits the default one's, and
 /// offers the verified others as aliases to send from.

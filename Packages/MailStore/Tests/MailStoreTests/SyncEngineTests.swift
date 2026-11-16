@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 import MailCore
 import Synchronization
 import Testing
@@ -48,7 +49,7 @@ struct SyncEngineTests {
 
     private func local(_ label: String = "INBOX") async throws -> [String] {
         var iterator = database.threads(in: Mailbox(labelID: label)).makeAsyncIterator()
-        return try await iterator.next()?.map(\.id.threadID) ?? []
+        return try await iterator.next(isolation: #isolation)?.map(\.id.threadID) ?? []
     }
 
     private func allLocal() throws -> Set<String> {

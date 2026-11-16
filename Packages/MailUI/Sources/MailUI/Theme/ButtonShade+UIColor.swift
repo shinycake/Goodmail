@@ -11,11 +11,7 @@ nonisolated extension UIColor {
 
     private func shaded(_ part: @escaping @Sendable (ButtonShade) -> RGBColor) -> UIColor {
         UIColor { [self] traits in
-            var red: CGFloat = 0
-            var green: CGFloat = 0
-            var blue: CGFloat = 0
-            var alpha: CGFloat = 0
-            resolvedColor(with: traits).getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+            let (red, green, blue, _) = resolvedColor(with: traits).rgba
             let picked = RGBColor(fractionalRed: Double(red), green: Double(green), blue: Double(blue))
             let appearance: Appearance = traits.userInterfaceStyle == .dark ? .dark : .light
             return UIColor(part(ButtonShade(for: picked, in: appearance)))

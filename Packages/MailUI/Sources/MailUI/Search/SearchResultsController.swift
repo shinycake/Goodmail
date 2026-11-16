@@ -1,5 +1,5 @@
-import MailCore
-import UIKit
+public import MailCore
+public import UIKit
 
 /// Shows a search's results in a mailbox list, and passes what is typed to the search, with its filters as tokens.
 /// Filters for what is typed are offered above the results; while nothing is typed, the recent searches too.

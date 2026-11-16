@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// Identifiers shared by the app and its extensions (ADR-002).
 public enum SharedContainer {

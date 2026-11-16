@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// A conversation as the mailbox list shows it: who wrote last, about what, and when.
 public struct ThreadSummary: Identifiable, Equatable, Sendable {

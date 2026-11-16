@@ -1,6 +1,6 @@
-import Foundation
+public import Foundation
 import GRDB
-import MailCore
+public import MailCore
 
 extension MailDatabase: OutboxStore {
     public func enqueue(_ intents: [OutboxIntent], account: AccountID) throws -> [String: Set<String>] {

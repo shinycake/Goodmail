@@ -19,9 +19,10 @@
             var token: Int32 = 0
             let queue = DispatchQueue(label: "com.idanbirman.goodmail.store-changed")
             let ownID = id
-            notify_register_dispatch(Self.name, &token, queue) { token in
+            // Unsafe because both calls write through a pointer. Safe: each points at a local that outlives the call.
+            unsafe notify_register_dispatch(Self.name, &token, queue) { token in
                 var sender: UInt64 = 0
-                notify_get_state(token, &sender)
+                unsafe notify_get_state(token, &sender)
                 if sender != ownID { onForeignChange() }
             }
             self.token = token
@@ -33,7 +34,8 @@
 
         func post() {
             notify_set_state(token, id)
-            notify_post(Self.name)
+            // Unsafe because the name passes as a C string. Safe: it lives through the call, which copies it.
+            unsafe notify_post(Self.name)
         }
     }
 #else

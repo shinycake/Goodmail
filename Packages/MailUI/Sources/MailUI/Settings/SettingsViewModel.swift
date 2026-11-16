@@ -1,6 +1,7 @@
 import Foundation
-import MailCore
-import Observation
+public import MailCore
+public import Observation
+import SwiftUI
 
 /// The accounts on this device and the reader's choices.
 @Observable

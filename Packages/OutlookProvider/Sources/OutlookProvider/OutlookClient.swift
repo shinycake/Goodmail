@@ -1,8 +1,10 @@
-import Foundation
-import MailCore
+public import MailCore
 
 #if canImport(FoundationNetworking)
-    import FoundationNetworking  // URLSession on Linux
+    import Foundation
+    public import FoundationNetworking  // URLSession on Linux
+#else
+    public import Foundation
 #endif
 
 /// Microsoft Graph mail for one Outlook account. Outlook files each message in one folder and keeps Unread and

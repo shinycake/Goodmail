@@ -1,5 +1,5 @@
-import MailCore
-import UIKit
+public import MailCore
+public import UIKit
 
 /// The theme of a view that spans several accounts, such as the unified inbox: a gradient through every
 /// account's color on its title, and one of those colors, the most legible, for its controls.
@@ -64,9 +64,7 @@ public struct AccountBlend: Equatable {
                 context in
                 let colors = stops.map { $0.color.uiColor.resolvedColor(with: traits).cgColor }
                 guard
-                    let gradient = CGGradient(
-                        colorsSpace: CGColorSpace(name: CGColorSpace.extendedSRGB), colors: colors as CFArray,
-                        locations: stops.map { CGFloat($0.location) })
+                    let gradient = Self.gradient(colors, at: stops.map { CGFloat($0.location) })
                 else { return }
                 context.cgContext.drawLinearGradient(
                     gradient, start: .zero, end: CGPoint(x: size.width, y: 0), options: [])
@@ -85,9 +83,7 @@ public struct AccountBlend: Equatable {
                 symbol.withTintColor(.black, renderingMode: .alwaysOriginal).draw(in: bounds)
                 let colors = leading.map { $0.color.uiColor.resolvedColor(with: traits).cgColor }
                 guard
-                    let gradient = CGGradient(
-                        colorsSpace: CGColorSpace(name: CGColorSpace.extendedSRGB), colors: colors as CFArray,
-                        locations: gradientStops.map { CGFloat($0.location) })
+                    let gradient = Self.gradient(colors, at: gradientStops.map { CGFloat($0.location) })
                 else { return }
                 // Only where the symbol is drawn.
                 context.cgContext.setBlendMode(.sourceIn)
@@ -96,5 +92,12 @@ public struct AccountBlend: Equatable {
             }
         return painted.withBaselineOffset(fromBottom: symbol.baselineOffsetFromBottom ?? 0)
             .withAlignmentRectInsets(symbol.alignmentRectInsets).withRenderingMode(.alwaysOriginal)
+    }
+
+    /// A gradient through `colors` at `locations`, in extended sRGB.
+    private static func gradient(_ colors: [CGColor], at locations: [CGFloat]) -> CGGradient? {
+        // Unsafe because the locations pass as a pointer. Safe: CGGradient copies them before it returns.
+        unsafe CGGradient(
+            colorsSpace: CGColorSpace(name: CGColorSpace.extendedSRGB), colors: colors as CFArray, locations: locations)
     }
 }

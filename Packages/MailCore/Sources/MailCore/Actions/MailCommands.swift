@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// The only way to change mail (ADR-011). Applies an action locally at once, queues it for the provider, and returns
 /// how to undo it.

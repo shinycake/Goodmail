@@ -1,5 +1,5 @@
-import Foundation
-import MailCore
+public import Foundation
+public import MailCore
 
 /// The Gmail endpoints the provider calls (see docs/setup/google-cloud.md for the OAuth client).
 public enum GmailConfiguration {

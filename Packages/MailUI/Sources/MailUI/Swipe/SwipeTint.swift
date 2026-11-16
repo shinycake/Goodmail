@@ -1,4 +1,4 @@
-import MailCore
+public import MailCore
 import UIKit
 
 /// What a swipe action's button wears.

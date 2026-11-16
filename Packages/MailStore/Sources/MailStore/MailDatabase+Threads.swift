@@ -1,6 +1,6 @@
-import Foundation
-import GRDB
-import MailCore
+public import Foundation
+public import GRDB
+public import MailCore
 
 extension MailDatabase {
     /// Inserts or updates the threads and replaces their labels. One short transaction (ADR-002).

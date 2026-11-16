@@ -1,7 +1,7 @@
-import Intents
-import MailCore
+public import Intents
+public import MailCore
 import OSLog
-import UserNotifications
+public import UserNotifications
 
 /// A new-mail alert as a communication alert, as Gmail's are: the sender's picture with Goodmail's icon as its badge,
 /// the sender's name, and the subject in bold above the preview.

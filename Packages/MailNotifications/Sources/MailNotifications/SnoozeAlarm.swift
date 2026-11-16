@@ -1,6 +1,6 @@
-import Foundation
-import MailCore
-import UserNotifications
+public import Foundation
+public import MailCore
+public import UserNotifications
 
 /// The alert a snoozed thread gives when it wakes. Snooze runs on the device, so the alert is scheduled with iOS for
 /// the wake time rather than pushed: it goes off on time whether or not the app is running. It is a new-mail alert in

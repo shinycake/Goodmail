@@ -1,5 +1,5 @@
 import MailCore
-import UIKit
+public import UIKit
 
 /// The mailboxes, then the user's labels, or each account's when there are several. In a narrow window it is the root,
 /// with the Inbox open on top of it at launch; in a wide one it is the sidebar, keeping the open mailbox selected.
@@ -148,9 +148,8 @@ public final class MailboxesViewController: UIViewController {
                 guard let cell = cell as? UICollectionViewListCell else { return }
                 let shown = isParent && !state.isExpanded ? item.nestedCount : item.count
                 let count = shown > 0 ? shown.formatted() : nil
-                var content =
-                    style == .sidebar
-                    ? UIListContentConfiguration.sidebarCell() : UIListContentConfiguration.valueCell()
+                // `cell()` takes the sidebar's look by itself in a sidebar list (iOS 18).
+                var content = style == .sidebar ? UIListContentConfiguration.cell() : .valueCell()
                 content.text = item.title
                 // A gradient is drawn into a plain image, which the cell neither sizes nor gives a symbol's slot, so
                 // every icon is sized here, as the cell sizes a symbol, and sits in the same slot.
@@ -199,7 +198,8 @@ public final class MailboxesViewController: UIViewController {
         let header = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(
             elementKind: UICollectionView.elementKindSectionHeader
         ) { [weak self] header, _, indexPath in
-            var content = style == .sidebar ? UIListContentConfiguration.sidebarHeader() : .header()
+            // A sidebar list's header takes the sidebar's look by itself (iOS 18).
+            var content = UIListContentConfiguration.header()
             switch self?.dataSource.sectionIdentifier(for: indexPath.section) {
             case .mailboxes, nil: break
             case .labels:

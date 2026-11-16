@@ -1,4 +1,4 @@
-import AppIntents
+public import AppIntents
 import MailCore
 
 /// Archives conversations: takes them out of the Inbox.

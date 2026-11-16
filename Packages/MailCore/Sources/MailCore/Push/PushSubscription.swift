@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// The APNs server a device token belongs to: development builds get sandbox tokens, TestFlight and App Store
 /// builds production ones.
@@ -13,7 +13,7 @@ public struct DeviceToken: Equatable, Sendable {
     public let environment: APNsEnvironment
 
     public init(_ data: Data, environment: APNsEnvironment) {
-        hex = data.map { String(format: "%02x", $0) }.joined()
+        hex = data.lowercaseHex
         self.environment = environment
     }
 

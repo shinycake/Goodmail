@@ -1,5 +1,5 @@
-import Foundation
-import MailCore
+public import Foundation
+public import MailCore
 
 /// The rules that load remote images without asking, kept on this device: one per address or domain, listed domains
 /// first and then senders, each alphabetically, as Settings shows them.

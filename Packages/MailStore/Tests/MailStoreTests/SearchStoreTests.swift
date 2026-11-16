@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 import MailCore
 import Testing
 
@@ -32,7 +33,7 @@ struct SearchStoreTests {
 
     private func search(_ text: String, including ids: [ThreadSummary.ID] = []) async throws -> [String] {
         var iterator = database.search(text, including: ids).makeAsyncIterator()
-        return try await iterator.next()?.map(\.id.threadID) ?? []
+        return try await iterator.next(isolation: #isolation)?.map(\.id.threadID) ?? []
     }
 
     @Test func everyWordMatchesAsAPrefixAnywhere() async throws {
@@ -128,7 +129,7 @@ struct BodySearchStoreTests {
 
     private func search(_ text: String, in database: MailDatabase? = nil) async throws -> [String] {
         var iterator = (database ?? self.database).search(text).makeAsyncIterator()
-        return try await iterator.next()?.map(\.id.threadID) ?? []
+        return try await iterator.next(isolation: #isolation)?.map(\.id.threadID) ?? []
     }
 
     @Test func wordsInCachedBodiesFindTheirThreads() async throws {

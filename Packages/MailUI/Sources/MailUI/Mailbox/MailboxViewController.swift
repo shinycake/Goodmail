@@ -1,5 +1,5 @@
-import MailCore
-import UIKit
+public import MailCore
+public import UIKit
 
 /// The mailbox list. Renders `MailboxViewModel` through Observation and holds no logic of its own (ADR-011).
 public final class MailboxViewController: UIViewController {

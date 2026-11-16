@@ -1,5 +1,5 @@
 import Contacts
-import Foundation
+public import Foundation
 
 /// Photos the reader saved in Contacts, looked up by email address. Never asks for access: Contacts is only read
 /// once the reader allowed it, as when they turned on recipient suggestions.
@@ -14,7 +14,7 @@ public enum ContactPhotos {
         @unknown default: return nil
         }
         let predicate = CNContact.predicateForContacts(matchingEmailAddress: address)
-        let keys = [CNContactThumbnailImageDataKey as CNKeyDescriptor]
+        let keys = [CNContactThumbnailImageDataKey as any CNKeyDescriptor]
         let contacts = try? CNContactStore().unifiedContacts(matching: predicate, keysToFetch: keys)
         return contacts?.lazy.compactMap(\.thumbnailImageData).first
     }

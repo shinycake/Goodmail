@@ -82,7 +82,8 @@ struct CatalogTests {
         host.cached[junk.id] = [message("m1", in: "t1", labels: [SystemLabel.spam])]
         host.cached[archived.id] = [message("m2", in: "t2", labels: [])]
         let catalog = Catalog(host: host)
-        try await catalog.markNotJunk(try catalog.messages(["A1/t1/m1", "A1/t2/m2"]))
+        let undo = try await catalog.markNotJunk(try catalog.messages(["A1/t1/m1", "A1/t2/m2"]))
+        #expect(undo.count == 1)
         #expect(host.performed.on("t1") == [.moveToInbox])
         #expect(host.performed.on("t2").isEmpty)
     }

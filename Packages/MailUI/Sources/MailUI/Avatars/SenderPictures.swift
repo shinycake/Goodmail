@@ -1,6 +1,6 @@
 import MailCore
 import Synchronization
-import UIKit
+public import UIKit
 
 /// Senders' pictures for the mail screens, as the alerts show them: a person's photo or a company's logo, decoded
 /// small, off the main actor, and kept in memory. Where they come from is the app's to say, so MailUI knows nothing

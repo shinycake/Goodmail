@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// A message being written: who it goes to, what it says, and the conversation it answers.
 public struct Draft: Identifiable, Hashable, Codable, Sendable {

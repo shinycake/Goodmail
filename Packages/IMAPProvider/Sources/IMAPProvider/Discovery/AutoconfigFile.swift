@@ -25,8 +25,7 @@ struct AutoconfigFile: Equatable {
     init?(parsing data: Data) {
         let reader = Reader()
         let parser = XMLParser(data: data)
-        parser.delegate = reader
-        guard parser.parse(), !reader.incoming.isEmpty || !reader.outgoing.isEmpty else { return nil }
+        guard parser.parse(with: reader), !reader.incoming.isEmpty || !reader.outgoing.isEmpty else { return nil }
         incoming = reader.incoming
         outgoing = reader.outgoing
     }

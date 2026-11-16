@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// A domain's BIMI record, `v=BIMI1; l=<logo URL>; a=<certificate URL>`, published as a DNS TXT record at
 /// `default._bimi.<domain>`. It names the square SVG logo that mail clients show beside the domain's mail.

@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// A MIME part as a provider delivers it, with its transfer encoding already undone. Providers build this tree;
 /// `MailCore` decides what is body and what is attachment, the same way for every provider.

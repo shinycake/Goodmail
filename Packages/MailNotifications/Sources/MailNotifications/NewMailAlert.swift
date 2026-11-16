@@ -1,6 +1,6 @@
 import Foundation
-import MailCore
-import UserNotifications
+public import MailCore
+public import UserNotifications
 
 /// How a new-mail alert looks, and how a tap or action on one names its thread.
 public enum NewMailAlert {

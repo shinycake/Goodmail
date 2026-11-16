@@ -1,5 +1,5 @@
 import MailCore
-import UIKit
+public import UIKit
 
 /// Writing a message: recipients, subject, then the body as the page. The quoted conversation stays out of the way
 /// below, and goes with the message.

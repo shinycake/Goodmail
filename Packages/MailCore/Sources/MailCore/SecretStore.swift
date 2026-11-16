@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// Where credentials live. Production uses the shared `Keychain`; tests substitute memory.
 public protocol SecretStore: Sendable {

@@ -1,6 +1,6 @@
-import Foundation
-import MailCore
-import Observation
+public import Foundation
+public import MailCore
+public import Observation
 
 /// One conversation: its messages, which of them are open as cards, and whose remote content the reader allowed.
 @Observable

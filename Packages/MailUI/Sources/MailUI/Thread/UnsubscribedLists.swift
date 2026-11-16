@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 import MailCore
 
 /// The lists the reader has left on this device, so their mail stops offering Unsubscribe. Kept by account and

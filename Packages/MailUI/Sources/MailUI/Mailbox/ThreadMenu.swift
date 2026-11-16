@@ -1,5 +1,5 @@
-import MailCore
-import UIKit
+public import MailCore
+public import UIKit
 
 /// What touching and holding a row in the mailbox list offers, in sections: answers, the thread's state, where it
 /// goes, then what takes it out of the way here, with Trash last.

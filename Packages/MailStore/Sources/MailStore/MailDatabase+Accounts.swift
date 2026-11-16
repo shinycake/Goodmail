@@ -1,6 +1,6 @@
-import Foundation
-import GRDB
-import MailCore
+public import Foundation
+public import GRDB
+public import MailCore
 
 extension MailDatabase {
     /// Stores the account. A new one goes after the others; one stored before keeps its place.

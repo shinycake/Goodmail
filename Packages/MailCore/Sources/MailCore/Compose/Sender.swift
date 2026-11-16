@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// Delivers one account's queued messages, oldest first. Drafts are saved or deleted on the spot; a message to send
 /// is handed to an upload that outlives the app once its undo window closes, and leaves the queue when that

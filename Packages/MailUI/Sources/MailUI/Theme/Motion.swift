@@ -5,17 +5,17 @@ import UIKit
 enum Motion {
     /// `bounce`, or none when Reduce Motion is on.
     static func bounce(_ bounce: CGFloat) -> CGFloat {
-        UIAccessibility.isReduceMotionEnabled ? 0 : bounce
+        SystemAccessibility.reducesMotion ? 0 : bounce
     }
 
     /// Whether trashing, archiving and deleting play the box and dissolve animations, which the reader can turn
     /// down to the list's standard removal and Reduce Motion always does.
     static var playsRemovals: Bool {
-        Preferences.removalAnimation.plays(reducingMotion: UIAccessibility.isReduceMotionEnabled)
+        Preferences.removalAnimation.plays(reducingMotion: SystemAccessibility.reducesMotion)
     }
 
     /// Where a view slides in from: `transform`, or where it already is when Reduce Motion is on.
     static func entrance(_ transform: CGAffineTransform) -> CGAffineTransform {
-        UIAccessibility.isReduceMotionEnabled ? .identity : transform
+        SystemAccessibility.reducesMotion ? .identity : transform
     }
 }

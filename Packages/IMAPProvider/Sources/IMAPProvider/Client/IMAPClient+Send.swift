@@ -1,5 +1,5 @@
-import Foundation
-import MailCore
+public import Foundation
+public import MailCore
 
 extension IMAPClient {
     /// SMTP needs the app running, so iCloud sends go over its own connection.
@@ -14,7 +14,7 @@ extension IMAPClient {
         } catch SMTPError.refused(let reply) where reply.isPermanentFailure {
             throw ProviderError.rejected
         }
-        try? await file(raw, as: SystemLabel.sent, flags: [#"\Seen"#], inThread: threadID, unlessFiled: true)
+        _ = try? await file(raw, as: SystemLabel.sent, flags: [#"\Seen"#], inThread: threadID, unlessFiled: true)
     }
 
     /// Files the draft in Drafts, then removes the one it replaces.

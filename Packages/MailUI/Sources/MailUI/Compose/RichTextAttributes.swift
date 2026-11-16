@@ -28,11 +28,11 @@ nonisolated extension RichText {
             }
             var paragraph = Paragraph()
             if range.length > 0 {
-                let attributes = text.attributes(at: range.location, effectiveRange: nil)
+                let attributes = text.attributes(at: range.location)
                 paragraph.block = Block(attributes)
                 paragraph.direction = Direction(attributes)
             }
-            text.enumerateAttributes(in: content) { attributes, run, _ in
+            text.forEachRun(in: content) { attributes, run in
                 paragraph.append(
                     Run(
                         text: string.substring(with: run), styles: Set(attributes: attributes),

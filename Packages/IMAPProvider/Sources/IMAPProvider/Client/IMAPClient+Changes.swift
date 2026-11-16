@@ -1,5 +1,5 @@
 import Foundation
-import MailCore
+public import MailCore
 
 extension IMAPClient {
     /// Compares every folder's STATUS with the cursor's, and reads what changed in the folders that differ: new UIDs,

@@ -89,16 +89,11 @@ enum ServiceLogoImages {
         let box = page.getBoxRect(.mediaBox)
         let pixels = 256
         let scale = CGFloat(pixels) / max(box.width, box.height)
-        guard
-            let context = CGContext(
-                data: nil, width: pixels, height: pixels, bitsPerComponent: 8, bytesPerRow: 4 * pixels,
-                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue),
-            let data = context.data
-        else { return nil }
-        context.scaleBy(x: scale, y: scale)
-        context.translateBy(x: -box.minX, y: -box.minY)
-        context.drawPDFPage(page)
-        let rgba = data.bindMemory(to: UInt8.self, capacity: 4 * pixels * pixels)
+        guard let bitmap = RGBABitmap(width: pixels, height: pixels) else { return nil }
+        bitmap.context.scaleBy(x: scale, y: scale)
+        bitmap.context.translateBy(x: -box.minX, y: -box.minY)
+        bitmap.context.drawPDFPage(page)
+        guard let rgba = bitmap.pixels else { return nil }
         var (minX, minY, maxX, maxY) = (pixels, pixels, -1, -1)
         for row in 0..<pixels {
             for column in 0..<pixels where rgba[4 * (row * pixels + column) + 3] > 8 {

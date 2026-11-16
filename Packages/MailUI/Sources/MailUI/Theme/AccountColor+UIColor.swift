@@ -1,5 +1,5 @@
-import MailCore
-import UIKit
+public import MailCore
+public import UIKit
 
 extension AccountColor {
     /// System colors, so every offered account color adapts to dark mode and Increase Contrast for free. A picked

@@ -1,5 +1,5 @@
-import MailCore
-import UIKit
+public import MailCore
+public import UIKit
 
 /// One thing waiting for its time: a scheduled message or a snoozed thread.
 nonisolated public struct WaitingRow<ID: Hashable & Sendable>: Hashable, Identifiable, Sendable {

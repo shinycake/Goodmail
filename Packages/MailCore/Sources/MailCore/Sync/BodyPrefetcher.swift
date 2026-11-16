@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// What the connection allows, asked before each download that nobody is waiting for.
 public protocol NetworkPath: Sendable {

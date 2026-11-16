@@ -198,13 +198,13 @@ struct RichTextAttributesTests {
         ])
         .attributedString(font: font)
         func style(at location: Int) throws -> NSParagraphStyle {
-            try #require(shown.attribute(.paragraphStyle, at: location, effectiveRange: nil) as? NSParagraphStyle)
+            try #require(shown.attribute(.paragraphStyle, at: location) as? NSParagraphStyle)
         }
         #expect(try style(at: 0).textLists.map(\.markerFormat) == [.disc])
         #expect(try style(at: 2).textLists.map(\.isOrdered) == [true])
         #expect(try style(at: 4).textLists.isEmpty)
-        #expect(shown.attribute(.blockQuote, at: 4, effectiveRange: nil) != nil)
-        #expect(shown.attribute(.blockQuote, at: 2, effectiveRange: nil) == nil)
+        #expect(shown.attribute(.blockQuote, at: 4) != nil)
+        #expect(shown.attribute(.blockQuote, at: 2) == nil)
     }
 
     @Test func aParagraphPastedWithASystemHyphenListIsBulleted() {
@@ -272,7 +272,7 @@ struct FormattingTests {
         _ = apply(.color(.automatic), to: text, selection: all)
         #expect(
             RichText(text).paragraphs == [Paragraph(runs: [Run(text: "one "), Run(text: "two", styles: [.bold])])])
-        let font = try #require(text.attribute(.font, at: 0, effectiveRange: nil) as? UIFont)
+        let font = try #require(text.attribute(.font, at: 0) as? UIFont)
         #expect(font.pointSize == 17)
     }
 

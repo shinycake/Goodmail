@@ -1,6 +1,6 @@
 import CryptoKit
-import Foundation
-import MailCore
+public import Foundation
+public import MailCore
 
 /// The profile photos the accounts' address books keep for people, as Gmail shows beside their mail, kept in the App
 /// Group by photo URL. A changed photo comes with a new URL on the next address-book sync, so a kept one never goes
@@ -37,6 +37,6 @@ public struct ProfilePhotos: Sendable {
 
     /// The URL's digest: photo URLs are long and full of characters file names can't hold.
     static func fileName(for url: URL) -> String {
-        SHA256.hash(data: Data(url.absoluteString.utf8)).map { String(format: "%02x", $0) }.joined() + ".photo"
+        SHA256.hash(data: Data(url.absoluteString.utf8)).lowercaseHex + ".photo"
     }
 }

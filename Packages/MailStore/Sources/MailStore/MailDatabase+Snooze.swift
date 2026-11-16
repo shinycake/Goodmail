@@ -1,6 +1,6 @@
-import Foundation
+public import Foundation
 import GRDB
-import MailCore
+public import MailCore
 
 extension MailDatabase: SnoozeStore {
     /// How long a woken thread stays at the top of the Inbox.

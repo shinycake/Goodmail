@@ -1,5 +1,5 @@
 import Foundation
-import MailCore
+public import MailCore
 
 /// Gmail's vacation responder (`users.settings.vacation`), under the `gmail.settings.basic` scope.
 extension GmailClient: AutoReplying {

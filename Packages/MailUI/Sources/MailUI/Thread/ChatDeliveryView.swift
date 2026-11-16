@@ -129,7 +129,7 @@ final class ChatDeliveryView: UIButton {
             return
         }
         bubble.alpha = 0
-        if !UIAccessibility.isReduceMotionEnabled {
+        if !SystemAccessibility.reducesMotion {
             bubble.transform = CGAffineTransform(translationX: 0, y: 28).scaledBy(x: 0.92, y: 0.92)
         }
         UIView.animate(

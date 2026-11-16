@@ -1,5 +1,5 @@
 import Foundation
-import MailCore
+public import MailCore
 
 /// The user's folders, which stand in for labels. A user folder's label is its name on the wire, in modified UTF-7,
 /// so a renamed folder is a new label; the folder list then differs from the cursor's, and the next sync resyncs.

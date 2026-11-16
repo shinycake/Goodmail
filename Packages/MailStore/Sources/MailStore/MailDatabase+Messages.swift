@@ -1,6 +1,6 @@
-import Foundation
+public import Foundation
 import GRDB
-import MailCore
+public import MailCore
 
 extension MailDatabase {
     /// Replaces the stored messages of `thread` with these. The thread must be stored. `fetchedAt` is when their

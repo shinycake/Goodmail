@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// Where a snoozed thread is: out of the Inbox until a time, or back in it since one. Snooze runs on the device,
 /// because the Gmail API has none (product brief).

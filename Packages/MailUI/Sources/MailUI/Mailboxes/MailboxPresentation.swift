@@ -1,4 +1,4 @@
-import MailCore
+public import MailCore
 import UIKit
 
 extension Mailbox {

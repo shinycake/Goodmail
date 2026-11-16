@@ -42,7 +42,7 @@ struct CategoryStoreTests {
 
     private func inbox(_ category: InboxCategory, unsorted: Set<AccountID> = []) async throws -> Set<String> {
         var iterator = database.threads(in: .inbox, category: category, unsorted: unsorted).makeAsyncIterator()
-        return Set(try await iterator.next()?.map(\.id.threadID) ?? [])
+        return Set(try await iterator.next(isolation: #isolation)?.map(\.id.threadID) ?? [])
     }
 
     @Test func eachCategoryHoldsItsOwnInboxThreads() async throws {
@@ -66,7 +66,8 @@ struct CategoryStoreTests {
 
     @Test func unreadCountsArePerCategory() async throws {
         var iterator = database.categoryUnreadCounts(in: .inbox).makeAsyncIterator()
-        #expect(try await iterator.next() == [.primary: 2, .promotions: 2, .social: 1, .updates: 1])
+        #expect(
+            try await iterator.next(isolation: #isolation) == [.primary: 2, .promotions: 2, .social: 1, .updates: 1])
 
         var unsorted = database.categoryUnreadCounts(in: .inbox, unsorted: [work]).makeAsyncIterator()
         #expect(try await unsorted.next() == [.primary: 3, .promotions: 1, .social: 1, .updates: 1])
@@ -74,8 +75,8 @@ struct CategoryStoreTests {
 
     @Test func aThreadMovesWhenItsCategoryChanges() async throws {
         var iterator = database.threads(in: .inbox, category: .social).makeAsyncIterator()
-        #expect(try await iterator.next()?.map(\.id.threadID) == ["friend"])
+        #expect(try await iterator.next(isolation: #isolation)?.map(\.id.threadID) == ["friend"])
         try database.upsert([thread("sale", labels: ["INBOX", "CATEGORY_SOCIAL"])])
-        #expect(Set(try await iterator.next()?.map(\.id.threadID) ?? []) == ["friend", "sale"])
+        #expect(Set(try await iterator.next(isolation: #isolation)?.map(\.id.threadID) ?? []) == ["friend", "sale"])
     }
 }

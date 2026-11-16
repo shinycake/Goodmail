@@ -1,4 +1,4 @@
-import MailCore
+public import MailCore
 
 /// A thread a push alerts for, with the one-time code its alert shows in place of the snippet.
 public struct NewMail: Equatable, Sendable {

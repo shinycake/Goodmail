@@ -1,6 +1,6 @@
-import Foundation
+public import Foundation
 import GRDB
-import MailCore
+public import MailCore
 
 /// A message's delivery is two columns: `failure` holds a failed message's reason and `upload` an uploading one's
 /// attempt; a queued message has neither. Only `Delivery+Columns` below reads or writes them.

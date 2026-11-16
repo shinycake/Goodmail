@@ -13,14 +13,18 @@ struct VectorRendererTests {
         let png = try #require(VectorRenderer.png(of: image, side: side))
         let decoded = try #require(
             CGImageSourceCreateWithData(png as CFData, nil).flatMap { CGImageSourceCreateImageAtIndex($0, 0, nil) })
-        var bytes = [UInt8](repeating: 0, count: side * side * 4)
+        // Core Graphics owns the pixels (`data: nil`), and they're read back as a copy: `&array` would hand it a
+        // pointer that dies with the initializer call.
+        let space = try #require(CGColorSpace(name: CGColorSpace.sRGB))
         let context = try #require(
-            CGContext(
-                data: &bytes, width: side, height: side, bitsPerComponent: 8, bytesPerRow: side * 4,
-                space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+            unsafe CGContext(
+                data: nil, width: side, height: side, bitsPerComponent: 8, bytesPerRow: side * 4, space: space,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
         context.draw(decoded, in: CGRect(x: 0, y: 0, width: side, height: side))
-        let copy = bytes
-        return { x, y in Array(copy[(y * side + x) * 4..<(y * side + x) * 4 + 3]) }
+        let drawn = try #require(context.makeImage())
+        let bytes = try #require(drawn.dataProvider?.data as Data?)
+        let row = drawn.bytesPerRow
+        return { x, y in Array(bytes[y * row + x * 4..<y * row + x * 4 + 3]) }
     }
 
     @Test func shapesLandWhereSVGPutsThemOnWhite() throws {

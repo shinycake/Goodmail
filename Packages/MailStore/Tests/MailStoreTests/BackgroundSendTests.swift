@@ -4,6 +4,10 @@ import Testing
 
 @testable import MailStore
 
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
+
 /// A send is handed to an upload that outlives the app, and leaves the queue only when that upload's outcome is
 /// in. However launches come and go around it, the message goes once.
 struct BackgroundSendTests {

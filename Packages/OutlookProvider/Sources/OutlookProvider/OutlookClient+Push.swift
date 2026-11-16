@@ -1,5 +1,5 @@
-import Foundation
-import MailCore
+public import Foundation
+public import MailCore
 
 #if canImport(FoundationNetworking)
     import FoundationNetworking  // URLSession on Linux
@@ -78,8 +78,7 @@ extension OutlookClient: PushSource {
     /// 32 random bytes as hex.
     static func newClientState() -> String {
         var generator = SystemRandomNumberGenerator()
-        return (0..<32).map { _ in String(format: "%02x", UInt8.random(in: .min ... .max, using: &generator)) }
-            .joined()
+        return (0..<32).map { _ in UInt8.random(in: .min ... .max, using: &generator) }.lowercaseHex
     }
 
     private static let encoder: JSONEncoder = {

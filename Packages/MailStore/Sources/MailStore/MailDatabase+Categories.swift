@@ -1,6 +1,6 @@
 import Foundation
 import GRDB
-import MailCore
+public import MailCore
 
 extension MailDatabase {
     /// The threads in `mailbox` that fall under `category`, newest first. Every thread of an account in `unsorted`,

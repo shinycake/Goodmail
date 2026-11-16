@@ -1,5 +1,5 @@
 import AppIntents
-import MailCore
+public import MailCore
 
 /// What the intents need from the process they run in: its mail, the commands that change it, and its windows. The
 /// app registers one at launch with `register(_:)`; every intent and query reads it as a dependency.
@@ -42,6 +42,8 @@ extension MailIntentsHost {
     /// Makes this the host every intent uses. Call once, before the first intent can run.
     public func register() {
         let host: any MailIntentsHost = self
-        AppDependencyManager.shared.add(dependency: host)
+        // Unsafe because App Intents declares `shared` nonisolated(unsafe). Safe: the manager is App Intents' own
+        // registry for exactly this call, and this runs once at launch, before any intent can read it.
+        unsafe AppDependencyManager.shared.add(dependency: host)
     }
 }

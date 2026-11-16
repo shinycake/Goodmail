@@ -7,9 +7,9 @@ nonisolated final class QuoteLayout: NSObject, NSTextLayoutManagerDelegate {
         in textElement: NSTextElement
     ) -> NSTextLayoutFragment {
         guard let paragraph = textElement as? NSTextParagraph, paragraph.attributedString.length > 0,
-            paragraph.attributedString.attribute(.blockQuote, at: 0, effectiveRange: nil) != nil
+            paragraph.attributedString.attribute(.blockQuote, at: 0) != nil
         else { return NSTextLayoutFragment(textElement: textElement, range: textElement.elementRange) }
-        let attributes = paragraph.attributedString.attributes(at: 0, effectiveRange: nil)
+        let attributes = paragraph.attributedString.attributes(at: 0)
         var direction = RichText.Direction(attributes)
         if direction == .auto { direction = .detected(in: paragraph.attributedString.string) }
         return QuoteFragment(textElement, barOnRight: direction == .rightToLeft)

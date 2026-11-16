@@ -1,5 +1,5 @@
 import Foundation
-import MailCore
+public import MailCore
 
 extension IMAPClient {
     /// Applies `action` to every copy of the thread's messages (`CopyPlan`): flags first, so moved copies carry them,

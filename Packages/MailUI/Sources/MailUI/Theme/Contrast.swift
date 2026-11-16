@@ -11,11 +11,7 @@ extension UIColor {
 
     /// WCAG 2 relative luminance of an already resolved color. Extended-range components are clamped to sRGB.
     private var relativeLuminance: CGFloat {
-        var red: CGFloat = 0
-        var green: CGFloat = 0
-        var blue: CGFloat = 0
-        var alpha: CGFloat = 0
-        getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        let (red, green, blue, _) = rgba
         func linear(_ component: CGFloat) -> CGFloat {
             let value = min(max(component, 0), 1)
             return value <= 0.04045 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)

@@ -1,6 +1,6 @@
 import Foundation
-import GRDB
-import MailCore
+public import GRDB
+public import MailCore
 
 extension MailDatabase: MessageIndexStore {
     public func record(_ entries: [MessageIndexEntry], account: AccountID) throws {

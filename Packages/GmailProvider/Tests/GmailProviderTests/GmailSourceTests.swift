@@ -4,6 +4,10 @@ import Testing
 
 @testable import GmailProvider
 
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
+
 /// A message read whole, as Forward as Attachment sends it.
 struct GmailSourceTests {
     private let keychain = InMemorySecretStore()

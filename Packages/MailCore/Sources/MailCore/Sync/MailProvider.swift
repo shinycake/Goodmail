@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// What the sync engine needs from a mail service. Gmail implements it today; Graph (delta queries) and IMAP
 /// (CONDSTORE) fit the same shape, because a cursor is opaque and changes are reported per thread.

@@ -1,5 +1,5 @@
 import Foundation
-import MailCore
+public import MailCore
 
 /// A mail account on an IMAP and SMTP server as a `MailProvider`, as iCloud Mail serves one. No IMAP type leaves this
 /// module (ADR-005).

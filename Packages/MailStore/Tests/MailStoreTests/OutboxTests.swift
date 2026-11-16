@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 import MailCore
 import Testing
 
@@ -49,7 +50,7 @@ struct OutboxTests {
 
     private func inbox() async throws -> [String] {
         var iterator = database.threads(in: .inbox).makeAsyncIterator()
-        return try await iterator.next()?.map(\.id.threadID) ?? []
+        return try await iterator.next(isolation: #isolation)?.map(\.id.threadID) ?? []
     }
 
     @Test func archiveLeavesTheInboxAtOnceAndReplaysOnce() async throws {

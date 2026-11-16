@@ -172,7 +172,7 @@ extension AttachmentPicker: VNDocumentCameraViewControllerDelegate {
         controller.dismiss(animated: true)
     }
 
-    func documentCameraViewController(_ controller: VNDocumentCameraViewController, didFailWithError error: Error) {
+    func documentCameraViewController(_ controller: VNDocumentCameraViewController, didFailWithError error: any Error) {
         controller.dismiss(animated: true) { [self] in couldNotPrepare() }
     }
 }

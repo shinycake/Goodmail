@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// Which new mail in an account's Inbox alerts the reader.
 public enum NotificationLevel: String, CaseIterable, Codable, Sendable {

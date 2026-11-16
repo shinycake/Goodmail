@@ -1,6 +1,6 @@
-import Foundation
+public import Foundation
 import ImageIO
-import MailCore
+public import MailCore
 
 /// Company senders' logos, kept in the App Group: the logo the domain publishes for mail clients through BIMI, as
 /// Gmail and Apple Mail show, or else its website's touch icon. People and public mail providers' addresses get none,

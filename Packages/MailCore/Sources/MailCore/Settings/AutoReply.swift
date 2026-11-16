@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// The reply a service sends for the reader while they are away: when it runs, what it says, and to whom.
 public struct AutoReply: Equatable, Sendable {

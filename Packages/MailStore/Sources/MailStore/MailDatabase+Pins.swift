@@ -1,6 +1,6 @@
 import Foundation
 import GRDB
-import MailCore
+public import MailCore
 
 extension MailDatabase: PinStore {
     public func pins(among threads: [ThreadSummary.ID]) throws -> Set<ThreadSummary.ID> {

@@ -151,7 +151,7 @@ struct SenderTests {
     }
 
     @Test func savingADraftReplacesItsCopyAndSendingRemovesIt() async throws {
-        try await server.saveDraft(Data(), inThread: "t1", replacing: nil)
+        _ = try await server.saveDraft(Data(), inThread: "t1", replacing: nil)
         var draft = draft("Plan")
         draft.savedDraft = Message.ID(accountID: account, messageID: "d1")
 
@@ -169,7 +169,7 @@ struct SenderTests {
     }
 
     @Test func deletingADraftRemovesItsSavedCopy() async throws {
-        try await server.saveDraft(Data(), inThread: nil, replacing: nil)
+        _ = try await server.saveDraft(Data(), inThread: nil, replacing: nil)
         var saved = draft()
         saved.savedDraft = Message.ID(accountID: account, messageID: "d1")
         try await commands().deleteDraft(saved)

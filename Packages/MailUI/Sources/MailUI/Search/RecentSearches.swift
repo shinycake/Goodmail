@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// What the reader searched for lately, newest first, kept on this device.
 public struct RecentSearches {

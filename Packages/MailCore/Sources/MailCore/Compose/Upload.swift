@@ -1,7 +1,7 @@
-import Foundation
+public import Foundation
 
 #if canImport(FoundationNetworking)
-    import FoundationNetworking
+    public import FoundationNetworking
 #endif
 
 /// One attempt at uploading a message. A new attempt gets a new ID, so a late outcome of an old one is ignored.

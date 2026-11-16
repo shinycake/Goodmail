@@ -1,6 +1,6 @@
 import MailCore
-import QuickLook
-import UIKit
+public import QuickLook
+public import UIKit
 
 /// A conversation read as letters: the subject, a slim timeline of earlier messages, and cards for the ones that
 /// matter now. Renders `ThreadViewModel` through Observation (ADR-011).
@@ -292,7 +292,7 @@ public final class ThreadViewController: UIViewController {
         defer { shownReplies = replies }
         guard viewModel.layout == .chat, !replies.isSubset(of: shownReplies) else { return }
         view.layoutIfNeeded()
-        scrollToEnd(animated: !UIAccessibility.isReduceMotionEnabled)
+        scrollToEnd(animated: !SystemAccessibility.reducesMotion)
     }
 
     /// The banner offering to leave the conversation's mailing list, when it came from one.

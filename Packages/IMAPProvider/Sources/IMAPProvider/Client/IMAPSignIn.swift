@@ -1,5 +1,5 @@
 import Foundation
-import MailCore
+public import MailCore
 
 /// Signing in to a mail account on any IMAP and SMTP server with a user name and password. Both servers are logged
 /// in to first, so an account is only added once it can read and send; then the settings and password are kept

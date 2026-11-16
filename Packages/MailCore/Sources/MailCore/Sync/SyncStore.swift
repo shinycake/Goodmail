@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// Where an account's sync stands. Saved in the same transaction as the mail it describes, so a crash
 /// resumes from the last page that landed and never skips one.

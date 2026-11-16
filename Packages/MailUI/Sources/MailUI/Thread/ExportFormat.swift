@@ -1,3 +1,4 @@
+import Foundation
 import MailCore
 
 /// What the reader's Share menu offers a conversation as.

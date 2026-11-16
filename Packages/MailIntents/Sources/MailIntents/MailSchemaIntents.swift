@@ -1,4 +1,4 @@
-import AppIntents
+public import AppIntents
 import MailCore
 
 // The mail domain's own intents, which Siri and Apple Intelligence call with message entities. Goodmail changes
@@ -75,6 +75,7 @@ public struct UpdateMailIntent: UndoableIntent {
 
 extension Catalog {
     /// Applies `action` to the threads of the messages. Returns what undoes it.
+    @discardableResult
     func perform(_ action: ThreadAction, onMessages identifiers: [String]) async throws -> MailCommands.Undo {
         let threads = Set(identifiers.compactMap { EntityID.message($0)?.thread })
         return try await perform(action, onThreads: threads.map(EntityID.string))

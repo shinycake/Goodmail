@@ -1,5 +1,5 @@
-import Foundation
-import MailCore
+public import Foundation
+public import MailCore
 
 #if canImport(FoundationNetworking)
     import FoundationNetworking
@@ -19,7 +19,8 @@ public struct MailServerDiscovery: Sendable {
             var request = URLRequest(url: url, timeoutInterval: 10)
             request.setValue("application/xml, application/json", forHTTPHeaderField: "Accept")
             let (data, response) = try await URLSession.shared.data(for: request)
-            return (response as? HTTPURLResponse)?.statusCode == 200 ? data : nil
+            // Linux's Foundation returns a plain `URLResponse`.
+            return (response as URLResponse as? HTTPURLResponse)?.statusCode == 200 ? data : nil
         }
     }
 

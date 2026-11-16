@@ -1,4 +1,4 @@
-import MailCore
+public import MailCore
 
 extension MailServerSettings {
     /// iCloud Mail, as Apple documents its servers: IMAP on 993 over TLS, SMTP on 587 with STARTTLS, both logged in

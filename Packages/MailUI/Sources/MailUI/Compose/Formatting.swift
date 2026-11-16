@@ -23,7 +23,7 @@ struct Formatting: Equatable {
             var common = Set(RichText.Style.allCases)
             var sizes: Set<RichText.Size> = []
             var colors: Set<RichText.TextColor> = []
-            text.enumerateAttributes(in: selection) { attributes, _, _ in
+            text.forEachRun(in: selection) { attributes, _ in
                 common.formIntersection(Set(attributes: attributes))
                 sizes.insert(RichText.Size(attributes))
                 colors.insert(RichText.TextColor(attributes))
@@ -33,13 +33,12 @@ struct Formatting: Equatable {
             color = colors.count == 1 ? colors.first : nil
         }
         link = FormattingCommand.linkRange(in: text, selection: selection).flatMap { range in
-            var whole = NSRange()
-            let link = text.attribute(.link, at: range.location, longestEffectiveRange: &whole, in: range)
+            let (link, whole) = text.attribute(.link, at: range.location, longestIn: range)
             return NSEqualRanges(whole, range) ? (link as? URL ?? (link as? String).flatMap(URL.init(string:))) : nil
         }
         let start = (text.string as NSString).paragraphRange(for: NSRange(location: selection.location, length: 0))
         let paragraph =
-            start.length > 0 ? text.attributes(at: start.location, effectiveRange: nil) : typingAttributes
+            start.length > 0 ? text.attributes(at: start.location) : typingAttributes
         block = RichText.Block(paragraph)
         direction = RichText.Direction(paragraph)
     }
@@ -130,7 +129,7 @@ enum FormattingCommand: Equatable {
                 range: selection, replacement: NSAttributedString(), selection: selection, typingAttributes: typing)
         }
         let replacement = NSMutableAttributedString(attributedString: text.attributedSubstring(from: selection))
-        replacement.enumerateAttributes(in: NSRange(location: 0, length: replacement.length)) { attributes, run, _ in
+        replacement.forEachRun(in: NSRange(location: 0, length: replacement.length)) { attributes, run in
             var attributes = attributes
             change(&attributes)
             // Set whole, so a size or color taken back to normal loses its attribute.
@@ -161,7 +160,7 @@ enum FormattingCommand: Equatable {
         while location < replacement.length {
             let paragraph = (replacement.string as NSString).paragraphRange(
                 for: NSRange(location: location, length: 0))
-            let attributes = relaidOut(replacement.attributes(at: paragraph.location, effectiveRange: nil))
+            let attributes = relaidOut(replacement.attributes(at: paragraph.location))
             replacement.removeAttribute(.blockQuote, range: paragraph)
             for key in [NSAttributedString.Key.paragraphStyle, .blockQuote] {
                 if let value = attributes[key] { replacement.addAttribute(key, value: value, range: paragraph) }
@@ -189,10 +188,8 @@ enum FormattingCommand: Equatable {
     static func linkRange(in text: NSAttributedString, selection: NSRange) -> NSRange? {
         guard selection.length == 0 else { return selection }
         guard selection.location > 0, selection.location < text.length else { return nil }
-        var range = NSRange()
-        let link = text.attribute(
-            .link, at: selection.location, longestEffectiveRange: &range,
-            in: NSRange(location: 0, length: text.length))
+        let (link, range) = text.attribute(
+            .link, at: selection.location, longestIn: NSRange(location: 0, length: text.length))
         return link != nil && range.location < selection.location ? range : nil
     }
 

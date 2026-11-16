@@ -22,7 +22,8 @@ final class FakeSite: HTTPClient {
 
     /// A square of one color, `side` pixels wide.
     static func png(side: Int) -> Data {
-        let context = CGContext(
+        // `data: nil`: Core Graphics allocates and owns the pixels.
+        let context = unsafe CGContext(
             data: nil, width: side, height: side, bitsPerComponent: 8, bytesPerRow: 0,
             space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
         context.setFillColor(red: 0.2, green: 0.4, blue: 0.9, alpha: 1)

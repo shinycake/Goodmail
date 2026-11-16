@@ -1,6 +1,6 @@
-import Foundation
-import MailCore
-import Observation
+public import Foundation
+public import MailCore
+public import Observation
 
 /// Messages waiting to go at a time the writer picked, soonest first. They live only on this device until they go.
 @Observable

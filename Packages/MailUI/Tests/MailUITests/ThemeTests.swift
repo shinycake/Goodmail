@@ -151,15 +151,10 @@ extension UIImage {
         guard let cgImage else { return nil }
         let x = Int(point.x * CGFloat(cgImage.width))
         let y = Int(point.y * CGFloat(cgImage.height))
-        var pixel = [UInt8](repeating: 0, count: 4)
-        guard
-            let context = CGContext(
-                data: &pixel, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
-                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
-        else { return nil }
-        context.draw(
+        guard let bitmap = RGBABitmap(width: 1, height: 1) else { return nil }
+        bitmap.context.draw(
             cgImage, in: CGRect(x: -x, y: y - cgImage.height + 1, width: cgImage.width, height: cgImage.height))
-        guard pixel[3] > 0 else { return nil }
+        guard let pixel = bitmap.pixels, pixel[3] > 0 else { return nil }
         let alpha = CGFloat(pixel[3])
         return UIColor(
             red: CGFloat(pixel[0]) / alpha, green: CGFloat(pixel[1]) / alpha, blue: CGFloat(pixel[2]) / alpha, alpha: 1)
@@ -169,12 +164,8 @@ extension UIImage {
 extension UIColor {
     fileprivate func isCloser(to near: UIColor, than far: UIColor, in traits: UITraitCollection) -> Bool {
         func distance(to other: UIColor) -> CGFloat {
-            var (r1, g1, b1, a1, r2, g2, b2, a2):
-                (CGFloat, CGFloat, CGFloat, CGFloat, CGFloat, CGFloat, CGFloat, CGFloat) =
-                    (0, 0, 0, 0, 0, 0, 0, 0)
-            getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
-            other.resolvedColor(with: traits).getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
-            return pow(r1 - r2, 2) + pow(g1 - g2, 2) + pow(b1 - b2, 2)
+            let (mine, theirs) = (rgba, other.resolvedColor(with: traits).rgba)
+            return pow(mine.red - theirs.red, 2) + pow(mine.green - theirs.green, 2) + pow(mine.blue - theirs.blue, 2)
         }
         return distance(to: near) < distance(to: far)
     }

@@ -78,7 +78,7 @@ struct AutosaveTests {
     }
 
     @Test func aDraftNeverSavedIsDeletedWithoutTouchingTheProvider() async throws {
-        try await server.saveDraft(Data(), inThread: nil, replacing: nil)
+        _ = try await server.saveDraft(Data(), inThread: nil, replacing: nil)
         try await commands().deleteDraft(bench.draft())
         try await deliverLater()
         #expect(Array(server.drafts.keys) == ["d1"], "someone else's draft stays")

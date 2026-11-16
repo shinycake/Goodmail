@@ -1,5 +1,5 @@
 import MailCore
-import SwiftUI
+public import SwiftUI
 
 /// Shown while no account has been added: what Goodmail is, then a button for each service to sign in to.
 struct WelcomeView: View {

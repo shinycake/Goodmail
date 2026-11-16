@@ -1,4 +1,4 @@
-import AppIntents
+public import AppIntents
 import MailCore
 
 /// Opens a thread in the reader.

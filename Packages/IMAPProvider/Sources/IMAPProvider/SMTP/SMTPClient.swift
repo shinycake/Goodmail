@@ -19,14 +19,14 @@ struct SMTPClient: Sendable {
             try await conversation.send(
                 SMTPEnvelope.dotStuffed(envelope.message) + Data(".\r\n".utf8), expect: 250)
             // The message is sent; a QUIT that fails changes nothing.
-            try? await conversation.command("QUIT", expect: 221)
+            _ = try? await conversation.command("QUIT", expect: 221)
         }
     }
 
     /// Logs in and leaves, to check the user name and password before an account is added.
     func verify() async throws {
         try await withLoggedInConversation { conversation in
-            try? await conversation.command("QUIT", expect: 221)
+            _ = try? await conversation.command("QUIT", expect: 221)
         }
     }
 

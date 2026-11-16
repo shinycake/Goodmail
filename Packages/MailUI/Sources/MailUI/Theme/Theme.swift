@@ -1,5 +1,5 @@
-import MailCore
-import UIKit
+public import MailCore
+public import UIKit
 
 /// What a screen wears on its large title, its controls and its primary action: the account's color in a view of one
 /// account, and in a view that spans them a gradient through every account's color, or the one color the reader

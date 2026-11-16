@@ -1,7 +1,7 @@
 import CoreGraphics
-import Foundation
+public import Foundation
 import ImageIO
-import MailCore
+public import MailCore
 
 /// Draws a `VectorImage` into a square PNG with Core Graphics, so it works in the notification extension without
 /// UIKit.
@@ -11,7 +11,9 @@ public enum VectorRenderer {
     public static func png(of image: VectorImage, side: Int) -> Data? {
         let box = image.viewBox
         guard side > 0, box.width > 0, box.height > 0, let space = CGColorSpace(name: CGColorSpace.sRGB),
-            let context = CGContext(
+            // Unsafe because the initializer takes a pointer to the pixels. Safe: it's nil, so Core Graphics
+            // allocates them and keeps them for as long as the context lives.
+            let context = unsafe CGContext(
                 data: nil, width: side, height: side, bitsPerComponent: 8, bytesPerRow: 0, space: space,
                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
         else { return nil }
@@ -92,7 +94,8 @@ public enum VectorRenderer {
             CGFloat($0)
         }
         guard
-            let gradient = CGGradient(
+            // Unsafe because the arrays pass as pointers. Safe: CGGradient copies them before it returns.
+            let gradient = unsafe CGGradient(
                 colorSpace: space, colorComponents: components, locations: stops.map { CGFloat($0.offset) },
                 count: stops.count)
         else { return }

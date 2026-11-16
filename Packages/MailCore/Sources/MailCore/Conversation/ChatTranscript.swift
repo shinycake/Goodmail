@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// A conversation read as a chat: each message's new words as a bubble, in time order, in runs by sender, with a
 /// timestamp wherever the conversation paused. Mail too long or too laid out for a bubble stays a letter to open.

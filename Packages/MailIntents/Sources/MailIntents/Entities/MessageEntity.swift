@@ -1,4 +1,4 @@
-import AppIntents
+public import AppIntents
 import MailCore
 
 /// One message of a thread, as Siri and Shortcuts see it. Only cached messages are entities: the rest have no body

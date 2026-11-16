@@ -1,4 +1,4 @@
-import AppIntents
+public import AppIntents
 import MailCore
 
 /// Pins conversations to the top of their lists, or unpins them.

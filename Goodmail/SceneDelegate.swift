@@ -11,7 +11,8 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         options connectionOptions: UIScene.ConnectionOptions
     ) {
         guard let windowScene = scene as? UIWindowScene else { return }
-        let app = UIApplication.shared.delegate as! AppDelegate
+        // Unsafe because `delegate` is unowned. Safe: UIKit keeps the app delegate for the life of the process.
+        let app = unsafe UIApplication.shared.delegate as! AppDelegate
         // A handoff from another device wins over what this window showed when it was last saved.
         let restoring = (connectionOptions.userActivities + [session.stateRestorationActivity].compactMap(\.self))
             .lazy.compactMap(Self.windowState(in:)).first

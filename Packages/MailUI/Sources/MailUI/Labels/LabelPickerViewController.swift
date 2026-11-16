@@ -1,5 +1,5 @@
-import MailCore
-import UIKit
+public import MailCore
+public import UIKit
 
 /// A sheet listing the account's labels with a checkmark on each the threads carry, then New Label. Done applies the
 /// changes.

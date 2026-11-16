@@ -1,6 +1,6 @@
 import Foundation
-import MailCore
-import Observation
+public import MailCore
+public import Observation
 
 /// The list of mailboxes, each with its unread count. With one account: the standard mailboxes, with Snoozed while
 /// a thread sleeps and Scheduled while a message waits, then the user's labels. With several: the standard mailboxes

@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 import MailCore
 import Synchronization
 import Testing
@@ -172,7 +173,7 @@ struct PrefetchTests {
         await prefetcher.start()
         await prefetcher.start()
         var iterator = finished.makeAsyncIterator()
-        await iterator.next()
+        await iterator.next(isolation: #isolation)
         #expect(try cached() == ["t1"])
         #expect(server.messageRequests == ["t1"], "the second start joined the first run")
     }
@@ -180,11 +181,13 @@ struct PrefetchTests {
     @Test func cancelStopsARunBeforeItFetches() async throws {
         try seed("t1", hoursAgo: 1)
         let prefetcher = prefetcher()
-        let run = Task {
-            withUnsafeCurrentTask { $0?.cancel() }
-            return await prefetcher.run()
+        // A task added to a cancelled group starts cancelled.
+        let fetched = await withTaskGroup(of: Int.self) { group in
+            group.cancelAll()
+            group.addTask { await prefetcher.run() }
+            return await group.next()
         }
-        #expect(await run.value == 0)
+        #expect(fetched == 0)
         #expect(server.messageRequests.isEmpty)
     }
 }

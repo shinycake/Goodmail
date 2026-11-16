@@ -1,6 +1,6 @@
-import Foundation
-import MailCore
-import Observation
+public import Foundation
+public import MailCore
+public import Observation
 
 /// One account's automatic reply as the reader edits it: loaded from the service, changed here, and saved back
 /// when the reader taps Save. Every state change happens in `load()` or `save()`.

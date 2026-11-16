@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// The quiet time-of-day sections of a mailbox list, newest first.
 nonisolated public enum TimeSection: Hashable, Sendable {

@@ -1,7 +1,7 @@
-import Foundation
+public import Foundation
 
 #if canImport(FoundationNetworking)
-    import FoundationNetworking  // URLSession on Linux
+    public import FoundationNetworking  // URLSession on Linux
 #endif
 
 /// The network seam. Production uses `URLSession`; tests replay recorded fixtures.

@@ -1,6 +1,6 @@
 import Foundation
-import MailCore
-import Observation
+public import MailCore
+public import Observation
 
 /// A password account's sign-in as the reader edits it in Settings: an Other Mail Account's servers and password, or
 /// iCloud's app-specific password. Read from the device, changed here, and kept only once the servers accept it, as

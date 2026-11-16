@@ -1,6 +1,6 @@
-import Dispatch
+public import Dispatch
 import MailCore
-import dnssd
+public import dnssd
 
 /// Looks up DNS TXT records, the seam that lets tests answer BIMI lookups.
 public protocol TXTResolving: Sendable {
@@ -33,8 +33,13 @@ public struct SystemTXTResolver: TXTResolving {
 /// `@unchecked Sendable` because DNS-SD's `DNSServiceRef` isn't `Sendable`. Safe: `state` is only read and written on
 /// `queue`, a serial queue. DNS-SD delivers its answers there and requires the query to be deallocated there, and
 /// `start`, `cancel` and the timeout hop onto it before touching anything.
+///
+/// Its `unsafe` calls are DNS-SD's C API, which takes the query as a raw pointer to it and hands back a
+/// `DNSServiceRef`. Safe: the reference lives in `state` from the moment it is created until `finish` deallocates
+/// it, once, and the callbacks it makes end with it.
 private final class TXTQuery: @unchecked Sendable {
-    private enum State {
+    /// `@safe`: the `DNSServiceRef` in `running` is only made, used and deallocated by `TXTQuery`, as above.
+    @safe private enum State {
         case notStarted
         /// The query is out; `records` are the answers so far.
         case running(DNSServiceRef, CheckedContinuation<[String], Never>, records: [String])
@@ -64,16 +69,16 @@ private final class TXTQuery: @unchecked Sendable {
             let flags = DNSServiceFlags(kDNSServiceFlagsReturnIntermediates | kDNSServiceFlagsTimeout)
             // Unretained: `finish` deallocates the query, which stops callbacks, before it resumes the caller,
             // who holds `self` until then.
-            let context = Unmanaged.passUnretained(self).toOpaque()
-            let error = DNSServiceQueryRecord(
+            let context = unsafe Unmanaged.passUnretained(self).toOpaque()
+            let error = unsafe DNSServiceQueryRecord(
                 &reference, flags, 0, name, UInt16(kDNSServiceType_TXT), UInt16(kDNSServiceClass_IN),
                 Self.reply, context)
-            guard error == kDNSServiceErr_NoError, let reference else {
+            guard error == kDNSServiceErr_NoError, let reference = unsafe reference else {
                 state = .finished
                 return continuation.resume(returning: [])
             }
-            DNSServiceSetDispatchQueue(reference, queue)
-            state = .running(reference, continuation, records: [])
+            unsafe DNSServiceSetDispatchQueue(reference, queue)
+            state = unsafe .running(reference, continuation, records: [])
             queue.asyncAfter(deadline: .now() + timeout) { [self] in finish() }
         }
     }
@@ -91,11 +96,12 @@ private final class TXTQuery: @unchecked Sendable {
     /// DNS-SD's callback, on `queue`.
     private static let reply: DNSServiceQueryRecordReply = {
         _, flags, _, error, _, type, _, length, data, _, context in
-        guard let context else { return }
-        let query = Unmanaged<TXTQuery>.fromOpaque(context).takeUnretainedValue()
+        guard let context = unsafe context else { return }
+        let query = unsafe Unmanaged<TXTQuery>.fromOpaque(context).takeUnretainedValue()
+        // DNS-SD's buffer lasts as long as the callback, so its bytes are copied out here.
         let record: String? =
-            error == kDNSServiceErr_NoError && type == UInt16(kDNSServiceType_TXT) && data != nil
-            ? BIMIRecord.text(ofTXTRecordData: Array(UnsafeRawBufferPointer(start: data, count: Int(length))))
+            error == kDNSServiceErr_NoError && type == UInt16(kDNSServiceType_TXT) && (unsafe data != nil)
+            ? BIMIRecord.text(ofTXTRecordData: unsafe Array(UnsafeRawBufferPointer(start: data, count: Int(length))))
             : nil
         query.receive(record, more: flags & DNSServiceFlags(kDNSServiceFlagsMoreComing) != 0, error: error)
     }
@@ -103,7 +109,7 @@ private final class TXTQuery: @unchecked Sendable {
     private func receive(_ record: String?, more: Bool, error: DNSServiceErrorType) {
         if let record, case .running(let reference, let continuation, var records) = state {
             records.append(record)
-            state = .running(reference, continuation, records: records)
+            state = unsafe .running(reference, continuation, records: records)
         }
         // A TXT answer, a "no such record", or the resolver's own timeout ends the query; an intermediate answer
         // such as a CNAME doesn't.
@@ -115,7 +121,7 @@ private final class TXTQuery: @unchecked Sendable {
     private func finish() {
         guard case .running(let reference, let continuation, let records) = state else { return }
         state = .finished
-        DNSServiceRefDeallocate(reference)
+        unsafe DNSServiceRefDeallocate(reference)
         continuation.resume(returning: records)
     }
 }

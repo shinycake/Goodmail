@@ -1,5 +1,5 @@
-import Foundation
-import MailCore
+public import Foundation
+public import MailCore
 
 extension IMAPClient {
     /// The thread's messages, whole, from every folder the index has them in. A message filed in two folders is read

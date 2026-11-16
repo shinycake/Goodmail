@@ -32,7 +32,7 @@ struct ThreadStoreTests {
 
     private func inbox() async throws -> [ThreadSummary] {
         var iterator = database.threads(in: .inbox).makeAsyncIterator()
-        return try await iterator.next() ?? []
+        return try await iterator.next(isolation: #isolation) ?? []
     }
 
     @Test func accountsRoundTripInTheOrderAdded() throws {
@@ -64,9 +64,9 @@ struct ThreadStoreTests {
 
     @Test func streamEmitsAgainAfterAWrite() async throws {
         var iterator = database.threads(in: .inbox).makeAsyncIterator()
-        #expect(try await iterator.next() == [])
+        #expect(try await iterator.next(isolation: #isolation) == [])
         try database.upsert([thread("t", minutesAgo: 0)])
-        #expect(try await iterator.next()?.map(\.id.threadID) == ["t"])
+        #expect(try await iterator.next(isolation: #isolation)?.map(\.id.threadID) == ["t"])
     }
 
     @Test func hebrewTextSurvivesTheRoundTrip() async throws {

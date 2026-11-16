@@ -1,6 +1,6 @@
-import Foundation
+public import Foundation
 import MailCore
-import MailStore
+public import MailStore
 
 /// Where a sender's picture comes from, best first: their photo in the reader's Contacts, the profile photo an
 /// account's address book keeps for them (Google's), then their company's logo. Shared by the mail screens and

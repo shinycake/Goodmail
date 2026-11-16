@@ -1,7 +1,7 @@
-import Foundation
+public import Foundation
 
 #if canImport(FoundationNetworking)
-    import FoundationNetworking  // URLSession on Linux
+    public import FoundationNetworking  // URLSession on Linux
 #endif
 
 /// A mail service's OAuth 2.0 client for an installed app: authorization code with PKCE, no client secret. Each

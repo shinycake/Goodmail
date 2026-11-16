@@ -1,5 +1,5 @@
 import MailCore
-import SwiftUI
+public import SwiftUI
 
 /// Why an iCloud sign-in failed, as the form explains it.
 public enum ICloudSignInFailure: Error {

@@ -1,6 +1,6 @@
-import Foundation
-import GRDB
-import MailCore
+public import Foundation
+public import GRDB
+public import MailCore
 
 extension MailDatabase: NotificationStore {
     public func notifications(for account: AccountID, now: Date) throws -> AccountNotifications {

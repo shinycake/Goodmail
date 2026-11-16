@@ -1,5 +1,5 @@
-import MailCore
-import UIKit
+public import MailCore
+public import UIKit
 
 /// Tells the writer a message couldn't be sent, and offers to edit it, try again, or delete it.
 public enum SendFailureAlert {

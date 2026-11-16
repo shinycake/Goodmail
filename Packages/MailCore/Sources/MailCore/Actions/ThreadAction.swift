@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// A change the user makes to a thread. Each applies to the local store at once and replays to the provider from the
 /// outbox (ADR-008); replaying one twice leaves the thread the same.

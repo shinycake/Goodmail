@@ -1,6 +1,6 @@
-import Foundation
+public import Foundation
 import GRDB
-import MailCore
+public import MailCore
 
 /// The offline cache's cap (ADR-007): cached bodies and attachment files share one budget, and the least recently
 /// read go first. Thread summaries are never evicted, so lists and search keep working; an evicted body is fetched

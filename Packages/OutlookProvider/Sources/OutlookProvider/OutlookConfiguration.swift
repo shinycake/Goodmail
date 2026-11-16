@@ -1,5 +1,5 @@
 import Foundation
-import MailCore
+public import MailCore
 
 extension OAuthClient {
     /// Goodmail's Microsoft Entra app: a public client with no secret, open to work, school and personal Microsoft

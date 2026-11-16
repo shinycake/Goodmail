@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// The words above a quoted or forwarded message, in the language the app is read in, with its dates and direction.
 /// `english` is the default; the app passes its localized wording.

@@ -1,5 +1,5 @@
-import Foundation
-import MailCore
+public import Foundation
+public import MailCore
 
 /// The account's Google contacts and "other contacts" (people it wrote to), with the profile photos Google keeps for
 /// them, as Gmail shows beside their mail.

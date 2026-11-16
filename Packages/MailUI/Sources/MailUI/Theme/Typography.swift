@@ -1,4 +1,4 @@
-import UIKit
+public import UIKit
 
 /// The app's type: the system font (SF Pro, and the system Hebrew face for Hebrew) in semantic text styles, so every
 /// font follows Dynamic Type, accessibility sizes and Bold Text like the rest of iOS.

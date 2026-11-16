@@ -1,4 +1,5 @@
-import MailCore
+import Foundation
+public import MailCore
 
 /// Whether the app may read the device's Contacts.
 nonisolated public enum ContactsAccess: Equatable, Sendable {

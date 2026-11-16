@@ -1,4 +1,4 @@
-import AppIntents
+public import AppIntents
 import MailCore
 
 /// One account's mailbox: a standard one or a label. The mail schema gives every mailbox an account, so the blended

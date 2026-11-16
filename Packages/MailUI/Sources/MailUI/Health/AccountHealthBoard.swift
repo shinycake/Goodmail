@@ -1,6 +1,6 @@
-import Foundation
-import MailCore
-import Observation
+public import Foundation
+public import MailCore
+public import Observation
 
 /// Every account's sync health, which each sync reports to and the mailbox lists show from. One per app, shared by
 /// every window.

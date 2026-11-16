@@ -1,4 +1,4 @@
-import AppIntents
+public import AppIntents
 import MailCore
 
 /// A signed-in account, as Siri and Shortcuts see it.

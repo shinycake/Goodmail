@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// A message of mine for this conversation that hasn't synced into it yet: on its way, waiting for its time, failed,
 /// or gone but not yet back from the server. The chat draws it as my bubble at the end, with how far it got.

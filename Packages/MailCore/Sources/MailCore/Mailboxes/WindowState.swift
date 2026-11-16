@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// What one window shows: the list beside the mailboxes, the thread open from it, and the Inbox's category. The
 /// scene coordinator keeps it in step as the reader moves, rebuilds either arrangement from it when the window

@@ -1,4 +1,4 @@
-import UIKit
+public import UIKit
 
 /// The narrow arrangement's stack: the mailboxes, a mail list pushed over them, and a thread over that.
 ///
