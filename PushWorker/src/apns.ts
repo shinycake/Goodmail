@@ -72,10 +72,10 @@ export function newMailPayload(account: string, historyId: string): object {
 }
 
 /**
- * The Outlook new-mail push. Graph's notification names a subscription, which the relay knows by the app's own
+ * The new-mail push for Outlook and IMAP accounts. The relay knows their subscriptions and watches by the app's own
  * account ID, so the NSE finds the account by that rather than by address.
  */
-export function graphMailPayload(accountID: string): object {
+export function accountMailPayload(accountID: string): object {
   return {
     aps: { alert: { "loc-key": "NEW_MAIL_PUSH" }, sound: "default", "mutable-content": 1 },
     accountID,

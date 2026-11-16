@@ -101,8 +101,13 @@ extension AppModel {
     }
 
     private func pushSource(for id: AccountID) -> (any PushSource)? {
-        guard accounts.first(where: { $0.id == id })?.service.pushesNewMail == true else { return nil }
-        return (try? providers.provider(for: id)) as? any PushSource
+        guard let account = accounts.first(where: { $0.id == id }) else { return nil }
+        do {
+            return try providers.pushSource(for: account)
+        } catch {
+            Logger.push.error("No push for an account: \(error, privacy: .public)")
+            return nil
+        }
     }
 
     /// Database work off the main actor: any write can wait out another process's lock (ADR-002).

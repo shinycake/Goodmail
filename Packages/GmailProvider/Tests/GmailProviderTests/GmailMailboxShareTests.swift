@@ -32,4 +32,6 @@ private final class ShareRecorder: PushRelay {
     func shareMailbox(refreshToken: String) async throws { tokens.withLock { $0.append(refreshToken) } }
     func register(_ subscription: RelayGraphSubscription) async throws {}
     func unregisterGraphSubscription(id: String, clientState: String) async throws {}
+    func register(_ watch: RelayMailboxWatch) async throws {}
+    func unregisterMailboxWatch(id: String, secret: String) async throws {}
 }

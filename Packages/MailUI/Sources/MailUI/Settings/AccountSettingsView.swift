@@ -92,7 +92,7 @@ struct AccountSettingsView: View {
                 }
             }
 
-            if let notifications = model.notifications, account.service.pushesNewMail {
+            if let notifications = model.notifications {
                 NotificationsSection(choices: notifications, account: account)
             }
 

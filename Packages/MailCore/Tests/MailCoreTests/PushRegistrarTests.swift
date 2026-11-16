@@ -175,6 +175,8 @@ private struct NoRelay: PushRelay {
     func shareMailbox(refreshToken: String) async throws {}
     func register(_ subscription: RelayGraphSubscription) async throws {}
     func unregisterGraphSubscription(id: String, clientState: String) async throws {}
+    func register(_ watch: RelayMailboxWatch) async throws {}
+    func unregisterMailboxWatch(id: String, secret: String) async throws {}
 }
 
 final class MemoryNotificationStore: NotificationStore {

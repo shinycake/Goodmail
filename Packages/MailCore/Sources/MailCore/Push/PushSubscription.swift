@@ -29,6 +29,9 @@ public enum PushChannel: Codable, Equatable, Sendable {
     case watch
     /// Outlook: this device's own Graph subscription, which the relay trusts by its `clientState`.
     case subscription(id: String, clientState: String)
+    /// iCloud and other IMAP accounts: this device's own watch, which the relay looks at the Inbox for and trusts
+    /// by its `secret`.
+    case mailboxWatch(id: String, secret: String)
 }
 
 /// A service that can tell the push relay when an account's mail changes.
@@ -86,6 +89,10 @@ public protocol PushRelay: Sendable {
     /// Outlook: stores or renews the device's Graph subscription.
     func register(_ subscription: RelayGraphSubscription) async throws
     func unregisterGraphSubscription(id: String, clientState: String) async throws
+
+    /// IMAP: stores or renews the device's watch on the account's Inbox, which hands the relay the login.
+    func register(_ watch: RelayMailboxWatch) async throws
+    func unregisterMailboxWatch(id: String, secret: String) async throws
 }
 
 /// What the relay and the service know about one account's pushes to this device.

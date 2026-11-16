@@ -210,6 +210,9 @@
           "product-name": "GmailProvider",
           "build-phase": { "build-phase": "frameworks" },
         }, {
+          "product-name": "IMAPProvider",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
           "product-name": "MailCore",
           "build-phase": { "build-phase": "frameworks" },
         }, {

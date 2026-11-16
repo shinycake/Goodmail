@@ -1,4 +1,4 @@
-/** Bindings from wrangler.toml (vars and D1) plus the two secrets set with `wrangler secret put`. */
+/** Bindings from wrangler.toml (vars, D1 and the rate limit) plus the two secrets set with `wrangler secret put`. */
 export interface Env {
   DB: D1Database;
   /** The iOS OAuth client ID; registration ID tokens must carry it as `aud`. */
@@ -12,6 +12,8 @@ export interface Env {
   APNS_TEAM_ID: string;
   /** Secret: the APNs auth key (.p8, PKCS #8 PEM). */
   APNS_PRIVATE_KEY: string;
+  /** Limits IMAP login checks per client address (wrangler.toml `[[ratelimits]]`). */
+  IMAP_LOGIN_CHECKS: RateLimit;
   /** Secret: the HMAC key that turns email addresses into account IDs. */
   EMAIL_HMAC_SECRET: string;
 }

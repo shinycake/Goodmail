@@ -109,4 +109,6 @@ private final class RecordingRelay: PushRelay {
     func unregisterGraphSubscription(id: String, clientState: String) async throws {
         removed.withLock { $0.append(id) }
     }
+    func register(_ watch: RelayMailboxWatch) async throws {}
+    func unregisterMailboxWatch(id: String, secret: String) async throws {}
 }

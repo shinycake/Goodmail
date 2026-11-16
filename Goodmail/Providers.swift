@@ -40,6 +40,25 @@ nonisolated final class Providers: Sendable {
         made.withLock { $0[id] = nil }
     }
 
+    /// How the account's service tells the relay about new mail. Gmail and Outlook push through their own APIs, so
+    /// their provider is the source; for IMAP accounts the relay watches the Inbox with the account's login.
+    func pushSource(for account: Account) throws -> any PushSource {
+        switch account.service {
+        case .gmail, .outlook:
+            guard let source = try provider(for: account.id) as? any PushSource else {
+                throw Failure.unknownAccount
+            }
+            return source
+        case .icloud:
+            return IMAPPushSource(
+                accountID: account.id, settings: .icloud(email: account.email),
+                password: try ICloudSignIn(secrets: Keychain()).appPassword(for: account.id))
+        case .imap:
+            let login = try IMAPSignIn(secrets: Keychain()).login(for: account.id)
+            return IMAPPushSource(accountID: account.id, settings: login.settings, password: login.password)
+        }
+    }
+
     /// Forgets the account's credentials on the device. Nothing changes at the service.
     static func signOut(_ account: Account) async throws {
         switch account.service {

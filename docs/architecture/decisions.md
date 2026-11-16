@@ -68,7 +68,7 @@ The owner decided these on 2026-10-20 after talking through the options. Each en
 - **Storage:** D1 holds HMAC(email) → device tokens and APNs environment. Duplicate Pub/Sub deliveries are dropped by a conditional write on `(account, historyId)`.
 - **Why:** D1 is the simplest fit for one table and has generous free limits.
 - **Rejected:**
-  - Durable Objects: more moving parts now; reconsider for iCloud.
+  - Durable Objects: more moving parts now. iCloud didn't need them either: the relay polls watched IMAP Inboxes from a one-minute cron trigger instead of holding IDLE connections (2026-11-16).
   - KV: only 1k writes a day on the free plan, and eventually consistent.
 
 ## ADR-007: Windowed offline cache

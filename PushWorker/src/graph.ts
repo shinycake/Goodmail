@@ -18,7 +18,7 @@ export async function clientStateHash(clientState: string): Promise<string> {
 }
 
 /** Whether two hex hashes match, in constant time. */
-function sameHash(a: string, b: string): boolean {
+export function sameHash(a: string, b: string): boolean {
   const left = encodeUtf8(a);
   const right = encodeUtf8(b);
   return left.byteLength === right.byteLength && crypto.subtle.timingSafeEqual(left, right);
@@ -88,9 +88,4 @@ export async function verifiedSubscription(
     device: { token: row.device_token, environment: row.environment },
     expiresAt: row.expires_at,
   };
-}
-
-/** Removes every subscription of a token APNs says is no longer valid. */
-export async function removeGraphToken(db: D1Database, token: string): Promise<void> {
-  await db.prepare("DELETE FROM graph_subscriptions WHERE device_token = ?1").bind(token).run();
 }

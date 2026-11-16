@@ -2,7 +2,7 @@ import {
   type ApnsConfig,
   type ApnsEnvironment,
   ApnsSigner,
-  graphMailPayload,
+  accountMailPayload,
   newMailPayload,
   type PushOutcome,
   sendPush,
@@ -11,10 +11,11 @@ import { base64Decode } from "./encoding";
 import type { Env } from "./env";
 import { TokenError, verifyIdToken, verifyPubSubToken } from "./google";
 import { forgetGrant, grantsFor, storeGrant } from "./grant-routes";
+import { pollWatches } from "./imap-poll";
+import { registerWatch, unregisterWatch } from "./imap-routes";
 import { BadRequest, googleKeys, mailboxCheck, nowSeconds, readJson } from "./shared";
 import {
   registerGraphSubscription,
-  removeGraphToken,
   unregisterGraphSubscription,
   verifiedSubscription,
 } from "./graph";
@@ -26,9 +27,9 @@ import {
   registerDevice,
   releaseHistoryId,
   releasePushSlot,
-  removeToken,
   unregisterDevice,
 } from "./store";
+import { forgetDeviceToken } from "./tokens";
 
 export type { Env } from "./env";
 
@@ -55,7 +56,16 @@ export default {
       if (pathname === "/v1/graph" && request.method === "POST") return await graphNotification(request, url, env, context);
       if (pathname === "/v1/graph/subscriptions" && request.method === "POST") return await registerGraph(request, env);
       if (pathname === "/v1/graph/subscriptions" && request.method === "DELETE") return await unregisterGraph(request, env);
-      const known = ["/v1/devices", "/v1/pubsub", "/v1/graph", "/v1/graph/subscriptions", "/v1/gmail/grants"];
+      if (pathname === "/v1/imap/watches" && request.method === "POST") return await registerWatch(request, env, Date.now());
+      if (pathname === "/v1/imap/watches" && request.method === "DELETE") return await unregisterWatch(request, env);
+      const known = [
+        "/v1/devices",
+        "/v1/pubsub",
+        "/v1/graph",
+        "/v1/graph/subscriptions",
+        "/v1/gmail/grants",
+        "/v1/imap/watches",
+      ];
       if (known.includes(pathname)) {
         return new Response(null, { status: 405 });
       }
@@ -65,6 +75,11 @@ export default {
       if (error instanceof BadRequest) return new Response(error.message, { status: 400 });
       throw error;
     }
+  },
+
+  /** Each minute (wrangler.toml `[triggers]`): looks at the watched IMAP Inboxes. */
+  async scheduled(_controller: ScheduledController, env: Env, context: ExecutionContext): Promise<void> {
+    context.waitUntil(pollWatches(env, signerFor(env), Date.now()));
   },
 } satisfies ExportedHandler<Env>;
 
@@ -131,10 +146,7 @@ async function pubSubPush(request: Request, env: Env): Promise<Response> {
     outcomes = await Promise.all(
       devices.map(async (device) => {
         const outcome = await sendPush(signer, device, payload);
-        if (outcome === "gone") {
-          await removeToken(env.DB, device.token);
-          await removeGraphToken(env.DB, device.token);
-        }
+        if (outcome === "gone") await forgetDeviceToken(env.DB, device.token);
         return outcome;
       }),
     );
@@ -208,8 +220,8 @@ async function graphNotification(request: Request, url: URL, env: Env, context: 
       [...named].map(async ([subscriptionId, clientState]) => {
         const subscription = await verifiedSubscription(env.DB, subscriptionId, clientState);
         if (!subscription) return;
-        const outcome = await sendPush(signerFor(env), subscription.device, graphMailPayload(subscription.account));
-        if (outcome === "gone") await removeGraphToken(env.DB, subscription.device.token);
+        const outcome = await sendPush(signerFor(env), subscription.device, accountMailPayload(subscription.account));
+        if (outcome === "gone") await forgetDeviceToken(env.DB, subscription.device.token);
       }),
     ),
   );

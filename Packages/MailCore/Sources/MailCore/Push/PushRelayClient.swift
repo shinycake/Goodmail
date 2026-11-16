@@ -7,7 +7,8 @@ public import Foundation
 /// The relay's HTTP API (PushWorker/README.md).
 public struct PushRelayClient: PushRelay {
     public enum Failure: Error, Equatable {
-        /// The relay refused the proof, or the Graph subscription is registered under another clientState.
+        /// The relay refused the proof, the server refused the IMAP login, or the Graph subscription or IMAP watch
+        /// is registered under another secret.
         case unauthorized
         case status(Int)
     }
@@ -44,6 +45,14 @@ public struct PushRelayClient: PushRelay {
         try await send("DELETE", "v1/graph/subscriptions", ["subscriptionId": id, "clientState": clientState])
     }
 
+    public func register(_ watch: RelayMailboxWatch) async throws {
+        try await send("POST", "v1/imap/watches", MailboxWatchRegistration(watch))
+    }
+
+    public func unregisterMailboxWatch(id: String, secret: String) async throws {
+        try await send("DELETE", "v1/imap/watches", ["watchId": id, "secret": secret])
+    }
+
     private func send(_ method: String, _ path: String, _ body: some Encodable) async throws {
         var request = URLRequest(url: baseURL.appending(path: path))
         request.httpMethod = method
@@ -75,5 +84,32 @@ private struct GraphRegistration: Encodable {
         deviceToken = subscription.device.hex
         environment = subscription.device.environment.rawValue
         expiresAt = Int64(subscription.expiresAt.timeIntervalSince1970 * 1000)
+    }
+}
+
+/// `POST v1/imap/watches`'s body.
+private struct MailboxWatchRegistration: Encodable {
+    let watchId: String
+    let secret: String
+    let account: String
+    let deviceToken: String
+    let environment: String
+    let host: String
+    let port: UInt16
+    let security: String
+    let username: String
+    let password: String
+
+    init(_ watch: RelayMailboxWatch) {
+        watchId = watch.id
+        secret = watch.secret
+        account = watch.account.rawValue
+        deviceToken = watch.device.hex
+        environment = watch.device.environment.rawValue
+        host = watch.server.host
+        port = watch.server.port
+        security = watch.server.security.rawValue
+        username = watch.username
+        password = watch.password
     }
 }

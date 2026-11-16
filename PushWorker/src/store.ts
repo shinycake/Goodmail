@@ -31,11 +31,6 @@ export async function devicesFor(db: D1Database, account: string): Promise<Devic
   return results.map((row) => ({ token: row.device_token, environment: row.environment }));
 }
 
-/** Removes a token APNs says is no longer valid, from every account it was registered for. */
-export async function removeToken(db: D1Database, token: string): Promise<void> {
-  await db.prepare("DELETE FROM devices WHERE device_token = ?1").bind(token).run();
-}
-
 /** A history ID recorded as the newest pushed for an account, and the one it replaced, so a failed send can undo it. */
 export interface HistoryClaim {
   account: string;

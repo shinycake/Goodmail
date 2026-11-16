@@ -1,4 +1,5 @@
 import GmailProvider
+import IMAPProvider
 import MailCore
 import MailNotifications
 import MailStore
@@ -61,8 +62,14 @@ final class NotificationService: UNNotificationServiceExtension {
                 OutlookClient(
                     session: OAuthSession(accountID: account.id, client: .outlook, keychain: Keychain()),
                     index: database)
-            // IMAP has no push.
-            case .icloud, .imap: throw NewMailFetch.Failure.unknownAccount
+            case .icloud:
+                IMAPClient(
+                    accountID: account.id, settings: .icloud(email: account.email),
+                    password: try ICloudSignIn(secrets: Keychain()).appPassword(for: account.id), index: database)
+            case .imap:
+                IMAPClient(
+                    accountID: account.id, login: try IMAPSignIn(secrets: Keychain()).login(for: account.id),
+                    index: database)
             }
         }
         return (fetch, pictures)

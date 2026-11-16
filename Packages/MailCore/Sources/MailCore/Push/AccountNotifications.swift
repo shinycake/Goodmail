@@ -55,14 +55,3 @@ public struct AccountNotifications: Equatable, Sendable {
         }
     }
 }
-
-extension MailService {
-    /// Whether the service tells the push relay about new mail, so the device can alert for it. iCloud has no
-    /// third-party push.
-    public var pushesNewMail: Bool {
-        switch self {
-        case .gmail, .outlook: true
-        case .icloud, .imap: false
-        }
-    }
-}
