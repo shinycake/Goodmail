@@ -7,7 +7,7 @@ import UserNotifications
 
 /// The app's side of alerts: asks for permission once there is mail to alert for, hands the device token to the
 /// model, and answers taps and actions on new-mail alerts.
-final class PushCoordinator: NSObject {
+final class PushCoordinator {
     private let model: AppModel
     /// Shows a tapped alert's thread in the frontmost window, or the first to connect.
     private let routes: IntentRoutes
@@ -24,11 +24,10 @@ final class PushCoordinator: NSObject {
         badge = AppBadge(database: model.database)
     }
 
-    /// Call before launch finishes, so a tap that launched the app reaches the delegate.
+    /// Call once, when the database has opened. `AlertResponder` answers the alerts from launch on, and hands them
+    /// here.
     func start(_ application: UIApplication) {
-        let center = UNUserNotificationCenter.current()
-        center.delegate = self
-        center.setNotificationCategories([NewMailAlert.category])
+        UNUserNotificationCenter.current().setNotificationCategories([NewMailAlert.category])
         badge.start(accounts: { [model] in model.accounts })
         guard model.pushRegistrar != nil else {
             Logger.push.notice("No push relay in this build; alerts are off")
@@ -44,6 +43,7 @@ final class PushCoordinator: NSObject {
                 self?.updateSubscriptions()
             }
         }
+        if application.applicationState == .active { clearPlaceholders() }
         updateSubscriptions()
     }
 
@@ -69,7 +69,7 @@ final class PushCoordinator: NSObject {
     }
 
     /// What the reader chose on an alert about `thread`.
-    private func answer(_ thread: ThreadSummary.ID, action: String, reply: String?) async {
+    func answer(_ thread: ThreadSummary.ID, action: String, reply: String?) async {
         if action == UNNotificationDefaultActionIdentifier {
             routes.open(.thread(thread, in: .inbox))
             return
@@ -87,51 +87,5 @@ final class PushCoordinator: NSObject {
         case .trash: await model.perform(.trash, onAlerted: thread)
         case nil: break
         }
-    }
-}
-
-/// iOS calls these on its own queue, so they read what they need there and hop to the main actor to act on it.
-/// They take iOS's completion handler rather than being `async`: the `async` forms hand iOS their result off the main
-/// thread, where UIKit asserts while updating the app's snapshot.
-extension PushCoordinator: UNUserNotificationCenterDelegate {
-    /// The reader is already in the app, where the new mail shows in the list: the alert goes straight to
-    /// Notification Center.
-    nonisolated func userNotificationCenter(
-        _ center: UNUserNotificationCenter, willPresent notification: UNNotification,
-        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
-    ) {
-        let done = MainActorCompletion { completionHandler([.list]) }
-        Task { @MainActor in done.call() }
-    }
-
-    nonisolated func userNotificationCenter(
-        _ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
-        withCompletionHandler completionHandler: @escaping () -> Void
-    ) {
-        // The bare push, shown when the extension couldn't fetch, opens the app as it is.
-        let thread = NewMailAlert.thread(in: response.notification.request.content.userInfo)
-        let action = response.actionIdentifier
-        let reply = (response as? UNTextInputNotificationResponse)?.userText
-        let done = MainActorCompletion(completionHandler)
-        Task { @MainActor in
-            if let thread {
-                await BackgroundDatabaseWork.shared.run("Notification action") {
-                    await answer(thread, action: action, reply: reply)
-                }
-            }
-            done.call()
-        }
-    }
-}
-
-/// iOS's completion handler, carried to the main actor and called there once the answer is done.
-///
-/// `@unchecked Sendable` because the handler's type isn't `Sendable`. Safe: it is created on iOS's queue, never
-/// touched there again, and called only on the main actor, once.
-nonisolated private struct MainActorCompletion: @unchecked Sendable {
-    let call: () -> Void
-
-    init(_ call: @escaping () -> Void) {
-        self.call = call
     }
 }

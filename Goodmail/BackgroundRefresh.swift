@@ -26,11 +26,12 @@ nonisolated struct BackgroundRefresh: Sendable {
     let model: AppModel
     let database: MailDatabase
 
-    /// Call once, before launch finishes: background task handlers must be registered by then.
-    func register() {
+    /// Call once, before launch finishes: background task handlers must be registered by then. The database may still
+    /// be opening, so each refresh waits for `refresh`, and completes at once without one, when it couldn't open.
+    static func register(_ refresh: @escaping @Sendable () async -> BackgroundRefresh?) {
         BGTaskScheduler.shared.register(forTaskWithIdentifier: Self.taskID, using: nil) { task in
             guard let task = task as? BGAppRefreshTask else { return }
-            run(task)
+            run(task, refresh)
         }
     }
 
@@ -48,15 +49,22 @@ nonisolated struct BackgroundRefresh: Sendable {
     }
 
     func run(_ task: any RefreshTask) {
-        schedule()
+        Self.run(task) { self }
+    }
+
+    private static func run(
+        _ task: any RefreshTask, _ waitForRefresh: @escaping @Sendable () async -> BackgroundRefresh?
+    ) {
         let completion = Completion(task)
-        let sync = Task { [model] in
+        let sync = Task {
+            guard let refresh = await waitForRefresh() else { return completion.finish(success: false) }
+            refresh.schedule()
             let success = await BackgroundDatabaseWork.shared.run("Background refresh") {
                 do {
-                    try await model.syncAll(prefetch: false)
+                    try await refresh.model.syncAll(prefetch: false)
                     return true
                 } catch {
-                    Self.log.error("Background sync failed: \(error, privacy: .public)")
+                    log.error("Background sync failed: \(error, privacy: .public)")
                     return false
                 }
             }

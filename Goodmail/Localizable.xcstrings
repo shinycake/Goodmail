@@ -18,6 +18,17 @@
         }
       }
     },
+    "Can’t Open Your Mail" : {
+      "comment" : "Title shown instead of the mail when its database can't open",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן לפתוח את הדואר"
+          }
+        }
+      }
+    },
     "Conversation" : {
       "comment" : "App Intents: shown in Shortcuts and Siri",
       "localizations" : {
@@ -167,6 +178,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "תיבת דואר"
+          }
+        }
+      }
+    },
+    "Make sure there’s free space on this device, then open Goodmail again." : {
+      "comment" : "Shown instead of the mail when its database can't open",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כדאי לוודא שיש מקום פנוי במכשיר, ואז לפתוח שוב את Goodmail."
           }
         }
       }

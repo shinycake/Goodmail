@@ -83,10 +83,16 @@ final class AppModel {
     }
 
     /// The shared container's database, so the extensions see the same mail (ADR-002).
-    static func openShared() throws -> AppModel {
+    static func openShared() async throws -> AppModel {
+        try AppModel(database: await openSharedDatabase())
+    }
+
+    /// Off the main actor: opening migrates the database and fills in what older builds left out, which can take a
+    /// while after an update.
+    @concurrent private nonisolated static func openSharedDatabase() async throws -> MailDatabase {
         // Unsigned simulator builds have no App Group.
         let directory = SharedContainer.directoryURL ?? URL.applicationSupportDirectory
-        return try AppModel(database: MailDatabase(url: directory.appending(path: "Mail/mail.sqlite")))
+        return try MailDatabase(url: directory.appending(path: "Mail/mail.sqlite"))
     }
 
     /// Signs in with Google and adds the account, or re-authenticates it if it's already here. `loginHint` is the

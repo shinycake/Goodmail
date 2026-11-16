@@ -10,7 +10,8 @@ final class SyncScheduler {
     private static let foregroundInterval: Duration = .seconds(30)
 
     private let model: AppModel
-    private let refresh: BackgroundRefresh
+    /// Background app refresh, which `AppLaunch` hands the tasks iOS starts.
+    let refresh: BackgroundRefresh
     private let watchers: ChangeWatchers
     private let log = Logger(subsystem: "com.idanbirman.goodmail", category: "sync")
     private var foreground: Task<Void, Never>?
@@ -21,9 +22,9 @@ final class SyncScheduler {
         watchers = ChangeWatchers(model: model)
     }
 
-    /// Call once, before launch finishes: background task handlers must be registered by then.
+    /// Call once, when the database has opened. That can be after the app became active, so the foreground sync
+    /// starts at once then.
     func start() {
-        refresh.register()
         #if DEBUG
             TestRefresh.runIfRequested(refresh)
         #endif
@@ -41,6 +42,7 @@ final class SyncScheduler {
                 self?.refresh.schedule()
             }
         }
+        if UIApplication.shared.applicationState == .active { startForegroundSync() }
     }
 
     private func startForegroundSync() {
