@@ -1,12 +1,16 @@
 import UIKit
 
 nonisolated extension NSAttributedString.Key {
-    /// Marks a paragraph as quoted. Lists live in `NSParagraphStyle.textLists`, which the system's formatting panel
-    /// also sets; UIKit has no quote of its own.
+    /// A quoted paragraph's `RichText.QuoteLevel`, by raw value. Lists live in `NSParagraphStyle.textLists`, which
+    /// the system's formatting panel also sets; UIKit has no quote of its own.
     static let blockQuote = NSAttributedString.Key("GoodmailBlockQuote")
     /// A run's `RichText.Size` and `RichText.TextColor`, by raw value, so reading the text back doesn't guess them
     /// from point sizes and color values. Absent means normal size and the reader's color.
     static let textSize = NSAttributedString.Key("GoodmailTextSize")
+    /// A paragraph's direction when the writer set one, by raw value. Absent means it follows its first letter. The
+    /// paragraph style always states the direction it reads in, since TextKit indents a paragraph left of
+    /// `.natural` text even when that text reads from the right.
+    static let paragraphDirection = NSAttributedString.Key("GoodmailParagraphDirection")
     static let textColor = NSAttributedString.Key("GoodmailTextColor")
 }
 
@@ -30,6 +34,7 @@ nonisolated extension RichText {
             if range.length > 0 {
                 let attributes = text.attributes(at: range.location)
                 paragraph.block = Block(attributes)
+                paragraph.quoteLevel = QuoteLevel(attributes)
                 paragraph.direction = Direction(attributes)
             }
             text.forEachRun(in: content) { attributes, run in
@@ -74,32 +79,37 @@ nonisolated extension RichText {
 }
 
 nonisolated extension RichText.Paragraph {
-    /// What every character of the paragraph carries for its layout and direction, indented to suit `font`.
+    /// The attributes that lay a paragraph out, every one of them set or cleared.
+    static let layoutKeys: [NSAttributedString.Key] = [.paragraphStyle, .blockQuote, .paragraphDirection]
+
+    /// What every character of the paragraph carries for its layout and direction, indented to suit `font`. A key of
+    /// `layoutKeys` that is missing is one the paragraph doesn't have.
     func layoutAttributes(font: UIFont) -> [NSAttributedString.Key: Any] {
         var attributes: [NSAttributedString.Key: Any] = [.paragraphStyle: style(font: font)]
-        if block == .quote { attributes[.blockQuote] = true }
+        if quoteLevel.isQuoted { attributes[.blockQuote] = quoteLevel.rawValue }
+        if direction != .auto { attributes[.paragraphDirection] = direction.rawValue }
         return attributes
     }
 
     private func style(font: UIFont) -> NSParagraphStyle {
         let style = NSMutableParagraphStyle()
+        // The way it reads, so the indent of a list or quote goes on the side the text starts from.
+        let reads = direction == .auto ? RichText.Direction.firstLetter(in: text) : direction
         style.baseWritingDirection =
-            switch direction {
-            case .auto: .natural
+            switch reads {
+            case nil, .auto: .natural
             case .leftToRight: .leftToRight
             case .rightToLeft: .rightToLeft
             }
-        let indent = font.pointSize * 1.5
+        var indent = RichText.QuoteLevel.indent(font: font) * CGFloat(quoteLevel.rawValue)
         switch block {
         case .body: break
         case .bulleted, .numbered:
             style.textLists = [NSTextList(markerFormat: block == .bulleted ? .disc : .decimal, options: 0)]
-            style.headIndent = indent
-            style.firstLineHeadIndent = indent
-        case .quote:
-            style.headIndent = indent
-            style.firstLineHeadIndent = indent
+            indent += font.pointSize * 1.5
         }
+        style.headIndent = indent
+        style.firstLineHeadIndent = indent
         return style
     }
 }
@@ -107,23 +117,25 @@ nonisolated extension RichText.Paragraph {
 nonisolated extension RichText.Block {
     init(_ attributes: [NSAttributedString.Key: Any]) {
         let list = (attributes[.paragraphStyle] as? NSParagraphStyle)?.textLists.last
-        self =
-            if let list { list.isOrdered ? .numbered : .bulleted } else if attributes[.blockQuote] != nil {
-                .quote
-            } else {
-                .body
-            }
+        self = if let list { list.isOrdered ? .numbered : .bulleted } else { .body }
     }
+}
+
+nonisolated extension RichText.QuoteLevel {
+    init(_ attributes: [NSAttributedString.Key: Any]) {
+        self.init(rawValue: attributes[.blockQuote] as? Int ?? 0)
+    }
+
+    /// How far each level moves the text in from the side it starts from: the bar and a gap after it.
+    static func indent(font: UIFont) -> CGFloat { (font.pointSize * 0.85).rounded() }
+
+    /// The bar of the quote at `depth`, the same color that is sent.
+    static func barColor(depth: Int) -> UIColor { UIColor(hex: barHex(depth: depth)) }
 }
 
 nonisolated extension RichText.Direction {
     init(_ attributes: [NSAttributedString.Key: Any]) {
-        self =
-            switch (attributes[.paragraphStyle] as? NSParagraphStyle)?.baseWritingDirection {
-            case .leftToRight: .leftToRight
-            case .rightToLeft: .rightToLeft
-            default: .auto
-            }
+        self = (attributes[.paragraphDirection] as? String).flatMap(Self.init(rawValue:)) ?? .auto
     }
 }
 
@@ -169,16 +181,20 @@ nonisolated extension RichText.TextColor {
     }
 
     /// How the editor shows it: the same value that is sent, or the label color that follows Dark Mode.
-    var color: UIColor {
-        guard let hex else { return .label }
-        let value = Int(hex.dropFirst(), radix: 16) ?? 0
-        return UIColor(
-            red: CGFloat((value >> 16) & 0xFF) / 255, green: CGFloat((value >> 8) & 0xFF) / 255,
-            blue: CGFloat(value & 0xFF) / 255, alpha: 1)
-    }
+    var color: UIColor { hex.map(UIColor.init(hex:)) ?? .label }
 
     func apply(to attributes: inout [NSAttributedString.Key: Any]) {
         attributes[.foregroundColor] = self == .automatic ? nil : color
         attributes[.textColor] = self == .automatic ? nil : rawValue
+    }
+}
+
+nonisolated extension UIColor {
+    /// A `#rrggbb` color as the HTML that is sent gives it.
+    fileprivate convenience init(hex: String) {
+        let value = Int(hex.dropFirst(), radix: 16) ?? 0
+        self.init(
+            red: CGFloat((value >> 16) & 0xFF) / 255, green: CGFloat((value >> 8) & 0xFF) / 255,
+            blue: CGFloat(value & 0xFF) / 255, alpha: 1)
     }
 }

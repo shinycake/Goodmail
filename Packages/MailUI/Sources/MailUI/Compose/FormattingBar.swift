@@ -67,7 +67,7 @@ final class FormattingBar: UIView {
             return (style, button)
         }
         quoteButton.addAction(
-            UIAction { [weak self] _ in self?.onCommand(.block(.quote)) }, for: .primaryActionTriggered)
+            UIAction { [weak self] _ in self?.onCommand(.quote(.toggle)) }, for: .primaryActionTriggered)
         linkButton.addAction(UIAction { [weak self] _ in self?.onLink() }, for: .primaryActionTriggered)
         for button in [sizeButton, colorButton, listButton, directionButton] { button.showsMenuAsPrimaryAction = true }
 
@@ -223,7 +223,25 @@ final class FormattingBar: UIView {
                     [weak self] _ in self?.onCommand(.block(list))
                 }
             })
-        quoteButton.isSelected = block == .quote
+        let quoteLevel = formatting?.quoteLevel ?? .none
+        quoteButton.isSelected = quoteLevel.isQuoted
+        // Pressing and holding the quote control nests it, as Mail's Quote Level does.
+        quoteButton.menu = UIMenu(children: [
+            UIAction(
+                title: String(
+                    localized: "Increase Quote Level", table: "Formatting", bundle: .module,
+                    comment: "Formatting: quotes the paragraph one level deeper"),
+                image: UIImage(systemName: "increase.quotelevel"),
+                attributes: quoteLevel < .deepest ? [] : .disabled
+            ) { [weak self] _ in self?.onCommand(.quote(.increase)) },
+            UIAction(
+                title: String(
+                    localized: "Decrease Quote Level", table: "Formatting", bundle: .module,
+                    comment: "Formatting: takes the paragraph out of its innermost quote"),
+                image: UIImage(systemName: "decrease.quotelevel"),
+                attributes: quoteLevel.isQuoted ? [] : .disabled
+            ) { [weak self] _ in self?.onCommand(.quote(.decrease)) },
+        ])
         linkButton.isSelected = formatting?.link != nil
         let direction = formatting?.direction ?? .auto
         directionButton.menu = UIMenu(

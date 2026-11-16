@@ -8,6 +8,11 @@ import UIKit
 private typealias Paragraph = RichText.Paragraph
 private typealias Run = RichText.Run
 
+extension RichText.QuoteLevel {
+    fileprivate static let one = Self(rawValue: 1)
+    fileprivate static let two = Self(rawValue: 2)
+}
+
 /// Golden HTML for each format: what is sent must render the same in Gmail web, Apple Mail and Outlook, and read back
 /// into the same text when the draft is reopened.
 struct RichTextHTMLTests {
@@ -49,9 +54,10 @@ struct RichTextHTMLTests {
         ])
         #expect(
             text.html
-                == #"<ul dir="rtl"><li dir="auto">חלב</li><li dir="auto">eggs</li></ul>"#
+                == #"<ul dir="rtl" style="margin-top:0;margin-bottom:0"><li dir="auto">חלב</li><li dir="auto">eggs</li></ul>"#
                 + #"<div dir="auto">Steps:</div>"#
-                + #"<ol dir="ltr"><li dir="auto">Mix</li><li dir="rtl">לאפות</li></ol>"#)
+                + #"<ol dir="ltr" style="margin-top:0;margin-bottom:0"><li dir="auto">Mix</li><li dir="rtl">לאפות</li></ol>"#
+        )
         #expect(text.plain == "• חלב\n• eggs\nSteps:\n1. Mix\n2. לאפות")
     }
 
@@ -63,37 +69,79 @@ struct RichTextHTMLTests {
         ])
         #expect(
             text.html
-                == #"<ul dir="ltr"><li dir="auto">a</li></ul>"#
-                + #"<ol dir="ltr"><li dir="auto">b</li><li dir="auto"><br></li></ol>"#)
+                == #"<ul dir="ltr" style="margin-top:0;margin-bottom:0"><li dir="auto">a</li></ul>"#
+                + #"<ol dir="ltr" style="margin-top:0;margin-bottom:0"><li dir="auto">b</li><li dir="auto"><br></li></ol>"#
+        )
+    }
+
+    /// A quote at `depth` starting from `side`, as sent.
+    private func quote(_ depth: Int, _ side: String) -> String {
+        let edge = side == "rtl" ? "right" : "left"
+        let color = ["#1a73e8", "#2e9e44", "#e8790c"][(depth - 1) % 3]
+        return
+            #"<blockquote dir="\#(side)" style="margin:0;padding-\#(edge):10px;border-\#(edge):3px solid \#(color)">"#
     }
 
     @Test func aQuoteHasItsBarOnTheSideItStartsFrom() {
         let english = RichText([
-            Paragraph(block: .quote, runs: [Run(text: "On Monday:")]),
-            Paragraph(block: .quote, runs: [Run(text: "בסדר")]),
+            Paragraph(quoteLevel: .one, runs: [Run(text: "On Monday:")]),
+            Paragraph(quoteLevel: .one, runs: [Run(text: "בסדר")]),
         ])
         #expect(
             english.html
-                == #"<blockquote dir="ltr" style="margin:0 0 0 0.8ex;border-left:1px solid #ccc;padding-left:1ex">"#
-                + #"<div dir="auto">On Monday:</div><div dir="auto">בסדר</div></blockquote>"#)
-        let hebrew = RichText([Paragraph(block: .quote, runs: [Run(text: "ציטוט")])])
-        #expect(
-            hebrew.html
-                == #"<blockquote dir="rtl" style="margin:0 0.8ex 0 0;border-right:1px solid #ccc;padding-right:1ex">"#
-                + #"<div dir="auto">ציטוט</div></blockquote>"#)
+                == quote(1, "ltr") + #"<div dir="auto">On Monday:</div><div dir="auto">בסדר</div></blockquote>"#)
+        let hebrew = RichText([Paragraph(quoteLevel: .one, runs: [Run(text: "ציטוט")])])
+        #expect(hebrew.html == quote(1, "rtl") + #"<div dir="auto">ציטוט</div></blockquote>"#)
         #expect(english.plain == "> On Monday:\n> בסדר")
+    }
+
+    @Test func nestedQuotesShareTheOuterQuoteAndListsSitInsideThem() {
+        let text = RichText([
+            Paragraph(quoteLevel: .one, runs: [Run(text: "You wrote:")]),
+            Paragraph(quoteLevel: .two, runs: [Run(text: "Lunch?")]),
+            Paragraph(block: .numbered, quoteLevel: .two, runs: [Run(text: "Sushi")]),
+            Paragraph(block: .numbered, quoteLevel: .two, runs: [Run(text: "Pizza")]),
+            Paragraph(quoteLevel: .one, runs: [Run(text: "Sushi!")]),
+            Paragraph(block: .numbered, runs: [Run(text: "Book")]),
+        ])
+        #expect(
+            text.html
+                == quote(1, "ltr") + #"<div dir="auto">You wrote:</div>"#
+                + quote(2, "ltr") + #"<div dir="auto">Lunch?</div>"#
+                + #"<ol dir="ltr" style="margin-top:0;margin-bottom:0"><li dir="auto">Sushi</li><li dir="auto">Pizza</li></ol></blockquote>"#
+                + #"<div dir="auto">Sushi!</div></blockquote>"#
+                + #"<ol dir="ltr" style="margin-top:0;margin-bottom:0"><li dir="auto">Book</li></ol>"#)
+        #expect(text.plain == "> You wrote:\n>> Lunch?\n>> 1. Sushi\n>> 2. Pizza\n> Sushi!\n1. Book")
+        #expect(RichText(html: text.html) == text)
+    }
+
+    @Test func aListEndsWhereItsQuoteLevelChanges() {
+        let text = RichText([
+            Paragraph(block: .bulleted, runs: [Run(text: "a")]),
+            Paragraph(block: .bulleted, quoteLevel: .one, runs: [Run(text: "b")]),
+        ])
+        #expect(
+            text.html
+                == #"<ul dir="ltr" style="margin-top:0;margin-bottom:0"><li dir="auto">a</li></ul>"#
+                + quote(1, "ltr")
+                + #"<ul dir="ltr" style="margin-top:0;margin-bottom:0"><li dir="auto">b</li></ul></blockquote>"#)
+    }
+
+    @Test func gmailsOwnQuotesReadAsNestedLevels() {
+        let html =
+            #"<div>Sure</div><blockquote class="gmail_quote" style="margin:0px 0px 0px 0.8ex">"#
+            + #"<div>Fine?</div><blockquote class="gmail_quote"><div>Plan</div></blockquote></blockquote>"#
+        #expect(RichText(html: html).paragraphs.map(\.quoteLevel) == [.none, .one, .two])
     }
 
     @Test func anOverriddenDirectionIsWrittenOnItsBlock() {
         let text = RichText([
             Paragraph(direction: .rightToLeft, runs: [Run(text: "OK, נדבר")]),
-            Paragraph(block: .quote, direction: .leftToRight, runs: [Run(text: "שלום")]),
+            Paragraph(quoteLevel: .one, direction: .leftToRight, runs: [Run(text: "שלום")]),
         ])
         #expect(
             text.html
-                == #"<div dir="rtl">OK, נדבר</div>"#
-                + #"<blockquote dir="ltr" style="margin:0 0 0 0.8ex;border-left:1px solid #ccc;padding-left:1ex">"#
-                + #"<div dir="ltr">שלום</div></blockquote>"#)
+                == #"<div dir="rtl">OK, נדבר</div>"# + quote(1, "ltr") + #"<div dir="ltr">שלום</div></blockquote>"#)
     }
 
     @Test func everyFormatReadsBackFromItsHTML() {
@@ -104,8 +152,9 @@ struct RichTextHTMLTests {
             Paragraph(block: .bulleted, direction: .leftToRight, runs: [Run(text: "c")]),
             Paragraph(block: .numbered, runs: [Run(text: "one")]),
             Paragraph(block: .numbered),
-            Paragraph(block: .quote, runs: [Run(text: "\"quoted\"", link: URL(string: "https://a.example/?x=<1>"))]),
-            Paragraph(block: .quote, direction: .rightToLeft, runs: [Run(text: "x", styles: [.strikethrough])]),
+            Paragraph(quoteLevel: .one, runs: [Run(text: "\"quoted\"", link: URL(string: "https://a.example/?x=<1>"))]),
+            Paragraph(quoteLevel: .two, direction: .rightToLeft, runs: [Run(text: "x", styles: [.strikethrough])]),
+            Paragraph(block: .bulleted, quoteLevel: .one, runs: [Run(text: "y")]),
             Paragraph(runs: [Run(text: "end")]),
         ])
         #expect(RichText(html: text.html) == text)
@@ -182,11 +231,12 @@ struct RichTextAttributesTests {
             Paragraph(runs: [Run(text: "Hi "), Run(text: "there", styles: [.bold, .italic])]),
             Paragraph(block: .bulleted, direction: .rightToLeft, runs: [Run(text: "פריט", styles: [.underline])]),
             Paragraph(block: .numbered, runs: [Run(text: "one", link: URL(string: "https://example.com"))]),
-            Paragraph(block: .quote, runs: [Run(text: "quoted", styles: [.strikethrough])]),
+            Paragraph(quoteLevel: .one, runs: [Run(text: "quoted", styles: [.strikethrough])]),
+            Paragraph(block: .bulleted, quoteLevel: .two, runs: [Run(text: "deeper")]),
             Paragraph(),
         ])
         let shown = text.attributedString(font: font)
-        #expect(shown.string == "Hi there\nפריט\none\nquoted\n")
+        #expect(shown.string == "Hi there\nפריט\none\nquoted\ndeeper\n")
         #expect(RichText(shown) == text)
     }
 
@@ -194,7 +244,8 @@ struct RichTextAttributesTests {
         let shown = RichText([
             Paragraph(block: .bulleted, runs: [Run(text: "a")]),
             Paragraph(block: .numbered, runs: [Run(text: "b")]),
-            Paragraph(block: .quote, runs: [Run(text: "c")]),
+            Paragraph(quoteLevel: .one, runs: [Run(text: "c")]),
+            Paragraph(block: .bulleted, quoteLevel: .two, runs: [Run(text: "d")]),
         ])
         .attributedString(font: font)
         func style(at location: Int) throws -> NSParagraphStyle {
@@ -203,8 +254,11 @@ struct RichTextAttributesTests {
         #expect(try style(at: 0).textLists.map(\.markerFormat) == [.disc])
         #expect(try style(at: 2).textLists.map(\.isOrdered) == [true])
         #expect(try style(at: 4).textLists.isEmpty)
-        #expect(shown.attribute(.blockQuote, at: 4) != nil)
+        #expect(shown.attribute(.blockQuote, at: 4) as? Int == 1)
+        #expect(shown.attribute(.blockQuote, at: 6) as? Int == 2)
         #expect(shown.attribute(.blockQuote, at: 2) == nil)
+        // Each level moves the text in by one more step, and a list inside a quote further still.
+        #expect(try style(at: 6).headIndent > 2 * style(at: 4).headIndent)
     }
 
     @Test func aParagraphPastedWithASystemHyphenListIsBulleted() {
@@ -291,15 +345,36 @@ struct FormattingTests {
                 Paragraph(runs: [Run(text: "three")]),
             ]))
         let selection = NSRange(location: 1, length: 4)
-        _ = apply(.block(.quote), to: text, selection: selection)
-        #expect(RichText(text).paragraphs.map(\.block) == [.quote, .quote, .body])
+        _ = apply(.quote(.toggle), to: text, selection: selection)
+        #expect(RichText(text).paragraphs.map(\.quoteLevel) == [.one, .one, .none])
         #expect(RichText(text).paragraphs[0].direction == .rightToLeft)
         #expect(RichText(text).paragraphs[0].runs == [Run(text: "אחת", styles: [.bold])])
-        #expect(Formatting(text: text, selection: selection, typingAttributes: [:]).block == .quote)
+        #expect(Formatting(text: text, selection: selection, typingAttributes: [:]).quoteLevel == .one)
         _ = apply(.block(.numbered), to: text, selection: selection)
         #expect(RichText(text).paragraphs.map(\.block) == [.numbered, .numbered, .body])
+        #expect(RichText(text).paragraphs.map(\.quoteLevel) == [.one, .one, .none])
         _ = apply(.block(.numbered), to: text, selection: selection)
         #expect(RichText(text).paragraphs.map(\.block) == [.body, .body, .body])
+        _ = apply(.quote(.toggle), to: text, selection: selection)
+        #expect(RichText(text).paragraphs.map(\.quoteLevel) == [.none, .none, .none])
+    }
+
+    @Test func quoteLevelsStepInAndOutWithinTheirLimits() {
+        let text = editor(
+            RichText([
+                Paragraph(quoteLevel: .one, runs: [Run(text: "a")]),
+                Paragraph(runs: [Run(text: "b")]),
+            ]))
+        let both = NSRange(location: 0, length: 3)
+        _ = apply(.quote(.increase), to: text, selection: both)
+        #expect(RichText(text).paragraphs.map(\.quoteLevel) == [.two, .one])
+        _ = apply(.quote(.decrease), to: text, selection: both)
+        #expect(RichText(text).paragraphs.map(\.quoteLevel) == [.one, .none])
+        // Toggling goes by the first paragraph: quoted, so every touched paragraph leaves its quotes.
+        _ = apply(.quote(.toggle), to: text, selection: both)
+        #expect(RichText(text).paragraphs.map(\.quoteLevel) == [.none, .none])
+        for _ in 0..<6 { _ = apply(.quote(.increase), to: text, selection: both) }
+        #expect(RichText(text).paragraphs.map(\.quoteLevel) == [.deepest, .deepest])
     }
 
     @Test func theCaretsEmptyLastLineTakesTheBlockThroughTyping() {
@@ -340,7 +415,7 @@ struct FormattingTests {
         let text = editor(
             RichText([
                 Paragraph(block: .bulleted, runs: [Run(text: "milk")]), Paragraph(block: .bulleted),
-                Paragraph(block: .quote), Paragraph(runs: [Run(text: "end")]),
+                Paragraph(quoteLevel: .two), Paragraph(runs: [Run(text: "end")]),
             ]))
         #expect(
             FormattingCommand.onReturn(in: text, selection: NSRange(location: 2, length: 0), typingAttributes: [:])
@@ -350,7 +425,7 @@ struct FormattingTests {
                 == .block(.bulleted))
         #expect(
             FormattingCommand.onReturn(in: text, selection: NSRange(location: 6, length: 0), typingAttributes: [:])
-                == .block(.quote))
+                == .quote(.decrease))
         let plain = editor(RichText(plain: "a\n"))
         #expect(
             FormattingCommand.onReturn(in: plain, selection: NSRange(location: 2, length: 0), typingAttributes: [:])
@@ -366,5 +441,86 @@ struct FormattingTests {
         #expect(FormattingCommand.linkURL(from: "javascript:alert(1)") == nil, "only web and mail links")
         #expect(FormattingCommand.linkURL(from: "file:///etc/hosts") == nil)
         #expect(FormattingCommand.linkURL(from: "MAILTO:dana@example.com") == URL(string: "MAILTO:dana@example.com"))
+    }
+}
+
+/// How the editor joins quoted paragraphs into bars.
+struct QuoteBarLayoutTests {
+    private typealias Line = QuoteBarLayout.Paragraph
+
+    @Test func anOuterBarRunsPastADeeperQuoteAndStopsAtUnquotedText() {
+        let bars = QuoteBarLayout.bars(for: [
+            Line(level: 1, isRightToLeft: false, top: 0, bottom: 20),
+            Line(level: 2, isRightToLeft: false, top: 20, bottom: 40),
+            Line(level: 1, isRightToLeft: true, top: 40, bottom: 60),
+            Line(level: 0, isRightToLeft: false, top: 60, bottom: 80),
+            Line(level: 1, isRightToLeft: true, top: 80, bottom: 100),
+        ])
+        #expect(
+            bars == [
+                QuoteBar(depth: 2, isOnRight: false, top: 20, bottom: 40),
+                QuoteBar(depth: 1, isOnRight: false, top: 0, bottom: 60),
+                QuoteBar(depth: 1, isOnRight: true, top: 80, bottom: 100),
+            ])
+    }
+}
+
+/// How typing keeps each paragraph laid out as one.
+@MainActor
+struct ParagraphLayoutTests {
+    let font = UIFont.systemFont(ofSize: 17)
+
+    private func editor(_ text: RichText) -> NSMutableAttributedString {
+        NSMutableAttributedString(attributedString: text.attributedString(font: font))
+    }
+
+    /// Types `typed` at `location` the way the composer does: with the typing layout, then settled.
+    private func type(
+        _ typed: String, at location: Int, in text: NSMutableAttributedString, typing: [NSAttributedString.Key: Any]
+    ) {
+        let range = NSRange(location: location, length: 0)
+        let attributes = FormattingCommand.typingLayout(in: text, at: range, typingAttributes: typing)
+        text.replaceCharacters(in: range, with: NSAttributedString(string: typed, attributes: attributes))
+        text.settleLayout(around: NSRange(location: location, length: (typed as NSString).length), font: font)
+    }
+
+    @Test func aQuotedParagraphReadsAndIndentsTheWayItsTextDoes() throws {
+        let shown = editor(RichText([Paragraph(quoteLevel: .one, runs: [Run(text: "שלום")])]))
+        let style = try #require(shown.attribute(.paragraphStyle, at: 0) as? NSParagraphStyle)
+        #expect(style.baseWritingDirection == .rightToLeft)
+        #expect(style.headIndent > 0)
+        #expect(RichText(shown).paragraphs[0].direction == .auto)
+    }
+
+    @Test func returnInAQuoteContinuesItEvenWhenTypingLostTheQuote() {
+        let text = editor(RichText([Paragraph(quoteLevel: .one, runs: [Run(text: "quoted")])]))
+        type("\n", at: 6, in: text, typing: text.attributes(at: 5))
+        // Typing the next line starts from the line break's attributes, which UIKit may hand back without the quote.
+        var typing = text.attributes(at: 6)
+        typing[.blockQuote] = nil
+        type("more", at: 7, in: text, typing: typing)
+        #expect(RichText(text).paragraphs.map(\.quoteLevel) == [.one, .one])
+    }
+
+    @Test func typingIntoAParagraphTakesItsLayout() {
+        let text = editor(
+            RichText([
+                Paragraph(runs: [Run(text: "a")]),
+                Paragraph(block: .bulleted, quoteLevel: .two, runs: [Run(text: "b")]),
+            ]))
+        type("x", at: 2, in: text, typing: [.font: font])
+        #expect(RichText(text).paragraphs[1] == Paragraph(block: .bulleted, quoteLevel: .two, runs: [Run(text: "xb")]))
+    }
+
+    @Test func theFirstLetterTypedTurnsAnEmptyQuotedLineToItsDirection() throws {
+        let text = editor(
+            RichText([
+                Paragraph(runs: [Run(text: "Hi")]), Paragraph(quoteLevel: .one), Paragraph(runs: [Run(text: "Bye")]),
+            ]))
+        // UIKit types from the attributes of the character before the caret, the previous line's break.
+        type("ש", at: 3, in: text, typing: text.attributes(at: 2))
+        let style = try #require(text.attribute(.paragraphStyle, at: 3) as? NSParagraphStyle)
+        #expect(style.baseWritingDirection == .rightToLeft)
+        #expect(RichText(text).paragraphs[1].quoteLevel == .one)
     }
 }

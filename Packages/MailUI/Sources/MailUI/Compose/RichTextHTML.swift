@@ -3,31 +3,56 @@ import MailCore
 
 /// Email-safe HTML for formatted text, and reading it back for a reopened draft. Only tags every mail client keeps
 /// (`div`, `ul`, `ol`, `li`, `blockquote`, `b`, `i`, `u`, `s`, `a`, `span`) and inline styles, sizes in `em` of the
-/// reader's own and colors as fixed values: each paragraph is its own block
-/// with `dir`, and a list or quote states the direction of its first line, so bullets and the quote bar sit on the
-/// side it starts from even where `dir="auto"` is ignored.
+/// reader's own and colors as fixed values: each paragraph is its own block with `dir`, and a list or quote states
+/// the direction of its first line, so bullets and the quote bar sit on the side it starts from even where
+/// `dir="auto"` is ignored. A quote's bar is a border on that side, the way Outlook marks its own quotes, since Outlook
+/// for Windows draws no other kind.
 nonisolated extension RichText {
     var html: String {
-        groups.map { group in
-            let first = group[group.startIndex]
-            let side = first.direction == .auto ? Direction.detected(in: first.text) : first.direction
-            let lines = group.map(Self.html(of:)).joined()
-            switch first.block {
-            case .body: return lines
-            case .bulleted: return "<ul dir=\"\(side.rawValue)\">\(lines)</ul>"
-            case .numbered: return "<ol dir=\"\(side.rawValue)\">\(lines)</ol>"
-            case .quote:
-                let edge = side == .rightToLeft ? "right" : "left"
-                let margin = side == .rightToLeft ? "0 0.8ex 0 0" : "0 0 0 0.8ex"
-                return "<blockquote dir=\"\(side.rawValue)\" style=\"margin:\(margin);"
-                    + "border-\(edge):1px solid #ccc;padding-\(edge):1ex\">\(lines)</blockquote>"
-            }
+        var html = ""
+        /// The direction of each quote open around the text, outermost first, and the list open inside them.
+        var quotes: [Direction] = []
+        var list: Block?
+        func closeList() {
+            if let open = list { html += open == .numbered ? "</ol>" : "</ul>" }
+            list = nil
         }
-        .joined()
+        for paragraph in paragraphs {
+            let level = paragraph.quoteLevel.rawValue
+            if list != paragraph.block || quotes.count != level { closeList() }
+            while quotes.count > level {
+                quotes.removeLast()
+                html += "</blockquote>"
+            }
+            while quotes.count < level {
+                let side = paragraph.side
+                quotes.append(side)
+                html += Self.openQuote(depth: quotes.count, side: side)
+            }
+            if paragraph.block != .body, list == nil {
+                list = paragraph.block
+                // No space above and below, as in the editor; the padding on its side keeps room for the bullets.
+                html +=
+                    "<\(paragraph.block == .numbered ? "ol" : "ul") dir=\"\(paragraph.side.rawValue)\""
+                    + " style=\"margin-top:0;margin-bottom:0\">"
+            }
+            html += Self.html(of: paragraph)
+        }
+        closeList()
+        html += String(repeating: "</blockquote>", count: quotes.count)
+        return html
+    }
+
+    /// A quote's bar on the side it starts from, in the color of its depth, with the text set off beside it and no
+    /// other margin, so it reads as it did in the editor.
+    private static func openQuote(depth: Int, side: Direction) -> String {
+        let edge = side == .rightToLeft ? "right" : "left"
+        return "<blockquote dir=\"\(side.rawValue)\" style=\"margin:0;padding-\(edge):10px;"
+            + "border-\(edge):3px solid \(QuoteLevel.barHex(depth: depth))\">"
     }
 
     private static func html(of paragraph: Paragraph) -> String {
-        let tag = paragraph.block == .bulleted || paragraph.block == .numbered ? "li" : "div"
+        let tag = paragraph.block == .body ? "div" : "li"
         let content = paragraph.runs.isEmpty ? "<br>" : paragraph.runs.map(html(of:)).joined()
         return "<\(tag) dir=\"\(paragraph.direction.rawValue)\">\(content)</\(tag)>"
     }
@@ -47,15 +72,19 @@ nonisolated extension RichText {
     /// Reads back HTML this extension wrote. A tag it doesn't know is skipped and its text kept.
     init(html: String) {
         var paragraphs: [Paragraph] = []
-        /// The containers open around the text, innermost last: the block each new paragraph gets.
-        var containers: [Block] = []
+        /// The quotes and lists open around the text, innermost last: each new paragraph is quoted as deeply as there
+        /// are quotes, and is an item of the innermost list.
+        var containers: [Container] = []
         var styles: [Style: Int] = [:]
         var links: [URL?] = []
         /// The size and color each open `span` or `font` sets, innermost last; `nil` where it sets none.
         var sizes: [Size?] = []
         var colors: [TextColor?] = []
         func startParagraph(direction: Direction = .auto) {
-            paragraphs.append(Paragraph(block: containers.last ?? .body, direction: direction))
+            let quoteLevel = QuoteLevel(rawValue: containers.count(where: { $0 == .quote }))
+            let block =
+                containers.last(where: { $0 != .quote }).map { $0 == .numbered ? Block.numbered : .bulleted } ?? .body
+            paragraphs.append(Paragraph(block: block, quoteLevel: quoteLevel, direction: direction))
         }
         for match in html.matches(of: /<(\/?)(\w+)([^>]*)>|([^<]+)/) {
             if let text = match.output.4 {
@@ -157,11 +186,21 @@ nonisolated extension RichText.TextColor {
     }
 }
 
-nonisolated extension [RichText.Block] {
-    /// Opens a container of `block`, or closes the innermost one.
-    fileprivate mutating func toggle(_ block: RichText.Block, isClosing: Bool) {
-        if isClosing { _ = popLast() } else { append(block) }
+/// An HTML element that holds paragraphs.
+nonisolated private enum Container {
+    case quote, bulleted, numbered
+}
+
+nonisolated extension [Container] {
+    /// Opens a `container`, or closes the innermost one.
+    fileprivate mutating func toggle(_ container: Container, isClosing: Bool) {
+        if isClosing { _ = popLast() } else { append(container) }
     }
+}
+
+nonisolated extension RichText.Paragraph {
+    /// The side the paragraph starts from, where its quote bar and bullet go.
+    var side: RichText.Direction { direction == .auto ? .detected(in: text) : direction }
 }
 
 nonisolated extension RichText {

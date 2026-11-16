@@ -12,6 +12,17 @@
         }
       }
     },
+    "Decrease Quote Level" : {
+      "comment" : "Formatting: takes the paragraph out of its innermost quote",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הקטנת רמת ציטוט"
+          }
+        }
+      }
+    },
     "Default Color" : {
       "comment" : "Text color: the reader's own, black or white",
       "localizations" : {
@@ -52,6 +63,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ענק"
+          }
+        }
+      }
+    },
+    "Increase Quote Level" : {
+      "comment" : "Formatting: quotes the paragraph one level deeper",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הגדלת רמת ציטוט"
           }
         }
       }

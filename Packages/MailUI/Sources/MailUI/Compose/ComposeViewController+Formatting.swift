@@ -7,7 +7,6 @@ extension ComposeViewController {
 
     func configureFormatting() {
         bodyView.inputAccessoryView = formattingBar
-        bodyView.textLayoutManager?.delegate = quoteLayout
         // Styles and lists only: the bar's sizes and colors are the ones the HTML that is sent carries; the panel's
         // fonts and free sizes and colors would be lost.
         typealias Component = UITextFormattingViewController.Component
@@ -42,6 +41,33 @@ extension ComposeViewController {
         showFormatting()
     }
 
+    /// Typing goes in with the layout of the paragraph it joins. Remembers where, to settle it once it lands.
+    func prepareTypedLayout(replacing range: NSRange, with text: String) {
+        bodyView.typingAttributes = FormattingCommand.typingLayout(
+            in: bodyView.textStorage, at: range, typingAttributes: bodyView.typingAttributes)
+        typedRange = NSRange(location: range.location, length: (text as NSString).length)
+    }
+
+    /// UIKit takes a moved caret's typing attributes from the character before it, without the quote it carries.
+    /// Puts back the layout of the caret's line, so the controls, Return and the next keystroke all see it.
+    func repairTypingLayout() {
+        guard bodyView.selectedRange.length == 0 else { return }
+        bodyView.typingAttributes = FormattingCommand.typingLayout(
+            in: bodyView.textStorage, at: bodyView.selectedRange, typingAttributes: bodyView.typingAttributes)
+    }
+
+    /// Lays out the paragraphs the last edit touched as one each, reading the way their text now does, and redraws
+    /// the quote bars, which typing can move without changing the body's height. Text still being composed, such as
+    /// a word in a Japanese keyboard, settles once it is chosen.
+    func settleTypedLayout() {
+        bodyView.setNeedsLayout()
+        guard bodyView.markedTextRange == nil, let range = typedRange else { return }
+        typedRange = nil
+        let selection = bodyView.selectedRange
+        bodyView.textStorage.settleLayout(around: range, font: bodyFont)
+        bodyView.selectedRange = selection
+    }
+
     /// Puts `text` in place of `range` as one step Undo takes back.
     private func replace(_ range: NSRange, with text: NSAttributedString, selection: NSRange) {
         let replaced = bodyView.textStorage.attributedSubstring(from: range)
@@ -50,6 +76,7 @@ extension ComposeViewController {
         bodyView.textStorage.replaceCharacters(in: range, with: text)
         bodyView.selectedRange = selection
         bodyView.typingAttributes = typing
+        bodyView.setNeedsLayout()
         bodyView.undoManager?.registerUndo(withTarget: self) { controller in
             controller.replace(
                 NSRange(location: range.location, length: text.length), with: replaced, selection: selected)

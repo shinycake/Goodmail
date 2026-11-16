@@ -1,6 +1,6 @@
 import Foundation
 
-/// A message body as the writer formatted it: paragraphs, each laid out as plain text, a list item or a quote,
+/// A message body as the writer formatted it: paragraphs, each plain text or a list item, quoted to some depth,
 /// reading in its own direction, made of styled runs. The editor's text and the HTML that is sent both convert to
 /// and from this, so each format is described once.
 nonisolated struct RichText: Equatable {
@@ -17,12 +17,15 @@ nonisolated struct RichText: Equatable {
 
     struct Paragraph: Equatable {
         var block: Block = .body
+        /// How many quotes the paragraph sits in: 0 for none, 2 for a quote inside a quote. A list item can be quoted.
+        var quoteLevel: QuoteLevel = .none
         var direction: Direction = .auto
         /// Never two neighbours with the same format, and never an empty one.
         private(set) var runs: [Run] = []
 
-        init(block: Block = .body, direction: Direction = .auto, runs: [Run] = []) {
+        init(block: Block = .body, quoteLevel: QuoteLevel = .none, direction: Direction = .auto, runs: [Run] = []) {
             self.block = block
+            self.quoteLevel = quoteLevel
             self.direction = direction
             for run in runs { append(run) }
         }
@@ -39,10 +42,37 @@ nonisolated struct RichText: Equatable {
         }
     }
 
-    /// How a paragraph is laid out. A list item or a quote joins its neighbours of the same kind into one list or
-    /// one quote.
+    /// How a paragraph is laid out. A list item joins its neighbours of the same kind, at the same quote level, into
+    /// one list.
     enum Block: CaseIterable, Equatable {
-        case body, bulleted, numbered, quote
+        case body, bulleted, numbered
+    }
+
+    /// How deeply a paragraph is quoted. Neighbours quoted at least as deeply share each quote, as nested
+    /// `blockquote`s do, so a quote's bar runs unbroken past a deeper one inside it.
+    struct QuoteLevel: RawRepresentable, Comparable, Hashable {
+        static let none = QuoteLevel(rawValue: 0)
+        /// Past this many bars a writer can no longer tell the levels apart.
+        static let deepest = QuoteLevel(rawValue: maxDepth)
+        private static let maxDepth = 4
+
+        let rawValue: Int
+
+        /// Clamped to `none...deepest`.
+        init(rawValue: Int) { self.rawValue = min(max(rawValue, 0), Self.maxDepth) }
+
+        var isQuoted: Bool { rawValue > 0 }
+        var deeper: QuoteLevel { QuoteLevel(rawValue: rawValue + 1) }
+        var shallower: QuoteLevel { QuoteLevel(rawValue: rawValue - 1) }
+
+        static func < (lhs: QuoteLevel, rhs: QuoteLevel) -> Bool { lhs.rawValue < rhs.rawValue }
+
+        /// The bar of the quote at `depth` (1 for the outermost), as sent: a color for each level, as Apple Mail
+        /// marks them, that reads on light and dark backgrounds alike.
+        static func barHex(depth: Int) -> String {
+            let colors = ["#1a73e8", "#2e9e44", "#e8790c"]
+            return colors[(depth - 1) % colors.count]
+        }
     }
 
     /// Which way a paragraph reads: from what is typed in it, or as the writer set it.
@@ -53,11 +83,14 @@ nonisolated struct RichText: Equatable {
 
         /// The way `text` reads by its first letter, as `dir="auto"` decides: right to left for Hebrew or Arabic,
         /// left to right for any other letter or when there is none.
-        static func detected(in text: String) -> Direction {
+        static func detected(in text: String) -> Direction { firstLetter(in: text) ?? .leftToRight }
+
+        /// The way `text`'s first letter reads; `nil` when it has none yet.
+        static func firstLetter(in text: String) -> Direction? {
             for scalar in text.unicodeScalars where scalar.properties.isAlphabetic {
                 return isRightToLeft(scalar) ? .rightToLeft : .leftToRight
             }
-            return .leftToRight
+            return nil
         }
 
         private static func isRightToLeft(_ scalar: Unicode.Scalar) -> Bool {
@@ -117,35 +150,26 @@ nonisolated struct RichText: Equatable {
         case bold, italic, underline, strikethrough
     }
 
-    /// The text with its layout spelled out, for the plain alternative: bullets, numbers and `>` before quoted lines.
+    /// The text with its layout spelled out, for the plain alternative: a `>` for each quote, then bullets and
+    /// numbers.
     var plain: String {
         var number = 0
+        var previous: Paragraph?
         return paragraphs.map { paragraph in
-            number = paragraph.block == .numbered ? number + 1 : 0
+            let continuesList =
+                previous.map { $0.block == paragraph.block && $0.quoteLevel == paragraph.quoteLevel } ?? false
+            number = paragraph.block == .numbered ? (continuesList ? number + 1 : 1) : 0
+            previous = paragraph
+            let quote =
+                paragraph.quoteLevel.isQuoted ? String(repeating: ">", count: paragraph.quoteLevel.rawValue) + " " : ""
             let marker =
                 switch paragraph.block {
                 case .body: ""
                 case .bulleted: "• "
                 case .numbered: "\(number). "
-                case .quote: "> "
                 }
-            return marker + paragraph.text
+            return quote + marker + paragraph.text
         }
         .joined(separator: "\n")
-    }
-
-    /// Neighbouring paragraphs that share a list or a quote, in order. A body paragraph stands alone.
-    var groups: [ArraySlice<Paragraph>] {
-        var groups: [ArraySlice<Paragraph>] = []
-        var start = 0
-        for index in paragraphs.indices.dropFirst() {
-            let block = paragraphs[index].block
-            if block == .body || block != paragraphs[index - 1].block {
-                groups.append(paragraphs[start..<index])
-                start = index
-            }
-        }
-        groups.append(paragraphs[start...])
-        return groups
     }
 }

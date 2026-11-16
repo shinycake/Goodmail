@@ -11,9 +11,10 @@ public final class ComposeViewController: UIViewController {
     lazy var ccField = recipientField(.cc)
     lazy var bccField = recipientField(.bcc)
     let subjectField = UITextField()
-    let bodyView = UITextView(usingTextLayoutManager: true)
+    let bodyView = BodyTextView(usingTextLayoutManager: true)
     let formattingBar = FormattingBar()
-    let quoteLayout = QuoteLayout()
+    /// The characters the edit being typed puts in, until its layout is settled.
+    var typedRange: NSRange?
     private let quoteButton = UIButton(configuration: .gray())
     private let quoteLabel = UILabel()
     var ccRow: UIView!
@@ -495,20 +496,25 @@ public final class ComposeViewController: UIViewController {
 extension ComposeViewController: UITextViewDelegate, UIAdaptivePresentationControllerDelegate {
     public func textViewDidChange(_ textView: UITextView) {
         updateSendEnabled()
+        settleTypedLayout()
     }
 
     public func textView(
         _ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String
     ) -> Bool {
-        guard text == "\n",
+        if text == "\n",
             let command = FormattingCommand.onReturn(
                 in: textView.textStorage, selection: range, typingAttributes: textView.typingAttributes)
-        else { return true }
-        applyFormatting(command)
-        return false
+        {
+            applyFormatting(command)
+            return false
+        }
+        prepareTypedLayout(replacing: range, with: text)
+        return true
     }
 
     public func textViewDidChangeSelection(_ textView: UITextView) {
+        repairTypingLayout()
         showFormatting()
     }
 

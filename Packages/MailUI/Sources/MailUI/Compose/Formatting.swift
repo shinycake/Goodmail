@@ -10,8 +10,9 @@ struct Formatting: Equatable {
     var color: RichText.TextColor?
     /// The link the selection is, or the caret is inside.
     var link: URL?
-    /// The layout and direction of the paragraph the selection starts in.
+    /// The layout, quote level and direction of the paragraph the selection starts in.
     var block: RichText.Block
+    var quoteLevel: RichText.QuoteLevel
     var direction: RichText.Direction
 
     init(text: NSAttributedString, selection: NSRange, typingAttributes: [NSAttributedString.Key: Any]) {
@@ -40,6 +41,7 @@ struct Formatting: Equatable {
         let paragraph =
             start.length > 0 ? text.attributes(at: start.location) : typingAttributes
         block = RichText.Block(paragraph)
+        quoteLevel = RichText.QuoteLevel(paragraph)
         direction = RichText.Direction(paragraph)
     }
 }
@@ -53,10 +55,18 @@ enum FormattingCommand: Equatable {
     case color(RichText.TextColor)
     /// Lays out the selected paragraphs as `block`, or back as plain paragraphs when they already are.
     case block(RichText.Block)
+    case quote(QuoteChange)
     case direction(RichText.Direction)
     /// Links the selection, or the link the caret is in; a caret elsewhere gets the address typed out as the link.
     /// `nil` removes the link.
     case link(URL?)
+
+    /// What the quote control does to the selected paragraphs, each from its own level.
+    enum QuoteChange: Equatable {
+        /// Quotes them, or takes them out of every quote when the first one is already quoted.
+        case toggle
+        case increase, decrease
+    }
 
     struct Edit {
         /// The characters replaced, and what replaces them. Both are empty when only typing changes.
@@ -88,6 +98,15 @@ enum FormattingCommand: Equatable {
             let target = current.block == block ? .body : block
             return Self.relayout(text, selection: selection, typingAttributes: typingAttributes, font: font) {
                 $0.block = target
+            }
+        case .quote(let change):
+            let removesQuote = change == .toggle && current.quoteLevel.isQuoted
+            return Self.relayout(text, selection: selection, typingAttributes: typingAttributes, font: font) {
+                switch change {
+                case .toggle: $0.quoteLevel = removesQuote ? .none : $0.quoteLevel.deeper
+                case .increase: $0.quoteLevel = $0.quoteLevel.deeper
+                case .decrease: $0.quoteLevel = $0.quoteLevel.shallower
+                }
             }
         case .direction(let direction):
             return Self.relayout(text, selection: selection, typingAttributes: typingAttributes, font: font) {
@@ -145,43 +164,38 @@ enum FormattingCommand: Equatable {
         _ text: NSAttributedString, selection: NSRange, typingAttributes: [NSAttributedString.Key: Any],
         font: UIFont, change: (inout RichText.Paragraph) -> Void
     ) -> Edit {
-        func relaidOut(_ attributes: [NSAttributedString.Key: Any]) -> [NSAttributedString.Key: Any] {
-            var paragraph = RichText.Paragraph(
-                block: RichText.Block(attributes), direction: RichText.Direction(attributes))
+        func relaidOut(_ attributes: [NSAttributedString.Key: Any], text: String) -> [NSAttributedString.Key: Any] {
+            var paragraph = RichText.Paragraph(layoutOf: attributes, text: text)
             change(&paragraph)
-            var attributes = attributes
-            attributes[.blockQuote] = nil
-            return attributes.merging(paragraph.layoutAttributes(font: font)) { $1 }
+            return attributes.withLayout(paragraph.layoutAttributes(font: font))
         }
         let string = text.string as NSString
         let range = string.paragraphRange(for: selection)
         let replacement = NSMutableAttributedString(attributedString: text.attributedSubstring(from: range))
-        var location = 0
-        while location < replacement.length {
-            let paragraph = (replacement.string as NSString).paragraphRange(
-                for: NSRange(location: location, length: 0))
-            let attributes = relaidOut(replacement.attributes(at: paragraph.location))
-            replacement.removeAttribute(.blockQuote, range: paragraph)
-            for key in [NSAttributedString.Key.paragraphStyle, .blockQuote] {
-                if let value = attributes[key] { replacement.addAttribute(key, value: value, range: paragraph) }
-            }
-            location = NSMaxRange(paragraph)
+        var lineText = ""
+        replacement.forEachParagraph { paragraph, content in
+            lineText = content
+            replacement.setLayout(
+                relaidOut(replacement.attributes(at: paragraph.location), text: content), of: paragraph)
         }
+        // A caret's line is the one paragraph relaid out, or, when it has no characters yet, only what is typed next.
         return Edit(
             range: range, replacement: replacement, selection: selection,
-            typingAttributes: relaidOut(typingAttributes))
+            typingAttributes: relaidOut(typingAttributes, text: lineText))
     }
 
-    /// What Return does instead of starting a line: on an empty list item or quoted line it ends the list or quote,
-    /// as in Notes and Mail. `nil` lets the line break go in.
+    /// What Return does instead of starting a line: on an empty list item it ends the list, and on an empty quoted
+    /// line it steps out of the innermost quote, as in Notes and Mail. `nil` lets the line break go in.
     static func onReturn(
         in text: NSAttributedString, selection: NSRange, typingAttributes: [NSAttributedString.Key: Any]
     ) -> FormattingCommand? {
         guard selection.length == 0 else { return nil }
         let line = (text.string as NSString).lineRange(for: selection)
         let isEmpty = (text.string as NSString).substring(with: line).trimmingCharacters(in: .newlines).isEmpty
-        let block = Formatting(text: text, selection: selection, typingAttributes: typingAttributes).block
-        return isEmpty && block != .body ? .block(block) : nil
+        guard isEmpty else { return nil }
+        let current = Formatting(text: text, selection: selection, typingAttributes: typingAttributes)
+        if current.block != .body { return .block(current.block) }
+        return current.quoteLevel.isQuoted ? .quote(.decrease) : nil
     }
 
     /// The characters a link change applies to: the selection, or the whole link around a caret inside one.
