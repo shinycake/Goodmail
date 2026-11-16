@@ -100,7 +100,7 @@ extension MailDatabase: SnoozeStore {
         }
     }
 
-    private static func state(_ row: Row) -> SnoozeState? {
+    static func state(_ row: Row) -> SnoozeState? {
         if let until: Date = row["wakeAt"] { return .asleep(until: until) }
         if let at: Date = row["wokeAt"] { return .woke(at: at) }
         return nil
