@@ -110,6 +110,8 @@ struct SettingsView: View {
 
             RemoteImagesSection()
 
+            if let rules = model.rules { RulesSection(service: rules) }
+
             Section {
                 Picker(selection: $model.removalAnimation) {
                     ForEach(RemovalAnimation.allCases, id: \.self) { animation in

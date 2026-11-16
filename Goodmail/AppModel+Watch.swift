@@ -16,6 +16,7 @@ extension AppModel {
         health.record(outcome, for: id)
         switch outcome {
         case .success:
+            await runRules(for: accounts.filter { $0.id == id })
             await markInboxSeen()
             await didChange?(.synced)
         case .failure(let error):

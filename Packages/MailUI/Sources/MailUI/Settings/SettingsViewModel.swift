@@ -44,6 +44,8 @@ public final class SettingsViewModel {
     public var notifications: NotificationChoices?
     /// What each account counts toward the app badge.
     public var badges: BadgeChoices?
+    /// The mail rules, when the app keeps them.
+    @ObservationIgnored public var rules: MailRules.Service?
     /// The automatic reply of an account whose service sends one; `nil` for one that doesn't, as iCloud.
     @ObservationIgnored public var autoReply: (AccountID) -> AutoReplyEditor.Service? = { _ in nil }
     /// The sign-in of an account that logs in with a password: an Other Mail Account's servers and password, or

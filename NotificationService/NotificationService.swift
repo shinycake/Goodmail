@@ -54,7 +54,7 @@ final class NotificationService: UNNotificationServiceExtension {
         guard let directory = SharedContainer.directoryURL else { throw CocoaError(.fileNoSuchFile) }
         let database = try MailDatabase(url: directory.appending(path: "Mail/mail.sqlite"))
         let pictures = SenderPictureSources(directory: directory.appending(path: "SenderPictures"), database: database)
-        let fetch = NewMailFetch(database: database) { account in
+        let fetch = NewMailFetch(database: database, notify: RuleNotification.post) { account in
             switch account.service {
             case .gmail: GmailClient(session: OAuthSession(accountID: account.id, client: .gmail, keychain: Keychain()))
             case .outlook:

@@ -321,6 +321,19 @@ public final class MailDatabase: Sendable {
                             OR (earlier.createdAt = account.createdAt AND earlier.id < account.id))
                     """)
         }
+        migrator.registerMigration("v27-rules") { db in
+            // The reader's rules (`MailRule`), as JSON, in the order they run.
+            try db.create(table: "mailRule") { table in
+                table.primaryKey("id", .text)
+                table.column("position", .integer).notNull()
+                table.column("json", .text).notNull()
+            }
+            // How far each account's arrived mail has been through the rules: threads newer than `through` haven't.
+            try db.create(table: "ruleProgress") { table in
+                table.primaryKey("accountID", .text).references("account", onDelete: .cascade)
+                table.column("through", .datetime).notNull()
+            }
+        }
         return migrator
     }
 }

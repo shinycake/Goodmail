@@ -1,6 +1,7 @@
 public import Foundation
 public import MailCore
 public import MailStore
+import OSLog
 
 /// What the notification extension does with a new-mail push: catches the account up on what changed and picks
 /// what alerts. The mail it fetches is stored, so the app shows it on open without fetching it again (ADR-002).
@@ -21,15 +22,20 @@ public struct NewMailFetch: Sendable {
 
     private let database: MailDatabase
     private let provider: @Sendable (Account) throws -> any MailProvider
+    private let notify: @Sendable ([RuleAlert], Account) async -> Void
     private let now: @Sendable () -> Date
 
-    /// `provider` makes the provider for an account the push names.
+    /// `provider` makes the provider for an account the push names; `notify` posts the notifications the reader's
+    /// rules ask for.
     public init(
-        database: MailDatabase, provider: @escaping @Sendable (Account) throws -> any MailProvider,
+        database: MailDatabase,
+        notify: @escaping @Sendable ([RuleAlert], Account) async -> Void = { _, _ in },
+        provider: @escaping @Sendable (Account) throws -> any MailProvider,
         now: @escaping @Sendable () -> Date = { .now }
     ) {
         self.database = database
         self.provider = provider
+        self.notify = notify
         self.now = now
     }
 
@@ -61,7 +67,10 @@ public struct NewMailFetch: Sendable {
             }
         guard let account = match else { throw Failure.unknownAccount }
         let client = try provider(account)
-        let arrived = try await SyncEngine(accountID: account.id, provider: client, store: database).catchUp()
+        let caughtUp = try await SyncEngine(accountID: account.id, provider: client, store: database).catchUp()
+        await runRules(in: account, provider: client)
+        // As the rules left them: one they archived, read or moved no longer alerts.
+        let arrived = try database.threads(caughtUp.map(\.id))
         let threads = try database.claimAlerts(among: arrived, in: account, now: now())
         guard !threads.isEmpty else { return .nothingNew }
         let codes = await withTaskGroup(of: (Int, OneTimeCode?).self) { group in
@@ -71,6 +80,23 @@ public struct NewMailFetch: Sendable {
             return await group.reduce(into: [Int: OneTimeCode]()) { $0[$1.0] = $1.1 }
         }
         return .alerts(threads.enumerated().map { NewMail(thread: $1, code: codes[$0]) }, in: account)
+    }
+
+    /// Runs the reader's rules on the mail that just arrived, and sends what they changed to the provider before the
+    /// extension ends. A failure leaves the mail as it came and the alerts as they would be.
+    private func runRules(in account: Account, provider client: any MailProvider) async {
+        let commands = MailCommands(store: database, replay: { _ in }, now: now)
+        do {
+            let run = try await RuleRunner(store: database, provider: client, commands: commands, now: now)
+                .run(for: account.id)
+            run.logFailures(after: "a push")
+            // The alerts go out even when what the rules changed can't reach the provider yet: the change is kept
+            // in the Outbox for the app to send.
+            if !run.alerts.isEmpty { await notify(run.alerts, account) }
+            try await Outbox(accountID: account.id, provider: client, store: database, now: now).flush()
+        } catch {
+            RuleRun.log.error("Rules after a push failed: \(error, privacy: .public)")
+        }
     }
 
     /// The one-time code in a thread's latest message when its subject or snippet names one without giving it, as

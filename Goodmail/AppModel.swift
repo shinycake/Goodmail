@@ -260,6 +260,7 @@ final class AppModel {
             // The sync reads each account's aliases, which the composer and replies take from `accounts`.
             let stored = try await Self.offMain { [database] in try database.accounts() }
             if stored != accounts { accounts = stored }
+            await runRules(for: synced)
             if prefetch { for account in synced { await (try? prefetcher(for: account.id))?.start() } }
             await trimCache()
             await didChange?(.synced)

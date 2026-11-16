@@ -95,6 +95,6 @@ public enum NewMailAlert {
 
     /// Where quiet placeholders stack (`NewMailSilence.quiet`), apart from every account's alerts.
     static let placeholderThread = "placeholder"
-    private static let accountKey = "accountID"
-    private static let threadKey = "threadID"
+    static let accountKey = "accountID"
+    static let threadKey = "threadID"
 }

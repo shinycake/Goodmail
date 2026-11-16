@@ -1,0 +1,875 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "A Forward" : {
+      "comment" : "Rule flag: subject has Fwd:",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה"
+          }
+        }
+      }
+    },
+    "A Reply" : {
+      "comment" : "Rule flag: subject has Re:",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תשובה"
+          }
+        }
+      }
+    },
+    "Account" : {
+      "comment" : "Rule field: account",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חשבון"
+          }
+        }
+      }
+    },
+    "Add Label" : {
+      "comment" : "Rule action",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הוספת תווית"
+          }
+        }
+      }
+    },
+    "Addressed to Me" : {
+      "comment" : "Rule flag",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ממוענת אליי"
+          }
+        }
+      }
+    },
+    "Any Recipient" : {
+      "comment" : "Rule field: To, Cc or Bcc",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נמען כלשהו"
+          }
+        }
+      }
+    },
+    "Archive" : {
+      "comment" : "Rule action",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה לארכיון"
+          }
+        }
+      }
+    },
+    "Archived" : {
+      "comment" : "Rule flag",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בארכיון"
+          }
+        }
+      }
+    },
+    "At Least" : {
+      "comment" : "Number test",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לפחות"
+          }
+        }
+      }
+    },
+    "At Most" : {
+      "comment" : "Number test",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לכל היותר"
+          }
+        }
+      }
+    },
+    "Attachment Name" : {
+      "comment" : "Rule field: a file's name",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שם הקובץ המצורף"
+          }
+        }
+      }
+    },
+    "Attachment Type" : {
+      "comment" : "Rule field: a file's type",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סוג הקובץ המצורף"
+          }
+        }
+      }
+    },
+    "Attachments Size (MB)" : {
+      "comment" : "Rule field: attachments' total size, in megabytes",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "גודל הקבצים המצורפים (MB)"
+          }
+        }
+      }
+    },
+    "Bcc" : {
+      "comment" : "Rule field: Bcc recipients",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עותק מוסתר"
+          }
+        }
+      }
+    },
+    "Begins With" : {
+      "comment" : "Text test",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מתחיל ב"
+          }
+        }
+      }
+    },
+    "Cc" : {
+      "comment" : "Rule field: Cc recipients",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עותק"
+          }
+        }
+      }
+    },
+    "Contains" : {
+      "comment" : "Text test",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מכיל"
+          }
+        }
+      }
+    },
+    "Day of the Week" : {
+      "comment" : "Add a weekday condition",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "יום בשבוע"
+          }
+        }
+      }
+    },
+    "Days" : {
+      "comment" : "Length unit",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ימים"
+          }
+        }
+      }
+    },
+    "Doesn’t Contain" : {
+      "comment" : "Text test",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא מכיל"
+          }
+        }
+      }
+    },
+    "Draft" : {
+      "comment" : "Rule flag",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "טיוטה"
+          }
+        }
+      }
+    },
+    "Ends With" : {
+      "comment" : "Text test",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מסתיים ב"
+          }
+        }
+      }
+    },
+    "Flag" : {
+      "comment" : "Rule action: star",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סימון בדגל"
+          }
+        }
+      }
+    },
+    "Flagged" : {
+      "comment" : "Rule flag: starred",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מסומנת בדגל"
+          }
+        }
+      }
+    },
+    "From" : {
+      "comment" : "Rule field: sender name or address",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מאת"
+          }
+        }
+      }
+    },
+    "From Me" : {
+      "comment" : "Rule flag",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ממני"
+          }
+        }
+      }
+    },
+    "From a Mailing List" : {
+      "comment" : "Rule flag",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מרשימת תפוצה"
+          }
+        }
+      }
+    },
+    "Has Attachments" : {
+      "comment" : "Rule flag",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "יש קבצים מצורפים"
+          }
+        }
+      }
+    },
+    "Highest Price" : {
+      "comment" : "Rule field: largest amount",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "המחיר הגבוה ביותר"
+          }
+        }
+      }
+    },
+    "Hours" : {
+      "comment" : "Length unit",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שעות"
+          }
+        }
+      }
+    },
+    "Important" : {
+      "comment" : "Rule flag",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חשובה"
+          }
+        }
+      }
+    },
+    "In Inbox" : {
+      "comment" : "Rule flag",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בדואר הנכנס"
+          }
+        }
+      }
+    },
+    "In Spam" : {
+      "comment" : "Rule flag",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בספאם"
+          }
+        }
+      }
+    },
+    "In Trash" : {
+      "comment" : "Rule flag",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "באשפה"
+          }
+        }
+      }
+    },
+    "Is" : {
+      "comment" : "Text test: equals",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הוא"
+          }
+        }
+      }
+    },
+    "Is Empty" : {
+      "comment" : "Text test",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ריק"
+          }
+        }
+      }
+    },
+    "Isn’t Empty" : {
+      "comment" : "Text test",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ריק"
+          }
+        }
+      }
+    },
+    "Label" : {
+      "comment" : "Add a label condition",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תווית"
+          }
+        }
+      }
+    },
+    "Less Than" : {
+      "comment" : "Number test",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פחות מ"
+          }
+        }
+      }
+    },
+    "Mailbox" : {
+      "comment" : "Rule field: mailbox",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תיבת דואר"
+          }
+        }
+      }
+    },
+    "Mark as Important" : {
+      "comment" : "Rule action",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סימון כחשובה"
+          }
+        }
+      }
+    },
+    "Mark as Read" : {
+      "comment" : "Rule action",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סימון כנקראה"
+          }
+        }
+      }
+    },
+    "Matches Pattern" : {
+      "comment" : "Text test: a regular expression",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תואם לתבנית"
+          }
+        }
+      }
+    },
+    "Message Text" : {
+      "comment" : "Rule field: body text",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "טקסט ההודעה"
+          }
+        }
+      }
+    },
+    "Message-ID" : {
+      "comment" : "Rule field: Message-ID header",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Message-ID"
+          }
+        }
+      }
+    },
+    "Messages in Conversation" : {
+      "comment" : "Rule field: conversation length",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הודעות בשיחה"
+          }
+        }
+      }
+    },
+    "More Than" : {
+      "comment" : "Number test",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "יותר מ"
+          }
+        }
+      }
+    },
+    "Move to Label" : {
+      "comment" : "Rule action",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה לתווית"
+          }
+        }
+      }
+    },
+    "Move to Trash" : {
+      "comment" : "Rule action",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה לאשפה"
+          }
+        }
+      }
+    },
+    "Mute" : {
+      "comment" : "Rule action",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השתקה"
+          }
+        }
+      }
+    },
+    "Muted" : {
+      "comment" : "Rule flag",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מושתקת"
+          }
+        }
+      }
+    },
+    "Notify with Keyword" : {
+      "comment" : "Rule action: posts a notification a Shortcuts automation can watch for",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "התראה עם מילת מפתח"
+          }
+        }
+      }
+    },
+    "Number" : {
+      "comment" : "Add a number condition",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מספר"
+          }
+        }
+      }
+    },
+    "Number of Attachments" : {
+      "comment" : "Rule field: attachment count",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מספר הקבצים המצורפים"
+          }
+        }
+      }
+    },
+    "Number of Bcc" : {
+      "comment" : "Rule field: Bcc count",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מספר הנמענים בעותק מוסתר"
+          }
+        }
+      }
+    },
+    "Number of Cc" : {
+      "comment" : "Rule field: Cc count",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מספר הנמענים בעותק"
+          }
+        }
+      }
+    },
+    "Number of Recipients" : {
+      "comment" : "Rule field: all recipients",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מספר הנמענים"
+          }
+        }
+      }
+    },
+    "Number of To" : {
+      "comment" : "Rule field: To count",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מספר הנמענים ב״אל״"
+          }
+        }
+      }
+    },
+    "Pin" : {
+      "comment" : "Rule action",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצמדה"
+          }
+        }
+      }
+    },
+    "Pinned" : {
+      "comment" : "Rule flag",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מוצמדת"
+          }
+        }
+      }
+    },
+    "Preview" : {
+      "comment" : "Rule field: preview",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תצוגה מקדימה"
+          }
+        }
+      }
+    },
+    "Received Within" : {
+      "comment" : "Add a recency condition",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "התקבלה בתוך"
+          }
+        }
+      }
+    },
+    "Reply-To" : {
+      "comment" : "Rule field: Reply-To",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השב אל"
+          }
+        }
+      }
+    },
+    "Report Spam" : {
+      "comment" : "Rule action",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דיווח כספאם"
+          }
+        }
+      }
+    },
+    "Sender Address" : {
+      "comment" : "Rule field: sender's address",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כתובת השולח"
+          }
+        }
+      }
+    },
+    "Sender Domain" : {
+      "comment" : "Rule field: sender's domain",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דומיין השולח"
+          }
+        }
+      }
+    },
+    "Sender Name" : {
+      "comment" : "Rule field: sender's name",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שם השולח"
+          }
+        }
+      }
+    },
+    "Snooze" : {
+      "comment" : "Rule action",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נודניק"
+          }
+        }
+      }
+    },
+    "Snoozed" : {
+      "comment" : "Rule flag",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "במצב נודניק"
+          }
+        }
+      }
+    },
+    "Status" : {
+      "comment" : "Add a yes/no condition",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מצב"
+          }
+        }
+      }
+    },
+    "Subject" : {
+      "comment" : "Rule field: subject",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נושא"
+          }
+        }
+      }
+    },
+    "Text" : {
+      "comment" : "Add a text condition",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "טקסט"
+          }
+        }
+      }
+    },
+    "Text Length" : {
+      "comment" : "Rule field: characters in body",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אורך הטקסט"
+          }
+        }
+      }
+    },
+    "Time of Day" : {
+      "comment" : "Add a time condition",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שעה ביום"
+          }
+        }
+      }
+    },
+    "To" : {
+      "comment" : "Rule field: To recipients",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אל"
+          }
+        }
+      }
+    },
+    "Total Price" : {
+      "comment" : "Rule field: order total",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סה״כ לתשלום"
+          }
+        }
+      }
+    },
+    "Unread" : {
+      "comment" : "Rule flag",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא נקראה"
+          }
+        }
+      }
+    },
+    "Unsubscribe Link" : {
+      "comment" : "Rule field: list link",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קישור להסרה מרשימה"
+          }
+        }
+      }
+    },
+    "Weeks" : {
+      "comment" : "Length unit",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שבועות"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

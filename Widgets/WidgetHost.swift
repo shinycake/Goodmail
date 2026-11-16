@@ -63,7 +63,8 @@
             }
         }
 
-        /// Network intents run in the app (`allowedExecutionTargets`), never here.
+        /// Unsubscribing and checking for mail need the network and the app's sign-ins, which the widget doesn't
+        /// hold. If one of these intents runs here, it fails with that reason instead of half-running.
         func unsubscribe(_ unsubscribe: Unsubscribe, account: AccountID) async throws -> ListUnsubscriber.Outcome {
             throw WidgetHostError.needsTheApp
         }

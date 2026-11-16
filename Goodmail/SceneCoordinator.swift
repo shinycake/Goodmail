@@ -123,6 +123,7 @@ final class SceneCoordinator: NSObject {
                 else { return }
                 model.accounts.isEmpty ? showWelcome() : showMailbox()
             })
+        viewModel.rules = model.rulesService()
         viewModel.autoReply = { model.autoReplyService(for: $0) }
         viewModel.serverSettings = { model.serverSettingsService(for: $0) }
         if model.pushRegistrar != nil {

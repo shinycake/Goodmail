@@ -1,0 +1,347 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Add Action" : {
+      "comment" : "Adds an action to a rule",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הוספת פעולה"
+          }
+        }
+      }
+    },
+    "Add Condition" : {
+      "comment" : "Adds a condition to a rule",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הוספת תנאי"
+          }
+        }
+      }
+    },
+    "Add Rule" : {
+      "comment" : "Adds a mail rule",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הוספת כלל"
+          }
+        }
+      }
+    },
+    "All" : {
+      "comment" : "Every condition must hold",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הכול"
+          }
+        }
+      }
+    },
+    "Any" : {
+      "comment" : "One condition is enough",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אחד מהם"
+          }
+        }
+      }
+    },
+    "Between" : {
+      "comment" : "Condition: received between two times; it may cross midnight",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בין"
+          }
+        }
+      }
+    },
+    "Choose Label" : {
+      "comment" : "Picks one of the labels",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בחירת תווית"
+          }
+        }
+      }
+    },
+    "Couldn’t Load Rules" : {
+      "comment" : "Shown when the rules can't be read",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן לטעון את הכללים"
+          }
+        }
+      }
+    },
+    "Couldn’t Save Rules" : {
+      "comment" : "Alert title when storing the rules failed",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן לשמור את הכללים"
+          }
+        }
+      }
+    },
+    "Day of the Week" : {
+      "comment" : "Condition: weekday",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "יום בשבוע"
+          }
+        }
+      }
+    },
+    "Do" : {
+      "comment" : "Header of the rule's actions",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לבצע"
+          }
+        }
+      }
+    },
+    "Has Label" : {
+      "comment" : "Condition: carries a label",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "יש תווית"
+          }
+        }
+      }
+    },
+    "Holds" : {
+      "comment" : "Whether the status holds",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מתקיים"
+          }
+        }
+      }
+    },
+    "Keyword" : {
+      "comment" : "Placeholder: the notification's title, which a Shortcuts automation watches for",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מילת מפתח"
+          }
+        }
+      }
+    },
+    "Label Name" : {
+      "comment" : "Placeholder: a label's name",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שם התווית"
+          }
+        }
+      }
+    },
+    "Match" : {
+      "comment" : "Whether all or any conditions must hold",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "התאמה"
+          }
+        }
+      }
+    },
+    "Name" : {
+      "comment" : "Placeholder: rule name",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שם"
+          }
+        }
+      }
+    },
+    "No" : {
+      "comment" : "The status doesn't hold",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא"
+          }
+        }
+      }
+    },
+    "No Rules" : {
+      "comment" : "Shown when there are no rules",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אין כללים"
+          }
+        }
+      }
+    },
+    "Number" : {
+      "comment" : "Placeholder: a number",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מספר"
+          }
+        }
+      }
+    },
+    "Received Within the Last" : {
+      "comment" : "Condition: received at most this long ago",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "התקבלה במהלך ה־"
+          }
+        }
+      }
+    },
+    "Rules" : {
+      "comment" : "Title of the mail rules screen",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כללים"
+          }
+        }
+      }
+    },
+    "Rules act on new mail as it arrives: snooze it, file it, flag it, or tell a shortcut." : {
+      "comment" : "Explains mail rules under their Settings row",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כללים פועלים על דואר חדש ברגע שהוא מגיע: נודניק, תיוק, סימון בדגל או הפעלת קיצור."
+          }
+        }
+      }
+    },
+    "Rules run in this order on each new message from someone else. To run a shortcut when mail arrives, give a rule Notify with Keyword, then in Shortcuts make an automation for Goodmail notifications that contain the keyword." : {
+      "comment" : "Explains rule order and how to start a shortcut from a rule",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הכללים פועלים לפי הסדר הזה על כל הודעה חדשה שמישהו אחר שלח. כדי להפעיל קיצור כשמגיע דואר, הוסיפו לכלל ״התראה עם מילת מפתח״, ואז צרו ב״קיצורים״ אוטומציה להתראות של Goodmail שמכילות את מילת המפתח."
+          }
+        }
+      }
+    },
+    "Stop Other Rules" : {
+      "comment" : "Toggle: rules after this one skip the mail it acted on",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עצירת שאר הכללים"
+          }
+        }
+      }
+    },
+    "Try Again" : {
+      "comment" : "Reads the rules again",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ניסיון נוסף"
+          }
+        }
+      }
+    },
+    "Unit" : {
+      "comment" : "Hours, days or weeks",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "יחידה"
+          }
+        }
+      }
+    },
+    "Value" : {
+      "comment" : "Placeholder: text to match",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ערך"
+          }
+        }
+      }
+    },
+    "When a Message Arrives" : {
+      "comment" : "Header of the conditions",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כשמגיעה הודעה"
+          }
+        }
+      }
+    },
+    "When this rule acts on a message, the rules after it leave that message alone." : {
+      "comment" : "Explains Stop Other Rules",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כשהכלל הזה פועל על הודעה, הכללים שאחריו לא נוגעים בה."
+          }
+        }
+      }
+    },
+    "Yes" : {
+      "comment" : "The status holds",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כן"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
