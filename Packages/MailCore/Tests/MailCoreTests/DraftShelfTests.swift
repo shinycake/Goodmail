@@ -68,6 +68,25 @@ struct DraftShelfTests {
         #expect(shelf.entries.map(\.composer) == ["Lunch"])
     }
 
+    @Test func shelvedDraftsComeBackMinimizedInOrder() {
+        var shelf = DraftShelf<String>()
+        let lunch = draft("Lunch")
+        shelf.shelve(lunch, in: "Lunch")
+        shelf.shelve(draft("Budget"), in: "Budget")
+        shelf.shelve(lunch, in: "Lunch again")
+        #expect(shelf.state == .minimized)
+        #expect(shelf.entries.map(\.composer) == ["Lunch", "Budget"])
+    }
+
+    @Test func shelvingWhileWritingKeepsWriting() {
+        var shelf = DraftShelf<String>()
+        let budget = draft("Budget")
+        shelf.open(budget, in: "Budget")
+        shelf.shelve(draft("Lunch"), in: "Lunch")
+        #expect(shelf.state == .writing(budget.id))
+        #expect(shelf.entries.map(\.composer) == ["Budget", "Lunch"])
+    }
+
     @Test func swipingUpOnOneDraftOpensIt() {
         var shelf = shelved([draft("Lunch")])
         shelf.reopen()

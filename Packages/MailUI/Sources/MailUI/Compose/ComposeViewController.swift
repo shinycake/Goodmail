@@ -531,8 +531,8 @@ public final class ComposeViewController: UIViewController {
         if view.window != nil { dismiss(animated: true) }
     }
 
-    /// The draft as written so far, for the minimized bar and the picker.
-    var written: Draft { viewModel.finished(body: body) }
+    /// The draft as written so far, for the minimized bar and the picker; as it opened before the editor loads.
+    var written: Draft { isViewLoaded ? viewModel.finished(body: body) : viewModel.draft }
 
     /// Swiped down: a message with something in it is minimized and kept with the provider, one without is closed.
     private func swipedAway() {

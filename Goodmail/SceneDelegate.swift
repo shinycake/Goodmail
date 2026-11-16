@@ -87,6 +87,11 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         coordinator?.activity
     }
 
+    /// The window closed, or the system put it away: its minimized messages are free for another window to take.
+    func sceneDidDisconnect(_ scene: UIScene) {
+        coordinator?.close()
+    }
+
     /// Handoff into a window that is already open.
     func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
         guard let state = Self.windowState(in: userActivity) else { return }

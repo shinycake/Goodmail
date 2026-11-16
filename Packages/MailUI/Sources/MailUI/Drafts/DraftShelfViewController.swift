@@ -9,6 +9,9 @@ public final class DraftShelfViewController: UIViewController {
     private let bar = MinimizedDraftsBar()
     /// Ends the content at the bar while messages are minimized, else at the bottom of the screen.
     private var contentBottom: NSLayoutConstraint?
+    /// Keeps the messages in progress, the last one written first, so they come back after the app is closed. Told
+    /// after each change, and as the window leaves the screen with the one being written as it stands then.
+    public var keep: (([Draft]) -> Void)?
     /// The bar's sides, from the physical left and right: inside the safe area, and off iPhone Duo's fold (`FoldLane`).
     private var barLeft: NSLayoutConstraint!
     private var barRight: NSLayoutConstraint!
@@ -39,7 +42,11 @@ public final class DraftShelfViewController: UIViewController {
         view.backgroundColor = .shelfBackground
         bar.translatesAutoresizingMaskIntoConstraints = false
         bar.isHidden = true
+        bar.alpha = 0
         bar.onOpen = { [weak self] in self?.reopen() }
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(sceneDidEnterBackground(_:)), name: UIScene.didEnterBackgroundNotification,
+            object: nil)
         view.addSubview(bar)
         // At least this tall; larger text grows the bar, and the mail screens above it shrink to fit.
         let fitted = bar.topAnchor.constraint(
@@ -55,6 +62,14 @@ public final class DraftShelfViewController: UIViewController {
                 lessThanOrEqualTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -MinimizedDraftsBar.height),
             fitted,
         ])
+    }
+
+    /// Only this window's own scene keeps its drafts as it leaves, with what is being written as it stands.
+    @objc private func sceneDidEnterBackground(_ notification: Notification) {
+        guard let scene = notification.object as? UIScene, scene === view.window?.windowScene,
+            !shelf.entries.isEmpty
+        else { return }
+        keep?(inProgress)
     }
 
     public override func viewDidLayoutSubviews() {
@@ -85,7 +100,7 @@ public final class DraftShelfViewController: UIViewController {
             content.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
         ])
         content.didMove(toParent: self)
-        layOutContent(showsBar: !bar.isHidden)
+        layOutContent(showsBar: barShows)
     }
 
     /// Writes `composer`'s message, minimizing the one being written. A message already in progress opens in the
@@ -107,14 +122,14 @@ public final class DraftShelfViewController: UIViewController {
     private func write(_ composer: ComposeViewController) {
         composer.host = self
         shelf.open(composer.viewModel.draft, in: composer)
-        updateBar()
+        shelfChanged()
         if let writing = shelf.writing?.composer { present(writing) }
     }
 
     /// Swiping up on the bar: one message opens, several are laid out to pick from.
     private func reopen() {
         shelf.reopen()
-        updateBar()
+        shelfChanged()
         switch shelf.state {
         case .writing:
             if let composer = shelf.writing?.composer { present(composer) }
@@ -155,7 +170,7 @@ public final class DraftShelfViewController: UIViewController {
 
     private func choose(_ id: Draft.ID) {
         shelf.choose(id)
-        updateBar()
+        shelfChanged()
         guard let composer = shelf.writing?.composer else { return }
         closePicker { [weak self] in self?.present(composer) }
     }
@@ -200,20 +215,47 @@ public final class DraftShelfViewController: UIViewController {
         return top
     }
 
+    /// Shows what the shelf holds now, and hands it to `keep`.
+    private func shelfChanged() {
+        updateBar()
+        keep?(inProgress)
+    }
+
+    /// The messages in progress as written so far, the last one written first: the one being written as it stands
+    /// now, the others as they were minimized.
+    private var inProgress: [Draft] {
+        shelf.entries.map { shelf.state == .writing($0.id) ? $0.composer.written : $0.draft }
+    }
+
+    /// Puts `composers` back in the bar behind any messages there, as minimized after the app last ran.
+    public func restore(_ composers: [ComposeViewController]) {
+        for composer in composers {
+            composer.host = self
+            shelf.shelve(composer.viewModel.draft, in: composer)
+        }
+        shelfChanged()
+    }
+
     /// Shows the bar while messages are minimized, and fits the content above it.
     private func updateBar() {
         bar.show(shelf.entries.map(\.draft))
         // Every message but the one being written waits in the bar.
         let showsBar = shelf.entries.contains { shelf.state != .writing($0.id) }
-        guard showsBar == bar.isHidden else { return }
-        if showsBar { bar.isHidden = false }
+        guard showsBar != barShows else { return }
+        bar.isHidden = false
         UIView.animate(springDuration: 0.4, bounce: 0.15) {
             self.bar.alpha = showsBar ? 1 : 0
             self.layOutContent(showsBar: showsBar)
             self.view.layoutIfNeeded()
         } completion: { _ in
-            self.bar.isHidden = !showsBar
+            // A show that came while this hide ran leaves the bar showing.
+            self.bar.isHidden = !self.barShows
         }
+    }
+
+    /// Whether the bar shows, or is on its way in. Its alpha holds where the last change sends it, even mid-animation.
+    private var barShows: Bool {
+        bar.alpha > 0
     }
 
     private func layOutContent(showsBar: Bool) {
@@ -234,12 +276,12 @@ public final class DraftShelfViewController: UIViewController {
 extension DraftShelfViewController: ComposerHost {
     func composerDidMinimize(_ composer: ComposeViewController) {
         shelf.minimize(composer.written)
-        updateBar()
+        shelfChanged()
     }
 
     func composerDidClose(_ composer: ComposeViewController) {
         shelf.finish(composer.viewModel.draft.id)
-        updateBar()
+        shelfChanged()
         switch shelf.state {
         case .choosing: picker?.show(shelf.entries.map(\.draft))
         case .empty, .minimized, .writing: closePicker()

@@ -25,6 +25,8 @@ final class AppModel {
     let health = AccountHealthBoard()
     /// Senders' photos and logos for the mail screens.
     let senderPictures: SenderPictures
+    /// The messages minimized in each window, kept for the next launch.
+    let minimizedDrafts: MinimizedDrafts
     private let senders: Senders
     /// Keeps each account's push subscription current; `nil` when the build names no push relay.
     let pushRegistrar: PushRegistrar?
@@ -55,6 +57,7 @@ final class AppModel {
         self.database = database
         self.sharing = sharing
         senderPictures = .cached(with: database)
+        minimizedDrafts = MinimizedDrafts(database: database)
         accounts = try database.accounts()
         pushRegistrar = pushRelay.map {
             PushRegistrar(relay: PushRelayClient(baseURL: $0), store: database)

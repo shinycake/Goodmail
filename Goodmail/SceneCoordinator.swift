@@ -29,6 +29,8 @@ final class SceneCoordinator: NSObject {
     var sharingObserver: (any NSObjectProtocol)?
     /// The window's root, which holds the mail screens and the messages minimized below them.
     private let drafts = DraftShelfViewController()
+    /// Names this window's minimized messages in the database. Fresh each launch, so the next one finds them unclaimed.
+    private let windowID = UUID().uuidString
     /// What the mail screens show, kept so either arrangement can be rebuilt when the window changes width, and
     /// saved for the system to restore the window or hand it off (`activity`).
     private var shown: WindowState {
@@ -46,6 +48,7 @@ final class SceneCoordinator: NSObject {
         super.init()
         actions.reopen = { [weak self] draft in self?.handle(.compose(draft)) }
         drafts.newMessage = { [weak self] account in self?.handle(.compose(Draft(accountID: account))) }
+        drafts.keep = { [minimized = model.minimizedDrafts, window = windowID] in minimized.keep($0, for: window) }
     }
 
     isolated deinit {
@@ -53,6 +56,11 @@ final class SceneCoordinator: NSObject {
         failures?.cancel()
         signingInAgain?.cancel()
         answering?.cancel()
+    }
+
+    /// The window is going away; another window may take its minimized messages.
+    func close() {
+        model.minimizedDrafts.close(windowID)
     }
 
     func start() {
@@ -63,6 +71,10 @@ final class SceneCoordinator: NSObject {
         } else {
             showMailbox(shown)
             checkGmailSignIns()
+            model.minimizedDrafts.claim(for: windowID) { [weak self] minimized in
+                guard let self else { return }
+                drafts.restore(minimized.compactMap { self.composer(for: $0) })
+            }
         }
         failures = Task { [weak self, database = model.database] in
             do {
@@ -496,20 +508,25 @@ final class SceneCoordinator: NSObject {
                 }
             }
         case .compose(let draft):
-            guard let account = model.accounts.first(where: { $0.id == draft.accountID }) else { return }
-            let actions = actions
-            let suggester = RecipientSuggester(
-                writtenIn: { [database = model.database] in try database.contacts(matching: $0) },
-                addressBook: SystemAddressBook())
-            let composer = ComposeViewController(
-                viewModel: ComposeViewModel(
-                    draft: draft, accountEmail: account.email, senders: model.accounts,
-                    signature: { [database = model.database] in try? database.signature(for: $0) },
-                    suggest: { await suggester.suggestions(for: $0) },
-                    saveDraft: { actions.saveDraft($0, $1) }, deleteDraft: { actions.deleteDraft($0) },
-                    send: { actions.send($0, at: $1) }))
+            guard let composer = composer(for: draft) else { return }
             drafts.open(composer)
         }
+    }
+
+    /// A composer for `draft`, or `nil` once its account is gone.
+    private func composer(for draft: Draft) -> ComposeViewController? {
+        guard let account = model.accounts.first(where: { $0.id == draft.accountID }) else { return nil }
+        let actions = actions
+        let suggester = RecipientSuggester(
+            writtenIn: { [database = model.database] in try database.contacts(matching: $0) },
+            addressBook: SystemAddressBook())
+        return ComposeViewController(
+            viewModel: ComposeViewModel(
+                draft: draft, accountEmail: account.email, senders: model.accounts,
+                signature: { [database = model.database] in try? database.signature(for: $0) },
+                suggest: { await suggester.suggestions(for: $0) },
+                saveDraft: { actions.saveDraft($0, $1) }, deleteDraft: { actions.deleteDraft($0) },
+                send: { actions.send($0, at: $1) }))
     }
 }
 

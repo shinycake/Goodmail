@@ -43,6 +43,14 @@ public struct DraftShelf<Composer> {
         choose(draft.id)
     }
 
+    /// Puts `draft` back in the bar behind the others, as when the app opens again with it minimized. A draft already in
+    /// progress stays as it is.
+    public mutating func shelve(_ draft: Draft, in composer: Composer) {
+        guard !entries.contains(where: { $0.id == draft.id }) else { return }
+        entries.append(Entry(composer: composer, draft: draft))
+        if state == .empty { state = .minimized }
+    }
+
     /// Minimizes the draft being written, keeping it as `draft` shows it now.
     public mutating func minimize(_ draft: Draft) {
         guard state == .writing(draft.id), let index = entries.firstIndex(where: { $0.id == draft.id }) else {

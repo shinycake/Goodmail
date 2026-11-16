@@ -348,6 +348,16 @@ public final class MailDatabase: Sendable {
                     "DELETE FROM syncState WHERE accountID IN (SELECT id FROM account WHERE service IN ('icloud', 'imap'))"
             )
         }
+        migrator.registerMigration("v30-minimized-drafts") { db in
+            // The messages minimized at the bottom of each window, as written, in order (`draft` is a Draft as JSON).
+            try db.create(table: "minimizedDraft") { table in
+                table.primaryKey("draftID", .text)
+                table.column("window", .text).notNull()
+                table.column("position", .integer).notNull()
+                table.column("accountID", .text).notNull().references("account", onDelete: .cascade)
+                table.column("draft", .text).notNull()
+            }
+        }
         return migrator
     }
 }
