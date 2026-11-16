@@ -334,6 +334,12 @@ public final class MailDatabase: Sendable {
                 table.column("through", .datetime).notNull()
             }
         }
+        migrator.registerMigration("v28-focus") { db in
+            // Whether the current Focus filter shows the account in the blended views (FocusFilter).
+            try db.alter(table: "account") { table in
+                table.add(column: "inFocus", .boolean).notNull().defaults(to: true)
+            }
+        }
         return migrator
     }
 }

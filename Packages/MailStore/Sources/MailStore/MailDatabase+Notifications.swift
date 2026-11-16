@@ -26,7 +26,8 @@ extension MailDatabase: NotificationStore {
 
     /// The threads among `arrived` that alert, newest first, recorded as seen in the same transaction, so two
     /// processes catching up on the same change alert for it once. A reply to a thread muted on the device never
-    /// alerts.
+    /// alerts. An account the Focus leaves out alerts for none, and its mail still counts as seen, so it doesn't all
+    /// alert once the Focus ends.
     public func claimAlerts(among arrived: [ThreadSummary], in account: Account, now: Date) throws -> [ThreadSummary] {
         try write { db in
             var settings = try Self.notifications(for: account.id, now: now, in: db)
@@ -34,7 +35,7 @@ extension MailDatabase: NotificationStore {
             let (threads, seenThrough) = settings.alerts(among: audible, in: account)
             settings.seenThrough = seenThrough
             try NotificationSettingsRecord(account: account.id, settings).save(db)
-            return threads
+            return try Self.isInFocus(account.id, in: db) ? threads : []
         }
     }
 

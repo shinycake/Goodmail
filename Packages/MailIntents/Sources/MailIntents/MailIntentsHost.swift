@@ -42,6 +42,8 @@ public protocol MailIntentsHost: Sendable {
     func refresh() async throws
     /// Takes back what `perform` or `pin` did, through `MailCommands`, when the system asks an intent to undo.
     func undo(_ undo: MailCommands.Undo) async throws
+    /// Narrows the views that blend every account, and the alerts, to the accounts the Focus names.
+    func apply(_ focus: FocusFilter) throws
     /// Shows `route` in the frontmost window (ADR-011).
     @MainActor func open(_ route: Route)
 }

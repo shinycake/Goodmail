@@ -13,7 +13,8 @@ extension MailDatabase {
         try write { db in try BadgeSettingRecord(accountID: account.rawValue, source: source.rawValue).save(db) }
     }
 
-    /// The app badge: each account's unread threads in what its `BadgeSource` counts.
+    /// The app badge: each account's unread threads in what its `BadgeSource` counts. An account the Focus leaves out
+    /// counts none.
     public func badgeCount() throws -> Int {
         try pool.read { db in try Self.badgeCount(in: db) }
     }
@@ -24,8 +25,9 @@ extension MailDatabase {
     }
 
     static func badgeCount(in db: Database) throws -> Int {
+        let inFocus = Set(try String.fetchAll(db, sql: "SELECT id FROM account WHERE inFocus"))
         var total = 0
-        for (id, source) in try badgeSources(in: db) {
+        for (id, source) in try badgeSources(in: db) where inFocus.contains(id.rawValue) {
             let inbox = Mailbox(labelID: SystemLabel.inbox, accountID: id)
             let query: (sql: String, arguments: StatementArguments)
             switch source {

@@ -128,6 +128,8 @@
             try await BackgroundDatabaseWork.shared.run("Intent") { try await commands.undo(undo) }
         }
 
+        func apply(_ focus: FocusFilter) throws { try database.apply(focus) }
+
         @MainActor func open(_ route: Route) { routes.open(route) }
     }
 

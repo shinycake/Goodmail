@@ -118,6 +118,8 @@ struct FakeHost: MailIntentsHost {
         performed.recordUndo(of: undo)
     }
 
+    func apply(_ focus: FocusFilter) throws {}
+
     @MainActor func open(_ route: Route) {}
 }
 

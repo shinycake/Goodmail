@@ -31,6 +31,16 @@
         }
       }
     },
+    "Accounts" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חשבונות"
+          }
+        }
+      }
+    },
     "Add" : {
       "localizations" : {
         "he" : {
@@ -217,6 +227,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "מוחק לצמיתות את ההודעות של שיחות שבאשפה. הודעות בכל מקום אחר נשארות."
+          }
+        }
+      }
+    },
+    "Every Account" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כל החשבונות"
           }
         }
       }
@@ -627,6 +647,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "שולח אימייל מאחד החשבונות שלך בלי לפתוח את Goodmail, עכשיו או בזמן שתבחר."
+          }
+        }
+      }
+    },
+    "Show and alert only for the chosen accounts." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצגה והתראות רק עבור החשבונות שנבחרו."
           }
         }
       }

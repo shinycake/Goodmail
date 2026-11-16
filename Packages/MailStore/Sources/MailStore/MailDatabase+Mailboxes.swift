@@ -16,6 +16,7 @@ extension MailDatabase {
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         let userLabels = Set(labels.map { Mailbox(labelID: $0.id, accountID: AccountID(rawValue: $0.accountID)) })
 
+        let inFocus = Set(try String.fetchAll(db, sql: "SELECT id FROM account WHERE inFocus"))
         var counts: [Mailbox: Int] = [:]
         let rows = try Row.fetchAll(
             db,
@@ -28,10 +29,12 @@ extension MailDatabase {
         for row in rows {
             let own = Mailbox(labelID: row["labelID"], accountID: AccountID(rawValue: row["accountID"]))
             let unread: Int = row["unread"]
-            // A user label counts in its own account; a system label counts in its account and in the blend of every
-            // account's.
+            // A user label counts in its own account; a system label counts in its account and, while the Focus shows
+            // the account, in the blend of every account's.
             counts[own, default: 0] += unread
-            if !userLabels.contains(own) { counts[Mailbox(labelID: own.labelID), default: 0] += unread }
+            if !userLabels.contains(own), inFocus.contains(row["accountID"]) {
+                counts[Mailbox(labelID: own.labelID), default: 0] += unread
+            }
         }
         let allMail = threadQuery(in: .allMail)
         let allMailUnread =

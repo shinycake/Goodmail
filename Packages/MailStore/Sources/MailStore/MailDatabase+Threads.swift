@@ -93,6 +93,8 @@ extension MailDatabase {
         if let account = mailbox.accountID {
             sql += " AND thread.accountID = ?"
             arguments += [account.rawValue]
+        } else {
+            sql += " AND thread.accountID IN (SELECT id FROM account WHERE inFocus)"
         }
         return (sql, arguments)
     }

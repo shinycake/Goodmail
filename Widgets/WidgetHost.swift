@@ -78,6 +78,8 @@
 
         func send(_ draft: Draft, at date: Date?) async throws { throw WidgetHostError.needsTheApp }
 
+        func apply(_ focus: FocusFilter) throws { try database.apply(focus) }
+
         func undo(_ undo: MailCommands.Undo) async throws {
             try await commands.undo(undo)
         }
