@@ -28,8 +28,10 @@ export const connectToServer: Connect = (login) =>
     { secureTransport: login.security === "tls" ? "on" : "starttls", allowHalfOpen: false },
   );
 
-/** A whole conversation, greeting to logout, gets this long. */
+/** Setting up, from the greeting to the first STATUS, gets this long; so does logging out after watching. */
 const TIMEOUT_MS = 20_000;
+/** Watching stops this long before its deadline, to leave time to log out before the next check starts. */
+const IDLE_MARGIN_MS = 3_000;
 
 /**
  * Logs in and reads the Inbox's STATUS: one short conversation, so the relay holds no connection between checks.
@@ -37,13 +39,42 @@ const TIMEOUT_MS = 20_000;
  * saying it is unavailable) for a failure worth trying again.
  */
 export async function inboxStatus(login: ImapLogin, open: Connect = connectToServer): Promise<InboxStatus> {
+  let first: InboxStatus | undefined;
+  await watchInbox(
+    login,
+    0,
+    async (status) => {
+      first = status;
+    },
+    open,
+  );
+  if (!first) throw new Error("IMAP server sent no STATUS");
+  return first;
+}
+
+/**
+ * Logs in, hands `onStatus` the Inbox's STATUS, then keeps watching the Inbox with IDLE (RFC 2177) until `until`
+ * (ms since 1970):
+ * each time the server announces new mail, it reads the STATUS again and hands it over at once, so an alert goes out
+ * within seconds. One login covers the whole time, and waiting costs the Worker no CPU. A server without IDLE gets the
+ * first STATUS only. Throws as `inboxStatus` does, for the login or the first STATUS; a connection lost while
+ * watching just ends the watch, since the next check logs in again.
+ */
+export async function watchInbox(
+  login: ImapLogin,
+  until: number,
+  onStatus: (status: InboxStatus) => Promise<void>,
+  open: Connect = connectToServer,
+): Promise<void> {
+  const deadline = until - IDLE_MARGIN_MS;
   let socket = open(login);
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error("IMAP server timed out")), TIMEOUT_MS);
-  });
+  const timers: ReturnType<typeof setTimeout>[] = [];
+  const timeout = (ms: number) =>
+    new Promise<never>((_, reject) => {
+      timers.push(setTimeout(() => reject(new Error("IMAP server timed out")), ms));
+    });
   try {
-    return await Promise.race([
+    let conversation = await Promise.race([
       (async () => {
         let conversation = new Conversation(socket);
         const greeting = await conversation.line();
@@ -55,17 +86,60 @@ export async function inboxStatus(login: ImapLogin, open: Connect = connectToSer
           conversation = new Conversation(socket, conversation.tagsSent);
         }
         if (!/^\* PREAUTH\b/i.test(greeting)) await logIn(conversation, login);
-        const untagged = await conversation.command("STATUS INBOX (UIDNEXT UIDVALIDITY)");
-        const status = untagged.map(parseStatus).find((found) => found !== undefined);
-        if (!status) throw new Error("IMAP server sent no STATUS");
-        await conversation.command("LOGOUT").catch(() => undefined);
-        return status;
+        await onStatus(await status(conversation));
+        return conversation;
       })(),
-      timeout,
+      timeout(TIMEOUT_MS),
     ]);
+    if (Date.now() < deadline) {
+      await Promise.race([idle(conversation, deadline, onStatus), timeout(deadline - Date.now() + TIMEOUT_MS)]).catch(
+        (error: unknown) => {
+          if (error instanceof LoginRefused) throw error;
+          console.warn(`IMAP watch ended early: ${error instanceof Error ? error.message : String(error)}`);
+        },
+      );
+    }
+    await Promise.race([conversation.command("LOGOUT"), timeout(TIMEOUT_MS)]).catch(() => undefined);
   } finally {
-    if (timer !== undefined) clearTimeout(timer);
+    for (const timer of timers) clearTimeout(timer);
     await socket.close().catch(() => undefined);
+  }
+}
+
+async function status(conversation: Conversation): Promise<InboxStatus> {
+  const untagged = await conversation.command("STATUS INBOX (UIDNEXT UIDVALIDITY)");
+  const found = untagged.map(parseStatus).find((parsed) => parsed !== undefined);
+  if (!found) throw new Error("IMAP server sent no STATUS");
+  return found;
+}
+
+/**
+ * Selects the Inbox read-only and idles in it until `deadline`, reading the STATUS again whenever the server says the
+ * Inbox grew (`* n EXISTS`). Returns at once when the server doesn't take IDLE.
+ */
+async function idle(
+  conversation: Conversation,
+  deadline: number,
+  onStatus: (status: InboxStatus) => Promise<void>,
+): Promise<void> {
+  await conversation.command("EXAMINE INBOX");
+  while (Date.now() < deadline) {
+    let tag;
+    try {
+      tag = await conversation.begin("IDLE");
+    } catch (error) {
+      if (error instanceof CommandFailed) return;
+      throw error;
+    }
+    let arrived = false;
+    for (let line = await conversation.lineBy(deadline); line !== undefined; line = await conversation.lineBy(deadline)) {
+      if (/^\* \d+ EXISTS\b/i.test(line)) {
+        arrived = true;
+        break;
+      }
+    }
+    await conversation.finish(tag, "DONE");
+    if (arrived) await onStatus(await status(conversation));
   }
 }
 
@@ -107,6 +181,12 @@ export function parseStatus(line: string): InboxStatus | undefined {
   return { uidNext: uidNext!, uidValidity: uidValidity! };
 }
 
+/** A tagged NO or BAD as a `CommandFailed`. */
+function failure(line: string): CommandFailed {
+  const [, status, rest] = /^\S+ (NO|BAD)\b ?(.*)$/i.exec(line) ?? [];
+  return new CommandFailed(status?.toUpperCase() === "NO" ? "NO" : "BAD", rest ?? line);
+}
+
 class CommandFailed extends Error {
   constructor(
     readonly status: "NO" | "BAD",
@@ -122,6 +202,7 @@ class Conversation {
   private readonly writer: WritableStreamDefaultWriter<Uint8Array>;
   private readonly decoder = new TextDecoder();
   private buffered = "";
+  private pending: Promise<ReadableStreamReadResult<Uint8Array>> | undefined;
 
   /** Tags carry on from `tagsSent` commands, as on the plain connection before STARTTLS. */
   constructor(
@@ -133,6 +214,16 @@ class Conversation {
   }
 
   async line(): Promise<string> {
+    const line = await this.lineBy(Infinity);
+    if (line === undefined) throw new Error("IMAP server sent no line");
+    return line;
+  }
+
+  /**
+   * The next line, or undefined when none comes by `deadline` (ms since 1970). A read still waiting then is kept for
+   * the next call, so no line is lost.
+   */
+  async lineBy(deadline: number): Promise<string | undefined> {
     for (;;) {
       const end = this.buffered.indexOf("\r\n");
       if (end >= 0) {
@@ -140,16 +231,47 @@ class Conversation {
         this.buffered = this.buffered.slice(end + 2);
         return line;
       }
-      const { value, done } = await this.reader.read();
-      if (done) throw new Error("IMAP server closed the connection");
-      this.buffered += this.decoder.decode(value, { stream: true });
+      this.pending ??= this.reader.read();
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const late = new Promise<"late">((resolve) => {
+        if (deadline !== Infinity) timer = setTimeout(() => resolve("late"), Math.max(0, deadline - Date.now()));
+      });
+      const result = await Promise.race([this.pending, late]);
+      if (timer !== undefined) clearTimeout(timer);
+      if (result === "late") return undefined;
+      this.pending = undefined;
+      if (result.done) throw new Error("IMAP server closed the connection");
+      this.buffered += this.decoder.decode(result.value, { stream: true });
     }
   }
 
   /** Sends `text` and reads to its tagged reply. Returns the untagged lines; throws `CommandFailed` for NO or BAD. */
   async command(text: string): Promise<string[]> {
+    return this.finish(await this.send(text));
+  }
+
+  /**
+   * Sends `text` and reads to the server's go-ahead (`+`), as IDLE answers. Returns the tag for `finish`; throws
+   * `CommandFailed` when the server answers NO or BAD instead.
+   */
+  async begin(text: string): Promise<string> {
+    const tag = await this.send(text);
+    for (;;) {
+      const line = await this.line();
+      if (line.startsWith("+")) return tag;
+      if (line.startsWith(`${tag} `)) throw failure(line);
+    }
+  }
+
+  private async send(text: string): Promise<string> {
     const tag = `g${++this.tagsSent}`;
     await this.writer.write(new TextEncoder().encode(`${tag} ${text}\r\n`));
+    return tag;
+  }
+
+  /** Sends `line`, if any, and reads to `tag`'s tagged reply, as `command` does. */
+  async finish(tag: string, line?: string): Promise<string[]> {
+    if (line !== undefined) await this.writer.write(new TextEncoder().encode(`${line}\r\n`));
     const untagged: string[] = [];
     for (;;) {
       const line = await this.line();
@@ -157,9 +279,8 @@ class Conversation {
         untagged.push(line);
         continue;
       }
-      const [, status, rest] = /^\S+ (OK|NO|BAD)\b ?(.*)$/i.exec(line) ?? [];
-      if (status?.toUpperCase() === "OK") return untagged;
-      throw new CommandFailed(status?.toUpperCase() === "NO" ? "NO" : "BAD", rest ?? line);
+      if (/^\S+ OK\b/i.test(line)) return untagged;
+      throw failure(line);
     }
   }
 

@@ -77,7 +77,7 @@ export default {
     }
   },
 
-  /** Each minute (wrangler.toml `[triggers]`): looks at the watched IMAP Inboxes. */
+  /** Every 5 minutes (wrangler.toml `[triggers]`): watches the IMAP Inboxes until the next run. */
   async scheduled(_controller: ScheduledController, env: Env, context: ExecutionContext): Promise<void> {
     context.waitUntil(pollWatches(env, signerFor(env), Date.now()));
   },

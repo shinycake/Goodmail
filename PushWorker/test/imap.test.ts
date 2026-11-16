@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { type ImapLogin, inboxStatus, LoginRefused, parseStatus } from "../src/imap";
+import { describe, expect, it, vi } from "vitest";
+import { type ImapLogin, type InboxStatus, inboxStatus, LoginRefused, parseStatus, watchInbox } from "../src/imap";
 import { fakeImap, inboxServer } from "./fake-imap";
 
 const ICLOUD: ImapLogin = {
@@ -54,5 +54,48 @@ describe("inboxStatus", () => {
   it("gives up on a server that doesn't greet", async () => {
     const server = fakeImap(() => inboxServer({ uidValidity: 7, uidNext: 100 }), "* BYE go away");
     await expect(inboxStatus(ICLOUD, server.connect)).rejects.toThrow("didn't greet");
+  });
+});
+
+describe("watchInbox", () => {
+  const statuses: InboxStatus[] = [];
+  const record = async (status: InboxStatus) => {
+    statuses.push(status);
+  };
+
+  it("idles in the Inbox and reads the STATUS again when the server announces new mail", async () => {
+    statuses.length = 0;
+    const inbox = { uidValidity: 7, uidNext: 100 };
+    const server = fakeImap(() => inboxServer(inbox));
+    const watching = watchInbox(ICLOUD, Date.now() + 4_500, record, server.connect);
+    await vi.waitUntil(() => server.sessions[0]?.lines.includes("g4 IDLE"));
+    inbox.uidNext = 101;
+    server.announce("* 4 EXISTS");
+    await watching;
+    expect(statuses).toEqual([
+      { uidValidity: 7, uidNext: 100 },
+      { uidValidity: 7, uidNext: 101 },
+    ]);
+    const lines = server.sessions[0]?.lines ?? [];
+    expect(lines.slice(1, 6)).toEqual([
+      "g2 STATUS INBOX (UIDNEXT UIDVALIDITY)",
+      "g3 EXAMINE INBOX",
+      "g4 IDLE",
+      "DONE",
+      "g5 STATUS INBOX (UIDNEXT UIDVALIDITY)",
+    ]);
+    expect(lines.at(-2)).toBe("DONE");
+    expect(lines.at(-1)).toMatch(/^g\d+ LOGOUT$/);
+    expect(server.sessions).toHaveLength(1);
+  });
+
+  it("gives only the first STATUS for a server without IDLE", async () => {
+    statuses.length = 0;
+    const plain = inboxServer({ uidValidity: 7, uidNext: 100 });
+    const server = fakeImap(() => (tag, command) => (command === "IDLE" ? [`${tag} BAD no IDLE`] : plain(tag, command)));
+    const started = Date.now();
+    await watchInbox(ICLOUD, Date.now() + 60_000, record, server.connect);
+    expect(Date.now() - started).toBeLessThan(1_000);
+    expect(statuses).toHaveLength(1);
   });
 });

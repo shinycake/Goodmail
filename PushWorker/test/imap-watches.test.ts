@@ -79,7 +79,7 @@ async function register(overrides: Record<string, unknown> = {}, address?: strin
   return registerWatch(request("POST", watchBody(overrides), address), testEnv, NOW, imap.connect);
 }
 
-const poll = (now = NOW) => pollWatches(testEnv, signer, now, imap.connect);
+const poll = (now = NOW) => pollWatches(testEnv, signer, now, imap.connect, 0);
 
 describe("registering a watch", () => {
   it("checks a new login and starts from the Inbox's UIDs, keeping the password sealed", async () => {
@@ -174,6 +174,22 @@ describe("polling", () => {
     });
     await poll();
     expect(apnsCalls).toHaveLength(1);
+  });
+
+  it("alerts within the run while it idles, as soon as the server announces mail", async () => {
+    await register();
+    const inbox = { uidValidity: 7, uidNext: 100 };
+    server = inboxServer(inbox);
+    imap.sessions.length = 0;
+    const run = pollWatches(testEnv, signer, NOW, imap.connect, 4_500);
+    await vi.waitUntil(() => imap.sessions[0]?.lines.some((line) => line.endsWith(" IDLE")));
+    expect(apnsCalls).toHaveLength(0);
+    inbox.uidNext = 101;
+    imap.announce("* 4 EXISTS");
+    await vi.waitUntil(() => apnsCalls.length === 1);
+    await run;
+    expect(imap.sessions).toHaveLength(1);
+    expect((await findWatch(env.DB, WATCH_ID))?.inbox.uidNext).toBe(101);
   });
 
   it("stays quiet when nothing arrived", async () => {

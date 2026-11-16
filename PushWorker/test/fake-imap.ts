@@ -5,13 +5,22 @@ export interface FakeImap {
   connect: Connect;
   /** Each connection's login, then the lines the client sent on it ("[TLS]" marks STARTTLS taking effect). */
   sessions: { login: ImapLogin; lines: string[] }[];
+  /** Sends `line` unasked on the newest connection, as a server announcing new mail during IDLE. */
+  announce(line: string): void;
 }
 
 export type Reply = (tag: string, command: string) => string[];
 
 /** iCloud as it answers the relay: LOGIN, STATUS and LOGOUT, with `status` as the Inbox's UIDs. */
 export function inboxServer(status: { uidValidity: number; uidNext: number }, login: "ok" | "refused" = "ok"): Reply {
+  let idling = "";
   return (tag, command) => {
+    if (tag === "DONE") return [`${idling} OK IDLE terminated`];
+    if (command === "EXAMINE INBOX") return ["* 3 EXISTS", `${tag} OK [READ-ONLY] EXAMINE completed`];
+    if (command === "IDLE") {
+      idling = tag;
+      return ["+ idling"];
+    }
     if (command.startsWith("LOGIN")) {
       return login === "ok"
         ? [`${tag} OK [CAPABILITY IMAP4rev1 IDLE] LOGIN completed`]
@@ -28,6 +37,7 @@ export function inboxServer(status: { uidValidity: number; uidNext: number }, lo
 
 export function fakeImap(reply: () => Reply, greeting = "* OK [CAPABILITY IMAP4rev1] ready"): FakeImap {
   const sessions: FakeImap["sessions"] = [];
+  let latest: ((lines: string[]) => void) | undefined;
   const connect: Connect = (login) => {
     const session = { login, lines: [] as string[] };
     sessions.push(session);
@@ -37,6 +47,7 @@ export function fakeImap(reply: () => Reply, greeting = "* OK [CAPABILITY IMAP4r
     const send = (lines: string[]) => {
       for (const line of lines) controller.enqueue(encoder.encode(`${line}\r\n`));
     };
+    latest = send;
     const socket = {
       readable: new ReadableStream<Uint8Array>({
         start(started) {
@@ -61,5 +72,5 @@ export function fakeImap(reply: () => Reply, greeting = "* OK [CAPABILITY IMAP4r
     };
     return socket as unknown as Socket;
   };
-  return { connect, sessions };
+  return { connect, sessions, announce: (line) => latest?.([line]) };
 }

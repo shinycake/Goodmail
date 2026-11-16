@@ -19,9 +19,9 @@ database_name = "goodmail-push"
 database_id = "b56927bb-7405-4dbf-a571-6da65ec30b6b"
 migrations_dir = "migrations"
 
-# iCloud and other IMAP accounts: each watched Inbox is looked at every minute (src/imap-poll.ts).
+# iCloud and other IMAP accounts: every 5 minutes a run logs in to each watched Inbox and holds IDLE until the next (src/imap-poll.ts).
 [triggers]
-crons = ["* * * * *"]
+crons = ["*/5 * * * *"]
 
 # Registering an IMAP watch logs in to check it; this caps those checks per client address.
 [[ratelimits]]
