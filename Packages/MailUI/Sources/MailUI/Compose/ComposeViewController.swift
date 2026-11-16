@@ -30,6 +30,11 @@ public final class ComposeViewController: UIViewController {
     private let fromButton = UIButton(configuration: .plain())
     /// Takes files from Photos, Files, the camera and the scanner.
     lazy var picker = AttachmentPicker { [weak self] in self?.add($0) }
+    /// Keeps the composer while it is minimized, and hears when it is done. Without one, swiping down asks before
+    /// losing what was written.
+    weak var host: (any ComposerHost)?
+    /// The window scene the composer was shown in, kept while it is minimized and out of any window.
+    private weak var scene: UIScene?
 
     public init(viewModel: ComposeViewModel) {
         self.viewModel = viewModel
@@ -53,6 +58,10 @@ public final class ComposeViewController: UIViewController {
         let showsCc = startsWithCopyFields
         configure(subjectField, text: viewModel.subject)
         toField.textField.accessibilityIdentifier = "compose.to"
+        for field in [toField.textField, ccField.textField, bccField.textField, subjectField] {
+            field.addAction(
+                UIAction { [weak self, weak field] _ in self?.lastFocused = field }, for: .editingDidBegin)
+        }
         subjectField.accessibilityIdentifier = "compose.subject"
 
         bodyView.font = bodyFont
@@ -121,7 +130,7 @@ public final class ComposeViewController: UIViewController {
 
     /// Only this composer's own scene going to the background keeps its draft, not another window's.
     @objc private func keepDraft(_ notification: Notification) {
-        guard let scene = notification.object as? UIScene, scene === view.window?.windowScene else { return }
+        guard let scene = notification.object as? UIScene, scene === self.scene else { return }
         viewModel.keepNow(body: body)
     }
 
@@ -135,20 +144,37 @@ public final class ComposeViewController: UIViewController {
         navigationController?.presentationController?.delegate = self
     }
 
-    public override func viewDidDisappear(_ animated: Bool) {
-        super.viewDidDisappear(animated)
-        if isBeingDismissed || navigationController?.isBeingDismissed == true {
-            picker.finish()
-        }
-    }
-
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        scene = view.window?.windowScene
+        switch showing {
+        case .shown: return
+        case .minimized(let field):
+            // Back from minimized: writing goes on where it was.
+            showing = .shown
+            field?.becomeFirstResponder()
+            return
+        case .notYet:
+            showing = .shown
+        }
         // Replies start in the body; new messages and forwards with who they're for.
         (viewModel.draft.to.isEmpty ? toField : bodyView as UIResponder).becomeFirstResponder()
         // A fresh draft starts at the top, above any signature; a restored one where the writer left off.
         let start = viewModel.isRestored ? bodyView.attributedText.length : 0
         bodyView.selectedRange = NSRange(location: start, length: 0)
+    }
+
+    /// The field last written in, to write in again after minimizing.
+    private weak var lastFocused: UIResponder?
+
+    /// Where the composer stands on screen, so the cursor is placed the first time and kept after minimizing.
+    private var showing = Showing.notYet
+
+    private enum Showing {
+        case notYet
+        case shown
+        /// Minimized while writing in that field, if any, to write in again when it comes back.
+        case minimized(UIResponder?)
     }
 
     private func configureNavigation() {
@@ -398,12 +424,12 @@ public final class ComposeViewController: UIViewController {
     /// Called after every change: Send follows whether it can go, and autosave keeps the draft once typing rests.
     func updateSendEnabled() {
         sendItem.isEnabled = viewModel.canSend
-        // A swipe down asks before losing what was written.
-        navigationController?.isModalInPresentation = viewModel.hasChanges(body: body)
+        // Without a host to minimize to, a swipe down asks before losing what was written.
+        navigationController?.isModalInPresentation = host == nil && viewModel.hasChanges(body: body)
         viewModel.edited { [weak self] in self?.body }
     }
 
-    private var body: MessageBody {
+    var body: MessageBody {
         RichText(bodyView.attributedText ?? NSAttributedString()).messageBody
     }
 
@@ -417,7 +443,7 @@ public final class ComposeViewController: UIViewController {
     private func send(at time: SendTime = .now) {
         fieldChanged()
         viewModel.send(body: body, at: time)
-        dismiss(animated: true)
+        close()
     }
 
     /// The times on offer now, then a picker for any other.
@@ -458,7 +484,7 @@ public final class ComposeViewController: UIViewController {
         fieldChanged()
         guard viewModel.hasChanges(body: body) else {
             viewModel.closeUnchanged()
-            return dismiss(animated: true)
+            return close()
         }
         let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         sheet.addAction(
@@ -466,10 +492,7 @@ public final class ComposeViewController: UIViewController {
                 title: String(
                     localized: "Delete Draft", table: "Compose", bundle: .module, comment: "Discards the message"),
                 style: .destructive
-            ) { [weak self] _ in
-                self?.viewModel.deleteDraft()
-                self?.dismiss(animated: true)
-            })
+            ) { [weak self] _ in self?.deleteDraft() })
         if viewModel.canSaveDraft {
             sheet.addAction(
                 UIAlertAction(
@@ -477,11 +500,7 @@ public final class ComposeViewController: UIViewController {
                         localized: "Save Draft", table: "Compose", bundle: .module,
                         comment: "Keeps the message in Drafts"),
                     style: .default
-                ) { [weak self] _ in
-                    guard let self else { return }
-                    viewModel.saveDraft(body: body)
-                    dismiss(animated: true)
-                })
+                ) { [weak self] _ in self?.saveDraft() })
         }
         sheet.addAction(
             UIAlertAction(
@@ -491,9 +510,68 @@ public final class ComposeViewController: UIViewController {
         sheet.popoverPresentationController?.sourceItem = navigationItem.leftBarButtonItem
         present(sheet, animated: true)
     }
+
+    /// Throws the message away and closes.
+    func deleteDraft() {
+        viewModel.deleteDraft()
+        close()
+    }
+
+    /// Keeps the message in the provider's Drafts and closes.
+    func saveDraft() {
+        fieldChanged()
+        viewModel.saveDraft(body: body)
+        close()
+    }
+
+    /// The message is done with: sent, deleted, saved away or closed unchanged. Dismisses it if it shows.
+    private func close() {
+        picker.finish()
+        host?.composerDidClose(self)
+        if view.window != nil { dismiss(animated: true) }
+    }
+
+    /// The draft as written so far, for the minimized bar and the picker.
+    var written: Draft { viewModel.finished(body: body) }
+
+    /// Swiped down: a message with something in it is minimized and kept with the provider, one without is closed.
+    private func swipedAway() {
+        fieldChanged()
+        guard host != nil, viewModel.hasChanges(body: body) else {
+            viewModel.closeUnchanged()
+            return close()
+        }
+        minimizeShown()
+    }
+
+    /// Moves the message out of the way to the bottom of the screen, kept as it is, to come back to.
+    func minimize(then next: (() -> Void)? = nil) {
+        fieldChanged()
+        minimizeShown()
+        dismiss(animated: true, completion: next)
+    }
+
+    private func minimizeShown() {
+        viewModel.keepNow(body: body)
+        // A swipe down has ended editing by now, so the field is the one last written in.
+        showing = .minimized(lastFocused)
+        view.endEditing(true)
+        host?.composerDidMinimize(self)
+    }
+
+    /// The VoiceOver escape gesture minimizes the message, as the swipe down does.
+    public override func accessibilityPerformEscape() -> Bool {
+        guard host != nil else { return false }
+        minimize()
+        return true
+    }
 }
 
 extension ComposeViewController: UITextViewDelegate, UIAdaptivePresentationControllerDelegate {
+    public func textViewDidBeginEditing(_ textView: UITextView) {
+        lastFocused = textView
+    }
+
     public func textViewDidChange(_ textView: UITextView) {
         updateSendEnabled()
         settleTypedLayout()
@@ -520,5 +598,9 @@ extension ComposeViewController: UITextViewDelegate, UIAdaptivePresentationContr
 
     public func presentationControllerDidAttemptToDismiss(_ presentationController: UIPresentationController) {
         cancel()
+    }
+
+    public func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        swipedAway()
     }
 }

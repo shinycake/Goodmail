@@ -21,6 +21,8 @@ final class SceneCoordinator: NSObject {
     private var shownFailures: Set<Draft.ID> = []
     /// The mail screens, once there is an account.
     private var split: MailSplitViewController?
+    /// The window's root, which holds the mail screens and the messages minimized below them.
+    private let drafts = DraftShelfViewController()
     /// What the mail screens show, kept so either arrangement can be rebuilt when the window changes width, and
     /// saved for the system to restore the window or hand it off (`activity`).
     private var shown: WindowState {
@@ -37,6 +39,7 @@ final class SceneCoordinator: NSObject {
         window.traitOverrides.senderPictures = model.senderPictures
         super.init()
         actions.reopen = { [weak self] draft in self?.handle(.compose(draft)) }
+        drafts.newMessage = { [weak self] account in self?.handle(.compose(Draft(accountID: account))) }
     }
 
     deinit {
@@ -134,6 +137,18 @@ final class SceneCoordinator: NSObject {
         presenter.present(SettingsScreen.make(model: viewModel, at: page), animated: true)
     }
 
+    /// Fills the window with `screen`, fading over whatever showed before.
+    private func show(_ screen: UIViewController) {
+        guard window.rootViewController != nil else {
+            drafts.content = screen
+            window.rootViewController = drafts
+            return
+        }
+        UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve) {
+            self.drafts.content = screen
+        }
+    }
+
     private func topViewController() -> UIViewController? {
         var top = window.rootViewController
         while let presented = top?.presentedViewController { top = presented }
@@ -191,7 +206,7 @@ final class SceneCoordinator: NSObject {
         let adder = AccountAdder { [weak self] in try await self?.signIn(to: $0) ?? false }
         adder.onAdded = { [weak self] in self?.showMailbox() }
         split = nil
-        window.rootViewController = WelcomeScreen.make(adder: adder)
+        show(WelcomeScreen.make(adder: adder))
         publishActivity()
     }
 
@@ -206,13 +221,7 @@ final class SceneCoordinator: NSObject {
         self.split = split
         buildColumns()
         buildStack()
-        if window.rootViewController == nil {
-            window.rootViewController = split
-        } else {
-            UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve) {
-                self.window.rootViewController = split
-            }
-        }
+        show(split)
         publishActivity()
     }
 
@@ -436,9 +445,7 @@ final class SceneCoordinator: NSObject {
                 }
             }
         case .compose(let draft):
-            guard let account = model.accounts.first(where: { $0.id == draft.accountID }),
-                let presenter = topViewController()
-            else { return }
+            guard let account = model.accounts.first(where: { $0.id == draft.accountID }) else { return }
             let actions = actions
             let suggester = RecipientSuggester(
                 writtenIn: { [database = model.database] in try database.contacts(matching: $0) },
@@ -450,9 +457,7 @@ final class SceneCoordinator: NSObject {
                     suggest: { await suggester.suggestions(for: $0) },
                     saveDraft: { actions.saveDraft($0, $1) }, deleteDraft: { actions.deleteDraft($0) },
                     send: { actions.send($0, at: $1) }))
-            let navigation = UINavigationController(rootViewController: composer)
-            navigation.modalPresentationStyle = .pageSheet
-            presenter.present(navigation, animated: true)
+            drafts.open(composer)
         }
     }
 }

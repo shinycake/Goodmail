@@ -1,0 +1,72 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%lld Drafts" : {
+      "comment" : "The bar holding several minimized messages",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld טיוטות"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "comment" : "Keeps the draft",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ביטול"
+          }
+        }
+      }
+    },
+    "Close %@" : {
+      "comment" : "VoiceOver: the close button of a minimized message; the argument is its title",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סגירת %@"
+          }
+        }
+      }
+    },
+    "Opens the message." : {
+      "comment" : "VoiceOver hint of the bar holding one minimized message",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פותח את ההודעה."
+          }
+        }
+      }
+    },
+    "Shows the drafts to pick one." : {
+      "comment" : "VoiceOver hint of the bar holding several minimized messages",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מציג את הטיוטות לבחירה."
+          }
+        }
+      }
+    },
+    "To:" : {
+      "comment" : "Before who a draft goes to",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אל:"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
