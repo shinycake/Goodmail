@@ -40,15 +40,28 @@ public enum HTMLEntities {
 extension HTMLEntities {
     /// The words and line breaks of HTML, such as a Gmail signature for the plain-text composer or a message body
     /// for the search index. Styles, scripts, the head and comments are left out: they are not words of the mail.
+    ///
+    /// The HTML may be cut short, as the start of a message that IMAP fetches for a snippet is. A comment, style,
+    /// script or title still open at the end runs to the end, and so does a tag cut in half. A head left open is kept,
+    /// since a whole page may leave out `</head>`; what is in it is mostly the elements above.
     public static func plainText(fromHTML html: String) -> String {
-        let visible =
-            html.contains("<")
-            ? html.replacing(/(?is)<!--.*?-->|<(style|script|head|title)\b[^>]*>.*?<\/\1\s*>/, with: "") : html
+        guard html.contains("<") else { return lines(of: decode(html)) }
+        // Each element is spelled out: a back-reference to its name would miss `<Style>…</STYLE>`, as it matches case.
+        let visible = html.replacing(
+            /(?is)<!--.*?(?:-->|\z)|<style\b[^>]*>.*?(?:<\/style\s*>|\z)|<script\b[^>]*>.*?(?:<\/script\s*>|\z)/,
+            with: ""
+        )
+        .replacing(/(?is)<title\b[^>]*>.*?(?:<\/title\s*>|\z)|<head\b[^>]*>.*?<\/head\s*>/, with: "")
+        .replacing(/<[a-zA-Z\/!][^>]*\z/, with: "")
         // Each block starts a line; a `<br>` that only holds a block open, as in `<div><br></div>`, adds none.
         let broken = visible.replacing(/(?i)<br\s*\/?>\s*(?=<\/(div|p)>)/, with: "")
             .replacing(/(?i)<br\s*\/?>|<(div|p|li|tr|h\d)\b[^>]*>/, with: "\n")
-        let text = decode(broken.replacing(/<[^>]*>/, with: ""))
-        return text.split(separator: "\n", omittingEmptySubsequences: false)
+        return lines(of: decode(broken.replacing(/<[^>]*>/, with: "")))
+    }
+
+    /// The text with each line trimmed, and the blank lines around it dropped.
+    private static func lines(of text: String) -> String {
+        text.split(separator: "\n", omittingEmptySubsequences: false)
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .joined(separator: "\n")
             .trimmingCharacters(in: .whitespacesAndNewlines)

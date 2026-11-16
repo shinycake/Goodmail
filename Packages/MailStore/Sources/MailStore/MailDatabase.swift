@@ -340,6 +340,14 @@ public final class MailDatabase: Sendable {
                 table.add(column: "inFocus", .boolean).notNull().defaults(to: true)
             }
         }
+        migrator.registerMigration("v29-imap-snippets") { db in
+            // IMAP snippets stored until now could be the CSS at the top of an HTML mail. Filling each IMAP account's
+            // window again, as after an expired cursor, stores every thread's snippet anew.
+            try db.execute(
+                sql:
+                    "DELETE FROM syncState WHERE accountID IN (SELECT id FROM account WHERE service IN ('icloud', 'imap'))"
+            )
+        }
         return migrator
     }
 }

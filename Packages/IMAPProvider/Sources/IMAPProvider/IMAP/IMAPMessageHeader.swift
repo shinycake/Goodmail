@@ -58,11 +58,12 @@ struct IMAPMessageHeader: Equatable, Sendable {
     /// The message IDs it answers, oldest first.
     var references: [String]
     /// The start of its text, as the mailbox list shows it.
-    var snippet: String
+    var snippet: Snippet
 
     var isUnread: Bool { !flags.contains(#"\Seen"#) }
 
-    init?(fetch: IMAPFetch) {
+    /// `fetchedTextBytes` is how much of the text the fetch asked for: text that long may go on past it.
+    init?(fetch: IMAPFetch, fetchedTextBytes: Int) {
         guard let uid = fetch.items["UID"]?.number,
             let envelope = fetch.items["ENVELOPE"]?.list, envelope.count == 10,
             let received = fetch.items["INTERNALDATE"]?.bytes.flatMap(Self.internalDate)
@@ -79,8 +80,9 @@ struct IMAPMessageHeader: Equatable, Sendable {
         let fields = fetch.item(prefixed: "BODY[HEADER.FIELDS").flatMap(\.bytes) ?? Data()
         references = Message.messageIDs(in: String(decoding: fields, as: UTF8.self))
         // The start of the text under the headers that say how to read it parses like a message cut short.
-        let text = fetch.item(prefixed: "BODY[TEXT]").flatMap(\.bytes)
-        snippet = text.map { MIMEPart(parsing: fields + $0).content().body.snippet } ?? ""
+        let text = fetch.item(prefixed: "BODY[TEXT]").flatMap(\.bytes) ?? Data()
+        let words = MIMEPart(parsing: fields + text).content().body.snippet
+        snippet = words.isEmpty && text.count >= fetchedTextBytes ? .pastFetchedBytes : .found(words)
     }
 
     private static func text(_ value: IMAPValue) -> String? {

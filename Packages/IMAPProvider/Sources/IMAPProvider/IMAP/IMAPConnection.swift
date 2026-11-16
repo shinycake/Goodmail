@@ -186,13 +186,25 @@ actor IMAPConnection {
         }
     }
 
-    /// The headers of these messages in the selected mailbox. Messages that are gone are left out.
+    /// The headers of these messages in the selected mailbox. Messages that are gone are left out. The few whose
+    /// first bytes hold no words are fetched again with more of their text, so their snippets reach the words.
     func headers(of uids: [UInt32]) async throws -> [IMAPMessageHeader] {
         guard !uids.isEmpty else { return [] }
         return try await exclusively { connection in
             try connection.requireSelected()
-            let reply = try await connection.run(.uidFetch(uids: uids, items: IMAPCommand.headerItems))
-            return reply.data.compactMap { IMAPFetch(response: $0).flatMap(IMAPMessageHeader.init(fetch:)) }
+            let headers = try await connection.fetchHeaders(of: uids, textBytes: IMAPCommand.snippetBytes)
+            let wordless = headers.filter { $0.snippet == .pastFetchedBytes }.map(\.uid)
+            guard !wordless.isEmpty else { return headers }
+            let longer = try await connection.fetchHeaders(of: wordless, textBytes: IMAPCommand.longSnippetBytes)
+            let longerByUID = Dictionary(longer.map { ($0.uid, $0) }) { first, _ in first }
+            return headers.map { longerByUID[$0.uid] ?? $0 }
+        }
+    }
+
+    private func fetchHeaders(of uids: [UInt32], textBytes: Int) async throws -> [IMAPMessageHeader] {
+        let reply = try await run(.uidFetch(uids: uids, items: IMAPCommand.headerItems(textBytes: textBytes)))
+        return reply.data.compactMap { response in
+            IMAPFetch(response: response).flatMap { IMAPMessageHeader(fetch: $0, fetchedTextBytes: textBytes) }
         }
     }
 

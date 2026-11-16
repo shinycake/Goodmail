@@ -93,8 +93,9 @@ struct IMAPParsingTests {
             Issue.record("not data")
             return
         }
-        let header = try #require(IMAPFetch(response: values).flatMap(IMAPMessageHeader.init(fetch:)))
-        #expect(header.snippet == "See you at noon café and mo")
+        let header = try #require(
+            IMAPFetch(response: values).flatMap { IMAPMessageHeader(fetch: $0, fetchedTextBytes: 2048) })
+        #expect(header.snippet == .found("See you at noon café and mo"))
         #expect(header.messageID == "a@x")
     }
 }

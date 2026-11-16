@@ -43,11 +43,14 @@ enum IMAPCommand: Equatable, Sendable {
 
     /// The UID, flags, dates, envelope and threading headers of a message, and the start of its text with the headers
     /// that say how to read it, for a snippet. Reading them doesn't mark the message read.
-    static let headerItems =
+    static func headerItems(textBytes: Int) -> String {
         "(UID FLAGS INTERNALDATE ENVELOPE BODY.PEEK[HEADER.FIELDS (REFERENCES CONTENT-TYPE CONTENT-TRANSFER-ENCODING)]"
-        + " BODY.PEEK[TEXT]<0.\(snippetBytes)>)"
-    /// Enough of a message's text for a snippet, even under a multipart's first headers.
+            + " BODY.PEEK[TEXT]<0.\(textBytes)>)"
+    }
+    /// Enough of most messages' text for a snippet, even under a multipart's first headers.
     static let snippetBytes = 2048
+    /// Enough for the messages whose first `snippetBytes` hold no words, as an HTML mail's style sheet can fill them.
+    static let longSnippetBytes = 32768
     /// The whole message, without marking it read.
     static let messageItems = "(UID FLAGS INTERNALDATE BODY.PEEK[])"
 

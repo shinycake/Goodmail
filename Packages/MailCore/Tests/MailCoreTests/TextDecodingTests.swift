@@ -70,6 +70,21 @@ struct TextDecodingTests {
         #expect(HTMLEntities.plainText(fromHTML: html) == "שלום Dana\nSee you")
     }
 
+    /// The start of a message, as IMAP fetches it for a snippet, can end inside its head or a tag.
+    @Test(arguments: [
+        ("<html><head><title>Ready</title><STYLE type=\"text/css\">A { text-decoration: none; } A:link { co", ""),
+        ("<HTML><HEAD><TITLE>Ready</TITLE></HEAD><BODY><P>Build 18 is ready</P><TABLE wid", "Build 18 is ready"),
+        ("<p>Hi</p><!-- a long comment that never ends", "Hi"),
+    ])
+    func htmlCutShortLosesWhatIsNotItsWords(html: String, words: String) {
+        #expect(HTMLEntities.plainText(fromHTML: html) == words)
+    }
+
+    @Test func stylesOutsideTheHeadInAnyCaseAreNotWords() {
+        let html = "<Style>A:link { color: #0088CC; }</STYLE><div>Goodmail 1.0 (18) is ready</div>"
+        #expect(HTMLEntities.plainText(fromHTML: html) == "Goodmail 1.0 (18) is ready")
+    }
+
     @Test func snippetEntitiesDecode() {
         #expect(HTMLEntities.decode("a &lt;b&gt; &#x41; &#65; &unknown; & done") == "a <b> A A &unknown; & done")
     }

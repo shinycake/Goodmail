@@ -105,7 +105,7 @@ extension ThreadSummary {
         self.init(
             id: ID(accountID: accountID, threadID: threadID),
             subject: first.header.subject,
-            snippet: latest.header.snippet,
+            snippet: latest.header.snippet.text,
             sender: latest.header.from.first ?? Contact(name: nil, address: ""),
             date: latest.header.receivedAt,
             isUnread: ordered.contains { $0.header.isUnread },
