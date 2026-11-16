@@ -4,7 +4,7 @@ public import MailCore
 
 /// A conversation, as Siri, Shortcuts and Spotlight see it, with every fact its list row knows for Find and Filter.
 @AppEntity(schema: .mail.thread)
-public struct ThreadEntity {
+public struct ThreadEntity: Sendable {
     public static let defaultQuery = ThreadQuery()
 
     public let id: String
@@ -99,7 +99,10 @@ extension ThreadEntity: IndexedEntity {
         attributes.title = title
         attributes.contentDescription = description
         attributes.authorNames = [senderName.isEmpty ? senderAddress : senderName]
+        attributes.authorEmailAddresses = [senderAddress]
         attributes.contentCreationDate = date
+        // Spotlight finds a conversation by its labels and the sender's domain too, as "receipts" or "amazon".
+        attributes.keywords = labels + [senderDomain].filter { !$0.isEmpty }
         return attributes
     }
 }

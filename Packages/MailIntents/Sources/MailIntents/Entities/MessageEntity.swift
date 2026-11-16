@@ -8,7 +8,7 @@ import MailCore
 /// The mail schema's properties come first. Goodmail adds every other fact a filter or a rule can ask
 /// (`MailFacts`), so Shortcuts' Find and Filter actions, and the Use Model action, can work on any of them.
 @AppEntity(schema: .mail.message)
-public struct MessageEntity {
+public struct MessageEntity: Sendable {
     public static let defaultQuery = MessageQuery()
 
     public let id: String

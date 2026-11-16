@@ -56,6 +56,8 @@ struct SpotlightTests {
         #expect(entity.attributeSet.title == "Subject inbox")
         #expect(entity.attributeSet.contentDescription == "Snippet")
         #expect(entity.attributeSet.authorNames == ["Yael"])
+        #expect(entity.attributeSet.authorEmailAddresses == ["yael@example.com"])
+        #expect(entity.attributeSet.keywords?.contains("example.com") == true)
     }
 }
 

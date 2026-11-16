@@ -6,6 +6,10 @@ import OSLog
 import UIKit
 import UserNotifications
 
+#if canImport(MailIntents)
+    import MailIntents
+#endif
+
 /// One per window (ADR-011): decides what the window shows and owns the flows that change it.
 final class SceneCoordinator: NSObject {
     /// The window this coordinator fills, which undoes the last mail action when shaken.
@@ -319,9 +323,13 @@ final class SceneCoordinator: NSObject {
             account: account.id, accountEmail: account.email,
             perform: { [account] in try await unsubscriber.unsubscribe($0, account: account.id) },
             openURL: { url in UIApplication.shared.open(url) })
-        return ThreadViewController(
+        let reader = ThreadViewController(
             viewModel: viewModel, openURL: { url in UIApplication.shared.open(url) },
             unsubscribeOffer: unsubscribeOffer)
+        #if canImport(MailIntents)
+            reader.userActivity = .reading(thread)
+        #endif
+        return reader
     }
 
     /// Leaves the open thread, after an action that takes it out of the mailbox.

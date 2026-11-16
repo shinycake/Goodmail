@@ -1,0 +1,72 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Attachments: %@" : {
+      "comment" : "A header line of an email given to Shortcuts as text, as an email printout shows it.",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קבצים מצורפים: %@"
+          }
+        }
+      }
+    },
+    "Cc: %@" : {
+      "comment" : "A header line of an email given to Shortcuts as text, as an email printout shows it.",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עותק: %@"
+          }
+        }
+      }
+    },
+    "Date: %@" : {
+      "comment" : "A header line of an email given to Shortcuts as text, as an email printout shows it.",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תאריך: %@"
+          }
+        }
+      }
+    },
+    "From: %@" : {
+      "comment" : "A header line of an email given to Shortcuts as text, as an email printout shows it.",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מאת: %@"
+          }
+        }
+      }
+    },
+    "Subject: %@" : {
+      "comment" : "A header line of an email given to Shortcuts as text, as an email printout shows it.",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נושא: %@"
+          }
+        }
+      }
+    },
+    "To: %@" : {
+      "comment" : "A header line of an email given to Shortcuts as text, as an email printout shows it.",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אל: %@"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
