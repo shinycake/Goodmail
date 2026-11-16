@@ -25,16 +25,33 @@ struct NewMailAlertTests {
         #expect(content.categoryIdentifier == NewMailAlert.categoryID)
     }
 
-    @Test func aPlaceholderKeepsThePushTextButMakesNoSoundAndStacksApart() {
+    private func push() -> UNNotificationContent {
         let push = UNMutableNotificationContent()
         push.body = "New mail"
         push.sound = .default
-        let placeholder = NewMailAlert.placeholder(for: push)
+        return push
+    }
+
+    @Test func withoutTheFilteringEntitlementAPlaceholderKeepsThePushTextButMakesNoSoundAndStacksApart() {
+        let placeholder = NewMailSilence.quiet.content(for: push())
         #expect(placeholder.body == "New mail")
         #expect(placeholder.sound == nil)
         #expect(placeholder.interruptionLevel == .passive)
         #expect(placeholder.threadIdentifier != NewMailAlert.content(for: thread(), in: account).threadIdentifier)
         #expect(NewMailAlert.thread(in: placeholder.userInfo) == nil)
+    }
+
+    @Test func withTheFilteringEntitlementNothingShows() {
+        let silence = NewMailSilence.filtered.content(for: push())
+        #expect(silence.title.isEmpty && silence.subtitle.isEmpty && silence.body.isEmpty)
+        #expect(silence.sound == nil)
+    }
+
+    @Test(arguments: [(true, NewMailSilence.filtered), (false, .quiet), (nil, .quiet)] as [(Bool?, NewMailSilence)])
+    func theExtensionFiltersOnlyWhenItsInfoPlistSaysItWasSignedToFilter(signed: Bool?, silence: NewMailSilence) {
+        let info: [String: Any] = signed.map { [NewMailSilence.infoKey: $0] } ?? [:]
+        #expect(NewMailSilence(info: info) == silence)
+        #expect(NewMailSilence(info: nil) == .quiet)
     }
 
     @Test func aCodePastTheSnippetPreviewsInItsPlace() throws {

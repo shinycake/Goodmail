@@ -9,7 +9,8 @@ import UserNotifications
 import os
 
 /// Turns the relay's bare new-mail push into alerts for the mail it announced: catches the account up, alerts for
-/// each new thread, and stores what it fetched for the app (ADR-002).
+/// each new thread, and stores what it fetched for the app (ADR-002). A push that brings no new inbox mail, or whose
+/// mail couldn't be fetched in time, never shows the push's bare "New mail" with a sound (`NewMailSilence`).
 final class NotificationService: UNNotificationServiceExtension {
     private let delivery = Mutex<Delivery?>(nil)
 
@@ -17,10 +18,11 @@ final class NotificationService: UNNotificationServiceExtension {
         _ request: UNNotificationRequest,
         withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void
     ) {
-        let delivery = Delivery(fallback: request.content, handler: contentHandler)
+        let silence = NewMailSilence(info: Bundle.main.infoDictionary)
+        let delivery = Delivery(push: request.content, silence: silence, handler: contentHandler)
         self.delivery.withLock { $0 = delivery }
         let userInfo = request.content.userInfo
-        guard let target = NewMailFetch.target(in: userInfo) else { return delivery.expire() }
+        guard let target = NewMailFetch.target(in: userInfo) else { return delivery.silence() }
         Task { @concurrent in
             do {
                 let (fetch, pictures) = try Self.fetch()
@@ -35,7 +37,7 @@ final class NotificationService: UNNotificationServiceExtension {
                 await delivery.finish(with: outcome, pictures: pictures)
             } catch {
                 Logger.push.error("Couldn't fetch the new mail: \(error, privacy: .public)")
-                delivery.expire()
+                delivery.silence()
             }
         }
     }
@@ -44,7 +46,7 @@ final class NotificationService: UNNotificationServiceExtension {
         // The fetch may still be writing, and iOS suspends the extension next: holding a lock in the shared container
         // then gets it killed (0xdead10cc).
         MailDatabase.suspendAll()
-        delivery.withLock { $0 }?.expire()
+        delivery.withLock { $0 }?.silence()
     }
 
     /// The fetch, and senders' pictures from the cache the app shares.
@@ -67,28 +69,30 @@ final class NotificationService: UNNotificationServiceExtension {
     }
 }
 
-/// Hands iOS one alert per push, exactly once: the fetched mail's, nothing, or the push as it came. The fetch and
-/// iOS's deadline race to it.
+/// Hands iOS one alert per push, exactly once: the fetched mail's, or the push's silence. The fetch and iOS's
+/// deadline race to it.
 ///
 /// `@unchecked Sendable` because iOS's handler and content types aren't `Sendable`. Safe: every access to them is
-/// under `state`'s lock, the fallback is never mutated, and the handler runs at most once.
+/// under `state`'s lock, the push is never mutated, and the handler runs at most once.
 private final class Delivery: @unchecked Sendable {
     private enum State {
-        /// The push as it came, shown if nothing better is ready in time, and where to hand the alert.
-        case waiting(fallback: UNNotificationContent, handler: (UNNotificationContent) -> Void)
+        /// The push as it came, which the silence is made from, and where to hand the alert.
+        case waiting(push: UNNotificationContent, handler: (UNNotificationContent) -> Void)
         case delivered
     }
 
     private let state: OSAllocatedUnfairLock<State>
+    private let silenceKind: NewMailSilence
 
-    init(fallback: UNNotificationContent, handler: @escaping (UNNotificationContent) -> Void) {
-        state = OSAllocatedUnfairLock(uncheckedState: .waiting(fallback: fallback, handler: handler))
+    init(push: UNNotificationContent, silence: NewMailSilence, handler: @escaping (UNNotificationContent) -> Void) {
+        state = OSAllocatedUnfairLock(uncheckedState: .waiting(push: push, handler: handler))
+        silenceKind = silence
     }
 
     func finish(with outcome: NewMailFetch.Outcome, pictures: SenderPictureSources) async {
         switch outcome {
         case .alerts(let mail, let account):
-            guard let newest = mail.first else { return expire() }
+            guard let newest = mail.first else { return silence() }
             // The push shows the newest; each other thread gets its own alert, posted before the push's lands.
             for other in mail.dropFirst() {
                 let content = await SenderAlert.content(for: other, in: account, pictures: pictures)
@@ -100,22 +104,22 @@ private final class Delivery: @unchecked Sendable {
             deliver { _ in alert }
         case .nothingNew:
             // One placeholder at a time: this one replaces any left from earlier pushes.
-            await NewMailAlert.removePlaceholders()
-            deliver(NewMailAlert.placeholder(for:))
+            if silenceKind == .quiet { await NewMailAlert.removePlaceholders() }
+            silence()
         }
     }
 
-    /// Shows the push as it came, whose text stands on its own, unless an alert was already handed over.
-    func expire() {
-        deliver { $0 }
+    /// Hands iOS the push's silence, unless an alert was already handed over.
+    func silence() {
+        deliver(silenceKind.content(for:))
     }
 
     /// Hands iOS `content` made from the push as it came.
     private func deliver(_ content: (UNNotificationContent) -> UNNotificationContent) {
         state.withLockUnchecked { state in
-            guard case .waiting(let fallback, let handler) = state else { return }
+            guard case .waiting(let push, let handler) = state else { return }
             state = .delivered
-            handler(content(fallback))
+            handler(content(push))
         }
     }
 }
