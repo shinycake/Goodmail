@@ -42,22 +42,30 @@ extension MailDatabase {
 
     /// Gives the bodies cached before search indexed them their text. Reads first, so an open with nothing to fill,
     /// the usual case, takes no write lock from the other process.
-    static func fillMessageText(in pool: DatabasePool) throws {
+    ///
+    /// `batch` bodies at a time, each batch its own short write: the notification extension can be the first to open
+    /// the database after an update, inside its small memory limit, and the other process waits out every write.
+    static func fillMessageText(in pool: DatabasePool, batch: Int = 200) throws {
         let missing = try pool.read { db in
             try Bool.fetchOne(db, sql: "SELECT EXISTS (SELECT 1 FROM message WHERE bodyText IS NULL)") ?? false
         }
         guard missing else { return }
         let decoder = JSONDecoder()
-        try pool.write { db in
-            let rows = try Row.fetchAll(db, sql: "SELECT rowid, content FROM message WHERE bodyText IS NULL")
-            for row in rows {
-                let content: String = row["content"]
-                // A body this build can't read is still searchable by its thread; give it no words.
-                let message = try? decoder.decode(Message.self, from: Data(content.utf8))
-                let text = message.map { searchText(of: $0.body) } ?? ""
-                try db.execute(
-                    sql: "UPDATE message SET bodyText = ?, size = size + ? WHERE rowid = ?",
-                    arguments: [text, text.utf8.count, row["rowid"] as Int64])
+        var filled = batch
+        while filled == batch {
+            filled = try pool.write { db in
+                let rows = try Row.fetchAll(
+                    db, sql: "SELECT rowid, content FROM message WHERE bodyText IS NULL LIMIT ?", arguments: [batch])
+                for row in rows {
+                    let content: String = row["content"]
+                    // A body this build can't read is still searchable by its thread; give it no words.
+                    let message = try? decoder.decode(Message.self, from: Data(content.utf8))
+                    let text = message.map { searchText(of: $0.body) } ?? ""
+                    try db.execute(
+                        sql: "UPDATE message SET bodyText = ?, size = size + ? WHERE rowid = ?",
+                        arguments: [text, text.utf8.count, row["rowid"] as Int64])
+                }
+                return rows.count
             }
         }
     }
