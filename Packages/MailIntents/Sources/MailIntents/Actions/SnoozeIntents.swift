@@ -4,14 +4,17 @@ import MailCore
 
 /// Snoozes conversations until a date: out of the Inbox until then, back at its top, unread, with an alert.
 public struct SnoozeThreadsIntent: UndoableIntent {
-    public static let title: LocalizedStringResource = "Snooze Conversations Until"
+    public static let title: LocalizedStringResource = LocalizedStringResource(
+        "Snooze Conversations Until", table: "ShortcutActions")
     public static let description = IntentDescription(
-        "Takes conversations out of the Inbox until a date, then brings them back to its top, unread.")
+        LocalizedStringResource(
+            "Takes conversations out of the Inbox until a date, then brings them back to its top, unread.",
+            table: "ShortcutActions"))
 
-    @Parameter(title: "Conversations")
+    @Parameter(title: LocalizedStringResource("Conversations", table: "ShortcutActions"))
     public var threads: [ThreadEntity]
 
-    @Parameter(title: "Until")
+    @Parameter(title: LocalizedStringResource("Until", table: "ShortcutActions"))
     public var date: Date
 
     @Dependency private var host: any MailIntentsHost
@@ -19,7 +22,7 @@ public struct SnoozeThreadsIntent: UndoableIntent {
     public init() {}
 
     public static var parameterSummary: some ParameterSummary {
-        Summary("Snooze \(\.$threads) until \(\.$date)")
+        Summary("Snooze \(\.$threads) until \(\.$date)", table: "ShortcutActions")
     }
 
     public func perform() async throws -> some IntentResult {
@@ -31,14 +34,17 @@ public struct SnoozeThreadsIntent: UndoableIntent {
 
 /// Snoozes conversations for a while, as "two weeks", from now.
 public struct SnoozeThreadsForIntent: UndoableIntent {
-    public static let title: LocalizedStringResource = "Snooze Conversations For"
+    public static let title: LocalizedStringResource = LocalizedStringResource(
+        "Snooze Conversations For", table: "ShortcutActions")
     public static let description = IntentDescription(
-        "Takes conversations out of the Inbox for a while, then brings them back to its top, unread.")
+        LocalizedStringResource(
+            "Takes conversations out of the Inbox for a while, then brings them back to its top, unread.",
+            table: "ShortcutActions"))
 
-    @Parameter(title: "Conversations")
+    @Parameter(title: LocalizedStringResource("Conversations", table: "ShortcutActions"))
     public var threads: [ThreadEntity]
 
-    @Parameter(title: "For")
+    @Parameter(title: LocalizedStringResource("For", table: "ShortcutActions"))
     public var duration: Duration
 
     @Dependency private var host: any MailIntentsHost
@@ -46,7 +52,7 @@ public struct SnoozeThreadsForIntent: UndoableIntent {
     public init() {}
 
     public static var parameterSummary: some ParameterSummary {
-        Summary("Snooze \(\.$threads) for \(\.$duration)")
+        Summary("Snooze \(\.$threads) for \(\.$duration)", table: "ShortcutActions")
     }
 
     public func perform() async throws -> some IntentResult {
@@ -59,10 +65,12 @@ public struct SnoozeThreadsForIntent: UndoableIntent {
 
 /// Brings snoozed conversations back to the Inbox now.
 public struct UnsnoozeThreadsIntent: UndoableIntent {
-    public static let title: LocalizedStringResource = "Unsnooze Conversations"
-    public static let description = IntentDescription("Brings snoozed conversations back to the Inbox now.")
+    public static let title: LocalizedStringResource = LocalizedStringResource(
+        "Unsnooze Conversations", table: "ShortcutActions")
+    public static let description = IntentDescription(
+        LocalizedStringResource("Brings snoozed conversations back to the Inbox now.", table: "ShortcutActions"))
 
-    @Parameter(title: "Conversations")
+    @Parameter(title: LocalizedStringResource("Conversations", table: "ShortcutActions"))
     public var threads: [ThreadEntity]
 
     @Dependency private var host: any MailIntentsHost
@@ -70,7 +78,7 @@ public struct UnsnoozeThreadsIntent: UndoableIntent {
     public init() {}
 
     public static var parameterSummary: some ParameterSummary {
-        Summary("Unsnooze \(\.$threads)")
+        Summary("Unsnooze \(\.$threads)", table: "ShortcutActions")
     }
 
     public func perform() async throws -> some IntentResult {

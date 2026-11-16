@@ -14,7 +14,8 @@ public struct ThreadQuery: EntityStringQuery, IndexedEntityQuery, EntityProperty
     public init() {}
 
     public static let findIntentDescription: IntentDescription? = IntentDescription(
-        "Finds conversations on this device by their sender, date, labels or state.")
+        LocalizedStringResource(
+            "Finds conversations on this device by their sender, date, labels or state.", table: "ShortcutMail"))
 
     public static var properties: QueryProperties {
         QueryProperties {

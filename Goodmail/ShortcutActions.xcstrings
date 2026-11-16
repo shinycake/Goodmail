@@ -1,0 +1,856 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "${answer} ${message} in the composer, with ${body}" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "${answer} ל־${message} בחלון הכתיבה, עם ${body}"
+          }
+        }
+      }
+    },
+    "${answer} ${message} with ${body}" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "${answer} ל־${message} עם ${body}"
+          }
+        }
+      }
+    },
+    "${change} ${label} on ${threads}" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "${change} את ${label} ב־${threads}"
+          }
+        }
+      }
+    },
+    "Add" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הוסף"
+          }
+        }
+      }
+    },
+    "Adds a label to conversations or removes it, without moving them out of anywhere else." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מוסיף תווית לשיחות או מסיר אותה, בלי להוציא אותן ממקום אחר."
+          }
+        }
+      }
+    },
+    "Answer" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מענה"
+          }
+        }
+      }
+    },
+    "Archive Conversations" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העבר שיחות לארכיון"
+          }
+        }
+      }
+    },
+    "Attachments" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קבצים מצורפים"
+          }
+        }
+      }
+    },
+    "BCC" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עותק מוסתר"
+          }
+        }
+      }
+    },
+    "Body" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "גוף ההודעה"
+          }
+        }
+      }
+    },
+    "Brings snoozed conversations back to the Inbox now." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחזיר עכשיו לדואר הנכנס שיחות שבנודניק."
+          }
+        }
+      }
+    },
+    "CC" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עותק"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ביטול"
+          }
+        }
+      }
+    },
+    "Change" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שינוי"
+          }
+        }
+      }
+    },
+    "Check for New Mail" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בדוק אם יש דואר חדש"
+          }
+        }
+      }
+    },
+    "Conversations" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שיחות"
+          }
+        }
+      }
+    },
+    "Delete ${threads} forever" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחק את ${threads} לצמיתות"
+          }
+        }
+      }
+    },
+    "Delete Conversations" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחק שיחות"
+          }
+        }
+      }
+    },
+    "Delete Conversations Forever" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחק שיחות לצמיתות"
+          }
+        }
+      }
+    },
+    "Delete Forever" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחק לצמיתות"
+          }
+        }
+      }
+    },
+    "Delete these conversations' messages in Trash forever? This can't be undone." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "למחוק לצמיתות את ההודעות של השיחות האלה שבאשפה? אי אפשר לבטל את זה."
+          }
+        }
+      }
+    },
+    "Deletes the messages of conversations that are in Trash for good. Messages anywhere else stay." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מוחק לצמיתות את ההודעות של שיחות שבאשפה. הודעות בכל מקום אחר נשארות."
+          }
+        }
+      }
+    },
+    "Fetches new mail for every account now." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מושך עכשיו דואר חדש לכל החשבונות."
+          }
+        }
+      }
+    },
+    "For" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "למשך"
+          }
+        }
+      }
+    },
+    "Forward" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העבר"
+          }
+        }
+      }
+    },
+    "Forward as Attachment" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העבר כקובץ מצורף"
+          }
+        }
+      }
+    },
+    "From" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מאת"
+          }
+        }
+      }
+    },
+    "Keeps conversations at the top of their lists, or lets them go." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "משאיר שיחות בראש הרשימות שלהן, או משחרר אותן."
+          }
+        }
+      }
+    },
+    "Keeps replies to conversations out of the Inbox, or lets them in." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מונע מתשובות לשיחות להגיע לדואר הנכנס, או מאפשר להן."
+          }
+        }
+      }
+    },
+    "Label" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תווית"
+          }
+        }
+      }
+    },
+    "Label Change" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שינוי תווית"
+          }
+        }
+      }
+    },
+    "Label Conversations" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תייג שיחות"
+          }
+        }
+      }
+    },
+    "Leaves the mailing list a message came from. Returns the list's page when it has to be finished there." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עוזב את רשימת התפוצה שממנה הגיעה הודעה. מחזיר את דף הרשימה כשצריך לסיים שם."
+          }
+        }
+      }
+    },
+    "Mailbox" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תיבת דואר"
+          }
+        }
+      }
+    },
+    "Mark ${threads} read: ${read}" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סמן את ${threads} כנקראו: ${read}"
+          }
+        }
+      }
+    },
+    "Mark Conversations Read" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סמן שיחות כנקראו"
+          }
+        }
+      }
+    },
+    "Marks conversations read or unread." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מסמן שיחות כנקראו או כלא נקראו."
+          }
+        }
+      }
+    },
+    "Message" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הודעה"
+          }
+        }
+      }
+    },
+    "Move ${threads} to ${mailbox}" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העבר את ${threads} אל ${mailbox}"
+          }
+        }
+      }
+    },
+    "Move Conversations" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העבר שיחות"
+          }
+        }
+      }
+    },
+    "Moves conversations to Spam, or with Spam off takes them back to the Inbox." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מעביר שיחות לספאם, או כשספאם כבוי מחזיר אותן לדואר הנכנס."
+          }
+        }
+      }
+    },
+    "Moves conversations to a mailbox, label or folder, out of the one they're in." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מעביר שיחות לתיבת דואר, לתווית או לתיקייה, מתוך המקום שבו הן נמצאות."
+          }
+        }
+      }
+    },
+    "Moves conversations to the Trash." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מעביר שיחות לאשפה."
+          }
+        }
+      }
+    },
+    "Mute ${threads}: ${muted}" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השתק את ${threads}: ${muted}"
+          }
+        }
+      }
+    },
+    "Mute Conversations" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השתק שיחות"
+          }
+        }
+      }
+    },
+    "Muted" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מושתקות"
+          }
+        }
+      }
+    },
+    "Open in Composer" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פתח בחלון הכתיבה"
+          }
+        }
+      }
+    },
+    "Opens the answer in Goodmail to finish instead of sending it." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פותח את התשובה ב־Goodmail כדי לסיים אותה במקום לשלוח."
+          }
+        }
+      }
+    },
+    "Pin ${threads}: ${pinned}" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצמד את ${threads}: ${pinned}"
+          }
+        }
+      }
+    },
+    "Pin Conversations" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצמד שיחות"
+          }
+        }
+      }
+    },
+    "Pinned" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מוצמדות"
+          }
+        }
+      }
+    },
+    "Read" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נקרא"
+          }
+        }
+      }
+    },
+    "Remove" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הסר"
+          }
+        }
+      }
+    },
+    "Replies to a message, to its sender or to everyone on it, or forwards it. Sends the answer, or opens it in the composer." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "משיב להודעה, לשולח או לכל מי שבה, או מעביר אותה. שולח את התשובה, או פותח אותה בחלון הכתיבה."
+          }
+        }
+      }
+    },
+    "Reply" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השב"
+          }
+        }
+      }
+    },
+    "Reply All" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השב לכולם"
+          }
+        }
+      }
+    },
+    "Reply to Message" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השב להודעה"
+          }
+        }
+      }
+    },
+    "Report ${threads} as spam: ${spam}" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דווח על ${threads} כספאם: ${spam}"
+          }
+        }
+      }
+    },
+    "Report Spam" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דווח כספאם"
+          }
+        }
+      }
+    },
+    "Send ${body} to ${to}" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שלח את ${body} אל ${to}"
+          }
+        }
+      }
+    },
+    "Send At" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שליחה ב־"
+          }
+        }
+      }
+    },
+    "Send Email" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שלח אימייל"
+          }
+        }
+      }
+    },
+    "Sends an email from one of your accounts without opening Goodmail, now or at the time you choose." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שולח אימייל מאחד החשבונות שלך בלי לפתוח את Goodmail, עכשיו או בזמן שתבחר."
+          }
+        }
+      }
+    },
+    "Snooze ${threads} for ${duration}" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נדנד את ${threads} למשך ${duration}"
+          }
+        }
+      }
+    },
+    "Snooze ${threads} until ${date}" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נדנד את ${threads} עד ${date}"
+          }
+        }
+      }
+    },
+    "Snooze Conversations For" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נדנד שיחות למשך"
+          }
+        }
+      }
+    },
+    "Snooze Conversations Until" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נדנד שיחות עד"
+          }
+        }
+      }
+    },
+    "Spam" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ספאם"
+          }
+        }
+      }
+    },
+    "Star ${threads}: ${starred}" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סמן את ${threads} בכוכב: ${starred}"
+          }
+        }
+      }
+    },
+    "Star Conversations" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סמן שיחות בכוכב"
+          }
+        }
+      }
+    },
+    "Starred" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מסומן בכוכב"
+          }
+        }
+      }
+    },
+    "Stars or unstars conversations." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מסמן או מבטל סימון כוכב בשיחות."
+          }
+        }
+      }
+    },
+    "Subject" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נושא"
+          }
+        }
+      }
+    },
+    "Takes conversations out of the Inbox for a while, then brings them back to its top, unread." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מוציא שיחות מהדואר הנכנס לזמן מה, ואז מחזיר אותן לראשו כלא נקראו."
+          }
+        }
+      }
+    },
+    "Takes conversations out of the Inbox until a date, then brings them back to its top, unread." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מוציא שיחות מהדואר הנכנס עד תאריך, ואז מחזיר אותן לראשו כלא נקראו."
+          }
+        }
+      }
+    },
+    "Takes conversations out of the Inbox." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מוציא שיחות מהדואר הנכנס."
+          }
+        }
+      }
+    },
+    "The account it goes from. The first account when none is chosen." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "החשבון שממנו היא נשלחת. החשבון הראשון כשלא נבחר אף אחד."
+          }
+        }
+      }
+    },
+    "To" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אל"
+          }
+        }
+      }
+    },
+    "Unsnooze ${threads}" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בטל נודניק ל־${threads}"
+          }
+        }
+      }
+    },
+    "Unsnooze Conversations" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בטל נודניק לשיחות"
+          }
+        }
+      }
+    },
+    "Unsubscribe" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בטל הרשמה"
+          }
+        }
+      }
+    },
+    "Unsubscribe from the list of ${message}" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בטל הרשמה לרשימה של ${message}"
+          }
+        }
+      }
+    },
+    "Until" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עד"
+          }
+        }
+      }
+    },
+    "When it goes. It goes now when no time is chosen." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מתי היא נשלחת. היא נשלחת עכשיו כשלא נבחר זמן."
+          }
+        }
+      }
+    },
+    "Who a forward goes to, or more people for a reply." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "למי ההעברה נשלחת, או אנשים נוספים לתשובה."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

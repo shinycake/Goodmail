@@ -6,16 +6,17 @@ public enum WeekdayEntity: Int, AppEnum {
     case sunday = 1
     case monday, tuesday, wednesday, thursday, friday, saturday
 
-    public static let typeDisplayRepresentation: TypeDisplayRepresentation = "Day of the Week"
+    public static let typeDisplayRepresentation: TypeDisplayRepresentation = TypeDisplayRepresentation(
+        name: LocalizedStringResource("Day of the Week", table: "ShortcutMail"))
 
     public static let caseDisplayRepresentations: [WeekdayEntity: DisplayRepresentation] = [
-        .sunday: "Sunday",
-        .monday: "Monday",
-        .tuesday: "Tuesday",
-        .wednesday: "Wednesday",
-        .thursday: "Thursday",
-        .friday: "Friday",
-        .saturday: "Saturday",
+        .sunday: DisplayRepresentation(title: LocalizedStringResource("Sunday", table: "ShortcutMail")),
+        .monday: DisplayRepresentation(title: LocalizedStringResource("Monday", table: "ShortcutMail")),
+        .tuesday: DisplayRepresentation(title: LocalizedStringResource("Tuesday", table: "ShortcutMail")),
+        .wednesday: DisplayRepresentation(title: LocalizedStringResource("Wednesday", table: "ShortcutMail")),
+        .thursday: DisplayRepresentation(title: LocalizedStringResource("Thursday", table: "ShortcutMail")),
+        .friday: DisplayRepresentation(title: LocalizedStringResource("Friday", table: "ShortcutMail")),
+        .saturday: DisplayRepresentation(title: LocalizedStringResource("Saturday", table: "ShortcutMail")),
     ]
 
     /// The day `Calendar` numbers `weekday`, from 1 for Sunday.

@@ -30,102 +30,102 @@ public struct MessageEntity {
 
     // MARK: People
 
-    @Property(title: "Sender Name")
+    @Property(title: LocalizedStringResource("Sender Name", table: "ShortcutMail"))
     public var senderName: String
-    @Property(title: "Sender Address")
+    @Property(title: LocalizedStringResource("Sender Address", table: "ShortcutMail"))
     public var senderAddress: String
     /// The part of the sender's address after `@`, as `amazon.com`.
-    @Property(title: "Sender Domain")
+    @Property(title: LocalizedStringResource("Sender Domain", table: "ShortcutMail"))
     public var senderDomain: String
-    @Property(title: "Reply-To Addresses")
+    @Property(title: LocalizedStringResource("Reply-To Addresses", table: "ShortcutMail"))
     public var replyToAddresses: [String]
     /// Every To, Cc and Bcc address.
-    @Property(title: "Recipient Addresses")
+    @Property(title: LocalizedStringResource("Recipient Addresses", table: "ShortcutMail"))
     public var recipientAddresses: [String]
-    @Property(title: "Number of To Recipients")
+    @Property(title: LocalizedStringResource("Number of To Recipients", table: "ShortcutMail"))
     public var toCount: Int
-    @Property(title: "Number of Cc Recipients")
+    @Property(title: LocalizedStringResource("Number of Cc Recipients", table: "ShortcutMail"))
     public var ccCount: Int
-    @Property(title: "Number of Bcc Recipients")
+    @Property(title: LocalizedStringResource("Number of Bcc Recipients", table: "ShortcutMail"))
     public var bccCount: Int
-    @Property(title: "Number of Recipients")
+    @Property(title: LocalizedStringResource("Number of Recipients", table: "ShortcutMail"))
     public var recipientCount: Int
-    @Property(title: "Is From Me")
+    @Property(title: LocalizedStringResource("Is From Me", table: "ShortcutMail"))
     public var isFromMe: Bool
     /// The account's address is a To recipient, not only Cc or Bcc.
-    @Property(title: "Is Addressed to Me")
+    @Property(title: LocalizedStringResource("Is Addressed to Me", table: "ShortcutMail"))
     public var isToMe: Bool
 
     // MARK: Text
 
-    @Property(title: "Preview")
+    @Property(title: LocalizedStringResource("Preview", table: "ShortcutMail"))
     public var snippet: String
     /// What a total line in the body names, as "Order total: $54.20" (`MoneyAmount.total(in:)`).
-    @Property(title: "Total Price")
+    @Property(title: LocalizedStringResource("Total Price", table: "ShortcutMail"))
     public var totalAmount: Double?
-    @Property(title: "Highest Price")
+    @Property(title: LocalizedStringResource("Highest Price", table: "ShortcutMail"))
     public var largestAmount: Double?
     /// Every sum of money the body names, in order.
-    @Property(title: "Prices")
+    @Property(title: LocalizedStringResource("Prices", table: "ShortcutMail"))
     public var amounts: [Double]
     /// ISO 4217, as USD, of the total or else the first price.
-    @Property(title: "Currency")
+    @Property(title: LocalizedStringResource("Currency", table: "ShortcutMail"))
     public var currency: String?
-    @Property(title: "Message-ID")
+    @Property(title: LocalizedStringResource("Message-ID", table: "ShortcutMail"))
     public var internetMessageID: String?
 
     // MARK: Where and when
 
     /// Every label and mailbox it's in, as Inbox, Starred or Receipts.
-    @Property(title: "Labels")
+    @Property(title: LocalizedStringResource("Labels", table: "ShortcutMail"))
     public var labels: [String]
-    @Property(title: "Day of the Week")
+    @Property(title: LocalizedStringResource("Day of the Week", table: "ShortcutMail"))
     public var weekday: WeekdayEntity
     /// The hour it arrived, from 0 to 23.
-    @Property(title: "Hour Received")
+    @Property(title: LocalizedStringResource("Hour Received", table: "ShortcutMail"))
     public var hour: Int
-    @Property(title: "Messages in Conversation")
+    @Property(title: LocalizedStringResource("Messages in Conversation", table: "ShortcutMail"))
     public var conversationLength: Int
 
     // MARK: State
 
-    @Property(title: "Is Important")
+    @Property(title: LocalizedStringResource("Is Important", table: "ShortcutMail"))
     public var isImportant: Bool
-    @Property(title: "Is in Inbox")
+    @Property(title: LocalizedStringResource("Is in Inbox", table: "ShortcutMail"))
     public var isInInbox: Bool
-    @Property(title: "Is Archived")
+    @Property(title: LocalizedStringResource("Is Archived", table: "ShortcutMail"))
     public var isArchived: Bool
-    @Property(title: "Is in Trash")
+    @Property(title: LocalizedStringResource("Is in Trash", table: "ShortcutMail"))
     public var isInTrash: Bool
-    @Property(title: "Is Draft")
+    @Property(title: LocalizedStringResource("Is Draft", table: "ShortcutMail"))
     public var isDraft: Bool
-    @Property(title: "Is Reply")
+    @Property(title: LocalizedStringResource("Is Reply", table: "ShortcutMail"))
     public var isReply: Bool
-    @Property(title: "Is Forward")
+    @Property(title: LocalizedStringResource("Is Forward", table: "ShortcutMail"))
     public var isForward: Bool
-    @Property(title: "Is Pinned")
+    @Property(title: LocalizedStringResource("Is Pinned", table: "ShortcutMail"))
     public var isPinned: Bool
-    @Property(title: "Is Muted")
+    @Property(title: LocalizedStringResource("Is Muted", table: "ShortcutMail"))
     public var isMuted: Bool
-    @Property(title: "Is Snoozed")
+    @Property(title: LocalizedStringResource("Is Snoozed", table: "ShortcutMail"))
     public var isSnoozed: Bool
-    @Property(title: "Snoozed Until")
+    @Property(title: LocalizedStringResource("Snoozed Until", table: "ShortcutMail"))
     public var snoozedUntil: Date?
 
     // MARK: Attachments and lists
 
-    @Property(title: "Has Attachments")
+    @Property(title: LocalizedStringResource("Has Attachments", table: "ShortcutMail"))
     public var hasAttachments: Bool
-    @Property(title: "Number of Attachments")
+    @Property(title: LocalizedStringResource("Number of Attachments", table: "ShortcutMail"))
     public var attachmentCount: Int
-    @Property(title: "Attachment Names")
+    @Property(title: LocalizedStringResource("Attachment Names", table: "ShortcutMail"))
     public var attachmentNames: [String]
-    @Property(title: "Attachments Size")
+    @Property(title: LocalizedStringResource("Attachments Size", table: "ShortcutMail"))
     public var attachmentSize: Measurement<UnitInformationStorage>
-    @Property(title: "Is From a Mailing List")
+    @Property(title: LocalizedStringResource("Is From a Mailing List", table: "ShortcutMail"))
     public var hasUnsubscribe: Bool
     /// Where the list's List-Unsubscribe header sends a reader who leaves it.
-    @Property(title: "Unsubscribe Link")
+    @Property(title: LocalizedStringResource("Unsubscribe Link", table: "ShortcutMail"))
     public var unsubscribeLink: String?
 
     public var displayRepresentation: DisplayRepresentation {

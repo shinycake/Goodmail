@@ -13,43 +13,43 @@ public struct ThreadEntity {
     /// The messages cached on the device, oldest first. A thread only listed so far has none yet.
     public var messages: [MessageEntity]
 
-    @Property(title: "Sender Name")
+    @Property(title: LocalizedStringResource("Sender Name", table: "ShortcutMail"))
     public var senderName: String
-    @Property(title: "Sender Address")
+    @Property(title: LocalizedStringResource("Sender Address", table: "ShortcutMail"))
     public var senderAddress: String
-    @Property(title: "Sender Domain")
+    @Property(title: LocalizedStringResource("Sender Domain", table: "ShortcutMail"))
     public var senderDomain: String
     /// The latest message's date, which Spotlight sorts by.
-    @Property(title: "Date")
+    @Property(title: LocalizedStringResource("Date", table: "ShortcutMail"))
     public var date: Date
-    @Property(title: "Number of Messages")
+    @Property(title: LocalizedStringResource("Number of Messages", table: "ShortcutMail"))
     public var messageCount: Int
     /// Every label and mailbox it's in, as Inbox, Starred or Receipts.
-    @Property(title: "Labels")
+    @Property(title: LocalizedStringResource("Labels", table: "ShortcutMail"))
     public var labels: [String]
-    @Property(title: "Account Address")
+    @Property(title: LocalizedStringResource("Account Address", table: "ShortcutMail"))
     public var accountAddress: String
-    @Property(title: "Is Unread")
+    @Property(title: LocalizedStringResource("Is Unread", table: "ShortcutMail"))
     public var isUnread: Bool
-    @Property(title: "Is Starred")
+    @Property(title: LocalizedStringResource("Is Starred", table: "ShortcutMail"))
     public var isStarred: Bool
-    @Property(title: "Is Important")
+    @Property(title: LocalizedStringResource("Is Important", table: "ShortcutMail"))
     public var isImportant: Bool
-    @Property(title: "Is in Inbox")
+    @Property(title: LocalizedStringResource("Is in Inbox", table: "ShortcutMail"))
     public var isInInbox: Bool
-    @Property(title: "Is Archived")
+    @Property(title: LocalizedStringResource("Is Archived", table: "ShortcutMail"))
     public var isArchived: Bool
-    @Property(title: "Is in Spam")
+    @Property(title: LocalizedStringResource("Is in Spam", table: "ShortcutMail"))
     public var isInSpam: Bool
-    @Property(title: "Is in Trash")
+    @Property(title: LocalizedStringResource("Is in Trash", table: "ShortcutMail"))
     public var isInTrash: Bool
-    @Property(title: "Is Pinned")
+    @Property(title: LocalizedStringResource("Is Pinned", table: "ShortcutMail"))
     public var isPinned: Bool
-    @Property(title: "Is Muted")
+    @Property(title: LocalizedStringResource("Is Muted", table: "ShortcutMail"))
     public var isMuted: Bool
-    @Property(title: "Is Snoozed")
+    @Property(title: LocalizedStringResource("Is Snoozed", table: "ShortcutMail"))
     public var isSnoozed: Bool
-    @Property(title: "Snoozed Until")
+    @Property(title: LocalizedStringResource("Snoozed Until", table: "ShortcutMail"))
     public var snoozedUntil: Date?
 
     public var displayRepresentation: DisplayRepresentation {

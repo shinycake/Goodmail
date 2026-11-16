@@ -3,13 +3,16 @@ import MailCore
 
 /// Pins conversations to the top of their lists, or unpins them.
 public struct PinThreadsIntent: UndoableIntent {
-    public static let title: LocalizedStringResource = "Pin Conversations"
-    public static let description = IntentDescription("Keeps conversations at the top of their lists, or lets them go.")
+    public static let title: LocalizedStringResource = LocalizedStringResource(
+        "Pin Conversations", table: "ShortcutActions")
+    public static let description = IntentDescription(
+        LocalizedStringResource(
+            "Keeps conversations at the top of their lists, or lets them go.", table: "ShortcutActions"))
 
-    @Parameter(title: "Conversations")
+    @Parameter(title: LocalizedStringResource("Conversations", table: "ShortcutActions"))
     public var threads: [ThreadEntity]
 
-    @Parameter(title: "Pinned", default: true)
+    @Parameter(title: LocalizedStringResource("Pinned", table: "ShortcutActions"), default: true)
     public var pinned: Bool
 
     @Dependency private var host: any MailIntentsHost
@@ -22,7 +25,7 @@ public struct PinThreadsIntent: UndoableIntent {
     }
 
     public static var parameterSummary: some ParameterSummary {
-        Summary("Pin \(\.$threads): \(\.$pinned)")
+        Summary("Pin \(\.$threads): \(\.$pinned)", table: "ShortcutActions")
     }
 
     public func perform() async throws -> some IntentResult {
@@ -34,14 +37,16 @@ public struct PinThreadsIntent: UndoableIntent {
 
 /// Mutes conversations, keeping their replies out of the Inbox, or unmutes them.
 public struct MuteThreadsIntent: UndoableIntent {
-    public static let title: LocalizedStringResource = "Mute Conversations"
+    public static let title: LocalizedStringResource = LocalizedStringResource(
+        "Mute Conversations", table: "ShortcutActions")
     public static let description = IntentDescription(
-        "Keeps replies to conversations out of the Inbox, or lets them in.")
+        LocalizedStringResource(
+            "Keeps replies to conversations out of the Inbox, or lets them in.", table: "ShortcutActions"))
 
-    @Parameter(title: "Conversations")
+    @Parameter(title: LocalizedStringResource("Conversations", table: "ShortcutActions"))
     public var threads: [ThreadEntity]
 
-    @Parameter(title: "Muted", default: true)
+    @Parameter(title: LocalizedStringResource("Muted", table: "ShortcutActions"), default: true)
     public var muted: Bool
 
     @Dependency private var host: any MailIntentsHost
@@ -54,7 +59,7 @@ public struct MuteThreadsIntent: UndoableIntent {
     }
 
     public static var parameterSummary: some ParameterSummary {
-        Summary("Mute \(\.$threads): \(\.$muted)")
+        Summary("Mute \(\.$threads): \(\.$muted)", table: "ShortcutActions")
     }
 
     public func perform() async throws -> some IntentResult {

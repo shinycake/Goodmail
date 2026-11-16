@@ -15,7 +15,9 @@ public struct MessageQuery: EntityStringQuery, EntityPropertyQuery {
     public init() {}
 
     public static let findIntentDescription: IntentDescription? = IntentDescription(
-        "Finds mail on this device by its sender, recipients, dates, text, prices, labels or any other detail.")
+        LocalizedStringResource(
+            "Finds mail on this device by its sender, recipients, dates, text, prices, labels or any other detail.",
+            table: "ShortcutMail"))
 
     public static var properties: QueryProperties {
         QueryProperties {

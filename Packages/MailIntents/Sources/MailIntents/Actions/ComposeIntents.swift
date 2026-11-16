@@ -5,25 +5,35 @@ import UniformTypeIdentifiers
 
 /// Sends a new email without opening Goodmail, now or at a set time, as the composer's Send and Send Later do.
 public struct SendEmailIntent: AppIntent {
-    public static let title: LocalizedStringResource = "Send Email"
+    public static let title: LocalizedStringResource = LocalizedStringResource("Send Email", table: "ShortcutActions")
     public static let description = IntentDescription(
-        "Sends an email from one of your accounts without opening Goodmail, now or at the time you choose.")
+        LocalizedStringResource(
+            "Sends an email from one of your accounts without opening Goodmail, now or at the time you choose.",
+            table: "ShortcutActions"))
 
-    @Parameter(title: "To")
+    @Parameter(title: LocalizedStringResource("To", table: "ShortcutActions"))
     public var to: [IntentPerson]
-    @Parameter(title: "CC")
+    @Parameter(title: LocalizedStringResource("CC", table: "ShortcutActions"))
     public var cc: [IntentPerson]?
-    @Parameter(title: "BCC")
+    @Parameter(title: LocalizedStringResource("BCC", table: "ShortcutActions"))
     public var bcc: [IntentPerson]?
-    @Parameter(title: "Subject")
+    @Parameter(title: LocalizedStringResource("Subject", table: "ShortcutActions"))
     public var subject: String?
-    @Parameter(title: "Body", inputOptions: String.IntentInputOptions(multiline: true))
+    @Parameter(
+        title: LocalizedStringResource("Body", table: "ShortcutActions"),
+        inputOptions: String.IntentInputOptions(multiline: true))
     public var body: String?
-    @Parameter(title: "Attachments")
+    @Parameter(title: LocalizedStringResource("Attachments", table: "ShortcutActions"))
     public var attachments: [IntentFile]?
-    @Parameter(title: "From", description: "The account it goes from. The first account when none is chosen.")
+    @Parameter(
+        title: LocalizedStringResource("From", table: "ShortcutActions"),
+        description: LocalizedStringResource(
+            "The account it goes from. The first account when none is chosen.", table: "ShortcutActions"))
     public var account: AccountEntity?
-    @Parameter(title: "Send At", description: "When it goes. It goes now when no time is chosen.")
+    @Parameter(
+        title: LocalizedStringResource("Send At", table: "ShortcutActions"),
+        description: LocalizedStringResource(
+            "When it goes. It goes now when no time is chosen.", table: "ShortcutActions"))
     public var sendAt: Date?
 
     @Dependency private var host: any MailIntentsHost
@@ -31,7 +41,7 @@ public struct SendEmailIntent: AppIntent {
     public init() {}
 
     public static var parameterSummary: some ParameterSummary {
-        Summary("Send \(\.$body) to \(\.$to)") {
+        Summary("Send \(\.$body) to \(\.$to)", table: "ShortcutActions") {
             \.$subject
             \.$cc
             \.$bcc
@@ -45,7 +55,8 @@ public struct SendEmailIntent: AppIntent {
         let catalog = Catalog(host: host)
         let draft = try catalog.newDraft(
             WrittenMail(
-                to: to.recipients, cc: cc.recipients, bcc: bcc.recipients, subject: subject, text: body ?? "",
+                to: to.recipients, cc: (cc ?? []).recipients, bcc: (bcc ?? []).recipients, subject: subject,
+                text: body ?? "",
                 attachments: attachments.drafted), from: account?.id)
         try await catalog.send(draft, at: sendAt)
         return .result()
@@ -54,29 +65,42 @@ public struct SendEmailIntent: AppIntent {
 
 /// Answers a message as Reply, Reply All or Forward do: sends the answer, or opens it in the composer to finish.
 public struct AnswerMessageIntent: AppIntent {
-    public static let title: LocalizedStringResource = "Reply to Message"
+    public static let title: LocalizedStringResource = LocalizedStringResource(
+        "Reply to Message", table: "ShortcutActions")
     public static let description = IntentDescription(
-        "Replies to a message, to its sender or to everyone on it, or forwards it. Sends the answer, or opens it in the composer."
+        LocalizedStringResource(
+            "Replies to a message, to its sender or to everyone on it, or forwards it. Sends the answer, or opens it in the composer.",
+            table: "ShortcutActions")
     )
     public static let supportedModes: IntentModes = [.background, .foreground(.dynamic)]
 
-    @Parameter(title: "Message")
+    @Parameter(title: LocalizedStringResource("Message", table: "ShortcutActions"))
     public var message: MessageEntity
-    @Parameter(title: "Answer", default: .reply)
+    @Parameter(title: LocalizedStringResource("Answer", table: "ShortcutActions"), default: .reply)
     public var answer: AnswerKind
-    @Parameter(title: "Body", inputOptions: String.IntentInputOptions(multiline: true))
+    @Parameter(
+        title: LocalizedStringResource("Body", table: "ShortcutActions"),
+        inputOptions: String.IntentInputOptions(multiline: true))
     public var body: String?
-    @Parameter(title: "To", description: "Who a forward goes to, or more people for a reply.")
+    @Parameter(
+        title: LocalizedStringResource("To", table: "ShortcutActions"),
+        description: LocalizedStringResource(
+            "Who a forward goes to, or more people for a reply.", table: "ShortcutActions"))
     public var to: [IntentPerson]?
-    @Parameter(title: "CC")
+    @Parameter(title: LocalizedStringResource("CC", table: "ShortcutActions"))
     public var cc: [IntentPerson]?
-    @Parameter(title: "Attachments")
+    @Parameter(title: LocalizedStringResource("Attachments", table: "ShortcutActions"))
     public var attachments: [IntentFile]?
     @Parameter(
-        title: "Open in Composer", description: "Opens the answer in Goodmail to finish instead of sending it.",
+        title: LocalizedStringResource("Open in Composer", table: "ShortcutActions"),
+        description: LocalizedStringResource(
+            "Opens the answer in Goodmail to finish instead of sending it.", table: "ShortcutActions"),
         default: false)
     public var opensComposer: Bool
-    @Parameter(title: "Send At", description: "When it goes. It goes now when no time is chosen.")
+    @Parameter(
+        title: LocalizedStringResource("Send At", table: "ShortcutActions"),
+        description: LocalizedStringResource(
+            "When it goes. It goes now when no time is chosen.", table: "ShortcutActions"))
     public var sendAt: Date?
 
     @Dependency private var host: any MailIntentsHost
@@ -85,14 +109,14 @@ public struct AnswerMessageIntent: AppIntent {
 
     public static var parameterSummary: some ParameterSummary {
         When(\.$opensComposer, .equalTo, true) {
-            Summary("\(\.$answer) \(\.$message) in the composer, with \(\.$body)") {
+            Summary("\(\.$answer) \(\.$message) in the composer, with \(\.$body)", table: "ShortcutActions") {
                 \.$opensComposer
                 \.$to
                 \.$cc
                 \.$attachments
             }
         } otherwise: {
-            Summary("\(\.$answer) \(\.$message) with \(\.$body)") {
+            Summary("\(\.$answer) \(\.$message) with \(\.$body)", table: "ShortcutActions") {
                 \.$opensComposer
                 \.$to
                 \.$cc
@@ -106,7 +130,9 @@ public struct AnswerMessageIntent: AppIntent {
         let catalog = Catalog(host: host)
         let draft = try await catalog.answer(
             answer.answer, toMessage: message.id,
-            with: WrittenMail(to: to.recipients, cc: cc.recipients, text: body ?? "", attachments: attachments.drafted))
+            with: WrittenMail(
+                to: (to ?? []).recipients, cc: (cc ?? []).recipients, text: body ?? "", attachments: attachments.drafted
+            ))
         if opensComposer {
             try await continueInForeground(alwaysConfirm: false)
             await host.open(.compose(draft))
@@ -121,13 +147,21 @@ public struct AnswerMessageIntent: AppIntent {
 public enum AnswerKind: String, AppEnum {
     case reply, replyAll, forward, forwardAsAttachment
 
-    public static let typeDisplayRepresentation: TypeDisplayRepresentation = "Answer"
+    public static let typeDisplayRepresentation: TypeDisplayRepresentation = TypeDisplayRepresentation(
+        name: LocalizedStringResource("Answer", table: "ShortcutActions"))
     public static let caseDisplayRepresentations: [AnswerKind: DisplayRepresentation] = [
-        .reply: DisplayRepresentation(title: "Reply", image: .init(systemName: "arrowshape.turn.up.left")),
-        .replyAll: DisplayRepresentation(title: "Reply All", image: .init(systemName: "arrowshape.turn.up.left.2")),
-        .forward: DisplayRepresentation(title: "Forward", image: .init(systemName: "arrowshape.turn.up.right")),
+        .reply: DisplayRepresentation(
+            title: LocalizedStringResource("Reply", table: "ShortcutActions"),
+            image: .init(systemName: "arrowshape.turn.up.left")),
+        .replyAll: DisplayRepresentation(
+            title: LocalizedStringResource("Reply All", table: "ShortcutActions"),
+            image: .init(systemName: "arrowshape.turn.up.left.2")),
+        .forward: DisplayRepresentation(
+            title: LocalizedStringResource("Forward", table: "ShortcutActions"),
+            image: .init(systemName: "arrowshape.turn.up.right")),
         .forwardAsAttachment: DisplayRepresentation(
-            title: "Forward as Attachment", image: .init(systemName: "paperclip")),
+            title: LocalizedStringResource("Forward as Attachment", table: "ShortcutActions"),
+            image: .init(systemName: "paperclip")),
     ]
 
     var answer: Answer {
@@ -190,10 +224,6 @@ extension IntentPerson {
         guard case .displayName(let name) = self.name, !name.isEmpty, name != address else { return address }
         return Contact(name: name, address: address).typedForm
     }
-}
-
-extension Optional where Wrapped == [IntentPerson] {
-    var recipients: [String] { (self ?? []).map(\.recipient) }
 }
 
 extension Array where Element == IntentPerson {

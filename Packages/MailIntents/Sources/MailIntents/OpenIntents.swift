@@ -3,10 +3,12 @@ import MailCore
 
 /// Opens a thread in the reader.
 public struct OpenThreadIntent: OpenIntent {
-    public static let title: LocalizedStringResource = "Open Conversation"
-    public static let description = IntentDescription("Opens a conversation in Goodmail.")
+    public static let title: LocalizedStringResource = LocalizedStringResource(
+        "Open Conversation", table: "ShortcutMail")
+    public static let description = IntentDescription(
+        LocalizedStringResource("Opens a conversation in Goodmail.", table: "ShortcutMail"))
 
-    @Parameter(title: "Conversation")
+    @Parameter(title: LocalizedStringResource("Conversation", table: "ShortcutMail"))
     public var target: ThreadEntity
 
     @Dependency private var host: any MailIntentsHost
@@ -27,10 +29,11 @@ public struct OpenThreadIntent: OpenIntent {
 
 /// Opens one account's mailbox.
 public struct OpenMailboxIntent: OpenIntent {
-    public static let title: LocalizedStringResource = "Open Mailbox"
-    public static let description = IntentDescription("Opens a mailbox in Goodmail.")
+    public static let title: LocalizedStringResource = LocalizedStringResource("Open Mailbox", table: "ShortcutMail")
+    public static let description = IntentDescription(
+        LocalizedStringResource("Opens a mailbox in Goodmail.", table: "ShortcutMail"))
 
-    @Parameter(title: "Mailbox")
+    @Parameter(title: LocalizedStringResource("Mailbox", table: "ShortcutMail"))
     public var target: MailboxEntity
 
     @Dependency private var host: any MailIntentsHost
@@ -70,11 +73,14 @@ enum IntentError: Error, CustomLocalizedStringResourceConvertible {
 
     var localizedStringResource: LocalizedStringResource {
         switch self {
-        case .notAnAddress(let text): "“\(text)” isn't an email address."
-        case .noRecipients: "Choose someone to send it to."
-        case .gone: "That mail is no longer on this device."
-        case .notAPlace: "Mail can't be moved there. Choose the Inbox, Spam, Trash or a label."
-        case .notAList: "That message isn't from a mailing list."
+        case .notAnAddress(let text):
+            LocalizedStringResource("“\(text)” isn't an email address.", table: "ShortcutMail")
+        case .noRecipients: LocalizedStringResource("Choose someone to send it to.", table: "ShortcutMail")
+        case .gone: LocalizedStringResource("That mail is no longer on this device.", table: "ShortcutMail")
+        case .notAPlace:
+            LocalizedStringResource(
+                "Mail can't be moved there. Choose the Inbox, Spam, Trash or a label.", table: "ShortcutMail")
+        case .notAList: LocalizedStringResource("That message isn't from a mailing list.", table: "ShortcutMail")
         }
     }
 }
@@ -89,8 +95,9 @@ extension Catalog {
 
 /// Opens the Inbox of every account.
 public struct OpenInboxIntent: AppIntent {
-    public static let title: LocalizedStringResource = "Open Inbox"
-    public static let description = IntentDescription("Opens the Inbox in Goodmail.")
+    public static let title: LocalizedStringResource = LocalizedStringResource("Open Inbox", table: "ShortcutMail")
+    public static let description = IntentDescription(
+        LocalizedStringResource("Opens the Inbox in Goodmail.", table: "ShortcutMail"))
     public static let supportedModes: IntentModes = .foreground
 
     @Dependency private var host: any MailIntentsHost
@@ -105,24 +112,28 @@ public struct OpenInboxIntent: AppIntent {
 
 /// Starts a new message, from the account given or else the first, filled in with what the shortcut wrote.
 public struct NewMessageIntent: AppIntent {
-    public static let title: LocalizedStringResource = "New Message"
+    public static let title: LocalizedStringResource = LocalizedStringResource("New Message", table: "ShortcutMail")
     public static let description = IntentDescription(
-        "Starts a new message in Goodmail, with the recipients, subject, text and files you give it.")
+        LocalizedStringResource(
+            "Starts a new message in Goodmail, with the recipients, subject, text and files you give it.",
+            table: "ShortcutMail"))
     public static let supportedModes: IntentModes = .foreground
 
-    @Parameter(title: "From")
+    @Parameter(title: LocalizedStringResource("From", table: "ShortcutMail"))
     public var account: AccountEntity?
-    @Parameter(title: "To")
+    @Parameter(title: LocalizedStringResource("To", table: "ShortcutMail"))
     public var to: [IntentPerson]?
-    @Parameter(title: "CC")
+    @Parameter(title: LocalizedStringResource("CC", table: "ShortcutMail"))
     public var cc: [IntentPerson]?
-    @Parameter(title: "BCC")
+    @Parameter(title: LocalizedStringResource("BCC", table: "ShortcutMail"))
     public var bcc: [IntentPerson]?
-    @Parameter(title: "Subject")
+    @Parameter(title: LocalizedStringResource("Subject", table: "ShortcutMail"))
     public var subject: String?
-    @Parameter(title: "Body", inputOptions: String.IntentInputOptions(multiline: true))
+    @Parameter(
+        title: LocalizedStringResource("Body", table: "ShortcutMail"),
+        inputOptions: String.IntentInputOptions(multiline: true))
     public var body: String?
-    @Parameter(title: "Attachments")
+    @Parameter(title: LocalizedStringResource("Attachments", table: "ShortcutMail"))
     public var attachments: [IntentFile]?
 
     @Dependency private var host: any MailIntentsHost
@@ -132,7 +143,8 @@ public struct NewMessageIntent: AppIntent {
     public func perform() async throws -> some IntentResult {
         let draft = try Catalog(host: host).newDraft(
             WrittenMail(
-                to: to.recipients, cc: cc.recipients, bcc: bcc.recipients, subject: subject, text: body ?? "",
+                to: (to ?? []).recipients, cc: (cc ?? []).recipients, bcc: (bcc ?? []).recipients, subject: subject,
+                text: body ?? "",
                 attachments: attachments.drafted), from: account?.id)
         await host.open(.compose(draft))
         return .result()

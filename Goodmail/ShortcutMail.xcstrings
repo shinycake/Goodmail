@@ -1,0 +1,836 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Account Address" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כתובת החשבון"
+          }
+        }
+      }
+    },
+    "Archive Mail" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העבר דואר לארכיון"
+          }
+        }
+      }
+    },
+    "Attachment Names" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שמות הקבצים המצורפים"
+          }
+        }
+      }
+    },
+    "Attachments" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קבצים מצורפים"
+          }
+        }
+      }
+    },
+    "Attachments Size" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "גודל הקבצים המצורפים"
+          }
+        }
+      }
+    },
+    "BCC" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עותק מוסתר"
+          }
+        }
+      }
+    },
+    "Body" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "גוף ההודעה"
+          }
+        }
+      }
+    },
+    "CC" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עותק"
+          }
+        }
+      }
+    },
+    "Choose someone to send it to." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "צריך לבחור למי לשלוח."
+          }
+        }
+      }
+    },
+    "Conversation" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שיחה"
+          }
+        }
+      }
+    },
+    "Currency" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מטבע"
+          }
+        }
+      }
+    },
+    "Date" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תאריך"
+          }
+        }
+      }
+    },
+    "Day of the Week" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "יום בשבוע"
+          }
+        }
+      }
+    },
+    "Delete Mail" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחק דואר"
+          }
+        }
+      }
+    },
+    "Finds conversations on this device by their sender, date, labels or state." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מוצא שיחות במכשיר לפי השולח, התאריך, התוויות או המצב שלהן."
+          }
+        }
+      }
+    },
+    "Finds mail on this device by its sender, recipients, dates, text, prices, labels or any other detail." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מוצא דואר במכשיר לפי השולח, הנמענים, התאריכים, הטקסט, המחירים, התוויות או כל פרט אחר."
+          }
+        }
+      }
+    },
+    "Forums" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פורומים"
+          }
+        }
+      }
+    },
+    "Friday" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שישי"
+          }
+        }
+      }
+    },
+    "From" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מאת"
+          }
+        }
+      }
+    },
+    "Has Attachments" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "יש קבצים מצורפים"
+          }
+        }
+      }
+    },
+    "Highest Price" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "המחיר הגבוה ביותר"
+          }
+        }
+      }
+    },
+    "Hour Received" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שעת הקבלה"
+          }
+        }
+      }
+    },
+    "Is Addressed to Me" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ממוענת אליי"
+          }
+        }
+      }
+    },
+    "Is Archived" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בארכיון"
+          }
+        }
+      }
+    },
+    "Is Draft" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "טיוטה"
+          }
+        }
+      }
+    },
+    "Is Forward" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה"
+          }
+        }
+      }
+    },
+    "Is From Me" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נשלחה ממני"
+          }
+        }
+      }
+    },
+    "Is From a Mailing List" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מרשימת תפוצה"
+          }
+        }
+      }
+    },
+    "Is Important" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חשובה"
+          }
+        }
+      }
+    },
+    "Is Muted" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מושתקת"
+          }
+        }
+      }
+    },
+    "Is Pinned" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מוצמדת"
+          }
+        }
+      }
+    },
+    "Is Reply" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תשובה"
+          }
+        }
+      }
+    },
+    "Is Snoozed" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בנודניק"
+          }
+        }
+      }
+    },
+    "Is Starred" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מסומנת בכוכב"
+          }
+        }
+      }
+    },
+    "Is Unread" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא נקראה"
+          }
+        }
+      }
+    },
+    "Is in Inbox" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בדואר הנכנס"
+          }
+        }
+      }
+    },
+    "Is in Spam" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בספאם"
+          }
+        }
+      }
+    },
+    "Is in Trash" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "באשפה"
+          }
+        }
+      }
+    },
+    "Labels" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תוויות"
+          }
+        }
+      }
+    },
+    "Mail can't be moved there. Choose the Inbox, Spam, Trash or a label." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אי אפשר להעביר לשם דואר. אפשר לבחור דואר נכנס, ספאם, אשפה או תווית."
+          }
+        }
+      }
+    },
+    "Mailbox" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תיבת דואר"
+          }
+        }
+      }
+    },
+    "Message-ID" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Message-ID"
+          }
+        }
+      }
+    },
+    "Messages in Conversation" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הודעות בשיחה"
+          }
+        }
+      }
+    },
+    "Monday" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שני"
+          }
+        }
+      }
+    },
+    "New Message" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הודעה חדשה"
+          }
+        }
+      }
+    },
+    "Number of Attachments" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מספר הקבצים המצורפים"
+          }
+        }
+      }
+    },
+    "Number of Bcc Recipients" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מספר הנמענים בעותק מוסתר"
+          }
+        }
+      }
+    },
+    "Number of Cc Recipients" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מספר הנמענים בעותק"
+          }
+        }
+      }
+    },
+    "Number of Messages" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מספר ההודעות"
+          }
+        }
+      }
+    },
+    "Number of Recipients" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מספר הנמענים"
+          }
+        }
+      }
+    },
+    "Number of To Recipients" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מספר הנמענים ב״אל״"
+          }
+        }
+      }
+    },
+    "Open Conversation" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פתח שיחה"
+          }
+        }
+      }
+    },
+    "Open Inbox" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פתח דואר נכנס"
+          }
+        }
+      }
+    },
+    "Open Mailbox" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פתח תיבת דואר"
+          }
+        }
+      }
+    },
+    "Opens a conversation in Goodmail." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פותח שיחה ב־Goodmail."
+          }
+        }
+      }
+    },
+    "Opens a mailbox in Goodmail." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פותח תיבת דואר ב־Goodmail."
+          }
+        }
+      }
+    },
+    "Opens the Inbox in Goodmail." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פותח את הדואר הנכנס ב־Goodmail."
+          }
+        }
+      }
+    },
+    "Preview" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תצוגה מקדימה"
+          }
+        }
+      }
+    },
+    "Prices" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחירים"
+          }
+        }
+      }
+    },
+    "Primary" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ראשי"
+          }
+        }
+      }
+    },
+    "Promotions" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קידומי מכירות"
+          }
+        }
+      }
+    },
+    "Recipient Addresses" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כתובות הנמענים"
+          }
+        }
+      }
+    },
+    "Reply-To Addresses" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כתובות להשבה"
+          }
+        }
+      }
+    },
+    "Saturday" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שבת"
+          }
+        }
+      }
+    },
+    "Sender Address" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כתובת השולח"
+          }
+        }
+      }
+    },
+    "Sender Domain" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הדומיין של השולח"
+          }
+        }
+      }
+    },
+    "Sender Name" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שם השולח"
+          }
+        }
+      }
+    },
+    "Snoozed Until" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בנודניק עד"
+          }
+        }
+      }
+    },
+    "Social" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "רשתות חברתיות"
+          }
+        }
+      }
+    },
+    "Starts a new message in Goodmail, with the recipients, subject, text and files you give it." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מתחיל הודעה חדשה ב־Goodmail, עם הנמענים, הנושא, הטקסט והקבצים שתיתן לו."
+          }
+        }
+      }
+    },
+    "Subject" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נושא"
+          }
+        }
+      }
+    },
+    "Sunday" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ראשון"
+          }
+        }
+      }
+    },
+    "That mail is no longer on this device." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הדואר הזה כבר לא נמצא במכשיר."
+          }
+        }
+      }
+    },
+    "That message isn't from a mailing list." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ההודעה הזו לא הגיעה מרשימת תפוצה."
+          }
+        }
+      }
+    },
+    "Thursday" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חמישי"
+          }
+        }
+      }
+    },
+    "To" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אל"
+          }
+        }
+      }
+    },
+    "Total Price" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחיר כולל"
+          }
+        }
+      }
+    },
+    "Tuesday" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שלישי"
+          }
+        }
+      }
+    },
+    "Unsubscribe Link" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קישור לביטול הרשמה"
+          }
+        }
+      }
+    },
+    "Update Mail" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עדכן דואר"
+          }
+        }
+      }
+    },
+    "Updates" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עדכונים"
+          }
+        }
+      }
+    },
+    "Wednesday" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "רביעי"
+          }
+        }
+      }
+    },
+    "“%@” isn't an email address." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‏„%@” אינה כתובת אימייל."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

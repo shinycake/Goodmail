@@ -14,7 +14,7 @@ public struct ArchiveMailIntent: UndoableIntent {
 
     public func perform() async throws -> some IntentResult {
         let change = try await Catalog(host: host).perform(.archive, onMessages: entities.map(\.id))
-        await offerUndo(of: [change], named: "Archive Mail", host: host)
+        await offerUndo(of: [change], named: LocalizedStringResource("Archive Mail", table: "ShortcutMail"), host: host)
         return .result()
     }
 }
@@ -29,7 +29,7 @@ public struct DeleteMailIntent: DeleteIntent, UndoableIntent {
 
     public func perform() async throws -> some IntentResult {
         let change = try await Catalog(host: host).perform(.trash, onMessages: entities.map(\.id))
-        await offerUndo(of: [change], named: "Delete Mail", host: host)
+        await offerUndo(of: [change], named: LocalizedStringResource("Delete Mail", table: "ShortcutMail"), host: host)
         return .result()
     }
 }
@@ -59,7 +59,7 @@ public struct UpdateMailIntent: UndoableIntent {
             try await changes.append(contentsOf: catalog.move(messages: target, to: destination))
         }
         // Each change undoes on its own, newest first, so a move undone after a flag lands where the flag was set.
-        await offerUndo(of: changes, named: "Update Mail", host: host)
+        await offerUndo(of: changes, named: LocalizedStringResource("Update Mail", table: "ShortcutMail"), host: host)
         return .result()
     }
 

@@ -4,14 +4,16 @@ import MailCore
 /// Moves conversations to a mailbox: the Inbox, Spam, Trash or a label or folder. Gmail's labels act as folders
 /// here, as its Move does: the conversation leaves the mailbox it was in.
 public struct MoveThreadsIntent: UndoableIntent {
-    public static let title: LocalizedStringResource = "Move Conversations"
+    public static let title: LocalizedStringResource = LocalizedStringResource(
+        "Move Conversations", table: "ShortcutActions")
     public static let description = IntentDescription(
-        "Moves conversations to a mailbox, label or folder, out of the one they're in.")
+        LocalizedStringResource(
+            "Moves conversations to a mailbox, label or folder, out of the one they're in.", table: "ShortcutActions"))
 
-    @Parameter(title: "Conversations")
+    @Parameter(title: LocalizedStringResource("Conversations", table: "ShortcutActions"))
     public var threads: [ThreadEntity]
 
-    @Parameter(title: "Mailbox")
+    @Parameter(title: LocalizedStringResource("Mailbox", table: "ShortcutActions"))
     public var mailbox: MailboxEntity
 
     @Dependency private var host: any MailIntentsHost
@@ -19,7 +21,7 @@ public struct MoveThreadsIntent: UndoableIntent {
     public init() {}
 
     public static var parameterSummary: some ParameterSummary {
-        Summary("Move \(\.$threads) to \(\.$mailbox)")
+        Summary("Move \(\.$threads) to \(\.$mailbox)", table: "ShortcutActions")
     }
 
     public func perform() async throws -> some IntentResult {
@@ -34,25 +36,30 @@ public struct MoveThreadsIntent: UndoableIntent {
 public enum LabelChange: String, AppEnum {
     case add, remove
 
-    public static let typeDisplayRepresentation: TypeDisplayRepresentation = "Label Change"
+    public static let typeDisplayRepresentation: TypeDisplayRepresentation = TypeDisplayRepresentation(
+        name: LocalizedStringResource("Label Change", table: "ShortcutActions"))
     public static let caseDisplayRepresentations: [LabelChange: DisplayRepresentation] = [
-        .add: "Add", .remove: "Remove",
+        .add: DisplayRepresentation(title: LocalizedStringResource("Add", table: "ShortcutActions")),
+        .remove: DisplayRepresentation(title: LocalizedStringResource("Remove", table: "ShortcutActions")),
     ]
 }
 
 /// Adds a label to conversations, or takes it off, leaving them in every other mailbox they're in.
 public struct LabelThreadsIntent: UndoableIntent {
-    public static let title: LocalizedStringResource = "Label Conversations"
+    public static let title: LocalizedStringResource = LocalizedStringResource(
+        "Label Conversations", table: "ShortcutActions")
     public static let description = IntentDescription(
-        "Adds a label to conversations or removes it, without moving them out of anywhere else.")
+        LocalizedStringResource(
+            "Adds a label to conversations or removes it, without moving them out of anywhere else.",
+            table: "ShortcutActions"))
 
-    @Parameter(title: "Change", default: .add)
+    @Parameter(title: LocalizedStringResource("Change", table: "ShortcutActions"), default: .add)
     public var change: LabelChange
 
-    @Parameter(title: "Label")
+    @Parameter(title: LocalizedStringResource("Label", table: "ShortcutActions"))
     public var label: MailboxEntity
 
-    @Parameter(title: "Conversations")
+    @Parameter(title: LocalizedStringResource("Conversations", table: "ShortcutActions"))
     public var threads: [ThreadEntity]
 
     @Dependency private var host: any MailIntentsHost
@@ -60,7 +67,7 @@ public struct LabelThreadsIntent: UndoableIntent {
     public init() {}
 
     public static var parameterSummary: some ParameterSummary {
-        Summary("\(\.$change) \(\.$label) on \(\.$threads)")
+        Summary("\(\.$change) \(\.$label) on \(\.$threads)", table: "ShortcutActions")
     }
 
     public func perform() async throws -> some IntentResult {
@@ -78,14 +85,15 @@ public struct LabelThreadsIntent: UndoableIntent {
 
 /// Reports conversations as spam, or takes them out of Spam back to the Inbox.
 public struct ReportSpamIntent: UndoableIntent {
-    public static let title: LocalizedStringResource = "Report Spam"
+    public static let title: LocalizedStringResource = LocalizedStringResource("Report Spam", table: "ShortcutActions")
     public static let description = IntentDescription(
-        "Moves conversations to Spam, or with Spam off takes them back to the Inbox.")
+        LocalizedStringResource(
+            "Moves conversations to Spam, or with Spam off takes them back to the Inbox.", table: "ShortcutActions"))
 
-    @Parameter(title: "Conversations")
+    @Parameter(title: LocalizedStringResource("Conversations", table: "ShortcutActions"))
     public var threads: [ThreadEntity]
 
-    @Parameter(title: "Spam", default: true)
+    @Parameter(title: LocalizedStringResource("Spam", table: "ShortcutActions"), default: true)
     public var spam: Bool
 
     @Dependency private var host: any MailIntentsHost
@@ -93,7 +101,7 @@ public struct ReportSpamIntent: UndoableIntent {
     public init() {}
 
     public static var parameterSummary: some ParameterSummary {
-        Summary("Report \(\.$threads) as spam: \(\.$spam)")
+        Summary("Report \(\.$threads) as spam: \(\.$spam)", table: "ShortcutActions")
     }
 
     public func perform() async throws -> some IntentResult {
@@ -106,11 +114,14 @@ public struct ReportSpamIntent: UndoableIntent {
 
 /// Deletes the conversations' messages in Trash for good, after asking. Nothing undoes it.
 public struct DeleteForeverIntent: AppIntent {
-    public static let title: LocalizedStringResource = "Delete Conversations Forever"
+    public static let title: LocalizedStringResource = LocalizedStringResource(
+        "Delete Conversations Forever", table: "ShortcutActions")
     public static let description = IntentDescription(
-        "Deletes the messages of conversations that are in Trash for good. Messages anywhere else stay.")
+        LocalizedStringResource(
+            "Deletes the messages of conversations that are in Trash for good. Messages anywhere else stay.",
+            table: "ShortcutActions"))
 
-    @Parameter(title: "Conversations")
+    @Parameter(title: LocalizedStringResource("Conversations", table: "ShortcutActions"))
     public var threads: [ThreadEntity]
 
     @Dependency private var host: any MailIntentsHost
@@ -118,15 +129,20 @@ public struct DeleteForeverIntent: AppIntent {
     public init() {}
 
     public static var parameterSummary: some ParameterSummary {
-        Summary("Delete \(\.$threads) forever")
+        Summary("Delete \(\.$threads) forever", table: "ShortcutActions")
     }
 
     public func perform() async throws -> some IntentResult {
         try await requestConfirmation(
             actionName: .custom(
-                acceptLabel: "Delete Forever", acceptAlternatives: [], denyLabel: "Cancel", denyAlternatives: [],
+                acceptLabel: LocalizedStringResource("Delete Forever", table: "ShortcutActions"),
+                acceptAlternatives: [], denyLabel: LocalizedStringResource("Cancel", table: "ShortcutActions"),
+                denyAlternatives: [],
                 destructive: true),
-            dialog: "Delete these conversations' messages in Trash forever? This can't be undone.")
+            dialog: IntentDialog(
+                LocalizedStringResource(
+                    "Delete these conversations' messages in Trash forever? This can't be undone.",
+                    table: "ShortcutActions")))
         try await Catalog(host: host).perform(.deleteForever, onThreads: threads.map(\.id))
         return .result()
     }

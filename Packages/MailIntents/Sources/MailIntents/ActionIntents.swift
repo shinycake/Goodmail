@@ -3,10 +3,12 @@ import MailCore
 
 /// Archives conversations: takes them out of the Inbox.
 public struct ArchiveThreadsIntent: UndoableIntent {
-    public static let title: LocalizedStringResource = "Archive Conversations"
-    public static let description = IntentDescription("Takes conversations out of the Inbox.")
+    public static let title: LocalizedStringResource = LocalizedStringResource(
+        "Archive Conversations", table: "ShortcutActions")
+    public static let description = IntentDescription(
+        LocalizedStringResource("Takes conversations out of the Inbox.", table: "ShortcutActions"))
 
-    @Parameter(title: "Conversations")
+    @Parameter(title: LocalizedStringResource("Conversations", table: "ShortcutActions"))
     public var threads: [ThreadEntity]
 
     @Dependency private var host: any MailIntentsHost
@@ -26,10 +28,12 @@ public struct ArchiveThreadsIntent: UndoableIntent {
 
 /// Moves conversations to the Trash.
 public struct TrashThreadsIntent: UndoableIntent {
-    public static let title: LocalizedStringResource = "Delete Conversations"
-    public static let description = IntentDescription("Moves conversations to the Trash.")
+    public static let title: LocalizedStringResource = LocalizedStringResource(
+        "Delete Conversations", table: "ShortcutActions")
+    public static let description = IntentDescription(
+        LocalizedStringResource("Moves conversations to the Trash.", table: "ShortcutActions"))
 
-    @Parameter(title: "Conversations")
+    @Parameter(title: LocalizedStringResource("Conversations", table: "ShortcutActions"))
     public var threads: [ThreadEntity]
 
     @Dependency private var host: any MailIntentsHost
@@ -49,13 +53,15 @@ public struct TrashThreadsIntent: UndoableIntent {
 
 /// Marks conversations read or unread.
 public struct MarkThreadsReadIntent: UndoableIntent {
-    public static let title: LocalizedStringResource = "Mark Conversations Read"
-    public static let description = IntentDescription("Marks conversations read or unread.")
+    public static let title: LocalizedStringResource = LocalizedStringResource(
+        "Mark Conversations Read", table: "ShortcutActions")
+    public static let description = IntentDescription(
+        LocalizedStringResource("Marks conversations read or unread.", table: "ShortcutActions"))
 
-    @Parameter(title: "Conversations")
+    @Parameter(title: LocalizedStringResource("Conversations", table: "ShortcutActions"))
     public var threads: [ThreadEntity]
 
-    @Parameter(title: "Read", default: true)
+    @Parameter(title: LocalizedStringResource("Read", table: "ShortcutActions"), default: true)
     public var read: Bool
 
     @Dependency private var host: any MailIntentsHost
@@ -68,7 +74,7 @@ public struct MarkThreadsReadIntent: UndoableIntent {
     }
 
     public static var parameterSummary: some ParameterSummary {
-        Summary("Mark \(\.$threads) read: \(\.$read)")
+        Summary("Mark \(\.$threads) read: \(\.$read)", table: "ShortcutActions")
     }
 
     public func perform() async throws -> some IntentResult {
@@ -80,13 +86,15 @@ public struct MarkThreadsReadIntent: UndoableIntent {
 
 /// Stars or unstars conversations.
 public struct StarThreadsIntent: UndoableIntent {
-    public static let title: LocalizedStringResource = "Star Conversations"
-    public static let description = IntentDescription("Stars or unstars conversations.")
+    public static let title: LocalizedStringResource = LocalizedStringResource(
+        "Star Conversations", table: "ShortcutActions")
+    public static let description = IntentDescription(
+        LocalizedStringResource("Stars or unstars conversations.", table: "ShortcutActions"))
 
-    @Parameter(title: "Conversations")
+    @Parameter(title: LocalizedStringResource("Conversations", table: "ShortcutActions"))
     public var threads: [ThreadEntity]
 
-    @Parameter(title: "Starred", default: true)
+    @Parameter(title: LocalizedStringResource("Starred", table: "ShortcutActions"), default: true)
     public var starred: Bool
 
     @Dependency private var host: any MailIntentsHost
@@ -99,7 +107,7 @@ public struct StarThreadsIntent: UndoableIntent {
     }
 
     public static var parameterSummary: some ParameterSummary {
-        Summary("Star \(\.$threads): \(\.$starred)")
+        Summary("Star \(\.$threads): \(\.$starred)", table: "ShortcutActions")
     }
 
     public func perform() async throws -> some IntentResult {

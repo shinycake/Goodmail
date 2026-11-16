@@ -7,11 +7,11 @@ public enum MailCategoryEntity: String, AppEnum {
     case primary, promotions, social, updates, forums
 
     public static let caseDisplayRepresentations: [MailCategoryEntity: DisplayRepresentation] = [
-        .primary: "Primary",
-        .promotions: "Promotions",
-        .social: "Social",
-        .updates: "Updates",
-        .forums: "Forums",
+        .primary: DisplayRepresentation(title: LocalizedStringResource("Primary", table: "ShortcutMail")),
+        .promotions: DisplayRepresentation(title: LocalizedStringResource("Promotions", table: "ShortcutMail")),
+        .social: DisplayRepresentation(title: LocalizedStringResource("Social", table: "ShortcutMail")),
+        .updates: DisplayRepresentation(title: LocalizedStringResource("Updates", table: "ShortcutMail")),
+        .forums: DisplayRepresentation(title: LocalizedStringResource("Forums", table: "ShortcutMail")),
     ]
 
     /// The category a message carrying `labels` is in, or `nil` when it isn't in the Inbox.
