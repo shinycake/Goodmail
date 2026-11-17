@@ -1,0 +1,28 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Inbox" : {
+      "comment" : "Name of the watch face complication and Smart Stack widget",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דואר נכנס"
+          }
+        }
+      }
+    },
+    "Unread mail at a glance." : {
+      "comment" : "Description of the watch face complication and Smart Stack widget",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דואר שלא נקרא במבט אחד."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

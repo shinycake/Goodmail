@@ -259,6 +259,17 @@
         }
       }
     },
+    "No Unread Mail": {
+      "comment": "Watch face: nothing unread",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "אין דואר שלא נקרא"
+          }
+        }
+      }
+    },
     "Nothing in your Inbox.": {
       "comment": "Shown when the Inbox is empty",
       "localizations": {

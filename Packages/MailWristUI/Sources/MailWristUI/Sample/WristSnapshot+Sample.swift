@@ -3,8 +3,9 @@
     import MailCore
     public import MailWrist
 
-    /// Made-up mail for previews and screenshots, shown without an iPhone.
-    extension WristSnapshot {
+    /// Made-up mail for previews, screenshots and the watch face's placeholder, shown without an iPhone. Plain values
+    /// off the main actor, for the widget extension's timeline provider.
+    nonisolated extension WristSnapshot {
         public enum SampleLanguage: String, Sendable {
             case english = "en"
             case hebrew = "he"
