@@ -72,4 +72,14 @@ nonisolated enum DoodleSpring {
         guard elapsed > 0 else { return 0 }
         return 1.75 * exp(-4.5 * elapsed) * sin(11 * elapsed)
     }
+
+    /// A spring let go `elapsed` seconds ago, moving from 0 to settle at 1: `response` is roughly how long a swing
+    /// takes and `damping` how soon it stops, below 1 overshooting on the way. Still at 0 before it is let go.
+    static func settle(_ elapsed: TimeInterval, response: Double, damping: Double) -> Double {
+        guard elapsed > 0 else { return 0 }
+        let stiffness = 2 * Double.pi / response
+        let ringing = stiffness * (1 - damping * damping).squareRoot()
+        let decay = damping * stiffness
+        return 1 - exp(-decay * elapsed) * (cos(ringing * elapsed) + decay / ringing * sin(ringing * elapsed))
+    }
 }

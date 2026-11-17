@@ -1,0 +1,113 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%lld unread in %@" : {
+      "comment" : "Under the title of an empty Primary: how many unread threads another category has, and which",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "1 unread in %2$@"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld unread in %@"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "שיחה אחת שלא נקראה ב״%2$@״"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld שיחות שלא נקראו ב״%@״"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "All Caught Up" : {
+      "comment" : "Title of the empty Inbox, once every thread has been dealt with",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סיימת הכול"
+          }
+        }
+      }
+    },
+    "Enjoy your afternoon." : {
+      "comment" : "Under All Caught Up, from noon to 5 PM",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אחר צהריים נעים."
+          }
+        }
+      }
+    },
+    "Enjoy your evening." : {
+      "comment" : "Under All Caught Up, from 5 PM to 10 PM",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ערב נעים."
+          }
+        }
+      }
+    },
+    "Enjoy your morning." : {
+      "comment" : "Under All Caught Up, from 5 AM to noon",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בוקר נעים."
+          }
+        }
+      }
+    },
+    "Good night." : {
+      "comment" : "Under All Caught Up, from 10 PM to 5 AM",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לילה טוב."
+          }
+        }
+      }
+    },
+    "Primary Is Clear" : {
+      "comment" : "Title of an empty Primary Inbox category while another category has unread mail",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אין דואר ב״ראשי״"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

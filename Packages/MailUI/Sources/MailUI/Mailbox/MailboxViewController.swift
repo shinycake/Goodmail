@@ -4,7 +4,7 @@ public import UIKit
 /// The mailbox list. Renders `MailboxViewModel` through Observation and holds no logic of its own (ADR-011).
 public final class MailboxViewController: UIViewController {
     let viewModel: MailboxViewModel
-    private var collectionView: UICollectionView!
+    private(set) var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<MailboxSection, ThreadSummary.ID>!
     private var threadsByID: [ThreadSummary.ID: ThreadSummary] = [:]
     private var sectionTitles = SectionTitles()
@@ -18,6 +18,10 @@ public final class MailboxViewController: UIViewController {
     /// What an empty list shows.
     private let empty: UIContentUnavailableConfiguration
     private var emptyState: EmptyState?
+    /// The scene an empty Inbox shows instead, behind the list; `nil` in every other mailbox.
+    let inboxZero: InboxZeroModel?
+    /// When the reader last took threads out of this list, which tells an Inbox they cleared from one found empty.
+    private(set) var lastRemoval: ContinuousClock.Instant?
     /// Threads just deleted forever from this list, with when, so their rows dissolve as they leave. A thread the
     /// store hasn't taken out by then left some other way, or not at all, and goes quietly.
     private var deleted: [ThreadSummary.ID: ContinuousClock.Instant] = [:]
@@ -35,11 +39,13 @@ public final class MailboxViewController: UIViewController {
         case stowing([ThreadSummary.ID])
     }
 
-    private enum EmptyState: Equatable {
+    enum EmptyState: Equatable {
         /// Spam and Trash start empty while their first page is fetched.
         case loading
         /// With another category that has unread mail to point to.
         case empty(pointingTo: InboxCategory?)
+        /// The Inbox is clear, with another category that has unread mail to point to.
+        case inboxZero(pointing: InboxZeroPointer?)
     }
     private var browsingToolbarItems: [UIBarButtonItem] = []
     /// The buttons at the ends of the browsing toolbar: Search, when there is search, and Compose.
@@ -59,6 +65,8 @@ public final class MailboxViewController: UIViewController {
         self.display = display
         self.searchResults = searchResults
         self.empty = empty ?? Self.noMail(in: viewModel.mailbox)
+        // Only the Inbox celebrates being empty, and only with its own empty state.
+        inboxZero = empty == nil && viewModel.mailbox.labelID == SystemLabel.inbox ? InboxZeroModel() : nil
         categoryButton = viewModel.category == nil ? nil : Self.categoryButton()
         categoryItem = categoryButton.map { UIBarButtonItem(customView: $0) }
         super.init(nibName: nil, bundle: nil)
@@ -96,6 +104,7 @@ public final class MailboxViewController: UIViewController {
             }
         )
         view.addSubview(collectionView)
+        if let inboxZero { installInboxZero(inboxZero) }
         configureDataSource()
         configureSwipes()
         let search = searchItem()
@@ -165,21 +174,25 @@ public final class MailboxViewController: UIViewController {
         present(alert, animated: true)
     }
 
-    /// Only on a change: setting the configuration lays the view out again, which would run this again.
+    /// Only on a change: setting the configuration lays the view out again, which would run this again. Reads the
+    /// rows on screen, not the model's, so nothing shows while rows are still going into a box or breaking up.
     private func updateEmptyState() {
         let state: EmptyState? =
-            !viewModel.hasLoaded || !viewModel.sections.isEmpty
+            !viewModel.hasLoaded || dataSource.snapshot().numberOfItems > 0
             ? nil
-            : viewModel.isLoadingOlder ? .loading : .empty(pointingTo: viewModel.categoryWithUnread)
+            : viewModel.isLoadingOlder
+                ? .loading : inboxZeroState() ?? .empty(pointingTo: viewModel.categoryWithUnread)
         guard state != emptyState else { return }
+        let previous = emptyState
         emptyState = state
         contentUnavailableConfiguration =
             switch state {
-            case nil: nil
+            case nil, .inboxZero: nil
             case .loading: UIContentUnavailableConfiguration.loading()
             case .empty(let other?): pointing(empty, to: other)
             case .empty(nil): empty
             }
+        showInboxZero(for: state, after: previous)
     }
 
     /// `configuration` with a link to another category that has unread mail.
@@ -197,7 +210,7 @@ public final class MailboxViewController: UIViewController {
     }
 
     /// Switches to `category`'s threads, from the top.
-    private func show(_ category: InboxCategory) {
+    func show(_ category: InboxCategory) {
         viewModel.select(category)
         collectionView.setContentOffset(CGPoint(x: 0, y: -collectionView.adjustedContentInset.top), animated: false)
     }
@@ -252,6 +265,7 @@ public final class MailboxViewController: UIViewController {
         guard let indexPath = dataSource.indexPath(for: id), let cell = collectionView.cellForItem(at: indexPath)
         else { return }
         let sheet = UIAlertController.snooze(from: self, source: cell) { [weak self] date in
+            self?.lastRemoval = .now
             self?.viewModel.snooze([id], until: date)
         }
         present(sheet, animated: true)
@@ -347,6 +361,7 @@ extension MailboxViewController {
     /// Performs `action`, then `done`. Delete Forever asks first, and on Cancel does neither.
     private func perform(_ action: ThreadAction, on ids: [ThreadSummary.ID], then done: @escaping () -> Void = {}) {
         guard action == .deleteForever else {
+            lastRemoval = .now
             viewModel.perform(action, on: ids)
             return done()
         }
@@ -356,6 +371,7 @@ extension MailboxViewController {
             guard let self else { return }
             let now = ContinuousClock.now
             for id in ids { deleted[id] = now }
+            lastRemoval = now
             viewModel.perform(.deleteForever, on: ids)
             done()
         }
@@ -393,6 +409,7 @@ extension MailboxViewController {
         guard case .dissolving(let ids, _) = listMotion else { return }
         listMotion = .free
         applySections(viewModel.sections)
+        updateEmptyState()
         for id in ids {
             dataSource.indexPath(for: id).flatMap(collectionView.cellForItem)?.alpha = 1
         }
@@ -422,6 +439,14 @@ extension MailboxViewController: UICollectionViewDelegate {
 
     public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
         swipes.close()
+    }
+
+    public func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        placeInboxZero()
+    }
+
+    public func scrollViewDidChangeAdjustedContentInset(_ scrollView: UIScrollView) {
+        placeInboxZero()
     }
 
     public func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
@@ -633,6 +658,7 @@ extension MailboxViewController {
         _ ids: [ThreadSummary.ID], into box: StowBoxView, doing action: ThreadAction,
         then finish: @escaping () -> Void
     ) {
+        lastRemoval = .now
         guard case .free = listMotion, let window = view.window else {
             viewModel.perform(action, on: ids)
             return finish()
@@ -654,6 +680,7 @@ extension MailboxViewController {
         listMotion = .free
         collectionView.isUserInteractionEnabled = true
         applySections(viewModel.sections)
+        updateEmptyState()
         for id in ids {
             dataSource.indexPath(for: id).flatMap(collectionView.cellForItem)?.contentView.alpha = 1
         }

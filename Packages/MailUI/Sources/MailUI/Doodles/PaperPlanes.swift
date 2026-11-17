@@ -6,6 +6,7 @@ struct PaperPlanes: View {
 
     var body: some View {
         Canvas { context, _ in
+            context.translateBy(x: DoodleField.bleed, y: DoodleField.bleed)
             for flight in scene.flights {
                 context.opacity = flight.opacity
                 let ink = GraphicsContext.Shading.color(DoodlePalette.all[flight.number % DoodlePalette.all.count])
@@ -23,6 +24,7 @@ struct PaperPlanes: View {
                 context.stroke(Self.plane.applying(placed), with: ink, style: DoodleField.line)
             }
         }
+        .padding(-DoodleField.bleed)
         .allowsHitTesting(false)
     }
 
