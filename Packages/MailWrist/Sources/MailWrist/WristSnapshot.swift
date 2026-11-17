@@ -57,7 +57,8 @@ public struct WristSnapshot: Codable, Equatable, Sendable {
             madeAt: madeAt,
             accounts: accounts.map { account in
                 WristAccount(
-                    id: account.id, address: account.email, color: account.color, unread: unread[account.id] ?? 0)
+                    id: account.id, address: account.email, color: account.color, unread: unread[account.id] ?? 0,
+                    service: account.service)
             },
             rows: ordered.prefix(Self.rowLimit).map { WristRow($0, pinned: pinned.contains($0.id)) }, applied: applied)
     }
@@ -76,12 +77,16 @@ public struct WristAccount: Codable, Equatable, Identifiable, Sendable {
     public var color: AccountColor
     /// Unread conversations in its Inbox.
     public var unread: Int
+    /// The service it signs in to, which says whether the watch can read it itself (ADR-023); `nil` from an iPhone
+    /// that predates it.
+    public var service: MailService?
 
-    public init(id: AccountID, address: String, color: AccountColor, unread: Int) {
+    public init(id: AccountID, address: String, color: AccountColor, unread: Int, service: MailService? = nil) {
         self.id = id
         self.address = address
         self.color = color
         self.unread = unread
+        self.service = service
     }
 }
 
