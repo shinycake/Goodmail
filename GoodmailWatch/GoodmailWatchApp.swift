@@ -7,10 +7,12 @@ import UserNotifications
 import WatchKit
 import WidgetKit
 
-/// Goodmail on Apple Watch (ADR-022): the Inbox the iPhone sends it.
+/// Goodmail on Apple Watch (ADR-022, ADR-023): the Inbox the iPhone sends it, with the Gmail and Outlook accounts the
+/// watch reads itself.
 @main
 struct GoodmailWatchApp: App {
     @WKApplicationDelegateAdaptor private var delegate: WatchAppDelegate
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
@@ -18,15 +20,20 @@ struct GoodmailWatchApp: App {
                 // A tap on the watch face.
                 .onOpenURL { delegate.route.open($0) }
         }
+        .onChange(of: scenePhase, initial: true) { _, phase in
+            if phase == .active { delegate.own.checkMail() }
+        }
     }
 }
 
-/// Owns the link to the iPhone for the app's lifetime, from launch: the system can launch the app without a window
+/// Owns the link to the iPhone and the watch's own mail for the app's lifetime, from launch: the system can launch the app without a window
 /// to hand it what the iPhone sent.
 final class WatchAppDelegate: NSObject, WKApplicationDelegate {
     let inbox = WristInboxModel()
     let threads = WristThreads()
     let route = WristRoute()
+    /// The Gmail and Outlook accounts the watch reads itself (ADR-023).
+    let own = OwnMail()
     private let channel = WristChannel()
     /// Shows each snapshot the iPhone sends, stores and sends each change, and asks for each conversation opened.
     /// Ends with the app; nothing cancels it.
@@ -49,18 +56,22 @@ final class WatchAppDelegate: NSObject, WKApplicationDelegate {
                 if UserDefaults.standard.bool(forKey: "GoodmailWristSampleOpen"), let first = sample.rows.first {
                     route.open(first.id)
                 }
-                following = Task { [inbox] in
+                following = Task { [inbox, threads, own] in
                     // Stored for the watch face; failing leaves the face on the last mailbox, fine for screenshots.
                     try? await store.save(inbox.mailbox)
                     WidgetCenter.shared.reloadAllTimelines()
+                    // With `-GoodmailWristIndependent YES`, the watch also reads the sample's Gmail account itself.
+                    if OwnMail.forcesIndependence { await own.run(inbox: inbox, threads: threads) }
                 }
                 return
             }
         #endif
-        following = Task { [inbox, threads, channel] in
-            await WristLink.run(
-                inbox: inbox, threads: threads, store: store, channel: channel,
+        following = Task { [inbox, threads, channel, own] in
+            async let link: Void = WristLink.run(
+                inbox: inbox, threads: threads, store: store, channel: channel, runOwn: own.run,
                 stored: { WidgetCenter.shared.reloadAllTimelines() })
+            async let ownMail: Void = own.run(inbox: inbox, threads: threads)
+            _ = await (link, ownMail)
         }
     }
 }

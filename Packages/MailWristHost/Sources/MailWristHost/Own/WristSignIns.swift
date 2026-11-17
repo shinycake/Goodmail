@@ -37,6 +37,13 @@ public struct WristSignIns: Sendable {
         try device.remove(key)
     }
 
+    /// Keeps `refreshToken` as the account's sign-in on this watch alone, as a simulator needs, where iCloud Keychain
+    /// brings none. An account the watch can't reach keeps nothing.
+    public func keepOnDevice(refreshToken: String, for account: WristAccount) throws {
+        guard let key = Self.key(for: account) else { return }
+        try device.set(Data(refreshToken.utf8), for: key)
+    }
+
     /// The OAuth service that signs `account` in, or `nil` for one the watch can't reach.
     static func client(for account: WristAccount) -> OAuthClient? {
         switch account.service {

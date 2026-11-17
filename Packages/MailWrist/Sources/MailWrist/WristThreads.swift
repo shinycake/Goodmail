@@ -23,8 +23,8 @@ public final class WristThreads {
     private let continuation: AsyncStream<ThreadSummary.ID>.Continuation
     /// How long to wait for the iPhone's answer before saying it didn't come. Throws when the wait is cancelled.
     private let patience: @Sendable () async throws -> Void
-    /// Fetches a conversation of an account the watch reads itself; `nil` while the watch reads none.
-    private let own: (@Sendable (ThreadSummary.ID) async throws -> WristThreadReply)?
+    /// Fetches a conversation of an account the watch reads itself; `nil` until the watch's own mail has opened.
+    @ObservationIgnored public var own: (@Sendable (ThreadSummary.ID) async throws -> WristThreadReply)?
     /// The accounts the watch reads itself, as it last decided.
     public var direct: Set<AccountID> = []
 

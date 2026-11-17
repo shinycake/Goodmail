@@ -21,6 +21,8 @@ public actor WristOwnHost {
     let now: @Sendable () -> Date
     let commands: MailCommands
     let answers: ThreadAnswers
+    /// Builds conversations from the watch's database, as the iPhone's host does from its own.
+    private let conversations: WristMailHost
     let uploads: InlineUploads
     /// Where a send's upload body waits until its outcome is in.
     private let uploadFiles: URL
@@ -56,7 +58,17 @@ public actor WristOwnHost {
         // The host drains the queues itself, after each command and before each sync, so none is left unowned.
         let commands = MailCommands(store: database, replay: { _ in }, now: now)
         self.commands = commands
-        answers = ThreadAnswers(database: database, commands: commands, provider: shelf.provider(for:))
+        let answers = ThreadAnswers(database: database, commands: commands, provider: shelf.provider(for:))
+        self.answers = answers
+        conversations = WristMailHost(database: database, commands: commands, answers: answers)
+    }
+
+    /// A conversation of an account the watch reads itself, as the chat view shows it: from the database when it's
+    /// current, otherwise fetched from the account's service first. `.gone` when the account or the conversation is.
+    /// It works before the first sync since launch, as when an alert opens the app.
+    public func conversation(_ id: ThreadSummary.ID) async throws -> WristThreadReply {
+        serve()
+        return try await conversations.conversation(id)
     }
 
     /// Each of the iPhone's accounts' source: direct once the watch has filled it, the iPhone otherwise.
