@@ -22,6 +22,13 @@
             if state == .needsIPhone { sample.madeAt = .now.addingTimeInterval(-45 * 60) }
             // The iPhone's pins, which it lays over the rows the watch reads itself.
             if state != nil { sample.extras = WristExtras(pinned: Set(sample.rows.filter(\.isPinned).map(\.id))) }
+            // Few enough rows that what the state shows fits the first screen: the footer under one row, or the
+            // iPhone's rows, which say they need it, first.
+            switch state {
+            case .updated, .checking, .offline, .signIn: sample.rows = Array(sample.rows.prefix(1))
+            case .needsIPhone: sample.rows = sample.rows.filter { !$0.isPinned }
+            case .tryAgain, .phoneAway, nil: break
+            }
             inbox.receive(.snapshot(sample))
             if state?.opensUnloaded != true {
                 for thread in WristThread.samples(for: sample, language) { threads.receive(.thread(thread)) }

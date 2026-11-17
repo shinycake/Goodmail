@@ -16,6 +16,7 @@ struct WristFreshnessFooter: View {
                 HStack(spacing: 4) {
                     ProgressView()
                         .controlSize(.mini)
+                        .fixedSize()
                     Text(
                         "Checking for Mail…", tableName: "Wrist", bundle: .module,
                         comment: "Below the Inbox while the watch checks for new mail itself")
