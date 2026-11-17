@@ -114,6 +114,7 @@ struct ChatTranscriptTests {
     @Test(arguments: [
         MessageBody(plain: String(repeating: "A long paragraph. ", count: 80)),
         MessageBody(html: "<table><tr><td><table><tr><td>Sale ends today</td></tr></table></td></tr></table>"),
+        MessageBody(plain: "<table><tr><td><table><tr><td>Sale ends today</td></tr></table></td></tr></table>"),
         MessageBody(plain: "---------- Forwarded message ---------\nFrom: Dana\n\nThe report."),
     ])
     func longLaidOutOrEmptyMailIsALetter(_ body: MessageBody) {

@@ -88,11 +88,3 @@ public struct OneTimeCode: Equatable, Sendable {
         self.passage = passage.split(whereSeparator: \.isWhitespace).joined(separator: " ")
     }
 }
-
-extension MessageBody {
-    /// The body as plain text: the plain part, or else the HTML's words.
-    public var text: String {
-        if let plain, !plain.isEmpty { return plain }
-        return html.map(HTMLEntities.plainText(fromHTML:)) ?? ""
-    }
-}

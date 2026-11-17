@@ -62,6 +62,17 @@ struct WristSnapshotTests {
         #expect(row.code == "482913")
     }
 
+    /// A snippet a provider made from a plain part that is really HTML reaches the watch as its words.
+    @Test func aSnippetOfMarkupReachesTheWatchAsWords() throws {
+        let snapshot = WristSnapshot(
+            accounts: [work],
+            threads: [
+                thread("html", minutesAgo: 1, subject: "Lunch", snippet: "<div><b>Lunch?</b></div><div>Dana</div>")
+            ],
+            pinned: [], unread: [:], madeAt: now)
+        #expect(try #require(snapshot.rows.first).snippet == "Lunch? Dana")
+    }
+
     @Test func aFullInboxStaysSmall() throws {
         let snippet = String(repeating: "x", count: 200)
         let threads = (0..<WristSnapshot.rowLimit).map { thread("t\($0)", minutesAgo: Double($0), snippet: snippet) }

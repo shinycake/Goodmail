@@ -191,7 +191,7 @@ public struct ChatTranscript: Equatable, Sendable {
 
     /// Nested tables lay out newsletters and receipts, which read as pages, not as lines of a chat.
     private static func isLaidOut(_ body: MessageBody) -> Bool {
-        guard let html = body.html else { return false }
+        guard let html = body.markup else { return false }
         return html.ranges(of: /(?i)<table\b/).count >= 2
     }
 

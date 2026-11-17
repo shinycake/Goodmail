@@ -101,3 +101,26 @@ struct ReplyTextTests {
         #expect(reply.text == "Yes.\nTonight.")
     }
 }
+
+/// HTML reads as its words and its shape: lists keep their bullets and numbers, and a table's cells stay apart.
+struct ReplyTextHTMLShapeTests {
+    @Test func markupInThePlainPartReadsAsWords() {
+        let body = MessageBody(plain: "<html><body><div>Lunch?</div><div><br></div><div>Dana</div></body></html>")
+        #expect(ReplyText(body: body).segments == [.text("Lunch?\n\nDana")])
+    }
+
+    @Test func listsKeepTheirBulletsAndNumbers() {
+        let html = "<p>Bring:</p><ul><li>Bread</li><li>Wine</li></ul><ol><li>Cook</li><li><b>Eat</b></li></ol>"
+        #expect(HTMLEntities.plainText(fromHTML: html) == "Bring:\n• Bread\n• Wine\n1. Cook\n2. Eat")
+    }
+
+    @Test func nestedListsNumberThemselves() {
+        let html = "<ol><li>One<ul><li>Inner</li></ul></li><li>Two</li></ol>"
+        #expect(HTMLEntities.plainText(fromHTML: html) == "1. One\n• Inner\n2. Two")
+    }
+
+    @Test func tableCellsStayApart() {
+        let html = "<table><tr><td>Total</td><td>₪120</td></tr></table>"
+        #expect(HTMLEntities.plainText(fromHTML: html) == "Total ₪120")
+    }
+}

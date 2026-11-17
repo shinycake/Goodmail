@@ -54,9 +54,43 @@ extension HTMLEntities {
         .replacing(/(?is)<title\b[^>]*>.*?(?:<\/title\s*>|\z)|<head\b[^>]*>.*?<\/head\s*>/, with: "")
         .replacing(/<[a-zA-Z\/!][^>]*\z/, with: "")
         // Each block starts a line; a `<br>` that only holds a block open, as in `<div><br></div>`, adds none.
-        let broken = visible.replacing(/(?i)<br\s*\/?>\s*(?=<\/(div|p)>)/, with: "")
-            .replacing(/(?i)<br\s*\/?>|<(div|p|li|tr|h\d)\b[^>]*>/, with: "\n")
+        // A table's cells stay apart on their row.
+        let broken = listed(visible).replacing(/(?i)<br\s*\/?>\s*(?=<\/(div|p)>)/, with: "")
+            .replacing(/(?i)<br\s*\/?>|<(div|p|tr|h\d)\b[^>]*>/, with: "\n")
+            .replacing(/(?i)<(td|th)\b[^>]*>/, with: " ")
         return lines(of: decode(broken.replacing(/<[^>]*>/, with: "")))
+    }
+
+    private enum List {
+        case bulleted
+        /// Holds the number of the item last started.
+        case numbered(Int)
+    }
+
+    /// Each list item starts a line with a bullet, or with its number in an ordered list, nested lists included.
+    private static func listed(_ html: String) -> String {
+        guard html.contains(/(?i)<li\b/) else { return html }
+        var result = ""
+        var lists: [List] = []
+        var rest = html[...]
+        while let tag = rest.firstMatch(of: /(?i)<(\/?)(ol|ul|li)\b[^>]*>/) {
+            result += rest[..<tag.range.lowerBound]
+            rest = rest[tag.range.upperBound...]
+            let name = tag.output.2.lowercased()
+            if !tag.output.1.isEmpty {
+                if name != "li", !lists.isEmpty { lists.removeLast() }
+            } else if name == "ol" {
+                lists.append(.numbered(0))
+            } else if name == "ul" {
+                lists.append(.bulleted)
+            } else if case .numbered(let number) = lists.last {
+                lists[lists.count - 1] = .numbered(number + 1)
+                result += "\n\(number + 1). "
+            } else {
+                result += "\n• "
+            }
+        }
+        return result + rest
     }
 
     /// The text with each line trimmed, and the blank lines around it dropped.

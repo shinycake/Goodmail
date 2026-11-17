@@ -82,7 +82,7 @@ struct GmailThread: Decodable {
         return ThreadSummary(
             id: ThreadSummary.ID(accountID: accountID, threadID: id),
             subject: messages.first?.header("Subject") ?? "",
-            snippet: HTMLEntities.decode(latest.snippet ?? ""),
+            snippet: HTMLEntities.words(ofSnippet: HTMLEntities.decode(latest.snippet ?? "")),
             sender: Contact(parsing: latest.header("From") ?? ""),
             date: latest.date ?? .distantPast,
             isUnread: messages.contains { $0.labelIds?.contains("UNREAD") == true },
@@ -99,7 +99,7 @@ extension GmailThread.Message {
             threadID: threadID,
             mime: payload?.mimePart ?? .empty,
             date: date ?? .distantPast,
-            snippet: HTMLEntities.decode(snippet ?? ""),
+            snippet: HTMLEntities.words(ofSnippet: HTMLEntities.decode(snippet ?? "")),
             labelIDs: Set(labelIds ?? [])
         )
     }

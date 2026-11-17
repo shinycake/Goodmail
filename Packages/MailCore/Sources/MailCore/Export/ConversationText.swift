@@ -43,10 +43,7 @@ public enum ConversationText {
     }
 
     private static func body(of message: Message) -> String {
-        if let plain = message.body.plain, !plain.isEmpty {
-            return plain.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        if let html = message.body.html { return HTMLEntities.plainText(fromHTML: html) }
-        return message.snippet
+        let text = message.body.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.isEmpty ? message.snippet : text
     }
 }

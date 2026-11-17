@@ -12,15 +12,15 @@ public struct ReplyText: Equatable, Sendable {
 
     public let segments: [Segment]
 
-    /// Reads the plain-text part when the message has one: it keeps quotes as `>` lines, and every client writes
-    /// it. HTML alone is read with its blockquotes turned into `>` lines, so both take the same path.
+    /// Reads the part `MessageBody.reading` picks. HTML is read with its blockquotes turned into `>` lines, so both
+    /// take the same path.
     public init(body: MessageBody) {
-        let text: String
-        if let plain = body.plain, !plain.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            text = plain
-        } else {
-            text = Self.quotedText(fromHTML: body.html ?? "")
-        }
+        let text =
+            switch body.reading {
+            case .plain(let plain): plain
+            case .html(let html): Self.quotedText(fromHTML: html)
+            case .empty: ""
+            }
         segments = Self.segments(of: text)
     }
 

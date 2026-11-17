@@ -3,7 +3,7 @@ import MailCore
 
 /// Turns a message body into the HTML document its web view loads. Pure, so the RTL and quoting rules are testable.
 nonisolated enum MessageDocument {
-    /// HTML bodies keep their markup; plain-text bodies become HTML with one block per line and `>` quotes nested.
+    /// HTML bodies keep their markup, as does a plain part that is really markup; plain-text bodies become HTML with one block per line and `>` quotes nested.
     /// Our stylesheet and viewport go first in the head, so the sender's own styles still win where they set any.
     /// Until the reader allows remote content, a content security policy leads the head and blocks it (ADR-003).
     /// The web view also blocks it with a content rule list, but that has to compile first, and if it ever fails
@@ -13,7 +13,7 @@ nonisolated enum MessageDocument {
         let head =
             (allowsRemoteContent ? "" : remoteContentPolicy) + baseHead
             + #"<meta name="goodmail-palette" content="\#(palette.rawValue)">"# + palette.style
-        if let html = body.html, !html.isEmpty {
+        if let html = body.markup {
             return inject(head: head, into: html)
         }
         return "<!doctype html><html><head>\(head)\(plainStyle)</head><body>\(plainToHTML(body.plain ?? ""))"

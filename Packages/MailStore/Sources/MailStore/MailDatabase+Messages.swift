@@ -16,7 +16,7 @@ extension MailDatabase {
             )
             for message in messages {
                 let content = String(decoding: try encoder.encode(message), as: UTF8.self)
-                let text = Self.searchText(of: message.body)
+                let text = message.body.text
                 try db.execute(
                     sql: """
                         INSERT INTO message (accountID, id, threadID, date, content, fetchedAt, bodyText, size, accessedAt)
@@ -32,12 +32,6 @@ extension MailDatabase {
             try Self.reapplyPending(
                 account: thread.accountID.rawValue, threadIDs: [thread.threadID], fetchedAt: fetchedAt, in: db)
         }
-    }
-
-    /// The words search finds a body by: its plain text, or else its HTML's text.
-    static func searchText(of body: MessageBody) -> String {
-        if let plain = body.plain, !plain.isEmpty { return plain }
-        return body.html.map(HTMLEntities.plainText(fromHTML:)) ?? ""
     }
 
     /// Gives the bodies cached before search indexed them their text. Reads first, so an open with nothing to fill,
@@ -60,7 +54,7 @@ extension MailDatabase {
                     let content: String = row["content"]
                     // A body this build can't read is still searchable by its thread; give it no words.
                     let message = try? decoder.decode(Message.self, from: Data(content.utf8))
-                    let text = message.map { searchText(of: $0.body) } ?? ""
+                    let text = message.map { $0.body.text } ?? ""
                     try db.execute(
                         sql: "UPDATE message SET bodyText = ?, size = size + ? WHERE rowid = ?",
                         arguments: [text, text.utf8.count, row["rowid"] as Int64])
