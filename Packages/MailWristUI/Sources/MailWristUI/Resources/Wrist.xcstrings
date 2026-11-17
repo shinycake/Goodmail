@@ -1,6 +1,17 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%@ · Undo": {
+      "comment": "Below the Inbox after a change: what was done, and the button that takes it back",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · ביטול"
+          }
+        }
+      }
+    },
     "%lld Unread": {
       "comment": "Above the Inbox: how many conversations are unread",
       "localizations": {
@@ -64,6 +75,28 @@
         }
       }
     },
+    "Archive": {
+      "comment": "Swipe action: archive",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ארכיון"
+          }
+        }
+      }
+    },
+    "Archived": {
+      "comment": "Undo button: what was done",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הועברה לארכיון"
+          }
+        }
+      }
+    },
     "Inbox": {
       "comment": "The Inbox screen's title",
       "localizations": {
@@ -71,6 +104,50 @@
           "stringUnit": {
             "state": "translated",
             "value": "דואר נכנס"
+          }
+        }
+      }
+    },
+    "Marked Read": {
+      "comment": "Undo button: what was done",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "סומנה כנקראה"
+          }
+        }
+      }
+    },
+    "Marked Unread": {
+      "comment": "Undo button: what was done",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "סומנה כלא נקראה"
+          }
+        }
+      }
+    },
+    "Moved to Inbox": {
+      "comment": "Undo button: what was done",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הועברה לדואר נכנס"
+          }
+        }
+      }
+    },
+    "Moved to Trash": {
+      "comment": "Undo button: what was done",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הועברה לפח"
           }
         }
       }
@@ -115,6 +192,50 @@
           "stringUnit": {
             "state": "translated",
             "value": "מוצמדת"
+          }
+        }
+      }
+    },
+    "Read": {
+      "comment": "Swipe action: mark as read",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "נקראה"
+          }
+        }
+      }
+    },
+    "Restored": {
+      "comment": "Undo button: what was done",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "שוחזרה"
+          }
+        }
+      }
+    },
+    "Trash": {
+      "comment": "Swipe action: move to Trash",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "פח"
+          }
+        }
+      }
+    },
+    "Unpinned": {
+      "comment": "Undo button: what was done",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ההצמדה בוטלה"
           }
         }
       }

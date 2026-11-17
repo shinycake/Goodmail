@@ -7,21 +7,24 @@
     public enum WristSessionEvent: Equatable, Sendable {
         /// The session can carry data now: it activated, or the watch app was installed.
         case ready
-        /// The paired device sent a snapshot.
+        /// The watch sent a snapshot.
         case received(Data)
+        /// The watch sent a command.
+        case command(Data)
     }
 
     /// The link between the iPhone and the Apple Watch (ADR-022). The iPhone sends its Inbox as the application
     /// context, which the system keeps and delivers once, latest wins, even while the watch app isn't running.
     public actor WristChannel {
         static let snapshotKey = "snapshot"
+        static let commandKey = "command"
+        static let log = Logger(subsystem: "com.idanbirman.goodmail", category: "wrist")
 
         /// The session's events, for one reader for the channel's life.
         public nonisolated let events: AsyncStream<WristSessionEvent>
         private let delegate: SessionDelegate
         /// The newest snapshot the session couldn't take yet, sent once it is ready.
         private var unsent: WristSnapshot?
-        private let log = Logger(subsystem: "com.idanbirman.goodmail", category: "wrist")
 
         public init() {
             let (events, continuation) = AsyncStream.makeStream(of: WristSessionEvent.self)
@@ -36,11 +39,17 @@
             session.activate()
         }
 
-        /// The snapshots the iPhone sends, from the one it sent last, for the watch.
-        public nonisolated var snapshots: some AsyncSequence<WristSnapshot.Reading, Never> {
-            events.compactMap { event -> WristSnapshot.Reading? in
-                guard case .received(let data) = event else { return nil }
-                return try? WristSnapshot.read(data)
+        /// For the watch: hands `command` to the iPhone, at once when it is reachable, and in the queue the system
+        /// delivers in order once it is. The iPhone runs each command once, so getting it both ways does no harm.
+        public func send(_ command: WristCommand) {
+            let session = WCSession.default
+            guard session.activationState == .activated else { return }
+            do {
+                let data = try JSONEncoder().encode(command)
+                if session.isReachable { session.sendMessageData(data, replyHandler: nil, errorHandler: nil) }
+                session.transferUserInfo([Self.commandKey: data])
+            } catch {
+                Self.log.error("Couldn't send a change to the iPhone: \(error, privacy: .public)")
             }
         }
 
@@ -62,7 +71,7 @@
                     try session.updateApplicationContext([Self.snapshotKey: unsent.encoded()])
                     self.unsent = nil
                 } catch {
-                    log.error("Couldn't send the Inbox to the watch: \(error, privacy: .public)")
+                    Self.log.error("Couldn't send the Inbox to the watch: \(error, privacy: .public)")
                 }
             }
         #endif
@@ -88,6 +97,14 @@
 
         func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
             if let data = applicationContext[WristChannel.snapshotKey] as? Data { events.yield(.received(data)) }
+        }
+
+        func session(_ session: WCSession, didReceiveMessageData messageData: Data) {
+            events.yield(.command(messageData))
+        }
+
+        func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
+            if let data = userInfo[WristChannel.commandKey] as? Data { events.yield(.command(data)) }
         }
 
         #if os(iOS)

@@ -79,4 +79,12 @@ struct WristSnapshotTests {
         let newer = Data(#"{"version": 2, "somethingNew": true}"#.utf8)
         #expect(try WristSnapshot.read(newer) == .newerVersion)
     }
+
+    @Test func aSnapshotFromBeforeAppliedReadsAsApplyingNothing() throws {
+        let snapshot = WristSnapshot(accounts: [work], threads: [], pinned: [], unread: [:], madeAt: now)
+        var json = try #require(try JSONSerialization.jsonObject(with: snapshot.encoded()) as? [String: Any])
+        json["applied"] = nil
+        let old = try JSONSerialization.data(withJSONObject: json)
+        #expect(try WristSnapshot.read(old) == .snapshot(snapshot))
+    }
 }

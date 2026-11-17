@@ -17,18 +17,34 @@ public struct WristSnapshot: Codable, Equatable, Sendable {
     public var accounts: [WristAccount]
     /// Pinned conversations, then the rest, each newest first.
     public var rows: [WristRow]
+    /// The watch's latest commands the iPhone has run, newest last, so the watch can stop laying them over the rows.
+    public var applied: [UUID]
 
-    public init(version: Int = currentVersion, madeAt: Date, accounts: [WristAccount], rows: [WristRow]) {
+    public init(
+        version: Int = currentVersion, madeAt: Date, accounts: [WristAccount], rows: [WristRow], applied: [UUID] = []
+    ) {
         self.version = version
         self.madeAt = madeAt
         self.accounts = accounts
         self.rows = rows
+        self.applied = applied
+    }
+
+    /// A snapshot from before `applied` existed reads as having applied nothing.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            version: try container.decode(Int.self, forKey: .version),
+            madeAt: try container.decode(Date.self, forKey: .madeAt),
+            accounts: try container.decode([WristAccount].self, forKey: .accounts),
+            rows: try container.decode([WristRow].self, forKey: .rows),
+            applied: try container.decodeIfPresent([UUID].self, forKey: .applied) ?? [])
     }
 
     /// The snapshot of an Inbox: `threads` newest first, with the `pinned` ones and each account's `unread` count.
     public init(
         accounts: [Account], threads: [ThreadSummary], pinned: Set<ThreadSummary.ID>, unread: [AccountID: Int],
-        madeAt: Date
+        applied: [UUID] = [], madeAt: Date
     ) {
         let newestFirst = threads.sorted { $0.date > $1.date }
         let ordered = newestFirst.filter { pinned.contains($0.id) } + newestFirst.filter { !pinned.contains($0.id) }
@@ -38,7 +54,7 @@ public struct WristSnapshot: Codable, Equatable, Sendable {
                 WristAccount(
                     id: account.id, address: account.email, color: account.color, unread: unread[account.id] ?? 0)
             },
-            rows: ordered.prefix(Self.rowLimit).map { WristRow($0, pinned: pinned.contains($0.id)) })
+            rows: ordered.prefix(Self.rowLimit).map { WristRow($0, pinned: pinned.contains($0.id)) }, applied: applied)
     }
 
     /// Unread conversations in every account's Inbox.

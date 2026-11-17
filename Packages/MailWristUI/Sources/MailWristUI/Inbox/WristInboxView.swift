@@ -54,28 +54,7 @@ public struct WristInboxView: View {
                     "Nothing in your Inbox.", tableName: "Wrist", bundle: .module,
                     comment: "Shown when the Inbox is empty"))
         case .list(let snapshot):
-            WristInboxList(snapshot: snapshot)
-        }
-    }
-}
-
-/// The conversations, with how many are unread above them.
-private struct WristInboxList: View {
-    let snapshot: WristSnapshot
-
-    var body: some View {
-        List {
-            Section {
-                ForEach(snapshot.rows) { row in
-                    WristRowView(row: row, color: snapshot.account(row.id.accountID)?.color.color ?? .accentColor)
-                }
-            } header: {
-                if snapshot.unread > 0 {
-                    Text(
-                        "\(snapshot.unread) Unread", tableName: "Wrist", bundle: .module,
-                        comment: "Above the Inbox: how many conversations are unread")
-                }
-            }
+            WristInboxList(snapshot: snapshot, model: model)
         }
     }
 }

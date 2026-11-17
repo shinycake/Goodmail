@@ -21,7 +21,7 @@ struct GoodmailWatchApp: App {
 final class WatchAppDelegate: NSObject, WKApplicationDelegate {
     let inbox = WristInboxModel()
     private let channel = WristChannel()
-    /// Shows each snapshot the iPhone sends. Ends with the app; nothing cancels it.
+    /// Shows each snapshot the iPhone sends, and stores and sends each change. Ends with the app; nothing cancels it.
     private var following: Task<Void, Never>?
 
     func applicationDidFinishLaunching() {
@@ -34,9 +34,7 @@ final class WatchAppDelegate: NSObject, WKApplicationDelegate {
                 return
             }
         #endif
-        following = Task { [inbox, channel] in
-            await channel.activate()
-            await inbox.follow(channel.snapshots)
-        }
+        let store = WristStore(directory: URL.applicationSupportDirectory)
+        following = Task { [inbox, channel] in await inbox.run(store: store, channel: channel) }
     }
 }

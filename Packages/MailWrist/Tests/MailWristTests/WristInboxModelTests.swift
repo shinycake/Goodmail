@@ -37,15 +37,71 @@ struct WristInboxModelTests {
         #expect(model.state == .updateNeeded)
     }
 
-    @Test func followsUntilTheReadingsEnd() async {
+    @Test func anUpdateBringsTheListBackAfterAnUpdateNeeded() {
         let model = WristInboxModel()
         let full = snapshot(accounts: [account], rows: [row])
-        let (readings, continuation) = AsyncStream.makeStream(of: WristSnapshot.Reading.self)
-        continuation.yield(.newerVersion)
-        continuation.yield(.snapshot(full))
-        continuation.finish()
-
-        await model.follow(readings)
+        model.receive(.newerVersion)
+        model.receive(.snapshot(full))
         #expect(model.state == .list(full))
+    }
+
+    @Test func aSwipeShowsAtOnceAndGoesToTheIPhone() async throws {
+        let model = WristInboxModel()
+        model.receive(.snapshot(snapshot(accounts: [account], rows: [row])))
+        model.perform(.archive, on: [row])
+
+        guard case .caughtUp = model.state else {
+            Issue.record("Expected the archived row gone, got \(model.state)")
+            return
+        }
+        var updates = model.updates.makeAsyncIterator()
+        #expect(try #require(await updates.next()).command == nil, "The snapshot is stored")
+        let update = try #require(await updates.next())
+        #expect(update.command?.kind == .archive)
+        #expect(update.command?.threads == [row.id])
+        #expect(update.mailbox == model.mailbox)
+        #expect(model.undoable == update.command)
+    }
+
+    @Test func undoPutsTheRowBackAndSendsTheInverse() async throws {
+        let model = WristInboxModel()
+        let full = snapshot(accounts: [account], rows: [row])
+        model.receive(.snapshot(full))
+        model.perform(.archive, on: [row])
+        model.undo()
+
+        #expect(model.state == .list(full))
+        #expect(model.undoable == nil)
+        var updates = model.updates.makeAsyncIterator()
+        _ = await updates.next()
+        _ = await updates.next()
+        #expect(try #require(await updates.next()).command?.kind == .moveToInbox)
+    }
+
+    @Test func undoGoesWhenItsTimeIsOver() throws {
+        let model = WristInboxModel()
+        model.receive(.snapshot(snapshot(accounts: [account], rows: [row])))
+        model.perform(.markRead(true), on: [row])
+        let first = model.undoable
+        model.perform(.markRead(false), on: [row])
+
+        model.keep(try #require(first))
+        #expect(model.undoable?.kind == .markRead(false), "Only the change whose time is over goes")
+        model.keep(try #require(model.undoable))
+        #expect(model.undoable == nil)
+    }
+
+    @Test func aStoredMailboxShowsUntilTheIPhoneSendsOne() {
+        let full = snapshot(accounts: [account], rows: [row])
+        let stored = WristMailbox(snapshot: full)
+        let model = WristInboxModel()
+        model.restore(stored)
+        #expect(model.state == .list(full))
+
+        let fresh = snapshot(accounts: [account], rows: [])
+        let current = WristInboxModel()
+        current.receive(.snapshot(fresh))
+        current.restore(stored)
+        #expect(current.state == .caughtUp(fresh), "What the iPhone sent is newer than the store")
     }
 }

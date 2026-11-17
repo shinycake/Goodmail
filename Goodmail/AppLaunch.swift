@@ -101,7 +101,7 @@ struct AppServices {
         return AppServices(
             model: model, syncScheduler: SyncScheduler(model: model),
             push: PushCoordinator(model: model, routes: routes), snoozeAlarms: SnoozeAlarms(model: model),
-            wrist: WristHost(database: model.database), routes: routes)
+            wrist: WristHost(model: model), routes: routes)
     }
 
     #if canImport(MailIntents)
