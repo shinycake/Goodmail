@@ -56,6 +56,13 @@ struct WristGlanceTests {
         #expect(timeline[1].content == .unread(count: 1, newest: coded))
     }
 
+    @Test func aCodeAlreadyReadIsntRaised() {
+        let read = snapshot([row("code", minutesAgo: 2, unread: false, code: "482913")])
+        #expect(
+            WristGlance.timeline(for: read, now: now)
+                == [WristGlance(date: now, content: .caughtUp(since: now - 60), relevance: 0)])
+    }
+
     @Test func anOldCodeIsJustMail() {
         let coded = row("code", minutesAgo: 40, code: "482913")
         let timeline = WristGlance.timeline(for: snapshot([coded]), now: now)

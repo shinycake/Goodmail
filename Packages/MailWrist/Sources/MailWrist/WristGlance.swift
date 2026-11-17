@@ -30,7 +30,8 @@ public struct WristGlance: Equatable, Sendable {
     public static func timeline(for snapshot: WristSnapshot?, now: Date) -> [WristGlance] {
         guard let snapshot else { return [WristGlance(date: now, content: .waiting, relevance: 0)] }
         let newest = snapshot.rows.filter(\.isUnread).max { $0.date < $1.date }
-        let coded = snapshot.rows.filter { $0.code != nil }.max { $0.date < $1.date }
+        // A code read on the iPhone has done its job.
+        let coded = snapshot.rows.filter { $0.isUnread && $0.code != nil }.max { $0.date < $1.date }
         let changes = [coded.map { $0.date + codeWindow }, newest.map { $0.date + freshWindow }]
             .compactMap(\.self)
             .filter { $0 > now }
