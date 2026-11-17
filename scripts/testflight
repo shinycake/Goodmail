@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Archive a signed Release build and upload it to TestFlight.
+# Archive a signed Release build, upload it to TestFlight and put it on the public beta.
 # The "Internal" TestFlight group has access to all builds, so its testers get each build once Apple processes it.
+# scripts/public-beta then adds the build to the external "Apple Review" group and submits it for Beta App Review,
+# so the public link always offers the newest build (docs/setup/testflight.md).
 #
 # Needs: Xcode signed in to the team (automatic signing creates the distribution certificate and profiles),
 # and `asc` authenticated with an App Store Connect API key (`asc auth status`).
-# Pass --wait to block until App Store Connect finishes processing the build.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 BUILD_DIR="${GOODMAIL_BUILD_DIR:-$([[ -d /Volumes/Idan1TB ]] && echo /Volumes/Idan1TB/Goodmail-build || echo "$PWD/.build")}/testflight"
@@ -26,4 +27,10 @@ xcodebuild archive -quiet -project Goodmail.xcodeproj -scheme Goodmail -configur
 xcodebuild -exportArchive -quiet -archivePath "$BUILD_DIR/Goodmail.xcarchive" \
     -exportOptionsPlist Config/ExportOptions.plist -exportPath "$BUILD_DIR/export" -allowProvisioningUpdates
 
-asc builds upload --app "$APP" --ipa "$BUILD_DIR/export/Goodmail.ipa" --verify-timeout 2m "$@"
+asc builds upload --app "$APP" --ipa "$BUILD_DIR/export/Goodmail.ipa" --wait "$@"
+
+# The tag lets scripts/public-beta list what changed since the previous build in its What to Test notes.
+git tag -f "testflight/$build_number" HEAD
+git push --quiet --force origin "refs/tags/testflight/$build_number" || echo "warning: could not push tag testflight/$build_number" >&2
+
+scripts/public-beta "$build_number"
