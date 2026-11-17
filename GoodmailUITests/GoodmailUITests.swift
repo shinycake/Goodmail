@@ -8,12 +8,12 @@ final class LaunchTests: XCTestCase {
 
     @MainActor
     func testLaunchesInEnglish() {
-        launch(language: "en", locale: "en_US", expecting: "Fast, simple mail. Add an account to get started.")
+        launch(language: "en", locale: "en_US", expecting: "Welcome to Goodmail")
     }
 
     @MainActor
     func testLaunchesInHebrew() {
-        launch(language: "he", locale: "he_IL", expecting: "דואר מהיר ופשוט. כדי להתחיל, מוסיפים חשבון.")
+        launch(language: "he", locale: "he_IL", expecting: "ברוכים הבאים ל-Goodmail")
     }
 
     /// iOS runs background app refresh on a background queue; a refresh that needs the main actor traps there, as
