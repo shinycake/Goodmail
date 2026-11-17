@@ -19,10 +19,14 @@ public struct ArchiveThreadsIntent: UndoableIntent {
         self.threads = threads
     }
 
-    public func perform() async throws -> some IntentResult {
+    public static var parameterSummary: some ParameterSummary {
+        Summary("Archive \(\.$threads)", table: "ShortcutFlow")
+    }
+
+    public func perform() async throws -> some IntentResult & ReturnsValue<[ThreadEntity]> {
         let change = try await Catalog(host: host).perform(.archive, onThreads: threads.map(\.id))
         await offerUndo(of: [change], named: Self.title, host: host)
-        return .result()
+        return .result(value: threads)
     }
 }
 
@@ -44,10 +48,14 @@ public struct TrashThreadsIntent: UndoableIntent {
         self.threads = threads
     }
 
-    public func perform() async throws -> some IntentResult {
+    public static var parameterSummary: some ParameterSummary {
+        Summary("Delete \(\.$threads)", table: "ShortcutFlow")
+    }
+
+    public func perform() async throws -> some IntentResult & ReturnsValue<[ThreadEntity]> {
         let change = try await Catalog(host: host).perform(.trash, onThreads: threads.map(\.id))
         await offerUndo(of: [change], named: Self.title, host: host)
-        return .result()
+        return .result(value: threads)
     }
 }
 
@@ -74,13 +82,17 @@ public struct MarkThreadsReadIntent: UndoableIntent {
     }
 
     public static var parameterSummary: some ParameterSummary {
-        Summary("Mark \(\.$threads) read: \(\.$read)", table: "ShortcutActions")
+        When(\.$read, .equalTo, true) {
+            Summary("Mark \(\.$threads) as read", table: "ShortcutFlow") { \.$read }
+        } otherwise: {
+            Summary("Mark \(\.$threads) as unread", table: "ShortcutFlow") { \.$read }
+        }
     }
 
-    public func perform() async throws -> some IntentResult {
+    public func perform() async throws -> some IntentResult & ReturnsValue<[ThreadEntity]> {
         let change = try await Catalog(host: host).perform(.markRead(read), onThreads: threads.map(\.id))
         await offerUndo(of: [change], named: Self.title, host: host)
-        return .result()
+        return .result(value: threads)
     }
 }
 
@@ -107,13 +119,17 @@ public struct StarThreadsIntent: UndoableIntent {
     }
 
     public static var parameterSummary: some ParameterSummary {
-        Summary("Star \(\.$threads): \(\.$starred)", table: "ShortcutActions")
+        When(\.$starred, .equalTo, true) {
+            Summary("Star \(\.$threads)", table: "ShortcutFlow") { \.$starred }
+        } otherwise: {
+            Summary("Unstar \(\.$threads)", table: "ShortcutFlow") { \.$starred }
+        }
     }
 
-    public func perform() async throws -> some IntentResult {
+    public func perform() async throws -> some IntentResult & ReturnsValue<[ThreadEntity]> {
         let change = try await Catalog(host: host).perform(.star(starred), onThreads: threads.map(\.id))
         await offerUndo(of: [change], named: Self.title, host: host)
-        return .result()
+        return .result(value: threads)
     }
 }
 
@@ -121,6 +137,8 @@ extension Catalog {
     /// Applies `action` to the threads still on the device, through the commands (ADR-011). Returns what undoes it.
     @discardableResult
     func perform(_ action: ThreadAction, onThreads identifiers: [String]) async throws -> MailCommands.Undo {
+        // An automation's Find can come up empty; doing nothing then is a success, so the shortcut runs on.
+        guard !identifiers.isEmpty else { return MailCommands.Undo() }
         let ids = identifiers.compactMap(EntityID.thread)
         guard !ids.isEmpty else { throw IntentError.gone }
         return try await host.perform(action, on: ids)

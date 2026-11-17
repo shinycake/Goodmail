@@ -11,6 +11,10 @@ struct FakeHost: MailIntentsHost {
     var labels: [AccountID: [NamedMailbox]] = [:]
     var stored: [ThreadSummary] = []
     var cached: [ThreadSummary.ID: [Message]] = [:]
+    /// Messages only the server has, which join `cached` once `loadMessages` fetches their thread.
+    var onServer: [ThreadSummary.ID: [Message]] = [:]
+    /// The thread the frontmost window reads.
+    var shownThread: ThreadSummary.ID?
     /// What leaving a list comes to.
     var unsubscribing: ListUnsubscriber.Outcome = .done
     let performed = Performed()
@@ -66,7 +70,8 @@ struct FakeHost: MailIntentsHost {
     /// Every cached message, newest first, with the body text the store would keep.
     private var allMessageFacts: [MailFacts] {
         stored.flatMap { thread in
-            (cached[thread.id] ?? []).compactMap { message in
+            ((cached[thread.id] ?? []) + (performed.loaded(thread.id) ? onServer[thread.id] ?? [] : [])).compactMap {
+                message in
                 accountList.first { $0.id == thread.id.accountID }.map {
                     MailFacts(
                         message: message, bodyText: message.body.text, thread: thread, account: $0,
@@ -112,6 +117,15 @@ struct FakeHost: MailIntentsHost {
 
     func send(_ draft: Draft, at date: Date?) throws { performed.recordSend(draft, at: date) }
 
+    func loadMessages(of threads: [ThreadSummary.ID]) throws { performed.recordLoad(threads) }
+
+    /// An attachment's contents are its file name, so a test can tell which was fetched.
+    func data(for attachment: Attachment, in message: Message.ID) throws -> Data {
+        Data("\(message.messageID)/\(attachment.filename)".utf8)
+    }
+
+    func source(of message: Message.ID) throws -> Data { Data("Source of \(message.messageID)".utf8) }
+
     func refresh() throws { performed.recordRefresh() }
 
     func undo(_ undo: MailCommands.Undo) throws {
@@ -121,6 +135,8 @@ struct FakeHost: MailIntentsHost {
     func apply(_ focus: FocusFilter) throws {}
 
     @MainActor func open(_ route: Route) {}
+
+    @MainActor func openThread() -> ThreadSummary.ID? { shownThread }
 }
 
 /// The actions performed, per thread ID, in order, and the actions whose undos ran, once per thread, in order.
@@ -132,6 +148,12 @@ final class Performed: Sendable {
     private let unsubscribes = Mutex<[Unsubscribe]>([])
     private let refreshes = Mutex(0)
     private let sends = Mutex<[(draft: Draft, date: Date?)]>([])
+    private let loads = Mutex<Set<ThreadSummary.ID>>([])
+
+    func recordLoad(_ threads: [ThreadSummary.ID]) { loads.withLock { $0.formUnion(threads) } }
+
+    /// Whether the thread's messages were fetched.
+    func loaded(_ thread: ThreadSummary.ID) -> Bool { loads.withLock { $0.contains(thread) } }
 
     func recordSend(_ draft: Draft, at date: Date?) { sends.withLock { $0.append((draft, date)) } }
 

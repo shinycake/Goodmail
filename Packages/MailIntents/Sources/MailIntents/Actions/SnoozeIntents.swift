@@ -25,10 +25,10 @@ public struct SnoozeThreadsIntent: UndoableIntent {
         Summary("Snooze \(\.$threads) until \(\.$date)", table: "ShortcutActions")
     }
 
-    public func perform() async throws -> some IntentResult {
+    public func perform() async throws -> some IntentResult & ReturnsValue<[ThreadEntity]> {
         let change = try await Catalog(host: host).snooze(threads.map(\.id), until: date)
         await offerUndo(of: [change], named: Self.title, host: host)
-        return .result()
+        return .result(value: threads)
     }
 }
 
@@ -55,11 +55,11 @@ public struct SnoozeThreadsForIntent: UndoableIntent {
         Summary("Snooze \(\.$threads) for \(\.$duration)", table: "ShortcutActions")
     }
 
-    public func perform() async throws -> some IntentResult {
+    public func perform() async throws -> some IntentResult & ReturnsValue<[ThreadEntity]> {
         let wake = Date.now.addingTimeInterval(duration.seconds)
         let change = try await Catalog(host: host).snooze(threads.map(\.id), until: wake)
         await offerUndo(of: [change], named: Self.title, host: host)
-        return .result()
+        return .result(value: threads)
     }
 }
 
@@ -81,16 +81,18 @@ public struct UnsnoozeThreadsIntent: UndoableIntent {
         Summary("Unsnooze \(\.$threads)", table: "ShortcutActions")
     }
 
-    public func perform() async throws -> some IntentResult {
+    public func perform() async throws -> some IntentResult & ReturnsValue<[ThreadEntity]> {
         let change = try await Catalog(host: host).snooze(threads.map(\.id), until: nil)
         await offerUndo(of: [change], named: Self.title, host: host)
-        return .result()
+        return .result(value: threads)
     }
 }
 
 extension Catalog {
     /// Snoozes the threads still on the device until `date`, or with `nil` wakes them. Returns what undoes it.
     func snooze(_ identifiers: [String], until date: Date?) async throws -> MailCommands.Undo {
+        // An automation's Find can come up empty; doing nothing then is a success, so the shortcut runs on.
+        guard !identifiers.isEmpty else { return MailCommands.Undo() }
         let ids = identifiers.compactMap(EntityID.thread)
         guard !ids.isEmpty else { throw IntentError.gone }
         return try await host.snooze(ids, until: date)

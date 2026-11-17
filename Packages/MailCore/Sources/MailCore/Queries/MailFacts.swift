@@ -40,7 +40,10 @@ public struct MailFacts: Equatable, Sendable {
         public var replyTo: [Contact]
         /// The body as plain text, as the store keeps it for search.
         public var bodyText: String
+        /// The files the message carries, without the pictures its body shows inline.
         public var attachments: [Attachment]
+        /// The pictures the body shows inline, which Get Attachments hands over only when asked.
+        public var inlineAttachments: [Attachment]
         public var unsubscribe: Unsubscribe?
         public var internetMessageID: String?
         public var references: [String]
@@ -53,6 +56,7 @@ public struct MailFacts: Equatable, Sendable {
             replyTo = message.replyTo
             self.bodyText = bodyText
             attachments = message.attachments.filter { !$0.isInline }
+            inlineAttachments = message.attachments.filter(\.isInline)
             unsubscribe = message.unsubscribe
             internetMessageID = message.internetMessageID
             references = message.references

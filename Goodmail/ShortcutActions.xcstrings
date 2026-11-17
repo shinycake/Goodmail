@@ -241,16 +241,6 @@
         }
       }
     },
-    "Fetches new mail for every account now." : {
-      "localizations" : {
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "מושך עכשיו דואר חדש לכל החשבונות."
-          }
-        }
-      }
-    },
     "For" : {
       "localizations" : {
         "he" : {
@@ -361,16 +351,6 @@
         }
       }
     },
-    "Mark ${threads} read: ${read}" : {
-      "localizations" : {
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "סמן את ${threads} כנקראו: ${read}"
-          }
-        }
-      }
-    },
     "Mark Conversations Read" : {
       "localizations" : {
         "he" : {
@@ -451,16 +431,6 @@
         }
       }
     },
-    "Mute ${threads}: ${muted}" : {
-      "localizations" : {
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "השתק את ${threads}: ${muted}"
-          }
-        }
-      }
-    },
     "Mute Conversations" : {
       "localizations" : {
         "he" : {
@@ -497,16 +467,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "פותח את התשובה ב־Goodmail כדי לסיים אותה במקום לשלוח."
-          }
-        }
-      }
-    },
-    "Pin ${threads}: ${pinned}" : {
-      "localizations" : {
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "הצמד את ${threads}: ${pinned}"
           }
         }
       }
@@ -587,16 +547,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "השב להודעה"
-          }
-        }
-      }
-    },
-    "Report ${threads} as spam: ${spam}" : {
-      "localizations" : {
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "דווח על ${threads} כספאם: ${spam}"
           }
         }
       }
@@ -707,16 +657,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ספאם"
-          }
-        }
-      }
-    },
-    "Star ${threads}: ${starred}" : {
-      "localizations" : {
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "סמן את ${threads} בכוכב: ${starred}"
           }
         }
       }

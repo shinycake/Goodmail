@@ -26,6 +26,10 @@ public struct ThreadQuery: EntityStringQuery, IndexedEntityQuery, EntityProperty
                 HasPrefixComparator { .text(.subject, .beginsWith($0)) }
                 HasSuffixComparator { .text(.subject, .endsWith($0)) }
             }
+            Property(\ThreadEntity.$from) {
+                EqualToComparator { .text(.senderAddress, .equals($0.address)) }
+                NotEqualToComparator { .not(.text(.senderAddress, .equals($0.address))) }
+            }
             Property(\ThreadEntity.$senderName) {
                 EqualToComparator { .text(.senderName, .equals($0)) }
                 ContainsComparator { .text(.senderName, .contains($0)) }
@@ -46,6 +50,15 @@ public struct ThreadQuery: EntityStringQuery, IndexedEntityQuery, EntityProperty
                 LessThanComparator { .date(.date, .before($0)) }
                 GreaterThanComparator { .date(.date, .after($0)) }
                 IsBetweenComparator { .date(.date, .between($0, $1)) }
+            }
+            Property(\ThreadEntity.$daysOld) {
+                EqualToComparator { DaysOld.exactly($0) }
+                NotEqualToComparator { .not(DaysOld.exactly($0)) }
+                LessThanComparator { DaysOld.atMost($0 - 1) }
+                GreaterThanComparator { DaysOld.atLeast($0 + 1) }
+                LessThanOrEqualToComparator { DaysOld.atMost($0) }
+                GreaterThanOrEqualToComparator { DaysOld.atLeast($0) }
+                IsBetweenComparator { DaysOld.between($0, $1) }
             }
             Property(\ThreadEntity.$messageCount) {
                 EqualToComparator { .number(.messageCount, .equals(Double($0))) }

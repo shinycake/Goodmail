@@ -77,7 +77,9 @@ extension Catalog {
     /// Applies `action` to the threads of the messages. Returns what undoes it.
     @discardableResult
     func perform(_ action: ThreadAction, onMessages identifiers: [String]) async throws -> MailCommands.Undo {
+        guard !identifiers.isEmpty else { return MailCommands.Undo() }
         let threads = Set(identifiers.compactMap { EntityID.message($0)?.thread })
+        guard !threads.isEmpty else { throw IntentError.gone }
         return try await perform(action, onThreads: threads.map(EntityID.string))
     }
 

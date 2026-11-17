@@ -108,7 +108,8 @@ struct AppServices {
             IntentsHost(
                 database: model.database, commands: model.commands, routes: routes,
                 unsubscriber: model.listUnsubscriber, providers: model.providers,
-                syncAll: { [model] in try await model.syncAll() })
+                syncAll: { [model] in try await model.syncAll() },
+                loadThread: { [model] in _ = try await model.messagesToAnswer(in: $0) })
         }
     #endif
 

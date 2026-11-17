@@ -25,13 +25,17 @@ public struct PinThreadsIntent: UndoableIntent {
     }
 
     public static var parameterSummary: some ParameterSummary {
-        Summary("Pin \(\.$threads): \(\.$pinned)", table: "ShortcutActions")
+        When(\.$pinned, .equalTo, true) {
+            Summary("Pin \(\.$threads)", table: "ShortcutFlow") { \.$pinned }
+        } otherwise: {
+            Summary("Unpin \(\.$threads)", table: "ShortcutFlow") { \.$pinned }
+        }
     }
 
-    public func perform() async throws -> some IntentResult {
+    public func perform() async throws -> some IntentResult & ReturnsValue<[ThreadEntity]> {
         let change = try await Catalog(host: host).pin(pinned, onThreads: threads.map(\.id))
         await offerUndo(of: [change], named: Self.title, host: host)
-        return .result()
+        return .result(value: threads)
     }
 }
 
@@ -59,13 +63,17 @@ public struct MuteThreadsIntent: UndoableIntent {
     }
 
     public static var parameterSummary: some ParameterSummary {
-        Summary("Mute \(\.$threads): \(\.$muted)", table: "ShortcutActions")
+        When(\.$muted, .equalTo, true) {
+            Summary("Mute \(\.$threads)", table: "ShortcutFlow") { \.$muted }
+        } otherwise: {
+            Summary("Unmute \(\.$threads)", table: "ShortcutFlow") { \.$muted }
+        }
     }
 
-    public func perform() async throws -> some IntentResult {
+    public func perform() async throws -> some IntentResult & ReturnsValue<[ThreadEntity]> {
         let change = try await Catalog(host: host).perform(muted ? .mute : .unmute, onThreads: threads.map(\.id))
         await offerUndo(of: [change], named: Self.title, host: host)
-        return .result()
+        return .result(value: threads)
     }
 }
 
@@ -73,6 +81,8 @@ extension Catalog {
     /// Pins or unpins the threads still on the device, through the commands (ADR-011). Returns what undoes it.
     @discardableResult
     func pin(_ pinned: Bool, onThreads identifiers: [String]) async throws -> MailCommands.Undo {
+        // An automation's Find can come up empty; doing nothing then is a success, so the shortcut runs on.
+        guard !identifiers.isEmpty else { return MailCommands.Undo() }
         let ids = identifiers.compactMap(EntityID.thread)
         guard !ids.isEmpty else { throw IntentError.gone }
         return try await host.pin(ids, pinned)

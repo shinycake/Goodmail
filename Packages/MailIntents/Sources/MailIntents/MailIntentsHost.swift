@@ -22,6 +22,12 @@ public protocol MailIntentsHost: Sendable {
     func messageFacts(matching condition: MailCondition, in context: MailCondition.Context) throws -> [MailFacts]
     /// The stored threads that meet `condition`, newest first, each as its list row shows it.
     func threadFacts(matching condition: MailCondition, in context: MailCondition.Context) throws -> [MailFacts]
+    /// Makes sure the device holds the threads' messages up to their newest, fetching them when it doesn't.
+    func loadMessages(of threads: [ThreadSummary.ID]) async throws
+    /// An attachment's contents, from the account's server.
+    func data(for attachment: Attachment, in message: Message.ID) async throws -> Data
+    /// A message's raw source, as an `.eml` file holds it, from the account's server.
+    func source(of message: Message.ID) async throws -> Data
     /// Changes the threads through `MailCommands`, the only way intents change mail (ADR-011). Returns what undoes it.
     @discardableResult
     func perform(_ action: ThreadAction, on threads: [ThreadSummary.ID]) async throws -> MailCommands.Undo
@@ -46,6 +52,8 @@ public protocol MailIntentsHost: Sendable {
     func apply(_ focus: FocusFilter) throws
     /// Shows `route` in the frontmost window (ADR-011).
     @MainActor func open(_ route: Route)
+    /// The thread open in the frontmost window, or `nil` when none is.
+    @MainActor func openThread() -> ThreadSummary.ID?
 }
 
 /// A mailbox with the name the mailbox list gives it.

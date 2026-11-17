@@ -63,7 +63,7 @@
             }
         }
 
-        /// Unsubscribing, checking for mail and sending need the network and the app's sign-ins, which the widget
+        /// Unsubscribing, checking for mail, sending and downloading need the network and the app's sign-ins, which the widget
         /// doesn't hold. If one of these intents runs here, it fails with that reason instead of half-running.
         func unsubscribe(_ unsubscribe: Unsubscribe, account: AccountID) async throws -> ListUnsubscriber.Outcome {
             throw WidgetHostError.needsTheApp
@@ -78,6 +78,14 @@
 
         func send(_ draft: Draft, at date: Date?) async throws { throw WidgetHostError.needsTheApp }
 
+        func loadMessages(of threads: [ThreadSummary.ID]) async throws { throw WidgetHostError.needsTheApp }
+
+        func data(for attachment: Attachment, in message: Message.ID) async throws -> Data {
+            throw WidgetHostError.needsTheApp
+        }
+
+        func source(of message: Message.ID) async throws -> Data { throw WidgetHostError.needsTheApp }
+
         func apply(_ focus: FocusFilter) throws { try database.apply(focus) }
 
         func undo(_ undo: MailCommands.Undo) async throws {
@@ -86,6 +94,9 @@
 
         /// Opening intents run in the app, which the system launches for them.
         @MainActor func open(_ route: Route) {}
+
+        /// The widget shows no conversation.
+        @MainActor func openThread() -> ThreadSummary.ID? { nil }
     }
 
     /// An intent that needs the network reached the widget, which can't fetch or send.

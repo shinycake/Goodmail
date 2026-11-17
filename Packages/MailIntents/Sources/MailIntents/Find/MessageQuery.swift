@@ -37,6 +37,10 @@ public struct MessageQuery: EntityStringQuery, EntityPropertyQuery {
             Property(\MessageEntity.$snippet) {
                 ContainsComparator { .text(.snippet, .contains($0)) }
             }
+            Property(\MessageEntity.$from) {
+                EqualToComparator { .text(.senderAddress, .equals($0.address)) }
+                NotEqualToComparator { .not(.text(.senderAddress, .equals($0.address))) }
+            }
             Property(\MessageEntity.$senderName) {
                 EqualToComparator { .text(.senderName, .equals($0)) }
                 NotEqualToComparator { .not(.text(.senderName, .equals($0))) }
@@ -105,6 +109,15 @@ public struct MessageQuery: EntityStringQuery, EntityPropertyQuery {
                 LessThanComparator { .date(.date, .before($0)) }
                 GreaterThanComparator { .date(.date, .after($0)) }
                 IsBetweenComparator { .date(.date, .between($0, $1)) }
+            }
+            Property(\MessageEntity.$daysOld) {
+                EqualToComparator { DaysOld.exactly($0) }
+                NotEqualToComparator { .not(DaysOld.exactly($0)) }
+                LessThanComparator { DaysOld.atMost($0 - 1) }
+                GreaterThanComparator { DaysOld.atLeast($0 + 1) }
+                LessThanOrEqualToComparator { DaysOld.atMost($0) }
+                GreaterThanOrEqualToComparator { DaysOld.atLeast($0) }
+                IsBetweenComparator { DaysOld.between($0, $1) }
             }
             Property(\MessageEntity.$weekday) {
                 EqualToComparator { .weekday([$0.weekday]) }

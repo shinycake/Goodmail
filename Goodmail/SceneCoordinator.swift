@@ -39,6 +39,9 @@ final class SceneCoordinator: NSObject {
         didSet { if shown != oldValue { publishActivity() } }
     }
 
+    /// The thread the window is reading, for Get Open Conversation.
+    var openThread: ThreadSummary.ID? { shown.openThread?.id }
+
     /// `restoring` is what the window showed when the system last saved it, or what another device handed off.
     init(windowScene: UIWindowScene, model: AppModel, restoring: WindowState?) {
         self.model = model

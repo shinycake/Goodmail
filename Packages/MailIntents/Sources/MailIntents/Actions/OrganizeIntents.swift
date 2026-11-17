@@ -24,11 +24,11 @@ public struct MoveThreadsIntent: UndoableIntent {
         Summary("Move \(\.$threads) to \(\.$mailbox)", table: "ShortcutActions")
     }
 
-    public func perform() async throws -> some IntentResult {
+    public func perform() async throws -> some IntentResult & ReturnsValue<[ThreadEntity]> {
         guard let destination = mailbox.mailbox.flatMap(MoveDestination.init) else { throw IntentError.notAPlace }
         let changes = try await Catalog(host: host).move(threads.map(\.id), to: destination)
         await offerUndo(of: changes, named: Self.title, host: host)
-        return .result()
+        return .result(value: threads)
     }
 }
 
@@ -70,7 +70,7 @@ public struct LabelThreadsIntent: UndoableIntent {
         Summary("\(\.$change) \(\.$label) on \(\.$threads)", table: "ShortcutActions")
     }
 
-    public func perform() async throws -> some IntentResult {
+    public func perform() async throws -> some IntentResult & ReturnsValue<[ThreadEntity]> {
         guard let labelID = label.mailbox?.labelID else { throw IntentError.notAPlace }
         let action: ThreadAction =
             switch change {
@@ -79,7 +79,7 @@ public struct LabelThreadsIntent: UndoableIntent {
             }
         let undo = try await Catalog(host: host).perform(action, onThreads: threads.map(\.id))
         await offerUndo(of: [undo], named: Self.title, host: host)
-        return .result()
+        return .result(value: threads)
     }
 }
 
@@ -101,18 +101,22 @@ public struct ReportSpamIntent: UndoableIntent {
     public init() {}
 
     public static var parameterSummary: some ParameterSummary {
-        Summary("Report \(\.$threads) as spam: \(\.$spam)", table: "ShortcutActions")
+        When(\.$spam, .equalTo, true) {
+            Summary("Report \(\.$threads) as spam", table: "ShortcutFlow") { \.$spam }
+        } otherwise: {
+            Summary("Move \(\.$threads) out of Spam", table: "ShortcutFlow") { \.$spam }
+        }
     }
 
-    public func perform() async throws -> some IntentResult {
+    public func perform() async throws -> some IntentResult & ReturnsValue<[ThreadEntity]> {
         let undo = try await Catalog(host: host).perform(
             spam ? .reportSpam : .moveToInbox, onThreads: threads.map(\.id))
         await offerUndo(of: [undo], named: Self.title, host: host)
-        return .result()
+        return .result(value: threads)
     }
 }
 
-/// Deletes the conversations' messages in Trash for good, after asking. Nothing undoes it.
+/// Deletes the conversations' messages in Trash for good, after asking unless told not to. Nothing undoes it.
 public struct DeleteForeverIntent: AppIntent {
     public static let title: LocalizedStringResource = LocalizedStringResource(
         "Delete Conversations Forever", table: "ShortcutActions")
@@ -124,15 +128,31 @@ public struct DeleteForeverIntent: AppIntent {
     @Parameter(title: LocalizedStringResource("Conversations", table: "ShortcutActions"))
     public var threads: [ThreadEntity]
 
+    /// Off for an automation that runs on its own, where nobody is there to answer.
+    @Parameter(
+        title: LocalizedStringResource("Ask Before Deleting", table: "ShortcutFlow"),
+        description: LocalizedStringResource(
+            "Turn off for an automation that runs on its own, so it doesn't wait for an answer.",
+            table: "ShortcutFlow"),
+        default: true)
+    public var asks: Bool
+
     @Dependency private var host: any MailIntentsHost
 
     public init() {}
 
     public static var parameterSummary: some ParameterSummary {
-        Summary("Delete \(\.$threads) forever", table: "ShortcutActions")
+        Summary("Delete \(\.$threads) forever", table: "ShortcutActions") { \.$asks }
     }
 
     public func perform() async throws -> some IntentResult {
+        guard !threads.isEmpty else { return .result() }
+        if asks { try await confirm() }
+        try await Catalog(host: host).perform(.deleteForever, onThreads: threads.map(\.id))
+        return .result()
+    }
+
+    private func confirm() async throws {
         try await requestConfirmation(
             actionName: .custom(
                 acceptLabel: LocalizedStringResource("Delete Forever", table: "ShortcutActions"),
@@ -143,14 +163,14 @@ public struct DeleteForeverIntent: AppIntent {
                 LocalizedStringResource(
                     "Delete these conversations' messages in Trash forever? This can't be undone.",
                     table: "ShortcutActions")))
-        try await Catalog(host: host).perform(.deleteForever, onThreads: threads.map(\.id))
-        return .result()
     }
 }
 
 extension Catalog {
     /// Moves each thread from the mailbox it's in to `destination`. Returns what undoes each move.
     func move(_ identifiers: [String], to destination: MoveDestination) async throws -> [MailCommands.Undo] {
+        // An automation's Find can come up empty; doing nothing then is a success, so the shortcut runs on.
+        guard !identifiers.isEmpty else { return [] }
         let threads = try host.threads(identifiers.compactMap(EntityID.thread))
         guard !threads.isEmpty else { throw IntentError.gone }
         // Threads in the same mailbox move in one change.

@@ -63,6 +63,8 @@ enum IntentError: Error, CustomLocalizedStringResourceConvertible {
     case notAnAddress(String)
     /// A message with no one to send it to.
     case noRecipients
+    /// Get Open Conversation ran with no conversation open.
+    case nothingOpen
 
     init(_ error: WrittenMailError) {
         switch error {
@@ -81,6 +83,8 @@ enum IntentError: Error, CustomLocalizedStringResourceConvertible {
             LocalizedStringResource(
                 "Mail can't be moved there. Choose the Inbox, Spam, Trash or a label.", table: "ShortcutMail")
         case .notAList: LocalizedStringResource("That message isn't from a mailing list.", table: "ShortcutMail")
+        case .nothingOpen:
+            LocalizedStringResource("No conversation is open in Goodmail.", table: "ShortcutFlow")
         }
     }
 }

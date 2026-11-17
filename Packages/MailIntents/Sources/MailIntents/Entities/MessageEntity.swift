@@ -30,6 +30,9 @@ public struct MessageEntity: Sendable {
 
     // MARK: People
 
+    /// Who sent it, to hand to Find's From or to another action.
+    @Property(title: LocalizedStringResource("From", table: "ShortcutFlow"))
+    public var from: SenderEntity
     @Property(title: LocalizedStringResource("Sender Name", table: "ShortcutMail"))
     public var senderName: String
     @Property(title: LocalizedStringResource("Sender Address", table: "ShortcutMail"))
@@ -86,6 +89,13 @@ public struct MessageEntity: Sendable {
     public var hour: Int
     @Property(title: LocalizedStringResource("Messages in Conversation", table: "ShortcutMail"))
     public var conversationLength: Int
+    /// Whole days since it arrived, so Find can ask for mail older than a week.
+    @Property(title: LocalizedStringResource("Days Old", table: "ShortcutFlow"))
+    public var daysOld: Int
+    /// The conversation it belongs to, for the actions that archive, move, snooze or label conversations. Its own
+    /// messages aren't in it; Get Messages in Conversations gets them.
+    @Property(title: LocalizedStringResource("Conversation", table: "ShortcutFlow"))
+    public var conversation: ThreadEntity
 
     // MARK: State
 
@@ -132,8 +142,12 @@ public struct MessageEntity: Sendable {
         DisplayRepresentation(title: "\(subject ?? "")", subtitle: "\(senderName.isEmpty ? senderAddress : senderName)")
     }
 
-    /// The cached message `facts` describes, in `mailbox`. `calendar` reads its weekday and hour.
-    init(_ facts: MailFacts, content: MailFacts.Content, mailbox: MailboxEntity, calendar: Calendar) {
+    /// The cached message `facts` describes, in `mailbox`, of `conversation`. `calendar` reads its weekday and hour,
+    /// and `now` its age.
+    init(
+        _ facts: MailFacts, content: MailFacts.Content, mailbox: MailboxEntity, conversation: ThreadEntity,
+        calendar: Calendar, now: Date
+    ) {
         let envelope = facts.envelope
         id = EntityID.string(content.id, inThread: envelope.thread.threadID)
         subject = envelope.subject.isEmpty ? nil : envelope.subject
@@ -153,6 +167,7 @@ public struct MessageEntity: Sendable {
         account = mailbox.account
         category = facts.category.flatMap { MailCategoryEntity(rawValue: $0.rawValue) }
 
+        from = SenderEntity(envelope.sender)
         senderName = envelope.sender.name ?? ""
         senderAddress = envelope.sender.address
         senderDomain = facts.texts(.senderDomain)?.first ?? ""
@@ -178,6 +193,8 @@ public struct MessageEntity: Sendable {
         weekday = WeekdayEntity(calendar.component(.weekday, from: envelope.date))
         hour = calendar.component(.hour, from: envelope.date)
         conversationLength = envelope.messageCount
+        daysOld = DaysOld.of(envelope.date, now: now)
+        self.conversation = conversation
 
         isImportant = facts.flag(.important) == true
         isInInbox = facts.flag(.inInbox) == true

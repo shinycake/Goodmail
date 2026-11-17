@@ -8,14 +8,22 @@ final class IntentRoutes {
     private var waiting: Route?
 
     func open(_ route: Route) {
-        let scenes =
-            UIApplication.shared.connectedScenes
-            .filter { $0.activationState == .foregroundActive } + UIApplication.shared.connectedScenes
-        guard let coordinator = scenes.lazy.compactMap({ ($0.delegate as? SceneDelegate)?.coordinator }).first else {
+        guard let coordinator = frontmost else {
             waiting = route
             return
         }
         coordinator.handle(route)
+    }
+
+    /// The thread open in the frontmost window, or `nil` when none is.
+    var openThread: ThreadSummary.ID? { frontmost?.openThread }
+
+    /// The coordinator of the frontmost window, or of any window when none is in front.
+    private var frontmost: SceneCoordinator? {
+        let scenes =
+            UIApplication.shared.connectedScenes
+            .filter { $0.activationState == .foregroundActive } + UIApplication.shared.connectedScenes
+        return scenes.lazy.compactMap({ ($0.delegate as? SceneDelegate)?.coordinator }).first
     }
 
     /// The route waiting for the window that just connected, which it takes.

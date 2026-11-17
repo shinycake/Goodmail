@@ -25,6 +25,8 @@
         let providers: Providers
         /// Syncs every account, as pulling down the Inbox does.
         let syncAll: @Sendable () async throws -> Void
+        /// Fetches a thread's messages into the store when the cached ones don't reach its newest.
+        let loadThread: @Sendable (ThreadSummary.ID) async throws -> Void
 
         func accounts() throws -> [Account] { try database.accounts() }
 
@@ -110,6 +112,20 @@
                 wording: .localized)
         }
 
+        func loadMessages(of threads: [ThreadSummary.ID]) async throws {
+            try await BackgroundDatabaseWork.shared.run("Intent") {
+                for thread in threads { try await loadThread(thread) }
+            }
+        }
+
+        func data(for attachment: Attachment, in message: Message.ID) async throws -> Data {
+            try await providers.provider(for: message.accountID).data(for: attachment, in: message)
+        }
+
+        func source(of message: Message.ID) async throws -> Data {
+            try await providers.provider(for: message.accountID).source(of: message)
+        }
+
         func send(_ draft: Draft, at date: Date?) async throws {
             try await BackgroundDatabaseWork.shared.run("Intent") {
                 if let date {
@@ -131,6 +147,8 @@
         func apply(_ focus: FocusFilter) throws { try database.apply(focus) }
 
         @MainActor func open(_ route: Route) { routes.open(route) }
+
+        @MainActor func openThread() -> ThreadSummary.ID? { routes.openThread }
     }
 
     extension SpotlightIndexer {

@@ -13,6 +13,9 @@ public struct ThreadEntity: Sendable {
     /// The messages cached on the device, oldest first. A thread only listed so far has none yet.
     public var messages: [MessageEntity]
 
+    /// Who wrote the latest message, to hand to Find's From or to another action.
+    @Property(title: LocalizedStringResource("From", table: "ShortcutFlow"))
+    public var from: SenderEntity
     @Property(title: LocalizedStringResource("Sender Name", table: "ShortcutMail"))
     public var senderName: String
     @Property(title: LocalizedStringResource("Sender Address", table: "ShortcutMail"))
@@ -22,6 +25,9 @@ public struct ThreadEntity: Sendable {
     /// The latest message's date, which Spotlight sorts by.
     @Property(title: LocalizedStringResource("Date", table: "ShortcutMail"))
     public var date: Date
+    /// Whole days since its latest message, so Find can ask for conversations older than a week.
+    @Property(title: LocalizedStringResource("Days Old", table: "ShortcutFlow"))
+    public var daysOld: Int
     @Property(title: LocalizedStringResource("Number of Messages", table: "ShortcutMail"))
     public var messageCount: Int
     /// Every label and mailbox it's in, as Inbox, Starred or Receipts.
@@ -56,17 +62,19 @@ public struct ThreadEntity: Sendable {
         DisplayRepresentation(title: "\(title)", subtitle: "\(senderName.isEmpty ? senderAddress : senderName)")
     }
 
-    /// A conversation as filters see it, with the cached messages it holds.
-    init(_ facts: MailFacts, messages: [MessageEntity]) {
+    /// A conversation as filters see it, with the cached messages it holds. `now` reads its age.
+    init(_ facts: MailFacts, messages: [MessageEntity], now: Date = .now) {
         let envelope = facts.envelope
         id = EntityID.string(envelope.thread)
         title = envelope.subject
         description = envelope.snippet.isEmpty ? nil : envelope.snippet
         self.messages = messages
+        from = SenderEntity(envelope.sender)
         senderName = envelope.sender.name ?? ""
         senderAddress = envelope.sender.address
         senderDomain = facts.texts(.senderDomain)?.first ?? ""
         date = envelope.date
+        daysOld = DaysOld.of(envelope.date, now: now)
         messageCount = envelope.messageCount
         labels = facts.texts(.mailbox) ?? []
         accountAddress = envelope.account.email

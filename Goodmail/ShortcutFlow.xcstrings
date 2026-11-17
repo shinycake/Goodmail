@@ -1,0 +1,406 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Address" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כתובת"
+          }
+        }
+      }
+    },
+    "Archive ${threads}" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העבר את ${threads} לארכיון"
+          }
+        }
+      }
+    },
+    "Ask Before Deleting" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שאל לפני מחיקה"
+          }
+        }
+      }
+    },
+    "Conversation" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שיחה"
+          }
+        }
+      }
+    },
+    "Conversations" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שיחות"
+          }
+        }
+      }
+    },
+    "Days Old" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בת כמה ימים"
+          }
+        }
+      }
+    },
+    "Delete ${threads}" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחק את ${threads}"
+          }
+        }
+      }
+    },
+    "Domain" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דומיין"
+          }
+        }
+      }
+    },
+    "Downloads the files attached to messages, to save to Files, share or send on. Pictures shown inside a message, such as logos, are left out unless you include them." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מוריד את הקבצים המצורפים להודעות, כדי לשמור אותם בקבצים, לשתף אותם או לשלוח אותם הלאה. תמונות שמוצגות בתוך ההודעה, כמו לוגואים, לא נכללות אלא אם בוחרים לכלול אותן."
+          }
+        }
+      }
+    },
+    "Fetches new mail for every account now, and returns the conversations that got new messages." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מושך עכשיו דואר חדש לכל החשבונות, ומחזיר את השיחות שקיבלו הודעות חדשות."
+          }
+        }
+      }
+    },
+    "From" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מאת"
+          }
+        }
+      }
+    },
+    "Get ${messages} as email files" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קבל את ${messages} כקובצי אימייל"
+          }
+        }
+      }
+    },
+    "Get Attachments" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קבל קבצים מצורפים"
+          }
+        }
+      }
+    },
+    "Get Email Files" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קבל קובצי אימייל"
+          }
+        }
+      }
+    },
+    "Get Messages in Conversations" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קבל הודעות בשיחות"
+          }
+        }
+      }
+    },
+    "Get Open Conversation" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קבל את השיחה הפתוחה"
+          }
+        }
+      }
+    },
+    "Get the attachments of ${messages}" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קבל את הקבצים המצורפים של ${messages}"
+          }
+        }
+      }
+    },
+    "Get the latest message in ${threads}" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קבל את ההודעה האחרונה ב־${threads}"
+          }
+        }
+      }
+    },
+    "Get the messages in ${threads}" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קבל את ההודעות ב־${threads}"
+          }
+        }
+      }
+    },
+    "Gets each message as an .eml file, the original email with its attachments, which Mail, Outlook and other apps open. Save it, share it or attach it to another email." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחזיר כל הודעה כקובץ ‎.eml, האימייל המקורי עם הקבצים המצורפים שלו, שאפשר לפתוח ב־Mail, ב־Outlook ובאפליקציות אחרות. אפשר לשמור אותו, לשתף אותו או לצרף אותו לאימייל אחר."
+          }
+        }
+      }
+    },
+    "Gets the conversation you're reading in Goodmail, so a shortcut you run from the Action button, Back Tap or Siri can act on it." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחזיר את השיחה שקוראים עכשיו ב־Goodmail, כדי שקיצור דרך שמופעל מכפתור הפעולה, מהקשה בגב המכשיר או מ־Siri יוכל לפעול עליה."
+          }
+        }
+      }
+    },
+    "Gets the messages of conversations, oldest first, and downloads any this device doesn't have yet. Turn on Latest Only to get just the newest message of each." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחזיר את ההודעות של שיחות, מהישנה לחדשה, ומוריד הודעות שעדיין אין במכשיר. כשמפעילים את ״רק האחרונה״, מתקבלת רק ההודעה החדשה ביותר בכל שיחה."
+          }
+        }
+      }
+    },
+    "Include Inline Pictures" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כלול תמונות מתוך ההודעה"
+          }
+        }
+      }
+    },
+    "Latest Only" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "רק האחרונה"
+          }
+        }
+      }
+    },
+    "Mark ${threads} as read" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סמן את ${threads} כנקראו"
+          }
+        }
+      }
+    },
+    "Mark ${threads} as unread" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סמן את ${threads} כלא נקראו"
+          }
+        }
+      }
+    },
+    "Message" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הודעה"
+          }
+        }
+      }
+    },
+    "Messages" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הודעות"
+          }
+        }
+      }
+    },
+    "Move ${threads} out of Spam" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הוצא את ${threads} מספאם"
+          }
+        }
+      }
+    },
+    "Mute ${threads}" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השתק את ${threads}"
+          }
+        }
+      }
+    },
+    "Name" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שם"
+          }
+        }
+      }
+    },
+    "No conversation is open in Goodmail." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אין שיחה פתוחה ב־Goodmail."
+          }
+        }
+      }
+    },
+    "Pin ${threads}" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצמד את ${threads}"
+          }
+        }
+      }
+    },
+    "Report ${threads} as spam" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דווח על ${threads} כספאם"
+          }
+        }
+      }
+    },
+    "Sender" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שולח"
+          }
+        }
+      }
+    },
+    "Star ${threads}" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סמן את ${threads} בכוכב"
+          }
+        }
+      }
+    },
+    "Turn off for an automation that runs on its own, so it doesn't wait for an answer." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כדאי לכבות באוטומציה שרצה לבד, כדי שהיא לא תחכה לתשובה."
+          }
+        }
+      }
+    },
+    "Unmute ${threads}" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בטל השתקה של ${threads}"
+          }
+        }
+      }
+    },
+    "Unpin ${threads}" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בטל הצמדה של ${threads}"
+          }
+        }
+      }
+    },
+    "Unstar ${threads}" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בטל סימון כוכב של ${threads}"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

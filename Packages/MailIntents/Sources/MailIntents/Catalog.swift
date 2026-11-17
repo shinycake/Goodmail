@@ -9,6 +9,8 @@ struct Catalog {
     static let suggestionLimit = 20
     /// The calendar a message's weekday and hour are read in.
     var calendar: Calendar = .current
+    /// The moment ages are read from.
+    var now: Date = .now
 
     func accounts() throws -> [AccountEntity] {
         try host.accounts().map(AccountEntity.init)
@@ -42,12 +44,15 @@ struct Catalog {
         let threads = try host.threadFacts(ids).sorted {
             position[$0.envelope.thread, default: .max] < position[$1.envelope.thread, default: .max]
         }
-        guard withMessages else { return threads.map { ThreadEntity($0, messages: []) } }
+        guard withMessages else { return threads.map { ThreadEntity($0, messages: [], now: now) } }
         let byThread = Dictionary(grouping: try host.messageFacts(inThreads: ids), by: \.envelope.thread)
         let messages = try Messages(catalog: self)
         return threads.map { thread in
+            let conversation = [thread.envelope.thread: ThreadEntity(thread, messages: [], now: now)]
             // Oldest first, as a conversation reads.
-            ThreadEntity(thread, messages: messages.entities((byThread[thread.envelope.thread] ?? []).reversed()))
+            let cached = messages.entities(
+                (byThread[thread.envelope.thread] ?? []).reversed(), conversations: conversation)
+            return ThreadEntity(thread, messages: cached, now: now)
         }
     }
 
@@ -55,7 +60,8 @@ struct Catalog {
         let ids = identifiers.compactMap(EntityID.message)
         let wanted = Set(ids.map(\.message))
         let facts = try host.messageFacts(inThreads: Array(Set(ids.map(\.thread))))
-        return try Messages(catalog: self).entities(facts.filter { $0.content.map { wanted.contains($0.id) } ?? false })
+            .filter { $0.content.map { wanted.contains($0.id) } ?? false }
+        return try Messages(catalog: self).entities(facts, conversations: conversations(of: facts))
     }
 
     /// The cached messages that meet `condition`, in `sorts`' order, at most `limit` of them. Reads every cached body
@@ -65,7 +71,8 @@ struct Catalog {
     {
         let found = try host.messageFacts(matching: condition, in: MailCondition.Context(calendar: calendar))
         let sorted = MailSort.sorted(found, by: sorts)
-        return try Messages(catalog: self).entities(limit.map { Array(sorted.prefix($0)) } ?? sorted)
+        let kept = limit.map { Array(sorted.prefix($0)) } ?? sorted
+        return try Messages(catalog: self).entities(kept, conversations: conversations(of: kept))
     }
 
     /// The stored threads that meet `condition`, in `sorts`' order, at most `limit` of them, without their messages.
@@ -74,27 +81,40 @@ struct Catalog {
     {
         let found = try host.threadFacts(matching: condition, in: MailCondition.Context(calendar: calendar))
         let sorted = MailSort.sorted(found, by: sorts)
-        return (limit.map { Array(sorted.prefix($0)) } ?? sorted).map { ThreadEntity($0, messages: []) }
+        return (limit.map { Array(sorted.prefix($0)) } ?? sorted).map { ThreadEntity($0, messages: [], now: now) }
+    }
+
+    /// The conversations the messages belong to, without their messages, by ID.
+    private func conversations(of messages: [MailFacts]) throws -> [ThreadSummary.ID: ThreadEntity] {
+        let ids = Array(Set(messages.map(\.envelope.thread)))
+        return Dictionary(
+            try host.threadFacts(ids).map { ($0.envelope.thread, ThreadEntity($0, messages: [], now: now)) },
+            uniquingKeysWith: { first, _ in first })
     }
 
     /// Makes message entities, each in the mailbox it's in among every account's.
     private struct Messages {
         private let byID: [String: MailboxEntity]
         private let calendar: Calendar
+        private let now: Date
 
         init(catalog: Catalog) throws {
             byID = Dictionary(try catalog.mailboxes().map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
             calendar = catalog.calendar
+            now = catalog.now
         }
 
-        /// The messages' entities, leaving out any whose account is gone or that isn't cached.
-        func entities(_ facts: [MailFacts]) -> [MessageEntity] {
+        /// The messages' entities, each with its conversation from `conversations`, leaving out any whose account is
+        /// gone or that isn't cached. A message whose conversation isn't stored stands for it itself.
+        func entities(_ facts: [MailFacts], conversations: [ThreadSummary.ID: ThreadEntity]) -> [MessageEntity] {
             facts.compactMap { facts in
                 let mailbox = Mailbox.holding(facts.envelope.labelIDs)
                 guard let content = facts.content,
                     let entity = byID[EntityID.string(mailbox, account: facts.envelope.account.id)]
                 else { return nil }
-                return MessageEntity(facts, content: content, mailbox: entity, calendar: calendar)
+                let conversation = conversations[facts.envelope.thread] ?? ThreadEntity(facts, messages: [], now: now)
+                return MessageEntity(
+                    facts, content: content, mailbox: entity, conversation: conversation, calendar: calendar, now: now)
             }
         }
     }

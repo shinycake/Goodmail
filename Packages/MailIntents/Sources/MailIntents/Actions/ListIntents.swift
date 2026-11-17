@@ -32,20 +32,25 @@ public struct UnsubscribeIntent: AppIntent {
     }
 }
 
-/// Fetches new mail for every account now, as pulling down the Inbox does.
+/// Fetches new mail for every account now, as pulling down the Inbox does, and returns the conversations it
+/// brought: what an automation that runs every so often acts on.
 public struct CheckForNewMailIntent: AppIntent {
     public static let title: LocalizedStringResource = LocalizedStringResource(
         "Check for New Mail", table: "ShortcutActions")
     public static let description = IntentDescription(
-        LocalizedStringResource("Fetches new mail for every account now.", table: "ShortcutActions"))
+        LocalizedStringResource(
+            "Fetches new mail for every account now, and returns the conversations that got new messages.",
+            table: "ShortcutFlow"))
 
     @Dependency private var host: any MailIntentsHost
 
     public init() {}
 
-    public func perform() async throws -> some IntentResult {
+    public func perform() async throws -> some IntentResult & ReturnsValue<[ThreadEntity]> {
+        let catalog = Catalog(host: host)
+        let newest = try catalog.newestDate()
         try await host.refresh()
-        return .result()
+        return .result(value: try await catalog.threads(newerThan: newest))
     }
 }
 
@@ -56,5 +61,23 @@ extension Catalog {
             let facts = try host.messageFacts(inThreads: [id.thread]).first(where: { $0.content?.id == id.message })
         else { throw IntentError.gone }
         return facts
+    }
+}
+
+extension Catalog {
+    /// How many new conversations Check for New Mail returns at most.
+    static let newMailLimit = 100
+
+    /// When the newest stored conversation last got a message, or `nil` when nothing is stored yet.
+    func newestDate() throws -> Date? {
+        try host.threads(in: .allMail, limit: 1).first?.date
+    }
+
+    /// The conversations whose newest message came after `date`, newest first. Nothing before the first sync, when
+    /// every conversation would be new. Spam and Trash aren't new mail.
+    func threads(newerThan date: Date?) async throws -> [ThreadEntity] {
+        guard let date else { return [] }
+        let new = MailCondition.all([.date(.date, .after(date)), .flag(.inSpam, false), .flag(.inTrash, false)])
+        return try await threads(matching: new, sortedBy: [], limit: Self.newMailLimit)
     }
 }
