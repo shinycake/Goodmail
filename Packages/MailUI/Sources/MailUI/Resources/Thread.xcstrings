@@ -147,6 +147,17 @@
         }
       }
     },
+    "Downloading" : {
+      "comment" : "VoiceOver: an attachment's data is on its way",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בהורדה"
+          }
+        }
+      }
+    },
     "Edit Draft" : {
       "comment" : "Opens a saved draft to finish it",
       "localizations" : {

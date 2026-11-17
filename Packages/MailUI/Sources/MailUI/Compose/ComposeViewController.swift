@@ -182,9 +182,9 @@ public final class ComposeViewController: UIViewController {
             viewModel.isReply
             ? String(localized: "Reply", table: "Compose", bundle: .module, comment: "Composer title for a reply")
             : String(localized: "New Message", table: "Compose", bundle: .module, comment: "Composer title")
-        navigationItem.leftBarButtonItem = UIBarButtonItem(
-            systemItem: .close,
-            primaryAction: UIAction { [weak self] _ in self?.cancel() })
+        let close = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { [weak self] _ in self?.cancel() })
+        close.accessibilityIdentifier = "compose.close"
+        navigationItem.leftBarButtonItem = close
         sendItem.image = UIImage(systemName: "arrow.up")
         sendItem.style = .prominent
         sendItem.accessibilityLabel = String(
@@ -226,6 +226,7 @@ public final class ComposeViewController: UIViewController {
 
     /// Shows `contacts` under `field`. A tap adds the recipient.
     private func list(_ contacts: [Contact], under field: RecipientField) {
+        let shown = suggestionList.isHidden ? 0 : suggestionList.arrangedSubviews.count
         for view in suggestionList.arrangedSubviews { view.removeFromSuperview() }
         suggestionList.removeFromSuperview()
         let row = [toField: toRow, ccField: ccRow, bccField: bccRow][field] ?? nil
@@ -257,6 +258,15 @@ public final class ComposeViewController: UIViewController {
         }
         fields.insertArrangedSubview(suggestionList, at: index + 1)
         suggestionList.isHidden = false
+        // The list appears under the field without moving VoiceOver off it, so say how many there are, after the
+        // letter just typed is read and only when the number changes.
+        if contacts.count != shown {
+            SystemAccessibility.announce(
+                String(
+                    localized: "\(contacts.count) suggestions", table: "Compose", bundle: .module,
+                    comment: "VoiceOver: how many recipients are suggested under the field"),
+                queued: true)
+        }
     }
 
     /// A field's title before it, on one line.
@@ -267,6 +277,8 @@ public final class ComposeViewController: UIViewController {
         label.textColor = .secondaryLabel
         label.adjustsFontForContentSizeCategory = true
         label.setContentHuggingPriority(.required, for: .horizontal)
+        // The field gives way to a long title, never the other way round.
+        label.setContentCompressionResistancePriority(.required, for: .horizontal)
         field.accessibilityLabel = title
         let line = UIStackView(arrangedSubviews: [label, field])
         line.spacing = 6

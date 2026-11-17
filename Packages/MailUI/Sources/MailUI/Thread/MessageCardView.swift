@@ -87,7 +87,11 @@ final class TimelineRowView: UIControl {
         date.setContentCompressionResistancePriority(.required, for: .horizontal)
         dot.backgroundColor = .tertiaryLabel
         dot.layer.cornerRadius = 3
-        let stack = UIStackView(arrangedSubviews: [dot, line, date])
+        // At the accessibility sizes the date goes under the line, which gets two lines instead of a few words.
+        let text = UIStackView(arrangedSubviews: [line, date])
+        text.spacing = 10
+        text.stacksVerticallyAtAccessibilitySizes()
+        let stack = UIStackView(arrangedSubviews: [dot, text])
         stack.spacing = 10
         stack.alignment = .center
         stack.isUserInteractionEnabled = false
@@ -103,12 +107,20 @@ final class TimelineRowView: UIControl {
         ])
         isAccessibilityElement = true
         accessibilityTraits = .button
+        // The line's attributed text carries its font, which doesn't scale on its own; set it again at the new size.
+        registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (view: TimelineRowView, _) in
+            if let shown = view.shown { view.configure(shown.message, dateText: shown.dateText) }
+        }
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("Programmatic UI only") }
 
+    private var shown: (message: Message, dateText: String)?
+
     func configure(_ message: Message, dateText: String) {
+        shown = (message, dateText)
+        line.numberOfLines = traitCollection.preferredContentSizeCategory.isAccessibilityCategory ? 2 : 1
         let summary = message.snippet.isEmpty ? message.subject : message.snippet
         let text = "\(message.from.displayName) — \(summary)"
         line.setContentText(text, alignedToContent: false)
@@ -122,5 +134,6 @@ final class TimelineRowView: UIControl {
         line.attributedText = attributed
         date.text = dateText
         accessibilityLabel = "\(message.from.displayName), \(summary), \(dateText)"
+        accessibilityUserInputLabels = [message.from.displayName]
     }
 }

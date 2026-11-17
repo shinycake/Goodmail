@@ -39,7 +39,8 @@ struct ServiceLogo: View {
             switch service.mark {
             case .logo(let name):
                 if let image = ServiceLogoImages.image(named: name) {
-                    Image(uiImage: image).resizable().scaledToFit()
+                    // A brand's colors, kept as they are under Smart Invert.
+                    Image(uiImage: image).resizable().scaledToFit().accessibilityIgnoresInvertColors()
                 }
             case .symbol(let name): Image(systemName: name).imageScale(.large)
             }

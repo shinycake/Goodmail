@@ -12,6 +12,47 @@
         }
       }
     },
+    "%lld suggestions" : {
+      "comment" : "VoiceOver: how many recipients are suggested under the field",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "1 suggestion"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld suggestions"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "הצעה אחת"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld הצעות"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "(No Subject)" : {
       "comment" : "Shown in place of an empty email subject",
       "localizations" : {

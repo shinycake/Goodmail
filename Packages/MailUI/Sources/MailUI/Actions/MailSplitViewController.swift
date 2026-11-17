@@ -122,6 +122,14 @@ public final class MailSplitViewController: UISplitViewController {
         }
     }
 
+    /// VoiceOver's two-finger double tap undoes while the toast shows, wherever VoiceOver is, as the play/pause of
+    /// the Magic Tap does in Phone and Music.
+    public override func accessibilityPerformMagicTap() -> Bool {
+        guard actions.toast != nil else { return false }
+        actions.undoLast()
+        return true
+    }
+
     /// Called by UIKit whenever the observed toast changes.
     public override func updateProperties() {
         super.updateProperties()

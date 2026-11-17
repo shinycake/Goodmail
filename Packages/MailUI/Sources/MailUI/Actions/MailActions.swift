@@ -155,7 +155,7 @@ public final class MailActions {
                 try await commands.schedule(draft, at: date)
                 lastUndo = .send(draft.id)
                 show(
-                    Toast(message: Self.scheduledConfirmation(for: date), undo: .send(draft.id)), for: toastDuration)
+                    Toast(message: Self.scheduledConfirmation(for: date), undo: .send(draft.id)), for: readingTime)
             }
         }
     }
@@ -201,7 +201,7 @@ public final class MailActions {
             guard !undo.isEmpty else { return }
             lastUndo = .actions(undo)
             if let confirmation {
-                show(Toast(message: confirmation, undo: .actions(undo)), for: toastDuration)
+                show(Toast(message: confirmation, undo: .actions(undo)), for: readingTime)
             }
         }
     }
@@ -226,6 +226,12 @@ public final class MailActions {
 
     public func dismissToast() {
         toast = nil
+    }
+
+    /// How long a toast stays when nothing else bounds it, longer while VoiceOver or Switch Control runs. An undo-send
+    /// toast can't wait past its send, so it keeps the send's delay.
+    private var readingTime: Duration {
+        ToastTime.lasting(toastDuration, assistiveTechnologyRuns: SystemAccessibility.assistiveTechnologyRuns)
     }
 
     private func show(_ toast: Toast, for duration: Duration) {

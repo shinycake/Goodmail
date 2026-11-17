@@ -132,6 +132,8 @@ final class ThreadRowContentView: UIView, UIContentView {
             current.account?.spokenAccount, name, subjectText, current.dateText,
             preview.isHidden ? nil : thread.snippet,
         ].compactMap(\.self).joined(separator: ", ")
+        // Voice Control names the row by what it shows first, not by the whole spoken label.
+        accessibilityUserInputLabels = [name, subjectText]
     }
 }
 

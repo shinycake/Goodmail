@@ -14,6 +14,8 @@ struct QRCodeView: View {
                 .padding(16)
                 // Dark modules on white whatever the appearance, which every scanner reads.
                 .background(.white, in: .rect(cornerRadius: 16))
+                // Smart Invert would flip the code to light on dark, which some scanners can't read.
+                .accessibilityIgnoresInvertColors()
         }
     }
 

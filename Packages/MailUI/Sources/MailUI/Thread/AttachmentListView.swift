@@ -32,6 +32,7 @@ final class AttachmentListView: UIStackView {
             let button = UIButton(configuration: Self.configuration(for: attachment))
             button.addAction(UIAction { [weak self] _ in self?.onOpen?(attachment) }, for: .primaryActionTriggered)
             button.accessibilityLabel = "\(attachment.filename), \(Self.sizeText(attachment.size))"
+            button.accessibilityUserInputLabels = [attachment.filename]
             buttons[attachment.id] = button
             addArrangedSubview(button)
         }
@@ -40,7 +41,7 @@ final class AttachmentListView: UIStackView {
 
     /// Shows a spinner on the attachment's capsule while its data downloads.
     func setLoading(_ loading: Bool, for attachment: Attachment) {
-        buttons[attachment.id]?.configuration?.showsActivityIndicator = loading
+        buttons[attachment.id]?.showsDownloading(loading)
     }
 
     static func configuration(for attachment: Attachment) -> UIButton.Configuration {
@@ -71,5 +72,19 @@ final class AttachmentListView: UIStackView {
 
     static func sizeText(_ bytes: Int) -> String {
         Int64(bytes).formatted(.byteCount(style: .file))
+    }
+}
+
+extension UIButton {
+    /// Spins on an attachment's button while its data downloads, and tells VoiceOver it is downloading, which the
+    /// spinner alone doesn't.
+    func showsDownloading(_ downloading: Bool) {
+        configuration?.showsActivityIndicator = downloading
+        accessibilityValue =
+            downloading
+            ? String(
+                localized: "Downloading", table: "Thread", bundle: .module,
+                comment: "VoiceOver: an attachment's data is on its way")
+            : nil
     }
 }

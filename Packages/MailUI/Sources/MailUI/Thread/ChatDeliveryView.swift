@@ -133,7 +133,8 @@ final class ChatDeliveryView: UIButton {
             bubble.transform = CGAffineTransform(translationX: 0, y: 28).scaledBy(x: 0.92, y: 0.92)
         }
         UIView.animate(
-            springDuration: 0.5, bounce: 0.25, initialSpringVelocity: 0, delay: 0, options: [.allowUserInteraction]
+            springDuration: 0.5, bounce: Motion.bounce(0.25), initialSpringVelocity: 0, delay: 0,
+            options: [.allowUserInteraction]
         ) {
             bubble.alpha = alpha
             bubble.transform = .identity

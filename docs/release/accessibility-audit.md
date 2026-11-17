@@ -17,12 +17,12 @@ proposed as a follow-up.
 | Thread history row (`TimelineRowView`) | ✅ | A button: "sender, summary, date". |
 | Thread subject | ✅ | Marked as a header, so the rotor's Headings jump to it. |
 | Attachments (`AttachmentListView`, compose capsules) | ✅ | "filename, size" buttons. Compose capsules open a menu with Remove. |
-| Attachment download spinner | ⏭ | `showsActivityIndicator` isn't announced. Proposal: set `accessibilityValue` to "Downloading" while it spins. |
+| Attachment download spinner | 🔧 | The button's value reads "Downloading" while it spins, in the reader and the chat (`showsDownloading`). |
 | Quoted text fold in the reader | ✅ | A `<details>`/`<summary>` with an `aria-label`, so WebKit reports expanded and collapsed itself. |
 | Quoted text fold in compose | 🔧 | The "•••" button always said "Show Quoted Text". It now says "Hide Quoted Text" once open. |
 | Compose fields | ✅ | To, Cc, Bcc and Subject fields are labelled by their row title; the body is "Message"; From reads "From: address". |
-| Recipient suggestions | ⏭ | They appear under the field silently. Proposal: post `.layoutChanged` pointing at the first suggestion, or an announcement with the count. |
-| Undo toast (`UndoToastView`) | ✅ / ⏭ | Its message is announced when it appears, and Undo is a button. But it leaves after 5 seconds, which is short for a VoiceOver user to reach Undo. Shake still undoes. Proposal: keep it while VoiceOver runs (`UIAccessibility.isVoiceOverRunning`), or make the two-finger double tap (Magic Tap) undo while it shows. |
+| Recipient suggestions | 🔧 | VoiceOver says how many there are when the number changes, queued after the letter just typed, without leaving the field. |
+| Undo toast (`UndoToastView`) | 🔧 | Its message is announced when it appears, and Undo is a button. It now stays 20 seconds while VoiceOver or Switch Control runs (`ToastTime`), and VoiceOver's two-finger double tap (Magic Tap) undoes while it shows. Shake still undoes. |
 | Inbox category pill | ✅ | "Inbox category: Primary"; the menu lists unread counts as subtitles. |
 | Label picker | ✅ | Each label carries its state (On, Off, Some) as the value. |
 | Move picker | ✅ | Rows carry the button trait. |
@@ -36,7 +36,7 @@ proposed as a follow-up.
 | Thread row header at accessibility sizes | 🔧 | Sender and date sat side by side with the date unsqueezable, so a long name truncated to a few letters. At accessibility sizes the date now goes under the name (`stacksVerticallyAtAccessibilitySizes`). |
 | Message card header at accessibility sizes | 🔧 | The same change for sender and date. |
 | Thread history rows and message card labels after a size change | 📱 | Same baked-font pattern as the row. They are reconfigured whenever the thread updates; check that changing the size with a thread open rescales them, and give them the row's fix if not. |
-| Thread history row at AX5 | ⏭ | Its summary is one line beside the date. Proposal: the same vertical stack and two lines. |
+| Thread history row at AX5 | 🔧 | The date goes under the summary, which gets two lines, and the row sets its text again when the size changes. |
 | `MonogramView` (40 pt, 15 pt initials) | ✅ | Fixed on purpose: decorative, hidden from VoiceOver, and the circle doesn't grow. |
 | `ThreadRowMetrics` insets, `SwipeLayout` sizes | ✅ | Spacing and touch targets, not text. Swipe buttons are 60 pt, over the 44 pt minimum. |
 | Swipe button symbols at AX5 | 📱 | The symbol uses the `.title2` text style inside a fixed 60 pt circle; check it still fits. |
@@ -69,3 +69,29 @@ screen.
 | VoiceOver, Voice Control | Labels and traits checked through the accessibility tree. Gestures, the rotor and "Show names" can't be driven in the simulator. |
 
 What still needs a real iPhone is in [device-checklist.md](device-checklist.md).
+
+## Sweep (2026-11-17)
+
+`GoodmailUITests/AccessibilityAuditTests` runs Xcode's accessibility audit (`performAccessibilityAudit`) on the inbox,
+a classic thread, a chat thread with its tray open and shut, the composer, the mailboxes and Settings. It runs in
+English at the default size and at AX5, and in Hebrew at AX5 in dark mode. It is part of `scripts/check` on the Mac,
+so a regression fails the gate. Text scaling and clipping are audited only at AX5, where they show; at the default
+size the audit only guesses at them. What the test lets through, and why, is in its `Tolerated` list. An audit that can't run, which happens on a Mac short of memory, is reported in
+the screen's attachment and doesn't fail the test. On a simulator slimmed with simslim the dark run still draws light,
+because the profile switches off whatever applies the appearance; run it on a stock simulator to see dark.
+
+The first run found 79 issues. What changed:
+
+| Area | Status | Notes |
+| --- | --- | --- |
+| Chat composer at AX5 | 🔧 | The …, + and Send circles clipped their symbols and the field read "Messa…". The bar now acts like a toolbar: symbols keep their size and show in the Large Content Viewer when held, and the field's text grows up to the first accessibility size. |
+| Message header at AX5 | 🔧 | "to …" truncated after a name or two. The names now wrap, Details drops under them, and the line rescales after a size change. |
+| Details / Hide | 🔧 | Took touches only on its text. It now takes them, and VoiceOver's focus, over a 44 pt square (`MinimumTargetButton`). |
+| Voice Control names | 🔧 | Rows, message cards, headers, letters and attachments were named by their whole spoken label. They now answer to what they show first: "Tap Dana Levi", "Tap invoice.pdf". |
+| Smart Invert | 🔧 | Sender photos, service logos and the transfer QR code keep their colors. |
+| Reduce Motion | 🔧 | A chat reply's arrival and the minimized-drafts bar still bounced; both settle without overshoot now. |
+| Hardware keyboard and Full Keyboard Access | ⏭ | No keyboard shortcuts yet. Next PR: ⌘N, ⌘R, ⇧⌘R, ⇧⌘F, ⌃⌘A, ⌘⌫, ⇧⌘U, ⇧⌘L, ⌥⌘F, ⇧⌘N, ⇧⌘D, as Apple Mail. |
+| Welcome screen | ⏭ | White on the blue buttons is about 3.5:1 and the tagline clips at AX5. The redesign (#258) replaces those buttons; the audit gets the screen back once it lands. |
+| Navigation bar subtitle in a chat | ✅ | UIKit draws and sizes it; tolerated. |
+| Avatar initials | ✅ | Fixed on purpose inside a fixed circle; tolerated. |
+| Section headers and footers in Settings | ✅ | The system's own secondary gray, which the audit calls "nearly passed"; tolerated. Real contrast failures still fail. |

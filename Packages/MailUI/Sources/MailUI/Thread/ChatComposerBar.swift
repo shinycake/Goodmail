@@ -43,6 +43,20 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
 
     static let maxLines: CGFloat = 6
 
+    /// The bar is a toolbar: its symbols keep a toolbar's size in fixed circles, and at the accessibility sizes
+    /// holding one shows it large in the Large Content Viewer instead, as the system bars do.
+    private static let symbol = UIImage.SymbolConfiguration(pointSize: 17, weight: .medium)
+
+    /// The field's text grows with the text size up to the first accessibility size, where the words still fit
+    /// beside the buttons; a larger font would leave room for a few letters a line. Past that, each reply reads at
+    /// the full size in the conversation above.
+    private static var fieldFont: UIFont {
+        UIFontMetrics(forTextStyle: .body).scaledFont(
+            for: .preferredFont(
+                forTextStyle: .body, compatibleWith: UITraitCollection(preferredContentSizeCategory: .large)),
+            maximumPointSize: 28)
+    }
+
     init() {
         super.init(frame: .zero)
         configureField()
@@ -101,6 +115,8 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
             sendButton.trailingAnchor.constraint(equalTo: field.trailingAnchor, constant: -4),
             sendButton.bottomAnchor.constraint(equalTo: field.bottomAnchor, constant: -4),
         ])
+        // Holding a button at the accessibility sizes shows it in the Large Content Viewer.
+        addInteraction(UILargeContentViewerInteraction())
         actionsGlass.alpha = 0
         actionsGlass.isHidden = true
         updateSend()
@@ -181,8 +197,9 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
     // MARK: Field
 
     private func configureField() {
-        textView.font = .preferredFont(forTextStyle: .body)
+        textView.font = Self.fieldFont
         textView.adjustsFontForContentSizeCategory = true
+        textView.accessibilityIdentifier = "chat.field"
         textView.backgroundColor = .clear
         textView.isScrollEnabled = false
         textView.delegate = self
@@ -191,8 +208,9 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
             localized: "Message", table: "Thread", bundle: .module,
             comment: "The chat's reply field, and its placeholder")
         placeholder.text = textView.accessibilityLabel
-        placeholder.font = .preferredFont(forTextStyle: .body)
+        placeholder.font = Self.fieldFont
         placeholder.adjustsFontForContentSizeCategory = true
+        placeholder.accessibilityIdentifier = "chat.placeholder"
         placeholder.textColor = .placeholderText
         placeholder.isAccessibilityElement = false
         fieldGlass.cornerConfiguration = .capsule(maximumRadius: 22)
@@ -202,9 +220,12 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
     private func configureButtons() {
         func circle(_ button: UIButton, symbol: String, label: String) {
             button.configuration?.image = UIImage(systemName: symbol)
+            button.configuration?.preferredSymbolConfigurationForImage = Self.symbol
             button.configuration?.cornerStyle = .capsule
             button.configuration?.baseForegroundColor = .label
             button.accessibilityLabel = label
+            button.largeContentTitle = label
+            button.showsLargeContentViewer = true
             NSLayoutConstraint.activate([
                 button.widthAnchor.constraint(equalToConstant: 44),
                 button.heightAnchor.constraint(equalToConstant: 44),
@@ -229,10 +250,14 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
         plusButton.showsMenuAsPrimaryAction = true
 
         sendButton.configuration?.image = UIImage(systemName: "arrow.up")
+        sendButton.configuration?.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(
+            pointSize: 15, weight: .semibold)
         sendButton.configuration?.cornerStyle = .capsule
         sendButton.accessibilityIdentifier = "chat.send"
         sendButton.accessibilityLabel = String(
             localized: "Send", table: "Thread", bundle: .module, comment: "Sends the chat reply")
+        sendButton.largeContentTitle = sendButton.accessibilityLabel
+        sendButton.showsLargeContentViewer = true
         NSLayoutConstraint.activate([
             sendButton.widthAnchor.constraint(equalToConstant: 36),
             sendButton.heightAnchor.constraint(equalToConstant: 36),
@@ -241,7 +266,7 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
 
         expandButton.configuration?.image = UIImage(systemName: "arrow.up.left.and.arrow.down.right")
         expandButton.configuration?.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(
-            textStyle: .subheadline)
+            pointSize: 15, weight: .regular)
         expandButton.configuration?.baseForegroundColor = .secondaryLabel
         expandButton.accessibilityIdentifier = "chat.expand"
         expandButton.accessibilityLabel = String(
@@ -297,7 +322,7 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
 
     /// Grows the field with its text up to `maxLines`, then scrolls inside it.
     private func fitText() {
-        let font = textView.font ?? .preferredFont(forTextStyle: .body)
+        let font = textView.font ?? Self.fieldFont
         let insets = textView.textContainerInset.top + textView.textContainerInset.bottom
         let maxHeight = (font.lineHeight * Self.maxLines + insets).rounded(.up)
         let width = max(textView.bounds.width, 1)
@@ -361,6 +386,7 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
     private static func button(for item: UIBarButtonItem) -> UIButton {
         var configuration = UIButton.Configuration.plain()
         configuration.image = item.image
+        configuration.preferredSymbolConfigurationForImage = symbol
         configuration.baseForegroundColor = .label
         let button = UIButton(configuration: configuration)
         if let action = item.primaryAction {

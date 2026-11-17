@@ -243,7 +243,7 @@ public final class DraftShelfViewController: UIViewController {
         let showsBar = shelf.entries.contains { shelf.state != .writing($0.id) }
         guard showsBar != barShows else { return }
         bar.isHidden = false
-        UIView.animate(springDuration: 0.4, bounce: 0.15) {
+        UIView.animate(springDuration: 0.4, bounce: Motion.bounce(0.15)) {
             self.bar.alpha = showsBar ? 1 : 0
             self.layOutContent(showsBar: showsBar)
             self.view.layoutIfNeeded()

@@ -42,12 +42,15 @@ final class MonogramView: UIView {
         initials.font = UIFont.systemFont(ofSize: 15, weight: .semibold).rounded
         initials.textColor = .secondaryLabel
         initials.textAlignment = .center
+        initials.accessibilityIdentifier = "avatar.initials"
         badge.layer.cornerRadius = Self.badgeDiameter / 2
         picture.contentMode = .scaleAspectFill
         picture.clipsToBounds = true
         picture.layer.cornerRadius = Self.diameter / 2
         picture.isHidden = true
         picture.layer.borderWidth = 1 / 3
+        // A photo, which Smart Invert would turn into a negative.
+        picture.accessibilityIgnoresInvertColors = true
 
         for view in [initials, picture, badge] {
             view.translatesAutoresizingMaskIntoConstraints = false

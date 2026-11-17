@@ -24,7 +24,7 @@ final class MessageHeaderView: UIView {
     private let replyTo = AddressLabel()
     private let names = UILabel()
     private let fields = UIStackView()
-    private let toggle = UIButton(configuration: .plain())
+    private let toggle = MinimumTargetButton(configuration: .plain())
     private let identity: UIStackView
     private let recipientRow: UIStackView
 
@@ -46,6 +46,8 @@ final class MessageHeaderView: UIView {
         names.font = .preferredFont(forTextStyle: .subheadline)
         names.textColor = .secondaryLabel
         names.adjustsFontForContentSizeCategory = true
+        // Every name shows, on as many lines as it takes at the accessibility sizes.
+        names.numberOfLines = 0
         identity.axis = .vertical
         identity.spacing = 1
         // VoiceOver reads who, when and from where as one button; double-tapping it folds the message.
@@ -71,6 +73,15 @@ final class MessageHeaderView: UIView {
         // Tops, not first baselines, which put Hide a line low beside the Hebrew fields. The button and the first
         // line share a font, so their text lines up.
         recipientRow.alignment = .top
+        // At the accessibility sizes Details goes under the names, which then have the width to themselves.
+        func stack(_ row: UIStackView) {
+            row.axis =
+                row.traitCollection.preferredContentSizeCategory.isAccessibilityCategory ? .vertical : .horizontal
+        }
+        stack(recipientRow)
+        recipientRow.registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (row: UIStackView, _) in
+            stack(row)
+        }
 
         let column = UIStackView(arrangedSubviews: [identity, recipientRow])
         column.axis = .vertical
@@ -88,6 +99,10 @@ final class MessageHeaderView: UIView {
         ])
         // The Details button keeps its own taps; a tap anywhere else folds the message.
         addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(fold)))
+        // The names line's attributed text carries its font, which doesn't scale on its own.
+        registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (view: MessageHeaderView, _) in
+            view.showDetail()
+        }
     }
 
     @available(*, unavailable)
@@ -103,6 +118,7 @@ final class MessageHeaderView: UIView {
         identity.accessibilityLabel = [header.sender.displayName, header.senderAddress, dateText, replyTo.text]
             .compactMap(\.self).joined(separator: ", ")
         identity.accessibilityCustomActions = [address, replyTo].compactMap(\.copyAction)
+        identity.accessibilityUserInputLabels = [header.sender.displayName]
         showDetail()
     }
 

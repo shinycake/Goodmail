@@ -283,6 +283,7 @@ final class ChatLetterBubble: UIControl {
         self.subject.setSubjectText(title)
         self.preview.setContentText(Self.paragraphs(preview))
         accessibilityLabel = "\(voice), \(title), \(preview)"
+        accessibilityUserInputLabels = [title]
     }
 
     /// The message's lines, with runs of blank lines between paragraphs closed up to one.
@@ -314,6 +315,7 @@ final class ChatAttachmentBubble: UIButton {
     func configure(_ attachment: Attachment, voice: String) {
         configuration = AttachmentListView.configuration(for: attachment)
         accessibilityLabel = "\(voice), \(attachment.filename), \(AttachmentListView.sizeText(attachment.size))"
+        accessibilityUserInputLabels = [attachment.filename]
     }
 }
 

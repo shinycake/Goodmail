@@ -146,7 +146,7 @@ final class ChatRunView: UIView {
             let file = ChatAttachmentBubble()
             file.addAction(
                 UIAction { [weak file] _ in
-                    actions.openAttachment(attachment, message) { file?.configuration?.showsActivityIndicator = $0 }
+                    actions.openAttachment(attachment, message) { file?.showsDownloading($0) }
                 }, for: .primaryActionTriggered)
             view = file
         }
@@ -194,10 +194,13 @@ final class ChatAvatarView: UIButton {
         initials.font = UIFont.systemFont(ofSize: 11, weight: .semibold).rounded
         initials.textColor = .secondaryLabel
         initials.isUserInteractionEnabled = false
+        // Kept at one size to fit the fixed circle, like the list's monograms.
+        initials.accessibilityIdentifier = "avatar.initials"
         picture.contentMode = .scaleAspectFill
         picture.clipsToBounds = true
         picture.layer.cornerRadius = Self.diameter / 2
         picture.isUserInteractionEnabled = false
+        picture.accessibilityIgnoresInvertColors = true
         picture.isHidden = true
         // A hairline edge, as on the mailbox rows' pictures.
         picture.layer.borderWidth = 1 / 3
