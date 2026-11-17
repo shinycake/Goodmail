@@ -17,13 +17,34 @@ public struct Resync: Codable, Equatable, Sendable {
     public var generation: Int
     public var stage: Int
     public var pageToken: String?
+    /// How many threads it has stored so far, for a scope that stops at a number (`SyncScope.inboxHead`).
+    public var stored: Int
 
-    public init(cursor: String, startedAt: Date, generation: Int, stage: Int = 0, pageToken: String? = nil) {
+    public init(
+        cursor: String, startedAt: Date, generation: Int, stage: Int = 0, pageToken: String? = nil, stored: Int = 0
+    ) {
         self.cursor = cursor
         self.startedAt = startedAt
         self.generation = generation
         self.stage = stage
         self.pageToken = pageToken
+        self.stored = stored
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case cursor, startedAt, generation, stage, pageToken, stored
+    }
+
+    /// A resync saved before `stored` existed counts from nothing, which only a scope that stops at a number reads.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            cursor: try container.decode(String.self, forKey: .cursor),
+            startedAt: try container.decode(Date.self, forKey: .startedAt),
+            generation: try container.decode(Int.self, forKey: .generation),
+            stage: try container.decode(Int.self, forKey: .stage),
+            pageToken: try container.decodeIfPresent(String.self, forKey: .pageToken),
+            stored: try container.decodeIfPresent(Int.self, forKey: .stored) ?? 0)
     }
 }
 
