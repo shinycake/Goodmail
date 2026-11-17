@@ -47,44 +47,23 @@ public struct AccountBlend: Equatable {
         }
     }
 
-    /// A color that paints text in this gradient, from its leading edge to its trailing one, for text `width`
-    /// points wide drawn from the origin of its view. It is a pattern that tiles sideways, so it runs the gradient
-    /// out and back again: wherever the text actually starts, it never shows a seam.
-    func textColor(width: CGFloat, direction: UIUserInterfaceLayoutDirection) -> UIColor {
-        let leading =
-            direction == .rightToLeft
-            ? gradientStops.reversed().map { Stop(color: $0.color, location: 1 - $0.location) } : gradientStops
-        // Out over the first half of the tile, back over the second.
-        let stops =
-            leading.map { Stop(color: $0.color, location: $0.location / 2) }
-            + leading.reversed().map { Stop(color: $0.color, location: 1 - $0.location / 2) }
-        let size = CGSize(width: max(ceil(width), 1) * 2, height: 1)
-        return UIColor { traits in
-            let image = UIGraphicsImageRenderer(size: size, format: UIGraphicsImageRendererFormat(for: traits)).image {
-                context in
-                let colors = stops.map { $0.color.uiColor.resolvedColor(with: traits).cgColor }
-                guard
-                    let gradient = Self.gradient(colors, at: stops.map { CGFloat($0.location) })
-                else { return }
-                context.cgContext.drawLinearGradient(
-                    gradient, start: .zero, end: CGPoint(x: size.width, y: 0), options: [])
-            }
-            return UIColor(patternImage: image)
-        }
+    /// This gradient in `traits`' colors, laid from left (0) to right (1) so it runs from the leading edge in
+    /// `direction` to the trailing one.
+    func gradient(in traits: UITraitCollection, direction: UIUserInterfaceLayoutDirection) -> CGGradient? {
+        let leading = direction == .rightToLeft ? Array(gradientStops.reversed()) : gradientStops
+        return Self.gradient(
+            leading.map { $0.color.uiColor.resolvedColor(with: traits).cgColor },
+            at: gradientStops.map { CGFloat($0.location) })
     }
 
     /// `symbol` painted in this gradient from its leading edge to its trailing one, in `traits`' colors. A symbol's
     /// tint takes one plain color, so the gradient is drawn into the image, keeping how the symbol sits on a line.
     func paint(_ symbol: UIImage, in traits: UITraitCollection, direction: UIUserInterfaceLayoutDirection) -> UIImage {
-        let leading = direction == .rightToLeft ? Array(gradientStops.reversed()) : gradientStops
         let bounds = CGRect(origin: .zero, size: symbol.size)
         let painted = UIGraphicsImageRenderer(bounds: bounds, format: UIGraphicsImageRendererFormat(for: traits))
             .image { context in
                 symbol.withTintColor(.black, renderingMode: .alwaysOriginal).draw(in: bounds)
-                let colors = leading.map { $0.color.uiColor.resolvedColor(with: traits).cgColor }
-                guard
-                    let gradient = Self.gradient(colors, at: gradientStops.map { CGFloat($0.location) })
-                else { return }
+                guard let gradient = gradient(in: traits, direction: direction) else { return }
                 // Only where the symbol is drawn.
                 context.cgContext.setBlendMode(.sourceIn)
                 context.cgContext.drawLinearGradient(

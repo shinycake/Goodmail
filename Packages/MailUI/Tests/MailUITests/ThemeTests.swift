@@ -75,21 +75,76 @@ struct ThemeTests {
         #expect(theme == .solid(.purple))
         #expect(theme.tint == .systemPurple)
         let font = Typography.system(.largeTitle, weight: .bold)
-        let title = theme.titleAttributes(for: "Inbox", font: font, direction: .leftToRight)
-        #expect(title[.foregroundColor] as? UIColor == .systemPurple)
-        #expect(title[.underlineStyle] == nil)
+        #expect(theme.titleAttributes(font: font)[.foregroundColor] as? UIColor == .systemPurple)
+        #expect(theme.titleBar(for: "Inbox", font: font) == nil)
     }
 
     @Test(arguments: [UIUserInterfaceLayoutDirection.leftToRight, .rightToLeft])
-    func aGradientThemesTitleIsInTheTextColorOverAGradientBar(direction: UIUserInterfaceLayoutDirection) {
+    func aGradientThemesTitleIsInTheTextColorOverAThinRoundedGradientBar(direction: UIUserInterfaceLayoutDirection)
+        throws
+    {
         let theme = Theme(accountID: nil, among: [personal, work], combined: .gradient)
         let font = Typography.system(.largeTitle, weight: .bold)
-        let title = theme.titleAttributes(for: "Inbox", font: font, direction: direction)
-        #expect(title[.foregroundColor] as? UIColor == .label)
-        #expect(title[.underlineStyle] as? Int == NSUnderlineStyle.thick.rawValue)
-        let bar = (title[.underlineColor] as? UIColor)?.resolvedColor(
-            with: UITraitCollection(userInterfaceStyle: .dark))
-        #expect(bar?.cgColor.pattern != nil)
+        let attributes = theme.titleAttributes(font: font)
+        #expect(attributes[.foregroundColor] as? UIColor == .label)
+        #expect(attributes[.underlineStyle] == nil, "the bar is drawn under the title, not as an underline")
+
+        let bar = try #require(theme.titleBar(for: "Inbox", font: font))
+        bar.semanticContentAttribute = direction == .rightToLeft ? .forceRightToLeft : .forceLeftToRight
+        let size = bar.intrinsicContentSize
+        #expect(size.width == ceil(TitleInk("Inbox", font: font).width), "as wide as the title's line")
+        #expect(size.height == GradientTitleBar.thickness(in: bar.traitCollection))
+        #expect(size.height < font.pointSize / 8, "a thin line, not a thick bar")
+        #expect(bar.sizeThatFits(CGSize(width: 20, height: 100)).width == 20, "never wider than the bar allows")
+
+        bar.frame = CGRect(origin: .zero, size: size)
+        // At 3x, so the corners' pixels lie wholly outside the rounded ends.
+        let traits = UITraitCollection {
+            $0.userInterfaceStyle = .light
+            $0.displayScale = 3
+        }
+        let image = UIGraphicsImageRenderer(bounds: bar.bounds, format: UIGraphicsImageRendererFormat(for: traits))
+            .image { _ in traits.performAsCurrent { bar.draw(bar.bounds) } }
+        let left = try #require(image.color(at: CGPoint(x: 0.2, y: 0.5)))
+        let right = try #require(image.color(at: CGPoint(x: 0.8, y: 0.5)))
+        let (leading, trailing) = direction == .leftToRight ? (left, right) : (right, left)
+        #expect(leading.isCloser(to: .systemBlue, than: .systemOrange, in: traits))
+        #expect(trailing.isCloser(to: .systemOrange, than: .systemBlue, in: traits))
+        // The bar's ends are rounded: at the first and last columns it draws, its top row is clear.
+        let columns = try #require(image.cgImage?.width)
+        let drawn = (0..<columns).filter {
+            image.color(at: CGPoint(x: (CGFloat($0) + 0.5) / CGFloat(columns), y: 0.5)) != nil
+        }
+        let first = try #require(drawn.first)
+        let last = try #require(drawn.last)
+        #expect(image.color(at: CGPoint(x: (CGFloat(first) + 0.5) / CGFloat(columns), y: 0)) == nil)
+        #expect(image.color(at: CGPoint(x: (CGFloat(last) + 0.5) / CGFloat(columns), y: 0)) == nil)
+    }
+
+    @Test(arguments: [UIUserInterfaceLayoutDirection.leftToRight, .rightToLeft], ["Inbox", "Mailboxes", "דואר נכנס"])
+    func theTitleBarRunsFromTheFirstLettersInkToTheLasts(direction: UIUserInterfaceLayoutDirection, title: String)
+        throws
+    {
+        let theme = Theme(accountID: nil, among: [personal, work], combined: .gradient)
+        let font = Typography.system(.largeTitle, weight: .bold)
+        let bar = try #require(theme.titleBar(for: title, font: font))
+        bar.semanticContentAttribute = direction == .rightToLeft ? .forceRightToLeft : .forceLeftToRight
+        // One point wider than the line, as UIKit may give it, so the bar has to find the title's leading edge.
+        let line = TitleInk(title, font: font)
+        bar.frame = CGRect(x: 0, y: 0, width: ceil(line.width) + 1, height: bar.intrinsicContentSize.height)
+        let traits = UITraitCollection { $0.displayScale = 3 }
+        let image = UIGraphicsImageRenderer(bounds: bar.bounds, format: UIGraphicsImageRendererFormat(for: traits))
+            .image { _ in traits.performAsCurrent { bar.draw(bar.bounds) } }
+        let columns = try #require(image.cgImage?.width)
+        let drawn = (0..<columns).filter {
+            image.color(at: CGPoint(x: (CGFloat($0) + 0.5) / CGFloat(columns), y: 0.5)) != nil
+        }
+        let start = CGFloat(try #require(drawn.first)) / 3
+        let end = CGFloat(try #require(drawn.last) + 1) / 3
+        let origin = direction == .rightToLeft ? bar.bounds.width - line.width : 0
+        #expect(line.ink.lowerBound > 0 || line.ink.upperBound < line.width, "the line has room beside its letters")
+        #expect(abs(start - (origin + line.ink.lowerBound)) <= 0.5, "starts under the first letter's ink")
+        #expect(abs(end - (origin + line.ink.upperBound)) <= 0.5, "ends under the last letter's ink")
     }
 
     @Test(arguments: [UIUserInterfaceLayoutDirection.leftToRight, .rightToLeft])

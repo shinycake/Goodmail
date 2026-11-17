@@ -35,21 +35,21 @@ public enum Theme: Equatable {
         }
     }
 
-    /// How `title` is set in `font` as a large title: in the text color over a thick bar of the gradient, when the
-    /// theme is one, so the colors show without coloring the letters; otherwise in the tint.
-    func titleAttributes(
-        for title: String, font: UIFont, direction: UIUserInterfaceLayoutDirection
-    ) -> [NSAttributedString.Key: Any] {
+    /// How a large title is set in `font`: in the text color when the theme is a gradient, which shows in the bar
+    /// under it (`titleBar(for:font:)`) without coloring the letters; otherwise in the tint.
+    func titleAttributes(font: UIFont) -> [NSAttributedString.Key: Any] {
+        switch self {
+        case .gradient(let blend) where blend.colors.count > 1: [.font: font, .foregroundColor: UIColor.label]
+        case .account, .gradient, .solid: [.font: font, .foregroundColor: tint]
+        }
+    }
+
+    /// The thin gradient bar under `title` set in `font` as a large title, when the theme is a gradient.
+    func titleBar(for title: String, font: UIFont) -> GradientTitleBar? {
         switch self {
         case .gradient(let blend) where blend.colors.count > 1:
-            [
-                .font: font, .foregroundColor: UIColor.label,
-                .underlineStyle: NSUnderlineStyle.thick.rawValue,
-                .underlineColor: blend.textColor(
-                    width: (title as NSString).size(withAttributes: [.font: font]).width, direction: direction),
-            ]
-        case .account, .gradient, .solid:
-            [.font: font, .foregroundColor: tint]
+            GradientTitleBar(blend: blend, title: TitleInk(title, font: font))
+        case .account, .gradient, .solid: nil
         }
     }
 
@@ -84,7 +84,7 @@ nonisolated enum RowAccount: Equatable {
 
 extension UIViewController {
     /// Puts `theme` on this screen and on the navigation bar and toolbar it shares with the rest of its stack. Call
-    /// from `viewWillAppear`, after the screen has its title: a gradient is laid across the title's width, under it.
+    /// from `viewWillAppear`, after the screen has its title: a gradient bar is laid under it, as wide as the title.
     func wear(_ theme: Theme) {
         let tint = theme.tint
         view.tintColor = tint
@@ -92,8 +92,7 @@ extension UIViewController {
         navigationController.navigationBar.tintColor = tint
         navigationController.toolbar.tintColor = tint
         let font = Typography.system(.largeTitle, weight: .bold)
-        navigationController.navigationBar.largeTitleTextAttributes = theme.titleAttributes(
-            for: navigationItem.title ?? self.title ?? "", font: font,
-            direction: view.effectiveUserInterfaceLayoutDirection)
+        navigationController.navigationBar.largeTitleTextAttributes = theme.titleAttributes(font: font)
+        navigationItem.largeSubtitleView = theme.titleBar(for: navigationItem.title ?? self.title ?? "", font: font)
     }
 }
