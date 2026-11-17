@@ -2,6 +2,7 @@
     #if os(watchOS)
         public import Foundation
         import MailCore
+        import OSLog
     #else
         import Foundation
     #endif

@@ -58,9 +58,9 @@ final class WatchAppDelegate: NSObject, WKApplicationDelegate {
             }
         #endif
         following = Task { [inbox, threads, channel] in
-            await WristLink.run(inbox: inbox, threads: threads, store: store, channel: channel) {
-                WidgetCenter.shared.reloadAllTimelines()
-            }
+            await WristLink.run(
+                inbox: inbox, threads: threads, store: store, channel: channel,
+                stored: { WidgetCenter.shared.reloadAllTimelines() })
         }
     }
 }
