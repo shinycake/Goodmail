@@ -7,6 +7,8 @@ public final class MailDatabase: Sendable {
     let pool: DatabasePool
     /// Tells both processes the mail changed; `write` posts it. Internal for writes that change nothing most times.
     let signal: ChangeSignal
+    /// Re-checks when the process resumes, for the other processes' writes heard while suspended.
+    private let resumed: ObservationRecheck
 
     /// Opens (creating if needed) the database at `url` and migrates it to the current schema.
     public init(url: URL) throws {
@@ -26,10 +28,13 @@ public final class MailDatabase: Sendable {
         try Self.migrator.migrate(pool)
         try Self.fillMessageText(in: pool)
         self.pool = pool
-        // Another process wrote: re-run this process's observations against the new data.
-        signal = ChangeSignal {
-            try? pool.write { db in try db.notifyChanges(in: .fullDatabase) }
+        // Another process wrote: re-run this process's observations against the new data. On the writer's queue, so
+        // a resume on the main actor doesn't wait for the lock. While suspended it fails, and `resumed` re-checks.
+        let recheck: @Sendable () -> Void = {
+            pool.asyncWrite({ db in try db.notifyChanges(in: .fullDatabase) }, completion: { _, _ in })
         }
+        signal = ChangeSignal(onForeignChange: recheck)
+        resumed = ObservationRecheck(recheck)
     }
 
     /// Every write goes through here, so the other processes hear about it.
