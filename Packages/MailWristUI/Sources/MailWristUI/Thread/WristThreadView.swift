@@ -24,7 +24,7 @@ struct WristThreadView: View {
         case .loading:
             ProgressView()
         case .loaded(let thread):
-            WristTranscript(thread: thread)
+            WristTranscript(thread: thread, inbox: inbox)
         case .phoneAway:
             ContentUnavailableView {
                 Label {
@@ -63,9 +63,11 @@ struct WristThreadView: View {
     }
 }
 
-/// The bubbles, scrolled to the newest, with a big one-time code above them when the conversation has one.
+/// The bubbles, scrolled to the newest, with a big one-time code above them when the conversation has one, and
+/// Reply below them.
 private struct WristTranscript: View {
     let thread: WristThread
+    let inbox: WristInboxModel
 
     var body: some View {
         ScrollView {
@@ -85,6 +87,19 @@ private struct WristTranscript: View {
                 ForEach(thread.bubbles.indices, id: \.self) { index in
                     WristBubbleView(bubble: thread.bubbles[index], showsSender: thread.isGroup)
                 }
+                NavigationLink {
+                    WristReplyView(thread: thread, inbox: inbox)
+                } label: {
+                    Label {
+                        Text(
+                            "Reply", tableName: "Wrist", bundle: .module,
+                            comment: "Reply: the screen, its field and the button that opens it")
+                    } icon: {
+                        Image(systemName: "arrowshape.turn.up.left.fill")
+                    }
+                }
+                .padding(.top, 4)
+                .wristPrimaryAction()
             }
         }
         .defaultScrollAnchor(.bottom)

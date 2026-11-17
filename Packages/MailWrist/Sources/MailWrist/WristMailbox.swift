@@ -28,10 +28,10 @@ public struct WristMailbox: Codable, Equatable, Sendable {
     }
 
     /// Takes back `command`. Its effect goes at once; the returned inverse is for the iPhone, which may have run it
-    /// already.
-    public mutating func undo(_ command: WristCommand, now: Date) -> WristCommand {
+    /// already. `nil` for a command with no inverse, whose effect just goes.
+    public mutating func undo(_ command: WristCommand, now: Date) -> WristCommand? {
         pending.removeAll { $0.id == command.id }
-        let inverse = command.inverse(madeAt: now)
+        guard let inverse = command.inverse(madeAt: now) else { return nil }
         pending.append(inverse)
         return inverse
     }
@@ -51,7 +51,7 @@ extension WristSnapshot {
         switch command.kind {
         case .archive, .trash:
             result.rows.removeAll { threads.contains($0.id) }
-        case .moveToInbox, .untrash:
+        case .moveToInbox, .untrash, .reply:
             return self
         case .markRead(let read):
             result.rows = rows.map { row in

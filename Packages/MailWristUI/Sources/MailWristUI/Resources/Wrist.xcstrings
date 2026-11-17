@@ -171,6 +171,17 @@
         }
       }
     },
+    "Dictate or Scribble": {
+      "comment": "The reply field's placeholder",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הכתבה או כתב יד"
+          }
+        }
+      }
+    },
     "Inbox": {
       "comment": "The Inbox screen's title",
       "localizations": {
@@ -303,6 +314,28 @@
         }
       }
     },
+    "Reply": {
+      "comment": "Reply: the screen, its field and the button that opens it",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "תשובה"
+          }
+        }
+      }
+    },
+    "Reply Sent": {
+      "comment": "Undo button: what was done",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "התשובה נשלחה"
+          }
+        }
+      }
+    },
     "Restored": {
       "comment": "Undo button: what was done",
       "localizations": {
@@ -310,6 +343,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "שוחזרה"
+          }
+        }
+      }
+    },
+    "Sending…": {
+      "comment": "Shown while a reply waits for Undo",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "שולח…"
           }
         }
       }
@@ -332,6 +376,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "לנסות שוב"
+          }
+        }
+      }
+    },
+    "Undo": {
+      "comment": "Takes back a reply before it goes",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ביטול"
           }
         }
       }

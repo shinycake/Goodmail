@@ -1,4 +1,5 @@
 public import Foundation
+public import MailCore
 public import Observation
 
 /// The watch's Inbox screen: the iPhone's last snapshot with the reader's changes laid over it, or why there is
@@ -74,16 +75,21 @@ public final class WristInboxModel {
 
     /// Makes a change to `rows` now, and has the iPhone make it to the mail. Undo offers to take it back.
     public func perform(_ kind: WristCommand.Kind, on rows: [WristRow]) {
-        undoable = apply(kind, to: rows)
+        undoable = apply(kind, to: rows.map(\.id))
     }
 
     /// Marks a conversation read as it opens, as the iPhone's reader does. That isn't a change to undo.
     public func open(_ row: WristRow) {
-        if row.isUnread { _ = apply(.markRead(true), to: [row]) }
+        if row.isUnread { _ = apply(.markRead(true), to: [row.id]) }
     }
 
-    private func apply(_ kind: WristCommand.Kind, to rows: [WristRow]) -> WristCommand {
-        let command = WristCommand(threads: rows.map(\.id), kind: kind, madeAt: now())
+    /// Has the iPhone send `text` as a reply in the conversation. `WristReplyModel` held it for Undo already.
+    public func reply(_ text: String, in thread: ThreadSummary.ID) {
+        _ = apply(.reply(text), to: [thread])
+    }
+
+    private func apply(_ kind: WristCommand.Kind, to threads: [ThreadSummary.ID]) -> WristCommand {
+        let command = WristCommand(threads: threads, kind: kind, madeAt: now())
         mailbox.perform(command)
         continuation.yield(Update(mailbox: mailbox, command: command))
         return command

@@ -28,9 +28,9 @@ final class WristHost {
         let applied = (UserDefaults.standard.stringArray(forKey: Self.appliedKey) ?? []).compactMap(UUID.init)
         let server = WristServer(
             applied: applied,
-            execute: { [commands, outboxes] command in
+            execute: { [commands, outboxes, model] command in
                 try await BackgroundDatabaseWork.shared.run("A change from the watch") {
-                    try await Self.execute(command, commands: commands)
+                    try await Self.execute(command, commands: commands, model: model)
                     for account in Set(command.threads.map(\.accountID)) { await outboxes.flush(account) }
                 }
             },
@@ -50,11 +50,16 @@ final class WristHost {
         }
     }
 
-    @concurrent private static func execute(_ command: WristCommand, commands: MailCommands) async throws {
-        switch command.kind.threadAction {
-        case .some(let action): _ = try await commands.perform(action, on: command.threads)
-        case .none:
-            if case .pin(let pinned) = command.kind { _ = try await commands.pin(command.threads, pinned) }
+    @concurrent private static func execute(
+        _ command: WristCommand, commands: MailCommands, model: AppModel
+    ) async throws {
+        switch command.kind {
+        case .reply(let text):
+            for thread in command.threads { try await model.reply(to: thread, with: text) }
+        case .pin(let pinned):
+            _ = try await commands.pin(command.threads, pinned)
+        case .archive, .moveToInbox, .trash, .untrash, .markRead:
+            if let action = command.kind.threadAction { _ = try await commands.perform(action, on: command.threads) }
         }
     }
 

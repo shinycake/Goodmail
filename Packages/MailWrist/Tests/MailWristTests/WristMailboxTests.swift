@@ -92,7 +92,8 @@ struct WristMailboxTests {
         let archive = command(.archive, "a")
         mailbox.perform(archive)
 
-        let inverse = mailbox.undo(archive, now: now)
+        let undone = mailbox.undo(archive, now: now)
+        let inverse = try #require(undone)
         #expect(inverse.kind == .moveToInbox)
         #expect(inverse.threads == archive.threads)
         #expect(inverse.id != archive.id)

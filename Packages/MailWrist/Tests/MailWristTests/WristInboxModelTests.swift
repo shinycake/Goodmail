@@ -104,6 +104,21 @@ struct WristInboxModelTests {
         #expect(model.state == .list(full))
     }
 
+    @Test func aReplyGoesToTheIPhoneWithNothingToUndo() async throws {
+        let model = WristInboxModel()
+        let full = snapshot(accounts: [account], rows: [row])
+        model.receive(.snapshot(full))
+        model.reply("Sounds good.", in: row.id)
+
+        #expect(model.state == .list(full))
+        #expect(model.undoable == nil)
+        var updates = model.updates.makeAsyncIterator()
+        _ = await updates.next()
+        let update = try #require(await updates.next())
+        #expect(update.command?.kind == .reply("Sounds good."))
+        #expect(update.command?.threads == [row.id])
+    }
+
     @Test func undoGoesWhenItsTimeIsOver() throws {
         let model = WristInboxModel()
         model.receive(.snapshot(snapshot(accounts: [account], rows: [row])))

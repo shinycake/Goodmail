@@ -12,8 +12,13 @@ struct WristCommandTests {
 
     @Test(arguments: kinds)
     func theInverseOfTheInverseIsTheCommand(kind: WristCommand.Kind) {
-        #expect(kind.inverse.inverse == kind)
+        #expect(kind.inverse?.inverse == kind)
         #expect(kind.inverse != kind)
+    }
+
+    @Test func aReplyCantBeTakenBack() {
+        #expect(WristCommand.Kind.reply("Thanks!").inverse == nil)
+        #expect(WristCommand(threads: [], kind: .reply("Thanks!"), madeAt: .now).inverse(madeAt: .now) == nil)
     }
 
     @Test func keepsItsWireFormat() throws {

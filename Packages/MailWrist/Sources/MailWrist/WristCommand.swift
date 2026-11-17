@@ -11,9 +11,12 @@ public struct WristCommand: Codable, Equatable, Identifiable, Sendable {
         case untrash
         case markRead(Bool)
         case pin(Bool)
+        /// Sends these words as a reply to the conversation's newest message.
+        case reply(String)
 
-        /// What takes the change back.
-        public var inverse: Kind {
+        /// What takes the change back; `nil` for a reply, which can't be taken back once sent. The watch holds a
+        /// reply for a moment before sending it instead.
+        public var inverse: Kind? {
             switch self {
             case .archive: .moveToInbox
             case .moveToInbox: .archive
@@ -21,6 +24,7 @@ public struct WristCommand: Codable, Equatable, Identifiable, Sendable {
             case .untrash: .trash
             case .markRead(let read): .markRead(!read)
             case .pin(let pinned): .pin(!pinned)
+            case .reply: nil
             }
         }
     }
@@ -38,7 +42,7 @@ public struct WristCommand: Codable, Equatable, Identifiable, Sendable {
     }
 
     /// A new command that takes this one back, as Undo sends.
-    public func inverse(madeAt: Date) -> WristCommand {
-        WristCommand(threads: threads, kind: kind.inverse, madeAt: madeAt)
+    public func inverse(madeAt: Date) -> WristCommand? {
+        kind.inverse.map { WristCommand(threads: threads, kind: $0, madeAt: madeAt) }
     }
 }
