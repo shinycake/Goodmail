@@ -25,8 +25,8 @@ final class SceneCoordinator: NSObject {
     private var shownFailures: Set<Draft.ID> = []
     /// What fills the window. Only `enter(_:)` changes it.
     private(set) var screen = Screen.starting
-    /// Follows each pass that brings this device in step with the reader's other devices.
-    var sharingObserver: (any NSObjectProtocol)?
+    /// Follow each pass that brings this device's accounts and settings in step with the reader's other devices.
+    var deviceObservers: [any NSObjectProtocol] = []
     /// The screen receiving accounts from another device, so a code the Camera app opens while it's up goes to it.
     var receivingTransfer: ReceivingTransfer?
     /// The window's root, which holds the mail screens and the messages minimized below them.
@@ -57,7 +57,7 @@ final class SceneCoordinator: NSObject {
     }
 
     isolated deinit {
-        if let sharingObserver { NotificationCenter.default.removeObserver(sharingObserver) }
+        for observer in deviceObservers { NotificationCenter.default.removeObserver(observer) }
         failures?.cancel()
         signingInAgain?.cancel()
         answering?.cancel()
@@ -70,6 +70,7 @@ final class SceneCoordinator: NSObject {
 
     func start() {
         observeSharedAccounts()
+        observeSyncedSettings()
         if model.accounts.isEmpty {
             // A new device whose reader has accounts on another one, or a reinstall, offers those first.
             if model.accountOffer == nil { showWelcome() } else { offerSharedAccounts() }

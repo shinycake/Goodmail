@@ -1,18 +1,22 @@
 public import Foundation
 import MailCore
 
-/// The lists the reader has left on this device, so their mail stops offering Unsubscribe. Kept by account and
-/// sender address, newest last, and trimmed to the most recent `limit`.
+/// The lists the reader has left, so their mail stops offering Unsubscribe. Kept by account and sender address,
+/// newest last, and trimmed to the most recent `limit`. They follow the reader to their other devices
+/// (`Preferences.syncedSettings`).
 public struct UnsubscribedLists {
     private let key: String
     private let limit: Int
     private let defaults: UserDefaults
 
-    public init(defaults: UserDefaults = .standard, key: String = "unsubscribedLists", limit: Int = 500) {
+    public init(defaults: UserDefaults = .standard, key: String = standardKey, limit: Int = 500) {
         self.defaults = defaults
         self.key = key
         self.limit = limit
     }
+
+    /// Where the lists are kept, unless a test names another key.
+    nonisolated public static let standardKey = "unsubscribedLists"
 
     func contains(_ address: String, account: AccountID) -> Bool {
         entries.contains(Self.entry(address, account: account))

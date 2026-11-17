@@ -1,7 +1,7 @@
 import Foundation
 public import MailCore
 
-/// The reader's choices, kept on this device.
+/// The reader's choices. Most follow the reader to their other devices (`Preferences.syncedSettings`).
 public enum Preferences {
     /// The undo-send waits offered, in seconds; zero sends at once.
     public static let undoSendChoices = [0, 5, 10, 20, 30]
@@ -40,7 +40,7 @@ public enum Preferences {
         set { defaults.set(newValue.rawValue, forKey: conversationLayoutKey) }
     }
 
-    private static let conversationLayoutKey = "conversationLayout"
+    nonisolated static let conversationLayoutKey = "conversationLayout"
 
     /// How trashed, archived and deleted threads leave the list. A stored value from a later build reads as playful.
     public static var removalAnimation: RemovalAnimation {
@@ -48,7 +48,7 @@ public enum Preferences {
         set { defaults.set(newValue.rawValue, forKey: removalAnimationKey) }
     }
 
-    private static let removalAnimationKey = "removalAnimation"
+    nonisolated static let removalAnimationKey = "removalAnimation"
 
     /// What views that span accounts wear. A stored color that no longer exists reads as the gradient.
     public static var combinedTheme: CombinedTheme {
@@ -89,7 +89,8 @@ public enum Preferences {
         set { defaults.set(newValue.stored, forKey: swipeTintsKey) }
     }
 
-    /// Accounts from the reader's other devices that this device doesn't take on its own: ones the reader left out
+    /// Accounts from the reader's other devices that this device doesn't take on its own. Kept on this device alone,
+    /// since it's how this device answered the offer: ones the reader left out
     /// of an offer, or removed from this device only. Settings still lists them, to add by hand.
     public static var declinedSharedAccounts: Set<AccountID> {
         get { Set((defaults.stringArray(forKey: declinedSharedKey) ?? []).map(AccountID.init(rawValue:))) }
@@ -97,13 +98,13 @@ public enum Preferences {
     }
 
     private static let declinedSharedKey = "declinedSharedAccounts"
-    private static let swipeTintsKey = "swipeTints"
-    private static let undoSendKey = "undoSendSeconds"
-    private static let swipeLeadingKey = "swipeLeadingActions"
-    private static let swipeTrailingKey = "swipeTrailingActions"
-    private static let previewLinesKey = "previewLines"
-    private static let showsAvatarsKey = "showsAvatars"
-    private static let unsortedInboxKey = "unsortedInboxAccounts"
-    private static let combinedThemeColorKey = "combinedThemeColor"
+    nonisolated static let swipeTintsKey = "swipeTints"
+    nonisolated static let undoSendKey = "undoSendSeconds"
+    nonisolated static let swipeLeadingKey = "swipeLeadingActions"
+    nonisolated static let swipeTrailingKey = "swipeTrailingActions"
+    nonisolated static let previewLinesKey = "previewLines"
+    nonisolated static let showsAvatarsKey = "showsAvatars"
+    nonisolated static let unsortedInboxKey = "unsortedInboxAccounts"
+    nonisolated static let combinedThemeColorKey = "combinedThemeColor"
     private static let defaults = UserDefaults.standard
 }

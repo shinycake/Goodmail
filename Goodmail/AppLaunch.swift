@@ -98,6 +98,8 @@ struct AppServices {
         } catch {
             Logger.sharing.error("Couldn't read the accounts other devices share: \(error, privacy: .public)")
         }
+        // Then the settings, so a new device opens with the reader's choices for the accounts it now has.
+        await model.syncSettings()
         return AppServices(
             model: model, syncScheduler: SyncScheduler(model: model),
             push: PushCoordinator(model: model, routes: routes), snoozeAlarms: SnoozeAlarms(model: model),

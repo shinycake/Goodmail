@@ -52,6 +52,7 @@ extension SceneCoordinator {
     private func settingsClosed(changed: Bool) {
         guard case .mailbox(let split, let accounts, .settings) = screen else { return }
         enter(.mailbox(split, accounts: accounts, cover: .none))
+        model.shareSettingsNow()
         if model.accounts.isEmpty {
             showWelcome()
         } else if changed || accounts != model.accounts.map(\.id) {

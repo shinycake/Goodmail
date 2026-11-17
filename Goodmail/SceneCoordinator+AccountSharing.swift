@@ -6,11 +6,12 @@ import UIKit
 /// added or removed, and offers the ones this device doesn't have yet.
 extension SceneCoordinator {
     func observeSharedAccounts() {
-        sharingObserver = NotificationCenter.default.addObserver(
-            forName: AppModel.sharedAccountsDidUpdate, object: model, queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.followSharedAccounts() }
-        }
+        deviceObservers.append(
+            NotificationCenter.default.addObserver(
+                forName: AppModel.sharedAccountsDidUpdate, object: model, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.followSharedAccounts() }
+            })
     }
 
     private func followSharedAccounts() {

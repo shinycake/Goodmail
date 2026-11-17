@@ -46,6 +46,11 @@ final class AppModel {
     var restorable: [Account] = []
     /// The pass bringing this device in step with the others, while one runs (`followSharedAccounts`).
     var sharingPass: Task<Void, any Error>?
+    /// Keeps the reader's settings the same on their other devices; `nil` keeps them on this device, as in synthetic
+    /// mailboxes.
+    let settingsSync: SettingsSync?
+    /// The pass sharing what the reader just changed, while one runs (`shareSettingsNow`).
+    var settingsShare: Task<Void, Never>?
 
     nonisolated enum MailChange: Sendable {
         /// A sync finished, of every account or of one whose server reported a change.
@@ -55,10 +60,15 @@ final class AppModel {
     }
 
     /// `pushRelay` is where accounts subscribe to push; `nil` keeps alerts off, as in synthetic mailboxes. `sharing`
-    /// is where accounts are shared with the reader's other devices.
-    init(database: MailDatabase, pushRelay: URL? = PushConfiguration.relayURL, sharing: AccountSharing? = nil) throws {
+    /// is where accounts are shared with the reader's other devices, and `settingsSync` keeps settings in step with
+    /// them.
+    init(
+        database: MailDatabase, pushRelay: URL? = PushConfiguration.relayURL, sharing: AccountSharing? = nil,
+        settingsSync: SettingsSync? = nil
+    ) throws {
         self.database = database
         self.sharing = sharing
+        self.settingsSync = settingsSync
         senderPictures = .cached(with: database)
         minimizedDrafts = MinimizedDrafts(database: database)
         accounts = try database.accounts()
@@ -99,9 +109,11 @@ final class AppModel {
 
     /// The shared container's database, so the extensions see the same mail (ADR-002).
     static func openShared() async throws -> AppModel {
-        try AppModel(
-            database: await openSharedDatabase(),
-            sharing: AccountSharing(shared: Keychain.iCloud, device: Keychain(), signInKey: Providers.signInKey))
+        let database = try await openSharedDatabase()
+        return try AppModel(
+            database: database,
+            sharing: AccountSharing(shared: Keychain.iCloud, device: Keychain(), signInKey: Providers.signInKey),
+            settingsSync: .synced(database))
     }
 
     /// Off the main actor: opening migrates the database and fills in what older builds left out, which can take a

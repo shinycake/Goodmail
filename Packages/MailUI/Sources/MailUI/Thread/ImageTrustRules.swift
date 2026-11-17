@@ -1,8 +1,9 @@
 public import Foundation
 public import MailCore
 
-/// The rules that load remote images without asking, kept on this device: one per address or domain, listed domains
-/// first and then senders, each alphabetically, as Settings shows them.
+/// The rules that load remote images without asking: one per address or domain, listed domains first and then
+/// senders, each alphabetically, as Settings shows them. They follow the reader to their other devices
+/// (`Preferences.syncedSettings`), rule by rule.
 public struct ImageTrustRules {
     private let key: String
     /// Where "Always Load from This Sender" kept its addresses before domain rules. Read once and folded in.
@@ -10,20 +11,30 @@ public struct ImageTrustRules {
     private let defaults: UserDefaults
 
     public init(
-        defaults: UserDefaults = .standard, key: String = "imageTrustRules", legacyKey: String = "trustedImageSenders"
+        defaults: UserDefaults = .standard, key: String = standardKey, legacyKey: String = "trustedImageSenders"
     ) {
         self.defaults = defaults
         self.key = key
         self.legacyKey = legacyKey
     }
 
+    /// Where the rules are kept, unless a test names another key.
+    nonisolated public static let standardKey = "imageTrustRules"
+
     public var all: [ImageTrustRule] {
         if let data = defaults.data(forKey: key),
             let rules = try? JSONDecoder().decode([ImageTrustRule].self, from: data)
         {
-            return rules
+            // Sorted on reading too, since rules taken up from another device are added at the end.
+            return Self.sorted(rules)
         }
         return Self.sorted((defaults.stringArray(forKey: legacyKey) ?? []).compactMap(ImageTrustRule.init(sender:)))
+    }
+
+    /// Stores rules still kept where "Always Load from This Sender" kept them under the current key, so they sync.
+    public func foldInLegacyRules() {
+        guard defaults.data(forKey: key) == nil, defaults.object(forKey: legacyKey) != nil else { return }
+        store(all)
     }
 
     /// Adds `rule`, in place of any rule for the same address or domain.

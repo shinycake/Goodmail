@@ -39,6 +39,7 @@ final class SyncScheduler {
                 self?.foreground?.cancel()
                 self?.watchers.stop()
                 if let model = self?.model { Task { await model.cancelPrefetch() } }
+                self?.model.shareSettingsNow()
                 self?.refresh.schedule()
             }
         }
@@ -60,6 +61,8 @@ final class SyncScheduler {
                     } catch {
                         log.error("Following the shared accounts failed: \(error, privacy: .public)")
                     }
+                    // Settings changed here or on the other devices, for the accounts here now.
+                    await model.syncSettings()
                     // Accounts added or removed meanwhile.
                     watchers.follow()
                     do {
