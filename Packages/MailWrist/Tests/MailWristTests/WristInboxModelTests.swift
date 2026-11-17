@@ -78,6 +78,32 @@ struct WristInboxModelTests {
         #expect(try #require(await updates.next()).command?.kind == .moveToInbox)
     }
 
+    @Test func openingAnUnreadConversationMarksItReadWithNothingToUndo() async throws {
+        let model = WristInboxModel()
+        model.receive(.snapshot(snapshot(accounts: [account], rows: [row])))
+        model.open(row)
+
+        guard case .list(let shown) = model.state else {
+            Issue.record("Expected the list, got \(model.state)")
+            return
+        }
+        #expect(shown.rows.map(\.isUnread) == [false])
+        #expect(model.undoable == nil)
+        var updates = model.updates.makeAsyncIterator()
+        _ = await updates.next()
+        #expect(try #require(await updates.next()).command?.kind == .markRead(true))
+    }
+
+    @Test func openingAReadConversationChangesNothing() {
+        let model = WristInboxModel()
+        var read = row
+        read.isUnread = false
+        let full = snapshot(accounts: [account], rows: [read])
+        model.receive(.snapshot(full))
+        model.open(read)
+        #expect(model.state == .list(full))
+    }
+
     @Test func undoGoesWhenItsTimeIsOver() throws {
         let model = WristInboxModel()
         model.receive(.snapshot(snapshot(accounts: [account], rows: [row])))

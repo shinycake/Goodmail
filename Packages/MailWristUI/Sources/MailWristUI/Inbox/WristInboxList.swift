@@ -2,24 +2,29 @@ import MailCore
 import MailWrist
 import SwiftUI
 
-/// The conversations, with how many are unread above them. A swipe archives, trashes or marks one read, and Undo
+/// The conversations, with how many are unread above them. A tap opens one, a swipe archives, trashes or marks one read, and Undo
 /// shows below the list for a few seconds after.
 struct WristInboxList: View {
     let snapshot: WristSnapshot
     let model: WristInboxModel
+    let threads: WristThreads
 
     var body: some View {
         List {
             Section {
                 ForEach(snapshot.rows) { row in
-                    WristRowView(row: row, color: snapshot.account(row.id.accountID)?.color.color ?? .accentColor)
-                        .swipeActions(edge: .leading) {
-                            ReadButton(row: row, model: model)
-                        }
-                        .swipeActions(edge: .trailing) {
-                            RemoveButton(kind: .archive, row: row, model: model)
-                            RemoveButton(kind: .trash, row: row, model: model)
-                        }
+                    NavigationLink {
+                        WristThreadView(row: row, threads: threads, inbox: model)
+                    } label: {
+                        WristRowView(row: row, color: snapshot.account(row.id.accountID)?.color.color ?? .accentColor)
+                    }
+                    .swipeActions(edge: .leading) {
+                        ReadButton(row: row, model: model)
+                    }
+                    .swipeActions(edge: .trailing) {
+                        RemoveButton(kind: .archive, row: row, model: model)
+                        RemoveButton(kind: .trash, row: row, model: model)
+                    }
                 }
             } header: {
                 if snapshot.unread > 0 {

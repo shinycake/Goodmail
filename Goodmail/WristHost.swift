@@ -12,6 +12,7 @@ final class WristHost {
     private let database: MailDatabase
     private let commands: MailCommands
     private let outboxes: Outboxes
+    private let model: AppModel
     private let channel = WristChannel()
     /// Follows the Inbox and the session for the app's lifetime.
     private var following: Task<Void, Never>?
@@ -20,6 +21,7 @@ final class WristHost {
         database = model.database
         commands = model.commands
         outboxes = model.outboxes
+        self.model = model
     }
 
     func start() {
@@ -36,10 +38,13 @@ final class WristHost {
             remember: { applied in
                 UserDefaults.standard.set(applied.map(\.uuidString), forKey: Self.appliedKey)
             })
+        let answer: @Sendable (ThreadSummary.ID) async -> WristThreadReply? = { [model] id in
+            await Self.reply(to: id, model: model)
+        }
         following = Task { @concurrent [database, channel] in
             await channel.activate()
             await withDiscardingTaskGroup { group in
-                group.addTask { await Self.follow(channel, into: server) }
+                group.addTask { await Self.follow(channel, into: server, answer: answer) }
                 group.addTask { await Self.follow(database, into: server) }
             }
         }
@@ -53,22 +58,58 @@ final class WristHost {
         }
     }
 
-    /// Runs the watch's commands, and gives a watch that was just paired, or whose app was just installed, what
-    /// couldn't be sent before.
-    @concurrent private static func follow(_ channel: WristChannel, into server: WristServer) async {
-        for await event in channel.events {
-            switch event {
-            case .ready:
-                await channel.sendUnsent()
-            case .command(let data):
-                do {
-                    try await server.received(JSONDecoder().decode(WristCommand.self, from: data))
-                } catch {
-                    log.error("Couldn't make a change from the watch: \(error, privacy: .public)")
+    /// Runs the watch's commands, answers its requests for conversations, and gives a watch that was just paired, or
+    /// whose app was just installed, what couldn't be sent before. A conversation can take a fetch, so each is
+    /// answered beside the commands rather than ahead of them.
+    @concurrent private static func follow(
+        _ channel: WristChannel, into server: WristServer,
+        answer: @escaping @Sendable (ThreadSummary.ID) async -> WristThreadReply?
+    ) async {
+        await withDiscardingTaskGroup { group in
+            for await event in channel.events {
+                if case .threadRequest(let data) = event {
+                    guard let id = try? JSONDecoder().decode(ThreadSummary.ID.self, from: data) else { continue }
+                    group.addTask {
+                        if let reply = await answer(id) { await channel.answer(reply) }
+                    }
+                } else {
+                    await handle(event, from: channel, into: server)
                 }
-            case .received:
-                break
             }
+        }
+    }
+
+    @concurrent private static func handle(
+        _ event: WristSessionEvent, from channel: WristChannel, into server: WristServer
+    ) async {
+        switch event {
+        case .ready:
+            await channel.sendUnsent()
+        case .command(let data):
+            do {
+                try await server.received(JSONDecoder().decode(WristCommand.self, from: data))
+            } catch {
+                log.error("Couldn't make a change from the watch: \(error, privacy: .public)")
+            }
+        case .received, .threadRequest, .thread:
+            break
+        }
+    }
+
+    /// The conversation the watch asked for, as the reader's chat view shows it: the cached messages when they're
+    /// current, otherwise fetched first. `nil` when it can't be had now, so the watch says the iPhone didn't answer.
+    private static func reply(to id: ThreadSummary.ID, model: AppModel) async -> WristThreadReply? {
+        guard let account = model.accounts.first(where: { $0.id == id.accountID }) else { return .gone(id) }
+        do {
+            let messages = try await BackgroundDatabaseWork.shared.run("A conversation for the watch") {
+                try await model.messagesToAnswer(in: id)
+            }
+            guard let first = messages.first else { return .gone(id) }
+            let transcript = ChatTranscript(messages: messages, accountEmail: account.email, aliases: account.aliases)
+            return .thread(WristThread(id: id, subject: first.subject, transcript: transcript))
+        } catch {
+            log.error("Couldn't load a conversation for the watch: \(error, privacy: .public)")
+            return nil
         }
     }
 

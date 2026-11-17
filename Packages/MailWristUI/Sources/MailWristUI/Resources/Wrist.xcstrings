@@ -53,6 +53,47 @@
         }
       }
     },
+    "%lld earlier messages on iPhone": {
+      "comment": "Above a long conversation: how many older messages the watch leaves out",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld earlier message on iPhone"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld earlier messages on iPhone"
+                }
+              }
+            }
+          }
+        },
+        "he": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "הודעה קודמת אחת ב-iPhone"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld הודעות קודמות ב-iPhone"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "Add a mail account in Goodmail on your iPhone.": {
       "comment": "Shown with no mail accounts",
       "localizations": {
@@ -97,6 +138,39 @@
         }
       }
     },
+    "Bring your iPhone closer to read this conversation.": {
+      "comment": "Shown when the iPhone didn't send a conversation",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "קרבו את ה-iPhone כדי לקרוא את השיחה."
+          }
+        }
+      }
+    },
+    "Code": {
+      "comment": "Above a one-time code in a conversation",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "קוד"
+          }
+        }
+      }
+    },
+    "Conversation Gone": {
+      "comment": "Shown when the iPhone no longer has the conversation",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "השיחה כבר לא כאן"
+          }
+        }
+      }
+    },
     "Inbox": {
       "comment": "The Inbox screen's title",
       "localizations": {
@@ -104,6 +178,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "דואר נכנס"
+          }
+        }
+      }
+    },
+    "It was moved or deleted on another device.": {
+      "comment": "Shown when the iPhone no longer has the conversation",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "היא הועברה או נמחקה במכשיר אחר."
           }
         }
       }
@@ -207,6 +292,17 @@
         }
       }
     },
+    "Read on iPhone": {
+      "comment": "A long message's footer",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "לקריאה ב-iPhone"
+          }
+        }
+      }
+    },
     "Restored": {
       "comment": "Undo button: what was done",
       "localizations": {
@@ -225,6 +321,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "פח"
+          }
+        }
+      }
+    },
+    "Try Again": {
+      "comment": "Asks the iPhone again",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "לנסות שוב"
           }
         }
       }
@@ -280,6 +387,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "הדואר יופיע כאן אחרי שהאפליקציה ב‑iPhone תסתנכרן."
+          }
+        }
+      }
+    },
+    "iPhone Not Reachable": {
+      "comment": "Shown when the iPhone didn't send a conversation",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ה-iPhone לא זמין"
           }
         }
       }

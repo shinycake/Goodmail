@@ -52,10 +52,13 @@ public final class WristInboxModel {
         return shown.rows.isEmpty ? .caughtUp(shown) : .list(shown)
     }
 
-    /// Takes over a mailbox read from the store at launch, unless the iPhone has already sent a newer one.
+    /// Takes over a mailbox read from the store at launch, unless the iPhone has already sent a newer one, keeping any
+    /// change made before it loaded.
     public func restore(_ stored: WristMailbox) {
         guard mailbox.snapshot == nil else { return }
+        let made = mailbox.pending
         mailbox = stored
+        for command in made { mailbox.perform(command) }
     }
 
     public func receive(_ reading: WristSnapshot.Reading) {
@@ -69,12 +72,21 @@ public final class WristInboxModel {
         }
     }
 
-    /// Makes a change to `rows` now, and has the iPhone make it to the mail.
+    /// Makes a change to `rows` now, and has the iPhone make it to the mail. Undo offers to take it back.
     public func perform(_ kind: WristCommand.Kind, on rows: [WristRow]) {
+        undoable = apply(kind, to: rows)
+    }
+
+    /// Marks a conversation read as it opens, as the iPhone's reader does. That isn't a change to undo.
+    public func open(_ row: WristRow) {
+        if row.isUnread { _ = apply(.markRead(true), to: [row]) }
+    }
+
+    private func apply(_ kind: WristCommand.Kind, to rows: [WristRow]) -> WristCommand {
         let command = WristCommand(threads: rows.map(\.id), kind: kind, madeAt: now())
         mailbox.perform(command)
-        undoable = command
         continuation.yield(Update(mailbox: mailbox, command: command))
+        return command
     }
 
     /// Takes back the last change.

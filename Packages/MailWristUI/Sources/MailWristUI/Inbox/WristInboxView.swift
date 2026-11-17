@@ -5,9 +5,11 @@ public import SwiftUI
 /// The watch app's first screen: the unified Inbox the iPhone last sent, or why there is none.
 public struct WristInboxView: View {
     let model: WristInboxModel
+    let threads: WristThreads
 
-    public init(model: WristInboxModel) {
+    public init(model: WristInboxModel, threads: WristThreads) {
         self.model = model
+        self.threads = threads
     }
 
     public var body: some View {
@@ -54,7 +56,7 @@ public struct WristInboxView: View {
                     "Nothing in your Inbox.", tableName: "Wrist", bundle: .module,
                     comment: "Shown when the Inbox is empty"))
         case .list(let snapshot):
-            WristInboxList(snapshot: snapshot, model: model)
+            WristInboxList(snapshot: snapshot, model: model, threads: threads)
         }
     }
 }

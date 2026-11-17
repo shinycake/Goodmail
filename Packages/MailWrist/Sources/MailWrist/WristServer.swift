@@ -35,16 +35,21 @@ public actor WristServer {
         await sendLatest()
     }
 
-    /// Runs a command the watch sent, unless it ran already. A command that fails still counts as run, so the watch
-    /// stops showing its effect and shows the mail as it is.
-    /// It throws what running the command threw.
+    /// Runs a command the watch sent, unless it ran already. It throws what running the command threw.
+    ///
+    /// A command that ran is confirmed with the next Inbox change, which carries its effect; confirming it sooner,
+    /// with the Inbox from before, would show the swiped row again for a moment. A command that fails changes nothing,
+    /// so it is confirmed at once, and the watch shows the mail as it is.
     public func received(_ command: WristCommand) async throws {
         guard !applied.contains(command.id) else { return }
         applied = Array((applied + [command.id]).suffix(Self.appliedLimit))
         remember(applied)
-        let outcome = await Result { try await execute(command) }
-        await sendLatest()
-        try outcome.get()
+        do {
+            try await execute(command)
+        } catch {
+            await sendLatest()
+            throw error
+        }
     }
 
     private func sendLatest() async {

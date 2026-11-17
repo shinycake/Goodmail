@@ -51,8 +51,11 @@ struct WristServerTests {
         try await server.received(archive)
 
         #expect(log.executed.withLock { $0 } == [archive])
-        #expect(log.sent.withLock { $0.last?.applied } == [archive.id])
         #expect(log.remembered.withLock { $0 } == [archive.id])
+        #expect(log.sent.withLock { $0.count } == 1, "The Inbox from before the archive confirms nothing")
+
+        await server.inboxChanged(snapshot)
+        #expect(log.sent.withLock { $0.last?.applied } == [archive.id])
     }
 
     @Test func remembersAcrossLaunches() async throws {

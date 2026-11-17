@@ -1,5 +1,6 @@
 #if canImport(WatchConnectivity)
     public import Foundation
+    public import MailCore
     import OSLog
     import WatchConnectivity
 
@@ -11,6 +12,10 @@
         case received(Data)
         /// The watch sent a command.
         case command(Data)
+        /// The watch asks for a conversation.
+        case threadRequest(Data)
+        /// The iPhone answered a request for a conversation.
+        case thread(Data)
     }
 
     /// The link between the iPhone and the Apple Watch (ADR-022). The iPhone sends its Inbox as the application
@@ -18,6 +23,8 @@
     public actor WristChannel {
         static let snapshotKey = "snapshot"
         static let commandKey = "command"
+        static let threadRequestKey = "threadRequest"
+        static let threadKey = "thread"
         static let log = Logger(subsystem: "com.idanbirman.goodmail", category: "wrist")
 
         /// The session's events, for one reader for the channel's life.
@@ -50,6 +57,29 @@
                 session.transferUserInfo([Self.commandKey: data])
             } catch {
                 Self.log.error("Couldn't send a change to the iPhone: \(error, privacy: .public)")
+            }
+        }
+
+        /// For the watch: asks the iPhone for a conversation. `false` when the iPhone isn't reachable, so no answer
+        /// will come.
+        public func request(_ id: ThreadSummary.ID) -> Bool {
+            let session = WCSession.default
+            guard session.activationState == .activated, session.isReachable,
+                let data = try? JSONEncoder().encode(id)
+            else { return false }
+            session.sendMessage([Self.threadRequestKey: data], replyHandler: nil, errorHandler: nil)
+            return true
+        }
+
+        /// For the iPhone: answers a request for a conversation.
+        public func answer(_ reply: WristThreadReply) {
+            let session = WCSession.default
+            guard session.activationState == .activated, session.isReachable else { return }
+            do {
+                session.sendMessage(
+                    [Self.threadKey: try JSONEncoder().encode(reply)], replyHandler: nil, errorHandler: nil)
+            } catch {
+                Self.log.error("Couldn't send a conversation to the watch: \(error, privacy: .public)")
             }
         }
 
@@ -97,6 +127,11 @@
 
         func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
             if let data = applicationContext[WristChannel.snapshotKey] as? Data { events.yield(.received(data)) }
+        }
+
+        func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+            if let data = message[WristChannel.threadRequestKey] as? Data { events.yield(.threadRequest(data)) }
+            if let data = message[WristChannel.threadKey] as? Data { events.yield(.thread(data)) }
         }
 
         func session(_ session: WCSession, didReceiveMessageData messageData: Data) {
