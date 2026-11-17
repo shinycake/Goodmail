@@ -201,12 +201,12 @@
         }
       }
     },
-    "Gets the conversation you're reading in Goodmail, so a shortcut you run from the Action button, Back Tap or Siri can act on it." : {
+    "Gets the conversation you're reading in Goodmail, so a shortcut you run from the Action button or Back Tap can act on it." : {
       "localizations" : {
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "מחזיר את השיחה שקוראים עכשיו ב־Goodmail, כדי שקיצור דרך שמופעל מכפתור הפעולה, מהקשה בגב המכשיר או מ־Siri יוכל לפעול עליה."
+            "value" : "מחזיר את השיחה שקוראים עכשיו ב־Goodmail, כדי שקיצור דרך שמופעל מכפתור הפעולה או מהקשה בגב המכשיר יוכל לפעול עליה."
           }
         }
       }

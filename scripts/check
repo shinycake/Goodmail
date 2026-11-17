@@ -56,6 +56,9 @@ done)
 step "Strict Swift settings (scripts/strict-swift)"
 scripts/strict-swift --check
 
+step "App Intent text (scripts/intent-text)"
+scripts/intent-text
+
 [[ "${1:-}" == "--lint" ]] && exit 0
 
 # The push Worker (ADR-006): typecheck and tests, only where its dev tooling is installed (npm install in PushWorker/).

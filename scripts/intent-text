@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+"""Fail when App Intent text names Siri.
+
+App Store Connect rejects an upload whose App Intent titles, descriptions or phrases contain "Siri" (ITMS-90626),
+and it only says so after the archive and upload. This finds it first. It checks:
+
+- the string literals in Swift files that import AppIntents, outside tests,
+- every entry, key and translations, of the String Catalogs the intents use: the Shortcut* tables,
+  AppShortcuts, and entries elsewhere whose comment starts with "App Intents".
+
+Lines that start with a comment, and translator notes, are not checked, so they may still say Siri.
+"""
+
+import json
+import pathlib
+import re
+import subprocess
+import sys
+
+WORD = re.compile(r"siri", re.IGNORECASE)
+LITERAL = re.compile(r'"(?:[^"\\\n]|\\.)*"')
+INTENT_TABLE = re.compile(r"^(Shortcut\w*|AppShortcuts)\.xcstrings$")
+
+
+def tracked(pattern: str) -> list[pathlib.Path]:
+    out = subprocess.run(["git", "ls-files", pattern], capture_output=True, text=True, check=True).stdout
+    return [pathlib.Path(line) for line in out.splitlines()]
+
+
+def swift_problems() -> list[str]:
+    problems = []
+    for path in tracked("*.swift"):
+        if "Tests" in path.parts or not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        if not re.search(r"^\s*(public |internal |@\w+ )*import AppIntents\b", text, re.MULTILINE):
+            continue
+        for number, line in enumerate(text.splitlines(), 1):
+            if line.lstrip().startswith("//"):
+                continue
+            for literal in LITERAL.findall(line):
+                if WORD.search(literal):
+                    problems.append(f"{path}:{number}: {literal}")
+    return problems
+
+
+def catalog_problems() -> list[str]:
+    problems = []
+    for path in tracked("*.xcstrings"):
+        catalog = json.loads(path.read_text(encoding="utf-8"))
+        whole_table = INTENT_TABLE.match(path.name) is not None
+        for key, entry in catalog.get("strings", {}).items():
+            if not whole_table and not entry.get("comment", "").startswith("App Intents"):
+                continue
+            texts = [("key", key)]
+            for language, localization in entry.get("localizations", {}).items():
+                for unit in _string_units(localization):
+                    texts.append((language, unit))
+            for language, text in texts:
+                if WORD.search(text):
+                    problems.append(f"{path}: {language}: {text}")
+    return problems
+
+
+def _string_units(node):
+    """Every stringUnit value under a localization, including plural and device variations."""
+    if isinstance(node, dict):
+        unit = node.get("stringUnit")
+        if isinstance(unit, dict) and isinstance(unit.get("value"), str):
+            yield unit["value"]
+        for value in node.values():
+            if value is not unit:
+                yield from _string_units(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from _string_units(value)
+
+
+problems = swift_problems() + catalog_problems()
+if problems:
+    print('✘ App Intent text mentions Siri, which App Store Connect rejects (ITMS-90626):')
+    for problem in problems:
+        print(f"  {problem}")
+    sys.exit(1)
+print("No App Intent text mentions Siri.")
