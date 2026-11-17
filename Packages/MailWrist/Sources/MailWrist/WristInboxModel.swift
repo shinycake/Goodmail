@@ -83,6 +83,21 @@ public final class WristInboxModel {
         if row.isUnread { _ = apply(.markRead(true), to: [row.id]) }
     }
 
+    /// Replies the iPhone couldn't send, for the reader to send again or let go.
+    public var undelivered: [WristCommand] { mailbox.undelivered }
+
+    /// Sends a reply that didn't go once more, as a new command, since the iPhone runs each command once.
+    public func resend(_ command: WristCommand) {
+        mailbox.forget(command)
+        _ = apply(command.kind, to: command.threads)
+    }
+
+    /// Lets go of a reply that didn't go.
+    public func forget(_ command: WristCommand) {
+        mailbox.forget(command)
+        continuation.yield(Update(mailbox: mailbox, command: nil))
+    }
+
     /// Has the iPhone send `text` as a reply in the conversation. `WristReplyModel` held it for Undo already.
     public func reply(_ text: String, in thread: ThreadSummary.ID) {
         _ = apply(.reply(text), to: [thread])

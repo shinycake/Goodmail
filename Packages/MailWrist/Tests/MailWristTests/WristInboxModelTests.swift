@@ -119,6 +119,49 @@ struct WristInboxModelTests {
         #expect(update.command?.threads == [row.id])
     }
 
+    @Test func aReplyThatDidntGoCanBeSentAgainAsANewCommand() async throws {
+        let model = WristInboxModel()
+        let full = snapshot(accounts: [account], rows: [row])
+        model.receive(.snapshot(full))
+        model.reply("Sounds good.", in: row.id)
+        var updates = model.updates.makeAsyncIterator()
+        _ = await updates.next()
+        let sent = try #require(await updates.next()?.command)
+
+        var failed = full
+        failed.applied = [sent.id]
+        failed.failed = [sent.id]
+        model.receive(.snapshot(failed))
+        #expect(model.undelivered == [sent])
+        _ = await updates.next()
+
+        model.resend(sent)
+        #expect(model.undelivered.isEmpty)
+        let again = try #require(await updates.next()?.command)
+        #expect(again.kind == .reply("Sounds good."))
+        #expect(again.id != sent.id)
+    }
+
+    @Test func settlingOneUndeliveredReplyLeavesTheNext() throws {
+        let model = WristInboxModel()
+        let full = snapshot(accounts: [account], rows: [row])
+        model.receive(.snapshot(full))
+        model.reply("Yes", in: row.id)
+        model.reply("No", in: row.id)
+        let sent = model.mailbox.pending
+
+        var failed = full
+        failed.applied = sent.map(\.id)
+        failed.failed = sent.map(\.id)
+        model.receive(.snapshot(failed))
+        #expect(model.undelivered == sent)
+
+        model.forget(try #require(model.undelivered.first))
+        #expect(model.undelivered == [sent[1]])
+        model.resend(sent[1])
+        #expect(model.undelivered.isEmpty)
+    }
+
     @Test func undoGoesWhenItsTimeIsOver() throws {
         let model = WristInboxModel()
         model.receive(.snapshot(snapshot(accounts: [account], rows: [row])))

@@ -101,6 +101,29 @@ struct WristMailboxTests {
         #expect(try #require(mailbox.shown).rows.map(\.id.threadID) == ["a", "b", "c"])
     }
 
+    @Test func aReplyTheIPhoneCouldntSendIsKeptToSendAgain() {
+        var mailbox = WristMailbox(snapshot: snapshot(three))
+        let reply = command(.reply("On my way."), "a")
+        let archive = command(.archive, "b")
+        mailbox.perform(reply)
+        mailbox.perform(archive)
+
+        var failed = snapshot(three, applied: [reply.id, archive.id])
+        failed.failed = [reply.id, archive.id]
+        mailbox.receive(failed, now: now)
+        #expect(mailbox.pending.isEmpty)
+        #expect(mailbox.undelivered == [reply], "A failed swipe just shows the mail as it is")
+
+        mailbox.forget(reply)
+        #expect(mailbox.undelivered.isEmpty)
+    }
+
+    @Test func aMailboxStoredBeforeUndeliveredRepliesDecodes() throws {
+        let json = #"{"pending":[]}"#
+        let mailbox = try JSONDecoder().decode(WristMailbox.self, from: Data(json.utf8))
+        #expect(mailbox == WristMailbox())
+    }
+
     @Test func nothingToShowBeforeTheFirstSnapshot() {
         var mailbox = WristMailbox()
         mailbox.perform(command(.archive, "a"))

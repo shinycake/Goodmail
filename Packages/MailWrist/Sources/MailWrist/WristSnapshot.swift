@@ -19,18 +19,22 @@ public struct WristSnapshot: Codable, Equatable, Sendable {
     public var rows: [WristRow]
     /// The watch's latest commands the iPhone has run, newest last, so the watch can stop laying them over the rows.
     public var applied: [UUID]
+    /// Those of `applied` that failed, so the watch can say a reply didn't go.
+    public var failed: [UUID]
 
     public init(
-        version: Int = currentVersion, madeAt: Date, accounts: [WristAccount], rows: [WristRow], applied: [UUID] = []
+        version: Int = currentVersion, madeAt: Date, accounts: [WristAccount], rows: [WristRow], applied: [UUID] = [],
+        failed: [UUID] = []
     ) {
         self.version = version
         self.madeAt = madeAt
         self.accounts = accounts
         self.rows = rows
         self.applied = applied
+        self.failed = failed
     }
 
-    /// A snapshot from before `applied` existed reads as having applied nothing.
+    /// A snapshot from before `applied` or `failed` existed reads as having applied, or failed, nothing.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.init(
@@ -38,7 +42,8 @@ public struct WristSnapshot: Codable, Equatable, Sendable {
             madeAt: try container.decode(Date.self, forKey: .madeAt),
             accounts: try container.decode([WristAccount].self, forKey: .accounts),
             rows: try container.decode([WristRow].self, forKey: .rows),
-            applied: try container.decodeIfPresent([UUID].self, forKey: .applied) ?? [])
+            applied: try container.decodeIfPresent([UUID].self, forKey: .applied) ?? [],
+            failed: try container.decodeIfPresent([UUID].self, forKey: .failed) ?? [])
     }
 
     /// The snapshot of an Inbox: `threads` newest first, with the `pinned` ones and each account's `unread` count.

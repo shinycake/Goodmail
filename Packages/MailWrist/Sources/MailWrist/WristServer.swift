@@ -13,6 +13,8 @@ public actor WristServer {
     private var latest: WristSnapshot?
     /// The commands run, oldest first.
     private var applied: [UUID]
+    /// The commands that failed since launch, oldest first; a subset of `applied`.
+    private var failed: [UUID] = []
 
     /// - Parameters:
     ///   - applied: the commands already run, as `remember` last stored them.
@@ -47,6 +49,7 @@ public actor WristServer {
         do {
             try await execute(command)
         } catch {
+            failed = Array((failed + [command.id]).suffix(Self.appliedLimit))
             await sendLatest()
             throw error
         }
@@ -55,6 +58,7 @@ public actor WristServer {
     private func sendLatest() async {
         guard var snapshot = latest else { return }
         snapshot.applied = applied
+        snapshot.failed = failed.filter(applied.contains)
         await send(snapshot)
     }
 }

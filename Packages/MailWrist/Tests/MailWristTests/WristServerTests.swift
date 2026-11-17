@@ -36,6 +36,16 @@ struct WristServerTests {
             remember: { [log] applied in log.remembered.withLock { $0 = applied } })
     }
 
+    @Test func listsAFailedCommandAsFailed() async {
+        let server = server(failing: true)
+        await server.inboxChanged(snapshot)
+        let reply = command(.reply("Thanks!"))
+        await #expect(throws: Refused.self) { try await server.received(reply) }
+        let sent = log.sent.withLock { $0.last }
+        #expect(sent?.applied == [reply.id])
+        #expect(sent?.failed == [reply.id])
+    }
+
     @Test func sendsEachInboxChange() async {
         let server = server()
         await server.inboxChanged(snapshot)

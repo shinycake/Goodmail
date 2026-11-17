@@ -16,7 +16,9 @@ public struct WristInboxView: View {
         NavigationStack {
             content
                 .navigationTitle(
-                    Text("Inbox", tableName: "Wrist", bundle: .module, comment: "The Inbox screen's title"))
+                    Text("Inbox", tableName: "Wrist", bundle: .module, comment: "The Inbox screen's title")
+                )
+                .wristUndeliveredAlert(model)
         }
     }
 

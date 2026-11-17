@@ -10,21 +10,45 @@ public struct WristMailbox: Codable, Equatable, Sendable {
     public private(set) var snapshot: WristSnapshot?
     /// Oldest first.
     public private(set) var pending: [WristCommand] = []
+    /// Replies the iPhone couldn't send, oldest first, until the reader sends them again or lets them go.
+    public private(set) var undelivered: [WristCommand] = []
 
-    public init(snapshot: WristSnapshot? = nil, pending: [WristCommand] = []) {
+    public init(snapshot: WristSnapshot? = nil, pending: [WristCommand] = [], undelivered: [WristCommand] = []) {
         self.snapshot = snapshot
         self.pending = pending
+        self.undelivered = undelivered
     }
 
-    /// Takes the iPhone's newest snapshot, and lets go of the changes it confirms and those too old to wait for.
+    /// A mailbox stored before `undelivered` existed has none.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            snapshot: try container.decodeIfPresent(WristSnapshot.self, forKey: .snapshot),
+            pending: try container.decode([WristCommand].self, forKey: .pending),
+            undelivered: try container.decodeIfPresent([WristCommand].self, forKey: .undelivered) ?? [])
+    }
+
+    /// Takes the iPhone's newest snapshot, and lets go of the changes it confirms and those too old to wait for. A
+    /// reply the iPhone ran and failed to send moves to `undelivered`; other failed changes just go, and the rows show
+    /// the mail as it is.
     public mutating func receive(_ snapshot: WristSnapshot, now: Date) {
         self.snapshot = snapshot
+        let failed = Set(snapshot.failed)
+        undelivered += pending.filter { command in
+            guard failed.contains(command.id), case .reply = command.kind else { return false }
+            return true
+        }
         let applied = Set(snapshot.applied)
         pending.removeAll { applied.contains($0.id) || now.timeIntervalSince($0.madeAt) > Self.pendingLifetime }
     }
 
     public mutating func perform(_ command: WristCommand) {
         pending.append(command)
+    }
+
+    /// The reader saw that `command` didn't go.
+    public mutating func forget(_ command: WristCommand) {
+        undelivered.removeAll { $0.id == command.id }
     }
 
     /// Takes back `command`. Its effect goes at once; the returned inverse is for the iPhone, which may have run it

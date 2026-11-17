@@ -281,6 +281,17 @@
         }
       }
     },
+    "OK": {
+      "comment": "Dismisses the failed reply alert",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "אישור"
+          }
+        }
+      }
+    },
     "Open Goodmail on iPhone": {
       "comment": "Shown before the iPhone has sent any mail",
       "localizations": {
@@ -332,6 +343,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "תשובה"
+          }
+        }
+      }
+    },
+    "Reply Not Sent": {
+      "comment": "Alert: a reply from the watch failed",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "התשובה לא נשלחה"
           }
         }
       }
@@ -431,6 +453,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "יש לעדכן את Goodmail"
+          }
+        }
+      }
+    },
+    "Your iPhone couldn't send “%@”.": {
+      "comment": "Alert: a reply from the watch failed; the reply's words",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ה-iPhone לא הצליח לשלוח את „%@”."
           }
         }
       }
