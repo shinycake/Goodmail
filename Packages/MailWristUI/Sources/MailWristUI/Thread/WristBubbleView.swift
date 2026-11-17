@@ -31,6 +31,24 @@ struct WristBubbleView: View {
                 .frame(maxWidth: .infinity, alignment: isMine ? .trailing : .leading)
         }
         .accessibilityElement(children: .combine)
+        .accessibilityLabel { label in
+            if let speaker {
+                speaker
+            }
+            label
+        }
+    }
+
+    /// Who wrote the bubble, for VoiceOver, where the side it sits on and its color don't say: the reader, or the
+    /// other person when their name isn't shown above it.
+    private var speaker: Text? {
+        if isMine {
+            Text("You", tableName: "Wrist", bundle: .module, comment: "VoiceOver: before the reader's own message")
+        } else if showsSender {
+            nil
+        } else {
+            Text(verbatim: bubble.sender)
+        }
     }
 
     @ViewBuilder private var content: some View {

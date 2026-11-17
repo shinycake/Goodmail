@@ -89,6 +89,7 @@ Apple Mail has no push for Gmail. Gmail's own app is cluttered. Most other clien
 ### Part of the system
 
 - **Interactive widgets**: the Inbox on the Home Screen, with Archive right in the widget.
+- **Apple Watch**: the Inbox on the wrist, relayed by the iPhone, with swipes and Undo, conversations as chat bubbles, Reply by dictation or quick replies, Snooze and Pin, one-time codes shown big, and complications and a Smart Stack card that open the conversation they show. Alerts tapped on the watch open there too.
 - **App Intents and Shortcuts** in English and Hebrew: write a message, open the Inbox or any mailbox, and act on mail from Siri and Shortcuts, with Undo.
 - **Spotlight** search of your threads, **Handoff**, and window state restoration.
 - **Default mail app**: `mailto:` links open Goodmail's composer.

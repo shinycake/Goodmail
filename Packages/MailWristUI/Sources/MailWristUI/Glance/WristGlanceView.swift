@@ -14,28 +14,28 @@ public struct WristGlanceView: View {
     }
 
     public var body: some View {
-        shape.widgetURL(WristRoute.url(opening: opens))
-    }
-
-    /// The card opens the conversation it shows; a count opens the Inbox.
-    private var opens: ThreadSummary.ID? {
-        switch family {
-        case .accessoryCircular, .accessoryInline: nil
-        default: WristGlanceCorner.fits(family) ? nil : glance.content.thread
+        let shape = Shape(family)
+        Group {
+            switch shape {
+            case .circle: WristGlanceCircle(count: glance.content.unread)
+            case .line: WristGlanceLine(content: glance.content)
+            case .corner: WristGlanceCorner(count: glance.content.unread)
+            case .card: WristGlanceCard(content: glance.content)
+            }
         }
+        // The card opens the conversation it shows; a count opens the Inbox.
+        .widgetURL(WristRoute.url(opening: shape == .card ? glance.content.thread : nil))
     }
 
-    @ViewBuilder private var shape: some View {
-        switch family {
-        case .accessoryCircular:
-            WristGlanceCircle(count: glance.content.unread)
-        case .accessoryInline:
-            WristGlanceLine(content: glance.content)
-        default:
-            if WristGlanceCorner.fits(family) {
-                WristGlanceCorner(count: glance.content.unread)
-            } else {
-                WristGlanceCard(content: glance.content)
+    /// What the glance looks like in each family: a count in the small ones, the newest mail in the rest.
+    private enum Shape {
+        case circle, line, corner, card
+
+        init(_ family: WidgetFamily) {
+            switch family {
+            case .accessoryCircular: self = .circle
+            case .accessoryInline: self = .line
+            default: self = WristGlanceCorner.fits(family) ? .corner : .card
             }
         }
     }
@@ -69,7 +69,7 @@ private struct WristGlanceCircle: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(WristGlanceText.unread(count))
+        .accessibilityLabel(count.map(WristGlanceText.unread) ?? WristGlanceText.waiting)
     }
 }
 
@@ -80,7 +80,7 @@ private struct WristGlanceLine: View {
     var body: some View {
         Label {
             switch content {
-            case .waiting: Text(verbatim: "–")
+            case .waiting: Text(verbatim: "–").accessibilityLabel(WristGlanceText.waiting)
             case .caughtUp: WristGlanceText.noUnread
             case .unread(let count, let newest), .code(_, let newest, let count):
                 Text(verbatim: "\(count.formatted()) · \(newest.sender.displayName)")
@@ -127,6 +127,11 @@ extension View {
 enum WristGlanceText {
     static let noUnread = Text(
         "No Unread Mail", tableName: "Wrist", bundle: .module, comment: "Watch face: nothing unread")
+
+    /// What VoiceOver says for the dash shown before the iPhone has sent anything.
+    static let waiting = Text(
+        "Waiting for iPhone", tableName: "Wrist", bundle: .module,
+        comment: "VoiceOver, watch face: the iPhone hasn't sent the Inbox yet")
 
     static func unread(_ count: Int?) -> Text {
         switch count {

@@ -54,6 +54,16 @@ Audited on 2026-11-13 against `main` at `42720fc`.
 - [x] Composed paragraphs are written as `<div dir="auto">`, so recipients' clients lay each one out in its own direction.
 - [x] Known trade-off, kept: the reply quote uses Gmail's exact markup, with `border-left` and `padding-left`, because Outlook desktop and older clients ignore logical properties. A Hebrew quote shows its bar on the left, as Gmail's own replies do.
 
+### Apple Watch (2026-11-17)
+
+- [x] All `MailWristUI` keys (`Wrist.xcstrings`), and the watch app's and watch face widget's own catalogs, have a translated `he` value.
+- [x] Both plural keys ("%lld Unread", "%lld earlier messages on iPhone") have `he` variations.
+- [x] Every `Text` in `MailWristUI` passes `bundle: .module`; the watch targets use their own bundle.
+- [x] No Hebrew value starts with a Latin `%@`. The only one that starts with `%@`, "%@ · ביטול", holds the Hebrew name of an action.
+- [x] Layout uses leading and trailing only. Bubbles sit by side (the reader's own trailing), so they mirror in Hebrew.
+- [x] Snooze times use the iPhone app's wording, since both come from `LaterTime`.
+- [x] Screenshots of the Inbox, a conversation, Reply and the More sheet in Hebrew are in `docs/screenshots/watch-*-he.png`.
+
 ## Needs a device
 
 These can only be confirmed in the simulator or on a phone with the language set to Hebrew. Run them on the Mac before each release.

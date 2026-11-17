@@ -157,6 +157,8 @@ private struct WristCodeCard: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
             Text(verbatim: code)
+                // Digit by digit, as it's typed, not as one big number.
+                .speechSpellsOutCharacters()
                 .font(.title2.monospacedDigit().weight(.semibold))
                 .minimumScaleFactor(0.5)
                 .lineLimit(1)

@@ -95,3 +95,15 @@ The first run found 79 issues. What changed:
 | Navigation bar subtitle in a chat | ✅ | UIKit draws and sizes it; tolerated. |
 | Avatar initials | ✅ | Fixed on purpose inside a fixed circle; tolerated. |
 | Section headers and footers in Settings | ✅ | The system's own secondary gray, which the audit calls "nearly passed"; tolerated. Real contrast failures still fail. |
+
+## Apple Watch (2026-11-17)
+
+The same pass over `MailWristUI`, for the watch app and its watch face widget.
+
+- ✅ Inbox rows read as one element: sender, subject, preview, time, with "Unread" and "Pinned" spoken for the dot and the pin.
+- 🔧 Chat bubbles said nothing about who wrote them: the side and the color carried it. Each now starts with the sender, or "You" for the reader's own.
+- 🔧 One-time codes read as one big number. The code card in a conversation and on the watch face now spell them digit by digit.
+- 🔧 The watch face's dash before the iPhone has sent anything now reads "Waiting for iPhone", and the card's count reads "3 Unread" rather than "3".
+- ✅ Swipe actions, More, Reply, quick replies and Undo are labeled buttons.
+- ✅ Text uses text styles and the unread dot scales with `@ScaledMetric`. Codes use `minimumScaleFactor` so the longest fits on one line.
+- 📱 The largest text size on the 42 mm watch, and Always On (the watch face hides sender, subject, preview and code while locked through `privacySensitive`).

@@ -22,11 +22,13 @@ Reviewed 2026-11-13, against `main` at 42720fc. The push Worker section was upda
 | Opened attachments | `Caches/Attachments/<account>/<message>-<part>/` | Default class; the system may purge Caches. The cache cap evicts the least recently opened first | None |
 | Preferences: undo-send delay, accounts with unsorted Inbox | `UserDefaults.standard` | Default | None |
 | Recent searches (up to 8 query strings) | `UserDefaults.standard` | Default | None |
+| Apple Watch mailbox: the Inbox's newest rows (sender, subject, a short preview, a one-time code when the message has one), the unread counts and the changes the iPhone hasn't run yet | JSON at `<watch App Group>/wrist-mailbox.json` (`WristStore`), written by the watch app and read by its watch face widget | Default class (`completeUntilFirstUserAuthentication`) | The watch app and its widget extension. The iPhone sends it over WatchConnectivity, which Apple encrypts between the paired devices |
+| Watch changes already run (command IDs, the last 64) | `UserDefaults.standard` on the iPhone (`WristAppliedCommands`) | Default | None |
 | Diagnostics | Unified logging (`os.Logger`), MetricKit and Xcode Organizer | On device; leaves only in a sysdiagnose the user sends, or Apple's opt-in diagnostics sharing | Apple, if the user opts in |
 
-Debug builds also read a few launch arguments through `UserDefaults` (`GoodmailSyntheticThreads`, `GoodmailSyntheticCorpus`, `GoodmailDeliverTestMessageAfter` and the test-mail tools). They are compiled out of Release.
+Debug builds also read a few launch arguments through `UserDefaults` (`GoodmailSyntheticThreads`, `GoodmailSyntheticCorpus`, `GoodmailDeliverTestMessageAfter`, the test-mail tools, and the watch app's `GoodmailWristSample` and `GoodmailWristSampleOpen`). They are compiled out of Release.
 
-Removing an account (`AppModel.removeAccount`) deletes its refresh token, its rows in the database and its opened attachments. Deleting the app removes everything above except Keychain items, which iOS keeps across reinstalls. Items that are `ThisDeviceOnly` never leave the device.
+Removing an account (`AppModel.removeAccount`) deletes its refresh token, its rows in the database and its opened attachments; the next snapshot the iPhone sends leaves its rows off the watch. Deleting the app removes everything above except Keychain items, which iOS keeps across reinstalls. Items that are `ThisDeviceOnly` never leave the device.
 
 ### Findings
 
@@ -98,6 +100,8 @@ Each target has a `PrivacyInfo.xcprivacy` in its synchronized folder, so Xcode c
 | Goodmail (`Goodmail/`) | No, no domains | None | `UserDefaults`: **CA92.1** (the app's own preferences and recent searches). File timestamp: **C617.1** (the attachment cache reads and sets modification dates of its own files, in the app container) |
 | NotificationService (`NotificationService/`) | No | None | None |
 | WidgetsExtension (`Widgets/`) | No | None | None |
+| GoodmailWatch (`GoodmailWatch/`) | No, no domains | None | None (its `UserDefaults` reads are the Debug launch arguments) |
+| GoodmailWatchWidgets (`GoodmailWatchWidgets/`) | No, no domains | None | None |
 | GRDB 7.11.1 | Ships its own `PrivacyInfo.xcprivacy` | | |
 
 Update a manifest when its target starts using a required-reason API. The likely next ones:
@@ -107,7 +111,7 @@ Update a manifest when its target starts using a required-reason API. The likely
 - `ProcessInfo.systemUptime` or `mach_absolute_time` for timing: **35F9.1**.
 - Disk space checks before downloads: **E174.1**.
 
-`grep -rnE "UserDefaults|AppStorage|contentModificationDate|creationDate|modificationDate|attributesOfItem|systemUptime|mach_absolute_time|volumeAvailableCapacity|activeInputModes"` over `Goodmail NotificationService Widgets Packages` finds them.
+`grep -rnE "UserDefaults|AppStorage|contentModificationDate|creationDate|modificationDate|attributesOfItem|systemUptime|mach_absolute_time|volumeAvailableCapacity|activeInputModes"` over `Goodmail NotificationService Widgets GoodmailWatch GoodmailWatchWidgets Packages` finds them.
 
 ## App Store privacy label
 

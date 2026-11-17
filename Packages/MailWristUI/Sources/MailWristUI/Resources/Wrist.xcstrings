@@ -578,6 +578,28 @@
         }
       }
     },
+    "Waiting for iPhone": {
+      "comment": "VoiceOver, watch face: the iPhone hasn't sent the Inbox yet",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ממתין ל-iPhone"
+          }
+        }
+      }
+    },
+    "You": {
+      "comment": "VoiceOver: before the reader's own message",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "אני"
+          }
+        }
+      }
+    },
     "Your iPhone couldn't send “%@”.": {
       "comment": "Alert: a reply from the watch failed; the reply's words",
       "localizations": {
