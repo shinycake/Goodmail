@@ -3,7 +3,7 @@ public import MailCore
 public import Observation
 
 /// The way off the mailing list a conversation came from, and how far the reader has got leaving it. Progress
-/// changes only in `unsubscribe(_:)`; which list is offered follows the messages.
+/// changes only in `unsubscribe(_:)` and `finished(_:)`; which list is offered follows the messages.
 @Observable
 public final class UnsubscribeOffer {
     /// Where leaving the list stands, as the banner shows it.
@@ -13,7 +13,8 @@ public final class UnsubscribeOffer {
         case unsubscribing
         /// The list has the request, now or on an earlier visit.
         case unsubscribed
-        /// The list's page opened for the reader to finish there.
+        /// The list's page opened for the reader to finish there. Remembered only once they say they did
+        /// (`finished(_:)`), so leaving without finishing offers the list again next time.
         case pageOpened
         /// The request didn't go through; the reader can try again.
         case failed
@@ -76,12 +77,13 @@ public final class UnsubscribeOffer {
         do {
             switch try await perform(offer.unsubscribe) {
             case .done:
+                memory.insert(offer.list.address, account: account)
                 state = .unsubscribed
             case .openPage(let url):
+                // Opening the page is only the start: the list keeps sending until the reader finishes there.
                 openURL(url)
                 state = .pageOpened
             }
-            memory.insert(offer.list.address, account: account)
         } catch is CancellationError {
             progress = nil
             return
@@ -89,5 +91,12 @@ public final class UnsubscribeOffer {
             state = .failed
         }
         progress = (offer.list, state)
+    }
+
+    /// The reader says they finished on the list's page, from `.pageOpened` only: the list is remembered as left.
+    public func finished(_ offer: Offer) {
+        guard offer.state == .pageOpened else { return }
+        memory.insert(offer.list.address, account: account)
+        progress = (offer.list, .unsubscribed)
     }
 }

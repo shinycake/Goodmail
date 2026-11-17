@@ -56,6 +56,17 @@
         }
       }
     },
+    "Done" : {
+      "comment" : "Button: the reader finished unsubscribing on the list’s page",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סיימתי"
+          }
+        }
+      }
+    },
     "Finish unsubscribing from %@ on the page that opened." : {
       "comment" : "Banner after opening the list’s unsubscribe page; the argument is the sender",
       "localizations" : {

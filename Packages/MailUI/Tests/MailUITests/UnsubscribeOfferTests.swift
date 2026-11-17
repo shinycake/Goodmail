@@ -68,6 +68,30 @@ struct UnsubscribeOfferTests {
         #expect(offer.offer(in: messages)?.state == .pageOpened)
     }
 
+    @Test func anOpenedPageIsNotRememberedUntilTheReaderSaysTheyFinished() async throws {
+        let page = URL(string: "https://example.com/leave-page")!
+        let messages = [message(from: list, unsubscribe: .page(page), at: 1)]
+        let offer = offer(perform: { _ in .openPage(page) })
+
+        await offer.unsubscribe(try #require(offer.offer(in: messages)))
+        #expect(!memory.contains(list.address, account: account))
+        #expect(self.offer().offer(in: messages)?.state == .offered)
+
+        offer.finished(try #require(offer.offer(in: messages)))
+        #expect(offer.offer(in: messages)?.state == .unsubscribed)
+        #expect(self.offer().offer(in: messages)?.state == .unsubscribed)
+    }
+
+    @Test func finishingCountsOnlyAfterThePageOpened() throws {
+        let offer = offer()
+        let messages = [message(from: list, unsubscribe: oneClick, at: 1)]
+
+        offer.finished(try #require(offer.offer(in: messages)))
+
+        #expect(offer.offer(in: messages)?.state == .offered)
+        #expect(!memory.contains(list.address, account: account))
+    }
+
     @Test func aFailureCanBeTriedAgain() async throws {
         var attempts = 0
         let offer = offer(perform: { _ in

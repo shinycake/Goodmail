@@ -351,7 +351,11 @@ public final class ThreadViewController: UIViewController {
     private func unsubscribeViews(_ messages: [Message]) -> [UIView] {
         guard let unsubscribeOffer, let offer = unsubscribeOffer.offer(in: messages) else { return [] }
         unsubscribeBanner.configure(offer, tint: viewModel.accountColor.uiColor)
-        unsubscribeBanner.onUnsubscribe = { [weak self] in self?.confirmUnsubscribe(offer) }
+        unsubscribeBanner.onAction =
+            switch offer.state {
+            case .pageOpened: { unsubscribeOffer.finished(offer) }
+            case .offered, .failed, .unsubscribing, .unsubscribed: { [weak self] in self?.confirmUnsubscribe(offer) }
+            }
         return [unsubscribeBanner]
     }
 

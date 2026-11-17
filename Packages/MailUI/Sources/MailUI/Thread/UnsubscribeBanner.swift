@@ -3,8 +3,8 @@ import UIKit
 
 /// A quiet line above a mailing list's message that offers to leave the list, then says how leaving went.
 final class UnsubscribeBanner: UIView {
-    /// Asked when the reader taps Unsubscribe or Try Again.
-    var onUnsubscribe: (() -> Void)?
+    /// Asked when the reader taps the button: Unsubscribe, Try Again, or Done once they finished on the list's page.
+    var onAction: (() -> Void)?
 
     private let symbol = UIImageView()
     private let label = UILabel()
@@ -31,7 +31,7 @@ final class UnsubscribeBanner: UIView {
         button.configuration?.cornerStyle = .capsule
         button.setContentHuggingPriority(.required, for: .horizontal)
         button.setContentCompressionResistancePriority(.required, for: .horizontal)
-        button.addAction(UIAction { [weak self] _ in self?.onUnsubscribe?() }, for: .primaryActionTriggered)
+        button.addAction(UIAction { [weak self] _ in self?.onAction?() }, for: .primaryActionTriggered)
         button.accessibilityIdentifier = "unsubscribe"
         spinner.hidesWhenStopped = true
 
@@ -84,7 +84,9 @@ final class UnsubscribeBanner: UIView {
                         localized: "Finish unsubscribing from \(name) on the page that opened.",
                         table: "Unsubscribe", bundle: .module,
                         comment: "Banner after opening the list’s unsubscribe page; the argument is the sender"),
-                    nil
+                    String(
+                        localized: "Done", table: "Unsubscribe", bundle: .module,
+                        comment: "Button: the reader finished unsubscribing on the list’s page")
                 )
             case .failed:
                 (
