@@ -25,9 +25,9 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OB
 
 SWIFT_ROOTS=(Goodmail GoodmailUITests GoodmailWatch GoodmailWatchWidgets NotificationService Widgets Packages)
 # Packages without UIKit or SwiftUI, whose tests also run on Linux (docs/setup/cloud-builds.md).
-LINUX_TESTED_PACKAGES=(MailCore GmailProvider MailStore IMAPProvider OutlookProvider MailWrist)
+LINUX_TESTED_PACKAGES=(MailCore GmailProvider MailStore IMAPProvider OutlookProvider MailWrist MailWristHost)
 # The packages the Apple Watch runs itself (ADR-023), built for watchOS on the Mac.
-WATCH_BUILT_PACKAGES=(MailCore MailStore GmailProvider OutlookProvider MailWrist)
+WATCH_BUILT_PACKAGES=(MailCore MailStore GmailProvider OutlookProvider MailWrist MailWristHost)
 
 step() { printf '\n▸ %s\n' "$1"; }
 

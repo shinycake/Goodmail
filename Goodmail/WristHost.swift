@@ -1,7 +1,7 @@
 import Foundation
 import MailCore
-import MailStore
 import MailWrist
+import MailWristHost
 import OSLog
 
 /// The iPhone's side of the Apple Watch app (ADR-022): it keeps the watch's copy of the Inbox current, and makes the
@@ -9,28 +9,24 @@ import OSLog
 final class WristHost {
     private nonisolated static let appliedKey = "WristAppliedCommands"
 
-    private let database: MailDatabase
-    private let commands: MailCommands
+    private let host: WristMailHost
     private let outboxes: Outboxes
-    private let model: AppModel
     private let channel = WristChannel()
     /// Follows the Inbox and the session for the app's lifetime.
     private var following: Task<Void, Never>?
 
     init(model: AppModel) {
-        database = model.database
-        commands = model.commands
+        host = WristMailHost(database: model.database, commands: model.commands, answers: model.answers)
         outboxes = model.outboxes
-        self.model = model
     }
 
     func start() {
         let applied = (UserDefaults.standard.stringArray(forKey: Self.appliedKey) ?? []).compactMap(UUID.init)
         let server = WristServer(
             applied: applied,
-            execute: { [commands, outboxes, model] command in
+            execute: { [host, outboxes] command in
                 try await BackgroundDatabaseWork.shared.run("A change from the watch") {
-                    try await Self.execute(command, commands: commands, model: model)
+                    try await host.execute(command)
                     for account in Set(command.threads.map(\.accountID)) { await outboxes.flush(account) }
                 }
             },
@@ -38,32 +34,15 @@ final class WristHost {
             remember: { applied in
                 UserDefaults.standard.set(applied.map(\.uuidString), forKey: Self.appliedKey)
             })
-        let answer: @Sendable (ThreadSummary.ID) async -> WristThreadReply? = { [model] id in
-            await Self.reply(to: id, model: model)
+        let answer: @Sendable (ThreadSummary.ID) async -> WristThreadReply? = { [host] id in
+            await Self.conversation(id, from: host)
         }
-        following = Task { @concurrent [database, channel] in
+        following = Task { @concurrent [host, channel] in
             await channel.activate()
             await withDiscardingTaskGroup { group in
                 group.addTask { await Self.follow(channel, into: server, answer: answer) }
-                group.addTask { await Self.follow(database, into: server) }
+                group.addTask { await Self.follow(host, into: server) }
             }
-        }
-    }
-
-    @concurrent private static func execute(
-        _ command: WristCommand, commands: MailCommands, model: AppModel
-    ) async throws {
-        switch command.kind {
-        case .reply(let text):
-            for thread in command.threads { try await model.reply(to: thread, with: text) }
-        case .pin(let pinned):
-            _ = try await commands.pin(command.threads, pinned)
-        case .snooze(let date):
-            _ = try await commands.snooze(command.threads, until: date)
-        case .unsnooze:
-            _ = try await commands.unsnooze(command.threads)
-        case .archive, .moveToInbox, .trash, .untrash, .markRead:
-            if let action = command.kind.threadAction { _ = try await commands.perform(action, on: command.threads) }
         }
     }
 
@@ -105,30 +84,23 @@ final class WristHost {
         }
     }
 
-    /// The conversation the watch asked for, as the reader's chat view shows it: the cached messages when they're
-    /// current, otherwise fetched first. `nil` when it can't be had now, so the watch says the iPhone didn't answer.
-    private static func reply(to id: ThreadSummary.ID, model: AppModel) async -> WristThreadReply? {
-        guard let account = model.accounts.first(where: { $0.id == id.accountID }) else { return .gone(id) }
+    /// The conversation the watch asked for, or `nil` when it can't be had now, so the watch says the iPhone didn't
+    /// answer.
+    private static func conversation(_ id: ThreadSummary.ID, from host: WristMailHost) async -> WristThreadReply? {
         do {
-            let messages = try await BackgroundDatabaseWork.shared.run("A conversation for the watch") {
-                try await model.messagesToAnswer(in: id)
+            return try await BackgroundDatabaseWork.shared.run("A conversation for the watch") {
+                try await host.conversation(id)
             }
-            guard let first = messages.first else { return .gone(id) }
-            let transcript = ChatTranscript(messages: messages, accountEmail: account.email, aliases: account.aliases)
-            return .thread(WristThread(id: id, subject: first.subject, transcript: transcript))
         } catch {
             log.error("Couldn't load a conversation for the watch: \(error, privacy: .public)")
             return nil
         }
     }
 
-    @concurrent private static func follow(_ database: MailDatabase, into server: WristServer) async {
+    @concurrent private static func follow(_ host: WristMailHost, into server: WristServer) async {
         do {
-            for try await glance in database.inboxGlance(limit: WristSnapshot.rowLimit) {
-                await server.inboxChanged(
-                    WristSnapshot(
-                        accounts: glance.accounts, threads: glance.threads, pinned: glance.pinned,
-                        unread: glance.unread, madeAt: .now))
+            for try await snapshot in host.snapshots() {
+                await server.inboxChanged(snapshot)
             }
         } catch {
             log.error("Stopped sending the Inbox to the watch: \(error, privacy: .public)")

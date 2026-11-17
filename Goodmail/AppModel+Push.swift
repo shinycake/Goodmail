@@ -2,6 +2,7 @@ import Foundation
 import MailCore
 import MailNotifications
 import MailStore
+import MailWristHost
 import OSLog
 
 /// Push subscriptions, alert choices, and what the reader does from an alert.
@@ -80,24 +81,9 @@ extension AppModel {
         await outboxes.flush(thread.accountID)
     }
 
-    /// Sends `text` as a reply to the newest message in the thread, signed as the composer signs it, with the
-    /// conversation quoted below.
+    /// Sends `text` as a reply to the newest message in the thread (`ThreadAnswers.reply(to:with:)`).
     func reply(to thread: ThreadSummary.ID, with text: String) async throws {
-        guard let account = accounts.first(where: { $0.id == thread.accountID }) else { return }
-        let provider = try providers.provider(for: thread.accountID)
-        let fetchedAt = Date.now
-        let messages = try await provider.messages(inThread: thread.threadID)
-        guard let latest = messages.last else { return }
-        let database = database
-        let signature = try await Self.offMain {
-            try database.save(messages, inThread: thread, fetchedAt: fetchedAt)
-            return try database.signature(for: account.id)
-        }
-        var plain = text
-        if let signature, !signature.isEmpty { plain += "\n\n-- \n" + signature }
-        var draft = Draft.reply(to: latest, all: false, accountEmail: account.email, aliases: account.aliases)
-        draft.body = MessageBody(html: HTMLText.lines(plain), plain: plain)
-        try await commands.send(draft, after: .zero)
+        try await answers.reply(to: thread, with: text)
     }
 
     private func pushSource(for id: AccountID) -> (any PushSource)? {
