@@ -4,8 +4,8 @@ import Foundation
 /// line that introduces that history, or the signature. Lines it answers inline stay, as quotes, between its answers.
 public struct ReplyText: Equatable, Sendable {
     public enum Segment: Equatable, Sendable {
-        /// Words the sender wrote.
-        case text(String)
+        /// Words the sender wrote, with the bold, italics and links their HTML gave them.
+        case text(StyledText)
         /// Earlier words the sender answers right below them.
         case quote(String)
     }
@@ -15,11 +15,11 @@ public struct ReplyText: Equatable, Sendable {
     /// Reads the part `MessageBody.reading` picks. HTML is read with its blockquotes turned into `>` lines, so both
     /// take the same path.
     public init(body: MessageBody) {
-        let text =
+        let text: StyledText =
             switch body.reading {
-            case .plain(let plain): plain
+            case .plain(let plain): StyledText.linking(plain)
             case .html(let html): Self.quotedText(fromHTML: html)
-            case .empty: ""
+            case .empty: StyledText()
             }
         segments = Self.segments(of: text)
     }
@@ -27,14 +27,14 @@ public struct ReplyText: Equatable, Sendable {
     /// The new words alone, as a notification or a bubble's accessibility label reads them.
     public var text: String {
         segments.compactMap { segment in
-            if case .text(let words) = segment { words } else { nil }
+            if case .text(let words) = segment { words.plain } else { nil }
         }.joined(separator: "\n")
     }
 
     // MARK: - Lines
 
     private enum Line: Equatable {
-        case words(String)
+        case words(StyledText)
         case blank
         case quote(String)
         /// "On Monday, Dana wrote:", in the forms clients write it.
@@ -46,7 +46,7 @@ public struct ReplyText: Equatable, Sendable {
         case history
     }
 
-    static func segments(of text: String) -> [Segment] {
+    static func segments(of text: StyledText) -> [Segment] {
         var lines = classify(text)
         if let history = lines.firstIndex(of: .history) { lines.removeSubrange(history...) }
         lines = dropSignatures(lines)
@@ -54,10 +54,12 @@ public struct ReplyText: Equatable, Sendable {
         return group(lines)
     }
 
-    private static func classify(_ text: String) -> [Line] {
-        let raw = text.replacingOccurrences(of: "\r\n", with: "\n")
-            .split(separator: "\n", omittingEmptySubsequences: false)
-            .map { String($0).filter { !bidiControls.contains($0) } }
+    private static func classify(_ text: StyledText) -> [Line] {
+        let rich = text.filter { !bidiControls.contains($0) }.mapRuns {
+            $0.replacingOccurrences(of: "\r\n", with: "\n")
+        }
+        .split(separator: "\n")
+        let raw = rich.map(\.plain)
         var lines: [Line] = raw.indices.map { index in
             let line = raw[index].trimmingCharacters(in: .whitespaces)
             if line.isEmpty { return .blank }
@@ -69,17 +71,17 @@ public struct ReplyText: Equatable, Sendable {
                 return .history
             }
             if isHeaderBlock(at: index, in: raw) { return .history }
-            return .words(line)
+            return .words(rich[index].trimmingCharacters(in: .whitespaces))
         }
         // An attribution is a line ending in a colon that names a date or an address, right above a quote.
         for index in lines.indices {
-            guard case .words(let line) = lines[index], line.hasSuffix(":"),
+            guard case .words(let words) = lines[index], case let line = words.plain, line.hasSuffix(":"),
                 line.contains("@") || line.contains(where: \.isNumber) || line.hasSuffix("wrote:"),
                 lines[(index + 1)...].first(where: { $0 != .blank }).map(isQuote) ?? false
             else { continue }
             lines[index] = .attribution
             // Clients wrap a long attribution: "On Monday, Dana Levi <" then "dana@example.com> wrote:".
-            if index > 0, case .words(let above) = lines[index - 1], above.hasPrefix("On ") {
+            if index > 0, case .words(let above) = lines[index - 1], above.plain.hasPrefix("On ") {
                 lines[index - 1] = .attribution
             }
         }
@@ -122,13 +124,13 @@ public struct ReplyText: Equatable, Sendable {
 
     /// By now only words, quotes and blank lines are left. A blank line stays inside the block it falls in.
     private static func group(_ lines: [Line]) -> [Segment] {
-        var blocks: [(isQuote: Bool, lines: [String])] = []
+        var blocks: [(isQuote: Bool, lines: [StyledText])] = []
         for line in lines {
             let isQuote: Bool
-            let words: String
+            let words: StyledText
             switch line {
             case .words(let text): (isQuote, words) = (false, text)
-            case .quote(let text): (isQuote, words) = (true, text)
+            case .quote(let text): (isQuote, words) = (true, StyledText(text))
             case .blank: (isQuote, words) = (blocks.last?.isQuote ?? false, "")
             case .attribution, .signature, .history: continue
             }
@@ -139,9 +141,9 @@ public struct ReplyText: Equatable, Sendable {
             }
         }
         return blocks.compactMap { block in
-            let joined = block.lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+            let joined = StyledText.joined(block.lines, separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
             guard !joined.isEmpty else { return nil }
-            return block.isQuote ? .quote(joined) : .text(joined)
+            return block.isQuote ? .quote(joined.plain) : .text(joined)
         }
     }
 
@@ -158,26 +160,25 @@ public struct ReplyText: Equatable, Sendable {
 
     /// HTML as text, with each blockquote's lines prefixed by `>` for its depth. A Gmail signature becomes a "-- "
     /// line, and Outlook's reply header a history rule, so the line rules above apply to HTML too.
-    static func quotedText(fromHTML html: String) -> String {
+    static func quotedText(fromHTML html: String) -> StyledText {
         let marked =
             html
             .replacing(/(?i)<div\b[^>]*\bclass="[^"]*\bgmail_signature\b[^"]*"[^>]*>/) { "<br>--<br>\($0.output)" }
             .replacing(/(?i)<[a-z]+\b[^>]*\bid="(appendonsend|divRplyFwdMsg)"[^>]*>/) {
                 "<br>-----Original Message-----<br>\($0.output.0)"
             }
-        var text = ""
+        var text = StyledText()
         var depth = 0
         var rest = marked[...]
         while true {
             let next = rest.firstMatch(of: /(?i)<(\/?)blockquote\b[^>]*>/)
             let chunk = rest[..<(next?.range.lowerBound ?? rest.endIndex)]
-            let words = HTMLEntities.plainText(fromHTML: String(chunk))
+            let words = HTMLEntities.styledText(fromHTML: String(chunk))
             if !words.isEmpty {
-                let prefix = String(repeating: "> ", count: depth)
-                text +=
-                    "\n"
-                    + words.split(separator: "\n", omittingEmptySubsequences: false)
-                    .map { prefix + $0 }.joined(separator: "\n") + "\n"
+                let prefix = StyledText(String(repeating: "> ", count: depth))
+                text.append("\n")
+                text.append(StyledText.joined(words.split(separator: "\n").map { prefix + $0 }, separator: "\n"))
+                text.append("\n")
             }
             guard let next else { break }
             depth = max(0, depth + (next.output.1.isEmpty ? 1 : -1))

@@ -8,7 +8,9 @@ struct WristQuickRepliesTests {
     private func thread(_ bubbles: [(WristBubble.Side, String)], subject: String = "") -> WristThread {
         WristThread(
             id: ThreadSummary.ID(accountID: AccountID(rawValue: "a"), threadID: "t"), subject: subject,
-            bubbles: bubbles.map { WristBubble(side: $0.0, sender: "Noa", time: nil, content: .words($0.1)) },
+            bubbles: bubbles.map {
+                WristBubble(side: $0.0, sender: "Noa", time: nil, content: .words(StyledText($0.1)))
+            },
             earlier: 0, isGroup: false, code: nil)
     }
 

@@ -17,7 +17,7 @@
                         [
                             WristBubble(
                                 side: .theirs, sender: row.sender.displayName, time: row.date,
-                                content: .words(row.snippet))
+                                content: .words(StyledText(row.snippet)))
                         ]
                     }
                 return WristThread(
@@ -47,7 +47,7 @@
             return lines.enumerated().map { index, line in
                 WristBubble(
                     side: line.0, sender: sender, time: index == 0 ? now.addingTimeInterval(-3600) : nil,
-                    content: .words(line.1))
+                    content: .words(StyledText(line.1)))
             }
         }
     }

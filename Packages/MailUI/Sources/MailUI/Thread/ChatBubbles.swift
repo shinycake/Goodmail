@@ -62,8 +62,8 @@ final class ChatWordsBubble: UIView, UIContextMenuInteractionDelegate {
         for segment in segments {
             switch segment {
             case .text(let words):
-                stack.addArrangedSubview(Self.label(words, style: .body, color: ink))
-                spoken.append(words)
+                stack.addArrangedSubview(Self.label(words.plain, style: .body, color: ink))
+                spoken.append(words.plain)
             case .quote(let words):
                 stack.addArrangedSubview(InlineQuoteView(words, ink: ink))
                 spoken.append(
@@ -74,7 +74,8 @@ final class ChatWordsBubble: UIView, UIContextMenuInteractionDelegate {
         }
         text = segments.map { segment in
             switch segment {
-            case .text(let words), .quote(let words): words
+            case .text(let words): words.plain
+            case .quote(let words): words
             }
         }.joined(separator: "\n\n")
         accessibilityLabel = spoken.joined(separator: ". ")

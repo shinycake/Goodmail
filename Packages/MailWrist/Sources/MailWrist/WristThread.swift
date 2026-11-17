@@ -63,7 +63,8 @@ public struct WristBubble: Codable, Equatable, Sendable {
     }
 
     public enum Content: Codable, Equatable, Sendable {
-        case words(String)
+        /// The new words, with the bold, italics and links the mail gave them.
+        case words(StyledText)
         /// A message that reads in full on the iPhone: long, laid out, or forwarded.
         case letter(subject: String, preview: String)
         case attachment(name: String)
@@ -71,10 +72,10 @@ public struct WristBubble: Codable, Equatable, Sendable {
         init(_ content: ChatTranscript.Content) {
             switch content {
             case .words(let segments, _):
-                let words = segments.compactMap { segment -> String? in
+                let words = segments.compactMap { segment -> StyledText? in
                     if case .text(let text) = segment { text } else { nil }
                 }
-                self = .words(String(words.joined(separator: "\n").prefix(WristThread.wordsLimit)))
+                self = .words(StyledText.joined(words, separator: "\n").prefix(WristThread.wordsLimit))
             case .letter(let subject, let preview):
                 self = .letter(subject: subject, preview: String(preview.prefix(WristThread.wordsLimit)))
             case .attachment(let attachment):
@@ -85,7 +86,7 @@ public struct WristBubble: Codable, Equatable, Sendable {
         /// The words a reader sees, for finding a code.
         var text: String {
             switch self {
-            case .words(let words): words
+            case .words(let words): words.plain
             case .letter(let subject, let preview): subject + "\n" + preview
             case .attachment(let name): name
             }

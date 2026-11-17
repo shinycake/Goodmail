@@ -67,7 +67,10 @@ struct ReplyTextTests {
             &lt;dana@example.com&gt; wrote:<br></div><blockquote class="gmail_quote" type="cite">Lunch at noon?\
             </blockquote></div>
             """
-        #expect(html(markup) == [.text("שלום, נתראה בצהריים.")])
+        #expect(
+            html(markup) == [
+                .text(StyledText(runs: [.init("שלום, נתראה "), .init("בצהריים", style: .bold), .init(".")]))
+            ])
     }
 
     @Test func appleMailHTMLInlineRepliesKeepTheirQuotes() {

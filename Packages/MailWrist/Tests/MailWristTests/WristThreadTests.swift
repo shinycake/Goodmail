@@ -61,7 +61,7 @@ struct WristThreadTests {
             Issue.record("Expected words, got \(bubble.content)")
             return
         }
-        #expect(words.count == WristThread.wordsLimit)
+        #expect(words.plain.count == WristThread.wordsLimit)
     }
 
     @Test func findsTheCodeInTheirNewestWords() {
@@ -74,7 +74,9 @@ struct WristThreadTests {
 
     @Test func hebrewStaysIntact() {
         let words = "מעולה. אזמין שולחן לארבעה."
-        #expect(thread([message("1", from: dana, minutes: 0, text: words)]).bubbles.first?.content == .words(words))
+        #expect(
+            thread([message("1", from: dana, minutes: 0, text: words)]).bubbles.first?.content
+                == .words(StyledText(words)))
     }
 
     @Test func repliesTravelAndReadBack() throws {

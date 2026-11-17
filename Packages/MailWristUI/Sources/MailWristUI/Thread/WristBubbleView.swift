@@ -1,3 +1,4 @@
+import MailCore
 import MailWrist
 import SwiftUI
 
@@ -54,7 +55,8 @@ struct WristBubbleView: View {
     @ViewBuilder private var content: some View {
         switch bubble.content {
         case .words(let words):
-            Text(verbatim: words).font(.body)
+            // Links take the words' own color in the reader's tinted bubble, where the tint would vanish.
+            Text(AttributedString(words)).font(.body).tint(isMine ? .white : nil)
         case .letter(let subject, let preview):
             VStack(alignment: .leading, spacing: 2) {
                 if !subject.isEmpty {
