@@ -39,6 +39,20 @@ final class OwnMail {
         commandsIn.yield(command)
     }
 
+    /// Runs `command` now and returns once it ran, as for an action on an alert, which the system may have launched
+    /// the app for: the host first follows the accounts of the stored `mailbox`, in case the app's run hasn't yet.
+    func perform(_ command: WristCommand, following mailbox: WristMailbox) async {
+        guard let host = await opening.value else { return }
+        do {
+            if let following = Following(mailbox) {
+                try await host.follow(following.accounts, independence: following.independence)
+            }
+            try await host.execute(command)
+        } catch {
+            Self.log.error("Couldn't run an alert's action on the watch: \(error, privacy: .public)")
+        }
+    }
+
     /// Asks for `chore`, done after the ones asked before it.
     func ask(_ chore: Chore) {
         choresIn.yield(chore)

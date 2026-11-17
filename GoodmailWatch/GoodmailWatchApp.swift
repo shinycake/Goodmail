@@ -47,7 +47,7 @@ final class WatchAppDelegate: NSObject, WKApplicationDelegate {
     /// The alerts the relay sends the watch itself (ADR-023).
     let alerts: OwnAlerts
     /// In the App Group, where the watch face's widget extension reads it.
-    private let store = WristStore(directory: SharedContainer.directoryURL ?? .applicationSupportDirectory)
+    let store = WristStore(directory: SharedContainer.directoryURL ?? .applicationSupportDirectory)
     /// Shows each snapshot the iPhone sends, stores and sends each change, and asks for each conversation opened.
     /// Ends with the app; nothing cancels it.
     private var following: Task<Void, Never>?
@@ -60,6 +60,7 @@ final class WatchAppDelegate: NSObject, WKApplicationDelegate {
     func applicationDidFinishLaunching() {
         // Before launch finishes, so that the tap on an alert that launched the app reaches it.
         UNUserNotificationCenter.current().delegate = self
+        OwnAlerts.registerActions()
         #if DEBUG
             if WatchSample.showIfRequested(inbox: inbox, threads: threads, route: route) {
                 following = Task { [inbox, threads, own, store, alerts] in

@@ -112,12 +112,17 @@ extension WatchAppDelegate: UNUserNotificationCenterDelegate {
         [.banner, .list, .sound]
     }
 
-    /// A tap opens what the alert is about.
+    /// A tap opens what the alert is about; an action runs before this returns, so the system doesn't suspend the
+    /// app halfway.
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse
     ) async {
-        guard response.actionIdentifier == UNNotificationDefaultActionIdentifier else { return }
         let alert = TappedAlert(response.notification.request.content.userInfo)
+        if let action = WristAlertAction(rawValue: response.actionIdentifier) {
+            let text = (response as? UNTextInputNotificationResponse)?.userText
+            return await act(action, on: alert, text: text)
+        }
+        guard response.actionIdentifier == UNNotificationDefaultActionIdentifier else { return }
         await MainActor.run { OwnAlerts.open(alert, inbox: inbox, route: route) }
     }
 }
