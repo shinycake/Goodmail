@@ -145,6 +145,7 @@ struct SettingsView: View {
                     comment: "Explains the Undo Send setting")
             }
         }
+        .settingsDoodles()
         .navigationDestination(for: AccountID.self) { AccountSettingsView(model: model, accountID: $0) }
         .navigationTitle(
             Text("Settings", tableName: "Settings", bundle: .module, comment: "Title of the settings screen")
