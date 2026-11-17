@@ -1,0 +1,168 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "%lld Unread": {
+      "comment": "Above the Inbox: how many conversations are unread",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Unread"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Unread"
+                }
+              }
+            }
+          }
+        },
+        "he": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld לא נקראה"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld לא נקראו"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Add a mail account in Goodmail on your iPhone.": {
+      "comment": "Shown with no mail accounts",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "אפשר להוסיף חשבון דואר ב‑Goodmail ב‑iPhone."
+          }
+        }
+      }
+    },
+    "All Caught Up": {
+      "comment": "Shown when the Inbox is empty",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "אין הודעות חדשות"
+          }
+        }
+      }
+    },
+    "Inbox": {
+      "comment": "The Inbox screen's title",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "דואר נכנס"
+          }
+        }
+      }
+    },
+    "No Accounts": {
+      "comment": "Shown with no mail accounts",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "אין חשבונות"
+          }
+        }
+      }
+    },
+    "Nothing in your Inbox.": {
+      "comment": "Shown when the Inbox is empty",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "תיבת הדואר הנכנס ריקה."
+          }
+        }
+      }
+    },
+    "Open Goodmail on iPhone": {
+      "comment": "Shown before the iPhone has sent any mail",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "יש לפתוח את Goodmail ב‑iPhone"
+          }
+        }
+      }
+    },
+    "Pinned": {
+      "comment": "VoiceOver: a pinned row",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "מוצמדת"
+          }
+        }
+      }
+    },
+    "Unread": {
+      "comment": "VoiceOver: an unread row",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "לא נקראה"
+          }
+        }
+      }
+    },
+    "Update Goodmail": {
+      "comment": "Shown when the iPhone app is newer than the watch app",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "יש לעדכן את Goodmail"
+          }
+        }
+      }
+    },
+    "Your iPhone has a newer Goodmail. Update this app to see your mail.": {
+      "comment": "Shown when the iPhone app is newer than the watch app",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ב‑iPhone יש גרסה חדשה יותר של Goodmail. יש לעדכן את האפליקציה הזו כדי לראות את הדואר."
+          }
+        }
+      }
+    },
+    "Your mail shows here once the iPhone app has synced.": {
+      "comment": "Shown before the iPhone has sent any mail",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הדואר יופיע כאן אחרי שהאפליקציה ב‑iPhone תסתנכרן."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

@@ -44,11 +44,20 @@
       "kind": "local",
       "path": "Packages/MailNotifications",
     },
+    {
+      "kind": "local",
+      "path": "Packages/MailWrist",
+    },
+    {
+      "kind": "local",
+      "path": "Packages/MailWristUI",
+    },
   ],
   "files": [
     { "path": "WidgetsExtension.entitlements" },
     { "kind": "folder", "path": "Goodmail", "target-membership": [ "Goodmail" ] },
     { "kind": "folder", "path": "GoodmailUITests", "target-membership": [ "GoodmailUITests" ] },
+    { "kind": "folder", "path": "GoodmailWatch", "target-membership": [ "GoodmailWatch" ] },
     {
       "kind": "folder",
       "path": "NotificationService",
@@ -91,6 +100,7 @@
         { "path": "<PRODUCTS>/Goodmail.app", "id": "EE86ADF83088277F00B33018", "type": "wrapper.application", "index": false },
         { "path": "<PRODUCTS>/GoodmailUITests.xctest", "id": "EE86AE0F3088278100B33018", "type": "wrapper.cfbundle", "index": false },
         { "path": "<PRODUCTS>/NotificationService.appex", "id": "EE86AE2C30882AEB00B33018", "type": "wrapper.app-extension", "index": false, "target-membership": [ { "build-phase": "Goodmail/copy/Embed Foundation Extensions", "header-preservation": "remove-on-copy" } ] },
+        { "path": "<PRODUCTS>/GoodmailWatch.app", "id": "EE86AE5A3090000100B33018", "type": "wrapper.application", "index": false, "target-membership": [ { "build-phase": "Goodmail/copy/Embed Watch Content", "header-preservation": "remove-on-copy" } ] },
         { "path": "<PRODUCTS>/WidgetsExtension.appex", "id": "EE86AE3B30882AEC00B33018", "type": "wrapper.app-extension", "index": false, "target-membership": [ { "build-phase": "Goodmail/copy/Embed Foundation Extensions", "header-preservation": "remove-on-copy" } ] },
       ],
     },
@@ -102,6 +112,7 @@
       "product": "Products/Goodmail.app",
       "product-type": "application",
       "dependencies": [
+        "GoodmailWatch",
         "NotificationService",
         "WidgetsExtension",
       ],
@@ -113,6 +124,12 @@
           "kind": "copy",
           "name": "Embed Foundation Extensions",
           "bundle-base-path": "plugins-directory",
+        },
+        {
+          "kind": "copy",
+          "name": "Embed Watch Content",
+          "bundle-base-path": "build-products-directory",
+          "relative-path": "$(CONTENTS_FOLDER_PATH)/Watch",
         },
       ],
       "package-product-members": [
@@ -136,6 +153,9 @@
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "product-name": "MailIntents",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "product-name": "MailWrist",
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "product-name": "OutlookProvider",
@@ -196,6 +216,54 @@
         "SWIFT_EMIT_LOC_STRINGS": "NO",
         "TARGETED_DEVICE_FAMILY": "1,2",
         "TEST_TARGET_NAME": "Goodmail",
+      },
+    }, {
+      "name": "GoodmailWatch",
+      "id": "EE86AE593090000100B33018",
+      "product": "Products/GoodmailWatch.app",
+      "product-type": "application",
+      "build-phases": [
+        "compile-sources",
+        "frameworks",
+        "resources",
+      ],
+      "package-product-members": [
+        {
+          "product-name": "MailCore",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "product-name": "MailWrist",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "product-name": "MailWristUI",
+          "build-phase": { "build-phase": "frameworks" },
+        },
+      ],
+      "build-settings": {
+        "ASSETCATALOG_COMPILER_APPICON_NAME": "AppIcon",
+        "ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME": "AccentColor",
+        "CODE_SIGN_STYLE": "Automatic",
+        "CURRENT_PROJECT_VERSION": "1",
+        "GENERATE_INFOPLIST_FILE": "YES",
+        "INFOPLIST_KEY_CFBundleDisplayName": "Goodmail",
+        "INFOPLIST_KEY_ITSAppUsesNonExemptEncryption": "NO",
+        "INFOPLIST_KEY_WKCompanionAppBundleIdentifier": "com.idanbirman.goodmail",
+        "INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp": "NO",
+        "LD_RUNPATH_SEARCH_PATHS": [
+          "$(inherited)",
+          "@executable_path/Frameworks",
+        ],
+        "MARKETING_VERSION": "1.0",
+        "PRODUCT_BUNDLE_IDENTIFIER": "com.idanbirman.goodmail.watchkitapp",
+        "PRODUCT_NAME": "$(TARGET_NAME)",
+        "SDKROOT": "watchos",
+        "SKIP_INSTALL": "YES",
+        "STRING_CATALOG_GENERATE_SYMBOLS": "YES",
+        "SUPPORTED_PLATFORMS": "watchos watchsimulator",
+        "SWIFT_DEFAULT_ACTOR_ISOLATION": "MainActor",
+        "SWIFT_EMIT_LOC_STRINGS": "YES",
+        "TARGETED_DEVICE_FAMILY": "4",
+        "WATCHOS_DEPLOYMENT_TARGET": "27.2",
       },
     }, {
       "name": "NotificationService",

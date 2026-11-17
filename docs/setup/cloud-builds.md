@@ -22,16 +22,21 @@ Setup also enables the tracked git hooks. Its first run in a fresh container tak
 
 ## Keeping the logic packages Linux-testable
 
-MailCore, GmailProvider, IMAPProvider, OutlookProvider and MailStore stay free of UIKit and SwiftUI. Where they need an Apple-only API, it is fenced with `#if canImport(…)`, so Linux test builds compile without it:
+MailCore, GmailProvider, IMAPProvider, OutlookProvider, MailStore and MailWrist stay free of UIKit and SwiftUI. Where they need an Apple-only API, it is fenced with `#if canImport(…)`, so Linux test builds compile without it:
 
 - `Keychain` exists only where Security does. Callers pass a `SecretStore`, which tests replace with memory.
 - Charset lookup uses CoreFoundation on Apple platforms. Linux's Foundation has no windows-1255, so that one test is skipped there.
 - `SharedContainer.directoryURL` is `nil` on Linux, because there are no App Groups.
 - MailCore, GmailProvider and OutlookProvider import `FoundationNetworking` for `URLSession`. MailCore's PKCE falls back to a small SHA-256, because CryptoKit doesn't exist on Linux.
 - IMAPProvider's transport is a URLSession stream task, which FoundationNetworking on Linux lacks. Its IMAP and SMTP code talks to a `MailTransport`, which the tests replay transcripts through, so it builds and tests on Linux without the transport.
+- MailWrist's `WristChannel` exists only where WatchConnectivity does. The snapshot and the watch's view models are plain Foundation and Observation, and those are what the tests cover.
 - `ChangeSignal` uses Darwin notifications between processes. On Linux it signals within the process only, which is what the tests exercise.
 
 A new Apple-only import in these packages breaks the Linux tests in `scripts/check`, which catches the regression in a cloud session.
+
+## The Apple Watch app builds only on the Mac
+
+`goodmail-sdk` holds the iOS and macOS SDKs and no watchOS SDK, so Linux can't compile the `GoodmailWatch` target. It stays thin: it starts the app and hands the screens their models. Everything else lives in MailWrist, which is tested on Linux, and MailWristUI, which builds for iOS as well as watchOS so `scripts/ios-build` type-checks it. The Mac's `scripts/check` builds the watch app, because the `Goodmail` scheme embeds it.
 
 ## What setup installs
 

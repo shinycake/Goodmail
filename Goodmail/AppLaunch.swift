@@ -84,6 +84,7 @@ struct AppServices {
     let syncScheduler: SyncScheduler
     let push: PushCoordinator
     let snoozeAlarms: SnoozeAlarms
+    let wrist: WristHost
     let routes: IntentRoutes
 
     static func open(routes: IntentRoutes) async throws -> AppServices {
@@ -100,7 +101,7 @@ struct AppServices {
         return AppServices(
             model: model, syncScheduler: SyncScheduler(model: model),
             push: PushCoordinator(model: model, routes: routes), snoozeAlarms: SnoozeAlarms(model: model),
-            routes: routes)
+            wrist: WristHost(database: model.database), routes: routes)
     }
 
     #if canImport(MailIntents)
@@ -128,6 +129,7 @@ struct AppServices {
         syncScheduler.start()
         push.start(UIApplication.shared)
         snoozeAlarms.start()
+        wrist.start()
         #if canImport(MailIntents)
             let spotlight = SpotlightIndexer(host: intents)
             model.didChange = { change in

@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import MailCore
@@ -42,5 +43,18 @@ struct AccountColorTests {
     @Test func pickedColorsAreStoredAsHex() {
         #expect(AccountColor.custom(RGBColor(red: 0x12, green: 0x34, blue: 0xFE)).rawValue == "#1234FE")
         #expect(AccountColor(rawValue: "#1234fe") == .custom(RGBColor(red: 0x12, green: 0x34, blue: 0xFE)))
+    }
+
+    @Test(arguments: AccountColor.presets + [.custom(RGBColor(red: 18, green: 52, blue: 254))])
+    func codesAsItsStoredForm(color: AccountColor) throws {
+        let data = try JSONEncoder().encode([color])
+        #expect(String(decoding: data, as: UTF8.self) == "[\"\(color.rawValue)\"]")
+        #expect(try JSONDecoder().decode([AccountColor].self, from: data) == [color])
+    }
+
+    @Test func refusesAnUnknownColor() {
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode([AccountColor].self, from: Data(#"["red"]"#.utf8))
+        }
     }
 }
