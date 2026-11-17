@@ -37,13 +37,13 @@ struct WristSnapshotTests {
         #expect(snapshot.rows.last?.id.threadID == "t24")
     }
 
-    @Test func accountsCarryTheirAddressColorAndUnreadCount() {
+    @Test func accountsCarryTheirAddressColorUnreadCountAndService() {
         let snapshot = WristSnapshot(
             accounts: [work, home], threads: [], pinned: [], unread: [work.id: 3], madeAt: now)
         #expect(
             snapshot.accounts == [
-                WristAccount(id: work.id, address: "me@work.example", color: .orange, unread: 3),
-                WristAccount(id: home.id, address: "me@home.example", color: .blue, unread: 0),
+                WristAccount(id: work.id, address: "me@work.example", color: .orange, unread: 3, service: .gmail),
+                WristAccount(id: home.id, address: "me@home.example", color: .blue, unread: 0, service: .icloud),
             ])
         #expect(snapshot.unread == 3)
     }

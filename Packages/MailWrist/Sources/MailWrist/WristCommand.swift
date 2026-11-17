@@ -38,16 +38,46 @@ public struct WristCommand: Codable, Equatable, Identifiable, Sendable {
     public var threads: [ThreadSummary.ID]
     public var kind: Kind
     public var madeAt: Date
+    /// Who runs it (ADR-023).
+    public var executor: WristExecutor
 
-    public init(id: UUID = UUID(), threads: [ThreadSummary.ID], kind: Kind, madeAt: Date) {
+    public init(
+        id: UUID = UUID(), threads: [ThreadSummary.ID], kind: Kind, madeAt: Date, executor: WristExecutor = .phone
+    ) {
         self.id = id
         self.threads = threads
         self.kind = kind
         self.madeAt = madeAt
+        self.executor = executor
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, threads, kind, madeAt, executor
+    }
+
+    /// A command from a watch that predates `executor` runs on the iPhone, as every command did then.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try container.decode(UUID.self, forKey: .id),
+            threads: try container.decode([ThreadSummary.ID].self, forKey: .threads),
+            kind: try container.decode(Kind.self, forKey: .kind),
+            madeAt: try container.decode(Date.self, forKey: .madeAt),
+            executor: try container.decodeIfPresent(WristExecutor.self, forKey: .executor) ?? .phone)
+    }
+
+    /// Leaves `executor` out for the iPhone, so an iPhone's command reads the same to every version.
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(threads, forKey: .threads)
+        try container.encode(kind, forKey: .kind)
+        try container.encode(madeAt, forKey: .madeAt)
+        if executor == .watch { try container.encode(executor, forKey: .executor) }
     }
 
     /// A new command that takes this one back, as Undo sends.
     public func inverse(madeAt: Date) -> WristCommand? {
-        kind.inverse.map { WristCommand(threads: threads, kind: $0, madeAt: madeAt) }
+        kind.inverse.map { WristCommand(threads: threads, kind: $0, madeAt: madeAt, executor: executor) }
     }
 }
