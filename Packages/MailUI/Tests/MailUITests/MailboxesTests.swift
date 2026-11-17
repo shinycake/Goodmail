@@ -165,6 +165,19 @@ struct MailboxesTests {
         #expect(Mailbox.trash.title(labels: []) == "Trash")
     }
 
+    @Test func oneAccountsInboxIsTitledByTheAccount() {
+        var named = account
+        named.nickname = "Personal"
+        let inbox = Mailbox(labelID: SystemLabel.inbox, accountID: account.id)
+        // IMAP keeps its Inbox as a folder named "INBOX", which never titles the list.
+        let folders = [MailboxDirectory.Label(mailbox: inbox, name: "INBOX", color: nil)]
+        #expect(inbox.listTitle(labels: folders, accounts: [named]) == "Personal")
+        #expect(inbox.listTitle(labels: folders, accounts: [account]) == "a@example.com", "the address without one")
+        #expect(Mailbox.inbox.listTitle(labels: [], accounts: [named]) == "Inbox", "every account's Inbox")
+        let sent = Mailbox(labelID: SystemLabel.sent, accountID: account.id)
+        #expect(sent.listTitle(labels: [], accounts: [named]) == "Sent")
+    }
+
     private func away(_ labels: Set<String>, in mailbox: Mailbox) -> [ThreadAction] {
         ThreadPlace(thread(labels: labels), in: mailbox).awayActions
     }

@@ -107,7 +107,7 @@ public final class MailboxViewModel {
     ) {
         self.actions = actions
         self.mailbox = mailbox
-        self.title = title ?? mailbox.title(labels: [])
+        self.title = title ?? mailbox.listTitle(labels: [], accounts: accounts)
         composingAccount = mailbox.accountID ?? accounts.first?.id
         theme = Theme(accountID: mailbox.accountID, among: accounts, combined: combinedTheme)
         self.accounts = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0) })

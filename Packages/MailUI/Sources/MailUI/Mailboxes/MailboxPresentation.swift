@@ -27,6 +27,15 @@ extension Mailbox {
         }
     }
 
+    /// The title of this mailbox's list. One account's Inbox goes by the account's name, as in Apple Mail, so it reads
+    /// apart from the other accounts' Inboxes; any other list by `title(labels:)`.
+    nonisolated public func listTitle(labels: [MailboxDirectory.Label], accounts: [Account]) -> String {
+        if labelID == SystemLabel.inbox, let account = accounts.first(where: { $0.id == accountID }) {
+            return account.title
+        }
+        return title(labels: labels)
+    }
+
     var symbol: String {
         switch labelID {
         case nil: "archivebox"

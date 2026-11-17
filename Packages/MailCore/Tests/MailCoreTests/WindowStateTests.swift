@@ -7,19 +7,19 @@ struct WindowStateTests {
     private let home = AccountID(rawValue: "home")
 
     @Test func aNewWindowShowsTheInboxOnItsPrimaryCategory() {
-        #expect(WindowState().list == .mailbox(.inbox, title: nil, thread: nil))
+        #expect(WindowState().list == .mailbox(.inbox, thread: nil))
         #expect(WindowState().category == .primary)
     }
 
     @Test func aThreadOpensFromAMailboxOrSnoozedButNotScheduled() {
         let thread = ThreadSummary.ID(accountID: work, threadID: "t1")
-        var state = WindowState(list: .mailbox(.starred, title: nil, thread: nil))
+        var state = WindowState(list: .mailbox(.starred, thread: nil))
         state.setThread(thread)
-        #expect(state.list == .mailbox(.starred, title: nil, thread: thread))
+        #expect(state.list == .mailbox(.starred, thread: thread))
         #expect(state.openThread?.id == thread)
         #expect(state.openThread?.mailbox == .starred)
         state.setThread(nil)
-        #expect(state.list == .mailbox(.starred, title: nil, thread: nil))
+        #expect(state.list == .mailbox(.starred, thread: nil))
 
         var snoozed = WindowState(list: .snoozed(thread: nil))
         snoozed.setThread(thread)
@@ -35,14 +35,26 @@ struct WindowStateTests {
         let label = Mailbox(labelID: "Label_7", accountID: work)
         let thread = ThreadSummary.ID(accountID: work, threadID: "t9")
         let states = [
-            WindowState(list: .mailbox(label, title: "Receipts", thread: thread), category: .updates),
-            WindowState(list: .mailbox(.allMail, title: nil, thread: nil)),
+            WindowState(list: .mailbox(label, thread: thread), category: .updates),
+            WindowState(list: .mailbox(.allMail, thread: nil)),
             WindowState(list: .snoozed(thread: thread)),
             WindowState(list: .scheduled, category: .social),
         ]
         for state in states {
             #expect(try WindowState(saved: state.saved()) == state)
         }
+    }
+
+    @Test func aStateSavedWithAListTitleStillReads() throws {
+        let inbox = Mailbox(labelID: SystemLabel.inbox, accountID: work)
+        let state = WindowState(list: .mailbox(inbox, thread: nil))
+        var json = try #require(JSONSerialization.jsonObject(with: state.saved()) as? [String: Any])
+        var list = try #require(json["list"] as? [String: Any])
+        var mailbox = try #require(list["mailbox"] as? [String: Any])
+        mailbox["title"] = "INBOX"
+        list["mailbox"] = mailbox
+        json["list"] = list
+        #expect(try WindowState(saved: JSONSerialization.data(withJSONObject: json)) == state)
     }
 
     @Test func aNarrowWindowBackAtTheMailboxesOpensOnItsListWhenRestored() throws {
@@ -61,7 +73,7 @@ struct WindowStateTests {
 
     @Test func aGoneAccountKeepsTheWindowAtTheMailboxes() {
         let label = Mailbox(labelID: "Label_7", accountID: home)
-        let state = WindowState(list: .mailbox(label, title: "Family", thread: nil), depth: .mailboxes)
+        let state = WindowState(list: .mailbox(label, thread: nil), depth: .mailboxes)
         #expect(state.keeping([work]) == WindowState(depth: .mailboxes))
     }
 
@@ -72,13 +84,13 @@ struct WindowStateTests {
     @Test func aWindowOnAnAccountThatIsGoneFallsBackToTheInbox() {
         let label = Mailbox(labelID: "Label_7", accountID: home)
         let thread = ThreadSummary.ID(accountID: home, threadID: "t1")
-        let state = WindowState(list: .mailbox(label, title: "Family", thread: nil), category: .promotions)
+        let state = WindowState(list: .mailbox(label, thread: nil), category: .promotions)
         #expect(state.keeping([work, home]) == state)
         #expect(state.keeping([work]) == WindowState(category: .promotions))
 
-        let unified = WindowState(list: .mailbox(.inbox, title: nil, thread: thread))
+        let unified = WindowState(list: .mailbox(.inbox, thread: thread))
         #expect(
-            unified.keeping([work]) == WindowState(list: .mailbox(.inbox, title: nil, thread: nil)),
+            unified.keeping([work]) == WindowState(list: .mailbox(.inbox, thread: nil)),
             "the unified Inbox stays, without the gone account's thread")
         #expect(WindowState(list: .snoozed(thread: thread)).keeping([work]) == WindowState(list: .snoozed(thread: nil)))
         #expect(WindowState(list: .scheduled).keeping([]) == WindowState(list: .scheduled))
@@ -87,10 +99,10 @@ struct WindowStateTests {
     @Test func aThreadOpenedInANewWindowKeepsTheListItWasOpenedFrom() {
         let label = Mailbox(labelID: "Label_7", accountID: work)
         let thread = ThreadSummary.ID(accountID: work, threadID: "t1")
-        let receipts = WindowState(list: .mailbox(label, title: "Receipts", thread: nil), category: .updates)
+        let receipts = WindowState(list: .mailbox(label, thread: nil), category: .updates)
         #expect(
             receipts.opening(thread, in: label)
-                == WindowState(list: .mailbox(label, title: "Receipts", thread: thread), category: .updates))
+                == WindowState(list: .mailbox(label, thread: thread), category: .updates))
         #expect(
             WindowState(list: .snoozed(thread: nil)).opening(thread, in: .allMail).list == .snoozed(thread: thread))
     }
@@ -99,10 +111,10 @@ struct WindowStateTests {
         let thread = ThreadSummary.ID(accountID: work, threadID: "t1")
         let other = ThreadSummary.ID(accountID: home, threadID: "t2")
         #expect(
-            WindowState(list: .mailbox(.inbox, title: nil, thread: other)).opening(thread, in: .allMail).list
-                == .mailbox(.allMail, title: nil, thread: thread), "a search result is read in All Mail")
+            WindowState(list: .mailbox(.inbox, thread: other)).opening(thread, in: .allMail).list
+                == .mailbox(.allMail, thread: thread), "a search result is read in All Mail")
         #expect(
             WindowState(list: .scheduled).opening(thread, in: .inbox).list
-                == .mailbox(.inbox, title: nil, thread: thread))
+                == .mailbox(.inbox, thread: thread))
     }
 }

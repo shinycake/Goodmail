@@ -6,7 +6,9 @@ public import Foundation
 public struct WindowState: Equatable, Codable, Sendable {
     /// The list beside the mailboxes, and the thread open from it.
     public enum List: Equatable, Codable, Sendable {
-        case mailbox(Mailbox, title: String?, thread: ThreadSummary.ID?)
+        /// The list is titled when it is built, from the labels and accounts then, so a renamed label or account
+        /// shows its new name. State saved by builds that kept a `title` here still reads: the key is ignored.
+        case mailbox(Mailbox, thread: ThreadSummary.ID?)
         case scheduled
         /// Snoozed threads, read as in All Mail since they are out of the Inbox.
         case snoozed(thread: ThreadSummary.ID?)
@@ -36,7 +38,7 @@ public struct WindowState: Equatable, Codable, Sendable {
     }
 
     public init(
-        list: List = .mailbox(.inbox, title: nil, thread: nil), category: InboxCategory = .primary, depth: Depth = .list
+        list: List = .mailbox(.inbox, thread: nil), category: InboxCategory = .primary, depth: Depth = .list
     ) {
         self.list = list
         self.category = category
@@ -55,7 +57,7 @@ public struct WindowState: Equatable, Codable, Sendable {
     /// The thread open from the shown list, and the mailbox it is read in.
     public var openThread: (id: ThreadSummary.ID, mailbox: Mailbox)? {
         switch list {
-        case .mailbox(_, _, let thread?), .snoozed(let thread?): readingMailbox.map { (thread, $0) }
+        case .mailbox(_, let thread?), .snoozed(let thread?): readingMailbox.map { (thread, $0) }
         case .mailbox, .scheduled, .snoozed: nil
         }
     }
@@ -65,17 +67,17 @@ public struct WindowState: Equatable, Codable, Sendable {
     public mutating func setThread(_ thread: ThreadSummary.ID?) {
         if thread != nil { depth = .list }
         switch list {
-        case .mailbox(let mailbox, let title, _): list = .mailbox(mailbox, title: title, thread: thread)
+        case .mailbox(let mailbox, _): list = .mailbox(mailbox, thread: thread)
         case .snoozed: list = .snoozed(thread: thread)
         case .scheduled: break
         }
     }
 
-    /// A new window that opens `thread`, read in `mailbox`. It keeps this window's list (and its title) when that
-    /// is where the thread was read; a thread found elsewhere, such as in search, opens over its own mailbox.
+    /// A new window that opens `thread`, read in `mailbox`. It keeps this window's list when that is where the thread
+    /// was read; a thread found elsewhere, such as in search, opens over its own mailbox.
     public func opening(_ thread: ThreadSummary.ID, in mailbox: Mailbox) -> WindowState {
         var opened = self
-        if readingMailbox != mailbox { opened.list = .mailbox(mailbox, title: nil, thread: nil) }
+        if readingMailbox != mailbox { opened.list = .mailbox(mailbox, thread: nil) }
         opened.setThread(thread)
         return opened
     }
@@ -83,7 +85,7 @@ public struct WindowState: Equatable, Codable, Sendable {
     /// The mailbox a thread opened from the shown list is read in. Scheduled holds messages, not threads.
     private var readingMailbox: Mailbox? {
         switch list {
-        case .mailbox(let mailbox, _, _): mailbox
+        case .mailbox(let mailbox, _): mailbox
         case .snoozed: .allMail
         case .scheduled: nil
         }
@@ -93,7 +95,7 @@ public struct WindowState: Equatable, Codable, Sendable {
     /// removed: an account's own mailbox gives way to the Inbox, and a thread of a gone account closes.
     public func keeping(_ accounts: [AccountID]) -> WindowState {
         var kept = self
-        if case .mailbox(let mailbox, _, _) = list, let account = mailbox.accountID, !accounts.contains(account) {
+        if case .mailbox(let mailbox, _) = list, let account = mailbox.accountID, !accounts.contains(account) {
             kept.list = WindowState().list
         } else if let thread = openThread?.id, !accounts.contains(thread.accountID) {
             kept.setThread(nil)

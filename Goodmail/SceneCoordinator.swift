@@ -274,7 +274,7 @@ final class SceneCoordinator: NSObject {
 
     private func shownListViewController() -> UIViewController {
         switch shown.list {
-        case .mailbox(let mailbox, let title, _): mailboxViewController(for: mailbox, title: title)
+        case .mailbox(let mailbox, _): mailboxViewController(for: mailbox)
         case .scheduled: scheduledViewController()
         case .snoozed: snoozedViewController()
         }
@@ -351,8 +351,15 @@ final class SceneCoordinator: NSObject {
         }
     }
 
-    private func mailboxViewController(for mailbox: Mailbox, title: String?) -> MailboxViewController {
+    private func mailboxViewController(for mailbox: Mailbox) -> MailboxViewController {
         let model = model
+        let labels =
+            mailbox.accountID.flatMap { account in
+                (try? model.database.labels(for: account))?.map {
+                    MailboxDirectory.Label(
+                        mailbox: Mailbox(labelID: $0.id, accountID: account), name: $0.name, color: nil)
+                }
+            } ?? []
         let search = ThreadSearch(
             local: { model.database.search($0, including: $1) }, remote: { try await model.search($0, after: $1) })
         let results = SearchResultsController(
@@ -361,7 +368,7 @@ final class SceneCoordinator: NSObject {
         return MailboxViewController(
             viewModel: MailboxViewModel(
                 mailbox: mailbox,
-                title: title,
+                title: mailbox.listTitle(labels: labels, accounts: model.accounts),
                 accounts: model.accounts,
                 source: source(for: mailbox),
                 woken: mailbox.labelID == SystemLabel.inbox ? { model.database.wokenThreads() } : nil,
@@ -404,9 +411,7 @@ final class SceneCoordinator: NSObject {
     func handle(_ route: Route) {
         switch route {
         case .mailbox(let mailbox):
-            let labels = (try? model.database.labels(for: mailbox.accountID ?? AccountID(rawValue: ""))) ?? []
-            let title = labels.first { $0.id == mailbox.labelID }?.name
-            show(.mailbox(mailbox, title: title, thread: nil))
+            show(.mailbox(mailbox, thread: nil))
         case .scheduled:
             show(.scheduled)
         case .snoozed:
@@ -551,7 +556,7 @@ extension WindowState {
     /// Where the mailboxes list marks the reader as being.
     fileprivate var destination: MailboxesViewModel.Destination {
         switch list {
-        case .mailbox(let mailbox, _, _): .mailbox(mailbox)
+        case .mailbox(let mailbox, _): .mailbox(mailbox)
         case .scheduled: .scheduled
         case .snoozed: .snoozed
         }
