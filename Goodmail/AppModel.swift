@@ -4,6 +4,7 @@ import IMAPProvider
 import MailCore
 import MailStore
 import MailUI
+import MailWristHost
 import OSLog
 import OutlookProvider
 import UIKit
@@ -13,6 +14,8 @@ import UIKit
 final class AppModel {
     let database: MailDatabase
     let commands: MailCommands
+    /// Reads and answers conversations, for alert replies, the watch and the composer's quote.
+    let answers: ThreadAnswers
     private(set) var accounts: [Account]
     let providers: Providers
     private var engines: [AccountID: SyncEngine] = [:]
@@ -92,6 +95,7 @@ final class AppModel {
             store: database,
             replay: { id in Task { await outboxes.flush(id) } },
             deliver: { id, date in Task { await senders.deliver(id, at: date) } })
+        answers = ThreadAnswers(database: database, commands: commands, provider: providers.provider(for:))
         // A sent message lands in its thread on the server; fetch it so the list and the reader show it there.
         senders.onSent = { [weak self] id, sent in
             guard let self else { return }
@@ -411,36 +415,12 @@ final class AppModel {
 
     /// Fetches a thread's messages with their bodies into the store, where the thread view reads them.
     func loadMessages(of thread: ThreadSummary.ID) async throws {
-        let fetchedAt = Date.now
-        let messages = try await providers.provider(for: thread.accountID).messages(inThread: thread.threadID)
-        try await Self.store { [database] in try database.save(messages, inThread: thread, fetchedAt: fetchedAt) }
+        try await answers.loadMessages(of: thread)
     }
 
-    /// A thread's messages, to answer its newest: the cached ones when they reach as far as the thread does,
-    /// otherwise the provider's, fetched into the store first. Offline, the cached ones are the best there is.
+    /// A thread's messages, to answer its newest (`ThreadAnswers.messagesToAnswer(in:)`).
     func messagesToAnswer(in thread: ThreadSummary.ID) async throws -> [Message] {
-        let newest = try await Self.read { [database] in try database.thread(thread)?.date }
-        let cached = try await Self.first(database.messages(inThread: thread))
-        // The store keeps the thread's date to the millisecond and each message's whole, so allow a little.
-        if let newest, let last = cached.last?.date, last.timeIntervalSince(newest) > -1 { return cached }
-        do {
-            try await loadMessages(of: thread)
-        } catch {
-            if cached.isEmpty { throw error }
-            return cached
-        }
-        return try await Self.first(database.messages(inThread: thread))
-    }
-
-    /// The store's current value, without following it.
-    private static func first(_ messages: AsyncThrowingStream<[Message], any Error>) async throws -> [Message] {
-        for try await messages in messages { return messages }
-        return []
-    }
-
-    /// Runs a database read off the main actor, for the same reason as `store`.
-    @concurrent private static func read<Value: Sendable>(_ read: @Sendable () throws -> Value) async throws -> Value {
-        try read()
+        try await answers.messagesToAnswer(in: thread)
     }
 
     /// Runs a database write off the main actor. Any write can wait out another process's lock for seconds
