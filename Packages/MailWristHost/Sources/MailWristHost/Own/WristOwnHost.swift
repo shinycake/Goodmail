@@ -86,13 +86,22 @@ public actor WristOwnHost {
     }
 
     /// Fetches what changed since each filled account's cursor, as a background refresh does: no resync, no labels.
-    /// A second caller while one runs joins it.
+    /// A second caller while one runs joins it. Cancelling a caller, as the system does when a background refresh's
+    /// time runs out, cancels the catch-up: what each account stored so far stays, and its health doesn't count it.
     public func catchUp() async {
-        if let catchingUp { return await catchingUp.value }
+        if let catchingUp { return await Self.wait(for: catchingUp) }
         let task = Task { await runCatchUp() }
         catchingUp = task
         defer { catchingUp = nil }
-        await task.value
+        await Self.wait(for: task)
+    }
+
+    private static func wait(for task: Task<Void, Never>) async {
+        await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
     }
 
     private func runCatchUp() async {
@@ -140,6 +149,8 @@ public actor WristOwnHost {
             }
             return await group.reduce(into: [:]) { $0[$1.0] = $1.1 }
         }
+        // A run cut short says nothing about the accounts.
+        guard !Task.isCancelled else { return }
         let date = now()
         for (id, outcome) in outcomes where served[id] != nil {
             health[id] = (health[id] ?? .healthy).after(outcome, at: date)
