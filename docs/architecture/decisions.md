@@ -202,8 +202,26 @@ The owner decided these on 2026-10-20 after talking through the options. Each en
 
 ## ADR-022: The Apple Watch app shows the iPhone's mail
 
+Amended by ADR-023: Gmail and Outlook accounts are now read on the watch itself.
+
 - **Decision (owner, 2026-11-17):** the watch app keeps a snapshot of the Inbox that the iPhone sends it over WatchConnectivity, and it sends changes back as commands that the iPhone runs through `MailCommands`. It holds no sign-ins, no database and no sync engine. With the iPhone away it shows the last snapshot; the owner chose not to have the watch fetch mail on its own.
 - **Why:** IMAP and SMTP need a raw TLS socket, which watchOS allows only for audio and VoIP apps, so a watch that talked to servers itself would lose iCloud and custom IMAP accounts. Snooze, pins, rules and the Focus live only in the iPhone's database. New-mail alerts already reach the watch: iOS mirrors them, and their actions run in the iPhone app.
 - **Naming:** Apple Watch types are called Wrist (`MailWrist`, `WristSnapshot`), because Watch already means Gmail's watch and `ChangeWatchers`. Only the Xcode target says Watch.
 - **Exceptions:** the watch's screens are SwiftUI, the only UI watchOS has (ADR-004). Its actions will be its own commands, not App Intents (ADR-012), since MailIntents needs CoreSpotlight and the `.mail` schema macros.
 - **Rejected:** a watch that syncs on its own, for the reasons above, and a relay with no copy on the watch, where every screen would wait for the iPhone.
+
+## ADR-023: The Apple Watch reads Gmail and Outlook itself
+
+- **Decision (owner, 2026-11-17):** on the watch, each account has one source. A Gmail or Outlook account whose sign-in is in the watch's Keychain is direct: the watch keeps the newest 100 Inbox conversations in its own database, syncs them with `SyncEngine`, and sends archive, trash, read and reply through its own `MailCommands` and outbox. Every other account is relayed, as ADR-022 describes. The iPhone stays the keeper of the account list and of pins, snoozes, device-side mute, rules, Focus and device-side signatures, which it sends in the snapshot for the watch to lay over its rows. Pin and Snooze always run on the iPhone.
+- **Why:** the owner wants mail on the watch with the iPhone off or away. In the background, the watch can't tell whether the iPhone is reachable, so the path can't depend on that, and a relayed snapshot goes stale whenever the iPhone app is suspended. Apple's guidance agrees: WatchConnectivity is an optimization, not the main source of data.
+- **Amends ADR-022:** "It holds no sign-ins, no database and no sync engine" now holds for relayed accounts only. iCloud and IMAP stay relayed for the reason ADR-022 gives: watchOS blocks the raw TLS sockets they need (TN3135).
+- **Sign-ins:** they come from iCloud Keychain, through the shared access group. Nobody signs in on the watch, and the watch has no OAuth client of its own.
+- **Alerts:** the relay sends each alert to the iPhone. When the iPhone's notification extension doesn't confirm it within 8 seconds, the relay sends it to the watch's own token, which the iPhone registered beside its own.
+- **One host:** `WristMailHost` in `MailWristHost` turns a database into snapshots, runs commands and builds conversations. The iPhone uses it for the watch, and the watch uses it for itself.
+- **States:** `WristAccountSource` says who serves an account and why, and only `WristAccountSources.resolve` changes it. `WristExecutor` is stamped on a command when the command is made.
+- **Builds:** MailCore, MailStore, GmailProvider, OutlookProvider and MailWrist also build for watchOS, which only the Mac can compile (`scripts/check`, `WATCH_BUILT_PACKAGES`).
+- **Rejected:**
+  - Switching between the iPhone and direct by reachability, which the watch can't know in the background.
+  - An IMAP proxy in the push Worker, which would pass mail through the server.
+  - Signing in on the watch.
+  - A fully independent watch app, which would lose iCloud, IMAP and every iPhone-only feature.

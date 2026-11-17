@@ -26,6 +26,8 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OB
 SWIFT_ROOTS=(Goodmail GoodmailUITests GoodmailWatch GoodmailWatchWidgets NotificationService Widgets Packages)
 # Packages without UIKit or SwiftUI, whose tests also run on Linux (docs/setup/cloud-builds.md).
 LINUX_TESTED_PACKAGES=(MailCore GmailProvider MailStore IMAPProvider OutlookProvider MailWrist)
+# The packages the Apple Watch runs itself (ADR-023), built for watchOS on the Mac.
+WATCH_BUILT_PACKAGES=(MailCore MailStore GmailProvider OutlookProvider MailWrist)
 
 step() { printf '\n▸ %s\n' "$1"; }
 
@@ -116,6 +118,14 @@ for package in Packages/*/; do
     step "$package tests ($DESTINATION)"
     (cd "Packages/$package" && strict_xcodebuild test -quiet -scheme "$package" -destination "$DESTINATION" \
         -derivedDataPath "$BUILD_DIR/DerivedData-Packages")
+done
+
+# The Apple Watch syncs Gmail and Outlook itself (ADR-023), so these packages must also build for watchOS. Only the
+# Mac has the watchOS SDK.
+for package in "${WATCH_BUILT_PACKAGES[@]}"; do
+    step "$package for watchOS"
+    (cd "Packages/$package" && strict_xcodebuild build -quiet -scheme "$package" -destination "generic/platform=watchOS" \
+        -derivedDataPath "$BUILD_DIR/DerivedData-Watch")
 done
 
 step "App build and launch tests in English and Hebrew ($DESTINATION)"
