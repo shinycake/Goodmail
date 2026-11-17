@@ -87,4 +87,29 @@ struct WristSnapshotTests {
         let old = try JSONSerialization.data(withJSONObject: json)
         #expect(try WristSnapshot.read(old) == .snapshot(snapshot))
     }
+
+    @Test func aSnapshotWithoutExtrasStillReads() throws {
+        let snapshot = WristSnapshot(accounts: [work], threads: [], pinned: [], unread: [:], madeAt: now)
+        let json = try #require(try JSONSerialization.jsonObject(with: snapshot.encoded()) as? [String: Any])
+        #expect(json["extras"] == nil, "a snapshot without extras sends none")
+        #expect(try WristSnapshot.read(snapshot.encoded()) == .snapshot(snapshot))
+        #expect(snapshot.extras == nil)
+    }
+
+    @Test func extrasReadBackAsSent() throws {
+        let pinned = ThreadSummary.ID(accountID: work.id, threadID: "t1")
+        let extras = WristExtras(
+            pinned: [pinned], asleep: [ThreadSummary.ID(accountID: home.id, threadID: "t2")],
+            muted: [ThreadSummary.ID(accountID: work.id, threadID: "t3")], focus: [work.id],
+            signatures: [work.id: "Sent from Outlook"], independence: .on)
+        let snapshot = WristSnapshot(
+            accounts: [work, home], threads: [], pinned: [], unread: [:], extras: extras, madeAt: now)
+
+        #expect(try WristSnapshot.read(snapshot.encoded()) == .snapshot(snapshot))
+    }
+
+    @Test func extrasWithoutAFocusLetEveryAccountThrough() throws {
+        let json = Data(#"{"pinned":[],"asleep":[],"muted":[],"signatures":[],"independence":"off"}"#.utf8)
+        #expect(try JSONDecoder().decode(WristExtras.self, from: json) == WristExtras())
+    }
 }

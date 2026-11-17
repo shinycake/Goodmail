@@ -21,10 +21,13 @@ public struct WristSnapshot: Codable, Equatable, Sendable {
     public var applied: [UUID]
     /// Those of `applied` that failed, so the watch can say a reply didn't go.
     public var failed: [UUID]
+    /// What only the iPhone knows, for the watch to lay over the mail it reads itself (ADR-023). The watch's own
+    /// snapshots carry none.
+    public var extras: WristExtras?
 
     public init(
         version: Int = currentVersion, madeAt: Date, accounts: [WristAccount], rows: [WristRow], applied: [UUID] = [],
-        failed: [UUID] = []
+        failed: [UUID] = [], extras: WristExtras? = nil
     ) {
         self.version = version
         self.madeAt = madeAt
@@ -32,9 +35,11 @@ public struct WristSnapshot: Codable, Equatable, Sendable {
         self.rows = rows
         self.applied = applied
         self.failed = failed
+        self.extras = extras
     }
 
-    /// A snapshot from before `applied` or `failed` existed reads as having applied, or failed, nothing.
+    /// A snapshot from before `applied`, `failed` or `extras` existed reads as having applied, or failed, nothing,
+    /// and carrying no extras.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.init(
@@ -43,13 +48,14 @@ public struct WristSnapshot: Codable, Equatable, Sendable {
             accounts: try container.decode([WristAccount].self, forKey: .accounts),
             rows: try container.decode([WristRow].self, forKey: .rows),
             applied: try container.decodeIfPresent([UUID].self, forKey: .applied) ?? [],
-            failed: try container.decodeIfPresent([UUID].self, forKey: .failed) ?? [])
+            failed: try container.decodeIfPresent([UUID].self, forKey: .failed) ?? [],
+            extras: try container.decodeIfPresent(WristExtras.self, forKey: .extras))
     }
 
     /// The snapshot of an Inbox: `threads` newest first, with the `pinned` ones and each account's `unread` count.
     public init(
         accounts: [Account], threads: [ThreadSummary], pinned: Set<ThreadSummary.ID>, unread: [AccountID: Int],
-        applied: [UUID] = [], madeAt: Date
+        applied: [UUID] = [], extras: WristExtras? = nil, madeAt: Date
     ) {
         let newestFirst = threads.sorted { $0.date > $1.date }
         let ordered = newestFirst.filter { pinned.contains($0.id) } + newestFirst.filter { !pinned.contains($0.id) }
@@ -60,7 +66,8 @@ public struct WristSnapshot: Codable, Equatable, Sendable {
                     id: account.id, address: account.email, color: account.color, unread: unread[account.id] ?? 0,
                     service: account.service)
             },
-            rows: ordered.prefix(Self.rowLimit).map { WristRow($0, pinned: pinned.contains($0.id)) }, applied: applied)
+            rows: ordered.prefix(Self.rowLimit).map { WristRow($0, pinned: pinned.contains($0.id)) }, applied: applied,
+            extras: extras)
     }
 
     /// Unread conversations in every account's Inbox.

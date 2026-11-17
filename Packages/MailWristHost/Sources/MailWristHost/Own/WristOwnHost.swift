@@ -148,14 +148,16 @@ public actor WristOwnHost {
 }
 
 extension MailDatabase {
-    /// The Inbox as the watch lists it, again after every change to it, each made at `now()`.
+    /// The Inbox as the watch lists it, again after every change to it, each made at `now()` and carrying the
+    /// `extras` of its accounts.
     func wristSnapshots(
-        now: @escaping @Sendable () -> Date
+        now: @escaping @Sendable () -> Date,
+        extras: @escaping @Sendable ([Account]) -> WristExtras? = { _ in nil }
     ) -> AsyncMapSequence<AsyncThrowingStream<InboxGlance, any Error>, WristSnapshot> {
         inboxGlance(limit: WristSnapshot.rowLimit).map { glance in
             WristSnapshot(
                 accounts: glance.accounts, threads: glance.threads, pinned: glance.pinned, unread: glance.unread,
-                madeAt: now())
+                extras: extras(glance.accounts), madeAt: now())
         }
     }
 }

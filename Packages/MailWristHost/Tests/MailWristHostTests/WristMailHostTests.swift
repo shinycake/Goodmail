@@ -60,6 +60,28 @@ struct WristMailHostTests {
         #expect(snapshot.madeAt == now)
     }
 
+    @Test func theIPhonesSnapshotCarriesWhatOnlyItKnows() async throws {
+        let outlook = Account(id: AccountID(rawValue: "home"), email: "me@outlook.com", color: .blue, service: .outlook)
+        try database.save(outlook)
+        try database.upsert([thread("t1", minutesAgo: 1)])
+        try database.setPins([id("t1"): true])
+        try database.apply(StoreChanges(accountID: account.id, signature: "Kept by Gmail"))
+        try database.apply(StoreChanges(accountID: outlook.id, signature: "Only on the iPhone"))
+        let commands = MailCommands(store: database, replay: { _ in }, now: { [now] in now })
+        let host = WristMailHost(
+            database: database, commands: commands,
+            answers: ThreadAnswers(
+                database: database, commands: commands, provider: { _ in throw ProviderError.notFound }),
+            independence: { .on })
+
+        let extras = try #require(try await firstSnapshot(of: host).extras)
+
+        #expect(extras.pinned == [id("t1")])
+        #expect(extras.signatures == [outlook.id: "Only on the iPhone"], "Gmail keeps its own")
+        #expect(extras.focus == nil)
+        #expect(extras.independence == .on)
+    }
+
     @Test func anArchiveLeavesTheInboxAndIsQueuedForTheService() async throws {
         try database.upsert([thread("t1", minutesAgo: 1)])
         let host = host()
