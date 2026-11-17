@@ -42,12 +42,14 @@ public struct ThreadAnswers: Sendable {
     }
 
     /// Sends `text` as a reply to the newest message in the thread, signed as the composer signs it, with the
-    /// conversation quoted below. Does nothing for an account that is gone or a thread without messages.
-    @concurrent public func reply(to thread: ThreadSummary.ID, with text: String) async throws {
-        guard let account = try database.accounts().first(where: { $0.id == thread.accountID }) else { return }
+    /// conversation quoted below. Returns the reply as queued; `nil`, having done nothing, for an account that is gone
+    /// or a thread without messages.
+    @discardableResult
+    @concurrent public func reply(to thread: ThreadSummary.ID, with text: String) async throws -> Draft? {
+        guard let account = try database.accounts().first(where: { $0.id == thread.accountID }) else { return nil }
         let fetchedAt = Date.now
         let messages = try await provider(thread.accountID).messages(inThread: thread.threadID)
-        guard let latest = messages.last else { return }
+        guard let latest = messages.last else { return nil }
         try database.save(messages, inThread: thread, fetchedAt: fetchedAt)
         var plain = text
         if let signature = try database.signature(for: account.id), !signature.isEmpty {
@@ -56,6 +58,7 @@ public struct ThreadAnswers: Sendable {
         var draft = Draft.reply(to: latest, all: false, accountEmail: account.email, aliases: account.aliases)
         draft.body = MessageBody(html: HTMLText.lines(plain), plain: plain)
         try await commands.send(draft, after: .zero)
+        return draft
     }
 
     /// The store's current value, without following it.

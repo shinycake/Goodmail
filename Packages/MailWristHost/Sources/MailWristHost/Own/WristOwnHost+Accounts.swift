@@ -18,7 +18,7 @@ extension WristOwnHost {
     }
 
     private func drop(_ account: Account) throws {
-        engines[account.id] = nil
+        stopServing(account.id)
         health[account.id] = nil
         try database.removeAccount(account.id)
         try signIns.forget(
