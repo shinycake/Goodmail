@@ -51,7 +51,7 @@ export class Alerts {
         .bind(alert, this.now())
         .run();
     }
-    const recipient = { token: device.token, environment: device.environment, topic: this.topics.app };
+    const recipient = { token: device.token, environment: device.environment, topic: this.topics.app, device: "phone" as const };
     const outcome = await sendAlert(this.signer, recipient, mail, target, alert);
     if (outcome === "gone") {
       // The app is gone from the iPhone, so the watch, which needs it, gets nothing either.
@@ -66,7 +66,7 @@ export class Alerts {
   private async fallBack(device: Device & { watchToken: string }, mail: NewMail, target: Target, alert: string) {
     await this.wait(FALLBACK_MS);
     if (!(await move(this.db, alert, "fellBack"))) return;
-    const recipient = { token: device.watchToken, environment: device.environment, topic: this.topics.watch };
+    const recipient = { token: device.watchToken, environment: device.environment, topic: this.topics.watch, device: "watch" as const };
     if ((await sendAlert(this.signer, recipient, mail, target, alert)) === "gone") {
       await forgetWatchToken(this.db, device.watchToken);
     }

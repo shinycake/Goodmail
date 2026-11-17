@@ -107,7 +107,7 @@ describe("falling back to the watch", () => {
     const [phone, watch] = pushes;
     expect(phone).toMatchObject({ token: PHONE, topic: TOPICS.app });
     expect(watch).toMatchObject({ token: WATCH, topic: TOPICS.watch, collapse: phone!.collapse });
-    expect(watch!.body).toEqual(phone!.body);
+    expect(watch!.body).toEqual({ ...phone!.body, aps: { ...(phone!.body as { aps: object }).aps, category: "newMail" } });
     expect(watch!.body).toMatchObject({ alert: phone!.collapse, threadID: "t1" });
     expect(await delivery(phone!.body.alert!)).toBe("fellBack");
   });

@@ -15,6 +15,17 @@ describe("the alert gate", () => {
     expect(payload).toMatchObject({ alert: "alert-1", threadID: "t1" });
   });
 
+  it("gives only the watch's copy the actions' category, and only when it names the conversation", () => {
+    const mail = { sender: "Dana", subject: "Lunch?", threadID: "t1" };
+    expect(alertPayload(mail, { accountID: "a1" }, "alert-1", "watch")).toMatchObject({ aps: { category: "newMail" } });
+    const phone = alertPayload(mail, { accountID: "a1" }, "alert-1") as { aps: object };
+    expect(phone.aps).not.toHaveProperty("category");
+    const unnamed = alertPayload({ sender: "Dana", subject: "Lunch?" }, { accountID: "a1" }, "alert-1", "watch") as {
+      aps: object;
+    };
+    expect(unnamed.aps).not.toHaveProperty("category");
+  });
+
   it("shows the sender alone for an email without a subject, and clips long text", () => {
     const payload = alertPayload({ sender: "x".repeat(300), subject: "  " }, { account: "a@b", historyId: "1" }, "alert-1") as {
       aps: { alert: Record<string, string> };

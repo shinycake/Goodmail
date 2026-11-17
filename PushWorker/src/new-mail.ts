@@ -30,17 +30,27 @@ export type Target = { account: string; historyId: string } | { accountID: strin
 const MOST_SENDER = 100;
 const MOST_SUBJECT = 250;
 
+/** Which app an alert goes to: the iPhone's, or its paired watch's (ADR-023). */
+export type AlertDevice = "phone" | "watch";
+
+/** The category whose actions (Reply, Mark as Read, Archive, Trash) the watch shows on an alert it can act on. */
+export const WATCH_ALERT_CATEGORY = "newMail";
+
 /**
- * The alert for `mail`, named `alert` for the iPhone to confirm (ADR-023): the sender as the title and the subject as the body, mutable so the Notification Service
- * Extension can add the sender's picture and a preview, and showing as it is when the extension can't.
+ * The alert for `mail`, named `alert` for the iPhone to confirm (ADR-023): the sender as the title and the subject as
+ * the body, mutable so the Notification Service Extension can add the sender's picture and a preview, and showing as
+ * it is when the extension can't. The iPhone's extension sets the category itself; the watch has none, so its copy
+ * carries the category when it names the conversation, which the actions need.
  */
-export function alertPayload(mail: NewMail, target: Target, alert: string): object {
+export function alertPayload(mail: NewMail, target: Target, alert: string, device: AlertDevice = "phone"): object {
   const subject = clip(mail.subject, MOST_SUBJECT);
+  const actionable = device === "watch" && mail.threadID !== undefined;
   return {
     aps: {
       alert: subject ? { title: clip(mail.sender, MOST_SENDER), body: subject } : { title: clip(mail.sender, MOST_SENDER) },
       sound: "default",
       "mutable-content": 1,
+      ...(actionable && { category: WATCH_ALERT_CATEGORY }),
     },
     ...target,
     alert,

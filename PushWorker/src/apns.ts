@@ -1,5 +1,5 @@
 import { base64Decode, base64UrlEncode, encodeUtf8 } from "./encoding";
-import { alertPayload, type NewMail, type Target } from "./new-mail";
+import { type AlertDevice, alertPayload, type NewMail, type Target } from "./new-mail";
 
 export type ApnsEnvironment = "sandbox" | "production";
 
@@ -66,6 +66,7 @@ export interface Recipient {
   token: string;
   environment: ApnsEnvironment;
   topic: string;
+  device: AlertDevice;
 }
 
 /**
@@ -90,7 +91,7 @@ export async function sendAlert(
       "apns-collapse-id": alert,
       "content-type": "application/json",
     },
-    body: JSON.stringify(alertPayload(mail, target, alert)),
+    body: JSON.stringify(alertPayload(mail, target, alert, recipient.device)),
   });
   if (response.ok) return "delivered";
   const reason = await response
