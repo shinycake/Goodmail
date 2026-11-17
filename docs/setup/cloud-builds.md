@@ -38,6 +38,8 @@ A new Apple-only import in these packages breaks the Linux tests in `scripts/che
 
 `goodmail-sdk` holds the iOS and macOS SDKs and no watchOS SDK, so Linux can't compile the `GoodmailWatch` target or its widget extension, `GoodmailWatchWidgets`. They stay thin: the app hands the screens their models, and the extension hands the watch face the stored mailbox. Everything else lives in MailWrist, which is tested on Linux, and MailWristUI, which builds for iOS as well as watchOS so `scripts/ios-build` type-checks it. The Mac's `scripts/check` builds both, because the `Goodmail` scheme embeds them.
 
+The watch also syncs Gmail and Outlook itself (ADR-023), so MailCore, MailStore, GmailProvider, OutlookProvider and MailWrist build for watchOS too. Only the Mac's `scripts/check` compiles them for it (`WATCH_BUILT_PACKAGES`). In the cloud, keep them free of UIKit and of anything else watchOS lacks; the Mac catches what slips through.
+
 ## What setup installs
 
 | Piece | Where from | Where to |
