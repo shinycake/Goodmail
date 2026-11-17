@@ -26,16 +26,18 @@ public actor PushRegistrar {
         self.now = now
     }
 
-    /// What `subscription` needs at `level`, for `device`, renewing once less than `margin` is left.
+    /// What `subscription` needs at `level`, for `device`, renewing once less than `margin` is left, or at once when
+    /// the paired watch changed, since a renewal is what hands the relay the watch's token.
     public static func step(
         level: NotificationLevel, subscription: PushSubscription?, device: DeviceToken, margin: TimeInterval,
         now: Date
     ) -> Step {
         guard level != .off else { return subscription.map(Step.unsubscribe) ?? .none }
         guard let subscription else { return .subscribe(renewing: nil) }
-        guard subscription.device == device else { return .replace(subscription) }
+        guard subscription.device.isSamePhone(as: device) else { return .replace(subscription) }
         let due =
-            now.timeIntervalSince(subscription.renewedAt) >= registrationAge
+            subscription.device.watch != device.watch
+            || now.timeIntervalSince(subscription.renewedAt) >= registrationAge
             || subscription.expiresAt.timeIntervalSince(now) < margin
         return due ? .subscribe(renewing: subscription.channel) : .none
     }

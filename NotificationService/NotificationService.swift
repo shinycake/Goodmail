@@ -25,25 +25,53 @@ final class NotificationService: UNNotificationServiceExtension {
         let delivery = Delivery(push: request.content, silence: silence, handler: contentHandler)
         self.delivery.withLock { $0 = delivery }
         let userInfo = request.content.userInfo
-        guard let target = NewMailFetch.target(in: userInfo) else { return delivery.silence() }
+        let target = NewMailFetch.target(in: userInfo)
+        let receipt = AlertReceipt.id(in: userInfo)
         Task { @concurrent in
-            do {
-                let (fetch, pictures) = try Self.fetch()
-                let outcome = try await fetch.run(target)
-                do {
-                    let badge = try fetch.badgeCount()
-                    try await UNUserNotificationCenter.current().setBadgeCount(badge)
-                    Logger.push.notice("Set the badge to \(badge, privacy: .public) after a push")
-                } catch {
-                    Logger.push.error("Couldn't set the badge after a push: \(error, privacy: .public)")
-                }
-                await delivery.finish(with: outcome, pictures: pictures)
-            } catch {
-                Logger.push.error("Couldn't fetch the new mail: \(error, privacy: .public)")
-                delivery.asSent()
-            }
+            // Beside the fetch, which can take most of the 8 seconds before the relay alerts the watch instead.
+            async let confirmed: Void = Self.confirm(receipt)
+            if let target { await Self.alert(target, through: delivery) } else { delivery.silence() }
+            await confirmed
         }
     }
+
+    /// Catches the account up and hands iOS the alert for the mail `target` announced.
+    @concurrent private static func alert(_ target: NewMailFetch.Target, through delivery: Delivery) async {
+        do {
+            let (fetch, pictures) = try Self.fetch()
+            let outcome = try await fetch.run(target)
+            do {
+                let badge = try fetch.badgeCount()
+                try await UNUserNotificationCenter.current().setBadgeCount(badge)
+                Logger.push.notice("Set the badge to \(badge, privacy: .public) after a push")
+            } catch {
+                Logger.push.error("Couldn't set the badge after a push: \(error, privacy: .public)")
+            }
+            await delivery.finish(with: outcome, pictures: pictures)
+        } catch {
+            Logger.push.error("Couldn't fetch the new mail: \(error, privacy: .public)")
+            delivery.asSent()
+        }
+    }
+
+    /// Tells the relay this iPhone has the alert, so it doesn't send it to the watch as well (ADR-023). A failure
+    /// costs only a second alert on the watch.
+    @concurrent private static func confirm(_ receipt: String?) async {
+        guard let receipt, let relay else { return }
+        do {
+            try await relay.acknowledge(alert: receipt)
+        } catch {
+            Logger.push.error("Couldn't confirm an alert to the relay: \(error, privacy: .public)")
+        }
+    }
+
+    /// The relay this build registers with, from the `GOODMAIL_PUSH_RELAY_URL` build setting the app reads too.
+    private static let relay: PushRelayClient? = {
+        guard let value = Bundle.main.object(forInfoDictionaryKey: "GoodmailPushRelayURL") as? String,
+            let url = URL(string: value), !value.isEmpty
+        else { return nil }
+        return PushRelayClient(baseURL: url)
+    }()
 
     override func serviceExtensionTimeWillExpire() {
         // The fetch may still be writing, and iOS suspends the extension next: holding a lock in the shared container

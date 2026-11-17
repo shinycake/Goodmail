@@ -45,4 +45,5 @@ private final class ShareRecorder: PushRelay {
     func unregisterGraphSubscription(id: String, clientState: String) async throws {}
     func register(_ watch: RelayMailboxWatch) async throws {}
     func unregisterMailboxWatch(id: String, secret: String) async throws {}
+    func acknowledge(alert id: String) async throws {}
 }

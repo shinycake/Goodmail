@@ -11,6 +11,8 @@ final class WristHost {
 
     private let host: WristMailHost
     private let outboxes: Outboxes
+    /// Registers the watch's push token with the relay (ADR-023).
+    private let pairWatch: @Sendable (String?) async -> Void
     private let channel = WristChannel()
     /// Follows the Inbox and the session for the app's lifetime.
     private var following: Task<Void, Never>?
@@ -18,6 +20,7 @@ final class WristHost {
     init(model: AppModel) {
         host = WristMailHost(database: model.database, commands: model.commands, answers: model.answers)
         outboxes = model.outboxes
+        pairWatch = { [weak model] token in await model?.pairWatch(token) }
     }
 
     func start() {
@@ -37,10 +40,10 @@ final class WristHost {
         let answer: @Sendable (ThreadSummary.ID) async -> WristThreadReply? = { [host] id in
             await Self.conversation(id, from: host)
         }
-        following = Task { @concurrent [host, channel] in
+        following = Task { @concurrent [host, channel, pairWatch] in
             await channel.activate()
             await withDiscardingTaskGroup { group in
-                group.addTask { await Self.follow(channel, into: server, answer: answer) }
+                group.addTask { await Self.follow(channel, into: server, answer: answer, pairWatch: pairWatch) }
                 group.addTask { await Self.follow(host, into: server) }
             }
         }
@@ -51,7 +54,8 @@ final class WristHost {
     /// answered beside the commands rather than ahead of them.
     @concurrent private static func follow(
         _ channel: WristChannel, into server: WristServer,
-        answer: @escaping @Sendable (ThreadSummary.ID) async -> WristThreadReply?
+        answer: @escaping @Sendable (ThreadSummary.ID) async -> WristThreadReply?,
+        pairWatch: @escaping @Sendable (String?) async -> Void
     ) async {
         await withDiscardingTaskGroup { group in
             for await event in channel.events {
@@ -60,6 +64,8 @@ final class WristHost {
                     group.addTask {
                         if let reply = await answer(id) { await channel.answer(reply) }
                     }
+                } else if case .watchPushToken(let token) = event {
+                    await pairWatch(token)
                 } else {
                     await handle(event, from: channel, into: server)
                 }
@@ -79,7 +85,7 @@ final class WristHost {
             } catch {
                 log.error("Couldn't make a change from the watch: \(error, privacy: .public)")
             }
-        case .received, .threadRequest, .thread:
+        case .received, .threadRequest, .thread, .watchPushToken:
             break
         }
     }

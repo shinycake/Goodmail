@@ -44,7 +44,7 @@
                     if let reply = try? JSONDecoder().decode(WristThreadReply.self, from: data) {
                         threads.receive(reply)
                     }
-                case .ready, .command, .threadRequest:
+                case .ready, .command, .threadRequest, .watchPushToken:
                     break
                 }
             }

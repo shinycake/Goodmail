@@ -9,12 +9,15 @@ struct PushRegistrarTests {
     private let device = DeviceToken(hex: "AB12", environment: .sandbox)
     private let account = AccountID.generate()
     private let margin: TimeInterval = 2 * 86_400
+    private let watch = String(repeating: "c3", count: 32)
+    private let otherWatch = String(repeating: "d4", count: 32)
 
     private func subscription(
-        token: String = "ab12", channel: PushChannel = .watch, renewedDaysAgo: Double = 1, daysLeft: Double = 5
+        token: String = "ab12", watch: String? = nil, channel: PushChannel = .watch, renewedDaysAgo: Double = 1,
+        daysLeft: Double = 5
     ) -> PushSubscription {
         PushSubscription(
-            device: DeviceToken(hex: token, environment: .sandbox), channel: channel,
+            device: DeviceToken(hex: token, environment: .sandbox, watch: watch), channel: channel,
             renewedAt: now.addingTimeInterval(-renewedDaysAgo * 86_400),
             expiresAt: now.addingTimeInterval(daysLeft * 86_400))
     }
@@ -46,6 +49,49 @@ struct PushRegistrarTests {
         #expect(step(.all, subscription(renewedDaysAgo: 8)) == .subscribe(renewing: .watch))
         #expect(step(.all, subscription(channel: graph, daysLeft: 1)) == .subscribe(renewing: graph))
         #expect(step(.all, subscription(daysLeft: -1)) == .subscribe(renewing: .watch))
+    }
+
+    @Test func aChangedWatchRenewsTheChannelAndAnUnchangedOneNeedsNothing() {
+        let graph = PushChannel.subscription(id: "s1", clientState: "secret")
+        let paired = PushRegistrar.step(
+            level: .all, subscription: subscription(channel: graph), device: device.pairing(watch.uppercased()),
+            margin: margin,
+            now: now)
+        #expect(paired == .subscribe(renewing: graph))
+        #expect(step(.all, subscription(watch: otherWatch)) == .subscribe(renewing: .watch), "the watch was unpaired")
+        let same = PushRegistrar.step(
+            level: .all, subscription: subscription(watch: watch), device: device.pairing(watch), margin: margin,
+            now: now)
+        #expect(same == .none)
+    }
+
+    @Test func aWatchTokenTheRelayWouldRefuseIsLeftOut() {
+        #expect(device.pairing("cc33").watch == nil)
+        #expect(device.pairing(String(repeating: "zz", count: 32)).watch == nil)
+        #expect(device.pairing(watch.uppercased()).watch == watch)
+    }
+
+    @Test func aNewIPhoneTokenStillReplacesWhateverWatchItNames() {
+        let old = subscription(token: "ffff", watch: watch)
+        let replaced = PushRegistrar.step(
+            level: .all, subscription: old, device: device.pairing(watch), margin: margin, now: now)
+        #expect(replaced == .replace(old))
+    }
+
+    @Test func aNewWatchLeadsToOneRegistrationPerAccount() async throws {
+        let store = MemoryNotificationStore()
+        let accounts = [AccountID.generate(), AccountID.generate()]
+        for account in accounts { try store.setPushSubscription(subscription(), for: account) }
+        let source = FakeSource(expires: now.addingTimeInterval(7 * 86_400))
+        let registrar = PushRegistrar(relay: NoRelay(), store: store, now: { [now] in now })
+        let paired = device.pairing(watch)
+
+        for _ in 0..<2 {
+            for account in accounts { try await registrar.refresh(account, source: source, device: paired) }
+        }
+
+        #expect(source.calls == ["subscribe ab12 renewing watch", "subscribe ab12 renewing watch"])
+        for account in accounts { #expect(try store.pushSubscription(for: account)?.device.watch == watch) }
     }
 
     @Test func turningAlertsOffUnsubscribesTheStoredSubscription() {
@@ -178,6 +224,7 @@ private struct NoRelay: PushRelay {
     func unregisterGraphSubscription(id: String, clientState: String) async throws {}
     func register(_ watch: RelayMailboxWatch) async throws {}
     func unregisterMailboxWatch(id: String, secret: String) async throws {}
+    func acknowledge(alert id: String) async throws {}
 }
 
 final class MemoryNotificationStore: NotificationStore {

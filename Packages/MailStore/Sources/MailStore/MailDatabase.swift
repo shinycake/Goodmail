@@ -367,6 +367,10 @@ public final class MailDatabase: Sendable {
             // What the reader calls each account (Account.nickname); none until they name it.
             try db.alter(table: "account") { table in table.add(column: "nickname", .text) }
         }
+        migrator.registerMigration("v32-watch-token") { db in
+            // The paired watch's APNs token each subscription was registered with (DeviceToken.watch, ADR-023).
+            try db.alter(table: "pushSubscription") { table in table.add(column: "watchToken", .text) }
+        }
         return migrator
     }
 }

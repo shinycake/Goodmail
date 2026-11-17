@@ -46,7 +46,7 @@ struct PushRelayClientShareTests {
 }
 
 /// Records each request and answers every one with `status`.
-private final class RecordingServer: HTTPClient {
+final class RecordingServer: HTTPClient {
     private let status: Int
     private let log = Mutex<[URLRequest]>([])
 
