@@ -20,10 +20,27 @@ public struct WindowState: Equatable, Codable, Sendable {
     public var list: List
     /// The Inbox's category, so a rebuilt Inbox opens on it.
     public var category: InboxCategory
+    /// How far a narrow window's one stack goes. Not saved: a restored or handed-off window opens on its list.
+    public var depth = Depth.list
 
-    public init(list: List = .mailbox(.inbox, title: nil, thread: nil), category: InboxCategory = .primary) {
+    /// How far a narrow window's one stack goes. A wide window shows the mailboxes and the list side by side.
+    public enum Depth: Equatable, Sendable {
+        /// The list, and the thread open from it.
+        case list
+        /// Back at the mailboxes, the list under them kept only for a wide window.
+        case mailboxes
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case list, category
+    }
+
+    public init(
+        list: List = .mailbox(.inbox, title: nil, thread: nil), category: InboxCategory = .primary, depth: Depth = .list
+    ) {
         self.list = list
         self.category = category
+        self.depth = depth
     }
 
     /// Reads a state `saved()` wrote. Throws for anything else, such as data from a later build.
@@ -43,8 +60,10 @@ public struct WindowState: Equatable, Codable, Sendable {
         }
     }
 
-    /// Opens `thread` from the shown list, or `nil` closes it. Scheduled holds messages, not threads.
+    /// Opens `thread` from the shown list, or `nil` closes it. Scheduled holds messages, not threads. A thread opens
+    /// over the list, so a narrow window is no longer back at the mailboxes.
     public mutating func setThread(_ thread: ThreadSummary.ID?) {
+        if thread != nil { depth = .list }
         switch list {
         case .mailbox(let mailbox, let title, _): list = .mailbox(mailbox, title: title, thread: thread)
         case .snoozed: list = .snoozed(thread: thread)

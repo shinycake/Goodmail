@@ -12,8 +12,18 @@ extension SceneCoordinator {
         /// The other devices' accounts, offered in place of the welcome screen. What follows waits for the reader's
         /// answer.
         case offer(UIViewController)
-        /// The mail screens, built for `accounts` so a change another device made rebuilds them. `offer` is the sheet
-        /// offering the other devices' accounts while it's up.
-        case mailbox(MailSplitViewController, accounts: [AccountID], offer: UIViewController?)
+        /// The mail screens, built for `accounts` so a change another device made rebuilds them, and the sheet over
+        /// them that the coordinator answers for.
+        case mailbox(MailSplitViewController, accounts: [AccountID], cover: Cover)
+    }
+
+    /// The sheet over the mail screens that decides what may happen under it.
+    enum Cover {
+        case none
+        /// The other devices' accounts, offered until the reader answers.
+        case offer(UIViewController)
+        /// Settings, opened at `page`. Nothing rebuilds the mail screens while it's up: closing it does, once, with
+        /// everything that changed meanwhile.
+        case settings(SettingsPage)
     }
 }

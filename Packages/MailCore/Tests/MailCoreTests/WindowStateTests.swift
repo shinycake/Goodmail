@@ -45,6 +45,26 @@ struct WindowStateTests {
         }
     }
 
+    @Test func aNarrowWindowBackAtTheMailboxesOpensOnItsListWhenRestored() throws {
+        let back = WindowState(list: .scheduled, depth: .mailboxes)
+        #expect(try WindowState(saved: back.saved()) == WindowState(list: .scheduled))
+    }
+
+    @Test func openingAThreadLeavesTheMailboxes() {
+        let thread = ThreadSummary.ID(accountID: work, threadID: "t1")
+        var state = WindowState(depth: .mailboxes)
+        state.setThread(nil)
+        #expect(state.depth == .mailboxes)
+        state.setThread(thread)
+        #expect(state.depth == .list)
+    }
+
+    @Test func aGoneAccountKeepsTheWindowAtTheMailboxes() {
+        let label = Mailbox(labelID: "Label_7", accountID: home)
+        let state = WindowState(list: .mailbox(label, title: "Family", thread: nil), depth: .mailboxes)
+        #expect(state.keeping([work]) == WindowState(depth: .mailboxes))
+    }
+
     @Test func savedDataThatIsntAWindowStateIsRefused() {
         #expect(throws: (any Error).self) { try WindowState(saved: Data("not a window".utf8)) }
     }

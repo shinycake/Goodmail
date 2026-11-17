@@ -39,7 +39,15 @@ final class SettingsTests: XCTestCase {
 
         settings.buttons["Close"].tap()
         XCTAssertTrue(settings.waitForNonExistence(timeout: 5))
-        XCTAssertTrue(app.collectionViews["mailbox"].waitForExistence(timeout: 5), "closing Settings shows the mail")
+        if app.windows.firstMatch.horizontalSizeClass == .compact {
+            XCTAssertTrue(
+                app.buttons["Settings"].firstMatch.waitForExistence(timeout: 5),
+                "closing Settings goes back to the mailboxes it was opened from")
+            XCTAssertFalse(app.collectionViews["mailbox"].exists, "no mail list is pushed over the mailboxes")
+        } else {
+            XCTAssertTrue(
+                app.collectionViews["mailbox"].waitForExistence(timeout: 5), "closing Settings shows the mail")
+        }
     }
 
     /// The delete and archive animations can be turned down to the standard ones, in English and in Hebrew.

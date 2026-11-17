@@ -126,52 +126,8 @@ final class SceneCoordinator: NSObject {
         signingInAgain = Task { [weak self] in await self?.signIn(againTo: account) }
     }
 
-    /// Accounts and preferences, open at `page`. The mail screens are rebuilt once it closes if the accounts or how they look changed.
-    private func showSettings(at page: SettingsPage) {
-        guard let presenter = topViewController() else { return }
-        let model = model
-        let before = model.accounts
-        let unsortedBefore = Preferences.unsortedInboxAccounts
-        let displayBefore = Preferences.rowDisplay
-        let themeBefore = Preferences.combinedTheme
-        let viewModel = SettingsViewModel(
-            accounts: { model.accounts },
-            signIn: { [weak self] in try await self?.signIn(to: $0) ?? false },
-            remove: {
-                try await model.removeAccount($0, $1)
-                // An account removed from this device alone joins the other devices' accounts it could add.
-                try await model.followSharedAccounts()
-            },
-            update: { try await model.update($0) },
-            reorder: { try await model.reorderAccounts($0) },
-            signatures: Signatures(
-                read: { try await model.signature(for: $0) }, store: { try await model.setSignature($0, for: $1) }),
-            closed: { [weak self] in
-                guard let self,
-                    model.accounts != before || Preferences.unsortedInboxAccounts != unsortedBefore
-                        || Preferences.rowDisplay != displayBefore || Preferences.combinedTheme != themeBefore
-                else { return }
-                model.accounts.isEmpty ? showWelcome() : showMailbox()
-            })
-        viewModel.rules = model.rulesService()
-        viewModel.autoReply = { model.autoReplyService(for: $0) }
-        viewModel.serverSettings = { model.serverSettingsService(for: $0) }
-        viewModel.sharing = model.sharingChoices()
-        viewModel.transfer = transferActions
-        if model.pushRegistrar != nil {
-            viewModel.notifications = NotificationChoices(
-                read: { await model.notificationLevels() },
-                store: { await model.setNotificationLevel($0, for: $1) },
-                turnedOff: {
-                    await UNUserNotificationCenter.current().notificationSettings().authorizationStatus == .denied
-                })
-        }
-        viewModel.badges = model.badgeChoices()
-        presenter.present(SettingsScreen.make(model: viewModel, at: page), animated: true)
-    }
-
     /// The mail screens, while the window shows them.
-    private var split: MailSplitViewController? {
+    var split: MailSplitViewController? {
         guard case .mailbox(let split, _, _) = screen else { return nil }
         return split
     }
@@ -211,7 +167,7 @@ final class SceneCoordinator: NSObject {
     /// Signs in to `service` and adds its account, for the service chooser on the welcome screen and in Settings.
     /// Returns `false` if the reader cancelled. A service whose sign-in is a web page goes through `AppModel`; one that
     /// needs its own form presents it here, over the chooser.
-    private func signIn(to service: MailService) async throws -> Bool {
+    func signIn(to service: MailService) async throws -> Bool {
         switch service {
         case .gmail: try await model.addGmailAccount(using: web)
         case .icloud: await signInToICloud()
@@ -269,10 +225,10 @@ final class SceneCoordinator: NSObject {
         if let thread = shown.openThread?.id, (try? model.database.thread(thread)) == nil { shown.setThread(nil) }
         let split = MailSplitViewController(actions: actions)
         split.delegate = self
-        // The sheet offering the other devices' accounts stays up over the rebuilt screens.
-        var offer: UIViewController?
-        if case .mailbox(_, _, let shownOffer) = screen { offer = shownOffer }
-        enter(.mailbox(split, accounts: model.accounts.map(\.id), offer: offer))
+        // The sheet over the old screens stays up over the rebuilt ones.
+        var cover = Cover.none
+        if case .mailbox(_, _, let shownCover) = screen { cover = shownCover }
+        enter(.mailbox(split, accounts: model.accounts.map(\.id), cover: cover))
         buildColumns()
         buildStack()
     }
@@ -306,8 +262,13 @@ final class SceneCoordinator: NSObject {
         guard let split else { return }
         let stack = MailStackController(rootViewController: mailboxesViewController(style: .list))
         stack.delegate = self
-        stack.pushViewController(shownListViewController(), animated: false)
-        if let reader = shownReader() { stack.pushViewController(reader, animated: false) }
+        switch shown.depth {
+        case .mailboxes:
+            break
+        case .list:
+            stack.pushViewController(shownListViewController(), animated: false)
+            if let reader = shownReader() { stack.pushViewController(reader, animated: false) }
+        }
         split.setViewController(stack, for: .compact)
     }
 
@@ -571,7 +532,9 @@ extension SceneCoordinator: UISplitViewControllerDelegate, UINavigationControlle
         if !navigationController.viewControllers.contains(where: { $0 is ThreadViewController }) {
             shown.setThread(nil)
         }
-        if navigationController.viewControllers.count == 1 { shown = WindowState(category: shown.category) }
+        if navigationController.viewControllers.count == 1 {
+            shown = WindowState(category: shown.category, depth: .mailboxes)
+        }
     }
 }
 
@@ -608,7 +571,8 @@ extension SceneCoordinator {
         window.windowScene?.userActivity?.becomeCurrent()
     }
 
-    /// Rebuilds the mail screens for the accounts here now, keeping what they show where it's still here.
+    /// Rebuilds the mail screens for the accounts here now, keeping what they show where it's still here, down to a
+    /// narrow window that was back at the mailboxes rather than in a list.
     func showMailboxKeepingPlace() {
         showMailbox(shown.keeping(model.accounts.map(\.id)))
     }
