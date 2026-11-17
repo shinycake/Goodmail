@@ -108,6 +108,10 @@ struct SettingsView: View {
 
             if let rules = model.rules { RulesSection(service: rules) }
 
+            if let watch = model.watch {
+                WatchSection(choices: watch, sharesSignIns: model.sharing?.mode.shares ?? false)
+            }
+
             Section {
                 Picker(selection: $model.removalAnimation) {
                     ForEach(RemovalAnimation.allCases, id: \.self) { animation in

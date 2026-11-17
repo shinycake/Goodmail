@@ -110,6 +110,6 @@ struct WristSnapshotTests {
 
     @Test func extrasWithoutAFocusLetEveryAccountThrough() throws {
         let json = Data(#"{"pinned":[],"asleep":[],"muted":[],"signatures":[],"independence":"off"}"#.utf8)
-        #expect(try JSONDecoder().decode(WristExtras.self, from: json) == WristExtras())
+        #expect(try JSONDecoder().decode(WristExtras.self, from: json) == WristExtras(independence: .off))
     }
 }

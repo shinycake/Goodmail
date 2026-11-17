@@ -86,6 +86,11 @@
         }
 
         #if os(iOS)
+            /// Whether a paired watch has the app, as of the last `ready`.
+            public nonisolated var hasWatchApp: Bool {
+                WCSession.isSupported() && WCSession.default.isPaired && WCSession.default.isWatchAppInstalled
+            }
+
             /// Makes `snapshot` the watch's, now if the session can take it, otherwise once it is `ready`.
             public func send(_ snapshot: WristSnapshot) {
                 unsent = snapshot

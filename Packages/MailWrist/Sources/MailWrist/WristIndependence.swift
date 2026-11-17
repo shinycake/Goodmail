@@ -4,6 +4,11 @@ public enum WristIndependence: String, Codable, Sendable {
     case on
     case off
 
-    /// Off until the iPhone's Settings offers the switch.
-    public static let `default` = WristIndependence.off
+    /// On, unless the owner turns "Mail Without iPhone" off in the iPhone's Settings.
+    public static let `default` = WristIndependence.on
+
+    /// The switch's position.
+    public init(mailWithoutIPhone: Bool) {
+        self = mailWithoutIPhone ? .on : .off
+    }
 }

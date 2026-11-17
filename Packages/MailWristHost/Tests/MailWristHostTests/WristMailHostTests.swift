@@ -82,6 +82,25 @@ struct WristMailHostTests {
         #expect(extras.independence == .on)
     }
 
+    @Test func turningTheSwitchOffHandsEveryAccountBackToTheIPhone() async throws {
+        try database.upsert([thread("t1", minutesAgo: 1)])
+        let commands = MailCommands(store: database, replay: { _ in }, now: { [now] in now })
+        let host = WristMailHost(
+            database: database, commands: commands,
+            answers: ThreadAnswers(
+                database: database, commands: commands, provider: { _ in throw ProviderError.notFound }),
+            independence: { WristIndependence(mailWithoutIPhone: false) })
+
+        let snapshot = try await firstSnapshot(of: host)
+        let independence = try #require(snapshot.extras?.independence)
+        let sources = WristAccountSources.resolve(
+            accounts: snapshot.accounts, signIns: [account.id], health: [:],
+            syncStates: [account.id: .current(cursor: "1")], independence: independence)
+
+        #expect(independence == .off)
+        #expect(sources == [account.id: .relayed(.switchedOff)])
+    }
+
     @Test func anArchiveLeavesTheInboxAndIsQueuedForTheService() async throws {
         try database.upsert([thread("t1", minutesAgo: 1)])
         let host = host()

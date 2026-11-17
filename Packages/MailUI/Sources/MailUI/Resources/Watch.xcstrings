@@ -1,0 +1,50 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Apple Watch" : {
+      "comment" : "Settings section for the watch app",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Watch"
+          }
+        }
+      }
+    },
+    "Apple Watch checks Gmail and Outlook itself when your iPhone is off or out of reach. Other accounts need your iPhone." : {
+      "comment" : "Explains the Mail Without iPhone setting",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Watch בודק את Gmail ו-Outlook בעצמו כשה-iPhone כבוי או רחוק. חשבונות אחרים צריכים את ה-iPhone."
+          }
+        }
+      }
+    },
+    "Mail Without iPhone" : {
+      "comment" : "Setting: the watch reads Gmail and Outlook itself",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דואר בלי iPhone"
+          }
+        }
+      }
+    },
+    "Turn on account sharing so Apple Watch gets your sign-ins." : {
+      "comment" : "Shown when account sharing is off, which the watch needs",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "יש להפעיל שיתוף חשבונות כדי ש-Apple Watch יקבל את פרטי ההתחברות."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

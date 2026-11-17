@@ -167,6 +167,7 @@ final class SceneCoordinator: NSObject {
                 })
         }
         viewModel.badges = model.badgeChoices()
+        viewModel.watch = model.watchChoices
         presenter.present(SettingsScreen.make(model: viewModel, at: page), animated: true)
     }
 

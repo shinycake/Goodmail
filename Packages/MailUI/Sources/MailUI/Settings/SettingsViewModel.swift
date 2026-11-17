@@ -44,6 +44,8 @@ public final class SettingsViewModel {
     public var notifications: NotificationChoices?
     /// What each account counts toward the app badge.
     public var badges: BadgeChoices?
+    /// The Apple Watch choice; `nil` without a paired watch that has the app.
+    public var watch: WatchChoices?
     /// The mail rules, when the app keeps them.
     @ObservationIgnored public var rules: MailRules.Service?
     /// The automatic reply of an account whose service sends one; `nil` for one that doesn't, as iCloud.

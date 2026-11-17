@@ -35,6 +35,8 @@ final class AppModel {
     let pushRegistrar: PushRegistrar?
     /// This device's APNs token, once iOS hands it over.
     var pushDevice: DeviceToken?
+    /// The Apple Watch choice for Settings, while a paired watch has the app (`WristHost`).
+    var watchChoices: WatchChoices?
     /// Runs after an account is added, so alerts can be asked for and set up.
     var didAddAccount: (() -> Void)?
     /// Told after the stored mail changes in bulk, so the system's copies (Spotlight) can follow.

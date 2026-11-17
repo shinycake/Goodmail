@@ -1,5 +1,6 @@
 import Foundation
 import MailCore
+import MailUI
 import MailWrist
 import MailWristHost
 import OSLog
@@ -16,11 +17,18 @@ final class WristHost {
     private let channel = WristChannel()
     /// Follows the Inbox and the session for the app's lifetime.
     private var following: Task<Void, Never>?
+    /// Offers the Apple Watch choice in Settings while a paired watch has the app.
+    private weak var model: AppModel?
+    /// The latest telling the watch that the owner flipped "Mail Without iPhone"; each waits for the one before.
+    private var tellingWatch: Task<Void, Never>?
 
     init(model: AppModel) {
-        host = WristMailHost(database: model.database, commands: model.commands, answers: model.answers)
+        host = WristMailHost(
+            database: model.database, commands: model.commands, answers: model.answers,
+            independence: { WristIndependence(mailWithoutIPhone: WatchChoices.mailWithoutIPhone) })
         outboxes = model.outboxes
         pairWatch = { [weak model] token in await model?.pairWatch(token) }
+        self.model = model
     }
 
     func start() {
@@ -40,10 +48,16 @@ final class WristHost {
         let answer: @Sendable (ThreadSummary.ID) async -> WristThreadReply? = { [host] id in
             await Self.conversation(id, from: host)
         }
+        let offerChoices: @Sendable (Bool) async -> Void = { [weak self] hasWatchApp in
+            await self?.offerChoices(hasWatchApp, server: server)
+        }
         following = Task { @concurrent [host, channel, pairWatch] in
             await channel.activate()
             await withDiscardingTaskGroup { group in
-                group.addTask { await Self.follow(channel, into: server, answer: answer, pairWatch: pairWatch) }
+                group.addTask {
+                    await Self.follow(
+                        channel, into: server, answer: answer, pairWatch: pairWatch, offerChoices: offerChoices)
+                }
                 group.addTask { await Self.follow(host, into: server) }
             }
         }
@@ -55,7 +69,8 @@ final class WristHost {
     @concurrent private static func follow(
         _ channel: WristChannel, into server: WristServer,
         answer: @escaping @Sendable (ThreadSummary.ID) async -> WristThreadReply?,
-        pairWatch: @escaping @Sendable (String?) async -> Void
+        pairWatch: @escaping @Sendable (String?) async -> Void,
+        offerChoices: @escaping @Sendable (Bool) async -> Void
     ) async {
         await withDiscardingTaskGroup { group in
             for await event in channel.events {
@@ -66,6 +81,9 @@ final class WristHost {
                     }
                 } else if case .watchPushToken(let token) = event {
                     await pairWatch(token)
+                } else if case .ready = event {
+                    await channel.sendUnsent()
+                    await offerChoices(channel.hasWatchApp)
                 } else {
                     await handle(event, from: channel, into: server)
                 }
@@ -77,16 +95,34 @@ final class WristHost {
         _ event: WristSessionEvent, from channel: WristChannel, into server: WristServer
     ) async {
         switch event {
-        case .ready:
-            await channel.sendUnsent()
         case .command(let data):
             do {
                 try await server.received(JSONDecoder().decode(WristCommand.self, from: data))
             } catch {
                 log.error("Couldn't make a change from the watch: \(error, privacy: .public)")
             }
-        case .received, .threadRequest, .thread, .watchPushToken:
+        case .ready, .received, .threadRequest, .thread, .watchPushToken:
             break
+        }
+    }
+
+    /// Shows the Apple Watch section in Settings while a paired watch has the app, and tells the watch when the owner
+    /// flips its switch.
+    private func offerChoices(_ hasWatchApp: Bool, server: WristServer) {
+        guard let model else { return }
+        guard hasWatchApp else {
+            model.watchChoices = nil
+            return
+        }
+        guard model.watchChoices == nil else { return }
+        model.watchChoices = WatchChoices { [weak self] in self?.tellWatch(server) }
+    }
+
+    private func tellWatch(_ server: WristServer) {
+        let independence = WristIndependence(mailWithoutIPhone: WatchChoices.mailWithoutIPhone)
+        tellingWatch = Task { [previous = tellingWatch] in
+            await previous?.value
+            await server.independenceChanged(to: independence, at: .now)
         }
     }
 

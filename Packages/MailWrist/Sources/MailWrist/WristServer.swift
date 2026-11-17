@@ -37,6 +37,16 @@ public actor WristServer {
         await sendLatest()
     }
 
+    /// The owner flipped "Mail Without iPhone" (ADR-023): the watch hears it at once, with the Inbox it has, made
+    /// again at `now`, rather than with the next change to the Inbox.
+    public func independenceChanged(to independence: WristIndependence, at now: Date) async {
+        guard var snapshot = latest, snapshot.extras != nil else { return }
+        snapshot.extras?.independence = independence
+        snapshot.madeAt = now
+        latest = snapshot
+        await sendLatest()
+    }
+
     /// Runs a command the watch sent, unless it ran already. It throws what running the command threw.
     ///
     /// A command that ran is confirmed with the next Inbox change, which carries its effect; confirming it sooner,
