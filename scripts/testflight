@@ -4,8 +4,8 @@
 # scripts/public-beta then adds the build to the external "Apple Review" group and submits it for Beta App Review,
 # so the public link always offers the newest build (docs/setup/testflight.md).
 #
-# Needs: Xcode signed in to the team (automatic signing creates the distribution certificate and profiles),
-# and `asc` authenticated with an App Store Connect API key (`asc auth status`).
+# Needs `asc` authenticated with an App Store Connect API key (`asc auth status`), and that key's .p8 file on disk,
+# so xcodebuild's automatic signing uses the key instead of an Apple ID signed in to Xcode (docs/setup/testflight.md).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 BUILD_DIR="${GOODMAIL_BUILD_DIR:-$([[ -d /Volumes/Idan1TB ]] && echo /Volumes/Idan1TB/Goodmail-build || echo "$PWD/.build")}/testflight"
@@ -16,6 +16,27 @@ if [[ -n "$(git status --porcelain)" ]]; then
     exit 1
 fi
 
+# xcodebuild signs in to App Store Connect with the same API key as asc. GOODMAIL_ASC_KEY_ID, GOODMAIL_ASC_ISSUER_ID
+# and GOODMAIL_ASC_KEY_PATH override what asc reports. Without a .p8 file it falls back to Xcode's Apple ID.
+key_id="${GOODMAIL_ASC_KEY_ID:-$(asc auth status --output json |
+    python3 -c 'import json, sys; print(next((c["keyId"] for c in json.load(sys.stdin)["credentials"] if c.get("isDefault")), ""))')}"
+issuer_id="${GOODMAIL_ASC_ISSUER_ID:-$(asc auth issuer-id)}"
+key_path="${GOODMAIL_ASC_KEY_PATH:-}"
+if [[ -z "$key_path" && -n "$key_id" ]]; then
+    for candidate in "$HOME"/.appstoreconnect/private_keys/*"$key_id"*.p8 "$HOME"/.asc/*"$key_id"*.p8 \
+        "$HOME"/.asc/keys/*"$key_id"*.p8 "$HOME"/private_keys/*"$key_id"*.p8; do
+        [[ -f "$candidate" ]] && key_path="$candidate" && break
+    done
+fi
+signing=()
+if [[ -n "$key_path" && -f "$key_path" && -n "$issuer_id" ]]; then
+    signing=(-authenticationKeyPath "$key_path" -authenticationKeyID "$key_id" -authenticationKeyIssuerID "$issuer_id")
+    echo "Signing in to App Store Connect with API key $key_id"
+else
+    echo "warning: no .p8 file for API key ${key_id:-?}, so signing needs an Apple ID signed in to Xcode." >&2
+    echo "warning: docs/setup/testflight.md explains how to export it once." >&2
+fi
+
 build_number="$(asc builds next-build-number --app "$APP" --platform IOS --output json | python3 -c 'import json, sys; print(json.load(sys.stdin)["nextBuildNumber"])')"
 echo "Archiving build $build_number of $(git rev-parse --short HEAD)"
 rm -rf "$BUILD_DIR/Goodmail.xcarchive" "$BUILD_DIR/export"
@@ -23,9 +44,11 @@ mkdir -p "$BUILD_DIR"
 
 xcodebuild archive -quiet -project Goodmail.xcodeproj -scheme Goodmail -configuration Release \
     -destination 'generic/platform=iOS' -archivePath "$BUILD_DIR/Goodmail.xcarchive" \
-    -derivedDataPath "$BUILD_DIR/derived" -allowProvisioningUpdates CURRENT_PROJECT_VERSION="$build_number"
+    -derivedDataPath "$BUILD_DIR/derived" -allowProvisioningUpdates ${signing[@]+"${signing[@]}"} \
+    CURRENT_PROJECT_VERSION="$build_number"
 xcodebuild -exportArchive -quiet -archivePath "$BUILD_DIR/Goodmail.xcarchive" \
-    -exportOptionsPlist Config/ExportOptions.plist -exportPath "$BUILD_DIR/export" -allowProvisioningUpdates
+    -exportOptionsPlist Config/ExportOptions.plist -exportPath "$BUILD_DIR/export" -allowProvisioningUpdates \
+    ${signing[@]+"${signing[@]}"}
 
 asc builds upload --app "$APP" --ipa "$BUILD_DIR/export/Goodmail.ipa" --wait "$@"
 

@@ -13,7 +13,19 @@ On the Mac, from a clean checkout of the commit you want to ship:
 scripts/testflight
 ```
 
-It archives a signed Release build, uploads it with `asc` and waits for App Store Connect to process it. Then it tags the commit `testflight/<build number>`, pushes the tag, and runs `scripts/public-beta` for the new build. You need Xcode signed in to the team, and `asc auth status` must show an App Store Connect API key.
+It archives a signed Release build, uploads it with `asc` and waits for App Store Connect to process it. Then it tags the commit `testflight/<build number>`, pushes the tag, and runs `scripts/public-beta` for the new build. `asc auth status` must show an App Store Connect API key.
+
+## Signing with the API key
+
+Automatic signing has to talk to App Store Connect to create certificates and profiles, for example the first time a new target such as a watch extension is archived. `scripts/testflight` passes the API key that `asc` uses to `xcodebuild` (`-authenticationKeyPath`, `-authenticationKeyID`, `-authenticationKeyIssuerID`). Nobody has to stay signed in to Xcode with an Apple ID, and an expired Xcode session can't stop a release.
+
+The key ID and issuer ID come from `asc auth status` and `asc auth issuer-id`. `xcodebuild` needs the key as a `.p8` file. The script looks for a file whose name contains the key ID in `~/.appstoreconnect/private_keys`, `~/.asc`, `~/.asc/keys` and `~/private_keys`. If `asc` keeps the key only in the Keychain, export it once:
+
+```bash
+asc auth export-to-config --confirm --private-key-dir ~/.appstoreconnect/private_keys
+```
+
+This writes the `.p8` file with owner-only permissions. The Keychain entry stays where it is. `GOODMAIL_ASC_KEY_ID`, `GOODMAIL_ASC_ISSUER_ID` and `GOODMAIL_ASC_KEY_PATH` override what the script finds. Without a key file, it warns and falls back to the Apple ID signed in to Xcode.
 
 No build should reach TestFlight any other way. If one does, from Xcode's Organizer for example, run `scripts/public-beta` afterwards.
 
