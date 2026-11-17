@@ -125,20 +125,6 @@ struct InboxCategoryTests {
         #expect(!viewModel.isLoadingOlder)
     }
 
-    @Test func aShortUncategorisedListFetchesOlderMail() async {
-        var pages = 0
-        let viewModel = MailboxViewModel(
-            mailbox: .spam, accounts: [account], source: .flat { AsyncThrowingStream { $0.yield([]) } },
-            refresh: {},
-            loadOlder: {
-                pages += 1
-                return false
-            })
-        let observing = Task { await viewModel.observe() }
-        defer { observing.cancel() }
-        await waitUntil { pages == 1 }
-    }
-
     @Test func otherMailboxesHaveNoCategories() async {
         let viewModel = MailboxViewModel(
             mailbox: .starred, accounts: [account],

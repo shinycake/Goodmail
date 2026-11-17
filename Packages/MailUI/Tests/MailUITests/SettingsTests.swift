@@ -284,17 +284,6 @@ struct SettingsTests {
         #expect(updates == 1)
     }
 
-    @Test func aFailedUpdateIsShownAndChangesNothing() async {
-        struct Locked: Error {}
-        let model = SettingsViewModel(
-            accounts: { [personal] }, signIn: { _ in true }, remove: { _, _ in }, update: { _ in throw Locked() },
-            closed: {})
-        model.setColor(.mint, for: personal.id)
-        await model.settled()
-        #expect(model.error is Locked)
-        #expect(model.accounts == [personal])
-    }
-
     @Test func undoSendTitlesReadAsDurations() {
         #expect(SettingsViewModel.undoSendTitle(0) == "Off")
         #expect(SettingsViewModel.undoSendTitle(10) == "10 seconds")

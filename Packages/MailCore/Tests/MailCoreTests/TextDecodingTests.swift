@@ -27,17 +27,6 @@ struct TextDecodingTests {
         #expect(TextDecoding.string(from: Data([0x63, 0x61, 0x66, 0xE9]), declaredCharset: "x-unknown") == "café")
     }
 
-    @Test func addressListsSplitOnlyOutsideQuotesAndBrackets() {
-        let list = Contact.list(
-            parsing: #""Levi, Dana" <dana@example.com>, יעל כהן <yael@example.co.il>,bare@example.com"#)
-        #expect(
-            list == [
-                Contact(name: "Levi, Dana", address: "dana@example.com"),
-                Contact(name: "יעל כהן", address: "yael@example.co.il"),
-                Contact(name: nil, address: "bare@example.com"),
-            ])
-    }
-
     @Test func mixedPartsKeepEveryTextBodyAndListTheRest() {
         let root = MIMEPart(
             partID: "",

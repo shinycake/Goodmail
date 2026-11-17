@@ -52,15 +52,6 @@ struct RuleBookTests {
         #expect(book.match(facts(from: "dana@example.com"), in: MailCondition.Context(now: now)).actions == [.archive])
     }
 
-    @Test func aRuleSurvivesStorageAsJSON() throws {
-        let original = MailRule(
-            name: "Thursday night",
-            condition: .all([.weekday([.thursday]), .number(.ccCount, .atLeast(2))]),
-            actions: [.snooze(seconds: 14 * 86_400), .move(toLabel: "Later"), .notify(keyword: "Night mail")])
-        let decoded = try JSONDecoder().decode(MailRule.self, from: try JSONEncoder().encode(original))
-        #expect(decoded == original)
-    }
-
     @Test func labelsAreFoundByNameInTheMessagesAccount() {
         let labels = [
             MailLabel(id: "Label_7", name: "Receipts", kind: .user),

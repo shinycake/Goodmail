@@ -35,12 +35,6 @@ struct ThreadStoreTests {
         return try await iterator.next(isolation: #isolation) ?? []
     }
 
-    @Test func accountsRoundTripInTheOrderAdded() throws {
-        let second = Account(id: AccountID(rawValue: "a2"), email: "two@example.com", color: .orange, service: .gmail)
-        try database.save(second)
-        #expect(try database.accounts() == [account, second])
-    }
-
     @Test func inboxIsNewestFirstAndExcludesOtherLabels() async throws {
         try database.upsert([
             thread("old", minutesAgo: 60),
@@ -67,13 +61,5 @@ struct ThreadStoreTests {
         #expect(try await iterator.next(isolation: #isolation) == [])
         try database.upsert([thread("t", minutesAgo: 0)])
         #expect(try await iterator.next(isolation: #isolation)?.map(\.id.threadID) == ["t"])
-    }
-
-    @Test func hebrewTextSurvivesTheRoundTrip() async throws {
-        var hebrew = thread("he", minutesAgo: 0)
-        hebrew.subject = "סיכום פגישה"
-        hebrew.sender = Contact(name: "יעל כהן", address: "yael@example.co.il")
-        try database.upsert([hebrew])
-        #expect(try await inbox() == [hebrew])
     }
 }

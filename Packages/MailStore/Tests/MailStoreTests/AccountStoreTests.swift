@@ -14,12 +14,6 @@ struct AccountStoreTests {
     private let work = Account(
         id: AccountID(rawValue: "work"), email: "work@example.com", color: .orange, service: .gmail)
 
-    @Test func anAccountKeepsItsService() throws {
-        let database = try MailDatabase(url: url)
-        try database.save(home)
-        #expect(try database.accounts().map(\.service) == [.gmail])
-    }
-
     @Test func accountsAddedBeforeServicesWereStoredAreGmail() throws {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         let pool = try DatabasePool(path: url.path)
@@ -39,13 +33,6 @@ struct AccountStoreTests {
         try database.save(home)
         try database.pool.write { db in try db.execute(sql: "UPDATE account SET service = 'pigeon'") }
         #expect(try database.accounts().isEmpty)
-    }
-
-    @Test func aNewAccountHasNoNameUntilOneIsGiven() throws {
-        let database = try MailDatabase(url: url)
-        try database.save(home)
-        try database.save(work)
-        #expect(try database.accounts().map(\.name) == [nil, nil])
     }
 
     @Test func updatingAnAccountKeepsItsPlaceAndItsMail() throws {

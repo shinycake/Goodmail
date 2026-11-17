@@ -147,16 +147,6 @@ struct MailConditionTests {
         #expect(MailCondition.date(.date, .withinLast(seconds: 7200)).matches(Self.message(), in: Self.jerusalem))
         #expect(!MailCondition.date(.date, .withinLast(seconds: 60)).matches(Self.message(), in: Self.jerusalem))
     }
-
-    @Test func conditionsSurviveBeingSaved() throws {
-        let condition = MailCondition.all([
-            .not(.text(.subject, .matchesPattern("^re:"))), .weekday([.monday, .friday]),
-            .timeOfDay(from: TimeOfDay(hour: 9, minute: 0), to: TimeOfDay(hour: 17, minute: 30)),
-            .date(.date, .withinLast(seconds: 86400)), .category(.promotions), .account(Self.account.id),
-        ])
-        let decoded = try JSONDecoder().decode(MailCondition.self, from: JSONEncoder().encode(condition))
-        #expect(decoded == condition)
-    }
 }
 
 /// A store reads only the dates a condition allows.

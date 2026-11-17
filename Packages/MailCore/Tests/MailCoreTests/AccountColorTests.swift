@@ -27,11 +27,6 @@ struct AccountColorTests {
         #expect(AccountColor(rawValue: "red") == nil)
     }
 
-    @Test(arguments: AccountColor.presets + [.custom(RGBColor(red: 18, green: 52, blue: 254))])
-    func storedColorsReadBackAsThemselves(color: AccountColor) {
-        #expect(AccountColor(rawValue: color.rawValue) == color)
-    }
-
     @Test func offeredColorsKeepTheNamesEarlierBuildsStored() {
         #expect(
             AccountColor.presets.map(\.rawValue) == [

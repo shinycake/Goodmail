@@ -12,7 +12,9 @@ struct IMAPLabelTests {
         #expect(ModifiedUTF7.encode("~peter/mail/台北/日本語") == "~peter/mail/&U,BTFw-/&ZeVnLIqe-")
         #expect(ModifiedUTF7.encode("Tom & Jerry") == "Tom &- Jerry")
         #expect(ModifiedUTF7.encode("עבודה") == Self.work)
-        for name in ["Archive", "קבלות 2026", "Mixed עברית & English", "😀 emoji", ""] {
+        for name in [
+            "~peter/mail/台北/日本語", "Tom & Jerry", "Archive", "קבלות 2026", "Mixed עברית & English", "😀 emoji", "",
+        ] {
             #expect(ModifiedUTF7.decode(ModifiedUTF7.encode(name)) == name)
         }
     }

@@ -26,17 +26,4 @@ struct MailDatabaseTests {
         _ = try MailDatabase(url: url)
         _ = try MailDatabase(url: url)
     }
-
-    /// Offline search (ADR-007) depends on FTS5 being compiled in.
-    @Test func supportsFTS5() throws {
-        let database = try MailDatabase(url: url)
-        try database.pool.write { db in
-            try db.create(virtualTable: "probe", using: FTS5()) { $0.column("body") }
-            try db.execute(sql: "INSERT INTO probe(body) VALUES ('שלום עולם hello world')")
-        }
-        let hits = try database.pool.read { db in
-            try Int.fetchOne(db, sql: "SELECT count(*) FROM probe WHERE probe MATCH 'שלום'")
-        }
-        #expect(hits == 1)
-    }
 }

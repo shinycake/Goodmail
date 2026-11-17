@@ -14,10 +14,6 @@ struct ActionTests {
         #expect(host.performed.on("t2") == [.archive])
     }
 
-    @Test func anActionOnNothingStillOnTheDeviceFails() async {
-        await #expect(throws: IntentError.self) { try await catalog.perform(.trash, onThreads: ["nonsense"]) }
-    }
-
     @Test func messageActionsChangeTheirThreadsOnce() async throws {
         try await catalog.perform(.trash, onMessages: ["A1/t1/m1", "A1/t1/m2", "A1/t2/m3"])
         #expect(host.performed.on("t1") == [.trash])

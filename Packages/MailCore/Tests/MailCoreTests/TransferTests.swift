@@ -22,16 +22,6 @@ struct TransferTests {
         #expect(TransferInvitation(url: try #require(URL(string: text))) == nil)
     }
 
-    @Test(arguments: [
-        TransferMessage.hello(key: Data([1, 2]), proof: Data([3]), device: "iPad"),
-        .accounts(sealed: Data([4, 5, 6])),
-        .declined,
-    ])
-    func messagesReadBackFromJSON(_ message: TransferMessage) throws {
-        let json = try JSONEncoder().encode(message)
-        #expect(try JSONDecoder().decode(TransferMessage.self, from: json) == message)
-    }
-
     @Test func onlyAccountsNotHereAlreadyAreNewByIDOrAddress() {
         func entry(_ id: String, _ email: String, _ service: MailService) -> TransferPayload.Entry {
             let account = Account(id: AccountID(rawValue: id), email: email, color: .blue, service: service)

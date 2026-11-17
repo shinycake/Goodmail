@@ -75,12 +75,6 @@ struct IMAPParsingTests {
         #expect(!hebrew.isSelectable)
     }
 
-    @Test func modifiedUTF7DecodesRFCExamples() {
-        #expect(ModifiedUTF7.decode("~peter/mail/&U,BTFw-/&ZeVnLIqe-") == "~peter/mail/台北/日本語")
-        #expect(ModifiedUTF7.decode("Tom &- Jerry") == "Tom & Jerry")
-        #expect(ModifiedUTF7.decode("Archive") == "Archive")
-    }
-
     @Test func aSnippetComesFromTheStartOfTheText() throws {
         let fields = "Content-Type: multipart/alternative; boundary=b\r\nContent-Transfer-Encoding: 7bit\r\n\r\n"
         let text =

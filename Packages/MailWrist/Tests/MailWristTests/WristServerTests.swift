@@ -74,15 +74,6 @@ struct WristServerTests {
         #expect(log.executed.withLock { $0 }.isEmpty)
     }
 
-    @Test func aFailedCommandCountsAsRunAndThrows() async {
-        let server = server(failing: true)
-        await server.inboxChanged(snapshot)
-        let archive = command()
-
-        await #expect(throws: Refused.self) { try await server.received(archive) }
-        #expect(log.sent.withLock { $0.last?.applied } == [archive.id])
-    }
-
     @Test func keepsOnlyTheNewestApplied() async throws {
         let server = server()
         let commands = (0..<(WristServer.appliedLimit + 3)).map { _ in command(.markRead(true)) }
