@@ -17,6 +17,8 @@ public actor SyncEngine {
     let provider: any MailProvider
     let store: any SyncStore
     let now: @Sendable () -> Date
+    /// How much of the account it keeps.
+    public nonisolated let scope: SyncScope
     private var running: Task<Void, any Error>?
     /// When this engine last asked for the address book, so a provider that refuses isn't asked on every sync.
     private var addressBookAttempt: Date?
@@ -31,11 +33,13 @@ public actor SyncEngine {
         accountID: AccountID,
         provider: any MailProvider,
         store: any SyncStore,
+        scope: SyncScope = .window,
         now: @escaping @Sendable () -> Date = { .now }
     ) {
         self.accountID = accountID
         self.provider = provider
         self.store = store
+        self.scope = scope
         self.now = now
     }
 
@@ -84,11 +88,16 @@ public actor SyncEngine {
         return SearchPage(ids: page.threads.map(\.id), next: page.nextPageToken.map { [accountID: $0] } ?? [:])
     }
 
-    /// The resync's queries, in order: Inbox first so the list fills quickly.
-    static func stages(startedAt: Date) -> [ThreadQuery] {
+    /// The resync's queries, in order: Inbox first so the list fills quickly. The Inbox alone for its head.
+    static func stages(startedAt: Date, scope: SyncScope = .window) -> [ThreadQuery] {
         let long = startedAt.addingTimeInterval(-longWindow)
-        return longWindowLabels.map { ThreadQuery(label: $0, since: long) }
-            + [ThreadQuery(since: startedAt.addingTimeInterval(-shortWindow))]
+        switch scope {
+        case .window:
+            return longWindowLabels.map { ThreadQuery(label: $0, since: long) }
+                + [ThreadQuery(since: startedAt.addingTimeInterval(-shortWindow))]
+        case .inboxHead:
+            return [ThreadQuery(label: "INBOX", since: long)]
+        }
     }
 
     /// Makes `text` the account's signature: at the service first when it keeps one, so a refused edit changes
@@ -144,7 +153,7 @@ public actor SyncEngine {
             StoreChanges(
                 accountID: accountID, labels: labelRead == labelReads ? labels : nil,
                 signature: signatureEdits == editsBeforeRead ? sendAs?.signature : nil, aliases: sendAs?.aliases))
-        try await refreshAddressBookIfOld()
+        if scope == .window { try await refreshAddressBookIfOld() }
         switch try store.syncState(for: accountID) {
         case nil:
             try await fillWindow(from: try await startResync())
@@ -196,11 +205,12 @@ public actor SyncEngine {
 
     private func fillWindow(from start: Resync) async throws {
         var resync = start
-        let stages = Self.stages(startedAt: resync.startedAt)
+        let stages = Self.stages(startedAt: resync.startedAt, scope: scope)
         while resync.stage < stages.count {
             let fetchedAt = now()
             let page = try await provider.threads(matching: stages[resync.stage], pageToken: resync.pageToken)
-            if let next = page.nextPageToken {
+            resync.stored += page.threads.count
+            if let next = page.nextPageToken, !isFull(resync) {
                 resync.pageToken = next
             } else {
                 resync.stage += 1
@@ -226,6 +236,14 @@ public actor SyncEngine {
         try store.apply(StoreChanges(accountID: accountID, sweep: sweep, state: .current(cursor: resync.cursor)))
         // Catch what changed while the window was filling.
         try await syncChanges(since: resync.cursor)
+    }
+
+    /// Whether the resync holds as many threads as the scope keeps.
+    private func isFull(_ resync: Resync) -> Bool {
+        switch scope {
+        case .window: false
+        case .inboxHead(let limit): resync.stored >= limit
+        }
     }
 
     /// Returns the threads it stored.
