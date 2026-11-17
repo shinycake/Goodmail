@@ -91,7 +91,7 @@ The first run found 79 issues. What changed:
 | Smart Invert | 🔧 | Sender photos, service logos and the transfer QR code keep their colors. |
 | Reduce Motion | 🔧 | A chat reply's arrival and the minimized-drafts bar still bounced; both settle without overshoot now. |
 | Hardware keyboard and Full Keyboard Access | 🔧 | Apple Mail's shortcuts: ⌘N, ⇧⌘N, ⌥⌘F in a list; ⌘R, ⇧⌘R, ⇧⌘F, ⌃⌘A, ⌘⌫, ⇧⌘U, ⇧⌘L in a thread; ⇧⌘D in the composer. Holding ⌘ lists the ones that work on the screen shown. The window offers them (`KeyboardShortcuts`), so they work with nothing focused. |
-| Welcome screen | ⏭ | White on the blue buttons is about 3.5:1 and the tagline clips at AX5. The redesign (#258) replaces those buttons; the audit gets the screen back once it lands. |
+| Welcome screen | ✅ | The redesign (#258) swapped the white-on-blue buttons for glass ones. The audit covers the screen again, in English at AX5 and in Hebrew at the default size. The audit reports the glass buttons' labels as low contrast because it measures them against the glass's translucent layers; the screenshots show black on near-white, so that is tolerated for the `addAccount.` buttons. The title stops growing at AX2 so the buttons stay on screen, and the screen scrolls past that. |
 | Navigation bar subtitle in a chat | ✅ | UIKit draws and sizes it; tolerated. |
 | Avatar initials | ✅ | Fixed on purpose inside a fixed circle; tolerated. |
 | Section headers and footers in Settings | ✅ | The system's own secondary gray, which the audit calls "nearly passed"; tolerated. Real contrast failures still fail. |

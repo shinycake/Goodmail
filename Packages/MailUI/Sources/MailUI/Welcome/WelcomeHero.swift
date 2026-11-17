@@ -22,6 +22,7 @@ struct WelcomeHero: View {
             .dynamicTypeSize(...DynamicTypeSize.accessibility2)
             .multilineTextAlignment(.center)
             .accessibilityAddTraits(.isHeader)
+            .accessibilityIdentifier("welcome.title")
             .fixedSize(horizontal: false, vertical: true)
             // Narrower margins than the buttons', so the English title keeps to one line on the narrowest iPhone.
             .padding(.horizontal, 8)

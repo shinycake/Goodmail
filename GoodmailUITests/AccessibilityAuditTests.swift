@@ -1,7 +1,7 @@
 import XCTest
 
-/// Runs Xcode's accessibility audit on every main screen, in classic and chat layouts, in English and Hebrew, at the
-/// default text size and the largest accessibility size, in light and dark. The audit checks contrast, clipped and
+/// Runs Xcode's accessibility audit on the welcome screen and every main screen, in classic and chat layouts, in
+/// English and Hebrew, at the default text size and the largest accessibility size, in light and dark. The audit checks contrast, clipped and
 /// unscaled text, element descriptions, hit regions, traits and actions. Each screen attaches its screenshot and
 /// every issue it found, and the test fails on any issue that `Tolerated` doesn't explain.
 final class AccessibilityAuditTests: XCTestCase {
@@ -26,6 +26,23 @@ final class AccessibilityAuditTests: XCTestCase {
     @MainActor
     func testHebrewAtTheLargestSizeInDark() {
         auditEveryScreen(Scenario(language: "he", locale: "he_IL", size: Scenario.largest, dark: true))
+    }
+
+    @MainActor
+    func testTheWelcomeScreen() {
+        for scenario in [
+            Scenario(language: "en", locale: "en_US", size: Scenario.largest),
+            Scenario(language: "he", locale: "he_IL", size: nil),
+        ] {
+            let app = XCUIApplication()
+            app.launchArguments = scenario.arguments
+            app.launch()
+            XCTAssertTrue(app.buttons["addAccount.gmail"].waitForExistence(timeout: 10), "the welcome screen shows")
+            // Contrast doesn't change with the text size, and at AX5 the audit loses track of which glass button it
+            // measured, so the default-size run checks it.
+            audit(app, "\(scenario.name)-welcome", at: scenario.size, skipping: scenario.size == nil ? [] : .contrast)
+            app.terminate()
+        }
     }
 
     // MARK: Screens
@@ -107,7 +124,9 @@ final class AccessibilityAuditTests: XCTestCase {
     // MARK: Audit
 
     @MainActor
-    private func audit(_ app: XCUIApplication, _ name: String, at size: String?) {
+    private func audit(
+        _ app: XCUIApplication, _ name: String, at size: String?, skipping skipped: XCUIAccessibilityAuditType = []
+    ) {
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = name
         screenshot.lifetime = .keepAlways
@@ -116,9 +135,12 @@ final class AccessibilityAuditTests: XCTestCase {
         // Whether text grows and fits is checked where it matters, at the largest size. At the default size the
         // audit can only guess at it, and guesses wrong for text that fits at every size.
         let types: XCUIAccessibilityAuditType =
-            size == nil ? XCUIAccessibilityAuditType.all.subtracting([.dynamicType, .textClipped]) : .all
+            (size == nil ? XCUIAccessibilityAuditType.all.subtracting([.dynamicType, .textClipped]) : .all)
+            .subtracting(skipped)
         let bar = app.navigationBars.firstMatch
         let barFrame = bar.exists ? bar.frame : .null
+        let glassButtons = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'addAccount.'"))
+            .allElementsBoundByIndex.map(\.frame)
         var found: [String] = []
         // Right after a launch the audit can miss the app or run out of time once; a second try succeeds.
         for attempt in 1...3 {
@@ -128,7 +150,7 @@ final class AccessibilityAuditTests: XCTestCase {
                     let element = issue.element
                     let who = [element?.identifier, element?.label].compactMap { $0 }.filter { !$0.isEmpty }
                         .joined(separator: " / ")
-                    let reason = Tolerated.reason(for: issue, navigationBar: barFrame)
+                    let reason = Tolerated.reason(for: issue, navigationBar: barFrame, glassButtons: glassButtons)
                     found.append(
                         (reason.map { "tolerated (\($0)) " } ?? "")
                             + "[\(issue.auditType)] \(who.isEmpty ? "?" : who): \(issue.compactDescription)")
@@ -154,7 +176,9 @@ final class AccessibilityAuditTests: XCTestCase {
     /// Issues the audit reports that aren't ours to fix, or that hold by design, each with why.
     private enum Tolerated {
         @MainActor
-        static func reason(for issue: XCUIAccessibilityAuditIssue, navigationBar: CGRect) -> String? {
+        static func reason(
+            for issue: XCUIAccessibilityAuditIssue, navigationBar: CGRect, glassButtons: [CGRect]
+        ) -> String? {
             let element = issue.element
             let identifier = element?.identifier ?? ""
             let label = element?.label ?? ""
@@ -163,6 +187,9 @@ final class AccessibilityAuditTests: XCTestCase {
                 return "initials keep one size to fit their fixed circle, as Mail's and Messages' do"
             case .dynamicType where identifier == "chat.placeholder" || identifier == "chat.field":
                 return "the chat field is a bar: it grows to the first accessibility size, then holds"
+            case .dynamicType where identifier == "welcome.title":
+                return
+                    "the welcome title grows to the second accessibility size, then holds so the buttons stay on screen"
             case .textClipped where element == nil:
                 // A mailbox row is one element, so the audit can't name the label inside it.
                 return "a row's subject and preview end at their line limits by design"
@@ -177,6 +204,13 @@ final class AccessibilityAuditTests: XCTestCase {
                 return "the navigation bar's title and subtitle, which UIKit draws and sizes"
             default:
                 break
+            }
+            if issue.auditType == .contrast, let element, element.exists,
+                glassButtons.contains(where: { $0.contains(element.frame) })
+            {
+                // The audit names the text inside a welcome button, not the button. The screenshot shows black on
+                // near-white; the audit samples the glass's translucent layers instead.
+                return "a Liquid Glass button's label, which the audit measures against the glass, not what it draws"
             }
             if issue.compactDescription == "Label not human-readable", label.contains("@") {
                 return "an email address, read as one"
