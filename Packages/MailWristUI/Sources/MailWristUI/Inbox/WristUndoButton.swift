@@ -52,6 +52,10 @@ struct WristUndoButton: View {
             String(localized: "Restored", table: "Wrist", bundle: .module, comment: "Undo button: what was done")
         case .reply:
             String(localized: "Reply Sent", table: "Wrist", bundle: .module, comment: "Undo button: what was done")
+        case .snooze:
+            String(localized: "Snoozed", table: "Wrist", bundle: .module, comment: "Undo button: what was done")
+        case .unsnooze:
+            String(localized: "Back in Inbox", table: "Wrist", bundle: .module, comment: "Undo button: what was done")
         }
     }
 }

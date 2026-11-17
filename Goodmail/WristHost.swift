@@ -58,6 +58,10 @@ final class WristHost {
             for thread in command.threads { try await model.reply(to: thread, with: text) }
         case .pin(let pinned):
             _ = try await commands.pin(command.threads, pinned)
+        case .snooze(let date):
+            _ = try await commands.snooze(command.threads, until: date)
+        case .unsnooze:
+            _ = try await commands.unsnooze(command.threads)
         case .archive, .moveToInbox, .trash, .untrash, .markRead:
             if let action = command.kind.threadAction { _ = try await commands.perform(action, on: command.threads) }
         }

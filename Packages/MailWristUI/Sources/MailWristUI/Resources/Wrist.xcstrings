@@ -138,6 +138,17 @@
         }
       }
     },
+    "Back in Inbox": {
+      "comment": "Undo button: what was done",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "חזר לדואר הנכנס"
+          }
+        }
+      }
+    },
     "Bring your iPhone closer to read this conversation.": {
       "comment": "Shown when the iPhone didn't send a conversation",
       "localizations": {
@@ -226,6 +237,17 @@
         }
       }
     },
+    "More": {
+      "comment": "Opens Pin and Snooze",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "עוד"
+          }
+        }
+      }
+    },
     "Moved to Inbox": {
       "comment": "Undo button: what was done",
       "localizations": {
@@ -244,6 +266,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "הועברה לפח"
+          }
+        }
+      }
+    },
+    "Next Week": {
+      "comment": "Snooze time: the morning the week resumes",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "בשבוע הבא"
           }
         }
       }
@@ -299,6 +332,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "יש לפתוח את Goodmail ב‑iPhone"
+          }
+        }
+      }
+    },
+    "Pin": {
+      "comment": "Pins a conversation to the top",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "נעיצה"
           }
         }
       }
@@ -391,6 +435,72 @@
         }
       }
     },
+    "Snooze Until": {
+      "comment": "Above the snooze times",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "נודניק עד"
+          }
+        }
+      }
+    },
+    "Snoozed": {
+      "comment": "Undo button: what was done",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הועבר לנודניק"
+          }
+        }
+      }
+    },
+    "This Evening": {
+      "comment": "Snooze time: 6 PM today",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הערב"
+          }
+        }
+      }
+    },
+    "This Weekend": {
+      "comment": "Snooze time: the weekend's first morning",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "בסוף השבוע"
+          }
+        }
+      }
+    },
+    "Tomorrow": {
+      "comment": "Snooze time: 8 AM tomorrow",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "מחר"
+          }
+        }
+      }
+    },
+    "Tonight": {
+      "comment": "Snooze time: 9 PM today",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הלילה"
+          }
+        }
+      }
+    },
     "Trash": {
       "comment": "Swipe action: move to Trash",
       "localizations": {
@@ -420,6 +530,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "ביטול"
+          }
+        }
+      }
+    },
+    "Unpin": {
+      "comment": "Unpins a conversation",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ביטול נעיצה"
           }
         }
       }

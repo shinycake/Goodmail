@@ -11,12 +11,36 @@ struct WristThreadView: View {
 
     /// Counts Try Again taps: each asks the iPhone again, with its own wait.
     @State private var attempt = 0
+    @State private var showsMore = false
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         content
             .navigationTitle(row.sender.displayName)
             .task { inbox.open(row) }
             .task(id: attempt) { await threads.load(row.id) }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showsMore = true
+                    } label: {
+                        Label {
+                            Text("More", tableName: "Wrist", bundle: .module, comment: "Opens Pin and Snooze")
+                        } icon: {
+                            Image(systemName: "ellipsis")
+                        }
+                    }
+                }
+            }
+            .sheet(isPresented: $showsMore) {
+                WristMoreSheet(row: current, inbox: inbox) { dismiss() }
+            }
+    }
+
+    /// The row as the Inbox shows it now, pinned or not, since the reader may have changed it here.
+    private var current: WristRow {
+        guard case .list(let snapshot) = inbox.state else { return row }
+        return snapshot.rows.first { $0.id == row.id } ?? row
     }
 
     @ViewBuilder private var content: some View {

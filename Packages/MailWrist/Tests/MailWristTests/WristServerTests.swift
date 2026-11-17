@@ -101,5 +101,6 @@ struct WristServerTests {
     @Test func aPinIsNoMailAction() {
         #expect(WristCommand.Kind.pin(true).threadAction == nil)
         #expect(WristCommand.Kind.reply("Thanks!").threadAction == nil)
+        #expect(WristCommand.Kind.snooze(until: .now).threadAction == nil)
     }
 }

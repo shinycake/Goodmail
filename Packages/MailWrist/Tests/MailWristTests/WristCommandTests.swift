@@ -16,6 +16,12 @@ struct WristCommandTests {
         #expect(kind.inverse != kind)
     }
 
+    @Test func undoingASnoozeEndsIt() {
+        let snooze = WristCommand.Kind.snooze(until: Date(timeIntervalSinceReferenceDate: 0))
+        #expect(snooze.inverse == .unsnooze)
+        #expect(WristCommand.Kind.unsnooze.inverse == nil)
+    }
+
     @Test func aReplyCantBeTakenBack() {
         #expect(WristCommand.Kind.reply("Thanks!").inverse == nil)
         #expect(WristCommand(threads: [], kind: .reply("Thanks!"), madeAt: .now).inverse(madeAt: .now) == nil)

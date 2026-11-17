@@ -73,9 +73,9 @@ extension WristSnapshot {
         let threads = Set(command.threads)
         var result = self
         switch command.kind {
-        case .archive, .trash:
+        case .archive, .trash, .snooze:
             result.rows.removeAll { threads.contains($0.id) }
-        case .moveToInbox, .untrash, .reply:
+        case .moveToInbox, .untrash, .unsnooze, .reply:
             return self
         case .markRead(let read):
             result.rows = rows.map { row in

@@ -13,6 +13,10 @@ public struct WristCommand: Codable, Equatable, Identifiable, Sendable {
         case pin(Bool)
         /// Sends these words as a reply to the conversation's newest message.
         case reply(String)
+        /// Takes the conversations out of the Inbox until the date, when they come back.
+        case snooze(until: Date)
+        /// Ends a snooze now, putting the conversations back in the Inbox. Only Undo sends it.
+        case unsnooze
 
         /// What takes the change back; `nil` for a reply, which can't be taken back once sent. The watch holds a
         /// reply for a moment before sending it instead.
@@ -24,7 +28,8 @@ public struct WristCommand: Codable, Equatable, Identifiable, Sendable {
             case .untrash: .trash
             case .markRead(let read): .markRead(!read)
             case .pin(let pinned): .pin(!pinned)
-            case .reply: nil
+            case .snooze: .unsnooze
+            case .reply, .unsnooze: nil
             }
         }
     }

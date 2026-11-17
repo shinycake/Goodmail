@@ -43,6 +43,17 @@ struct WristMailboxTests {
         #expect(shown.unread == 2)
     }
 
+    @Test func snoozingTakesTheRowOutAndUndoBringsItBack() throws {
+        var mailbox = WristMailbox(snapshot: snapshot(three))
+        let snooze = command(.snooze(until: now.addingTimeInterval(3600)), "b")
+        mailbox.perform(snooze)
+        #expect(try #require(mailbox.shown).rows.map(\.id.threadID) == ["a", "c"])
+
+        let undone = mailbox.undo(snooze, now: now)
+        #expect(undone?.kind == .unsnooze)
+        #expect(try #require(mailbox.shown).rows.map(\.id.threadID) == ["a", "b", "c"])
+    }
+
     @Test func markingReadKeepsTheRowAndLowersTheCount() throws {
         var mailbox = WristMailbox(snapshot: snapshot(three))
         mailbox.perform(command(.markRead(true), "a", "c"))

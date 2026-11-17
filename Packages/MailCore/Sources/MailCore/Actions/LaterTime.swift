@@ -1,13 +1,7 @@
 public import Foundation
 
-/// When a finished message goes: once the undo window closes, or at a time the writer picked.
-public enum SendTime: Equatable, Sendable {
-    case now
-    case at(Date)
-}
-
-/// The times offered for sending a message later or snoozing a thread, each with what it is called.
-enum LaterTime: Equatable {
+/// The times offered for sending a message later or snoozing a thread. Each app names them in its own words.
+public enum LaterTime: Equatable, Sendable {
     /// 6 PM today.
     case thisEvening(Date)
     /// 9 PM today.
@@ -19,7 +13,7 @@ enum LaterTime: Equatable {
     /// 8 AM on the first day after the weekend.
     case nextWeek(Date)
 
-    var date: Date {
+    public var date: Date {
         switch self {
         case .thisEvening(let date), .tonight(let date), .tomorrowMorning(let date), .thisWeekend(let date),
             .nextWeek(let date):
@@ -27,40 +21,9 @@ enum LaterTime: Equatable {
         }
     }
 
-    var title: String {
-        let time = date.formatted(date: .omitted, time: .shortened)
-        return switch self {
-        case .thisEvening:
-            String(
-                localized: "This Evening, \(time)", table: "Actions", bundle: .module,
-                comment: "Later choice: this evening, with the time")
-        case .tonight:
-            String(
-                localized: "Tonight, \(time)", table: "Actions", bundle: .module,
-                comment: "Later choice: tonight, with the time")
-        case .tomorrowMorning:
-            String(
-                localized: "Tomorrow, \(time)", table: "Actions", bundle: .module,
-                comment: "Later choice: tomorrow morning, with the time")
-        case .thisWeekend, .nextWeek:
-            String(
-                localized: "\(date.formatted(.dateTime.weekday(.wide))), \(time)", table: "Actions", bundle: .module,
-                comment: "Later choice: a morning on another day, as weekday and time")
-        }
-    }
-
-    var symbol: String {
-        switch self {
-        case .thisEvening, .tonight: "moon"
-        case .tomorrowMorning: "sunrise"
-        case .thisWeekend: "sofa"
-        case .nextWeek: "briefcase"
-        }
-    }
-
     /// For sending later: tonight while there is still an hour before it, tomorrow morning, and the morning after
     /// the weekend from the last day before it until the weekend ends.
-    static func sendChoices(at now: Date, calendar: Calendar = .current) -> [LaterTime] {
+    public static func sendChoices(at now: Date, calendar: Calendar = .current) -> [LaterTime] {
         let days = Days(now: now, calendar: calendar)
         var choices: [LaterTime] = []
         if let tonight = days.today(at: 21), tonight.timeIntervalSince(now) >= 3600 {
@@ -73,7 +36,7 @@ enum LaterTime: Equatable {
 
     /// For snoozing: this evening while there is still an hour before it, tomorrow morning, the coming weekend on a
     /// weekday before its eve, and the next week.
-    static func snoozeChoices(at now: Date, calendar: Calendar = .current) -> [LaterTime] {
+    public static func snoozeChoices(at now: Date, calendar: Calendar = .current) -> [LaterTime] {
         let days = Days(now: now, calendar: calendar)
         var choices: [LaterTime] = []
         if let evening = days.today(at: 18), evening.timeIntervalSince(now) >= 3600 {
@@ -83,18 +46,6 @@ enum LaterTime: Equatable {
         if !days.isWeekendNear, let weekend = days.weekendMorning { choices.append(.thisWeekend(weekend)) }
         if let week = days.nextWeekMorning { choices.append(.nextWeek(week)) }
         return choices
-    }
-}
-
-/// How a later time reads, for a scheduled message or a snoozed thread: "Today at 9:00 PM", "Tomorrow at
-/// 8:00 AM", then a date.
-enum ScheduledTime {
-    static func text(for date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        formatter.doesRelativeDateFormatting = true
-        return formatter.string(from: date)
     }
 }
 
