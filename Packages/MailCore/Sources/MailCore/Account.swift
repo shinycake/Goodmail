@@ -74,18 +74,25 @@ public struct Account: Identifiable, Hashable, Sendable {
     public let service: MailService
     /// The name mail from this account is sent under, such as "Dana Levi". `nil` sends the address alone.
     public var name: String?
+    /// What the reader calls the account, such as "Work", which the app shows in place of its address. `nil` shows
+    /// the address. Only the reader sees it; mail is sent under `name`.
+    public var nickname: String?
     /// The other addresses the account can send from, such as Gmail's send-as aliases, as its service lists them.
     public var aliases: [Contact]
 
     public init(
         id: AccountID, email: String, color: AccountColor, service: MailService, name: String? = nil,
-        aliases: [Contact] = []
+        nickname: String? = nil, aliases: [Contact] = []
     ) {
         self.id = id
         self.email = email
         self.color = color
         self.service = service
         self.name = name
+        self.nickname = nickname
         self.aliases = aliases
     }
+
+    /// How the app names the account: its nickname, or its address when it has none.
+    public var title: String { nickname ?? email }
 }

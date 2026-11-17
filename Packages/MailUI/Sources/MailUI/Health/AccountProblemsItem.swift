@@ -62,7 +62,7 @@ extension UIAlertController {
                 notices.count == 1
                 ? notice.fixTitle
                 : String(
-                    localized: "\(notice.fixTitle): \(notice.account.email)", table: "Health", bundle: .module,
+                    localized: "\(notice.fixTitle): \(notice.account.title)", table: "Health", bundle: .module,
                     comment: "Account problems alert: a fix and the account it is for, when there are several")
             alert.addAction(UIAlertAction(title: title, style: .default) { _ in fix(notice) })
         }

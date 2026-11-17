@@ -28,8 +28,8 @@ public struct AccountSharing: Sendable {
         }
     }
 
-    /// Shares `accounts`, in this order, with their sign-ins. An account already shared gets its name, color and
-    /// place updated; one removed on another device stays removed.
+    /// Shares `accounts`, in this order, with their sign-ins. An account already shared gets its name, nickname,
+    /// color and place updated; one removed on another device stays removed.
     @concurrent public func share(_ accounts: [Account]) async throws {
         let records = try Self.records(in: shared)
         let places = SharedOrder.places(

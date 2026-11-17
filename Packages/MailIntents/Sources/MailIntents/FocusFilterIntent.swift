@@ -13,7 +13,7 @@ public struct AccountsFocusFilter: SetFocusFilterIntent {
     @Dependency private var host: any MailIntentsHost
 
     public var displayRepresentation: DisplayRepresentation {
-        let names = (accounts ?? []).map(\.emailAddress)
+        let names = (accounts ?? []).map(\.title)
         return names.isEmpty
             ? DisplayRepresentation(title: "Every Account")
             : DisplayRepresentation(title: "\(names.formatted(.list(type: .and)))")

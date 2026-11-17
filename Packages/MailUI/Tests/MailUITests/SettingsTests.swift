@@ -85,6 +85,25 @@ struct SettingsTests {
         #expect(stored.first?.color == .green)
     }
 
+    @Test func aNicknameIsTrimmedStoredBesideTheNameAndClearedWhenBlank() async {
+        var stored = [personal]
+        let model = SettingsViewModel(
+            accounts: { stored }, signIn: { _ in true }, remove: { _, _ in },
+            update: { account in stored = [account] }, closed: {})
+
+        model.rename(personal.id, to: "Dana Levi")
+        model.setNickname(personal.id, to: "  Personal ")
+        #expect(model.accounts.first?.title == "Personal", "shown at once")
+        await model.settled()
+        #expect(stored.first?.nickname == "Personal")
+        #expect(stored.first?.name == "Dana Levi", "the nickname didn't overwrite the sender name")
+
+        model.setNickname(personal.id, to: "   ")
+        await model.settled()
+        #expect(stored.first?.nickname == nil)
+        #expect(model.accounts.first?.title == "me@example.com", "the address again")
+    }
+
     @Test func aFailedRenameIsNotStoredByTheColorChangeAfterIt() async {
         struct Refused: Error {}
         var stored = [personal]

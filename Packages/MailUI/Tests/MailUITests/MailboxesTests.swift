@@ -119,7 +119,7 @@ struct MailboxesTests {
         #expect(own.theme == .account(.orange))
         #expect(own.rowAccount(for: workThread) == .implied(.orange))
         #expect(blended.theme == .gradient(AccountBlend([.teal, .orange])))
-        #expect(blended.rowAccount(for: workThread) == .shown(.orange, email: "work@example.com"))
+        #expect(blended.rowAccount(for: workThread) == .shown(.orange, name: "work@example.com"))
 
         own.compose()
         blended.compose()

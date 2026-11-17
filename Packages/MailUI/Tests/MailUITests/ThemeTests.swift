@@ -122,10 +122,17 @@ struct ThemeTests {
         #expect(own.spokenAccount == nil)
 
         let blended = Theme(accountID: nil, among: [personal, work], combined: .solid(.green)).rowAccount(work)
-        #expect(blended == .shown(.orange, email: "work@example.com"))
+        #expect(blended == .shown(.orange, name: "work@example.com"))
         #expect(blended.badge(unread: true) == .dot(.systemOrange))
         #expect(blended.badge(unread: false) == .ring(.systemOrange))
         #expect(blended.spokenAccount == "work@example.com")
+    }
+
+    @Test func voiceOverNamesARowsAccountByItsNickname() {
+        var nicknamed = work
+        nicknamed.nickname = "Work"
+        let blended = Theme(accountID: nil, among: [personal, nicknamed], combined: .gradient).rowAccount(nicknamed)
+        #expect(blended.spokenAccount == "Work")
     }
 
     @Test func contentTypographyIsTheSystemFont() {

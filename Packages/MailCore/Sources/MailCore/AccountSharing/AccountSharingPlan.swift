@@ -6,7 +6,7 @@ public struct AccountSharingPlan: Equatable, Sendable {
     public let missing: [Account]
     /// This device's accounts that another device removed.
     public let removedElsewhere: [AccountID]
-    /// This device's accounts as another device renamed or recolored them.
+    /// This device's accounts as another device renamed, nicknamed or recolored them.
     public let changedElsewhere: [Account]
     /// Each shared account's place in the order the reader put them in.
     private let positions: [AccountID: Int]
@@ -28,6 +28,7 @@ public struct AccountSharingPlan: Equatable, Sendable {
             guard let profile = profiles[account.id] else { return nil }
             var changed = account
             changed.name = profile.name
+            changed.nickname = profile.nickname
             changed.color = AccountColor(rawValue: profile.color) ?? account.color
             return changed == account ? nil : changed
         }

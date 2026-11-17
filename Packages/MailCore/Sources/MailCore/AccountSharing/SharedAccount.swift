@@ -12,6 +12,8 @@ public enum SharedAccount: Codable, Equatable, Sendable {
         public var email: String
         public var service: MailService
         public var name: String?
+        /// `Account.nickname`. Records shared before nicknames have none, which reads as no nickname.
+        public var nickname: String?
         /// `AccountColor.rawValue`.
         public var color: String
         /// The account's place in the order the reader put the accounts in.
@@ -21,6 +23,7 @@ public enum SharedAccount: Codable, Equatable, Sendable {
             email = account.email
             service = account.service
             name = account.name
+            nickname = account.nickname
             color = account.color.rawValue
             self.position = position
         }
@@ -29,7 +32,7 @@ public enum SharedAccount: Codable, Equatable, Sendable {
         public func account(_ id: AccountID) -> Account {
             Account(
                 id: id, email: email, color: AccountColor(rawValue: color) ?? AccountColor.presets[0],
-                service: service, name: name)
+                service: service, name: name, nickname: nickname)
         }
     }
 

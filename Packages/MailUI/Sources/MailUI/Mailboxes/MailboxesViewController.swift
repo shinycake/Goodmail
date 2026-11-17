@@ -208,8 +208,8 @@ public final class MailboxesViewController: UIViewController {
                 content.text = String(
                     localized: "Labels", table: "Mailboxes", bundle: .module, comment: "Header above the user's labels")
             case .account(let account):
-                // The service's logo beside the address; the account's color is on its mailboxes' icons below.
-                content.text = account.email
+                // The service's logo beside the account's name; its color is on its mailboxes' icons below.
+                content.text = account.title
                 content.image = account.service.markImage
                 // The same box for a logo and a symbol, so every account's address starts at one edge.
                 content.imageProperties.maximumSize = CGSize(width: 18, height: 18)
@@ -365,7 +365,10 @@ extension MailboxesViewController {
         let menu = UIMenu(
             title: title,
             children: accounts.map { account in
-                UIAction(title: account.email, image: account.service.markImage) { [weak self] _ in
+                UIAction(
+                    title: account.title, subtitle: account.nickname.map { _ in account.email },
+                    image: account.service.markImage
+                ) { [weak self] _ in
                     self?.labelFlow(for: account.id)?.create { _ in }
                 }
             })

@@ -65,7 +65,7 @@ extension [AccountProblemNotice] {
     var summary: (title: String, subtitle: String?)? {
         switch count {
         case 0: nil
-        case 1: (self[0].title, self[0].account.email)
+        case 1: (self[0].title, self[0].account.title)
         default:
             (
                 String(

@@ -68,7 +68,7 @@ public enum Theme: Equatable {
     func rowAccount(_ account: Account) -> RowAccount {
         switch self {
         case .account: .implied(account.color)
-        case .gradient, .solid: .shown(account.color, email: account.email)
+        case .gradient, .solid: .shown(account.color, name: account.title)
         }
     }
 }
@@ -77,9 +77,9 @@ public enum Theme: Equatable {
 nonisolated enum RowAccount: Equatable {
     /// The view is the account's own: a dot in its color while the thread is unread, nothing once it is read.
     case implied(AccountColor)
-    /// The view spans accounts: a dot in the account's color while unread, a ring once read, and the address for
-    /// VoiceOver.
-    case shown(AccountColor, email: String)
+    /// The view spans accounts: a dot in the account's color while unread, a ring once read, and the account's name
+    /// (`Account.title`) for VoiceOver.
+    case shown(AccountColor, name: String)
 }
 
 extension UIViewController {

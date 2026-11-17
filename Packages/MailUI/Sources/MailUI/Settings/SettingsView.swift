@@ -14,12 +14,7 @@ struct SettingsView: View {
                     NavigationLink(value: account.id) {
                         Label {
                             HStack {
-                                VStack(alignment: .leading) {
-                                    Text(account.name ?? account.email)
-                                    if account.name != nil {
-                                        Text(account.email).font(.footnote).foregroundStyle(.secondary)
-                                    }
-                                }
+                                AccountNames(account: account)
                                 Spacer()
                                 // The account's color, which tints its mail and mailboxes.
                                 Circle().fill(Color(account.color.uiColor)).frame(width: 10, height: 10)

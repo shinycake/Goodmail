@@ -363,6 +363,10 @@ public final class MailDatabase: Sendable {
                 table.column("draft", .text).notNull()
             }
         }
+        migrator.registerMigration("v31-account-nicknames") { db in
+            // What the reader calls each account (Account.nickname); none until they name it.
+            try db.alter(table: "account") { table in table.add(column: "nickname", .text) }
+        }
         return migrator
     }
 }

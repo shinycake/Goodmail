@@ -9,12 +9,22 @@ public struct AccountEntity {
     public let id: String
     public var name: String
     public var emailAddress: String
+    /// What the app calls the account (`Account.title`): its nickname, or its address.
+    let title: String
 
-    public var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(emailAddress)") }
+    public var displayRepresentation: DisplayRepresentation {
+        title == emailAddress
+            ? DisplayRepresentation(title: "\(title)")
+            : DisplayRepresentation(title: "\(title)", subtitle: "\(emailAddress)")
+    }
 
     init(_ account: Account) {
         id = account.id.rawValue
-        name = account.name ?? account.email
+        // Set before the schema's own properties: setting one of those reads `self`, so every plain stored property
+        // has to be set first or the init doesn't compile.
+        title = account.title
+        // The reader's nickname for the account comes first, so "my Work account" finds it.
+        name = account.nickname ?? account.name ?? account.email
         emailAddress = account.email
     }
 

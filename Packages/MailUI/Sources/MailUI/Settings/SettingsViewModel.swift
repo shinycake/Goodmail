@@ -128,6 +128,12 @@ public final class SettingsViewModel {
         change(.edit(id) { $0.name = trimmed.isEmpty ? nil : trimmed })
     }
 
+    /// Names the account `nickname` in the app, without its surrounding spaces; a blank one shows its address again.
+    func setNickname(_ id: AccountID, to nickname: String) {
+        let trimmed = nickname.trimmingCharacters(in: .whitespacesAndNewlines)
+        change(.edit(id) { $0.nickname = trimmed.isEmpty ? nil : trimmed })
+    }
+
     func setColor(_ color: AccountColor, for id: AccountID) {
         change(.edit(id) { $0.color = color })
     }
@@ -149,7 +155,7 @@ public final class SettingsViewModel {
 
     /// One change the reader made to the accounts.
     private enum Change {
-        /// An edit of one account's name or color.
+        /// An edit of one account's name, nickname or color.
         case edit(AccountID, (inout Account) -> Void)
         /// The accounts in a new order. Any it doesn't name, as one added since, follow in the order they had.
         case reorder([AccountID])

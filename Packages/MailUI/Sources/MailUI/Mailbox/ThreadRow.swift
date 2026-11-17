@@ -147,8 +147,8 @@ extension RowAccount {
 
     /// The account VoiceOver names, where the color alone says it.
     var spokenAccount: String? {
-        guard case .shown(_, let email) = self else { return nil }
-        return email
+        guard case .shown(_, let name) = self else { return nil }
+        return name
     }
 }
 

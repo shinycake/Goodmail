@@ -2,11 +2,12 @@ import MailCore
 import SwiftUI
 import UIKit
 
-/// One account's own settings: the name its mail goes under, its color, its signature, its Inbox, and removing it.
+/// One account's own settings: what the app calls it, the name its mail goes under, its color, its signature, its Inbox, and removing it.
 struct AccountSettingsView: View {
     let model: SettingsViewModel
     let accountID: AccountID
     @State private var name = ""
+    @State private var nickname = ""
     @State private var removing: Account?
     @Environment(\.dismiss) private var dismiss
 
@@ -18,6 +19,27 @@ struct AccountSettingsView: View {
 
     private func form(for account: Account) -> some View {
         Form {
+            Section {
+                TextField(
+                    text: $nickname,
+                    prompt: Text(verbatim: account.email)
+                ) {
+                    Text(
+                        "Description", tableName: "Settings", bundle: .module,
+                        comment: "Names an account in the app, such as Work or Personal, as Apple Mail calls it")
+                }
+                .submitLabel(.done)
+                .onSubmit { model.setNickname(accountID, to: nickname) }
+            } header: {
+                Text(
+                    "Description", tableName: "Settings", bundle: .module,
+                    comment: "Names an account in the app, such as Work or Personal, as Apple Mail calls it")
+            } footer: {
+                Text(
+                    "A name for this account, like Work or Personal, shown instead of its address. Only you see it.",
+                    tableName: "Settings", bundle: .module, comment: "Explains an account's description")
+            }
+
             Section {
                 TextField(
                     text: $name,
@@ -110,11 +132,17 @@ struct AccountSettingsView: View {
                 }
             }
         }
-        .navigationTitle(account.email)
+        .navigationTitle(account.title)
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { name = account.name ?? "" }
+        .onAppear {
+            name = account.name ?? ""
+            nickname = account.nickname ?? ""
+        }
         // Leaving without pressing Done keeps what was typed.
-        .onDisappear { model.rename(accountID, to: name) }
+        .onDisappear {
+            model.setNickname(accountID, to: nickname)
+            model.rename(accountID, to: name)
+        }
         .removeAccountConfirmation($removing, model: model) { dismiss() }
     }
 }

@@ -13,12 +13,12 @@ extension MailDatabase {
         }
     }
 
-    /// Changes the account's name and color. Its mail and its place among the accounts stay as they are.
+    /// Changes the account's name, nickname and color. Its mail and its place among the accounts stay as they are.
     public func update(_ account: Account) throws {
         try write { db in
             try db.execute(
-                sql: "UPDATE account SET name = ?, color = ? WHERE id = ?",
-                arguments: [account.name, account.color.rawValue, account.id.rawValue])
+                sql: "UPDATE account SET name = ?, nickname = ?, color = ? WHERE id = ?",
+                arguments: [account.name, account.nickname, account.color.rawValue, account.id.rawValue])
         }
     }
 
@@ -67,6 +67,7 @@ struct AccountRecord: Codable, FetchableRecord, PersistableRecord {
     var color: String
     var service: String
     var name: String?
+    var nickname: String?
     var aliases: [Contact]
     var createdAt: Date
     var position: Int
@@ -77,6 +78,7 @@ struct AccountRecord: Codable, FetchableRecord, PersistableRecord {
         color = account.color.rawValue
         service = account.service.rawValue
         name = account.name
+        nickname = account.nickname
         aliases = account.aliases
         self.createdAt = createdAt
         self.position = position
@@ -88,6 +90,7 @@ struct AccountRecord: Codable, FetchableRecord, PersistableRecord {
             return nil
         }
         return Account(
-            id: AccountID(rawValue: id), email: email, color: color, service: service, name: name, aliases: aliases)
+            id: AccountID(rawValue: id), email: email, color: color, service: service, name: name,
+            nickname: nickname, aliases: aliases)
     }
 }

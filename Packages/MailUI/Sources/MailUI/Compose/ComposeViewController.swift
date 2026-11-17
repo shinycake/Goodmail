@@ -367,10 +367,11 @@ public final class ComposeViewController: UIViewController {
         fromButton.menu = UIMenu(
             options: .singleSelection,
             children: viewModel.senderChoices.map { address in
-                // No image: the address gets the menu's whole width rather than wrapping. An alias names its
-                // account under it.
+                // No image: the address gets the menu's whole width rather than wrapping. Under it, the account's
+                // nickname, and an alias names its account.
                 UIAction(
-                    title: address.email, subtitle: address.alias.map { _ in address.account.email },
+                    title: address.email,
+                    subtitle: address.alias == nil ? address.account.nickname : address.account.title,
                     state: address.email == viewModel.fromAddress ? .on : .off
                 ) { [weak self] _ in self?.changeSender(to: address) }
             })

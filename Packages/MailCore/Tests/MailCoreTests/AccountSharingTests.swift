@@ -70,6 +70,28 @@ struct AccountSharingTests {
         #expect(plan.missing.isEmpty)
     }
 
+    @Test func aNicknameGivenElsewhereIsTakenUpAndAddedWithTheAccount() async throws {
+        let shared = MemoryDirectory()
+        let phone = sharing(shared: shared, device: MemoryDirectory(["gmail.g": "t", "icloud.i": "p"]))
+        var work = gmail
+        work.nickname = "Work"
+        var home = icloud
+        home.nickname = "Home"
+        try await phone.share([work, home])
+
+        let plan = try await sharing(shared: shared, device: MemoryDirectory()).plan(for: [gmail])
+
+        #expect(plan.changedElsewhere == [work])
+        #expect(plan.missing == [home])
+    }
+
+    @Test func aRecordSharedBeforeNicknamesReadsAsNone() throws {
+        let json = #"{"present":{"_0":{"email":"me@gmail.com","service":"gmail","color":"blue","position":0}}}"#
+        let record = try JSONDecoder().decode(SharedAccount.self, from: Data(json.utf8))
+        #expect(record.profile?.nickname == nil)
+        #expect(record.profile?.account(gmail.id) == gmail)
+    }
+
     @Test func sharingCopiesTheDevicesSignInButKeepsANewerSharedOne() async throws {
         let shared = MemoryDirectory(["icloud.i": "newer"])
         let device = MemoryDirectory(["gmail.g": "token", "icloud.i": "older"])

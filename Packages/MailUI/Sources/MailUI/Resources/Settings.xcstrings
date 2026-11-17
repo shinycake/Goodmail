@@ -86,6 +86,17 @@
         }
       }
     },
+    "A name for this account, like Work or Personal, shown instead of its address. Only you see it." : {
+      "comment" : "Explains an account's description",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שם לחשבון הזה, כמו ״עבודה״ או ״אישי״, שמוצג במקום הכתובת שלו. רק לך הוא מוצג."
+          }
+        }
+      }
+    },
     "Accounts" : {
       "comment" : "Settings section listing the accounts",
       "localizations" : {
@@ -214,6 +225,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "מחיקה וארכיון"
+          }
+        }
+      }
+    },
+    "Description" : {
+      "comment" : "Names an account in the app, such as Work or Personal, as Apple Mail calls it",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תיאור"
           }
         }
       }

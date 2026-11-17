@@ -67,6 +67,41 @@ struct AccountStoreTests {
         #expect(try database.thread(ThreadSummary.ID(accountID: home.id, threadID: "t1")) != nil)
     }
 
+    @Test func aNicknameIsKeptAndCanBeChangedOrCleared() throws {
+        let database = try MailDatabase(url: url)
+        var named = home
+        named.nickname = "Personal"
+        try database.save(named)
+        #expect(try database.accounts().map(\.nickname) == ["Personal"])
+
+        named.nickname = "Family"
+        try database.update(named)
+        #expect(try MailDatabase(url: url).accounts().map(\.nickname) == ["Family"])
+
+        named.nickname = nil
+        try database.update(named)
+        #expect(try database.accounts().map(\.nickname) == [nil])
+    }
+
+    @Test func accountsStoredBeforeNicknamesHaveNone() throws {
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let pool = try DatabasePool(path: url.path)
+        try MailDatabase.migrator.migrate(pool, upTo: "v30-minimized-drafts")
+        try pool.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO account (id, email, color, service, name, createdAt)
+                    VALUES ('a1', 'me@example.com', 'teal', 'gmail', 'Dana', ?)
+                    """,
+                arguments: [Date.now])
+        }
+        try pool.close()
+
+        let account = try #require(try MailDatabase(url: url).accounts().first)
+        #expect(account.nickname == nil)
+        #expect(account.title == "me@example.com")
+    }
+
     private let school = Account(
         id: AccountID(rawValue: "school"), email: "school@example.com", color: .purple, service: .icloud)
 

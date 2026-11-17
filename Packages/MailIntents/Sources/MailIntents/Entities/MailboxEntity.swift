@@ -12,7 +12,7 @@ public struct MailboxEntity {
     public var account: AccountEntity
 
     public var displayRepresentation: DisplayRepresentation {
-        DisplayRepresentation(title: "\(name)", subtitle: "\(account.emailAddress)")
+        DisplayRepresentation(title: "\(name)", subtitle: "\(account.title)")
     }
 
     init(_ mailbox: NamedMailbox, account: AccountEntity) {
