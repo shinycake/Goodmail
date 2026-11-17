@@ -14,6 +14,18 @@ public struct WristGlanceView: View {
     }
 
     public var body: some View {
+        shape.widgetURL(WristRoute.url(opening: opens))
+    }
+
+    /// The card opens the conversation it shows; a count opens the Inbox.
+    private var opens: ThreadSummary.ID? {
+        switch family {
+        case .accessoryCircular, .accessoryInline: nil
+        default: WristGlanceCorner.fits(family) ? nil : glance.content.thread
+        }
+    }
+
+    @ViewBuilder private var shape: some View {
         switch family {
         case .accessoryCircular:
             WristGlanceCircle(count: glance.content.unread)

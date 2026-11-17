@@ -15,6 +15,8 @@ struct GoodmailWatchApp: App {
     var body: some Scene {
         WindowGroup {
             WristInboxView(model: delegate.inbox, threads: delegate.threads, route: delegate.route)
+                // A tap on the watch face.
+                .onOpenURL { delegate.route.open($0) }
         }
     }
 }

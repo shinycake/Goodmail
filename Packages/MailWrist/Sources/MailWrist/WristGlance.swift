@@ -1,4 +1,5 @@
 public import Foundation
+public import MailCore
 
 /// What the watch face and the Smart Stack show of the Inbox at one moment, and how much the Smart Stack should
 /// raise it then (design: "Complications and the Smart Stack").
@@ -52,5 +53,16 @@ public struct WristGlance: Equatable, Sendable {
         let fresh = date < newest.date + freshWindow
         return WristGlance(
             date: date, content: .unread(count: snapshot.unread, newest: newest), relevance: fresh ? 0.6 : 0.2)
+    }
+}
+
+extension WristGlance.Content {
+    /// The conversation a tap on the card opens, or `nil` for the Inbox.
+    public var thread: ThreadSummary.ID? {
+        switch self {
+        case .waiting, .caughtUp: nil
+        case .unread(_, let newest): newest.id
+        case .code(_, let from, _): from.id
+        }
     }
 }

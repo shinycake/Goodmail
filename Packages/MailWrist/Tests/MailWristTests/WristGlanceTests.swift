@@ -69,3 +69,24 @@ struct WristGlanceTests {
         #expect(timeline == [WristGlance(date: now, content: .unread(count: 1, newest: coded), relevance: 0.2)])
     }
 }
+
+/// A tap on the face's card opens the conversation it shows.
+struct WristGlanceThreadTests {
+    private let thread = ThreadSummary.ID(accountID: AccountID(rawValue: "a"), threadID: "t")
+
+    private var row: WristRow {
+        WristRow(
+            id: thread, sender: Contact(name: "Noa", address: "noa@example.com"), subject: "Lunch", snippet: "",
+            date: .now, isUnread: true, messageCount: 1, isPinned: false, code: nil)
+    }
+
+    @Test func newMailAndACodeOpenTheirConversation() {
+        #expect(WristGlance.Content.unread(count: 2, newest: row).thread == thread)
+        #expect(WristGlance.Content.code("123456", from: row, unread: 1).thread == thread)
+    }
+
+    @Test func nothingToShowOpensTheInbox() {
+        #expect(WristGlance.Content.waiting.thread == nil)
+        #expect(WristGlance.Content.caughtUp(since: .now).thread == nil)
+    }
+}
