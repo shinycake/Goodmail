@@ -163,6 +163,7 @@ describe("Pub/Sub push with a grant", () => {
       aps: { alert: { title: "Dana Levi", body: "Lunch?" }, sound: "default", "mutable-content": 1 },
       account: EMAIL,
       historyId: "12",
+      alert: expect.stringMatching(/^[0-9a-f-]{36}$/),
     });
   });
 

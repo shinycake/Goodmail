@@ -239,6 +239,7 @@ describe("Graph notifications", () => {
     expect(apnsCalls[0]?.body).toEqual({
       aps: { alert: { title: "Dana Levi", body: "Lunch?" }, sound: "default", "mutable-content": 1 },
       accountID: ACCOUNT,
+      alert: expect.stringMatching(/^[0-9a-f-]{36}$/),
     });
   });
 

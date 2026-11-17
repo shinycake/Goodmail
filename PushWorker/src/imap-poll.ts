@@ -1,5 +1,5 @@
-import { type ApnsSigner, sendAlert } from "./apns";
 import type { Env } from "./env";
+import type { Alerts } from "./fallback";
 import {
   type Connect,
   connectToServer,
@@ -10,7 +10,6 @@ import {
   watchInbox,
 } from "./imap";
 import { advanceWatch, type ImapWatch, loginSealer, refuseLogin, watchesDue } from "./imap-watches";
-import { forgetDeviceToken } from "./tokens";
 
 /** Mailboxes watched at once. A Worker may hold six connections, and APNs needs one too. */
 const CONCURRENCY = 4;
@@ -30,7 +29,7 @@ export const WATCH_MS = 290_000;
  */
 export async function pollWatches(
   env: Env,
-  signer: ApnsSigner,
+  alerts: Alerts,
   now: number,
   open: Connect = connectToServer,
   watchMs = WATCH_MS,
@@ -42,20 +41,20 @@ export async function pollWatches(
   }
   const groups = [...byLogin.values()];
   const workers = Array.from({ length: Math.min(CONCURRENCY, groups.length) }, async () => {
-    for (let group = groups.shift(); group; group = groups.shift()) await watchMailbox(env, signer, group, until, open);
+    for (let group = groups.shift(); group; group = groups.shift()) await watchMailbox(env, alerts, group, until, open);
   });
   await Promise.all(workers);
 }
 
 /** Watches one mailbox, which every watch in `watches` shares the login of. */
-async function watchMailbox(env: Env, signer: ApnsSigner, watches: ImapWatch[], until: number, open: Connect) {
+async function watchMailbox(env: Env, alerts: Alerts, watches: ImapWatch[], until: number, open: Connect) {
   const first = watches[0]!;
   const sealed = await loginSealer(env.EMAIL_HMAC_SECRET).open(first.login);
   if (sealed === undefined) return console.warn("An IMAP login couldn't be opened");
   try {
     const onStatus = async (inbox: InboxStatus, fresh: FreshMail) => {
       // One at a time: the new-mail check talks over the one connection.
-      for (const watch of watches) await alert(env, signer, watch, inbox, fresh);
+      for (const watch of watches) await alert(env, alerts, watch, inbox, fresh);
     };
     await watchInbox(JSON.parse(sealed) as ImapLogin, until, onStatus, open);
   } catch (error) {
@@ -73,7 +72,7 @@ const MOST_CHECKED = 50;
  * asked about, or an alert APNs didn't take, moves the watch back, so the next STATUS or run tries again. Keeps
  * `watch.inbox` as the stored baseline.
  */
-async function alert(env: Env, signer: ApnsSigner, watch: ImapWatch, inbox: InboxStatus, fresh: FreshMail) {
+async function alert(env: Env, alerts: Alerts, watch: ImapWatch, inbox: InboxStatus, fresh: FreshMail) {
   const before = watch.inbox;
   if (before.uidValidity === inbox.uidValidity && before.uidNext === inbox.uidNext) return;
   if (!(await advanceWatch(env.DB, watch.watchId, before, inbox))) return;
@@ -83,7 +82,6 @@ async function alert(env: Env, signer: ApnsSigner, watch: ImapWatch, inbox: Inbo
   const arrival = await fresh(Math.max(before.uidNext, inbox.uidNext - MOST_CHECKED));
   if (arrival.kind === "none") return;
   const outcome =
-    arrival.kind === "mail" ? await sendAlert(signer, watch.device, arrival.newest, { accountID: watch.account }) : "failed";
-  if (outcome === "gone") await forgetDeviceToken(env.DB, watch.device.token);
+    arrival.kind === "mail" ? await alerts.send(watch.device, arrival.newest, { accountID: watch.account }) : "failed";
   if (outcome === "failed" && (await advanceWatch(env.DB, watch.watchId, inbox, before))) watch.inbox = before;
 }

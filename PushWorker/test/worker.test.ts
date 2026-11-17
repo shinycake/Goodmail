@@ -193,6 +193,7 @@ describe("Pub/Sub push", () => {
       aps: { alert: { title: "Dana Levi", body: "Lunch?" }, sound: "default", "mutable-content": 1 },
       account: EMAIL,
       historyId: "4242",
+      alert: expect.stringMatching(/^[0-9a-f-]{36}$/),
     });
 
     const jwt = /^bearer (.+)$/.exec(call.headers.get("authorization") ?? "")?.[1] ?? "";

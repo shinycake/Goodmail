@@ -14,9 +14,8 @@ const TOKEN_LIFETIME_MS = 50 * 60 * 1000;
 export interface ApnsConfig {
   keyId: string;
   teamId: string;
-  /** The .p8 auth key, a PKCS #8 PEM. */
+  /** The .p8 auth key, a PKCS #8 PEM. It signs for every app of the team, so the topic is each send's own. */
   privateKey: string;
-  topic: string;
 }
 
 /** Signs and caches the ES256 provider token APNs expects in `authorization: bearer`. */
@@ -62,25 +61,36 @@ export interface Device {
 /** `delivered`, `gone` (the token should be removed) or `failed` (anything else; keep the token). */
 export type PushOutcome = "delivered" | "gone" | "failed";
 
-/**
- * Sends the alert for `mail` (`alertPayload`): the only way the relay reaches a device, so every alert carries a real
- * email's sender and subject.
- */
-export async function sendAlert(signer: ApnsSigner, device: Device, mail: NewMail, target: Target): Promise<PushOutcome> {
-  return sendPayload(signer, device, alertPayload(mail, target));
+/** Where an alert goes: the device's app, or its paired watch's app (ADR-023). */
+export interface Recipient {
+  token: string;
+  environment: ApnsEnvironment;
+  topic: string;
 }
 
-async function sendPayload(signer: ApnsSigner, device: Device, payload: object): Promise<PushOutcome> {
-  const response = await fetch(`${APNS_ORIGINS[device.environment]}/3/device/${device.token}`, {
+/**
+ * Sends the alert for `mail` (`alertPayload`), named `alert` and collapsed under it, so the copy a watch gets when the
+ * iPhone is silent replaces nothing and shows once: the only way the relay reaches a device, so every alert carries a
+ * real email's sender and subject.
+ */
+export async function sendAlert(
+  signer: ApnsSigner,
+  recipient: Recipient,
+  mail: NewMail,
+  target: Target,
+  alert: string,
+): Promise<PushOutcome> {
+  const response = await fetch(`${APNS_ORIGINS[recipient.environment]}/3/device/${recipient.token}`, {
     method: "POST",
     headers: {
       authorization: `bearer ${await signer.token()}`,
       "apns-push-type": "alert",
-      "apns-topic": signer.config.topic,
+      "apns-topic": recipient.topic,
       "apns-priority": "10",
+      "apns-collapse-id": alert,
       "content-type": "application/json",
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(alertPayload(mail, target, alert)),
   });
   if (response.ok) return "delivered";
   const reason = await response

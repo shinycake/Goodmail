@@ -9,6 +9,8 @@ export interface NewMail {
   /** The sender's name, or their address when the From header gives no name. */
   sender: string;
   subject: string;
+  /** The service's ID of its conversation, when the provider knows it, so a tap on the watch can open it. */
+  threadID?: string;
 }
 
 /**
@@ -29,10 +31,10 @@ const MOST_SENDER = 100;
 const MOST_SUBJECT = 250;
 
 /**
- * The alert for `mail`: the sender as the title and the subject as the body, mutable so the Notification Service
+ * The alert for `mail`, named `alert` for the iPhone to confirm (ADR-023): the sender as the title and the subject as the body, mutable so the Notification Service
  * Extension can add the sender's picture and a preview, and showing as it is when the extension can't.
  */
-export function alertPayload(mail: NewMail, target: Target): object {
+export function alertPayload(mail: NewMail, target: Target, alert: string): object {
   const subject = clip(mail.subject, MOST_SUBJECT);
   return {
     aps: {
@@ -41,6 +43,8 @@ export function alertPayload(mail: NewMail, target: Target): object {
       "mutable-content": 1,
     },
     ...target,
+    alert,
+    ...(mail.threadID && { threadID: mail.threadID }),
   };
 }
 

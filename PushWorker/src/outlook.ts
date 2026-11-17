@@ -119,22 +119,27 @@ export class OutlookCheck {
       const inbox = await this.inbox(token, account);
       const states = await Promise.all(
         messageIds.map(async (id) => {
-          const select = "$select=subject,from,isRead,parentFolderId,receivedDateTime";
+          const select = "$select=subject,from,isRead,parentFolderId,receivedDateTime,conversationId";
           const message = await graph<{
             subject?: unknown;
             from?: { emailAddress?: { name?: unknown; address?: unknown } };
             isRead?: unknown;
             parentFolderId?: unknown;
             receivedDateTime?: unknown;
+            conversationId?: unknown;
           }>(token, `/me/messages/${encodeURIComponent(id)}?${select}`);
           if (message.status === 404) return "quiet" as const;
           if (!message.body) return "retry" as const;
-          const { subject, from, isRead, parentFolderId, receivedDateTime } = message.body;
+          const { subject, from, isRead, parentFolderId, receivedDateTime, conversationId } = message.body;
           const address = typeof from?.emailAddress?.address === "string" ? from.emailAddress.address : "";
           if (isRead !== false || parentFolderId !== inbox || !address) return "quiet" as const;
           const name = typeof from?.emailAddress?.name === "string" ? from.emailAddress.name.trim() : "";
           return {
-            mail: { sender: name || address, subject: typeof subject === "string" ? subject : "" },
+            mail: {
+              sender: name || address,
+              subject: typeof subject === "string" ? subject : "",
+              ...(typeof conversationId === "string" && { threadID: conversationId }),
+            },
             at: Date.parse(typeof receivedDateTime === "string" ? receivedDateTime : "") || 0,
           };
         }),
