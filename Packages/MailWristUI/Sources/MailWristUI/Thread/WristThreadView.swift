@@ -2,8 +2,9 @@ import MailCore
 import MailWrist
 import SwiftUI
 
-/// A conversation as chat bubbles, newest at the bottom. It asks the iPhone for the messages as it opens, and says
-/// so when the iPhone doesn't answer. It opens from the Inbox or from an alert, whose conversation may not be among
+/// A conversation as chat bubbles, newest at the bottom. It asks the iPhone for the messages as it opens, or the
+/// account's service when the watch reads the account itself (ADR-023), and says so when neither answers, with Try
+/// Again. It opens from the Inbox or from an alert, whose conversation may not be among
 /// the Inbox's rows yet.
 struct WristThreadView: View {
     let id: ThreadSummary.ID
@@ -67,8 +68,8 @@ struct WristThreadView: View {
             ContentUnavailableView {
                 Label {
                     Text(
-                        "iPhone Not Reachable", tableName: "Wrist", bundle: .module,
-                        comment: "Shown when the iPhone didn't send a conversation")
+                        "Needs iPhone", tableName: "Wrist", bundle: .module,
+                        comment: "Shown when the iPhone didn't send a conversation of an account only it can read")
                 } icon: {
                     Image(systemName: "iphone.slash")
                 }
@@ -83,7 +84,7 @@ struct WristThreadView: View {
                     Text("Try Again", tableName: "Wrist", bundle: .module, comment: "Tries the same thing again")
                 }
             }
-        case .failed:
+        case .failed(let reason):
             ContentUnavailableView {
                 Label {
                     Text(
@@ -93,9 +94,7 @@ struct WristThreadView: View {
                     Image(systemName: "wifi.exclamationmark")
                 }
             } description: {
-                Text(
-                    "Check the watch’s connection and try again.", tableName: "Wrist", bundle: .module,
-                    comment: "Shown when the watch couldn't fetch a conversation from the mail service")
+                reason.text
             } actions: {
                 Button {
                     attempt += 1

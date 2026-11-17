@@ -46,7 +46,13 @@ final class OwnMail {
         async let feeding: Void = Self.feed(from: host, to: server)
         async let running: Void = Self.run(commands, on: server)
         async let checking: Void = check(host, inbox: inbox, threads: threads)
-        _ = await (following, feeding, running, checking)
+        async let footing: Void = Self.showFreshness(of: host, in: inbox)
+        _ = await (following, feeding, running, checking, footing)
+    }
+
+    /// Keeps the list footer on how fresh the watch's own mail is.
+    private static func showFreshness(of host: WristOwnHost, in inbox: WristInboxModel) async {
+        for await freshness in host.freshnessUpdates { inbox.freshness = freshness }
     }
 
     /// Opens the database in the app's own container, which only the watch app reads, and the host over it.

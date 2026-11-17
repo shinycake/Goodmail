@@ -38,6 +38,15 @@ public actor WristOwnHost {
     var health: [AccountID: AccountHealth] = [:]
     /// The catch-up in progress, which a second caller joins.
     private var catchingUp: Task<Void, Never>?
+    /// Whether a check runs now, and when one last worked. Only `run` changes it.
+    public private(set) var checking = Checking.idle(lastChecked: nil) {
+        didSet { publishFreshness() }
+    }
+    /// The footer as it was last sent on `freshnessUpdates`.
+    var published: WristFreshness?
+    /// Each change to `freshness()`, for the list footer.
+    public nonisolated let freshnessUpdates: AsyncStream<WristFreshness?>
+    let freshnessContinuation: AsyncStream<WristFreshness?>.Continuation
 
     /// - Parameters:
     ///   - database: the watch app's own database, in its own container.
@@ -55,6 +64,7 @@ public actor WristOwnHost {
         self.now = now
         uploadFiles = uploads
         self.uploads = InlineUploads(http: http)
+        (freshnessUpdates, freshnessContinuation) = AsyncStream.makeStream(of: WristFreshness?.self)
         // The host drains the queues itself, after each command and before each sync, so none is left unowned.
         let commands = MailCommands(store: database, replay: { _ in }, now: now)
         self.commands = commands
@@ -148,6 +158,8 @@ public actor WristOwnHost {
     /// Runs `step` on every served account's engine at once and keeps how each went.
     private func run(_ step: @escaping @Sendable (SyncEngine) async throws -> Void) async {
         let engines = served.mapValues(\.engine)
+        let lastChecked = checking.lastChecked
+        checking = .running(lastChecked: lastChecked)
         let outcomes = await withTaskGroup(of: (AccountID, Result<Void, any Error>).self) { group in
             for (id, engine) in engines {
                 group.addTask {
@@ -162,11 +174,16 @@ public actor WristOwnHost {
             return await group.reduce(into: [:]) { $0[$1.0] = $1.1 }
         }
         // A run cut short says nothing about the accounts.
-        guard !Task.isCancelled else { return }
+        guard !Task.isCancelled else {
+            checking = .idle(lastChecked: lastChecked)
+            return
+        }
         let date = now()
         for (id, outcome) in outcomes where served[id] != nil {
             health[id] = (health[id] ?? .healthy).after(outcome, at: date)
         }
+        let worked = outcomes.values.contains { if case .success = $0 { true } else { false } }
+        checking = .idle(lastChecked: worked ? date : lastChecked)
     }
 }
 

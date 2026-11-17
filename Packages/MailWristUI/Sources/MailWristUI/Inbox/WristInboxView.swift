@@ -55,13 +55,16 @@ public struct WristInboxView: View {
                     "Add a mail account in Goodmail on your iPhone.", tableName: "Wrist", bundle: .module,
                     comment: "Shown with no mail accounts"))
         case .caughtUp:
-            Unavailable(
-                title: Text(
-                    "All Caught Up", tableName: "Wrist", bundle: .module, comment: "Shown when the Inbox is empty"),
-                symbol: "tray",
-                description: Text(
-                    "Nothing in your Inbox.", tableName: "Wrist", bundle: .module,
-                    comment: "Shown when the Inbox is empty"))
+            ScrollView {
+                Unavailable(
+                    title: Text(
+                        "All Caught Up", tableName: "Wrist", bundle: .module, comment: "Shown when the Inbox is empty"),
+                    symbol: "tray",
+                    description: Text(
+                        "Nothing in your Inbox.", tableName: "Wrist", bundle: .module,
+                        comment: "Shown when the Inbox is empty"))
+                if let freshness = model.freshness { WristFreshnessFooter(freshness: freshness) }
+            }
         case .list(let snapshot):
             WristInboxList(snapshot: snapshot, model: model, threads: threads)
         }

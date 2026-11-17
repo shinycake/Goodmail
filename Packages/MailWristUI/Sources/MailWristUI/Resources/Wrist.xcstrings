@@ -160,6 +160,17 @@
         }
       }
     },
+    "Can’t Check Mail": {
+      "comment": "Below the Inbox when the watch's own checks for mail keep failing",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "אי אפשר לבדוק דואר"
+          }
+        }
+      }
+    },
     "Can’t Load Conversation": {
       "comment": "Shown when the watch couldn't fetch a conversation from the mail service",
       "localizations": {
@@ -171,13 +182,13 @@
         }
       }
     },
-    "Check the watch’s connection and try again.": {
-      "comment": "Shown when the watch couldn't fetch a conversation from the mail service",
+    "Checking for Mail…": {
+      "comment": "Below the Inbox while the watch checks for new mail itself",
       "localizations": {
         "he": {
           "stringUnit": {
             "state": "translated",
-            "value": "יש לבדוק את החיבור של השעון ולנסות שוב."
+            "value": "בודק אם יש דואר…"
           }
         }
       }
@@ -288,6 +299,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "הועברה לפח"
+          }
+        }
+      }
+    },
+    "Needs iPhone": {
+      "comment": "On a row, or in place of a conversation, of an account only the iPhone can read, when the iPhone has been quiet or didn't answer",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "צריך את ה-iPhone"
           }
         }
       }
@@ -457,6 +479,17 @@
         }
       }
     },
+    "Sign in again on your iPhone.": {
+      "comment": "Why the watch can't check mail: the service turned the sign-in down",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "צריך להתחבר שוב ב-iPhone."
+          }
+        }
+      }
+    },
     "Snooze Until": {
       "comment": "Above the snooze times",
       "localizations": {
@@ -475,6 +508,50 @@
           "stringUnit": {
             "state": "translated",
             "value": "הועבר לנודניק"
+          }
+        }
+      }
+    },
+    "Something went wrong.": {
+      "comment": "Why the watch can't check mail: an error with no better description",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "משהו השתבש."
+          }
+        }
+      }
+    },
+    "The connection isn’t secure.": {
+      "comment": "Why the watch can't check mail: the server's certificate isn't valid",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "החיבור לא מאובטח."
+          }
+        }
+      }
+    },
+    "The mail service didn’t answer.": {
+      "comment": "Why the watch can't check mail: the server couldn't be reached or timed out",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "שירות הדואר לא ענה."
+          }
+        }
+      }
+    },
+    "The watch is offline.": {
+      "comment": "Why the watch can't check mail: no internet connection",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "השעון לא מחובר לאינטרנט."
           }
         }
       }
@@ -600,6 +677,17 @@
         }
       }
     },
+    "Updated %@": {
+      "comment": "Below the Inbox: when the watch last checked for mail itself, as in “Updated 2 min. ago”",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "עודכן %@"
+          }
+        }
+      }
+    },
     "Waiting for iPhone": {
       "comment": "VoiceOver, watch face: the iPhone hasn't sent the Inbox yet",
       "localizations": {
@@ -651,17 +739,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "הדואר יופיע כאן אחרי שהאפליקציה ב‑iPhone תסתנכרן."
-          }
-        }
-      }
-    },
-    "iPhone Not Reachable": {
-      "comment": "Shown when the iPhone didn't send a conversation",
-      "localizations": {
-        "he": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ה-iPhone לא זמין"
           }
         }
       }

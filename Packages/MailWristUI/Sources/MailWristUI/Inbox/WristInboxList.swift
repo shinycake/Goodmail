@@ -2,7 +2,7 @@ import MailCore
 import MailWrist
 import SwiftUI
 
-/// The conversations, with how many are unread above them. A tap opens one, a swipe archives, trashes or marks one read, and Undo
+/// The conversations, with how many are unread above them and how fresh the watch's own mail is below. A tap opens one, a swipe archives, trashes or marks one read, and Undo
 /// shows below the list for a few seconds after.
 struct WristInboxList: View {
     let snapshot: WristSnapshot
@@ -14,7 +14,9 @@ struct WristInboxList: View {
             Section {
                 ForEach(snapshot.rows) { row in
                     NavigationLink(value: row.id) {
-                        WristRowView(row: row, color: snapshot.account(row.id.accountID)?.color.color ?? .accentColor)
+                        WristRowView(
+                            row: row, color: snapshot.account(row.id.accountID)?.color.color ?? .accentColor,
+                            needsIPhone: model.mailbox.needsIPhone(row.id.accountID, now: .now))
                     }
                     .swipeActions(edge: .leading) {
                         ReadButton(row: row, model: model)
@@ -29,6 +31,11 @@ struct WristInboxList: View {
                     Text(
                         "\(snapshot.unread) Unread", tableName: "Wrist", bundle: .module,
                         comment: "Above the Inbox: how many conversations are unread")
+                }
+            } footer: {
+                if let freshness = model.freshness {
+                    WristFreshnessFooter(freshness: freshness)
+                        .padding(.top, 4)
                 }
             }
         }

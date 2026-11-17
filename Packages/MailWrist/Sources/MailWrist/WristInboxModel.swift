@@ -32,6 +32,8 @@ public final class WristInboxModel {
     }
 
     public private(set) var mailbox: WristMailbox
+    /// What the list footer says about the mail the watch reads itself; `nil` while it reads none.
+    public var freshness: WristFreshness?
     private var reading = Reading.current
     /// The reader's last change, which they can take back for a few seconds.
     public private(set) var undoable: WristCommand?

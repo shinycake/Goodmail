@@ -45,17 +45,7 @@ final class WatchAppDelegate: NSObject, WKApplicationDelegate {
         // In the App Group, where the watch face's widget extension reads it.
         let store = WristStore(directory: SharedContainer.directoryURL ?? .applicationSupportDirectory)
         #if DEBUG
-            // `-GoodmailWristSample en` (or `he`) shows made-up mail without an iPhone, for screenshots;
-            // `-GoodmailWristSampleOpen YES` opens its first conversation.
-            if let language = UserDefaults.standard.string(forKey: "GoodmailWristSample")
-                .flatMap(WristSnapshot.SampleLanguage.init)
-            {
-                let sample = WristSnapshot.sample(language)
-                inbox.receive(.snapshot(sample))
-                for thread in WristThread.samples(for: sample, language) { threads.receive(.thread(thread)) }
-                if UserDefaults.standard.bool(forKey: "GoodmailWristSampleOpen"), let first = sample.rows.first {
-                    route.open(first.id)
-                }
+            if WatchSample.showIfRequested(inbox: inbox, threads: threads, route: route) {
                 following = Task { [inbox, threads, own] in
                     // Stored for the watch face; failing leaves the face on the last mailbox, fine for screenshots.
                     try? await store.save(inbox.mailbox)
