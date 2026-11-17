@@ -1,0 +1,127 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Archive" : {
+      "comment" : "Keyboard command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה לארכיון"
+          }
+        }
+      }
+    },
+    "Forward" : {
+      "comment" : "Keyboard command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העבר"
+          }
+        }
+      }
+    },
+    "Get New Mail" : {
+      "comment" : "Keyboard command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בדיקת דואר חדש"
+          }
+        }
+      }
+    },
+    "Mark as Unread" : {
+      "comment" : "Keyboard command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סימון כלא נקרא"
+          }
+        }
+      }
+    },
+    "Move to Trash" : {
+      "comment" : "Keyboard command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה לאשפה"
+          }
+        }
+      }
+    },
+    "New Message" : {
+      "comment" : "Keyboard command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הודעה חדשה"
+          }
+        }
+      }
+    },
+    "Reply" : {
+      "comment" : "Keyboard command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השב"
+          }
+        }
+      }
+    },
+    "Reply All" : {
+      "comment" : "Keyboard command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השב לכולם"
+          }
+        }
+      }
+    },
+    "Search Mail" : {
+      "comment" : "Keyboard command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חיפוש בדואר"
+          }
+        }
+      }
+    },
+    "Send" : {
+      "comment" : "Keyboard command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שלח"
+          }
+        }
+      }
+    },
+    "Star or Unstar" : {
+      "comment" : "Keyboard command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סימון בכוכב או הסרתו"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

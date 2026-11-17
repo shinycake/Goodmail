@@ -3,7 +3,7 @@ public import UIKit
 
 /// The mailbox list. Renders `MailboxViewModel` through Observation and holds no logic of its own (ADR-011).
 public final class MailboxViewController: UIViewController {
-    private let viewModel: MailboxViewModel
+    let viewModel: MailboxViewModel
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<MailboxSection, ThreadSummary.ID>!
     private var threadsByID: [ThreadSummary.ID: ThreadSummary] = [:]
@@ -13,7 +13,7 @@ public final class MailboxViewController: UIViewController {
     private let searchResults: SearchResultsController?
     /// Search, while browsing. Selecting takes it away: its button would otherwise move up to the navigation bar and
     /// stay there beside the toolbar's once selecting ends.
-    private var search: UISearchController?
+    private(set) var search: UISearchController?
     private let display: RowDisplay
     /// What an empty list shows.
     private let empty: UIContentUnavailableConfiguration

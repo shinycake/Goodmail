@@ -5,7 +5,7 @@ public import UIKit
 /// A conversation read as letters: the subject, a slim timeline of earlier messages, and cards for the ones that
 /// matter now. Renders `ThreadViewModel` through Observation (ADR-011).
 public final class ThreadViewController: UIViewController {
-    private let viewModel: ThreadViewModel
+    let viewModel: ThreadViewModel
     private let openURL: (URL) -> Void
     private let starItem = UIBarButtonItem()
     /// Reply, or Edit Draft while the newest message is an unsent draft.

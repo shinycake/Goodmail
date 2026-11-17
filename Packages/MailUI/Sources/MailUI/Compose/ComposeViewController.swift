@@ -453,7 +453,7 @@ public final class ComposeViewController: UIViewController {
         updateSendEnabled()
     }
 
-    private func send(at time: SendTime = .now) {
+    func send(at time: SendTime = .now) {
         fieldChanged()
         viewModel.send(body: body, at: time)
         close()
