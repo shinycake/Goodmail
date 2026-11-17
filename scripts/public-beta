@@ -14,6 +14,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 APP=6834185190 # Goodmail's App Store Connect app ID; publish needs the numeric ID, not the bundle ID.
 GROUP="Apple Review"
+GROUP_ID=fb09d0a3-8c6e-442c-8bbf-743967cb3836 # its ID, so a slow group list can't make it "not found"
 NOTES_LIMIT=3900 # Apple allows 4000 characters of What to Test.
 
 latest_build_number() {
@@ -45,19 +46,23 @@ if ((${#notes} > NOTES_LIMIT)); then
     notes="${notes:0:NOTES_LIMIT}"$'\n…'
 fi
 
-echo "Putting build $build on the public beta ($GROUP)"
-log="$(mktemp)"
-trap 'rm -f "$log"' EXIT
-if asc publish testflight --app "$APP" --build-number "$build" --group "$GROUP" \
-    --test-notes "$notes" --locale en-US --submit --confirm --timeout 90m --output table 2>&1 | tee "$log"; then
-    exit 0
-fi
-
-pending="$(asc builds list --app "$APP" --platform IOS --beta-review-state WAITING_FOR_REVIEW,IN_REVIEW --output json |
-    python3 -c 'import json, sys; print(" ".join(b["attributes"]["version"] for b in json.load(sys.stdin)["data"]))')"
-if [[ -n "$pending" && " $pending " != *" $build "* ]]; then
-    echo "Build $build is in the $GROUP group, but Apple is still reviewing build $pending." >&2
-    echo "Run scripts/public-beta again once that review clears." >&2
-    exit 3
-fi
+# App Store Connect sometimes times out or answers a list with nothing (build 24's first run reported the
+# group as "not found"), so a failed publish is retried before the script gives up.
+export ASC_TIMEOUT="${ASC_TIMEOUT:-90s}"
+for attempt in 1 2 3; do
+    echo "Putting build $build on the public beta ($GROUP), attempt $attempt"
+    if asc publish testflight --app "$APP" --build-number "$build" --group "$GROUP_ID" \
+        --test-notes "$notes" --locale en-US --submit --confirm --timeout 90m --output table; then
+        exit 0
+    fi
+    pending="$(asc builds list --app "$APP" --platform IOS --beta-review-state WAITING_FOR_REVIEW,IN_REVIEW --output json |
+        python3 -c 'import json, sys; print(" ".join(b["attributes"]["version"] for b in json.load(sys.stdin)["data"]))' ||
+        true)"
+    if [[ -n "$pending" && " $pending " != *" $build "* ]]; then
+        echo "Build $build is in the $GROUP group, but Apple is still reviewing build $pending." >&2
+        echo "Run scripts/public-beta again once that review clears." >&2
+        exit 3
+    fi
+    ((attempt < 3)) && sleep $((attempt * 60))
+done
 exit 1

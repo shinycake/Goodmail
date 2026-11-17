@@ -26,7 +26,7 @@ No build should reach TestFlight any other way. If one does, from Xcode's Organi
 3. adds the build to the Apple Review group,
 4. submits the build for Beta App Review, unless it already has a submission.
 
-Running it twice for the same build does nothing new, so you can rerun it after any failure.
+Running it twice for the same build does nothing new, so you can rerun it after any failure. App Store Connect's API sometimes times out, so the script tries the publish three times, a minute or two apart, before it gives up. It names the group by its ID, so a slow group list can't stop it.
 
 The What to Test notes open with one line about the app. Then they list the commit subjects since the previous `testflight/*` tag, which are the titles of the PRs in the build, and end with a short request for feedback. PR titles already go through the humanizer, so the notes are fit for testers to read. A build with no tag, or the first tagged one, gets the opening and closing lines only.
 
