@@ -37,8 +37,9 @@ struct EnvelopePile: View {
     let width: CGFloat
     /// How wide the pile is fanned: 1 as in the icon, 0 squared up.
     let fan: Double
-    @GestureState(resetTransaction: Transaction(animation: .spring(duration: 0.7, bounce: 0.6)))
-    private var pull = CGSize.zero
+    /// Called when a finger that dragged the pile lets go.
+    var released: () -> Void = {}
+    @State private var pull = CGSize.zero
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -55,11 +56,53 @@ struct EnvelopePile: View {
         .frame(width: width, height: width * EnvelopeLayer.aspect)
         .rotation3DEffect(.degrees(lean.pitch), axis: (x: 1, y: 0, z: 0), perspective: 0.6)
         .rotation3DEffect(.degrees(lean.yaw), axis: (x: 0, y: 1, z: 0), perspective: 0.6)
-        // Alongside the screen's scrolling, not instead of it: at the largest text sizes a drag here scrolls too.
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 8).updating($pull) { drag, pull, _ in pull = drag.translation },
-            isEnabled: !reduceMotion
-        )
+        .gesture(
+            EnvelopeDrag(
+                moved: { translation in
+                    if !reduceMotion { pull = translation }
+                },
+                released: {
+                    withAnimation(.spring(duration: 0.7, bounce: 0.6)) { pull = .zero }
+                    released()
+                }))
+    }
+}
+
+/// A drag on the envelopes that leaves the screen's own scrolling alone. A SwiftUI drag gesture would claim the
+/// touch, so a pull that started on the envelopes would tip them over without scrolling or pulling to refresh. A
+/// UIKit pan that recognizes alongside every other gesture lets both happen at once.
+private struct EnvelopeDrag: UIGestureRecognizerRepresentable {
+    let moved: (CGSize) -> Void
+    let released: () -> Void
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Alongside { Alongside() }
+
+    func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
+        let pan = UIPanGestureRecognizer()
+        pan.delegate = context.coordinator
+        return pan
+    }
+
+    func handleUIGestureRecognizerAction(_ pan: UIPanGestureRecognizer, context: Context) {
+        switch pan.state {
+        case .began, .changed:
+            let translation = pan.translation(in: pan.view)
+            moved(CGSize(width: translation.x, height: translation.y))
+        case .ended, .cancelled, .failed:
+            released()
+        case .possible:
+            break
+        @unknown default:
+            break
+        }
+    }
+
+    /// Lets the pan run alongside the scroll view's pan and the scene's taps.
+    final class Alongside: NSObject, UIGestureRecognizerDelegate {
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+        ) -> Bool { true }
     }
 }
 

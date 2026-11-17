@@ -69,12 +69,11 @@ struct InboxZeroScene: View {
             rightToLeft: layoutDirection == .rightToLeft, focus: focus, energy: wake.energy(at: now),
             passInterval: Self.passEvery, quietFrom: wake.quietFrom)
         return VStack(spacing: layout.gap) {
-            EnvelopePile(width: pileWidth, fan: scene.fan - 1 + entrance.fan)
+            EnvelopePile(width: pileWidth, fan: scene.fan - 1 + entrance.fan, released: wakeUp)
                 .offset(y: entrance.pileDrop - scene.lift)
                 .scaleEffect(entrance.pileScale)
                 .opacity(entrance.pileOpacity)
                 .accessibilityHidden(true)
-                .simultaneousGesture(DragGesture(minimumDistance: 8).onEnded { _ in wakeUp() })
             InboxZeroCopy(
                 pointing: showing.pointing, greeting: greeting,
                 title: entrance.text(appearingAt: InboxZeroEntrance.titleAppears),
