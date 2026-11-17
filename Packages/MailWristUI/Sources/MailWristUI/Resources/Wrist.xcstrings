@@ -160,6 +160,28 @@
         }
       }
     },
+    "Can’t Load Conversation": {
+      "comment": "Shown when the watch couldn't fetch a conversation from the mail service",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "לא ניתן לטעון את השיחה"
+          }
+        }
+      }
+    },
+    "Check the watch’s connection and try again.": {
+      "comment": "Shown when the watch couldn't fetch a conversation from the mail service",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "יש לבדוק את החיבור של השעון ולנסות שוב."
+          }
+        }
+      }
+    },
     "Code": {
       "comment": "Above a one-time code in a conversation",
       "localizations": {
@@ -513,7 +535,7 @@
       }
     },
     "Try Again": {
-      "comment": "Asks the iPhone again",
+      "comment": "Tries the same thing again",
       "localizations": {
         "he": {
           "stringUnit": {

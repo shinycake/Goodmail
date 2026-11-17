@@ -2,8 +2,8 @@ public import Foundation
 public import MailCore
 public import Observation
 
-/// The watch's Inbox screen: the iPhone's last snapshot with the reader's changes laid over it, or why there is
-/// nothing to show.
+/// The watch's Inbox screen: the iPhone's last snapshot, merged with the watch's own for the accounts it reads itself
+/// (ADR-023), with the reader's changes laid over it, or why there is nothing to show.
 @MainActor @Observable
 public final class WristInboxModel {
     public enum State: Equatable, Sendable {
@@ -27,7 +27,7 @@ public final class WristInboxModel {
     /// What has to reach the store and the iPhone after a change.
     public struct Update: Sendable {
         public let mailbox: WristMailbox
-        /// A command for the iPhone to run, if the reader made one.
+        /// A command the reader made, if any, for its executor to run: the iPhone, or the watch's own host.
         public let command: WristCommand?
     }
 
@@ -73,7 +73,14 @@ public final class WristInboxModel {
         }
     }
 
-    /// Makes a change to `rows` now, and has the iPhone make it to the mail. Undo offers to take it back.
+    /// Takes the watch's own newest snapshot and each account's source.
+    public func receiveOwn(_ snapshot: WristSnapshot, sources: [AccountID: WristAccountSource]) {
+        mailbox.receiveOwn(snapshot, sources: sources, now: now())
+        continuation.yield(Update(mailbox: mailbox, command: nil))
+    }
+
+    /// Makes a change to `rows` now, and has the iPhone, or the watch for an account it reads itself, make it to the
+    /// mail. Undo offers to take it back.
     public func perform(_ kind: WristCommand.Kind, on rows: [WristRow]) {
         undoable = apply(kind, to: rows.map(\.id))
     }
@@ -104,7 +111,8 @@ public final class WristInboxModel {
     }
 
     private func apply(_ kind: WristCommand.Kind, to threads: [ThreadSummary.ID]) -> WristCommand {
-        let command = WristCommand(threads: threads, kind: kind, madeAt: now())
+        let command = WristCommand(
+            threads: threads, kind: kind, madeAt: now(), executor: mailbox.executor(of: kind, on: threads))
         mailbox.perform(command)
         continuation.yield(Update(mailbox: mailbox, command: command))
         return command

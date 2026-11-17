@@ -4,12 +4,14 @@
 
     /// The watch's side of the link to the iPhone (ADR-022).
     public enum WristLink {
-        /// Runs for the app's lifetime: shows the stored mailbox, then each snapshot the iPhone sends; stores and sends
-        /// each change; asks the iPhone for each conversation opened, and shows its answer. `stored` runs after each
-        /// save, for the watch face to read the new mailbox.
+        /// Runs for the app's lifetime: shows the stored mailbox, then each snapshot the iPhone sends; stores each
+        /// change and sends it to the iPhone, or hands it to `runOwn`, which must not hold the loop up, when the watch runs it itself (ADR-023); asks the
+        /// iPhone for each conversation opened, and shows its answer. `stored` runs after each save, for the watch face
+        /// to read the new mailbox.
         @MainActor
         public static func run(
             inbox: WristInboxModel, threads: WristThreads, store: WristStore, channel: WristChannel,
+            runOwn: @escaping @MainActor (WristCommand) -> Void = { _ in },
             stored: @escaping @MainActor () -> Void = {}
         ) async {
             inbox.restore(await store.load())
@@ -23,7 +25,11 @@
                 } catch {
                     WristChannel.log.error("Couldn't keep the watch's mail: \(error, privacy: .public)")
                 }
-                if let command = update.command { await channel.send(command) }
+                guard let command = update.command else { continue }
+                switch command.executor {
+                case .phone: await channel.send(command)
+                case .watch: runOwn(command)
+                }
             }
             _ = await (receiving, requesting)
         }

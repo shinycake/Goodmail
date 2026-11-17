@@ -80,7 +80,27 @@ struct WristThreadView: View {
                 Button {
                     attempt += 1
                 } label: {
-                    Text("Try Again", tableName: "Wrist", bundle: .module, comment: "Asks the iPhone again")
+                    Text("Try Again", tableName: "Wrist", bundle: .module, comment: "Tries the same thing again")
+                }
+            }
+        case .failed:
+            ContentUnavailableView {
+                Label {
+                    Text(
+                        "Can’t Load Conversation", tableName: "Wrist", bundle: .module,
+                        comment: "Shown when the watch couldn't fetch a conversation from the mail service")
+                } icon: {
+                    Image(systemName: "wifi.exclamationmark")
+                }
+            } description: {
+                Text(
+                    "Check the watch’s connection and try again.", tableName: "Wrist", bundle: .module,
+                    comment: "Shown when the watch couldn't fetch a conversation from the mail service")
+            } actions: {
+                Button {
+                    attempt += 1
+                } label: {
+                    Text("Try Again", tableName: "Wrist", bundle: .module, comment: "Tries the same thing again")
                 }
             }
         case .gone:

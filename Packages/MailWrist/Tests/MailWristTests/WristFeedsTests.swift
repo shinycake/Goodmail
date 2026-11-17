@@ -127,7 +127,7 @@ struct WristFeedsTests {
         mailbox.receive(snapshot([], extras: WristExtras(muted: [id(gmail, "muted")])), now: now)
         mailbox.receive(snapshot([]), now: now)
         mailbox.receiveOwn(
-            snapshot([row(gmail, "muted", minutesAgo: 1), row(gmail, "g1", minutesAgo: 2)]), sources: sources)
+            snapshot([row(gmail, "muted", minutesAgo: 1), row(gmail, "g1", minutesAgo: 2)]), sources: sources, now: now)
 
         #expect(try #require(mailbox.shown).rows.map(\.id.threadID) == ["g1"])
     }
@@ -143,7 +143,7 @@ struct WristFeedsTests {
     @Test func aMailboxWithBothFeedsReadsBack() throws {
         var mailbox = WristMailbox()
         mailbox.receive(snapshot([], extras: WristExtras(pinned: [id(gmail, "g1")])), now: now)
-        mailbox.receiveOwn(snapshot([row(gmail, "g1", minutesAgo: 1)]), sources: sources)
+        mailbox.receiveOwn(snapshot([row(gmail, "g1", minutesAgo: 1)]), sources: sources, now: now)
         let read = try JSONDecoder().decode(WristMailbox.self, from: JSONEncoder().encode(mailbox))
         #expect(read == mailbox)
     }

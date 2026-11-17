@@ -50,19 +50,40 @@ public struct WristMailbox: Codable, Equatable, Sendable {
     public mutating func receive(_ snapshot: WristSnapshot, now: Date) {
         self.snapshot = snapshot
         if let extras = snapshot.extras { self.extras = extras }
+        settle(by: snapshot, of: .phone, now: now)
+    }
+
+    /// Takes the watch's own newest snapshot and each account's source, and settles the changes the watch ran itself
+    /// as `receive` does the iPhone's.
+    public mutating func receiveOwn(_ snapshot: WristSnapshot, sources: [AccountID: WristAccountSource], now: Date) {
+        own = snapshot
+        self.sources = sources
+        settle(by: snapshot, of: .watch, now: now)
+    }
+
+    /// Lets go of the changes `executor` ran, as its feed's `snapshot` says, and of those too old to wait for. Each
+    /// change is settled only by the feed of the device that runs it (ADR-023).
+    private mutating func settle(by snapshot: WristSnapshot, of executor: WristExecutor, now: Date) {
         let failed = Set(snapshot.failed)
         undelivered += pending.filter { command in
-            guard failed.contains(command.id), case .reply = command.kind else { return false }
+            guard command.executor == executor, failed.contains(command.id), case .reply = command.kind else {
+                return false
+            }
             return true
         }
         let applied = Set(snapshot.applied)
-        pending.removeAll { applied.contains($0.id) || now.timeIntervalSince($0.madeAt) > Self.pendingLifetime }
+        pending.removeAll { command in
+            (command.executor == executor && applied.contains(command.id))
+                || now.timeIntervalSince(command.madeAt) > Self.pendingLifetime
+        }
     }
 
-    /// Takes the watch's own newest snapshot and each account's source.
-    public mutating func receiveOwn(_ snapshot: WristSnapshot, sources: [AccountID: WristAccountSource]) {
-        own = snapshot
-        self.sources = sources
+    /// Who runs a change of `kind` to `threads`: the watch only when it reads every one of their accounts itself.
+    /// The iPhone can run any change, so a change that spans both kinds of account goes to it.
+    public func executor(of kind: WristCommand.Kind, on threads: [ThreadSummary.ID]) -> WristExecutor {
+        let executors = Set(
+            threads.map { WristExecutor.for(kind: kind, source: sources[$0.accountID] ?? .relayed(.service)) })
+        return executors == [.watch] ? .watch : .phone
     }
 
     public mutating func perform(_ command: WristCommand) {

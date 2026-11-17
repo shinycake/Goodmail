@@ -26,7 +26,7 @@ private struct WristUndeliveredAlert: ViewModifier {
             Button {
                 model.resend(command)
             } label: {
-                Text("Try Again", tableName: "Wrist", bundle: .module, comment: "Asks the iPhone again")
+                Text("Try Again", tableName: "Wrist", bundle: .module, comment: "Tries the same thing again")
             }
             Button(role: .cancel) {
                 model.forget(command)
