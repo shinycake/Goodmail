@@ -21,7 +21,16 @@ struct GoodmailWatchApp: App {
                 .onOpenURL { delegate.route.open($0) }
         }
         .onChange(of: scenePhase, initial: true) { _, phase in
-            if phase == .active { delegate.own.checkMail() }
+            switch phase {
+            case .active: delegate.own.ask(.check)
+            case .background:
+                delegate.own.ask(.prune)
+                OwnMail.scheduleRefresh(after: .now)
+            default: break
+            }
+        }
+        .backgroundTask(.appRefresh(OwnMail.refreshIdentifier)) {
+            await delegate.refreshOwnMail()
         }
     }
 }
@@ -35,6 +44,8 @@ final class WatchAppDelegate: NSObject, WKApplicationDelegate {
     /// The Gmail and Outlook accounts the watch reads itself (ADR-023).
     let own = OwnMail()
     private let channel = WristChannel()
+    /// In the App Group, where the watch face's widget extension reads it.
+    private let store = WristStore(directory: SharedContainer.directoryURL ?? .applicationSupportDirectory)
     /// Shows each snapshot the iPhone sends, stores and sends each change, and asks for each conversation opened.
     /// Ends with the app; nothing cancels it.
     private var following: Task<Void, Never>?
@@ -42,11 +53,9 @@ final class WatchAppDelegate: NSObject, WKApplicationDelegate {
     func applicationDidFinishLaunching() {
         // Before launch finishes, so that the tap on an alert that launched the app reaches it.
         UNUserNotificationCenter.current().delegate = self
-        // In the App Group, where the watch face's widget extension reads it.
-        let store = WristStore(directory: SharedContainer.directoryURL ?? .applicationSupportDirectory)
         #if DEBUG
             if WatchSample.showIfRequested(inbox: inbox, threads: threads, route: route) {
-                following = Task { [inbox, threads, own] in
+                following = Task { [inbox, threads, own, store] in
                     // Stored for the watch face; failing leaves the face on the last mailbox, fine for screenshots.
                     try? await store.save(inbox.mailbox)
                     WidgetCenter.shared.reloadAllTimelines()
@@ -56,13 +65,20 @@ final class WatchAppDelegate: NSObject, WKApplicationDelegate {
                 return
             }
         #endif
-        following = Task { [inbox, threads, channel, own] in
+        following = Task { [inbox, threads, channel, own, store] in
             async let link: Void = WristLink.run(
                 inbox: inbox, threads: threads, store: store, channel: channel, runOwn: own.run,
                 stored: { WidgetCenter.shared.reloadAllTimelines() })
             async let ownMail: Void = own.run(inbox: inbox, threads: threads)
             _ = await (link, ownMail)
         }
+    }
+}
+
+extension WatchAppDelegate {
+    /// A background refresh of the mail the watch reads itself.
+    func refreshOwnMail() async {
+        await own.refresh(inbox: inbox, threads: threads, store: store)
     }
 }
 

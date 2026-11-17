@@ -11,16 +11,27 @@ import OSLog
 final class OwnMail {
     nonisolated static let log = Logger(subsystem: "com.idanbirman.goodmail", category: "own-mail")
 
+    /// Upkeep the app asks for as it comes and goes, done one at a time in order.
+    enum Chore {
+        /// Check the mail, as when the app comes to the front.
+        case check
+        /// Drop the threads that left the Inbox, as when the app goes to the background.
+        case prune
+    }
+
+    /// Opens the host once, at launch; the app's run and each background refresh wait for it. `nil` when the database
+    /// can't open, and the watch shows what the iPhone sends.
+    let opening: Task<WristOwnHost?, Never>
     /// The commands stamped for the watch, in the order they were made.
     private let commands: AsyncStream<WristCommand>
     private let commandsIn: AsyncStream<WristCommand>.Continuation
-    /// Asks for a check of the mail; asks made while one runs make one more after it.
-    private let checks: AsyncStream<Void>
-    private let checksIn: AsyncStream<Void>.Continuation
+    private let chores: AsyncStream<Chore>
+    private let choresIn: AsyncStream<Chore>.Continuation
 
     init() {
+        opening = Task { await Self.openHost() }
         (commands, commandsIn) = AsyncStream.makeStream(of: WristCommand.self)
-        (checks, checksIn) = AsyncStream.makeStream(of: Void.self, bufferingPolicy: .bufferingNewest(1))
+        (chores, choresIn) = AsyncStream.makeStream(of: Chore.self)
     }
 
     /// Runs `command` at the account's service. Returns at once, so it never holds up the link to the iPhone.
@@ -28,15 +39,17 @@ final class OwnMail {
         commandsIn.yield(command)
     }
 
-    /// Checks the mail of every account the watch reads itself, as when the app comes to the front.
-    func checkMail() {
-        checksIn.yield()
+    /// Asks for `chore`, done after the ones asked before it.
+    func ask(_ chore: Chore) {
+        choresIn.yield(chore)
     }
 
-    /// Runs for the app's lifetime: opens the watch's own mail, then follows the iPhone's accounts, feeds the Inbox,
-    /// runs commands and checks the mail when asked. Without its database the watch shows what the iPhone sends.
+    /// Runs for the app's lifetime: waits for the watch's own mail to open and prunes it, then follows the iPhone's
+    /// accounts, feeds the Inbox, runs commands and does the chores asked for. Without its database the watch shows
+    /// what the iPhone sends.
     func run(inbox: WristInboxModel, threads: WristThreads) async {
-        guard let host = await Self.openHost() else { return }
+        guard let host = await opening.value else { return }
+        await Self.prune(host)
         threads.own = { id in try await host.conversation(id) }
         let server = WristServer(
             applied: AppliedCommands.load(), execute: { try await host.execute($0) },
@@ -45,9 +58,9 @@ final class OwnMail {
         async let following: Void = follow(inbox, threads: threads, host: host)
         async let feeding: Void = Self.feed(from: host, to: server)
         async let running: Void = Self.run(commands, on: server)
-        async let checking: Void = check(host, inbox: inbox, threads: threads)
+        async let choring: Void = doChores(on: host, inbox: inbox, threads: threads)
         async let footing: Void = Self.showFreshness(of: host, in: inbox)
-        _ = await (following, feeding, running, checking, footing)
+        _ = await (following, feeding, running, choring, footing)
     }
 
     /// Keeps the list footer on how fresh the watch's own mail is.
@@ -87,20 +100,33 @@ final class OwnMail {
                 Self.log.error("Couldn't follow the iPhone's accounts: \(error, privacy: .public)")
             }
             Self.resend(in: inbox, threads, sources: try? await host.sources())
-            checkMail()
+            ask(.check)
         }
     }
 
-    /// Checks the mail for each ask, and shows each account's new source after.
-    private func check(_ host: WristOwnHost, inbox: WristInboxModel, threads: WristThreads) async {
-        for await _ in checks {
-            do {
-                try await host.sync()
-            } catch {
-                Self.log.error("Couldn't check the watch's own mail: \(error, privacy: .public)")
+    /// Does each chore asked for. After a check it shows each account's source again: a sync can change one without
+    /// changing the Inbox, as when a sign-in is turned down.
+    private func doChores(on host: WristOwnHost, inbox: WristInboxModel, threads: WristThreads) async {
+        for await chore in chores {
+            switch chore {
+            case .check:
+                do {
+                    try await host.sync()
+                } catch {
+                    Self.log.error("Couldn't check the watch's own mail: \(error, privacy: .public)")
+                }
+                Self.resend(in: inbox, threads, sources: try? await host.sources())
+            case .prune:
+                await Self.prune(host)
             }
-            // A sync can change a source without changing the Inbox, as when a sign-in is turned down.
-            Self.resend(in: inbox, threads, sources: try? await host.sources())
+        }
+    }
+
+    private static func prune(_ host: WristOwnHost) async {
+        do {
+            try await host.prune()
+        } catch {
+            log.error("Couldn't prune the watch's own mail: \(error, privacy: .public)")
         }
     }
 
@@ -123,7 +149,7 @@ final class OwnMail {
     }
 
     /// Shows the watch's own `snapshot` with each account's `sources`, or the last sources when they can't be read.
-    private static func show(
+    static func show(
         _ snapshot: WristSnapshot, sources: [AccountID: WristAccountSource]?, in inbox: WristInboxModel,
         _ threads: WristThreads
     ) {

@@ -107,6 +107,12 @@ public actor WristOwnHost {
         await run { engine in try await engine.sync() }
     }
 
+    /// Drops the threads that left the Inbox from every account the watch keeps, as at launch and when the app goes to
+    /// the background, where no undo can still need them.
+    public func prune() throws {
+        for account in try database.accounts() { try database.pruneOutsideInbox(account: account.id) }
+    }
+
     /// Fetches what changed since each filled account's cursor, as a background refresh does: no resync, no labels.
     /// A second caller while one runs joins it. Cancelling a caller, as the system does when a background refresh's
     /// time runs out, cancels the catch-up: what each account stored so far stays, and its health doesn't count it.

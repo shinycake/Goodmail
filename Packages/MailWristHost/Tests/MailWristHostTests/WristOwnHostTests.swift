@@ -81,6 +81,21 @@ struct WristOwnHostTests {
         #expect(try shared.data(for: OAuthClient.gmail.refreshTokenKey(gmail.id)) != nil, "the iPhone's copy stays")
     }
 
+    @Test func thePruneDropsWhatLeftTheInboxBeforeAnySync() async throws {
+        let host = host()
+        try await host.follow([gmail], independence: .on)
+        try database.upsert([
+            ThreadSummary(
+                id: ThreadSummary.ID(accountID: gmail.id, threadID: "archived"), subject: "Old", snippet: "",
+                sender: Contact(name: "Noa", address: "noa@x.com"), date: Self.now - 600, isUnread: false,
+                messageCount: 1, labelIDs: [])
+        ])
+
+        try await host.prune()
+
+        #expect(try database.thread(ThreadSummary.ID(accountID: gmail.id, threadID: "archived")) == nil)
+    }
+
     @Test func theSwitchOffLeavesEveryAccountToTheIPhone() async throws {
         let host = host()
         try await host.follow([gmail, icloud], independence: .on)
