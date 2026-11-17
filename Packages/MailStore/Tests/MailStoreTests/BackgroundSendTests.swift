@@ -195,6 +195,13 @@ struct BackgroundSendTests {
         #expect(bench.server.filedSent == bench.server.sent.map { $0.raw })
     }
 
+    @Test(arguments: [(FakeMailServer.SendPath.direct, 1), (.upload, 0)])
+    func onlyADirectSendIsPreparedFor(path: FakeMailServer.SendPath, prepared: Int) async throws {
+        let bench = try SendBench(sendPath: path)
+        await bench.sender().prepare()
+        #expect(bench.server.preparedSends == prepared)
+    }
+
     @Test func aDirectSendThatIsRefusedIsKeptForTheWriter() async throws {
         let bench = try SendBench(sendPath: .direct)
         bench.server.answerSends(with: 400)

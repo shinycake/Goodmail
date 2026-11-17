@@ -5,6 +5,11 @@ extension IMAPClient: DirectSending {
     /// SMTP needs the app running, so iCloud sends go over its own connection.
     public var sending: Sending { .direct(self) }
 
+    /// Logs in to SMTP for the send to come, while its undo window runs.
+    public func prepareToSend() async {
+        await smtp.prepare()
+    }
+
     /// Sends over SMTP. The copy in Sent is filed after, by `fileSent`, once the message counts as gone.
     public func send(_ raw: Data, inThread threadID: String?) async throws {
         guard let envelope = SMTPEnvelope(raw) else { throw ProviderError.rejected }

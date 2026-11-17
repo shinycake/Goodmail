@@ -42,6 +42,13 @@ public actor Sender {
         return await task.value
     }
 
+    /// Gets the provider ready for a message due soon, as by logging in while its undo window runs. Returns without
+    /// waiting for that.
+    public func prepare() async {
+        guard case .direct(let direct) = provider.sending else { return }
+        await direct.prepareToSend()
+    }
+
     /// Takes in how upload `id` ended. Returns the draft when its message went. An outcome for an attempt that is
     /// no longer current, such as one reported twice, changes nothing.
     public func complete(_ id: UploadID, with outcome: UploadOutcome) async -> Draft? {

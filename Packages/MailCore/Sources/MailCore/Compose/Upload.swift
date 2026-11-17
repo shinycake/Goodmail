@@ -54,6 +54,10 @@ public enum Sending: Sendable {
 /// A provider that sends over its own connection while the app runs (`Sending.direct`). The send queue counts a
 /// message as gone the moment `send` returns, and only then files its copy, so the writer never waits on the copy.
 public protocol DirectSending: Sendable {
+    /// Gets ready for a send due soon, such as by logging in while its undo window runs, so the send itself is
+    /// quicker. Returns without waiting for that.
+    func prepareToSend() async
+
     /// Sends an RFC 5322 message, in the thread it answers when there is one, returning once the service has taken
     /// it. Throws `ProviderError.rejected` for a message the service won't send.
     func send(_ raw: Data, inThread threadID: String?) async throws
@@ -64,6 +68,9 @@ public protocol DirectSending: Sendable {
 }
 
 extension DirectSending {
+    /// A service with nothing to set up ahead sends as it is.
+    public func prepareToSend() async {}
+
     /// A service that files what it sends, as Gmail and Exchange do, has nothing left to do.
     public func fileSent(_ raw: Data, inThread threadID: String?) async {}
 }

@@ -517,9 +517,11 @@ final class Senders {
     func deliver(_ id: AccountID, at date: Date) async {
         guard date.timeIntervalSinceNow <= Self.longestHeldWait else { return }
         await BackgroundDatabaseWork.shared.run("Send") {
+            guard let sender = sender(for: id) else { return }
+            // Logs in while the undo window runs, so only the message is left when it closes.
+            await sender.prepare()
             let wait = date.timeIntervalSinceNow
             if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
-            guard let sender = sender(for: id) else { return }
             let went = await sender.flush()
             if !went.isEmpty { await onSent?(id, went) }
         }
