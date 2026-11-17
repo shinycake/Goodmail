@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 import MailCore
 import Testing
 
@@ -30,6 +31,18 @@ struct MinimizedDraftTests {
         let drafts = [draft("Lunch"), draft("Budget"), draft("Trip")]
         try database.keepMinimizedDrafts(drafts, for: "w1")
         #expect(try database.claimMinimizedDrafts(for: "w1") == drafts)
+    }
+
+    @Test func aDraftThatNoLongerReadsIsSkippedAndTheRestComeBack() throws {
+        let lunch = draft("Lunch")
+        let budget = draft("Budget")
+        try database.keepMinimizedDrafts([lunch, budget], for: "w1")
+        try database.write { db in
+            try db.execute(
+                sql: "UPDATE minimizedDraft SET draft = '{\"not\": \"a draft\"}' WHERE draftID = ?",
+                arguments: [lunch.id.uuidString])
+        }
+        #expect(try database.claimMinimizedDrafts(for: "w2") == [budget])
     }
 
     @Test func keepingAgainReplacesTheWindowsDrafts() throws {

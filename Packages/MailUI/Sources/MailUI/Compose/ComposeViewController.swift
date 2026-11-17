@@ -30,8 +30,7 @@ public final class ComposeViewController: UIViewController {
     private let fromButton = UIButton(configuration: .plain())
     /// Takes files from Photos, Files, the camera and the scanner.
     lazy var picker = AttachmentPicker { [weak self] in self?.add($0) }
-    /// Keeps the composer while it is minimized, and hears when it is done. Without one, swiping down asks before
-    /// losing what was written.
+    /// Keeps the composer while it is minimized, moves it on and off the screen, and hears when it is done.
     weak var host: (any ComposerHost)?
     /// The window scene the composer was shown in, kept while it is minimized and out of any window.
     private weak var scene: UIScene?
@@ -139,18 +138,16 @@ public final class ComposeViewController: UIViewController {
         !viewModel.recipients.cc.isEmpty || !viewModel.recipients.bcc.isEmpty
     }
 
-    public override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        navigationController?.presentationController?.delegate = self
-    }
-
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         scene = view.window?.windowScene
+    }
+
+    /// The card came to rest on the screen: writing starts, or goes on where it was.
+    func didOpen() {
         switch showing {
-        case .shown: return
+        case .shown, .leaving: return
         case .minimized(let field):
-            // Back from minimized: writing goes on where it was.
             showing = .shown
             field?.becomeFirstResponder()
             return
@@ -173,6 +170,8 @@ public final class ComposeViewController: UIViewController {
     private enum Showing {
         case notYet
         case shown
+        /// On its way off the screen from writing in that field, if any, and back to it if it stays.
+        case leaving(UIResponder?)
         /// Minimized while writing in that field, if any, to write in again when it comes back.
         case minimized(UIResponder?)
     }
@@ -437,8 +436,6 @@ public final class ComposeViewController: UIViewController {
     /// Called after every change: Send follows whether it can go, and autosave keeps the draft once typing rests.
     func updateSendEnabled() {
         sendItem.isEnabled = viewModel.canSend
-        // Without a host to minimize to, a swipe down asks before losing what was written.
-        navigationController?.isModalInPresentation = host == nil && viewModel.hasChanges(body: body)
         viewModel.edited { [weak self] in self?.body }
     }
 
@@ -537,40 +534,69 @@ public final class ComposeViewController: UIViewController {
         close()
     }
 
-    /// The message is done with: sent, deleted, saved away or closed unchanged. Dismisses it if it shows.
+    /// The message is done with: sent, deleted, saved away or closed unchanged. The host takes it off the screen.
     private func close() {
         picker.finish()
         host?.composerDidClose(self)
-        if view.window != nil { dismiss(animated: true) }
     }
 
     /// The draft as written so far, for the minimized bar and the picker; as it opened before the editor loads.
     var written: Draft { isViewLoaded ? viewModel.finished(body: body) : viewModel.draft }
 
-    /// Swiped down: a message with something in it is minimized and kept with the provider, one without is closed.
-    private func swipedAway() {
+    /// How a message dragged down leaves: one with something in it is minimized, one without is discarded.
+    enum Leaving {
+        case minimize
+        case discard
+    }
+
+    /// A drag down on the card began, taking the message off the screen unless it is let go short.
+    func startLeaving() -> Leaving {
         fieldChanged()
-        guard host != nil, viewModel.hasChanges(body: body) else {
-            viewModel.closeUnchanged()
-            return close()
-        }
-        minimizeShown()
+        let leaving: Leaving = viewModel.hasChanges(body: body) ? .minimize : .discard
+        prepareToLeave(keeping: leaving == .minimize)
+        return leaving
+    }
+
+    /// The drag was let go short: writing goes on where it was.
+    func stayed() {
+        guard case .leaving(let field) = showing else { return }
+        showing = .shown
+        field?.becomeFirstResponder()
+    }
+
+    /// The card reached the bar.
+    func didMinimize() {
+        guard case .leaving(let field) = showing else { return }
+        showing = .minimized(field)
+    }
+
+    /// The card left with nothing written: the message closes, kept nowhere.
+    func discard() {
+        viewModel.closeUnchanged()
+        close()
     }
 
     /// Moves the message out of the way to the bottom of the screen, kept as it is, to come back to.
     func minimize(then next: (() -> Void)? = nil) {
-        fieldChanged()
-        minimizeShown()
-        dismiss(animated: true, completion: next)
+        prepareToLeave(keeping: true)
+        if let host { host.minimize(self, then: next) } else { next?() }
     }
 
-    private func minimizeShown() {
-        viewModel.keepNow(body: body)
-        // A swipe down has ended editing by now, so the field is the one last written in.
-        showing = .minimized(lastFocused)
+    private func prepareToLeave(keeping: Bool) {
+        fieldChanged()
+        if keeping { viewModel.keepNow(body: body) }
+        // Read before editing ends, which leaves no field focused.
+        showing = .leaving(lastFocused)
         view.endEditing(true)
-        host?.composerDidMinimize(self)
     }
+
+    /// Whether the message shows from its top, where a drag down takes the card down rather than scrolling.
+    var isScrolledToTop: Bool {
+        scrollView.contentOffset.y <= -scrollView.adjustedContentInset.top
+    }
+
+    /// The scrolling that waits for a drag down on the card to fail first.
+    var scrollPan: UIGestureRecognizer { scrollView.panGestureRecognizer }
 
     /// The VoiceOver escape gesture minimizes the message, as the swipe down does.
     public override func accessibilityPerformEscape() -> Bool {
@@ -580,7 +606,7 @@ public final class ComposeViewController: UIViewController {
     }
 }
 
-extension ComposeViewController: UITextViewDelegate, UIAdaptivePresentationControllerDelegate {
+extension ComposeViewController: UITextViewDelegate {
     public func textViewDidBeginEditing(_ textView: UITextView) {
         lastFocused = textView
     }
@@ -607,13 +633,5 @@ extension ComposeViewController: UITextViewDelegate, UIAdaptivePresentationContr
     public func textViewDidChangeSelection(_ textView: UITextView) {
         repairTypingLayout()
         showFormatting()
-    }
-
-    public func presentationControllerDidAttemptToDismiss(_ presentationController: UIPresentationController) {
-        cancel()
-    }
-
-    public func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
-        swipedAway()
     }
 }

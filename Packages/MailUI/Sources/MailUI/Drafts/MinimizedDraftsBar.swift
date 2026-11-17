@@ -1,12 +1,18 @@
 import MailCore
 import UIKit
 
-/// The bar under the mail screens that holds minimized messages, with the others peeking out behind it. Swiping up
-/// or tapping opens them.
+/// The bar under the mail screens that holds minimized messages, with the others peeking out behind it. Dragging up
+/// brings them up under the finger; tapping opens them.
 final class MinimizedDraftsBar: UIView {
     /// The bar's least height above the bottom safe area; larger text makes it taller.
     static let height: CGFloat = 54
+    /// The grabber's place and size, which the composer's card shares so one turns into the other.
+    static let grabberTop: CGFloat = 6
+    static let grabberSize = CGSize(width: 36, height: 5)
+    static let cornerRadius: CGFloat = 30
     var onOpen: (() -> Void)?
+    /// A drag up began; whoever opens the messages follows `pan` from here.
+    var onDrag: ((UIPanGestureRecognizer) -> Void)?
     private let card = UIView()
     /// Edges of the other messages behind the front one, at most two.
     private let behind = [UIView(), UIView()]
@@ -18,7 +24,7 @@ final class MinimizedDraftsBar: UIView {
         super.init(frame: frame)
         for (index, edge) in behind.enumerated().reversed() {
             edge.backgroundColor = index == 0 ? .shelfEdge : .shelfFarEdge
-            edge.layer.cornerRadius = 30
+            edge.layer.cornerRadius = Self.cornerRadius
             edge.layer.cornerCurve = .continuous
             edge.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
             edge.translatesAutoresizingMaskIntoConstraints = false
@@ -32,14 +38,14 @@ final class MinimizedDraftsBar: UIView {
             ])
         }
         card.backgroundColor = .shelfCard
-        card.layer.cornerRadius = 30
+        card.layer.cornerRadius = Self.cornerRadius
         card.layer.cornerCurve = .continuous
         card.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         card.translatesAutoresizingMaskIntoConstraints = false
         addSubview(card)
 
         grabber.backgroundColor = .tertiaryLabel
-        grabber.layer.cornerRadius = 2.5
+        grabber.layer.cornerRadius = Self.grabberSize.height / 2
         titleLabel.font = .preferredFont(forTextStyle: .headline)
         titleLabel.adjustsFontForContentSizeCategory = true
         titleLabel.textAlignment = .center
@@ -66,10 +72,10 @@ final class MinimizedDraftsBar: UIView {
             card.trailingAnchor.constraint(equalTo: trailingAnchor),
             card.topAnchor.constraint(equalTo: topAnchor),
             card.bottomAnchor.constraint(equalTo: bottomAnchor),
-            grabber.topAnchor.constraint(equalTo: card.topAnchor, constant: 6),
+            grabber.topAnchor.constraint(equalTo: card.topAnchor, constant: Self.grabberTop),
             grabber.centerXAnchor.constraint(equalTo: card.centerXAnchor),
-            grabber.widthAnchor.constraint(equalToConstant: 36),
-            grabber.heightAnchor.constraint(equalToConstant: 5),
+            grabber.widthAnchor.constraint(equalToConstant: Self.grabberSize.width),
+            grabber.heightAnchor.constraint(equalToConstant: Self.grabberSize.height),
             stack.topAnchor.constraint(equalTo: grabber.bottomAnchor, constant: 4),
             stack.leadingAnchor.constraint(equalTo: card.layoutMarginsGuide.leadingAnchor),
             stack.trailingAnchor.constraint(equalTo: card.layoutMarginsGuide.trailingAnchor),
@@ -77,9 +83,8 @@ final class MinimizedDraftsBar: UIView {
         ])
 
         addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(open)))
-        let swipe = UISwipeGestureRecognizer(target: self, action: #selector(open))
-        swipe.direction = .up
-        addGestureRecognizer(swipe)
+        let pan = UIPanGestureRecognizer(target: self, action: #selector(dragged))
+        addGestureRecognizer(pan)
         isAccessibilityElement = true
         accessibilityTraits = .button
         accessibilityIdentifier = "drafts.bar"
@@ -116,6 +121,19 @@ final class MinimizedDraftsBar: UIView {
 
     @objc private func open() {
         onOpen?()
+    }
+
+    @objc private func dragged(_ pan: UIPanGestureRecognizer) {
+        if pan.state == .began { onDrag?(pan) }
+    }
+
+    /// Only a drag that heads up opens the messages.
+    override func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
+        guard let pan = recognizer as? UIPanGestureRecognizer, pan.view === self else {
+            return super.gestureRecognizerShouldBegin(recognizer)
+        }
+        let velocity = pan.velocity(in: self)
+        return velocity.y < 0 && abs(velocity.y) > abs(velocity.x)
     }
 
     override func accessibilityActivate() -> Bool {

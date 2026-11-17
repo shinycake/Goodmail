@@ -7,6 +7,8 @@ public final class DraftShelfViewController: UIViewController {
     /// The messages in progress. Only the methods below change it, each presenting what its new state shows.
     private var shelf = DraftShelf<ComposeViewController>()
     private let bar = MinimizedDraftsBar()
+    /// The message being written, on its card over the mail screens, and its moves to and from the bar.
+    private lazy var stage = ComposerStage(shelf: self, bar: bar) { [unowned self] in layOutContent(showsBar: $0) }
     /// Ends the content at the bar while messages are minimized, else at the bottom of the screen.
     private var contentBottom: NSLayoutConstraint?
     /// Keeps the messages in progress, the last one written first, so they come back after the app is closed. Told
@@ -44,6 +46,7 @@ public final class DraftShelfViewController: UIViewController {
         bar.isHidden = true
         bar.alpha = 0
         bar.onOpen = { [weak self] in self?.reopen() }
+        bar.onDrag = { [weak self] in self?.reopen(following: $0) }
         NotificationCenter.default.addObserver(
             self, selector: #selector(sceneDidEnterBackground(_:)), name: UIScene.didEnterBackgroundNotification,
             object: nil)
@@ -62,6 +65,8 @@ public final class DraftShelfViewController: UIViewController {
                 lessThanOrEqualTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -MinimizedDraftsBar.height),
             fitted,
         ])
+        stage.install()
+        stage.planLeaving = { [unowned self] in planLeaving($0) }
     }
 
     /// Only this window's own scene keeps its drafts as it leaves, with what is being written as it stands.
@@ -79,6 +84,7 @@ public final class DraftShelfViewController: UIViewController {
         let right = lane.maxX - view.bounds.maxX - Self.barInset
         if barLeft.constant != left { barLeft.constant = left }
         if barRight.constant != right { barRight.constant = right }
+        stage.layout()
     }
 
     /// The room between the bar and the sides of its lane.
@@ -123,24 +129,29 @@ public final class DraftShelfViewController: UIViewController {
         composer.host = self
         shelf.open(composer.viewModel.draft, in: composer)
         shelfChanged()
-        if let writing = shelf.writing?.composer { present(writing) }
+        guard let writing = shelf.writing?.composer else { return }
+        stage.open(writing, from: .below, barShowing: barBelongs)
     }
 
-    /// Swiping up on the bar: one message opens, several are laid out to pick from.
-    private func reopen() {
-        shelf.reopen()
-        shelfChanged()
-        switch shelf.state {
-        case .writing:
-            if let composer = shelf.writing?.composer { present(composer) }
-        case .choosing:
-            showPicker()
-        case .empty, .minimized:
-            break
+    /// Dragging up on the bar, or tapping it: one message comes up, following the finger if it drags; several are laid
+    /// out to pick from.
+    private func reopen(following pan: UIPanGestureRecognizer? = nil) {
+        guard shelf.state == .minimized, let front = shelf.entries.first else { return }
+        guard shelf.entries.count == 1 else {
+            shelf.reopen()
+            shelfChanged()
+            return showPicker(following: pan)
+        }
+        // The shelf writes it once it's up; let go short, it stays minimized.
+        stage.open(front.composer, from: .bar, barShowing: false, following: pan) { [weak self] opened in
+            guard let self, opened else { return }
+            shelf.reopen()
+            shelfChanged()
         }
     }
 
-    private func showPicker() {
+    /// Lays the drafts out to pick one, coming up under the finger dragging `pan` if there is one.
+    private func showPicker(following pan: UIPanGestureRecognizer? = nil) {
         let picker = DraftPickerViewController(entries: shelf.entries.map(\.draft))
         picker.onChoose = { [weak self] in self?.choose($0) }
         picker.onClose = { [weak self] id, source in self?.askToClose(id, from: source) }
@@ -154,8 +165,25 @@ public final class DraftShelfViewController: UIViewController {
             closePicker { [weak self] in self?.newMessage?(account) }
         }
         self.picker = picker
-        topPresenter.present(picker, animated: true)
+        guard let pan else { return topPresenter.present(picker, animated: true) }
+        picker.prepareToRise()
+        topPresenter.present(picker, animated: false)
+        let rising = ScrubbedAnimation(
+            distance: view.bounds.height * 0.4, heading: .up, in: view, animations: { picker.rise() },
+            landed: { [weak self, weak picker] up in
+                guard let self else { return }
+                pickerRise = nil
+                // Let go short, the drafts go back to the bar.
+                guard !up else { return }
+                shelf.dismissChoice()
+                picker?.dismiss(animated: false)
+            })
+        pickerRise = rising
+        rising.run(following: pan)
     }
+
+    /// The picker coming up under the finger, until it lands.
+    private var pickerRise: ScrubbedAnimation?
 
     /// The picker while the drafts are laid out.
     private weak var picker: DraftPickerViewController?
@@ -172,7 +200,10 @@ public final class DraftShelfViewController: UIViewController {
         shelf.choose(id)
         shelfChanged()
         guard let composer = shelf.writing?.composer else { return }
-        closePicker { [weak self] in self?.present(composer) }
+        closePicker { [weak self] in
+            guard let self else { return }
+            stage.open(composer, from: .bar, barShowing: barBelongs)
+        }
     }
 
     /// The close button on a laid-out draft: delete it or keep it in Drafts, as the composer's own close button offers.
@@ -202,12 +233,6 @@ public final class DraftShelfViewController: UIViewController {
         picker.present(sheet, animated: true)
     }
 
-    private func present(_ composer: ComposeViewController) {
-        let navigation = composer.navigationController ?? UINavigationController(rootViewController: composer)
-        navigation.modalPresentationStyle = .pageSheet
-        topPresenter.present(navigation, animated: true)
-    }
-
     /// The screen on top, which presents the composer.
     private var topPresenter: UIViewController {
         var top: UIViewController = self
@@ -217,8 +242,9 @@ public final class DraftShelfViewController: UIViewController {
 
     /// Shows what the shelf holds now, and hands it to `keep`.
     private func shelfChanged() {
-        updateBar()
-        keep?(inProgress)
+        let drafts = inProgress
+        updateBar(drafts)
+        keep?(drafts)
     }
 
     /// The messages in progress as written so far, the last one written first: the one being written as it stands
@@ -236,12 +262,12 @@ public final class DraftShelfViewController: UIViewController {
         shelfChanged()
     }
 
-    /// Shows the bar while messages are minimized, and fits the content above it.
-    private func updateBar() {
-        bar.show(shelf.entries.map(\.draft))
-        // Every message but the one being written waits in the bar.
-        let showsBar = shelf.entries.contains { shelf.state != .writing($0.id) }
-        guard showsBar != barShows else { return }
+    /// Shows the bar while messages are minimized, and fits the content above it. While the card moves, it moves the
+    /// bar and the content with it.
+    private func updateBar(_ drafts: [Draft]) {
+        bar.show(drafts)
+        let showsBar = barBelongs
+        guard !stage.isMoving, showsBar != barShows else { return }
         bar.isHidden = false
         UIView.animate(springDuration: 0.4, bounce: Motion.bounce(0.15)) {
             self.bar.alpha = showsBar ? 1 : 0
@@ -251,6 +277,11 @@ public final class DraftShelfViewController: UIViewController {
             // A show that came while this hide ran leaves the bar showing.
             self.bar.isHidden = !self.barShows
         }
+    }
+
+    /// Whether the bar belongs on the screen: every message but the one being written waits in it.
+    private var barBelongs: Bool {
+        shelf.entries.contains { shelf.state != .writing($0.id) }
     }
 
     /// Whether the bar shows, or is on its way in. Its alpha holds where the last change sends it, even mid-animation.
@@ -274,14 +305,45 @@ public final class DraftShelfViewController: UIViewController {
 }
 
 extension DraftShelfViewController: ComposerHost {
-    func composerDidMinimize(_ composer: ComposeViewController) {
+    func minimize(_ composer: ComposeViewController, then next: (() -> Void)?) {
+        guard stage.composer === composer else {
+            didMinimize(composer)
+            next?()
+            return
+        }
+        bar.show(inProgress)
+        stage.leave(to: .bar, barShowing: true) { [weak self] _ in
+            self?.didMinimize(composer)
+            next?()
+        }
+    }
+
+    /// The card of `composer` is in the bar: the shelf keeps the message as written.
+    private func didMinimize(_ composer: ComposeViewController) {
+        composer.didMinimize()
         shelf.minimize(composer.written)
         shelfChanged()
+    }
+
+    /// A drag down on the card: a message with something in it shrinks into the bar, one without slides away.
+    private func planLeaving(_ composer: ComposeViewController) -> ComposerStage.Leaving {
+        switch composer.startLeaving() {
+        case .minimize:
+            bar.show(inProgress)
+            return ComposerStage.Leaving(destination: .bar, barShowing: true) { [weak self] minimized in
+                if minimized { self?.didMinimize(composer) } else { composer.stayed() }
+            }
+        case .discard:
+            return ComposerStage.Leaving(destination: .away, barShowing: barBelongs) { discarded in
+                if discarded { composer.discard() } else { composer.stayed() }
+            }
+        }
     }
 
     func composerDidClose(_ composer: ComposeViewController) {
         shelf.finish(composer.viewModel.draft.id)
         shelfChanged()
+        if stage.composer === composer { stage.leave(to: .away, barShowing: barBelongs) }
         switch shelf.state {
         case .choosing: picker?.show(shelf.entries.map(\.draft))
         case .empty, .minimized, .writing: closePicker()

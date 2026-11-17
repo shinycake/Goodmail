@@ -34,6 +34,28 @@
         }
       }
     },
+    "Keeps the message at the bottom of the screen to come back to." : {
+      "comment" : "VoiceOver hint of the composer's grabber",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שומר את ההודעה בתחתית המסך כדי לחזור אליה."
+          }
+        }
+      }
+    },
+    "Minimize" : {
+      "comment" : "VoiceOver: the grabber at the top of the composer, which moves the message down to the bar",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מזעור"
+          }
+        }
+      }
+    },
     "Opens the message." : {
       "comment" : "VoiceOver hint of the bar holding one minimized message",
       "localizations" : {

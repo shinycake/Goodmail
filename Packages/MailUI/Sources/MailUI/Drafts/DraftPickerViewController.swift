@@ -87,6 +87,22 @@ final class DraftPickerViewController: UIViewController {
 
     private var hasScrolled = false
 
+    /// How far below their place the cards start as they come up under the finger.
+    static let rise: CGFloat = 160
+
+    /// Before coming up under the finger: not yet showing, the cards lowered toward the bar they come from.
+    func prepareToRise() {
+        loadViewIfNeeded()
+        view.alpha = 0
+        cards.transform = CGAffineTransform(translationX: 0, y: Self.rise)
+    }
+
+    /// Up in place: what the finger's drag animates toward.
+    func rise() {
+        view.alpha = 1
+        cards.transform = .identity
+    }
+
     /// Lays out `drafts`, the last one written first, which goes in front at the bottom.
     func show(_ drafts: [Draft]) {
         self.drafts = drafts

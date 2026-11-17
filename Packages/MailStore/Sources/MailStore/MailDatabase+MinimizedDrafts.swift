@@ -2,6 +2,10 @@ import Foundation
 import GRDB
 public import MailCore
 
+#if canImport(os)
+    import os
+#endif
+
 /// The messages minimized at the bottom of each window, kept as written so the bar comes back after the app is
 /// closed. Each window is named by an identifier the app picks, and keeps its own list.
 extension MailDatabase {
@@ -26,7 +30,9 @@ extension MailDatabase {
     }
 
     /// The minimized messages of every window but those `open`, which now belong to `window`, in the order kept.
-    /// The first window after a launch takes them all, since the windows they were minimized in are gone.
+    /// The first window after a launch takes them all, since the windows they were minimized in are gone. A draft
+    /// that no longer reads, as after a change to how drafts are kept, is left out so the rest still come back; it
+    /// goes the next time this window keeps its drafts.
     public func claimMinimizedDrafts(for window: String, sparing open: Set<String> = []) throws -> [Draft] {
         let decoder = JSONDecoder()
         let kept = Array(open.subtracting([window]))
@@ -38,7 +44,17 @@ extension MailDatabase {
             return try String.fetchAll(
                 db, sql: "SELECT draft FROM minimizedDraft WHERE window = ? ORDER BY position, rowid",
                 arguments: [window])
-        }.map { try decoder.decode(Draft.self, from: Data($0.utf8)) }
+        }.compactMap { column in
+            do {
+                return try decoder.decode(Draft.self, from: Data(column.utf8))
+            } catch {
+                #if canImport(os)
+                    Logger(subsystem: "com.idanbirman.goodmail", category: "drafts")
+                        .error("A minimized draft didn't read and was left out: \(error, privacy: .public)")
+                #endif
+                return nil
+            }
+        }
     }
 
     private static func minimizedColumn(_ draft: Draft) throws -> String {
