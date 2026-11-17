@@ -3,9 +3,10 @@ import MailWrist
 import SwiftUI
 
 /// A conversation as chat bubbles, newest at the bottom. It asks the iPhone for the messages as it opens, and says
-/// so when the iPhone doesn't answer.
+/// so when the iPhone doesn't answer. It opens from the Inbox or from an alert, whose conversation may not be among
+/// the Inbox's rows yet.
 struct WristThreadView: View {
-    let row: WristRow
+    let id: ThreadSummary.ID
     let threads: WristThreads
     let inbox: WristInboxModel
 
@@ -16,35 +17,48 @@ struct WristThreadView: View {
 
     var body: some View {
         content
-            .navigationTitle(row.sender.displayName)
-            .task { inbox.open(row) }
-            .task(id: attempt) { await threads.load(row.id) }
+            .navigationTitle(title)
+            // Once the Inbox lists it, which an alert can open before.
+            .task(id: row?.id) {
+                if let row { inbox.open(row) }
+            }
+            .task(id: attempt) { await threads.load(id) }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showsMore = true
-                    } label: {
-                        Label {
-                            Text("More", tableName: "Wrist", bundle: .module, comment: "Opens Pin and Snooze")
-                        } icon: {
-                            Image(systemName: "ellipsis")
+                    if row != nil {
+                        Button {
+                            showsMore = true
+                        } label: {
+                            Label {
+                                Text("More", tableName: "Wrist", bundle: .module, comment: "Opens Pin and Snooze")
+                            } icon: {
+                                Image(systemName: "ellipsis")
+                            }
                         }
                     }
                 }
             }
             .sheet(isPresented: $showsMore) {
-                WristMoreSheet(row: current, inbox: inbox) { dismiss() }
+                if let row { WristMoreSheet(row: row, inbox: inbox) { dismiss() } }
             }
     }
 
-    /// The row as the Inbox shows it now, pinned or not, since the reader may have changed it here.
-    private var current: WristRow {
-        guard case .list(let snapshot) = inbox.state else { return row }
-        return snapshot.rows.first { $0.id == row.id } ?? row
+    /// The conversation's row as the Inbox shows it now, pinned or not, since the reader may have changed it here;
+    /// `nil` while the Inbox doesn't list it.
+    private var row: WristRow? {
+        guard case .list(let snapshot) = inbox.state else { return nil }
+        return snapshot.rows.first { $0.id == id }
+    }
+
+    /// Who wrote last, or the subject once the conversation has loaded when the Inbox doesn't list it.
+    private var title: String {
+        if let row { return row.sender.displayName }
+        if case .loaded(let thread) = threads.state(of: id) { return thread.subject }
+        return ""
     }
 
     @ViewBuilder private var content: some View {
-        switch threads.state(of: row.id) {
+        switch threads.state(of: id) {
         case .loading:
             ProgressView()
         case .loaded(let thread):

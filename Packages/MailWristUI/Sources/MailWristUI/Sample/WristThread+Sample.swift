@@ -2,7 +2,6 @@
     public import Foundation
     import MailCore
     public import MailWrist
-    public import SwiftUI
 
     extension WristThread {
         /// A made-up conversation for each row of `snapshot`, which `WristSnapshot.sample` made in `language`. The
@@ -49,46 +48,6 @@
                 WristBubble(
                     side: line.0, sender: sender, time: index == 0 ? now.addingTimeInterval(-3600) : nil,
                     content: .words(line.1))
-            }
-        }
-    }
-
-    /// The sample Inbox with its first conversation pushed over it, for screenshots. Closing the conversation, or
-    /// snoozing it, goes back to the Inbox as it would after a tap.
-    public struct WristSampleThreadScreen: View {
-        let inbox: WristInboxModel
-        let threads: WristThreads
-        /// The first conversation, kept as it was at launch so the pushed screen doesn't follow the Inbox's new
-        /// first row after a snooze.
-        @State private var opened: WristRow?
-
-        public init(inbox: WristInboxModel, threads: WristThreads) {
-            self.inbox = inbox
-            self.threads = threads
-            if case .list(let snapshot) = inbox.state { _opened = State(initialValue: snapshot.rows.first) }
-        }
-
-        public var body: some View {
-            NavigationStack {
-                if case .list(let snapshot) = inbox.state {
-                    WristInboxList(snapshot: snapshot, model: inbox, threads: threads)
-                        .navigationTitle(
-                            Text("Inbox", tableName: "Wrist", bundle: .module, comment: "The Inbox screen's title")
-                        )
-                        .navigationDestination(isPresented: isOpen) {
-                            if let opened {
-                                WristThreadView(row: opened, threads: threads, inbox: inbox)
-                            }
-                        }
-                }
-            }
-        }
-
-        private var isOpen: Binding<Bool> {
-            Binding {
-                opened != nil
-            } set: {
-                if !$0 { opened = nil }
             }
         }
     }

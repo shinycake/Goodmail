@@ -35,7 +35,7 @@ public enum NewMailAlert {
         content.targetContentIdentifier = identifier(for: thread.id)
         // Lets a Focus filter that names accounts let through only theirs.
         content.filterCriteria = account.id.rawValue
-        content.userInfo = [accountKey: thread.id.accountID.rawValue, threadKey: thread.id.threadID]
+        content.userInfo = AlertedThread.userInfo(for: thread.id)
         return content
     }
 
@@ -51,10 +51,7 @@ public enum NewMailAlert {
     /// The thread an alert is about, or `nil` for one that isn't a new-mail alert, such as the bare push shown
     /// when the extension couldn't fetch.
     public static func thread(in userInfo: [AnyHashable: Any]) -> ThreadSummary.ID? {
-        guard let account = userInfo[accountKey] as? String, let thread = userInfo[threadKey] as? String else {
-            return nil
-        }
-        return ThreadSummary.ID(accountID: AccountID(rawValue: account), threadID: thread)
+        AlertedThread.thread(in: userInfo)
     }
 
     /// The alert actions: Reply and Mark as Read first, as the most common; Trash last, as destructive.
@@ -95,6 +92,4 @@ public enum NewMailAlert {
 
     /// Where quiet placeholders stack (`NewMailSilence.quiet`), apart from every account's alerts.
     static let placeholderThread = "placeholder"
-    static let accountKey = "accountID"
-    static let threadKey = "threadID"
 }

@@ -13,9 +13,7 @@ struct WristInboxList: View {
         List {
             Section {
                 ForEach(snapshot.rows) { row in
-                    NavigationLink {
-                        WristThreadView(row: row, threads: threads, inbox: model)
-                    } label: {
+                    NavigationLink(value: row.id) {
                         WristRowView(row: row, color: snapshot.account(row.id.accountID)?.color.color ?? .accentColor)
                     }
                     .swipeActions(edge: .leading) {

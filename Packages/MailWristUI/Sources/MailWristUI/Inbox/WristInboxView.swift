@@ -6,19 +6,24 @@ public import SwiftUI
 public struct WristInboxView: View {
     let model: WristInboxModel
     let threads: WristThreads
+    @Bindable var route: WristRoute
 
-    public init(model: WristInboxModel, threads: WristThreads) {
+    public init(model: WristInboxModel, threads: WristThreads, route: WristRoute) {
         self.model = model
         self.threads = threads
+        self.route = route
     }
 
     public var body: some View {
-        NavigationStack {
+        NavigationStack(path: $route.path) {
             content
                 .navigationTitle(
                     Text("Inbox", tableName: "Wrist", bundle: .module, comment: "The Inbox screen's title")
                 )
                 .wristUndeliveredAlert(model)
+                .navigationDestination(for: ThreadSummary.ID.self) { id in
+                    WristThreadView(id: id, threads: threads, inbox: model)
+                }
         }
     }
 

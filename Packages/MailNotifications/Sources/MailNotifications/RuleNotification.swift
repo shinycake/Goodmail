@@ -22,9 +22,7 @@ public enum RuleNotification {
         content.threadIdentifier = threadIdentifier
         content.targetContentIdentifier = NewMailAlert.identifier(for: alert.thread)
         content.filterCriteria = account.id.rawValue
-        content.userInfo = [
-            NewMailAlert.accountKey: alert.thread.accountID.rawValue, NewMailAlert.threadKey: alert.thread.threadID,
-        ]
+        content.userInfo = AlertedThread.userInfo(for: alert.thread)
         // One per rule and thread: the same rule matching a later reply replaces it.
         return UNNotificationRequest(
             identifier: "rule/\(alert.rule)/\(NewMailAlert.identifier(for: alert.thread))", content: content,

@@ -3,6 +3,7 @@ import MailCore
 import MailWrist
 import MailWristUI
 import SwiftUI
+import UserNotifications
 import WatchKit
 import WidgetKit
 
@@ -13,15 +14,7 @@ struct GoodmailWatchApp: App {
 
     var body: some Scene {
         WindowGroup {
-            #if DEBUG
-                if UserDefaults.standard.bool(forKey: "GoodmailWristSampleOpen") {
-                    WristSampleThreadScreen(inbox: delegate.inbox, threads: delegate.threads)
-                } else {
-                    WristInboxView(model: delegate.inbox, threads: delegate.threads)
-                }
-            #else
-                WristInboxView(model: delegate.inbox, threads: delegate.threads)
-            #endif
+            WristInboxView(model: delegate.inbox, threads: delegate.threads, route: delegate.route)
         }
     }
 }
@@ -31,12 +24,15 @@ struct GoodmailWatchApp: App {
 final class WatchAppDelegate: NSObject, WKApplicationDelegate {
     let inbox = WristInboxModel()
     let threads = WristThreads()
+    let route = WristRoute()
     private let channel = WristChannel()
     /// Shows each snapshot the iPhone sends, stores and sends each change, and asks for each conversation opened.
     /// Ends with the app; nothing cancels it.
     private var following: Task<Void, Never>?
 
     func applicationDidFinishLaunching() {
+        // Before launch finishes, so that the tap on an alert that launched the app reaches it.
+        UNUserNotificationCenter.current().delegate = self
         // In the App Group, where the watch face's widget extension reads it.
         let store = WristStore(directory: SharedContainer.directoryURL ?? .applicationSupportDirectory)
         #if DEBUG
@@ -48,6 +44,9 @@ final class WatchAppDelegate: NSObject, WKApplicationDelegate {
                 let sample = WristSnapshot.sample(language)
                 inbox.receive(.snapshot(sample))
                 for thread in WristThread.samples(for: sample, language) { threads.receive(.thread(thread)) }
+                if UserDefaults.standard.bool(forKey: "GoodmailWristSampleOpen"), let first = sample.rows.first {
+                    route.open(first.id)
+                }
                 following = Task { [inbox] in
                     // Stored for the watch face; failing leaves the face on the last mailbox, fine for screenshots.
                     try? await store.save(inbox.mailbox)
@@ -61,5 +60,18 @@ final class WatchAppDelegate: NSObject, WKApplicationDelegate {
                 WidgetCenter.shared.reloadAllTimelines()
             }
         }
+    }
+}
+
+/// A tap on a new-mail alert mirrored from the iPhone opens its conversation. watchOS calls this on its own queue,
+/// so it reads the thread there and hops to the main actor to show it.
+extension WatchAppDelegate: UNUserNotificationCenterDelegate {
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse
+    ) async {
+        guard response.actionIdentifier == UNNotificationDefaultActionIdentifier,
+            let thread = AlertedThread.thread(in: response.notification.request.content.userInfo)
+        else { return }
+        await route.open(thread)
     }
 }
