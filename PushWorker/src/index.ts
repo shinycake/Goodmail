@@ -6,7 +6,16 @@ import { forgetGrant, grantsFor, storeGrant } from "./grant-routes";
 import { pollWatches } from "./imap-poll";
 import { registerWatch, unregisterWatch } from "./imap-routes";
 import { OutlookGrantRevoked, OutlookGrants, refreshOutlookToken } from "./outlook";
-import { BadRequest, googleKeys, mailboxCheck, nowSeconds, outlookCheck, readJson } from "./shared";
+import {
+  BadRequest,
+  DEVICE_TOKEN,
+  googleKeys,
+  mailboxCheck,
+  nowSeconds,
+  outlookCheck,
+  readJson,
+  watchTokenIn,
+} from "./shared";
 import {
   hasGraphSubscriptions,
   registerGraphSubscription,
@@ -30,7 +39,6 @@ export type { Env } from "./env";
 /** Shared by every request this isolate serves, so the APNs token is signed rarely. */
 let apnsSigner: ApnsSigner | undefined;
 
-const DEVICE_TOKEN = /^[0-9a-f]{64,200}$/i;
 const HISTORY_ID = /^\d{1,20}$/;
 const ENVIRONMENTS: readonly ApnsEnvironment[] = ["sandbox", "production"];
 const GRAPH_SUBSCRIPTION_ID = /^[0-9a-f-]{36}$/i;
@@ -93,7 +101,8 @@ async function register(request: Request, env: Env): Promise<Response> {
   const environment = ENVIRONMENTS.find((candidate) => candidate === body.environment);
   if (!environment) throw new BadRequest("environment must be sandbox or production");
   const { account, token } = await authenticateDevice(body, env);
-  await registerDevice(env.DB, account, { token, environment }, Date.now());
+  const watchToken = watchTokenIn(body);
+  await registerDevice(env.DB, account, { token, environment, ...(watchToken && { watchToken }) }, Date.now());
   return new Response(null, { status: 204 });
 }
 
@@ -181,9 +190,11 @@ async function registerGraph(request: Request, env: Env): Promise<Response> {
   if (typeof account !== "string" || !ACCOUNT_ID.test(account)) throw new BadRequest("bad account");
   if (typeof deviceToken !== "string" || !DEVICE_TOKEN.test(deviceToken)) throw new BadRequest("bad deviceToken");
   if (typeof expiresAt !== "number" || !Number.isFinite(expiresAt)) throw new BadRequest("bad expiresAt");
+  const watchToken = watchTokenIn(body);
+  const device = { token: deviceToken.toLowerCase(), environment, ...(watchToken && { watchToken }) };
   const stored = await registerGraphSubscription(
     env.DB,
-    { subscriptionId, account, device: { token: deviceToken.toLowerCase(), environment }, expiresAt },
+    { subscriptionId, account, device, expiresAt },
     clientState,
     Date.now(),
   );

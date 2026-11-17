@@ -1,6 +1,7 @@
 import type { ApnsEnvironment, Device } from "./apns";
 import type { ImapLogin, InboxStatus } from "./imap";
 import { Sealer } from "./sealing";
+import { device as storedDevice } from "./store";
 
 /** How long a watch lasts after its device last registered it. The app registers it on every refresh. */
 export const WATCH_LIFETIME_MS = 30 * 86_400_000;
@@ -38,6 +39,7 @@ interface Row {
   account: string;
   device_token: string;
   environment: ApnsEnvironment;
+  watch_token: string | null;
   login: string;
   login_hash: string;
   state: WatchState;
@@ -51,7 +53,7 @@ function watch(row: Row): ImapWatch {
     watchId: row.watch_id,
     secretHash: row.secret_hash,
     account: row.account,
-    device: { token: row.device_token, environment: row.environment },
+    device: storedDevice(row.device_token, row.environment, row.watch_token),
     login: row.login,
     loginHash: row.login_hash,
     state: row.state,
@@ -75,16 +77,17 @@ export async function storeWatch(db: D1Database, watch: ImapWatch): Promise<bool
   const result = await db
     .prepare(
       `INSERT INTO imap_watches (watch_id, secret_hash, account, device_token, environment, login, login_hash, state,
-         uid_validity, uid_next, expires_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?11, ?8, ?9, ?10)
+         uid_validity, uid_next, expires_at, watch_token)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?11, ?8, ?9, ?10, ?12)
        ON CONFLICT (watch_id) DO UPDATE SET account = excluded.account, device_token = excluded.device_token,
-         environment = excluded.environment, login = excluded.login, login_hash = excluded.login_hash,
+         environment = excluded.environment, watch_token = excluded.watch_token, login = excluded.login,
+         login_hash = excluded.login_hash,
          state = excluded.state, uid_validity = excluded.uid_validity, uid_next = excluded.uid_next,
          expires_at = excluded.expires_at
        WHERE imap_watches.secret_hash = excluded.secret_hash`,
     )
     .bind(watchId, secretHash, account, device.token, device.environment, login, loginHash, inbox.uidValidity,
-      inbox.uidNext, expiresAt, state)
+      inbox.uidNext, expiresAt, state, device.watchToken ?? null)
     .run();
   return result.meta.changes === 1;
 }
@@ -99,9 +102,10 @@ export async function renewWatch(
 ): Promise<void> {
   await db
     .prepare(
-      "UPDATE imap_watches SET account = ?2, device_token = ?3, environment = ?4, expires_at = ?5 WHERE watch_id = ?1",
+      `UPDATE imap_watches SET account = ?2, device_token = ?3, environment = ?4, expires_at = ?5, watch_token = ?6
+       WHERE watch_id = ?1`,
     )
-    .bind(watchId, account, device.token, device.environment, expiresAt)
+    .bind(watchId, account, device.token, device.environment, expiresAt, device.watchToken ?? null)
     .run();
 }
 

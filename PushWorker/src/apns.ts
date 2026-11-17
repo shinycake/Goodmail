@@ -55,6 +55,8 @@ function importPrivateKey(pem: string): Promise<CryptoKey> {
 export interface Device {
   token: string;
   environment: ApnsEnvironment;
+  /** The paired Apple Watch's own token, for an alert the iPhone doesn't confirm (ADR-023). Same environment. */
+  watchToken?: string;
 }
 
 /** `delivered`, `gone` (the token should be removed) or `failed` (anything else; keep the token). */

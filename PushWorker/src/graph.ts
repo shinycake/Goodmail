@@ -1,5 +1,6 @@
 import type { ApnsEnvironment, Device } from "./apns";
 import { encodeUtf8, toHex } from "./encoding";
+import { device as storedDevice } from "./store";
 
 /** A device's Graph subscription, as the relay keeps it. */
 export interface GraphSubscription {
@@ -40,13 +41,14 @@ export async function registerGraphSubscription(
     db.prepare("DELETE FROM graph_subscriptions WHERE expires_at < ?1").bind(now - EXPIRED_GRACE_MS),
     db
       .prepare(
-        `INSERT INTO graph_subscriptions (subscription_id, client_state_hash, account, device_token, environment, expires_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+        `INSERT INTO graph_subscriptions (subscription_id, client_state_hash, account, device_token, environment, expires_at,
+           watch_token)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
          ON CONFLICT (subscription_id) DO UPDATE SET account = excluded.account, device_token = excluded.device_token,
-           environment = excluded.environment, expires_at = excluded.expires_at
+           environment = excluded.environment, expires_at = excluded.expires_at, watch_token = excluded.watch_token
          WHERE graph_subscriptions.client_state_hash = excluded.client_state_hash`,
       )
-      .bind(subscriptionId, hash, account, device.token, device.environment, expiresAt),
+      .bind(subscriptionId, hash, account, device.token, device.environment, expiresAt, device.watchToken ?? null),
   ]);
   return write?.meta.changes === 1;
 }
@@ -71,7 +73,8 @@ export async function verifiedSubscription(
 ): Promise<GraphSubscription | undefined> {
   const row = await db
     .prepare(
-      "SELECT client_state_hash, account, device_token, environment, expires_at FROM graph_subscriptions WHERE subscription_id = ?1",
+      `SELECT client_state_hash, account, device_token, environment, expires_at, watch_token FROM graph_subscriptions
+       WHERE subscription_id = ?1`,
     )
     .bind(subscriptionId)
     .first<{
@@ -80,12 +83,13 @@ export async function verifiedSubscription(
       device_token: string;
       environment: ApnsEnvironment;
       expires_at: number;
+      watch_token: string | null;
     }>();
   if (!row || !sameHash(row.client_state_hash, await clientStateHash(clientState))) return undefined;
   return {
     subscriptionId,
     account: row.account,
-    device: { token: row.device_token, environment: row.environment },
+    device: storedDevice(row.device_token, row.environment, row.watch_token),
     expiresAt: row.expires_at,
   };
 }

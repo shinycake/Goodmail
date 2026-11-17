@@ -161,6 +161,21 @@ describe("registering a watch", () => {
   });
 });
 
+describe("an IMAP watch's watch token", () => {
+  const WATCH = "c".repeat(64);
+
+  it("is stored with a new watch and with a renewal, and cleared by a renewal without it", async () => {
+    expect((await register({ watchToken: WATCH })).status).toBe(204);
+    expect((await findWatch(env.DB, WATCH_ID))?.device).toEqual({ token: DEVICE, environment: "sandbox", watchToken: WATCH });
+
+    expect((await register()).status).toBe(204);
+    expect((await findWatch(env.DB, WATCH_ID))?.device).toEqual({ token: DEVICE, environment: "sandbox" });
+
+    expect((await register({ watchToken: WATCH })).status).toBe(204);
+    expect((await findWatch(env.DB, WATCH_ID))?.device.watchToken).toBe(WATCH);
+  });
+});
+
 describe("polling", () => {
   it("alerts the device by account ID when new mail grows UIDNEXT, once", async () => {
     await register();

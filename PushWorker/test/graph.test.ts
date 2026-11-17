@@ -1,6 +1,7 @@
 import { createExecutionContext, env, waitOnExecutionContext } from "cloudflare:test";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import worker, { type Env } from "../src/index";
+import { verifiedSubscription } from "../src/graph";
 import { GRAPH_API, MICROSOFT_TOKEN_URL } from "../src/outlook";
 import { generateApnsKey } from "./keys";
 
@@ -176,13 +177,35 @@ describe("Graph subscription registration", () => {
   });
 });
 
+describe("a Graph subscription's watch token", () => {
+  const WATCH = "c".repeat(64);
+
+  it("is stored with the subscription, and cleared by a renewal without it", async () => {
+    expect((await subscriptions("POST", registration({ watchToken: WATCH }))).status).toBe(204);
+    expect(await stored()).toMatchObject([{ watch_token: WATCH }]);
+    expect((await verifiedSubscription(env.DB, SUBSCRIPTION, CLIENT_STATE))?.device).toEqual({
+      token: DEVICE,
+      environment: "sandbox",
+      watchToken: WATCH,
+    });
+
+    await subscriptions("POST", registration());
+    expect(await stored()).toMatchObject([{ watch_token: null }]);
+  });
+
+  it("is refused when it isn't a token", async () => {
+    expect((await subscriptions("POST", registration({ watchToken: 42 }))).status).toBe(400);
+    expect(await stored()).toHaveLength(0);
+  });
+});
+
 describe("Outlook grants", () => {
   it("stores the app's token sealed, for the account of the subscription its clientState proves", async () => {
     await subscriptions("POST", registration());
     expect((await grant()).status).toBe(204);
     const row = await env.DB.prepare("SELECT * FROM graph_grants").first<Record<string, string>>();
     expect(row?.account).toBe(ACCOUNT);
-    expect(JSON.stringify(row)).not.toContain("M.");
+    expect(JSON.stringify(row)).not.toContain(APP_TOKEN);
     expect(JSON.stringify(row).toLowerCase()).not.toContain("outlook.com");
   });
 
