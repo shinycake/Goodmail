@@ -42,6 +42,16 @@
         }
       }
     },
+    "New Message" : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הודעה חדשה"
+          }
+        }
+      }
+    },
     "No Accounts" : {
       "comment" : "Widget empty state shown before any mail account is added",
       "localizations" : {
@@ -49,6 +59,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "אין חשבונות"
+          }
+        }
+      }
+    },
+    "Write an email." : {
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כתיבת דוא״ל."
           }
         }
       }

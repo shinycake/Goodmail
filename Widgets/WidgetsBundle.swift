@@ -15,5 +15,8 @@ struct WidgetsBundle: WidgetBundle {
 
     var body: some Widget {
         InboxWidget()
+        #if canImport(MailIntents)
+            NewMessageControl()
+        #endif
     }
 }
