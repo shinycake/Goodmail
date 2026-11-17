@@ -1,4 +1,5 @@
 import { type ApnsConfig, type ApnsEnvironment, ApnsSigner, type PushOutcome, sendAlert } from "./apns";
+import { guardDevice, issueChallenge, registerKey } from "./attest-routes";
 import { base64Decode } from "./encoding";
 import type { Env } from "./env";
 import { TokenError, verifyIdToken, verifyPubSubToken } from "./google";
@@ -37,12 +38,31 @@ const GRAPH_SUBSCRIPTION_ID = /^[0-9a-f-]{36}$/i;
 /** Graph allows up to 128 characters; the app sends 64 hex digits. */
 const CLIENT_STATE = /^[\x21-\x7e]{32,128}$/;
 const ACCOUNT_ID = /^[A-Za-z0-9-]{1,64}$/;
+/** Routes only the app calls, so only requests the genuine app signed reach them (attest-routes.ts). */
+const DEVICE_ROUTES = new Set([
+  "POST /v1/devices",
+  "DELETE /v1/devices",
+  "POST /v1/gmail/grants",
+  "POST /v1/graph/subscriptions",
+  "DELETE /v1/graph/subscriptions",
+  "POST /v1/graph/grants",
+  "POST /v1/imap/watches",
+  "DELETE /v1/imap/watches",
+]);
 
 export default {
-  async fetch(request: Request, env: Env, context: ExecutionContext): Promise<Response> {
-    const url = new URL(request.url);
+  async fetch(incoming: Request, env: Env, context: ExecutionContext): Promise<Response> {
+    const url = new URL(incoming.url);
     const { pathname } = url;
     try {
+      if (pathname === "/v1/attest/challenges" && incoming.method === "POST") return await issueChallenge(incoming, env, Date.now());
+      if (pathname === "/v1/attest/keys" && incoming.method === "POST") return await registerKey(incoming, env, Date.now());
+      let request = incoming;
+      if (DEVICE_ROUTES.has(`${incoming.method} ${pathname}`)) {
+        const guarded = await guardDevice(incoming, env, Date.now());
+        if ("refusal" in guarded) return guarded.refusal;
+        request = guarded.request;
+      }
       if (pathname === "/v1/devices" && request.method === "POST") return await register(request, env);
       if (pathname === "/v1/devices" && request.method === "DELETE") return await unregister(request, env);
       if (pathname === "/v1/pubsub" && request.method === "POST") return await pubSubPush(request, env);
@@ -54,6 +74,8 @@ export default {
       if (pathname === "/v1/imap/watches" && request.method === "POST") return await registerWatch(request, env, Date.now());
       if (pathname === "/v1/imap/watches" && request.method === "DELETE") return await unregisterWatch(request, env);
       const known = [
+        "/v1/attest/challenges",
+        "/v1/attest/keys",
         "/v1/devices",
         "/v1/pubsub",
         "/v1/graph",

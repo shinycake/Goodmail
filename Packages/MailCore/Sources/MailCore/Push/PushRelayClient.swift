@@ -15,10 +15,13 @@ public struct PushRelayClient: PushRelay {
 
     private let baseURL: URL
     private let http: any HTTPClient
+    private let signer: (any RelaySigner)?
 
-    public init(baseURL: URL, http: any HTTPClient = URLSession.shared) {
+    /// `signer` proves each request comes from the genuine app; without one, requests go unsigned.
+    public init(baseURL: URL, http: any HTTPClient = URLSession.shared, signer: (any RelaySigner)? = nil) {
         self.baseURL = baseURL
         self.http = http
+        self.signer = signer
     }
 
     public var graphNotificationURL: URL { baseURL.appending(path: "v1/graph") }
@@ -60,16 +63,30 @@ public struct PushRelayClient: PushRelay {
     }
 
     private func send(_ method: String, _ path: String, _ body: some Encodable) async throws {
-        var request = URLRequest(url: baseURL.appending(path: path))
-        request.httpMethod = method
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(body)
-        let (_, response) = try await http.data(for: request)
-        switch response.statusCode {
+        let data = try JSONEncoder().encode(body)
+        var status = try await send(method, path, data)
+        // 428: the relay doesn't know this install's key, as after a reinstall. Attest a new one and ask once more.
+        if status == 428, let signer {
+            await signer.discardKey()
+            status = try await send(method, path, data)
+        }
+        switch status {
         case 200..<300: return
         case 401, 403: throw Failure.unauthorized
-        default: throw Failure.status(response.statusCode)
+        default: throw Failure.status(status)
         }
+    }
+
+    private func send(_ method: String, _ path: String, _ body: Data) async throws -> Int {
+        let url = baseURL.appending(path: path)
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = body
+        for (field, value) in await signer?.headers(method: method, path: url.path, body: body) ?? [:] {
+            request.setValue(value, forHTTPHeaderField: field)
+        }
+        return try await http.data(for: request).1.statusCode
     }
 }
 

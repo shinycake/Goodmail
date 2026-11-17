@@ -65,6 +65,7 @@ Google here is the user's own mail provider, acting for the user. Data the app e
 - `gmail_grants`: the refresh token, AES-GCM encrypted, and an HMAC of it to recognize it when sent again.
 - `graph_subscriptions`: the subscription ID, a SHA-256 of its secret, the app's opaque account ID, the device token and the expiry.
 - `imap_watches`: the login (server, user name and password) as AES-GCM encrypted JSON, an HMAC of it, a SHA-256 of the watch secret, the app's account ID, the device token, the Inbox's UIDVALIDITY and UIDNEXT, and whether the server refused the login.
+- `attest_keys`: each install's App Attest public key, its environment, its newest counter and when it was last used, so only the genuine app can register (`src/attest-routes.ts`). A key names no person or account. `attest_challenges` holds one-time challenges for 5 minutes.
 - No addresses in the clear and no mail. The ID token is verified and dropped.
 - **Encryption:** the AES-GCM keys are derived with HKDF from the Worker secret `EMAIL_HMAC_SECRET`, one key per kind of secret. A copy of the database alone reveals no token or password. Someone who controls the Cloudflare account, or Cloudflare itself, could run code with the secret and decrypt them. D1 is also encrypted at rest by Cloudflare.
 

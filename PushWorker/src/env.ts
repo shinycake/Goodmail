@@ -16,6 +16,10 @@ export interface Env {
   APNS_PRIVATE_KEY: string;
   /** Limits IMAP login checks per client address (wrangler.toml `[[ratelimits]]`). */
   IMAP_LOGIN_CHECKS: RateLimit;
+  /** Limits App Attest challenges per client address (wrangler.toml `[[ratelimits]]`). */
+  ATTEST_CHALLENGES: RateLimit;
+  /** `observe` logs requests the genuine app didn't sign; anything else refuses them (attest-routes.ts). */
+  APP_ATTEST: string;
   /** Secret: the HMAC key that turns email addresses into account IDs. */
   EMAIL_HMAC_SECRET: string;
 }

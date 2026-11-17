@@ -76,7 +76,8 @@ final class AppModel {
         minimizedDrafts = MinimizedDrafts(database: database)
         accounts = try database.accounts()
         pushRegistrar = pushRelay.map {
-            PushRegistrar(relay: PushRelayClient(baseURL: $0), store: database)
+            let attestation = RelayAttestation(baseURL: $0, device: AppAttestDevice(), store: Keychain())
+            return PushRegistrar(relay: PushRelayClient(baseURL: $0, signer: attestation), store: database)
         }
         let providers = Providers(database: database)
         self.providers = providers

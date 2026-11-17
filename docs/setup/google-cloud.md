@@ -10,7 +10,7 @@ Set up on 2026-10-20 under the owner's Google account. None of these values are 
 | Pub/Sub subscription | `gmail-push-worker`, pushing to `https://goodmail-push.goodmail-push-worker.workers.dev/v1/pubsub` with OIDC tokens for `gmail-push-invoker@goodmail-ios.iam.gserviceaccount.com` (created 2026-11-13) |
 | OAuth audience | External, **Testing**. Test users: the owner's Google account, a dedicated test Gmail account (the dedicated test account for fixtures, ADR-010) |
 | OAuth scopes | `https://mail.google.com/` (restricted, for Delete Forever, ADR-019), `gmail.settings.basic` (restricted); `contacts.readonly`, `contacts.other.readonly` (sensitive); `openid`, `userinfo.email` |
-| iOS OAuth client | "Goodmail iOS", bundle ID `com.idanbirman.goodmail` |
+| iOS OAuth client | "Goodmail iOS", bundle ID `com.idanbirman.goodmail`, Team ID `72D8U72V55`, App Store ID `6834185190` (set 2026-11-17) |
 | Client ID | `847337870740-fpj7hd07nfsueispeug4nell21pf3vi2.apps.googleusercontent.com` |
 | Redirect scheme | `com.googleusercontent.apps.847337870740-fpj7hd07nfsueispeug4nell21pf3vi2:/oauthredirect` |
 

@@ -6,6 +6,8 @@ Goodmail's push backend (ADR-006): a Cloudflare Worker with D1 and no runtime de
 
 | Route | Body | Result |
 |---|---|---|
+| `POST /v1/attest/challenges` | none | `{"challenge"}`, good once for 5 minutes; 429 after 10 a minute from one address |
+| `POST /v1/attest/keys` | `{"keyId", "attestation", "challenge"}`, an App Attest key, Apple's attestation of it (base64) and the challenge it binds | 204; 401 when the challenge is unknown, used or stale, or Apple's chain doesn't vouch for the key |
 | `POST /v1/devices` | `{"idToken", "deviceToken", "environment": "sandbox" \| "production"}` | 204; 401 for a bad ID token |
 | `DELETE /v1/devices` | `{"idToken", "deviceToken"}` | 204 |
 | `POST /v1/pubsub` | a Pub/Sub push with an OIDC bearer token | 204 acknowledges it |
@@ -17,6 +19,7 @@ Goodmail's push backend (ADR-006): a Cloudflare Worker with D1 and no runtime de
 | `POST /v1/imap/watches` | `{"watchId", "secret", "account", "deviceToken", "environment", "host", "port", "security", "username", "password"}` | 204; 401 when the server refuses the login; 403 when the watch is registered with another secret; 429 after too many login checks; 503 when the server can't be reached |
 | `DELETE /v1/imap/watches` | `{"watchId", "secret"}` | 204 |
 
+- **Only the genuine app (`src/attest-routes.ts`, `src/app-attest.ts`):** the source is public, so anyone could build the app and point it here. Every route the app calls (all of the above but `/v1/pubsub`, `/v1/graph` and the two attest routes) must be signed with an App Attest key: Apple attests that the key lives in the Secure Enclave of a real device, inside an app with the App ID `APNS_TEAM_ID.APNS_TOPIC`, so a build under another team can't make one. The app attests once per install, then sends three headers with each request: `X-Goodmail-Attest-Key` (the key ID), `X-Goodmail-Attest-Time` (milliseconds since 1970) and `X-Goodmail-Attest-Assertion`, the key's assertion over `SHA-256("<method> <path>\n<time>\n" || body)`. A request more than 10 minutes off is refused, so a replay can only repeat, briefly, what the genuine app asked for. With `APP_ATTEST = "observe"` the Worker only logs requests that fail; any other value refuses them: 428 when there is no key or the Worker doesn't know it (the app attests again and retries once), 401 when the signature doesn't hold. Keys unused for 180 days are dropped. The pinned root is Apple's App Attestation Root CA (`src/apple-root.ts`).
 - **Registration:** `idToken` is the Google ID token from sign-in. It needs the `openid` and `email` scopes, and `aud` must be the iOS client ID. The Worker stores only HMAC-SHA256 of the address.
 - **Alerts only with content (`src/new-mail.ts`):** every alert passes one gate. The Worker alerts only for an email it has read, and the alert carries its sender as the title and its subject as the body: `{"aps": {"alert": {"title": "<sender>", "body": "<subject>"}, "sound": "default", "mutable-content": 1}, …}`. The payload can't be built without one, so no provider can send a bare "New mail". Each provider reads the change and answers with an `Arrival`: the newest email the app alerts for (unread and in the Inbox, as Apple Mail alerts for, including mail the account sent itself, and in Primary for a Gmail account set to Primary Only), `none` (a read, archive, delete or label change, or mail read or deleted before the check), or `retry` when it couldn't read yet. A retry never alerts. Gmail answers 503 so Pub/Sub delivers the notification again, IMAP moves the watch back for the next check, and Outlook tries twice more within the notification. A new provider has to hand over an `Arrival` the same way. Without the app's token for an account the Worker can't read its mail, so it sends nothing.
 - **Push:** Gmail's payload adds `"account": "<email>", "historyId": "<id>"`. Duplicate deliveries and history IDs that aren't newer are dropped. APNs `410` and `BadDeviceToken` remove the token. When the alert reaches no device because sending failed or threw, the Worker gives back the history ID and answers 503, so Pub/Sub redelivers it. One email reaches Pub/Sub as a burst of history changes, so a push within 15 seconds of the last one for the account is dropped: the device catches up on the whole burst from the first.
@@ -78,7 +81,8 @@ Run everything from `PushWorker/`.
      --ack-deadline=30 --message-retention-duration=1h
    ```
    If you name the service account differently, update `PUBSUB_SERVICE_ACCOUNT` in `wrangler.toml`.
-7. **Verify:**
+7. **App Attest:** deploy with `APP_ATTEST = "observe"`, install a TestFlight build that signs its requests, and check that `SELECT environment, last_used_at FROM attest_keys` shows its key. Then set `APP_ATTEST = "enforce"` and deploy again.
+8. **Verify:**
    - Register a device from a development build.
    - Send mail to that account and watch `npx wrangler tail` for APNs errors.
    - The app's `users.watch` call must use the topic `projects/goodmail-ios/topics/gmail-push`.
