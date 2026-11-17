@@ -7,7 +7,7 @@ public final class MailboxViewController: UIViewController {
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<MailboxSection, ThreadSummary.ID>!
     private var threadsByID: [ThreadSummary.ID: ThreadSummary] = [:]
-    private var sectionTitles: [MailboxSection: String] = [:]
+    private var sectionTitles = SectionTitles()
     private var observation: Task<Void, Never>?
     private var swipes: SwipeActionsController!
     private let searchResults: SearchResultsController?
@@ -292,9 +292,7 @@ public final class MailboxViewController: UIViewController {
             elementKind: UICollectionView.elementKindSectionHeader
         ) { [weak self] cell, _, indexPath in
             guard let self, let section = dataSource.sectionIdentifier(for: indexPath.section) else { return }
-            var content = UIListContentConfiguration.header()
-            content.text = sectionTitles[section]
-            cell.contentConfiguration = content
+            title(cell, as: section)
         }
         dataSource = UICollectionViewDiffableDataSource(collectionView: collectionView) { view, indexPath, id in
             view.dequeueConfiguredReusableCell(using: row, for: indexPath, item: id)
@@ -302,6 +300,12 @@ public final class MailboxViewController: UIViewController {
         dataSource.supplementaryViewProvider = { view, _, indexPath in
             view.dequeueConfiguredReusableSupplementary(using: header, for: indexPath)
         }
+    }
+
+    private func title(_ header: UICollectionViewListCell, as section: MailboxSection) {
+        var content = UIListContentConfiguration.header()
+        content.text = sectionTitles[section]
+        header.contentConfiguration = content
     }
 
     private func applySections(_ sections: [MailboxViewModel.Section]) {
@@ -320,11 +324,17 @@ public final class MailboxViewController: UIViewController {
         }
         snapshot.reconfigureItems(changed)
         if dissolveDeleted(leaving: threads) { return }
-        let titlesChanged = sectionTitles != Dictionary(uniqueKeysWithValues: sections.map { ($0.id, $0.title) })
         threadsByID = threads
-        sectionTitles = Dictionary(uniqueKeysWithValues: sections.map { ($0.id, $0.title) })
-        if titlesChanged { snapshot.reloadSections(snapshot.sectionIdentifiers) }
+        let retitled = sectionTitles.update(to: sections)
         dataSource.apply(snapshot, animatingDifferences: view.window != nil)
+        // Headers are retitled in place. Reloading their sections would reload every row in them too, and a row
+        // reloaded while a gap above it closes and select mode ends could be left blurred mid-crossfade.
+        for section in retitled {
+            guard let index = dataSource.index(for: section) else { continue }
+            let header = collectionView.supplementaryView(
+                forElementKind: UICollectionView.elementKindSectionHeader, at: IndexPath(item: 0, section: index))
+            if let header = header as? UICollectionViewListCell { title(header, as: section) }
+        }
         swipes.rowsDidChange()
         // Selected threads may have left the list.
         if isEditing { updateSelectionChrome() }
