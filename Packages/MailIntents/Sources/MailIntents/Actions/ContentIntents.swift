@@ -92,14 +92,14 @@ public struct GetEmailFilesIntent: AppIntent {
     }
 }
 
-/// Gets the conversation open in Goodmail, so a shortcut run from the Action button, Back Tap or Siri acts on what's
+/// Gets the conversation open in Goodmail, so a shortcut run from the Action button or Back Tap acts on what's
 /// being read.
 public struct GetOpenConversationIntent: AppIntent {
     public static let title: LocalizedStringResource = LocalizedStringResource(
         "Get Open Conversation", table: "ShortcutFlow")
     public static let description = IntentDescription(
         LocalizedStringResource(
-            "Gets the conversation you're reading in Goodmail, so a shortcut you run from the Action button, Back Tap or Siri can act on it.",
+            "Gets the conversation you're reading in Goodmail, so a shortcut you run from the Action button or Back Tap can act on it.",
             table: "ShortcutFlow"))
 
     @Dependency private var host: any MailIntentsHost
