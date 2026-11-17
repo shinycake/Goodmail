@@ -1,28 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "Fast, simple mail. Add an account to get started." : {
-      "comment" : "Welcome screen: what the app is and what to do first",
-      "localizations" : {
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "דואר מהיר ופשוט. כדי להתחיל, מוסיפים חשבון."
-          }
-        }
-      }
-    },
-    "Goodmail" : {
-      "comment" : "The app's name, as the welcome screen's title",
-      "localizations" : {
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Goodmail"
-          }
-        }
-      }
-    },
     "Transfer from Another Device" : {
       "comment" : "Welcome screen: scans the QR code another device shows to get its accounts",
       "localizations" : {
@@ -30,6 +8,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "העברה ממכשיר אחר"
+          }
+        }
+      }
+    },
+    "Welcome to Goodmail" : {
+      "comment" : "The welcome screen's title, shown before any account is added",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ברוכים הבאים ל-Goodmail"
           }
         }
       }
