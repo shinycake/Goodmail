@@ -11,7 +11,7 @@ struct WelcomeHero: View {
     var body: some View {
         VStack(spacing: isShort ? 12 : 20) {
             WelcomeStage(envelopeWidth: width)
-                .frame(maxWidth: .infinity, minHeight: width * WelcomeEnvelope.aspect + room, maxHeight: .infinity)
+                .frame(maxWidth: .infinity, minHeight: width * EnvelopeLayer.aspect + room, maxHeight: .infinity)
             Text(
                 "Welcome to Goodmail", tableName: "Welcome", bundle: .module,
                 comment: "The welcome screen's title, shown before any account is added"
@@ -52,8 +52,8 @@ struct WelcomeBackdrop: View {
     var body: some View {
         LinearGradient(
             stops: [
-                .init(color: WelcomePalette.blue.opacity(0.16), location: 0),
-                .init(color: WelcomePalette.purple.opacity(0.08), location: 0.35),
+                .init(color: DoodlePalette.blue.opacity(0.16), location: 0),
+                .init(color: DoodlePalette.purple.opacity(0.08), location: 0.35),
                 .init(color: .clear, location: 0.7),
             ],
             startPoint: .top, endPoint: .bottom

@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 /// One of the app icon's three envelopes, from the back of the pile to the front.
-enum WelcomeEnvelope: String, CaseIterable {
+enum EnvelopeLayer: String, CaseIterable {
     case back = "Back"
     case mid = "Mid"
     case front = "Front"
@@ -33,7 +33,7 @@ enum WelcomeEnvelope: String, CaseIterable {
 
 /// The app icon's three envelopes without its tile, each on its own layer so the pile can move: `fan` spreads it,
 /// and a finger dragging it tips it over in depth and lets it spring back.
-struct WelcomeEnvelopes: View {
+struct EnvelopePile: View {
     let width: CGFloat
     /// How wide the pile is fanned: 1 as in the icon, 0 squared up.
     let fan: Double
@@ -42,17 +42,17 @@ struct WelcomeEnvelopes: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let lean = WelcomeLean(pull: pull)
+        let lean = EnvelopeLean(pull: pull)
         ZStack {
-            ForEach(WelcomeEnvelope.allCases, id: \.self) { envelope in
-                WelcomeEnvelopeImage(envelope: envelope)
-                    .rotationEffect(.degrees(envelope.angle * (fan - 1)), anchor: WelcomeEnvelope.pivot)
+            ForEach(EnvelopeLayer.allCases, id: \.self) { envelope in
+                EnvelopeLayerImage(envelope: envelope)
+                    .rotationEffect(.degrees(envelope.angle * (fan - 1)), anchor: EnvelopeLayer.pivot)
                     // Its own modifier, so letting go springs it back while the fan above changes every frame.
-                    .rotationEffect(.degrees(envelope.angle * lean.spread), anchor: WelcomeEnvelope.pivot)
+                    .rotationEffect(.degrees(envelope.angle * lean.spread), anchor: EnvelopeLayer.pivot)
                     .offset(x: lean.shift.width * envelope.depth, y: lean.shift.height * envelope.depth)
             }
         }
-        .frame(width: width, height: width * WelcomeEnvelope.aspect)
+        .frame(width: width, height: width * EnvelopeLayer.aspect)
         .rotation3DEffect(.degrees(lean.pitch), axis: (x: 1, y: 0, z: 0), perspective: 0.6)
         .rotation3DEffect(.degrees(lean.yaw), axis: (x: 0, y: 1, z: 0), perspective: 0.6)
         // Alongside the screen's scrolling, not instead of it: at the largest text sizes a drag here scrolls too.
@@ -65,8 +65,8 @@ struct WelcomeEnvelopes: View {
 
 /// An envelope as Icon Composer renders it for the current appearance. The renders ship as plain PNGs among the
 /// module's resources: an asset catalog needs Xcode's asset compiler, which the Linux iOS build doesn't have.
-private struct WelcomeEnvelopeImage: View {
-    let envelope: WelcomeEnvelope
+private struct EnvelopeLayerImage: View {
+    let envelope: EnvelopeLayer
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -81,4 +81,26 @@ private struct WelcomeEnvelopeImage: View {
         default: "WelcomeEnvelope\(envelope.rawValue)Light"
         }
     }
+}
+
+/// How the envelopes lean under a finger dragging them by `pull`.
+nonisolated struct EnvelopeLean: Equatable, Sendable {
+    /// How far they follow the finger: half the way at first and then less and less, as if held on elastic.
+    let shift: CGSize
+
+    /// The farthest they can be pulled from their place, each way.
+    static let reach: CGFloat = 50
+
+    init(pull: CGSize) {
+        shift = CGSize(
+            width: Self.reach * tanh(pull.width / (2 * Self.reach)),
+            height: Self.reach * tanh(pull.height / (2 * Self.reach)))
+    }
+
+    /// How far they tip over as they are dragged up or down, in degrees about the horizontal.
+    var pitch: Double { -shift.height / Self.reach * 22 }
+    /// How far they tip over as they are dragged sideways, in degrees about the vertical.
+    var yaw: Double { shift.width / Self.reach * 22 }
+    /// The fan opens as they are pulled, by up to half as much again.
+    var spread: Double { min(hypot(shift.width, shift.height) / Self.reach, 1) * 0.5 }
 }

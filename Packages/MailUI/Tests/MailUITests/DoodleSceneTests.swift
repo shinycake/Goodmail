@@ -4,32 +4,32 @@ import Testing
 
 @testable import MailUI
 
-/// The welcome screen's stage answers a touch: the doodles shy away, the envelopes hop and a paper plane flies off.
+/// A doodle stage answers a touch: the doodles shy away, the envelopes hop and a paper plane flies off.
 /// All of it is worked out from the time, and all of it has settled or left a few seconds later.
-struct WelcomeSceneTests {
+struct DoodleSceneTests {
     /// A moment between two of the planes that pass by themselves, so the only planes are the ones a test sends.
-    private let landing = Date(timeIntervalSinceReferenceDate: 57_142_857 * WelcomeScene.passEvery + 6)
+    private let landing = Date(timeIntervalSinceReferenceDate: 57_142_857 * DoodleScene.passEvery + 6)
     private let size = CGSize(width: 402, height: 350)
     private let center = CGPoint(x: 201, y: 175)
 
-    private func touch(at origin: CGPoint, after elapsed: TimeInterval) -> WelcomeTouch {
-        WelcomeTouch(origin: origin, elapsed: elapsed, number: 0)
+    private func touch(at origin: CGPoint, after elapsed: TimeInterval) -> DoodleTouch {
+        DoodleTouch(origin: origin, elapsed: elapsed, number: 0)
     }
 
     /// The stage `elapsed` seconds after a poke landed `offset` from its middle, or holding still for Reduce Motion
     /// when `elapsed` is `nil`.
     private func scene(
         pokedAt offset: CGSize? = nil, after elapsed: TimeInterval?, rightToLeft: Bool = false
-    ) -> WelcomeScene {
-        WelcomeScene(
-            size: size, pokes: offset.map { [WelcomePoke(offset: $0, time: landing, number: 0)] } ?? [],
+    ) -> DoodleScene {
+        DoodleScene(
+            size: size, pokes: offset.map { [DoodlePoke(offset: $0, time: landing, number: 0)] } ?? [],
             clock: elapsed.map { .running(landing + $0) } ?? .stopped, rightToLeft: rightToLeft)
     }
 
     // MARK: Touches
 
     @Test func aFlurryOfTapsKeepsOnlyItsLastFew() {
-        var pokes = WelcomePokes()
+        var pokes = DoodlePokes()
         for tap in 0..<6 {
             pokes.land(offset: CGSize(width: tap, height: 0), time: landing + Double(tap) * 0.1)
         }
@@ -37,10 +37,10 @@ struct WelcomeSceneTests {
     }
 
     @Test func aTouchThatHasPlayedOutIsDroppedWhenTheNextLands() {
-        var pokes = WelcomePokes()
+        var pokes = DoodlePokes()
         pokes.land(offset: .zero, time: landing)
         pokes.land(offset: .zero, time: landing + 1)
-        pokes.land(offset: .zero, time: landing + WelcomePoke.lifetime + 0.5)
+        pokes.land(offset: .zero, time: landing + DoodlePoke.lifetime + 0.5)
         #expect(pokes.live.map(\.number) == [1, 2])
     }
 
@@ -70,7 +70,7 @@ struct WelcomeSceneTests {
     }
 
     @Test func everythingATouchSetsOffHasSettledByTheEndOfItsLife() {
-        let spent = touch(at: center, after: WelcomePoke.lifetime)
+        let spent = touch(at: center, after: DoodlePoke.lifetime)
         #expect(abs(spent.push(on: CGPoint(x: 260, y: 175)).width) < 0.01)
         #expect(abs(spent.hop(around: center)) < 0.001)
         #expect(spent.flight(in: size, rightToLeft: false) == nil)
@@ -85,30 +85,30 @@ struct WelcomeSceneTests {
         #expect(takeoff.opacity == 0)
 
         let midway = try #require(
-            touch(at: origin, after: WelcomePoke.flightTime / 2).flight(in: size, rightToLeft: false))
+            touch(at: origin, after: DoodlePoke.flightTime / 2).flight(in: size, rightToLeft: false))
         #expect(midway.opacity == 1)
         #expect(midway.trail.first == midway.position)
 
         let leaving = try #require(
-            touch(at: origin, after: WelcomePoke.flightTime).flight(in: size, rightToLeft: false))
+            touch(at: origin, after: DoodlePoke.flightTime).flight(in: size, rightToLeft: false))
         #expect(leaving.position.x > size.width)
         #expect(leaving.position.y < origin.y)
     }
 
     @Test func inARightToLeftLanguageThePlaneLeavesToTheLeft() throws {
         let leaving = try #require(
-            touch(at: CGPoint(x: 120, y: 200), after: WelcomePoke.flightTime).flight(in: size, rightToLeft: true))
+            touch(at: CGPoint(x: 120, y: 200), after: DoodlePoke.flightTime).flight(in: size, rightToLeft: true))
         #expect(leaving.position.x < 0)
         // Flying left, it points left.
         #expect(abs(leaving.heading) > .pi / 2)
     }
 
     @Test func nowAndThenAPlanePassesByItself() throws {
-        let passing = try #require(scene(after: WelcomeScene.passEvery - 6 + 0.1).flights.first)
+        let passing = try #require(scene(after: DoodleScene.passEvery - 6 + 0.1).flights.first)
         // It comes in from beyond the leading edge, and has gone long before the next one.
         #expect(passing.position.x < 0)
-        #expect(scene(after: WelcomeScene.passEvery - 6 + WelcomeScene.passTime + 0.1).flights.isEmpty)
-        let mirrored = try #require(scene(after: WelcomeScene.passEvery - 6 + 0.1, rightToLeft: true).flights.first)
+        #expect(scene(after: DoodleScene.passEvery - 6 + DoodleScene.passTime + 0.1).flights.isEmpty)
+        let mirrored = try #require(scene(after: DoodleScene.passEvery - 6 + 0.1, rightToLeft: true).flights.first)
         #expect(mirrored.position.x > size.width)
     }
 
@@ -130,7 +130,7 @@ struct WelcomeSceneTests {
         #expect(tapped.flights.count == 1)
         #expect(scene(pokedAt: .zero, after: 0).flights.first?.position == center)
 
-        let later = scene(pokedAt: .zero, after: WelcomePoke.lifetime)
+        let later = scene(pokedAt: .zero, after: DoodlePoke.lifetime)
         // Back to breathing and bobbing about their place.
         #expect(abs(later.fan - 1) < 0.05)
         #expect(abs(later.lift) < 3.1)
@@ -145,8 +145,8 @@ struct WelcomeSceneTests {
         let pushed = scene(pokedAt: offset, after: 0.15).position(anchor: anchor, phase: 0)
         let unpushed = scene(after: 0.15).position(anchor: anchor, phase: 0)
         #expect(pushed.x - unpushed.x > 8)
-        let settled = scene(pokedAt: offset, after: WelcomePoke.lifetime).position(anchor: anchor, phase: 0)
-        let unpushedLater = scene(after: WelcomePoke.lifetime).position(anchor: anchor, phase: 0)
+        let settled = scene(pokedAt: offset, after: DoodlePoke.lifetime).position(anchor: anchor, phase: 0)
+        let unpushedLater = scene(after: DoodlePoke.lifetime).position(anchor: anchor, phase: 0)
         #expect(abs(settled.x - unpushedLater.x) < 0.01)
     }
 
@@ -164,7 +164,7 @@ struct WelcomeSceneTests {
     }
 
     @Test func onAWideScreenTheDoodlesKeepAroundTheEnvelopes() {
-        let wide = WelcomeScene(size: CGSize(width: 1000, height: 400), pokes: [], clock: .stopped, rightToLeft: false)
+        let wide = DoodleScene(size: CGSize(width: 1000, height: 400), pokes: [], clock: .stopped, rightToLeft: false)
         #expect(wide.position(anchor: CGPoint(x: 0, y: 0.5), phase: 0) == CGPoint(x: 200, y: 200))
         #expect(wide.position(anchor: CGPoint(x: 1, y: 0.5), phase: 0) == CGPoint(x: 800, y: 200))
     }
@@ -172,7 +172,7 @@ struct WelcomeSceneTests {
     // MARK: Dragging the envelopes
 
     @Test func envelopesLeftAloneDoNotLean() {
-        let lean = WelcomeLean(pull: .zero)
+        let lean = EnvelopeLean(pull: .zero)
         #expect(lean.shift == .zero)
         #expect(lean.pitch == 0)
         #expect(lean.yaw == 0)
@@ -180,7 +180,7 @@ struct WelcomeSceneTests {
     }
 
     @Test func theEnvelopesFollowAFingerHalfTheWayAtFirst() {
-        let lean = WelcomeLean(pull: CGSize(width: 10, height: -6))
+        let lean = EnvelopeLean(pull: CGSize(width: 10, height: -6))
         #expect(abs(lean.shift.width - 5) < 0.1)
         #expect(abs(lean.shift.height + 3) < 0.1)
         // They tip over with the drag, and the fan starts to open.
@@ -190,9 +190,9 @@ struct WelcomeSceneTests {
     }
 
     @Test func howeverFarTheFingerGoesTheEnvelopesStayWithinReach() {
-        let lean = WelcomeLean(pull: CGSize(width: 4000, height: -4000))
-        #expect(lean.shift.width <= WelcomeLean.reach)
-        #expect(lean.shift.height >= -WelcomeLean.reach)
+        let lean = EnvelopeLean(pull: CGSize(width: 4000, height: -4000))
+        #expect(lean.shift.width <= EnvelopeLean.reach)
+        #expect(lean.shift.height >= -EnvelopeLean.reach)
         #expect(lean.yaw <= 22)
         #expect(lean.pitch <= 22)
         #expect(lean.spread == 0.5)

@@ -1,22 +1,22 @@
 import SwiftUI
 
 /// A line drawing in a square one unit across, centered on the origin.
-nonisolated struct WelcomeDoodleArt: Sendable {
+nonisolated struct DoodleArt: Sendable {
     /// Stroked as a solid line.
     var line = Path()
     /// Stroked as a row of dots: a stamp's perforation, the path a plane has flown.
     var dots = Path()
 }
 
-/// The things doodled around the welcome screen's envelopes.
-nonisolated enum WelcomeDoodleShape: Sendable {
+/// The things doodled around the app icon's envelopes.
+nonisolated enum DoodleShape: Sendable {
     case plane, stamp, postmark, at, heart, star, sparkle, squiggle, envelope, ring, cross
 
     /// The way the paper plane's nose points as drawn, in radians clockwise from pointing right.
     static let planeHeading = atan2(-0.42, 0.48)
 
-    var art: WelcomeDoodleArt {
-        var art = WelcomeDoodleArt()
+    var art: DoodleArt {
+        var art = DoodleArt()
         switch self {
         case .plane:
             let nose = CGPoint(x: 0.48, y: -0.42)
