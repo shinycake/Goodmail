@@ -81,15 +81,16 @@ enum ConversationPDF {
         _ html: String, message: Message, width: CGFloat, allowsRemoteContent: Bool,
         attachmentData: @escaping (Attachment, Message.ID) async throws -> Data
     ) async throws -> WKWebView {
-        let cid = CIDSchemeHandler(attachmentData: attachmentData)
+        let cid = CIDSchemeHandler()
+        cid.attachmentData = attachmentData
         cid.message = message
         let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = .nonPersistent()
+        configuration.websiteDataStore = MessageWebViewPool.dataStore
         configuration.defaultWebpagePreferences.allowsContentJavaScript = false
         configuration.setURLSchemeHandler(cid, forURLScheme: "cid")
         // A rule list that fails to compile is left out: the document's content security policy still blocks
         // remote loads, so the block fails closed, as in the reader.
-        if !allowsRemoteContent, let blocker = try? await RemoteContentBlocker.shared.ruleList() {
+        if !allowsRemoteContent, let blocker = await RemoteContentBlocker.shared.ruleList() {
             configuration.userContentController.add(blocker)
         }
         // As short as can be, so the content sets the height of its PDF and no blank paper follows a short message.

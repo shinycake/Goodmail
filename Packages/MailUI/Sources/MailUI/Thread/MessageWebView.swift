@@ -18,31 +18,23 @@ final class MessageWebView: UIView {
     /// The message's new words, shown at once while the web view starts, which can take seconds; the first height
     /// it reports replaces them.
     private let preview = UILabel()
-    private let messageHandler = MessageHandler()
+    private let messageHandler: MessageHandler
     private let cidHandler: CIDSchemeHandler
     private var heightConstraint: NSLayoutConstraint!
     private var content: Content?
     /// Applies the latest `show`. A newer one cancels it, so a slow first rule compile can't load stale content.
     private var loading: Task<Void, Never>?
-    private static let world = WKContentWorld.world(name: "goodmail")
+    /// The load of the content shown now. Script messages count from its commit on, so a spare's blank body, still
+    /// loading when this view took it, can't report a height.
+    private var navigation: WKNavigation?
 
     /// `attachmentData` fetches a part a `cid:` URL names.
     init(attachmentData: @escaping (Attachment, Message.ID) async throws -> Data) {
-        cidHandler = CIDSchemeHandler(attachmentData: attachmentData)
-        let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = .nonPersistent()
-        configuration.defaultWebpagePreferences.allowsContentJavaScript = false
-        configuration.dataDetectorTypes = [.link, .phoneNumber, .address, .calendarEvent]
-        configuration.setURLSchemeHandler(cidHandler, forURLScheme: "cid")
-        let label = String(
-            localized: "Show Quoted Text", table: "Thread", bundle: .module, comment: "Accessibility label of the fold")
-        configuration.userContentController.addUserScript(
-            WKUserScript(
-                source: MessageScript.source(foldLabel: label), injectionTime: .atDocumentEnd, forMainFrameOnly: true,
-                in: Self.world))
-        configuration.userContentController.add(
-            messageHandler, contentWorld: Self.world, name: MessageScript.handlerName)
-        webView = WKWebView(frame: .zero, configuration: configuration)
+        let prepared = MessageWebViewPool.shared.take()
+        webView = prepared.webView
+        messageHandler = prepared.messageHandler
+        cidHandler = prepared.cidHandler
+        cidHandler.attachmentData = attachmentData
         super.init(frame: .zero)
 
         webView.isOpaque = false
@@ -68,7 +60,6 @@ final class MessageWebView: UIView {
             stack.trailingAnchor.constraint(equalTo: trailingAnchor),
             heightConstraint,
         ])
-        messageHandler.onMessage = { [weak self] body in self?.handle(body) }
     }
 
     @available(*, unavailable)
@@ -86,19 +77,28 @@ final class MessageWebView: UIView {
         cidHandler.message = content.message
         loading?.cancel()
         loading = Task {
-            var blocker: WKContentRuleList?
-            if !content.allowsRemoteContent { blocker = try? await RemoteContentBlocker.shared.ruleList() }
+            async let document = Self.document(
+                for: content.message.body, allowsRemoteContent: content.allowsRemoteContent)
+            let blocker = content.allowsRemoteContent ? nil : await RemoteContentBlocker.shared.ruleList()
+            let (html, palette) = await document
             guard !Task.isCancelled else { return }
             let rules = webView.configuration.userContentController
             rules.removeAllContentRuleLists()
             if let blocker { rules.add(blocker) }
-            let palette = MessagePalette.of(content.message.body)
             // A light sheet is a page of its own on the card, so it gets the card's rounded corners.
             webView.layer.cornerRadius = palette == .lightSheet ? 12 : 0
-            let html = MessageDocument.html(
-                for: content.message.body, palette: palette, allowsRemoteContent: content.allowsRemoteContent)
-            webView.loadHTMLString(html, baseURL: nil)
+            navigation = webView.loadHTMLString(html, baseURL: nil)
         }
+    }
+
+    /// Picking the palette and building the document read the whole body, so they stay off the main actor.
+    @concurrent
+    private nonisolated static func document(
+        for body: MessageBody, allowsRemoteContent: Bool
+    ) async -> (String, MessagePalette) {
+        let palette = MessagePalette.of(body)
+        let html = MessageDocument.html(for: body, palette: palette, allowsRemoteContent: allowsRemoteContent)
+        return (html, palette)
     }
 
     /// The words that show while the body loads, or nil once it has its height.
@@ -127,68 +127,9 @@ extension MessageWebView: WKNavigationDelegate {
         }
         return .allow
     }
-}
 
-/// Forwards script messages without the user content controller retaining the view.
-private final class MessageHandler: NSObject, WKScriptMessageHandler {
-    var onMessage: ((Any) -> Void)?
-
-    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
-        onMessage?(message.body)
-    }
-}
-
-/// Blocks every network load from message bodies until the reader asks for remote content.
-final class RemoteContentBlocker {
-    static let shared = RemoteContentBlocker()
-    private var compiled: WKContentRuleList?
-
-    func ruleList() async throws -> WKContentRuleList? {
-        if let compiled { return compiled }
-        let rules = #"[{"trigger":{"url-filter":"^(https?|ftp|wss?):"},"action":{"type":"block"}}]"#
-        let list = try await WKContentRuleListStore.default().compileContentRuleList(
-            forIdentifier: "goodmail-block-remote", encodedContentRuleList: rules)
-        compiled = list
-        return list
-    }
-}
-
-/// Serves `cid:` URLs from the message's inline parts.
-final class CIDSchemeHandler: NSObject, WKURLSchemeHandler {
-    var message: Message?
-    private let attachmentData: (Attachment, Message.ID) async throws -> Data
-    private var running: [ObjectIdentifier: Task<Void, Never>] = [:]
-
-    init(attachmentData: @escaping (Attachment, Message.ID) async throws -> Data) {
-        self.attachmentData = attachmentData
-    }
-
-    func webView(_ webView: WKWebView, start task: any WKURLSchemeTask) {
-        let key = ObjectIdentifier(task)
-        let contentID = (task.request.url?.absoluteString.dropFirst("cid:".count)).map(String.init)?
-            .removingPercentEncoding
-        guard let message, let attachment = message.attachments.first(where: { $0.contentID == contentID }) else {
-            task.didFailWithError(URLError(.fileDoesNotExist))
-            return
-        }
-        running[key] = Task {
-            defer { running[key] = nil }
-            do {
-                let data = try await attachmentData(attachment, message.id)
-                guard !Task.isCancelled, let url = task.request.url else { return }
-                task.didReceive(
-                    URLResponse(
-                        url: url, mimeType: attachment.mimeType, expectedContentLength: data.count,
-                        textEncodingName: nil))
-                task.didReceive(data)
-                task.didFinish()
-            } catch {
-                if !Task.isCancelled { task.didFailWithError(error) }
-            }
-        }
-    }
-
-    func webView(_ webView: WKWebView, stop task: any WKURLSchemeTask) {
-        running.removeValue(forKey: ObjectIdentifier(task))?.cancel()
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        guard navigation === self.navigation else { return }
+        messageHandler.onMessage = { [weak self] body in self?.handle(body) }
     }
 }

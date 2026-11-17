@@ -1,4 +1,5 @@
 import MailCore
+import MailUI
 import UIKit
 
 final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
@@ -54,6 +55,8 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         coordinator.window.makeKeyAndVisible()
         window?.isHidden = true
         window = coordinator.window
+        // Messages open into a web view whose content process takes a while to start; start one now.
+        MessageWebViewPool.shared.warmUp()
         // The composer and the transfer screen need a visible window to present on.
         if let link { coordinator.open(link) }
     }
