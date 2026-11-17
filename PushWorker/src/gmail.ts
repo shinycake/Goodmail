@@ -66,8 +66,7 @@ const MOST_CHECKED = 20;
 
 /**
  * The mail Gmail's history after `startHistoryId` added to the Inbox that the app alerts for (`alertsFor`), read as
- * it is now: a read, archive, delete or label change, mail sent to oneself, and mail read or deleted before the check
- * are `none`. `retry` when Gmail can't say yet, as when it fails or the history ID is too old.
+ * it is now: a read, archive, delete or label change, and mail read or deleted before the check are `none`. `retry` when Gmail can't say yet, as when it fails or the history ID is too old.
  */
 export async function inboxArrival(token: AccessToken, startHistoryId: string, primaryOnly: boolean): Promise<Arrival> {
   const query = new URLSearchParams({ startHistoryId, historyTypes: "messageAdded", labelId: "INBOX", maxResults: "100" });
@@ -129,8 +128,11 @@ async function messageState(
 /** Gmail's categories other than Primary, whose mail a Primary Only account doesn't alert for. */
 const OTHER_CATEGORIES = ["CATEGORY_PROMOTIONS", "CATEGORY_SOCIAL", "CATEGORY_UPDATES", "CATEGORY_FORUMS"];
 
-/** The app alerts for unread Inbox mail it didn't send, from the Primary category alone when `primaryOnly`. */
+/**
+ * The app alerts for unread Inbox mail, as Apple Mail does, from the Primary category alone when `primaryOnly`. Mail
+ * the account sent itself alerts too when it lands unread in the Inbox.
+ */
 export function alertsFor(labelIds: unknown[], primaryOnly: boolean): boolean {
   const inPrimary = !OTHER_CATEGORIES.some((category) => labelIds.includes(category));
-  return labelIds.includes("INBOX") && labelIds.includes("UNREAD") && !labelIds.includes("SENT") && (!primaryOnly || inPrimary);
+  return labelIds.includes("INBOX") && labelIds.includes("UNREAD") && (!primaryOnly || inPrimary);
 }

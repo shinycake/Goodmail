@@ -4,7 +4,7 @@
  * provider, now or later, can send one: each must find the mail and hand it over as an `Arrival`.
  */
 
-/** An email the app would alert for: unread, in the Inbox, not sent by the account itself. */
+/** An email the app would alert for, as Apple Mail would: unread and in the Inbox, whoever sent it. */
 export interface NewMail {
   /** The sender's name, or their address when the From header gives no name. */
   sender: string;
@@ -13,7 +13,7 @@ export interface NewMail {
 
 /**
  * What a provider found in a change: `mail` to alert for (the newest such email), `none` when the change brought
- * nothing the app alerts for (a read, an archive, a delete, mail sent to oneself), or `retry` when it couldn't tell
+ * nothing the app alerts for (a read, an archive, a delete), or `retry` when it couldn't tell
  * yet. A retry never alerts: the caller tries again later, so no real email is lost and no empty alert goes out.
  */
 export type Arrival = { kind: "mail"; newest: NewMail } | { kind: "none" } | { kind: "retry" };
@@ -65,12 +65,6 @@ export function senderName(from: string): string {
   if (!angle) return decoded.replace(/^"|"$/g, "");
   const name = angle[1]!.trim().replace(/^"|"$/g, "").replace(/\\(.)/g, "$1").trim();
   return name || angle[2]!.trim();
-}
-
-/** The address in a From header, lowercased: `"Dana" <Dana@X>` is `dana@x`. */
-export function senderAddress(from: string): string {
-  const angle = /<([^>]*)>/.exec(from);
-  return (angle ? angle[1]! : from).trim().toLowerCase();
 }
 
 /**

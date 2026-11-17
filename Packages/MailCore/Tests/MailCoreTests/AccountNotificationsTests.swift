@@ -17,29 +17,35 @@ struct AccountNotificationsTests {
             isUnread: unread, messageCount: 1, labelIDs: labels)
     }
 
-    @Test func newUnreadInboxMailFromSomeoneElseAlertsNewestFirst() {
+    @Test func newUnreadInboxMailAlertsNewestFirst() {
         let notifications = AccountNotifications(level: .all, seenThrough: seen)
         let arrived = [thread("older", minutesAfter: 1), thread("newer", minutesAfter: 2)]
-        let (threads, seenThrough) = notifications.alerts(among: arrived, in: account)
+        let (threads, seenThrough) = notifications.alerts(among: arrived)
         #expect(threads.map(\.id.threadID) == ["newer", "older"])
         #expect(seenThrough == seen.addingTimeInterval(120))
     }
 
-    @Test func mailAlreadySeenReadOutsideTheInboxOrFromMeDoesNotAlert() {
+    @Test func mailAlreadySeenReadOrOutsideTheInboxDoesNotAlert() {
         let notifications = AccountNotifications(level: .all, seenThrough: seen)
         let arrived = [
             thread("seen", minutesAfter: 0),
             thread("read", minutesAfter: 1, unread: false),
             thread("archived", minutesAfter: 1, labels: []),
-            thread("mine", minutesAfter: 1, from: "ME@example.com"),
         ]
-        #expect(notifications.alerts(among: arrived, in: account).threads.isEmpty)
+        #expect(notifications.alerts(among: arrived).threads.isEmpty)
+    }
+
+    /// Apple Mail alerts for a message the account sent itself once it lands unread in the Inbox, and so does the app.
+    @Test func unreadInboxMailFromMeAlerts() {
+        let notifications = AccountNotifications(level: .all, seenThrough: seen)
+        let arrived = [thread("mine", minutesAfter: 1, from: "ME@example.com")]
+        #expect(notifications.alerts(among: arrived).threads.map(\.id.threadID) == ["mine"])
     }
 
     @Test func aReadInboxThreadStillMovesWhatHasBeenConsidered() {
         let notifications = AccountNotifications(level: .all, seenThrough: seen)
         let (_, seenThrough) = notifications.alerts(
-            among: [thread("read", minutesAfter: 5, unread: false)], in: account)
+            among: [thread("read", minutesAfter: 5, unread: false)])
         #expect(seenThrough == seen.addingTimeInterval(300))
     }
 
@@ -51,13 +57,13 @@ struct AccountNotificationsTests {
             thread("promo", minutesAfter: 1, labels: [SystemLabel.inbox, "CATEGORY_PROMOTIONS"]),
         ]
         #expect(
-            Set(notifications.alerts(among: arrived, in: account).threads.map(\.id.threadID))
+            Set(notifications.alerts(among: arrived).threads.map(\.id.threadID))
                 == ["personal", "uncategorized"])
     }
 
     @Test func offAlertsForNothingButStillConsidersTheMail() {
         let notifications = AccountNotifications(level: .off, seenThrough: seen)
-        let (threads, seenThrough) = notifications.alerts(among: [thread("new", minutesAfter: 1)], in: account)
+        let (threads, seenThrough) = notifications.alerts(among: [thread("new", minutesAfter: 1)])
         #expect(threads.isEmpty)
         #expect(seenThrough == seen.addingTimeInterval(60))
     }

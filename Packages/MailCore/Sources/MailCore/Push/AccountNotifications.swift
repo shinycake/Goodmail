@@ -32,17 +32,16 @@ public struct AccountNotifications: Equatable, Sendable {
     /// The threads among `arrived` that alert at this level, newest first, and how far the account's mail has been
     /// considered once they have.
     ///
-    /// A thread alerts when it is in the Inbox, unread, newer than `seenThrough`, and its latest message is from
-    /// someone else. Read-state and label changes refetch a thread without making it newer, so they never alert.
-    public func alerts(among arrived: [ThreadSummary], in account: Account) -> (
+    /// A thread alerts when it is in the Inbox, unread and newer than `seenThrough`, as Apple Mail would alert, mail
+    /// the account sent itself included. Read-state and label changes refetch a thread without making it newer, so
+    /// they never alert.
+    public func alerts(among arrived: [ThreadSummary]) -> (
         threads: [ThreadSummary], seenThrough: Date
     ) {
         let inbox = arrived.filter { $0.labelIDs.contains(SystemLabel.inbox) }
         let considered = max(seenThrough, inbox.map(\.date).max() ?? seenThrough)
         let threads = inbox.filter { thread in
-            thread.isUnread && thread.date > seenThrough
-                && thread.sender.address.caseInsensitiveCompare(account.email) != .orderedSame
-                && alerts(for: thread)
+            thread.isUnread && thread.date > seenThrough && alerts(for: thread)
         }
         return (threads.sorted { $0.date > $1.date }, considered)
     }

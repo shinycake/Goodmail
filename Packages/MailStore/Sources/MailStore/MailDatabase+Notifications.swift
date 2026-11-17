@@ -32,7 +32,7 @@ extension MailDatabase: NotificationStore {
         try write { db in
             var settings = try Self.notifications(for: account.id, now: now, in: db)
             let audible = try arrived.filter { try !Self.isDeviceMuted($0.id, in: db) }
-            let (threads, seenThrough) = settings.alerts(among: audible, in: account)
+            let (threads, seenThrough) = settings.alerts(among: audible)
             settings.seenThrough = seenThrough
             try NotificationSettingsRecord(account: account.id, settings).save(db)
             return try Self.isInFocus(account.id, in: db) ? threads : []

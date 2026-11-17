@@ -192,12 +192,20 @@ describe("polling", () => {
     expect((await findWatch(env.DB, WATCH_ID))?.inbox.uidNext).toBe(101);
   });
 
-  it("stays quiet for mail sent to oneself, or already read or deleted, reading only what arrived", async () => {
+  it("alerts for mail sent to oneself that lands unread in the Inbox, as Apple Mail does", async () => {
+    await register();
+    server = inboxServer({ uidValidity: 7, uidNext: 101 }, "ok", () => [
+      { uid: 100, from: "Me <Someone@iCloud.com>", subject: "Note to self" },
+    ]);
+    await poll();
+    expect(apnsCalls[0]?.body).toMatchObject({ aps: { alert: { title: "Me", body: "Note to self" } } });
+  });
+
+  it("stays quiet for mail already read or deleted, reading only what arrived", async () => {
     await register();
     server = inboxServer({ uidValidity: 7, uidNext: 104 }, "ok", () => [
       // `100:*` also matches the newest message below 100, which must not count.
       { uid: 99, from: "Dana <dana@example.com>", subject: "Old" },
-      { uid: 100, from: "Me <Someone@iCloud.com>", subject: "Goodmail send timing test" },
       { uid: 101, flags: ["\\Seen"], from: "Dana <dana@example.com>", subject: "Read" },
       { uid: 102, flags: ["\\Deleted"], from: "Dana <dana@example.com>", subject: "Deleted" },
     ]);

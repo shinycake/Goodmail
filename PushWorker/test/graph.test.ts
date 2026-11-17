@@ -49,7 +49,6 @@ beforeEach(async () => {
       if (!token.startsWith("M.")) return Response.json({ error: "invalid_grant" }, { status: 400 });
       return Response.json({ access_token: "eyJ.access", expires_in: 3599, refresh_token: "M.rotated" });
     }
-    if (request.url.startsWith(`${GRAPH_API}/me?`)) return Response.json({ mail: "Me@Outlook.com" });
     if (request.url.startsWith(`${GRAPH_API}/me/mailFolders/inbox`)) return Response.json({ id: "inbox-id" });
     if (request.url.startsWith(`${GRAPH_API}/me/messages/`)) {
       const id = decodeURIComponent(new URL(request.url).pathname.split("/").pop() ?? "");
@@ -220,12 +219,19 @@ describe("Graph notifications", () => {
     });
   });
 
-  it("stays quiet for mail sent to oneself, already read, moved out of the Inbox, or gone", async () => {
+  it("alerts for mail sent to oneself that lands unread in the Inbox, as Apple Mail does", async () => {
     await subscribed();
     messages.set("own", message({ from: { emailAddress: { name: "Me", address: "me@outlook.com" } } }));
+    await notify(created("own"));
+    expect(apnsCalls).toHaveLength(1);
+    expect(apnsCalls[0]?.body).toMatchObject({ aps: { alert: { title: "Me" } } });
+  });
+
+  it("stays quiet for mail already read, moved out of the Inbox, or gone", async () => {
+    await subscribed();
     messages.set("read", message({ isRead: true }));
     messages.set("moved", message({ parentFolderId: "archive-id" }));
-    await notify(created("own"), created("read"), created("moved"), created("gone"));
+    await notify(created("read"), created("moved"), created("gone"));
     expect(apnsCalls).toHaveLength(0);
   });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { alertPayload, decodeEncodedWords, newestOf, senderAddress, senderName } from "../src/new-mail";
+import { alertPayload, decodeEncodedWords, newestOf, senderName } from "../src/new-mail";
 
 describe("the alert gate", () => {
   it("titles the alert with the sender and shows the subject", () => {
@@ -30,7 +30,6 @@ describe("From headers", () => {
     expect(senderName('"Levi, Dana" <dana@example.com>')).toBe("Levi, Dana");
     expect(senderName("<dana@example.com>")).toBe("dana@example.com");
     expect(senderName("dana@example.com")).toBe("dana@example.com");
-    expect(senderAddress("Dana <Dana@Example.com>")).toBe("dana@example.com");
   });
 
   it("decodes encoded words, joining adjacent ones, and leaves broken ones alone", () => {

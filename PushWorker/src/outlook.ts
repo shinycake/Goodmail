@@ -47,15 +47,7 @@ async function graph<T>(token: MicrosoftToken, path: string): Promise<{ status: 
   return { status: response.status, body: (await response.json()) as T };
 }
 
-/** The account's own address, which mail it sent itself comes from. */
-export async function ownAddress(token: MicrosoftToken): Promise<string> {
-  const me = await graph<{ mail?: unknown; userPrincipalName?: unknown }>(token, "/me?$select=mail,userPrincipalName");
-  const address = me.body?.mail ?? me.body?.userPrincipalName;
-  if (typeof address !== "string") throw new Error(`Graph /me failed with ${me.status}`);
-  return address.toLowerCase();
-}
-
-/** Each account's Outlook refresh token, sealed, with the hash of the address the account sends from. */
+/** Each account's Outlook refresh token, sealed. */
 export class OutlookGrants {
   private readonly sealer: Sealer;
 
@@ -64,10 +56,6 @@ export class OutlookGrants {
     secret: string,
   ) {
     this.sealer = new Sealer(secret, "goodmail outlook grants v1");
-  }
-
-  hash(text: string): Promise<string> {
-    return this.sealer.hash(text);
   }
 
   /** Whether the account already holds the token the app sends, so it needs no new check. */
@@ -80,24 +68,24 @@ export class OutlookGrants {
   }
 
   /** Stores `refreshToken` for the account, known by `appToken`'s hash when the app sends it again. */
-  async store(account: string, appToken: string, refreshToken: string, ownAddress: string, now: number): Promise<void> {
+  async store(account: string, appToken: string, refreshToken: string, now: number): Promise<void> {
     await this.db
       .prepare(
-        `INSERT INTO graph_grants (account, refresh_token, token_hash, own_address_hash, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)
+        `INSERT INTO graph_grants (account, refresh_token, token_hash, updated_at) VALUES (?1, ?2, ?3, ?4)
          ON CONFLICT (account) DO UPDATE SET refresh_token = excluded.refresh_token, token_hash = excluded.token_hash,
-           own_address_hash = excluded.own_address_hash, updated_at = excluded.updated_at`,
+           updated_at = excluded.updated_at`,
       )
-      .bind(account, await this.sealer.seal(refreshToken), await this.sealer.hash(appToken), await this.sealer.hash(ownAddress), now)
+      .bind(account, await this.sealer.seal(refreshToken), await this.sealer.hash(appToken), now)
       .run();
   }
 
-  async grant(account: string): Promise<{ refreshToken: string; ownAddressHash: string } | undefined> {
+  async grant(account: string): Promise<{ refreshToken: string } | undefined> {
     const row = await this.db
-      .prepare("SELECT refresh_token, own_address_hash FROM graph_grants WHERE account = ?1")
+      .prepare("SELECT refresh_token FROM graph_grants WHERE account = ?1")
       .bind(account)
-      .first<{ refresh_token: string; own_address_hash: string }>();
+      .first<{ refresh_token: string }>();
     const refreshToken = row ? await this.sealer.open(row.refresh_token) : undefined;
-    return row && refreshToken ? { refreshToken, ownAddressHash: row.own_address_hash } : undefined;
+    return refreshToken ? { refreshToken } : undefined;
   }
 
   /** Keeps the refresh token Microsoft handed out last. */
@@ -115,7 +103,7 @@ export class OutlookGrants {
 
 /**
  * Reads the messages a Graph notification batch named for one account and finds the newest the app alerts for:
- * still in the Inbox, unread, and not sent by the account itself (`new-mail.ts`). Without a token nothing alerts.
+ * still in the Inbox and unread (`new-mail.ts`). Without a token nothing alerts.
  */
 export class OutlookCheck {
   private readonly tokens = new Map<string, MicrosoftToken>();
@@ -144,7 +132,6 @@ export class OutlookCheck {
           const { subject, from, isRead, parentFolderId, receivedDateTime } = message.body;
           const address = typeof from?.emailAddress?.address === "string" ? from.emailAddress.address : "";
           if (isRead !== false || parentFolderId !== inbox || !address) return "quiet" as const;
-          if ((await grants.hash(address.toLowerCase())) === grant.ownAddressHash) return "quiet" as const;
           const name = typeof from?.emailAddress?.name === "string" ? from.emailAddress.name.trim() : "";
           return {
             mail: { sender: name || address, subject: typeof subject === "string" ? subject : "" },

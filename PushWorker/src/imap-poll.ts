@@ -69,7 +69,7 @@ const MOST_CHECKED = 50;
 
 /**
  * Moves `watch` to `inbox`, alerting its device with the newest mail that arrived and that the app alerts for
- * (`FreshMail`): mail sent to oneself, or read or deleted before the check, stays quiet. Mail the server couldn't be
+ * (`FreshMail`): mail read or deleted before the check stays quiet. Mail the server couldn't be
  * asked about, or an alert APNs didn't take, moves the watch back, so the next STATUS or run tries again. Keeps
  * `watch.inbox` as the stored baseline.
  */

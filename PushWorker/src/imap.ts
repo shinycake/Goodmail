@@ -1,5 +1,5 @@
 import { connect } from "cloudflare:sockets";
-import { type Arrival, decodeEncodedWords, newestOf, RETRY, senderAddress, senderName } from "./new-mail";
+import { type Arrival, decodeEncodedWords, newestOf, RETRY, senderName } from "./new-mail";
 
 /** How the relay reaches an account's IMAP server. Never without TLS: the password goes over it. */
 export interface ImapLogin {
@@ -18,8 +18,7 @@ export interface InboxStatus {
 }
 
 /**
- * The newest mail at or above UID `since` that the app alerts for (unread, not deleted, not sent by the account
- * itself), read as it is now, as `new-mail.ts` wants it. `retry` when the server couldn't answer.
+ * The newest mail at or above UID `since` that the app alerts for (unread and not deleted), read as it is now, as `new-mail.ts` wants it. `retry` when the server couldn't answer.
  */
 export type FreshMail = (since: number) => Promise<Arrival>;
 
@@ -99,7 +98,7 @@ export async function watchInbox(
           conversation = new Conversation(socket, conversation.tagsSent);
         }
         if (!/^\* PREAUTH\b/i.test(greeting)) await logIn(conversation, login);
-        const inbox = new Inbox(conversation, login.username);
+        const inbox = new Inbox(conversation);
         await onStatus(await status(conversation), inbox.fresh);
         return inbox;
       })(),
@@ -164,10 +163,7 @@ async function idle(
 class Inbox {
   private selection: "none" | "examined" = "none";
 
-  constructor(
-    readonly conversation: Conversation,
-    private readonly ownAddress: string,
-  ) {}
+  constructor(readonly conversation: Conversation) {}
 
   async examine(): Promise<void> {
     if (this.selection === "examined") return;
@@ -181,13 +177,11 @@ class Inbox {
       const untagged = await this.conversation.command(
         `UID FETCH ${since}:* (UID FLAGS BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)])`,
       );
-      const own = this.ownAddress.toLowerCase();
       // `since:*` always matches the newest message, even one below `since`.
       const found = parseFetch(untagged).filter(
         (message) =>
           message.uid >= since &&
-          !message.flags.some((flag) => /^\\(Seen|Deleted)$/i.test(flag)) &&
-          senderAddress(message.from) !== own,
+          !message.flags.some((flag) => /^\\(Seen|Deleted)$/i.test(flag)),
       );
       return newestOf(found.map((message) => ({ mail: { sender: senderName(message.from), subject: message.subject }, at: message.uid })));
     } catch (error) {

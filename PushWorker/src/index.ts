@@ -5,7 +5,7 @@ import { TokenError, verifyIdToken, verifyPubSubToken } from "./google";
 import { forgetGrant, grantsFor, storeGrant } from "./grant-routes";
 import { pollWatches } from "./imap-poll";
 import { registerWatch, unregisterWatch } from "./imap-routes";
-import { OutlookGrantRevoked, OutlookGrants, ownAddress, refreshOutlookToken } from "./outlook";
+import { OutlookGrantRevoked, OutlookGrants, refreshOutlookToken } from "./outlook";
 import { BadRequest, googleKeys, mailboxCheck, nowSeconds, outlookCheck, readJson } from "./shared";
 import {
   hasGraphSubscriptions,
@@ -220,8 +220,7 @@ async function storeGraphGrant(request: Request, env: Env): Promise<Response> {
   if (await grants.holds(subscription.account, refreshToken)) return new Response(null, { status: 204 });
   try {
     const token = await refreshOutlookToken(refreshToken, env.OUTLOOK_CLIENT_ID, Date.now());
-    const address = await ownAddress(token);
-    await grants.store(subscription.account, refreshToken, token.refreshToken ?? refreshToken, address, Date.now());
+    await grants.store(subscription.account, refreshToken, token.refreshToken ?? refreshToken, Date.now());
   } catch (error) {
     if (error instanceof OutlookGrantRevoked) return new Response(null, { status: 401 });
     throw error;

@@ -182,14 +182,21 @@ describe("Pub/Sub push with a grant", () => {
     expect(apnsPushes).toBe(0);
   });
 
-  it("sends nothing for mail sent to oneself, read or archived already, or gone", async () => {
+  it("alerts for mail sent to oneself that lands unread in the Inbox, as Apple Mail does", async () => {
     await primed();
     messages.set("own", gmailMessage(["INBOX", "UNREAD", "SENT"]));
+    historyReply = () => Response.json({ history: [{ id: "13", messagesAdded: [{ message: { id: "own" } }] }] });
+    expect((await pubSub(13)).status).toBe(204);
+    expect(apnsPushes).toBe(1);
+  });
+
+  it("sends nothing for mail read or archived already, or gone", async () => {
+    await primed();
     messages.set("read", gmailMessage(["INBOX"]));
     messages.set("archived", gmailMessage(["UNREAD"]));
     historyReply = () =>
       Response.json({
-        history: [{ id: "13", messagesAdded: ["own", "read", "archived", "gone"].map((id) => ({ message: { id } })) }],
+        history: [{ id: "13", messagesAdded: ["read", "archived", "gone"].map((id) => ({ message: { id } })) }],
       });
     expect((await pubSub(13)).status).toBe(204);
     expect(apnsPushes).toBe(0);
