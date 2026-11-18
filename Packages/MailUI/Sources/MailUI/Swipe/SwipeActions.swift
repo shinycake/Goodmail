@@ -105,9 +105,7 @@ final class SwipeActionsController: NSObject {
                 guard let action = row.overlay.actions.first, let button = row.overlay.buttons.first else { break }
                 fire(action, from: button, on: row)
             case .opened(let row, let width):
-                UIView.animate(springDuration: 0.35, bounce: Motion.bounce(0.15)) {
-                    row.overlay.reveal = .tracking(width)
-                }
+                row.overlay.settle(at: .tracking(width), duration: 0.35, bounce: 0.15)
             case .closed(let row):
                 hide(row, animated: true)
             case nil:
@@ -182,9 +180,7 @@ final class SwipeActionsController: NSObject {
     private func hide(_ row: Row, animated: Bool) {
         let overlay = row.overlay
         guard animated else { return overlay.removeFromSuperview() }
-        UIView.animate(springDuration: 0.3, bounce: 0) {
-            overlay.reveal = .tracking(0)
-        } completion: { _ in
+        overlay.settle(at: .tracking(0), bounce: 0) {
             overlay.removeFromSuperview()
         }
     }
@@ -194,7 +190,7 @@ final class SwipeActionsController: NSObject {
         let reveal = overlay.layout.reveal(at: distance)
         if reveal.isFullSwipe != overlay.reveal.isFullSwipe {
             row.feedback.impactOccurred()
-            UIView.animate(springDuration: 0.3, bounce: Motion.bounce(0.2)) { overlay.reveal = reveal }
+            overlay.settle(at: reveal, bounce: 0.2)
         } else {
             overlay.reveal = reveal
         }
@@ -367,9 +363,26 @@ final class SwipeOverlayView: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("Programmatic UI only") }
 
-    /// Touches beside the buttons' share of the row fall through to the list, so a tap on the row still reaches it.
-    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
-        buttons.contains { $0.alpha > 0 && $0.point(inside: convert(point, to: $0), with: event) }
+    /// Moves the buttons to `reveal` on a spring with `bounce`, then runs `completion`. They keep taking touches on the
+    /// way: UIKit ignores touches on views in flight unless their animation allows them, and the buttons are still
+    /// settling when a quick tap lands right after the swipe.
+    func settle(
+        at reveal: SwipeReveal, duration: TimeInterval = 0.3, bounce: CGFloat, completion: (() -> Void)? = nil
+    ) {
+        UIView.animate(
+            springDuration: duration, bounce: Motion.bounce(bounce), options: .allowUserInteraction
+        ) {
+            self.reveal = reveal
+        } completion: { _ in
+            completion?()
+        }
+    }
+
+    /// Only the buttons take touches. Anything else falls through to the list, so a tap beside them still reaches the
+    /// row, and a tap no button takes is never swallowed by the overlay itself.
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        let hit = super.hitTest(point, with: event)
+        return hit === self ? nil : hit
     }
 
     override func layoutSubviews() {
@@ -522,7 +535,7 @@ final class GlassActionButton: UIControl {
 
     override var isHighlighted: Bool {
         didSet {
-            UIView.animate(springDuration: 0.2, bounce: Motion.bounce(0.3)) {
+            UIView.animate(springDuration: 0.2, bounce: Motion.bounce(0.3), options: .allowUserInteraction) {
                 self.effectView.transform = self.isHighlighted ? CGAffineTransform(scaleX: 0.9, y: 0.9) : .identity
             }
         }
