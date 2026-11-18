@@ -4,34 +4,28 @@ import Foundation
     import CoreGraphics
 #endif
 
-/// How each kind moves: obstacles and pickups ride with the world, and bad guys come faster than it.
+/// How each kind moves: everything falls with the world, and bad guys fall faster than it.
 extension PlaneGameThing {
-    /// Moves it on by `dt` with the world scrolling at `speed`, keeping its height inside `band`.
-    mutating func move(
-        by dt: TimeInterval, speed: CGFloat, towardHeight planeHeight: CGFloat, band: ClosedRange<CGFloat>
-    ) {
+    /// Moves it on by `dt` with the world falling at `speed`, on `field`, keeping its x inside the lanes.
+    mutating func move(by dt: TimeInterval, speed: CGFloat, towardX planeX: CGFloat, on field: PlaneGameField) {
         age += dt
+        position.y += (speed + kind.extraSpeed * field.pace) * dt
         switch kind {
         case .stamp:
-            position.x -= speed * dt
             turn += PlaneGameRules.stampSpin * dt
         case .postmark:
-            position.x -= speed * dt
-            position.y = lane + PlaneGameRules.postmarkBob / 2 * swingPhase(PlaneGameRules.postmarkBobPeriod)
+            position.x = lane + PlaneGameRules.postmarkSway / 2 * swingPhase(PlaneGameRules.postmarkSwayPeriod)
         case .spam:
-            position.x -= (speed + PlaneGameRules.spamExtraSpeed) * dt
-            position.y = lane + PlaneGameRules.spamWeave * swingPhase(PlaneGameRules.spamWeavePeriod)
+            position.x = lane + PlaneGameRules.spamWeave * swingPhase(PlaneGameRules.spamWeavePeriod)
         case .phish:
-            position.x -= (speed + PlaneGameRules.phishExtraSpeed) * dt
             let reach = PlaneGameRules.phishDrift * dt
-            position.y += min(max(planeHeight - position.y, -reach), reach)
+            position.x += min(max(planeX - position.x, -reach), reach)
         case .star:
-            position.x -= speed * dt
             turn += PlaneGameRules.starSpin * dt
         case .heart:
-            position.x -= speed * dt
+            break
         }
-        position.y = band.clamping(position.y)
+        position.x = field.lanes.clamping(position.x)
     }
 
     private func swingPhase(_ period: TimeInterval) -> CGFloat {
@@ -40,10 +34,19 @@ extension PlaneGameThing {
 }
 
 extension PlaneGameThing.Kind {
-    /// How far it swings above and below the height it arrived at.
+    /// How much faster than the world it falls, on a field whose pace is 1.
+    var extraSpeed: CGFloat {
+        switch self {
+        case .spam: PlaneGameRules.spamExtraSpeed
+        case .phish: PlaneGameRules.phishExtraSpeed
+        case .stamp, .postmark, .star, .heart: 0
+        }
+    }
+
+    /// How far it swings to each side of the x it arrived at.
     var swing: CGFloat {
         switch self {
-        case .postmark: PlaneGameRules.postmarkBob / 2
+        case .postmark: PlaneGameRules.postmarkSway / 2
         case .spam: PlaneGameRules.spamWeave
         case .stamp, .phish, .star, .heart: 0
         }

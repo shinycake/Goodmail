@@ -28,7 +28,7 @@ public struct PlaneGameThing: Equatable, Sendable, Identifiable {
     public var turn: Double
     /// Hits it can still take; meaningful for bad guys.
     public var hitsLeft: Int
-    /// The height it arrived at, which weaving and bobbing swing around.
+    /// The x it arrived at, which weaving and swaying swing around.
     var lane: CGFloat
     /// Seconds since it arrived.
     var age: TimeInterval = 0
@@ -39,7 +39,7 @@ public struct PlaneGameThing: Equatable, Sendable, Identifiable {
         self.position = position
         turn = 0
         hitsLeft = if case .badGuy(let hits, _) = kind.role { hits } else { 0 }
-        lane = position.y
+        lane = position.x
     }
 }
 

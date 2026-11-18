@@ -10,7 +10,7 @@ extension PlaneGameWorld {
         elapsed += dt
         let speed = speed
         distance += speed * dt
-        movePlane(by: dt, drag: input.drag)
+        movePlane(by: dt, slide: input.slide)
         pullTrigger(input.isFiring, over: dt)
         moveShots(by: dt)
         moveThings(by: dt, speed: speed)
@@ -25,16 +25,16 @@ extension PlaneGameWorld {
 
     private mutating func moveShots(by dt: TimeInterval) {
         for index in shots.indices {
-            shots[index].position.x += PlaneGameRules.shotSpeed * dt
+            shots[index].position.y -= PlaneGameRules.shotSpeed * dt
         }
-        shots.removeAll { $0.position.x > field.size.width }
+        shots.removeAll { $0.position.y < 0 }
     }
 
     private mutating func moveThings(by dt: TimeInterval, speed: CGFloat) {
         for index in things.indices {
-            things[index].move(by: dt, speed: speed, towardHeight: plane.position.y, band: field.band)
+            things[index].move(by: dt, speed: speed, towardX: plane.position.x, on: field)
         }
-        things.removeAll { $0.position.x < -PlaneGameRules.leaveBeyond }
+        things.removeAll { $0.position.y > field.size.height + PlaneGameRules.leaveBeyond }
     }
 
     private mutating func ageBursts(by dt: TimeInterval) {

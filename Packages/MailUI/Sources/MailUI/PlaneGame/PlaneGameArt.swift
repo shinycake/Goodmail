@@ -52,11 +52,11 @@ nonisolated enum PlaneGameArt {
     static let purple = 1
     static let pink = 2
 
-    /// A shot, in points, flying toward the trailing edge from the origin.
+    /// A shot, in points around the origin, flying straight up.
     static let shot: Path = {
         var path = Path()
-        path.move(to: CGPoint(x: -5, y: 0))
-        path.addLine(to: CGPoint(x: 5, y: 0))
+        path.move(to: CGPoint(x: 0, y: 5))
+        path.addLine(to: CGPoint(x: 0, y: -5))
         return path
     }()
 

@@ -23,6 +23,12 @@ struct PlaneGameView: View {
                         .opacity(flights.opacity)
                         .position(x: field.midX, y: field.midY)
                 }
+                Text("Drag to fly", tableName: "PlaneGame", bundle: .module, comment: "Hint at the start of the game")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .opacity(model.hint)
+                    .position(model.hintCenter)
+                    .accessibilityHidden(model.hint == 0)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .ignoresSafeArea()
@@ -31,12 +37,6 @@ struct PlaneGameView: View {
                     lives: model.world.lives, score: model.world.score, mailWaiting: model.mailWaiting,
                     mailArrivals: model.mailArrivals, exit: model.exit)
                 Spacer()
-                Text("Drag to fly", tableName: "PlaneGame", bundle: .module, comment: "Hint at the start of the game")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .opacity(model.hint)
-                    .padding(.bottom, 56)
-                    .accessibilityHidden(model.hint == 0)
             }
             .opacity(look.hud)
             if let card = model.card {
@@ -49,7 +49,7 @@ struct PlaneGameView: View {
         .contentShape(.rect)
         .gesture(
             DragGesture(minimumDistance: 0)
-                .onChanged { model.touch($0.translation) }
+                .onChanged { model.touch(sideways: $0.translation.width) }
                 .onEnded { _ in model.release() }
         )
         .sensoryFeedback(.impact(weight: .light), trigger: model.kills)

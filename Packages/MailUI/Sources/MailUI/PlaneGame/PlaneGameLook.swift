@@ -33,12 +33,14 @@ nonisolated struct PlaneGameLook: Equatable, Sendable {
 nonisolated struct PlaneGameFrame: Equatable, Sendable {
     /// The ring of doodles, on the screen, one for each of `Doodle.inboxZero`.
     let backdrop: [Placed]
-    /// Obstacles, bad guys, pickups, shots and bursts, in flight coordinates.
+    /// Obstacles, bad guys, pickups, shots and bursts.
     let world: PlaneGameWorld
     /// Their opacity.
     let play: Double
     let plane: PlaneGameSprite?
-    let mirror: PlaneGameMirror
+    /// Whether the ring is drawn the way the Inbox Zero scene draws it for a right-to-left language, so it is the
+    /// ring the game takes over and folds back into. Nothing in play is mirrored.
+    let ringRightToLeft: Bool
     let reduceMotion: Bool
 
     /// A doodle of the ring where it is drawn, and how strongly.
@@ -48,10 +50,10 @@ nonisolated struct PlaneGameFrame: Equatable, Sendable {
     }
 }
 
-/// The reader's plane as drawn, in flight coordinates.
+/// The reader's plane as drawn.
 nonisolated struct PlaneGameSprite: Equatable, Sendable {
     let position: CGPoint
-    /// Radians clockwise from pointing at the trailing edge.
+    /// Radians clockwise from pointing up.
     let heading: Double
     /// Where it has just been, nearest first.
     let trail: [CGPoint]
@@ -76,7 +78,9 @@ extension PlaneGameModel {
                     backdrop: ring(
                         backdrop.poses(at: distance), opacity: takeoff.backdrop(decorated: handoff.stage.isDecorated),
                         planes: takeoff.planeDoodle),
-                    play: 1, plane: sprite(width: takeoff.planeWidth, opacity: takeoff.planeOpacity)))
+                    play: 1,
+                    plane: sprite(
+                        width: takeoff.planeWidth, opacity: takeoff.planeOpacity, turning: takeoff.planeTurn)))
         case .flying(.again), .over:
             return PlaneGameLook(
                 paper: 1, hud: 1, pile: nil, flights: nil,
@@ -101,7 +105,7 @@ extension PlaneGameModel {
                 stage.isDecorated
                 ? backdrop.poses(
                     at: distance, returning: landing.ringReturn,
-                    to: PlaneGameBackdrop.rest(of: Doodle.inboxZero, on: stage, rightToLeft: mirror.rightToLeft))
+                    to: PlaneGameBackdrop.rest(of: Doodle.inboxZero, on: stage, rightToLeft: handoff.scene.rightToLeft))
                 : backdrop.poses(at: distance)
             let progress = landing.planeProgress
             let plane = PlaneGameSprite(
@@ -120,7 +124,7 @@ extension PlaneGameModel {
             let flyOff = PlaneGameFlyOff(elapsed: elapsed)
             let plane = sprite(width: 1, opacity: 1).map {
                 PlaneGameSprite(
-                    position: CGPoint(x: $0.position.x + flyOff.planeShift, y: $0.position.y), heading: $0.heading,
+                    position: CGPoint(x: $0.position.x, y: $0.position.y - flyOff.planeRise), heading: $0.heading,
                     trail: $0.trail, width: 1, opacity: 1)
             }
             return PlaneGameLook(
@@ -133,7 +137,8 @@ extension PlaneGameModel {
 
     private func frame(backdrop: [PlaneGameFrame.Placed], play: Double, plane: PlaneGameSprite?) -> PlaneGameFrame {
         PlaneGameFrame(
-            backdrop: backdrop, world: world, play: play, plane: plane, mirror: mirror, reduceMotion: reduceMotion)
+            backdrop: backdrop, world: world, play: play, plane: plane, ringRightToLeft: handoff.scene.rightToLeft,
+            reduceMotion: reduceMotion)
     }
 
     /// The ring at `poses`, at `opacity`, with its paper plane doodles at `planes` of that: in play they would read
@@ -144,8 +149,9 @@ extension PlaneGameModel {
         }
     }
 
-    /// The world's plane, or `nil` once it has fallen off the field.
-    private func sprite(width: CGFloat, opacity: Double) -> PlaneGameSprite? {
+    /// The world's plane, or `nil` once it has fallen off the field. It points `turning` of the way from straight up
+    /// to its own heading.
+    private func sprite(width: CGFloat, opacity: Double, turning: Double = 1) -> PlaneGameSprite? {
         let plane = world.plane
         let blink: Double
         switch plane.status {
@@ -159,7 +165,7 @@ extension PlaneGameModel {
             blink = 1
         }
         return PlaneGameSprite(
-            position: plane.position, heading: plane.heading, trail: plane.trail, width: width,
+            position: plane.position, heading: plane.heading * turning, trail: plane.trail, width: width,
             opacity: opacity * blink)
     }
 

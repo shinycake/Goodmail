@@ -23,7 +23,7 @@ struct PlaneGameSpawner: Equatable, Sendable {
     /// The shapes an arrival can take, picked at random by weight from those open at the time.
     enum Pattern: Equatable {
         case one(PlaneGameThing.Kind)
-        /// Three spam, staggered one behind and below another.
+        /// Three spam on a slant, each one across from and above the one before.
         case spamRow
 
         static let all = PlaneGameThing.Kind.allCases.map(Pattern.one) + [.spamRow]
@@ -60,7 +60,7 @@ struct PlaneGameSpawner: Equatable, Sendable {
         return PlaneGameRules.firstInterval + (PlaneGameRules.lastInterval - PlaneGameRules.firstInterval) * hardening
     }
 
-    /// Everything due by `elapsed`, placed just beyond the trailing edge of `field`.
+    /// Everything due by `elapsed`, placed just above the top edge of `field`.
     mutating func arrivals(
         at elapsed: TimeInterval, in field: PlaneGameField, livesMissing: Bool,
         using generator: inout SeededGenerator
@@ -91,32 +91,27 @@ struct PlaneGameSpawner: Equatable, Sendable {
     private static func place(_ pattern: Pattern, in field: PlaneGameField, using generator: inout SeededGenerator)
         -> [Arrival]
     {
-        let x = field.size.width + PlaneGameRules.arriveBeyond
+        let y = -PlaneGameRules.arriveBeyond
         switch pattern {
         case .one(let kind):
-            let lane = randomLane(for: kind, extra: 0, in: field.band, using: &generator)
-            return [Arrival(kind: kind, position: CGPoint(x: x, y: lane))]
+            let lane = randomLane(for: kind, extra: 0, in: field, using: &generator)
+            return [Arrival(kind: kind, position: CGPoint(x: lane, y: y))]
         case .spamRow:
             let spacing = PlaneGameRules.rowSpacing
-            let lane = randomLane(for: .spam, extra: spacing.height, in: field.band, using: &generator)
+            let lane = randomLane(for: .spam, extra: spacing.width, in: field, using: &generator)
             return (0..<3).map { index in
                 Arrival(
                     kind: .spam,
                     position: CGPoint(
-                        x: x + CGFloat(index) * spacing.width, y: lane + CGFloat(index - 1) * spacing.height))
+                        x: lane + CGFloat(index - 1) * spacing.width, y: y - CGFloat(index) * spacing.height))
             }
         }
     }
 
-    /// A height for `kind` to arrive at, far enough inside `band` that it, its swing and `extra` stay inside.
+    /// An x for `kind` to arrive at, far enough inside the lanes that it, its swing and `extra` stay inside.
     private static func randomLane(
-        for kind: PlaneGameThing.Kind, extra: CGFloat, in band: ClosedRange<CGFloat>,
-        using generator: inout SeededGenerator
+        for kind: PlaneGameThing.Kind, extra: CGFloat, in field: PlaneGameField, using generator: inout SeededGenerator
     ) -> CGFloat {
-        let inset = kind.radius + kind.swing + extra
-        let low = band.lowerBound + inset
-        let high = band.upperBound - inset
-        guard low < high else { return (band.lowerBound + band.upperBound) / 2 }
-        return CGFloat.random(in: low...high, using: &generator)
+        CGFloat.random(in: field.lanes(inset: kind.radius + kind.swing + extra), using: &generator)
     }
 }

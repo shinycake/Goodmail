@@ -7,45 +7,74 @@ import Testing
     import CoreGraphics
 #endif
 
-/// The plane's loop onto the field, and the scroll that starts with it.
+/// The plane's flight onto the field, and the scroll that starts with it.
 struct LaunchTests {
-    let launch = CGPoint(x: 180, y: 600)
-    let start = CGPoint(x: 88, y: 360)
+    let envelopes = CGPoint(x: 200, y: 300)
 
-    @Test func thePlaneHoldsAtItsLaunchPointUntilItSetsOff() {
-        var world = PlaneGameWorld(field: phoneField, launchingFrom: launch, after: 0.5, seed: 1)
-        world.run(for: 0.45, input: PlaneGameInput(drag: CGSize(width: 3, height: 3), isFiring: true))
-        #expect(world.plane.position == launch)
+    @Test func thePlaneHoldsWhereTheEnvelopesFoldUntilItSetsOff() {
+        var world = PlaneGameWorld(field: phoneField, launch: .unfolding(at: envelopes), after: 0.5, seed: 1)
+        world.run(for: 0.45, input: PlaneGameInput(slide: 3, isFiring: true))
+        #expect(world.plane.position == envelopes)
         #expect(world.plane.trail.isEmpty)
         #expect(world.shots.isEmpty)
         #expect(world.speed == 0)
     }
 
-    @Test func itFliesItsLoopToTheStartingPlaceAndThenFlies() {
-        var world = PlaneGameWorld(field: phoneField, launchingFrom: launch, after: 0.5, seed: 1)
-        world.run(for: 0.5 + LoopPath.duration / 2)
+    @Test func itFliesOntoTheMiddleOfTheLanesOnTheRowPointingUpAndThenFlies() {
+        var world = PlaneGameWorld(field: phoneField, launch: .unfolding(at: envelopes), after: 0.5, seed: 1)
+        world.run(for: 0.5 + FlightPath.duration / 2)
         guard case .launching = world.plane.status else {
-            Issue.record("Still launching halfway through the loop, got \(world.plane.status)")
+            Issue.record("Still launching halfway along its path, got \(world.plane.status)")
             return
         }
-        #expect(world.plane.position != launch)
-        world.run(for: LoopPath.duration / 2 + frame)
+        #expect(world.plane.position != envelopes)
+        world.run(for: FlightPath.duration / 2 + frame)
         #expect(world.plane.status == .flying)
-        #expect(world.plane.position == start)
+        #expect(world.plane.position == CGPoint(x: 200, y: phoneField.row))
+        #expect(world.plane.heading == 0)
     }
 
-    @Test func dragsDuringTheLaunchDontMoveThePlane() {
-        var still = PlaneGameWorld(field: phoneField, launchingFrom: launch, after: 0.2, seed: 1)
-        var dragged = still
+    @Test func afterPlayAgainItComesStraightUpFromBelowTheBottomEdge() {
+        var world = PlaneGameWorld(field: phoneField, launch: .fromBelow, after: 0, seed: 1)
+        #expect(world.plane.position == CGPoint(x: 200, y: phoneField.size.height + PlaneGameRules.belowField))
+        for _ in 0..<Int(FlightPath.duration / frame) {
+            world.advance(by: frame, input: PlaneGameInput())
+            #expect(world.plane.position.x == 200)
+            #expect(abs(world.plane.heading) < 0.000_001)
+        }
+        world.run(for: 2 * frame)
+        #expect(world.plane.position == phoneField.startingPlace)
+    }
+
+    @Test func withReduceMotionItIsSimplyInItsPlace() {
+        var world = PlaneGameWorld(field: phoneField, launch: .inPlace, after: 0, seed: 1)
+        #expect(world.plane.position == phoneField.startingPlace)
+        world.run(for: FlightPath.duration / 2)
+        #expect(world.plane.position == phoneField.startingPlace)
+    }
+
+    @Test func slidesDuringTheLaunchDontMoveThePlane() {
+        var still = PlaneGameWorld(field: phoneField, launch: .unfolding(at: envelopes), after: 0.2, seed: 1)
+        var slid = still
         for _ in 0..<40 {
             still.advance(by: frame, input: PlaneGameInput())
-            dragged.advance(by: frame, input: PlaneGameInput(drag: CGSize(width: 9, height: -7)))
-            #expect(dragged.plane.position == still.plane.position)
+            slid.advance(by: frame, input: PlaneGameInput(slide: 9))
+            #expect(slid.plane.position == still.plane.position)
         }
+    }
+
+    @Test func aResizeDuringTheLaunchHeadsForTheNewStartingPlace() {
+        var world = PlaneGameWorld(field: phoneField, launch: .unfolding(at: envelopes), after: 0, seed: 1)
+        world.run(for: 0.3)
+        let landscape = windowFields[1]
+        world.resize(to: landscape)
+        world.run(for: FlightPath.duration)
+        #expect(world.plane.status == .flying)
+        #expect(world.plane.position == landscape.startingPlace)
     }
 
     @Test func theScrollEasesInFromTheMomentThePlaneSetsOff() {
-        var world = PlaneGameWorld(field: phoneField, launchingFrom: launch, after: 0.5, seed: 1)
+        var world = PlaneGameWorld(field: phoneField, launch: .unfolding(at: envelopes), after: 0.5, seed: 1)
         world.run(for: 0.5)
         #expect(world.speed == 0)
         world.run(for: 0.3)
@@ -62,6 +91,13 @@ struct LaunchTests {
         #expect(world.speed == PlaneGameRules.topSpeed)
         world.run(for: 60)
         #expect(world.speed == PlaneGameRules.topSpeed)
+    }
+
+    @Test(arguments: windowFields)
+    func theScrollKeepsToTheFieldsPace(field: PlaneGameField) {
+        var world = PlaneGameWorld.flying(on: field)
+        world.run(for: PlaneGameRules.hardeningTime)
+        #expect(abs(world.speed - PlaneGameRules.topSpeed * field.pace) < 0.001)
     }
 
     @Test func distanceIsTheScrollAddedUp() {

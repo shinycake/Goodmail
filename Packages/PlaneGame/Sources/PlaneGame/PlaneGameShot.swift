@@ -5,7 +5,7 @@ public import Foundation
     import CoreGraphics
 #endif
 
-/// A shot from the plane, flying toward the trailing edge.
+/// A shot from the plane, flying straight up.
 public struct PlaneGameShot: Equatable, Sendable, Identifiable {
     public let id: Int
     public var position: CGPoint

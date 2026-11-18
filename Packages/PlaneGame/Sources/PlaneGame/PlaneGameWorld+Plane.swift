@@ -8,25 +8,25 @@ import Foundation
 /// in `PlaneGameWorld+Step.swift`, through `hitPlane()`.
 extension PlaneGameWorld {
     /// Moves the plane on by `dt`, moving its status along with the clock.
-    mutating func movePlane(by dt: TimeInterval, drag: CGSize) {
+    mutating func movePlane(by dt: TimeInterval, slide: CGFloat) {
         switch plane.status {
         case .launching(let path, let elapsed):
             let now = elapsed + dt
-            if now >= LoopPath.duration {
+            if now >= FlightPath.duration {
                 plane.position = path.end
                 plane.heading = path.heading(at: 1)
                 plane.status = .flying
             } else {
                 // Waiting, it stays at the start: `point(at:)` clamps.
-                let progress = now / LoopPath.duration
+                let progress = now / FlightPath.duration
                 plane.position = path.point(at: progress)
                 plane.heading = path.heading(at: progress)
                 plane.status = .launching(path, elapsed: now)
             }
         case .flying:
-            steer(by: drag, over: dt)
+            steer(by: slide, over: dt)
         case .shaken(let remaining):
-            steer(by: drag, over: dt)
+            steer(by: slide, over: dt)
             plane.status = remaining > dt ? .shaken(remaining: remaining - dt) : .flying
         case .down(let elapsed):
             // Falling from rest so that, from anywhere on the field, it is past the bottom by `fallTime`.
@@ -74,25 +74,25 @@ extension PlaneGameWorld {
     private mutating func fire() {
         shots.append(
             PlaneGameShot(
-                id: takeID(), position: CGPoint(x: plane.position.x + PlaneGameRules.planeRadius, y: plane.position.y)))
+                id: takeID(), position: CGPoint(x: plane.position.x, y: plane.position.y - PlaneGameRules.planeRadius)))
     }
 
-    /// Moves the plane by the finger's movement inside where it may fly, and tilts it with its climb.
-    private mutating func steer(by drag: CGSize, over dt: TimeInterval) {
-        let before = plane.position
-        plane.position = field.keepingPlane(
-            CGPoint(x: plane.position.x + drag.width, y: plane.position.y + drag.height))
-        let climb = Double((plane.position.y - before.y) / dt)
-        let tilt = min(max(climb * PlaneGameRules.tiltPerSpeed, -PlaneGameRules.maxTilt), PlaneGameRules.maxTilt)
-        plane.heading += (tilt - plane.heading) * min(PlaneGameRules.tiltEasing * dt, 1)
+    /// Slides the plane sideways by the finger's movement, on the row and inside the lanes, and banks it into the
+    /// slide.
+    private mutating func steer(by slide: CGFloat, over dt: TimeInterval) {
+        let before = plane.position.x
+        plane.position = field.placingPlane(atX: before + slide)
+        let sideways = Double((plane.position.x - before) / dt)
+        let bank = min(max(sideways * PlaneGameRules.bankPerSpeed, -PlaneGameRules.maxBank), PlaneGameRules.maxBank)
+        plane.heading += (bank - plane.heading) * min(PlaneGameRules.bankEasing * dt, 1)
     }
 
-    /// Carries the trail back with the scroll and adds where the plane is now every `trailEvery`.
+    /// Carries the trail down with the scroll and adds where the plane is now every `trailEvery`.
     private mutating func sampleTrail(over dt: TimeInterval) {
         guard !plane.isWaiting else { return }
         let scrolled = speed * dt
         for index in plane.trail.indices {
-            plane.trail[index].x -= scrolled
+            plane.trail[index].y += scrolled
         }
         sinceTrailSample += dt
         guard sinceTrailSample >= PlaneGameRules.trailEvery else { return }

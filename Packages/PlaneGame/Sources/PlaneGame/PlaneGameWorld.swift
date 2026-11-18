@@ -35,23 +35,25 @@ public struct PlaneGameWorld: Equatable, Sendable {
         case cooling(sinceShot: TimeInterval)
     }
 
-    /// A new game. The plane waits `delay` seconds at `launch`, then flies its loop to the starting place.
-    public init(field: PlaneGameField, launchingFrom launch: CGPoint, after delay: TimeInterval, seed: UInt64) {
+    /// A new game. The plane waits `delay` seconds where `launch` starts it, then flies onto the field to its
+    /// starting place.
+    public init(field: PlaneGameField, launch: PlaneGameLaunch, after delay: TimeInterval, seed: UInt64) {
         self.field = field
         setOff = max(delay, 0)
         generator = SeededGenerator(seed: seed)
+        let path = launch.path(onto: field)
         plane = PlaneGamePlane(
-            position: launch, heading: 0, trail: [],
-            status: .launching(LoopPath(from: launch, to: field.startingPlace), elapsed: -setOff))
+            position: path.start, heading: path.heading(at: 0), trail: [],
+            status: .launching(path, elapsed: -setOff))
     }
 
-    /// Points a second the world is scrolling now.
+    /// Points a second the world is falling now, on the screen.
     public var speed: CGFloat {
         guard elapsed > setOff else { return 0 }
         let hardening = min(elapsed / PlaneGameRules.hardeningTime, 1)
         let cruising =
             PlaneGameRules.cruisingSpeed + (PlaneGameRules.topSpeed - PlaneGameRules.cruisingSpeed) * hardening
-        return cruising * LoopPath.smoothstep((elapsed - setOff) / PlaneGameRules.rampTime)
+        return cruising * field.pace * FlightPath.smoothstep((elapsed - setOff) / PlaneGameRules.rampTime)
     }
 
     /// The plane has fallen off the field.
@@ -61,17 +63,15 @@ public struct PlaneGameWorld: Equatable, Sendable {
 
     /// Moves everything on by `dt` seconds and says what happened.
     ///
-    /// A long step is taken in short ones, so nothing fast passes through something without touching it. The drag
+    /// A long step is taken in short ones, so nothing fast passes through something without touching it. The slide
     /// is shared out between them. A step longer than `PlaneGameRules.longestAdvance` counts as that long.
     @discardableResult
     public mutating func advance(by dt: TimeInterval, input: PlaneGameInput) -> [PlaneGameEvent] {
         guard dt.isFinite, dt > 0 else { return [] }
         let dt = min(dt, PlaneGameRules.longestAdvance)
-        let drag =
-            input.drag.width.isFinite && input.drag.height.isFinite ? input.drag : CGSize(width: 0, height: 0)
+        let slide = input.slide.isFinite ? input.slide : 0
         let count = (dt / PlaneGameRules.longestStep).rounded(.up)
-        let share = PlaneGameInput(
-            drag: CGSize(width: drag.width / count, height: drag.height / count), isFiring: input.isFiring)
+        let share = PlaneGameInput(slide: slide / count, isFiring: input.isFiring)
         var events: [PlaneGameEvent] = []
         for _ in 0..<Int(count) {
             events += step(by: dt / count, input: share)
@@ -79,20 +79,22 @@ public struct PlaneGameWorld: Equatable, Sendable {
         return events
     }
 
-    /// The field changed size, as on rotation: everything keeps inside it.
+    /// The field changed size, as on rotation. The plane moves to the new row inside the new lanes, or a launching
+    /// one heads for its new starting place, and everything in play is brought inside the lanes. Nothing else moves.
     public mutating func resize(to field: PlaneGameField) {
         self.field = field
         switch plane.status {
         case .launching(let path, let elapsed):
-            plane.status = .launching(LoopPath(from: path.start, to: field.startingPlace), elapsed: elapsed)
+            plane.status = .launching(path.ending(at: field.startingPlace), elapsed: elapsed)
         case .flying, .shaken:
-            plane.position = field.keepingPlane(plane.position)
+            plane.position = field.placingPlane(atX: plane.position.x)
         case .down:
             break
         }
         for index in things.indices {
-            things[index].lane = field.band.clamping(things[index].lane)
-            things[index].position.y = field.band.clamping(things[index].position.y)
+            let kind = things[index].kind
+            things[index].lane = field.lanes(inset: kind.radius + kind.swing).clamping(things[index].lane)
+            things[index].position.x = field.lanes.clamping(things[index].position.x)
         }
     }
 
@@ -108,18 +110,9 @@ public struct PlaneGameWorld: Equatable, Sendable {
 }
 
 extension PlaneGameField {
-    /// `point` moved the least it takes to be where the plane may fly.
-    func keepingPlane(_ point: CGPoint) -> CGPoint {
-        let nearest = leadingInset + PlaneGameRules.planeRadius
-        let reach = max(size.width * PlaneGameRules.planeReach, nearest)
-        return CGPoint(x: min(max(point.x, nearest), reach), y: band.clamping(point.y))
-    }
-
-    /// Where the plane's launch loop ends.
-    var startingPlace: CGPoint {
-        CGPoint(
-            x: size.width * PlaneGameRules.startAt.x,
-            y: band.clamping(size.height * PlaneGameRules.startAt.y))
+    /// Where the plane flies with its middle at `x`: on the row, kept inside the lanes by its radius.
+    func placingPlane(atX x: CGFloat) -> CGPoint {
+        CGPoint(x: lanes(inset: PlaneGameRules.planeRadius).clamping(x), y: row)
     }
 }
 

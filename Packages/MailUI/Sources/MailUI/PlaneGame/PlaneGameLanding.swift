@@ -1,8 +1,8 @@
 import CoreGraphics
 import Foundation
 
-/// The morph from the game back into the Inbox, at one instant: what was in play fades, the plane loops down onto the
-/// envelopes' place and squeezes to a line, the envelopes open from it and spring back to size, the ring of doodles
+/// The morph from the game back into the Inbox, at one instant: what was in play fades, the plane flies up and round
+/// into the envelopes' place and squeezes to a line, the envelopes open from it and spring back to size, the ring of doodles
 /// flies home and the paper fades. Its last frame is the scene's rest pose exactly. With Reduce Motion on it is a
 /// cross-fade.
 nonisolated struct PlaneGameLanding: Equatable, Sendable {
@@ -25,7 +25,7 @@ nonisolated struct PlaneGameLanding: Equatable, Sendable {
         1 - PlaneGameEasing.ramp(elapsed, from: 0, to: Self.crossFade)
     }
 
-    /// How far along its loop to the envelopes' place the plane is.
+    /// How far along its path to the envelopes' place the plane is.
     var planeProgress: Double {
         reduceMotion ? 0 : PlaneGameEasing.ramp(elapsed, from: 0, to: Self.planeArrives)
     }
@@ -87,8 +87,8 @@ nonisolated struct PlaneGameLanding: Equatable, Sendable {
     }
 }
 
-/// Leaving when the Inbox has mail again, so there is nothing to fold back into: the plane flies off the trailing
-/// edge and the paper fades, showing the list.
+/// Leaving when the Inbox has mail again, so there is nothing to fold back into: the plane flies straight up off the
+/// top edge and the paper fades, showing the list.
 nonisolated struct PlaneGameFlyOff: Equatable, Sendable {
     /// Seconds since the exit was asked for.
     let elapsed: TimeInterval
@@ -100,6 +100,6 @@ nonisolated struct PlaneGameFlyOff: Equatable, Sendable {
     /// The paper's opacity, and everything on it.
     var paper: Double { 1 - PlaneGameEasing.ramp(elapsed, from: 0, to: Self.duration) }
 
-    /// How far the plane has flown toward the trailing edge.
-    var planeShift: CGFloat { Self.speed * CGFloat(max(elapsed, 0)) }
+    /// How far the plane has flown up.
+    var planeRise: CGFloat { Self.speed * CGFloat(max(elapsed, 0)) }
 }

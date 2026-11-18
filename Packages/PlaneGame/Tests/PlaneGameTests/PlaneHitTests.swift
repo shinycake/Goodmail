@@ -52,8 +52,8 @@ struct PlaneHitTests {
         world.addAhead(.stamp)
         world.advance(by: frame, input: PlaneGameInput())
         let before = world.plane.position
-        world.advance(by: frame, input: PlaneGameInput(drag: CGSize(width: 0, height: 30), isFiring: true))
-        #expect(world.plane.position.y == before.y + 30)
+        world.advance(by: frame, input: PlaneGameInput(slide: 30, isFiring: true))
+        #expect(world.plane.position.x == before.x + 30)
         #expect(world.shots.count == 1)
         world.addAhead(.star)
         #expect(world.advance(by: frame, input: PlaneGameInput()) == [.caught(.star)])
@@ -108,8 +108,8 @@ struct PlaneHitTests {
     }
 
     @Test func thePlaneCantBeHitWhileItLaunches() {
-        var world = PlaneGameWorld(field: phoneField, launchingFrom: CGPoint(x: 88, y: 360), after: 0.5, seed: 1)
-        world.add(.stamp, at: CGPoint(x: 88, y: 360))
+        var world = PlaneGameWorld(field: phoneField, launch: .inPlace, after: 0.5, seed: 1)
+        world.add(.stamp, at: phoneField.startingPlace)
         #expect(world.run(for: 0.2).isEmpty)
         #expect(world.lives == 3)
     }

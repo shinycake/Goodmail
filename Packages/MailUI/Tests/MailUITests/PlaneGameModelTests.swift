@@ -24,14 +24,19 @@ struct PlaneGameModelTests {
     /// When the tenth tap landed.
     private let tapped = Date(timeIntervalSinceReferenceDate: 800_000_000)
 
-    /// A game started from a scene with `pokes` in the air.
-    private func model(reduceMotion: Bool = false, pokes: [DoodlePoke] = []) throws -> PlaneGameModel {
+    /// A game started from a scene with `pokes` in the air, on an iPhone held upright unless `screen` says otherwise.
+    private func model(
+        reduceMotion: Bool = false, pokes: [DoodlePoke] = [], rightToLeft: Bool = false,
+        screen: CGSize = CGSize(width: 402, height: 874),
+        safeArea: UIEdgeInsets = UIEdgeInsets(top: 62, left: 0, bottom: 34, right: 0)
+    ) throws -> PlaneGameModel {
         let stage = try #require(list.stage)
         let scene = DoodleScene(
-            size: stage.field.size, pokes: pokes, clock: .running(tapped), rightToLeft: false, focus: stage.focus)
+            size: stage.field.size, pokes: pokes, clock: .running(tapped), rightToLeft: rightToLeft,
+            focus: stage.focus)
         return PlaneGameModel(
-            handoff: InboxZeroHandoff(scene: scene, stage: stage), screen: CGSize(width: 402, height: 874),
-            safeArea: UIEdgeInsets(top: 62, left: 0, bottom: 34, right: 0), reduceMotion: reduceMotion,
+            handoff: InboxZeroHandoff(scene: scene, stage: stage), screen: screen, safeArea: safeArea,
+            reduceMotion: reduceMotion,
             list: PlaneGameList(stage: { [list] in list.stage }, threads: { [list] in list.threads }),
             defaults: defaults, seed: 1)
     }
@@ -58,17 +63,40 @@ struct PlaneGameModelTests {
     @Test func thePlaneFoldsOutOfTheEnvelopesOrIsInPlaceWithReduceMotion() throws {
         let center = try #require(list.stage).center
         #expect(try model().world.plane.position == center)
-        let field = try model(reduceMotion: true).world.field
-        #expect(try model(reduceMotion: true).world.plane.position == PlaneGameModel.startingPlace(in: field))
+        let reduced = try model(reduceMotion: true)
+        #expect(reduced.world.plane.position == reduced.world.field.startingPlace)
     }
 
-    @Test func theFieldKeepsClearOfTheHUDAndTheHomeIndicator() {
+    @Test func thePlaneFliesNearTheBottomClearOfTheHUDTheSidesAndTheHomeIndicator() {
         let field = PlaneGameModel.field(
-            screen: CGSize(width: 402, height: 874), safeArea: UIEdgeInsets(top: 62, left: 0, bottom: 34, right: 0),
-            rightToLeft: false)
-        let top: CGFloat = 62 + 64
-        let bottom: CGFloat = 874 - 34 - 24
-        #expect(field.band == top...bottom)
+            screen: CGSize(width: 402, height: 874), safeArea: UIEdgeInsets(top: 62, left: 0, bottom: 34, right: 0))
+        #expect(field.lanes == 12...390)
+        #expect(field.ceiling == 126)
+        #expect(field.row == 720)
+        #expect(field.startingPlace == CGPoint(x: 201, y: 720))
+    }
+
+    @Test func afterTheTakeoffThePlaneIsInTheMiddleOfTheLanesOnTheRowPointingUp() throws {
+        let model = try model()
+        run(model, for: PlaneGameTakeoff.duration)
+        #expect(model.world.plane.status == .flying)
+        #expect(model.world.plane.position == model.world.field.startingPlace)
+        #expect(model.world.plane.heading == 0)
+    }
+
+    @Test(arguments: [false, true])
+    func aDragSlidesThePlaneSidewaysOnlyTheSameWayInEveryLanguage(rightToLeft: Bool) throws {
+        let model = try model(rightToLeft: rightToLeft)
+        run(model, for: PlaneGameTakeoff.duration + 0.1)
+        let before = model.world.plane.position
+        model.touch(sideways: 0)
+        model.touch(sideways: 30)
+        model.tick(by: 1.0 / 60)
+        #expect(abs(model.world.plane.position.x - (before.x + 30)) < 0.0001)
+        #expect(model.world.plane.position.y == before.y)
+        model.touch(sideways: 10)
+        model.tick(by: 1.0 / 60)
+        #expect(abs(model.world.plane.position.x - (before.x + 10)) < 0.0001)
     }
 
     /// The opacity of the ring's paper plane doodles and of the rest of the ring, in what the screen draws now.
@@ -106,17 +134,18 @@ struct PlaneGameModelTests {
         #expect(model.look.flights == nil)
     }
 
-    @Test(arguments: [false, true])
-    func inLandscapeThePlaneKeepsClearOfTheCameraOnItsLeadingSide(rightToLeft: Bool) {
-        // Turned with the camera on the left.
-        let field = PlaneGameModel.field(
-            screen: CGSize(width: 874, height: 402), safeArea: UIEdgeInsets(top: 0, left: 62, bottom: 21, right: 62),
-            rightToLeft: rightToLeft)
-        #expect(field.leadingInset == 62)
-        let leftOnly = PlaneGameModel.field(
-            screen: CGSize(width: 874, height: 402), safeArea: UIEdgeInsets(top: 0, left: 62, bottom: 21, right: 0),
-            rightToLeft: rightToLeft)
-        #expect(leftOnly.leadingInset == (rightToLeft ? 0 : 62))
+    @Test(arguments: [-2000, 2000] as [CGFloat])
+    func inLandscapeThePlaneKeepsClearOfTheSideSafeAreas(sideways: CGFloat) throws {
+        let model = try model(
+            screen: CGSize(width: 874, height: 402), safeArea: UIEdgeInsets(top: 0, left: 62, bottom: 21, right: 62))
+        run(model, for: PlaneGameTakeoff.duration + 0.1)
+        model.touch(sideways: 0)
+        model.touch(sideways: sideways)
+        model.tick(by: 1.0 / 60)
+        let x = model.world.plane.position.x
+        #expect(x >= 62 + 12 + PlaneGameRules.planeRadius)
+        #expect(x <= 874 - 62 - 12 - PlaneGameRules.planeRadius)
+        #expect(model.world.plane.position.y == model.world.field.row)
     }
 
     // MARK: The way out
@@ -137,8 +166,7 @@ struct PlaneGameModelTests {
             return
         }
         #expect(stage == list.stage)
-        #expect(path.end == stage.center)
-        #expect(path.start == model.world.plane.position)
+        #expect(path == .landing(from: model.world.plane.position, to: stage.center))
         model.exit()
         #expect(model.phase == .leaving(leaving))
         run(model, for: PlaneGameLanding.duration - 0.1)
@@ -165,7 +193,7 @@ struct PlaneGameModelTests {
         PlaneGameLeaving.Way.away,
         .home(
             InboxZeroStage(field: CGRect(x: 0, y: 140, width: 402, height: 520), layout: .full, pileWidth: 200),
-            path: LoopPath(from: .zero, to: CGPoint(x: 201, y: 306))),
+            path: .landing(from: CGPoint(x: 201, y: 720), to: CGPoint(x: 201, y: 306))),
     ])
     func theCardFadesWithWhatWasInPlayOnTheWayOut(way: PlaneGameLeaving.Way) {
         let result = PlaneGameResult(score: 40, best: 90, isNewBest: false)
@@ -190,6 +218,32 @@ struct PlaneGameModelTests {
         #expect(model.phase == .flying(.takeoff))
     }
 
+    @Test func playAgainSendsANewPlaneStraightUpFromBelowTheBottomEdge() throws {
+        let model = try model()
+        bring(model, to: .over)
+        try #require(model.phase.isOverForTests)
+        model.playAgain()
+        #expect(model.phase == .flying(.again))
+        let field = model.world.field
+        #expect(model.world.plane.position == CGPoint(x: field.startingPlace.x, y: 874 + PlaneGameRules.belowField))
+        run(model, for: FlightPath.duration + 0.05)
+        #expect(model.world.plane.status == .flying)
+        #expect(model.world.plane.position == field.startingPlace)
+    }
+
+    @Test func afterAGameOverThePlaneThatLandsComesUpFromBelowTheBottomEdge() throws {
+        let model = try model()
+        bring(model, to: .over)
+        try #require(model.phase.isOverForTests)
+        model.exit()
+        guard case .leaving(let leaving) = model.phase, case .home(let stage, let path) = leaving.way else {
+            Issue.record("Expected to fold back home, got \(model.phase)")
+            return
+        }
+        #expect(path.start == CGPoint(x: stage.center.x, y: 874 + PlaneGameRules.belowField))
+        #expect(path.end == stage.center)
+    }
+
     @Test func theStatusBarStepsBackOnlyWhileThePaperCoversTheWindow() throws {
         let model = try model()
         #expect(!model.coversWindow)
@@ -206,11 +260,36 @@ struct PlaneGameModelTests {
         let model = try model()
         run(model, for: PlaneGameTakeoff.duration + 0.1)
         #expect(model.hint == 1)
-        model.touch(CGSize(width: 0, height: 0))
-        model.touch(CGSize(width: 0, height: 12))
+        model.touch(sideways: 0)
+        model.touch(sideways: 12)
         model.release()
         run(model, for: 0.4)
         #expect(model.hint == 0)
+    }
+
+    @Test func aFingerThatHasntMovedSidewaysLeavesTheHint() throws {
+        let model = try model()
+        run(model, for: PlaneGameTakeoff.duration + 0.1)
+        model.touch(sideways: 0)
+        model.touch(sideways: 0)
+        model.release()
+        run(model, for: 0.4)
+        #expect(model.hint == 1)
+    }
+
+    @Test(arguments: [false, true])
+    func theHintSitsAcrossTheMiddleBetweenTheHUDAndThePlane(landscape: Bool) throws {
+        let screen = landscape ? CGSize(width: 874, height: 402) : CGSize(width: 402, height: 874)
+        let model = try model(
+            screen: screen,
+            safeArea: landscape
+                ? UIEdgeInsets(top: 0, left: 62, bottom: 21, right: 62)
+                : UIEdgeInsets(top: 62, left: 0, bottom: 34, right: 0))
+        let field = model.world.field
+        #expect(model.hintCenter == CGPoint(x: screen.width / 2, y: screen.height * 0.6))
+        #expect(model.hintCenter.y > field.ceiling)
+        // Clear of the plane and its own height.
+        #expect(model.hintCenter.y < field.row - 2 * PlaneGameRules.planeRadius - 20)
     }
 
     @Test func theHintGoesByItselfAfterAWhile() throws {
@@ -352,10 +431,8 @@ struct PlaneGameModelTests {
                 let plane = model.world.plane
                 switch plane.status {
                 case .flying, .shaken:
-                    let nearest = field.leadingInset + PlaneGameRules.planeRadius
-                    #expect(plane.position.x >= nearest - 0.001)
-                    #expect(plane.position.x <= max(field.size.width * PlaneGameRules.planeReach, nearest) + 0.001)
-                    #expect(field.band.contains(plane.position.y))
+                    #expect(field.lanes.contains(plane.position.x))
+                    #expect(plane.position.y == field.row)
                 case .launching, .down:
                     break
                 }
