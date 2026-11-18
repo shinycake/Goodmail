@@ -10,6 +10,8 @@ public final class MailboxViewController: UIViewController {
     private var sectionTitles = SectionTitles()
     private var observation: Task<Void, Never>?
     private var swipes: SwipeActionsController!
+    /// Drags a row out into a new window, where the device has windows. The list's drag delegate, which it doesn't keep.
+    private var windowDrag: ThreadWindowDrag?
     private let searchResults: SearchResultsController?
     /// Search, while browsing. Selecting takes it away: its button would otherwise move up to the navigation bar and
     /// stay there beside the toolbar's once selecting ends.
@@ -107,6 +109,7 @@ public final class MailboxViewController: UIViewController {
         if let inboxZero { installInboxZero(inboxZero) }
         configureDataSource()
         configureSwipes()
+        configureWindowDrag()
         let search = searchItem()
         let compose = UIBarButtonItem(
             title: String(localized: "New Message", table: "Mailbox", bundle: .module, comment: "Composer title"),
@@ -487,6 +490,21 @@ extension MailboxViewController: UICollectionViewDelegate {
     ) {
         guard let id = (configuration.identifier as? ThreadMenu.Identifier)?.thread else { return }
         animator.addCompletion { [weak self] in self?.viewModel.open(id) }
+    }
+}
+
+extension MailboxViewController {
+    private func configureWindowDrag() {
+        guard UIApplication.shared.supportsMultipleScenes else { return }
+        let drag = ThreadWindowDrag(
+            thread: { [weak self] indexPath in
+                guard let self, !isEditing else { return nil }
+                return dataSource.itemIdentifier(for: indexPath)
+            },
+            window: { [viewModel] in viewModel.newWindow(for: $0) },
+            willBegin: { [weak self] in self?.swipes.close() })
+        windowDrag = drag
+        collectionView.dragDelegate = drag
     }
 }
 

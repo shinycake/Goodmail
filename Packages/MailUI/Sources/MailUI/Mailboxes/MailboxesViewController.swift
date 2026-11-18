@@ -25,13 +25,16 @@ public final class MailboxesViewController: UIViewController {
         self.viewModel = viewModel
         self.style = style
         super.init(nibName: nil, bundle: nil)
-        title = String(
-            localized: "Mailboxes", table: "Mailboxes", bundle: .module, comment: "Title of the list of mailboxes")
+        title = Self.title
         navigationItem.largeTitleDisplayMode = .always
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("Programmatic UI only") }
+
+    static var title: String {
+        String(localized: "Mailboxes", table: "Mailboxes", bundle: .module, comment: "Title of the list of mailboxes")
+    }
 
     deinit {
         observation?.cancel()

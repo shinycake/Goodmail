@@ -18,12 +18,13 @@ final class IntentRoutes {
     /// The thread open in the frontmost window, or `nil` when none is.
     var openThread: ThreadSummary.ID? { frontmost?.openThread }
 
-    /// The coordinator of the frontmost window, or of any window when none is in front.
+    /// The coordinator of the frontmost window: the one with the keyboard focus, as several windows can be in front
+    /// side by side on iPad, then any in front, then any at all.
     private var frontmost: SceneCoordinator? {
-        let scenes =
-            UIApplication.shared.connectedScenes
-            .filter { $0.activationState == .foregroundActive } + UIApplication.shared.connectedScenes
-        return scenes.lazy.compactMap({ ($0.delegate as? SceneDelegate)?.coordinator }).first
+        let scenes = Array(UIApplication.shared.connectedScenes)
+        let focused = scenes.filter { ($0 as? UIWindowScene)?.keyWindow?.isKeyWindow == true }
+        let inFront = scenes.filter { $0.activationState == .foregroundActive }
+        return (focused + inFront + scenes).lazy.compactMap({ ($0.delegate as? SceneDelegate)?.coordinator }).first
     }
 
     /// The route waiting for the window that just connected, which it takes.

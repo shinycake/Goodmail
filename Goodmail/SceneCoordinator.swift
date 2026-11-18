@@ -354,13 +354,7 @@ final class SceneCoordinator: NSObject {
 
     private func mailboxViewController(for mailbox: Mailbox) -> MailboxViewController {
         let model = model
-        let labels =
-            mailbox.accountID.flatMap { account in
-                (try? model.database.labels(for: account))?.map {
-                    MailboxDirectory.Label(
-                        mailbox: Mailbox(labelID: $0.id, accountID: account), name: $0.name, color: nil)
-                }
-            } ?? []
+        let labels = labels(naming: mailbox)
         let search = ThreadSearch(
             local: { model.database.search($0, including: $1) }, remote: { try await model.search($0, after: $1) })
         let results = SearchResultsController(
@@ -545,15 +539,6 @@ extension SceneCoordinator: UISplitViewControllerDelegate, UINavigationControlle
 }
 
 extension WindowState {
-    /// The state as an activity, which restores it, hands it off, or opens it in a new window.
-    fileprivate var activity: NSUserActivity? {
-        guard let saved = try? saved() else { return nil }
-        let activity = NSUserActivity(activityType: Self.activityType)
-        activity.userInfo = [Self.activityKey: saved]
-        activity.isEligibleForHandoff = true
-        return activity
-    }
-
     /// Where the mailboxes list marks the reader as being.
     fileprivate var destination: MailboxesViewModel.Destination {
         switch list {
@@ -571,10 +556,11 @@ extension SceneCoordinator {
         split == nil ? nil : shown.activity
     }
 
-    /// Makes the window's activity current, so Handoff offers what it shows now.
+    /// Makes the window's activity current, so Handoff offers what it shows now, and names the window after it.
     private func publishActivity() {
         window.windowScene?.userActivity = activity
         window.windowScene?.userActivity?.becomeCurrent()
+        window.windowScene?.title = split == nil ? nil : title(of: shown)
     }
 
     /// Rebuilds the mail screens for the accounts here now, keeping what they show where it's still here, down to a

@@ -282,6 +282,12 @@ public final class MailboxViewModel {
         navigate(.newWindow(id, in: mailbox))
     }
 
+    /// The window `id` opens in when its row is dragged out of the list: this list, on the category it shows, with
+    /// the thread open.
+    func newWindow(for id: ThreadSummary.ID) -> WindowState {
+        WindowState(list: .mailbox(mailbox, thread: id), category: category ?? .primary)
+    }
+
     /// What a swipe button does: act on the thread at once, or ask until when to snooze it.
     nonisolated enum Swipe: Equatable {
         case perform(ThreadAction)

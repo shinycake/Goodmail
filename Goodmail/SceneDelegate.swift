@@ -27,7 +27,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         let launch = (unsafe UIApplication.shared.delegate as! AppDelegate).launch
         // A handoff from another device wins over what this window showed when it was last saved.
         let restoring = (connectionOptions.userActivities + [session.stateRestorationActivity].compactMap(\.self))
-            .lazy.compactMap(Self.windowState(in:)).first
+            .lazy.compactMap(WindowState.init).first
         let link = connectionOptions.urlContexts.first?.url
         if let services = launch.running {
             return connect(windowScene, to: services, restoring: restoring, link: link)
@@ -97,14 +97,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     /// Handoff into a window that is already open.
     func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
-        guard let state = Self.windowState(in: userActivity) else { return }
+        guard let state = WindowState(userActivity) else { return }
         coordinator?.showHandedOff(state)
-    }
-
-    private static func windowState(in activity: NSUserActivity) -> WindowState? {
-        guard activity.activityType == WindowState.activityType,
-            let saved = activity.userInfo?[WindowState.activityKey] as? Data
-        else { return nil }
-        return try? WindowState(saved: saved)
     }
 }
