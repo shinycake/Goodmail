@@ -2,7 +2,7 @@ import PlaneGame
 import SwiftUI
 
 /// The game screen: paper over the window, the canvas, the envelopes while they fold, the scene's paper planes
-/// fading with the paper, the HUD and the game over card. A drag anywhere steers and fires. It fills the window,
+/// fading with the paper, the HUD, and the card over a paused game or a game over. A drag anywhere steers and fires. It fills the window,
 /// so its coordinates are the window's.
 struct PlaneGameView: View {
     let model: PlaneGameModel
@@ -34,7 +34,7 @@ struct PlaneGameView: View {
             VStack(spacing: 0) {
                 PlaneGameHUD(
                     lives: model.world.lives, score: model.world.score, mailWaiting: model.mailWaiting,
-                    mailArrivals: model.mailArrivals, exit: model.exit)
+                    mailArrivals: model.mailArrivals, pause: model.pause, exit: model.exit)
                 if let boss = model.world.boss {
                     PlaneGameBossMeter(line: PlaneGameBossLine(boss: boss, reduceMotion: model.reduceMotion))
                 }
@@ -46,8 +46,13 @@ struct PlaneGameView: View {
                     .opacity(card.opacity)
                     .transition(CardTransition())
             }
+            if model.phase.isPaused {
+                PlaneGamePauseCard(resume: model.resume, exit: model.exit)
+                    .transition(CardTransition())
+            }
         }
         .animation(.smooth(duration: 0.3), value: model.phase.isOver)
+        .animation(.smooth(duration: 0.3), value: model.phase.isPaused)
         .contentShape(.rect)
         .gesture(
             DragGesture(minimumDistance: 0)
@@ -92,5 +97,10 @@ extension PlaneGamePhase {
     /// Whether the card shows.
     fileprivate var isOver: Bool {
         if case .over = self { true } else { false }
+    }
+
+    /// Whether the pause card shows.
+    fileprivate var isPaused: Bool {
+        if case .paused = self { true } else { false }
     }
 }

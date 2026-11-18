@@ -1,0 +1,136 @@
+import CoreGraphics
+import Foundation
+import PlaneGame
+import Testing
+import UIKit
+
+@testable import MailUI
+
+/// Pausing the paper plane game: what can be paused, that nothing moves while it is, and the two ways on from it.
+@MainActor
+struct PlaneGamePauseTests {
+    private let stage: InboxZeroStage? = InboxZeroStage(
+        field: CGRect(x: 0, y: 140, width: 402, height: 520), layout: .full, pileWidth: 200)
+    private let threads = Threads()
+    private let defaults = UserDefaults(suiteName: "PlaneGamePauseTests.\(UUID().uuidString)")!
+
+    /// How many threads the list shows, as a test sets it.
+    private final class Threads {
+        var count = 0
+    }
+
+    /// A game on an iPhone held upright, past its takeoff unless `takeoff` says otherwise.
+    private func playing(takeoff: TimeInterval = PlaneGameTakeoff.duration + 2) throws -> PlaneGameModel {
+        let stage = try #require(stage)
+        let scene = DoodleScene(
+            size: stage.field.size, pokes: [], clock: .running(.distantPast), rightToLeft: false, focus: stage.focus)
+        let model = PlaneGameModel(
+            handoff: InboxZeroHandoff(scene: scene, stage: stage), screen: CGSize(width: 402, height: 874),
+            safeArea: UIEdgeInsets(top: 62, left: 0, bottom: 34, right: 0), reduceMotion: false,
+            list: PlaneGameList(stage: { stage }, threads: { [threads] in threads.count }), defaults: defaults, seed: 1)
+        run(model, for: takeoff)
+        return model
+    }
+
+    private func run(_ model: PlaneGameModel, for seconds: TimeInterval) {
+        for _ in 0..<Int((seconds * 60).rounded(.up)) { model.tick(by: 1.0 / 60) }
+    }
+
+    @Test func pausingHoldsTheWorldAndTheClockStill() throws {
+        let model = try playing()
+        model.touch(sideways: 0)
+        model.pause()
+        #expect(model.phase == .paused(.takeoff))
+        let clock = model.clock
+        let world = model.world
+        run(model, for: 5)
+        #expect(model.clock == clock)
+        #expect(model.world == world)
+        #expect(model.coversWindow)
+    }
+
+    @Test func resumingCarriesOnWhereItStopped() throws {
+        let model = try playing()
+        model.pause()
+        let distance = model.world.distance
+        model.resume()
+        #expect(model.phase == .flying(.takeoff))
+        run(model, for: 0.5)
+        #expect(model.world.distance > distance)
+    }
+
+    @Test func aDragWhilePausedDoesntSteerOnceTheGameCarriesOn() throws {
+        let model = try playing()
+        let x = model.world.plane.position.x
+        model.pause()
+        model.touch(sideways: 80)
+        model.release()
+        model.resume()
+        model.tick(by: 1.0 / 60)
+        #expect(model.world.plane.position.x == x)
+    }
+
+    @Test func theTakeoffPlaysOutBeforeAPause() throws {
+        let model = try playing(takeoff: 0.5)
+        model.pause()
+        #expect(model.phase == .flying(.takeoff))
+    }
+
+    @Test func aGameAfterPlayAgainPausesAndResumesAsItself() throws {
+        let model = try playing()
+        for _ in 0..<(60 * 600) where !model.isOver { model.tick(by: 1.0 / 60) }
+        try #require(model.isOver)
+        model.playAgain()
+        model.pause()
+        #expect(model.phase == .paused(.again))
+        model.resume()
+        #expect(model.phase == .flying(.again))
+    }
+
+    @Test func onlyAGameInPlayPauses() throws {
+        let model = try playing()
+        model.exit()
+        let leaving = model.phase
+        model.pause()
+        #expect(model.phase == leaving)
+        model.resume()
+        #expect(model.phase == leaving)
+    }
+
+    @Test func theWayOutFromAPauseFoldsBackFromWhereThePlaneStopped() throws {
+        let model = try playing()
+        model.pause()
+        model.exit()
+        guard case .leaving(let leaving) = model.phase, case .home(let stage, let path) = leaving.way else {
+            Issue.record("Expected to fold back home, got \(model.phase)")
+            return
+        }
+        #expect(leaving.ending == nil)
+        #expect(path == .landing(from: model.world.plane.position, to: stage.center))
+        run(model, for: PlaneGameLanding.duration + 0.1)
+        #expect(model.phase == .gone)
+    }
+
+    @Test func mailThatArrivesWhilePausedIsCounted() throws {
+        let model = try playing()
+        model.pause()
+        threads.count = 2
+        model.tick(by: 1.0 / 60)
+        #expect(model.mailWaiting == 2)
+        #expect(model.mailArrivals == 1)
+    }
+
+    @Test func aPausedGameDrawsWhatWasInPlay() throws {
+        let model = try playing()
+        let look = model.look
+        model.pause()
+        #expect(model.look == look)
+        #expect(model.card == nil)
+    }
+}
+
+extension PlaneGameModel {
+    fileprivate var isOver: Bool {
+        if case .over = phase { true } else { false }
+    }
+}

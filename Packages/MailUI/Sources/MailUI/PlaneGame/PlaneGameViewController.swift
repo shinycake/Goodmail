@@ -101,8 +101,10 @@ final class PlaneGameViewController: UIViewController {
         NotificationCenter.default.removeObserver(self)
     }
 
-    /// Nothing moves while the app is in the background or a system sheet is over it.
+    /// Nothing moves while the app is in the background or a system sheet is over it, and the game waits paused for
+    /// the reader to come back to it.
     @objc private func sceneWillDeactivate() {
+        model.pause()
         guard case .running(let link, _) = clock else { return }
         link.isPaused = true
     }
@@ -130,7 +132,7 @@ final class PlaneGameViewController: UIViewController {
     /// A drag that starts at an edge steers the plane before it opens Control Center or goes home.
     override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge { .all }
 
-    // MARK: The way out
+    // MARK: The way out and the pause
 
     override var canBecomeFirstResponder: Bool { true }
 
@@ -146,6 +148,12 @@ final class PlaneGameViewController: UIViewController {
 
     override func accessibilityPerformEscape() -> Bool {
         model.exit()
+        return true
+    }
+
+    /// VoiceOver's two finger double tap pauses the game and carries it on.
+    override func accessibilityPerformMagicTap() -> Bool {
+        if case .paused = model.phase { model.resume() } else { model.pause() }
         return true
     }
 }

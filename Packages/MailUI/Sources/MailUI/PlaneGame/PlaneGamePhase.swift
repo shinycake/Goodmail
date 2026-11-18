@@ -5,6 +5,9 @@ import PlaneGame
 nonisolated enum PlaneGamePhase: Equatable, Sendable {
     /// In the air. The opening plays out by itself from the game clock.
     case flying(PlaneGameOpening)
+    /// Held still by the reader, or by the app going inactive: nothing moves, the game clock included, until it carries
+    /// on as the same opening.
+    case paused(PlaneGameOpening)
     /// The plane is down and the card shows.
     case over(PlaneGameResult)
     /// Folding back into the Inbox, or flying off when the Inbox has mail.
@@ -88,7 +91,7 @@ extension PlaneGamePhase {
                 PlaneGameCard(
                     result: $0, opacity: leaving.play(at: clock - leaving.since, reduceMotion: reduceMotion))
             }
-        case .flying, .gone:
+        case .flying, .paused, .gone:
             nil
         }
     }

@@ -27,7 +27,7 @@ extension PlaneGameBoss {
             let now = elapsed + dt
             status = now >= PlaneGameRules.bossArrival ? .fighting(sinceAttack: 0) : .arriving(elapsed: now)
         case .fighting(let sinceAttack):
-            if kind == .phisher {
+            if kind == .phisher, sinceAttack >= PlaneGameRules.phisherHold {
                 let reach = PlaneGameRules.phisherCreep * dt
                 let aim = phisherAim(besideX: planeX, within: field.lanes(inset: radius))
                 position.x += min(max(aim - position.x, -reach), reach)
@@ -69,11 +69,15 @@ extension PlaneGameBoss {
     }
 
     /// Where the Phisher creeps to: `phisherOffset` from the plane on the side it is on now, or on the other side when
-    /// a wall leaves no room there, so it crosses over the plane, which is the plane's chance to hit it.
+    /// a wall leaves no room there, so it crosses over the plane, which is the plane's chance to hit it. In lanes too
+    /// narrow for either, it settles at the end farther from the plane rather than flipping between them.
     private func phisherAim(besideX planeX: CGFloat, within lanes: ClosedRange<CGFloat>) -> CGFloat {
         let side: CGFloat = position.x < planeX ? -1 : 1
-        let aim = planeX + side * PlaneGameRules.phisherOffset
-        return lanes.contains(aim) ? aim : planeX - side * PlaneGameRules.phisherOffset
+        let near = planeX + side * PlaneGameRules.phisherOffset
+        let far = planeX - side * PlaneGameRules.phisherOffset
+        if lanes.contains(near) { return near }
+        if lanes.contains(far) { return far }
+        return planeX - lanes.lowerBound > lanes.upperBound - planeX ? lanes.lowerBound : lanes.upperBound
     }
 
     /// The time between attacks, shorter once it is angry.

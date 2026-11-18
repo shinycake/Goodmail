@@ -19,29 +19,11 @@ struct PlaneGameOverCard: View {
                 figure(best, value: result.best)
                     .foregroundStyle(result.isNewBest ? DoodlePalette.purple : Color.primary)
             }
-            VStack(spacing: 8) {
-                Button(action: playAgain) {
-                    Text("Play Again", tableName: "PlaneGame", bundle: .module, comment: "Starts another game")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.glassProminent)
-                .tint(DoodlePalette.purple)
-                .controlSize(.large)
-                Button(action: exit) {
-                    Text(
-                        "Back to Inbox", tableName: "PlaneGame", bundle: .module, comment: "Leaves the paper plane game"
-                    )
-                }
-                .buttonStyle(.borderless)
-                .tint(DoodlePalette.purple)
-                .controlSize(.large)
-            }
+            PlaneGameCardChoices(
+                title: Text("Play Again", tableName: "PlaneGame", bundle: .module, comment: "Starts another game"),
+                action: playAgain, exit: exit)
         }
-        .padding(28)
-        .frame(maxWidth: 340)
-        .background(Color(uiColor: .systemBackground), in: .rect(cornerRadius: 28))
-        .overlay { RoundedRectangle(cornerRadius: 28).strokeBorder(.separator) }
-        .padding(24)
+        .planeGameCard()
     }
 
     private var best: Text {

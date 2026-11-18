@@ -161,6 +161,28 @@
         }
       }
     },
+    "Pause" : {
+      "comment" : "Pauses the paper plane game",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השהיה"
+          }
+        }
+      }
+    },
+    "Paused" : {
+      "comment" : "Title of the card over a paused game",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מושהה"
+          }
+        }
+      }
+    },
     "Play Again" : {
       "comment" : "Starts another game",
       "localizations" : {
@@ -168,6 +190,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "משחק חדש"
+          }
+        }
+      }
+    },
+    "Resume" : {
+      "comment" : "Carries on a paused game",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "המשך"
           }
         }
       }
