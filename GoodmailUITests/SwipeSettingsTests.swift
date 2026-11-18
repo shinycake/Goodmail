@@ -37,6 +37,35 @@ final class SwipeSettingsTests: XCTestCase {
     }
 
     @MainActor
+    func testDropsOntoAFullSideSnapBackAndTheNextDragStillWorks() {
+        let app = openSwipeSettings(left: ["read", "star"], right: ["archive", "snooze", "trash"])
+        // The list moved the row before the arrangement refused it, and the drag after that crashed on the row count.
+        drag(row("star", in: app), toTopOf: row("archive", in: app))
+        drag(row("read", in: app), to: row("trash", in: app), at: 0.8)
+        XCTAssertEqual(app.state, .runningForeground, "the app quit on a drag after a refused drop")
+        expectRows(
+            ["read", "star"], under: "Swipe Right", ["archive", "snooze", "trash"], under: "Swipe Left", in: app)
+        drag(row("star", in: app), toTopOf: row("read", in: app))
+        XCTAssertEqual(app.state, .runningForeground)
+        expectRows(
+            ["star", "read"], under: "Swipe Right", ["archive", "snooze", "trash"], under: "Swipe Left", in: app)
+    }
+
+    @MainActor
+    func testReorderingInsideMoreActionsThenDraggingStillWorks() {
+        let app = openSwipeSettings(left: ["read"], right: ["archive", "snooze", "trash"])
+        // More Actions keeps its usual order, so the list takes the drop and then puts Star back above Report Spam.
+        drag(row("spam", in: app), toTopOf: row("star", in: app))
+        XCTAssertEqual(app.state, .runningForeground, "the app quit on a drop inside More Actions")
+        XCTAssertTrue(waitUntil { row("star", in: app).frame.maxY <= row("spam", in: app).frame.minY + 1 })
+        drag(row("star", in: app), toTopOf: row("read", in: app))
+        XCTAssertEqual(app.state, .runningForeground, "the app quit on a drag after a drop inside More Actions")
+        expectRows(
+            ["star", "read"], under: "Swipe Right", ["archive", "snooze", "trash"], under: "Swipe Left", in: app)
+        XCTAssertGreaterThan(row("spam", in: app).frame.minY, app.staticTexts["More Actions"].frame.maxY)
+    }
+
+    @MainActor
     func testAddingAnActionKeepsEveryRowInPlace() {
         let app = openSwipeSettings(left: ["read", "star"], right: ["archive", "snooze"])
         app.buttons["Add Trash"].tap()
@@ -102,7 +131,8 @@ final class SwipeSettingsTests: XCTestCase {
         ]
         let title = titles[choice] ?? choice
         let list = app.collectionViews.containing(NSPredicate(format: "label == 'Swipe Right'")).firstMatch
-        return list.staticTexts[title]
+        // The first match: Swipe Colors further down names every action again.
+        return list.staticTexts.matching(NSPredicate(format: "label == %@", title)).firstMatch
     }
 
     /// Long-presses `source` and drops it on the top part of `target`, which places it before `target`.
@@ -142,6 +172,17 @@ final class SwipeSettingsTests: XCTestCase {
                 frames[above].maxY, frames[below].minY + 1, "\(names[above]) sits above \(names[below])",
                 file: file, line: line)
         }
+    }
+
+    /// Polls `condition` until it holds or five seconds pass, while the list settles after a drop.
+    @MainActor
+    private func waitUntil(_ condition: () -> Bool) -> Bool {
+        let deadline = Date.now.addingTimeInterval(5)
+        while !condition() {
+            guard Date.now < deadline else { return false }
+            RunLoop.current.run(until: .now.addingTimeInterval(0.2))
+        }
+        return true
     }
 
     @MainActor

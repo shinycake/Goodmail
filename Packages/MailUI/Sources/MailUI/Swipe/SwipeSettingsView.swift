@@ -7,6 +7,8 @@ import SwiftUI
 /// so an added action came over without its remove control.
 struct SwipeSettingsView: View {
     @Bindable var model: SettingsViewModel
+    /// Whether the list shows the arrangement or a drop where it fell, until that drag ends.
+    @State private var listState = SwipeListState.following
 
     static var title: String {
         String(localized: "Swipe Actions", table: "Swipe", bundle: .module, comment: "Title of the swipe settings")
@@ -16,11 +18,11 @@ struct SwipeSettingsView: View {
         List {
             ForEach(sides, id: \.self) { side in
                 Section {
-                    ForEach(model.swipeArrangement[side]) { choice in
-                        row(choice, on: .side(side), isPrimary: choice == model.swipeArrangement[side].first)
+                    ForEach(shelves[.side(side)]) { choice in
+                        row(choice, on: .side(side), isPrimary: choice == shelves[.side(side)].first)
                     }
                     .reorderable(collectionID: SwipeArrangement.Shelf.side(side))
-                    if model.swipeArrangement[side].isEmpty {
+                    if shelves[.side(side)].isEmpty {
                         none
                     }
                 } header: {
@@ -28,11 +30,11 @@ struct SwipeSettingsView: View {
                 }
             }
             Section {
-                ForEach(model.swipeArrangement.unused) { choice in
+                ForEach(shelves[.unused]) { choice in
                     row(choice, on: .unused, isPrimary: false)
                 }
                 .reorderable(collectionID: SwipeArrangement.Shelf.unused)
-                if model.swipeArrangement.unused.isEmpty {
+                if shelves[.unused].isEmpty {
                     none
                 }
             } header: {
@@ -64,7 +66,16 @@ struct SwipeSettingsView: View {
                 }
             // Not in withAnimation: the list already animates the drop, and animating it again crashed a drop at the
             // end of another section.
-            model.swipeArrangement.move(difference.sources, to: difference.destination.collectionID, before: anchor)
+            listState.drop(
+                difference.sources, on: difference.destination.collectionID, before: anchor,
+                into: &model.swipeArrangement)
+        }
+        .onDragSessionUpdated { session in
+            // The drop is reported before its drag ends, so the list settles back to the arrangement in an update of
+            // its own.
+            if case .ended = session.phase, listState != .following {
+                withAnimation { listState.dragEnded() }
+            }
         }
         .navigationTitle(Self.title)
         .navigationBarTitleDisplayMode(.inline)
@@ -84,6 +95,11 @@ struct SwipeSettingsView: View {
     private var none: some View {
         Text("None", tableName: "Swipe", bundle: .module, comment: "A swipe settings section with no actions")
             .foregroundStyle(.secondary)
+    }
+
+    /// What each section lists: the arrangement's choices, or a drop where it fell.
+    private var shelves: SwipeShelves {
+        listState.shownShelves ?? SwipeShelves(model.swipeArrangement)
     }
 
     /// The sides in the order they sit on screen: the left one first.
