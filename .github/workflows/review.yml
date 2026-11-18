@@ -118,9 +118,12 @@ jobs:
                - deep: split FILES TO REVIEW into groups of related files, about 400 changed lines each, and give
                  each group to a subagent (the Agent or Task tool) with these instructions, docs/review.md, and the
                  PR's purpose. Each subagent reads its files in full plus their callers and callees, and reports
-                 candidate findings with file, line and evidence. Read the cross-cutting parts yourself: the public
-                 interfaces between groups, the state each feature keeps, and the tests. Then check every candidate
-                 finding against the code yourself before you post it.
+                 candidate findings with file, line and evidence, and the files it read in full. Run every subagent
+                 in the foreground (never run_in_background): this run is headless, so it ends the moment you stop
+                 calling tools, and a subagent still running then is lost. Launch several in one message so they
+                 run in parallel, and wait for every one of them to report before you go on. Read the cross-cutting
+                 parts yourself: the public interfaces between groups, the state each feature keeps, and the tests.
+                 Then check every candidate finding against the code yourself before you post it.
             3. Review it against docs/review.md. Implicit state machines, files over 1000 lines, correctness bugs,
                and the code-quality blockers listed there all block approval.
             4. Post each blocking finding as an inline comment on the line it is about, written as prose that names
@@ -128,12 +131,18 @@ jobs:
                author's time.
             5. Post one summary comment with `gh pr comment`. Start it with "**Claude review: approved**" or
                "**Claude review: changes requested**", then list the blocking findings in a sentence each.
-            6. Return the verdict: "approve" only if there are no blocking findings. List in files_reviewed every
-               path from FILES TO REVIEW that was read in full, by you or a subagent. The gate rejects a review that
-               leaves one out.
+            6. Return the verdict only once the whole review is done: every file read and every subagent reported.
+               "approve" only if there are no blocking findings; "request_changes" only with at least one blocking
+               finding posted. List in files_reviewed every path from FILES TO REVIEW that was read in full, by you
+               or a subagent. The gate rejects an approval that leaves one out, and treats "request_changes" with no
+               findings as an unfinished review.
 
             If this PR changes docs/review.md, CLAUDE.md or .github/, review it against the standard on the base
             branch (`git show BASE:docs/review.md`), not the PR's copy.
+          # Subagents run on the review's own model, and never in the background: a headless run returns its
+          # verdict as soon as the main loop stops, before a background subagent could report.
+          settings: |
+            {"env": {"CLAUDE_CODE_SUBAGENT_MODEL": "claude-opus-5-5", "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"}}
           claude_args: |
             --model claude-opus-5-5
             --fallback-model claude-sonnet-5-5
@@ -151,14 +160,20 @@ jobs:
           REVIEWABLE: ${{ steps.scope.outputs.list }}
         run: |
           verdict=$(jq -er '.verdict | select(. == "approve" or . == "request_changes")' <<<"$RESULT")
-          # An approval that didn't read every file is unfinished, so it fails here and the merge queue runs the
-          # review again. Changes requested on the files read so far stand.
+          findings=$(jq -er '.blocking_findings' <<<"$RESULT")
+          # An approval that didn't read every file is unfinished, and so is a request for changes that names none
+          # (a review that stopped early). Both fail here, and the merge queue runs the review again. Changes
+          # requested with findings stand.
           missed=$(comm -23 <(grep . <<<"$REVIEWABLE" | sort -u) <(jq -r '.files_reviewed[]' <<<"$RESULT" | sort -u))
           if [[ "$verdict" == approve && -n "$missed" ]]; then
             echo "::error::The review didn't read these files in full:"$'\n'"$missed"
             exit 1
           fi
-          echo "Verdict: $verdict ($(jq -r '.blocking_findings' <<<"$RESULT") blocking findings)"
+          if [[ "$verdict" == request_changes ]] && ((findings == 0)); then
+            echo "::error::The review asked for changes without a blocking finding, so it didn't finish."
+            exit 1
+          fi
+          echo "Verdict: $verdict ($findings blocking findings)"
           echo "verdict=$verdict" >>"$GITHUB_OUTPUT"
 
       - name: Enforce the verdict
