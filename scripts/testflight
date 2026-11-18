@@ -8,7 +8,8 @@
 # so xcodebuild's automatic signing uses the key instead of an Apple ID signed in to Xcode (docs/setup/testflight.md).
 set -euo pipefail
 cd "$(dirname "$0")/.."
-BUILD_DIR="${GOODMAIL_BUILD_DIR:-$([[ -d /Volumes/Idan1TB ]] && echo /Volumes/Idan1TB/Goodmail-build || echo "$PWD/.build")}/testflight"
+source scripts/build-paths
+BUILD_DIR="$BUILD_ROOT/testflight"
 APP=com.idanbirman.goodmail
 
 if [[ -n "$(git status --porcelain)" ]]; then

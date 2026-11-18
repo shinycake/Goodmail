@@ -1,0 +1,232 @@
+#!/usr/bin/env bash
+# Deletes what Goodmail work leaves behind on the Mac: simulators, build folders and Xcode's DerivedData for Goodmail
+# (docs/setup/mac-disk.md).
+#
+#   scripts/cleanup             the sweep, below
+#   scripts/cleanup --dry-run   list what the sweep would delete, and delete nothing
+#   scripts/cleanup --if-due    the sweep, unless one ran in the last six hours (scripts/check runs this)
+#   scripts/cleanup --done      this worktree's task is over: delete its build folder and its simulators now, then sweep
+#
+# The sweep deletes
+#   - shut-down simulators named "Goodmail …" that nobody has booted for a day, except the main "Goodmail Check";
+#   - build output (DerivedData, SwiftPM scratch folders, archives) under BUILD_ROOT (scripts/build-paths) untouched for
+#     GOODMAIL_CLEANUP_DAYS days (default 3), or for an hour when its worktree is gone; other files there stay;
+#   - all but the newest three check result bundles in each results folder, and leftover xcodebuild logs;
+#   - SwiftPM .build folders inside Goodmail worktrees, wherever they are, and Goodmail's folders in Xcode's own DerivedData, both after
+#     the same number of days.
+# It never touches a booted simulator, a simulator whose name doesn't start with "Goodmail" (Apple's standard ones,
+# the dev "iPhone 18 Pro"), anything outside Goodmail, or a folder that changed in the last hour or that a running
+# process names on its command line (an xcodebuild -derivedDataPath, a swift --scratch-path).
+set -euo pipefail
+cd "$(dirname "$0")/.."
+[[ "$(uname)" == Darwin ]] || exit 0 # cloud sessions are thrown away whole
+source scripts/build-paths
+
+DAYS=${GOODMAIL_CLEANUP_DAYS:-3}
+SIMULATOR_IDLE_MINUTES=$((24 * 60))
+BUSY_MINUTES=60 # a folder written to this recently may belong to a build that is running
+dry_run=0 if_due=0 task_done=0
+for arg in "$@"; do
+    case "$arg" in
+    --dry-run) dry_run=1 ;;
+    --if-due) if_due=1 ;;
+    --done) task_done=1 ;;
+    *)
+        sed -n '4,8p' "$0" | cut -c3-
+        exit 2
+        ;;
+    esac
+done
+
+# Only a folder that is plainly Goodmail's own is swept: the external drive's Goodmail-build, or a checkout's .build.
+case "$BUILD_ROOT" in
+*/Goodmail-build | "$PWD/.build") ;;
+*)
+    echo "⚠ scripts/cleanup sweeps only a Goodmail-build or .build folder, not $BUILD_ROOT."
+    exit 1
+    ;;
+esac
+mkdir -p "$BUILD_ROOT"
+stamp="$BUILD_ROOT/.last-cleanup"
+if ((if_due)) && [[ -n "$(find "$stamp" -mmin -360 2>/dev/null)" ]]; then
+    exit 0
+fi
+
+freed_kb=0 folders=0 simulators=0
+verb() { ((dry_run)) && echo "would delete" || echo "deleted"; }
+human() { awk -v kb="$1" 'BEGIN { if (kb >= 1048576) printf "%.1f GB", kb / 1048576; else printf "%d MB", kb / 1024 }'; }
+changed_within() { [[ -n "$(find "$1" -mmin "-$2" -print -quit 2>/dev/null)" ]]; }
+named_by_a_process() { pgrep -f -- "$1" >/dev/null 2>&1; }
+# Worktrees can live on the external drive too, so a folder that is or holds a checkout is never build output.
+holds_a_checkout() {
+    local worktree
+    for worktree in "${worktree_paths[@]}"; do
+        [[ "$worktree/" != "$1/"* ]] || return 0
+    done
+    [[ -n "$(find "$1" -maxdepth 2 -name .git -print -quit 2>/dev/null)" ]]
+}
+
+# Deletes a folder unless it holds a checkout or something is using it. $2: minutes it must have gone untouched; $3: why it goes.
+remove_folder() {
+    local folder=$1 idle_minutes=$2 reason=$3 kb
+    [[ -d "$folder" ]] || return 0
+    if holds_a_checkout "$folder" || named_by_a_process "$folder" || changed_within "$folder" "$idle_minutes"; then
+        return 0
+    fi
+    kb=$(du -sk "$folder" 2>/dev/null | cut -f1)
+    if ((!dry_run)); then
+        # SwiftPM leaves some checkouts read-only.
+        rm -rf "$folder" 2>/dev/null || { chmod -R u+w "$folder" && rm -rf "$folder"; }
+    fi
+    echo "$(verb) $folder ($(human "${kb:-0}"), $reason)"
+    freed_kb=$((freed_kb + ${kb:-0}))
+    folders=$((folders + 1))
+}
+
+report() {
+    ((folders + simulators > 0)) || return 0
+    printf '%s %d simulators and %d folders, %s of build output.\n' \
+        "$( ((dry_run)) && echo "Would delete" || echo "Deleted")" "$simulators" "$folders" "$(human "$freed_kb")"
+}
+
+# Deletes a shut-down simulator. It asks simctl for the state again first, and simctl itself refuses a booted one.
+remove_simulator() {
+    local udid=$1 name=$2 reason=$3
+    xcrun simctl list devices | grep -F "($udid)" | grep -qF "(Shutdown)" || return 0
+    ((dry_run)) || xcrun simctl delete "$udid"
+    echo "$(verb) simulator \"$name\" ($reason)"
+    simulators=$((simulators + 1))
+}
+
+# Live worktrees: their paths, and the keys their build folders and simulators carry.
+worktree_paths=() live_keys=" "
+while IFS= read -r line; do
+    [[ "$line" == "worktree "* ]] || continue
+    worktree_paths+=("${line#worktree }")
+    live_keys+="$(worktree_key "${line#worktree }") "
+done < <(git worktree list --porcelain)
+# Goodmail simulators, as "<state>|<udid>|<name>" lines.
+goodmail_simulators() {
+    xcrun simctl list devices | sed -nE 's/^ +(Goodmail.*) \(([0-9A-F-]{36})\) \(([A-Za-z]+)\).*$/\3|\2|\1/p'
+}
+
+if ((task_done)); then
+    key=$(worktree_key "$CHECKOUT")
+    # This worktree's simulators: its check simulator and the ones scripts/sim made for it. The task is over, so a
+    # booted one is shut down first.
+    while IFS='|' read -r state udid name; do
+        [[ "$name" == *" $key" ]] || continue
+        ((dry_run)) || [[ "$state" == Shutdown ]] || xcrun simctl shutdown "$udid"
+        ((dry_run)) || xcrun simctl delete "$udid"
+        echo "$(verb) simulator \"$name\" (this worktree's)"
+        simulators=$((simulators + 1))
+    done < <(goodmail_simulators)
+    if [[ "$BUILD_DIR" != "$BUILD_ROOT" ]]; then
+        remove_folder "$BUILD_DIR" 0 "this worktree's"
+    fi
+fi
+
+# One sweep at a time: parallel checks start it together. --done's own deletions above need no lock. A lock older
+# than two hours is a crashed sweep's.
+lock="$BUILD_ROOT/.cleanup.lock"
+if [[ -n "$(find "$lock" -maxdepth 0 -mmin +120 2>/dev/null)" ]]; then
+    rmdir "$lock" 2>/dev/null || true
+fi
+if ! mkdir "$lock" 2>/dev/null; then
+    echo "Another scripts/cleanup is running its sweep, so this one skips it."
+    report
+    exit 0
+fi
+trap 'rmdir "$lock"' EXIT
+
+devices="$HOME/Library/Developer/CoreSimulator/Devices"
+while IFS='|' read -r state udid name; do
+    [[ "$state" == Shutdown && "$name" != "Goodmail Check" ]] || continue
+    key=${name##* }
+    if [[ "$key" =~ -[0-9a-f]{8}$ && "$live_keys" != *" $key "* ]]; then
+        remove_simulator "$udid" "$name" "its worktree is gone"
+    elif ! changed_within "$devices/$udid" "$SIMULATOR_IDLE_MINUTES"; then
+        remove_simulator "$udid" "$name" "unused for a day"
+    fi
+done < <(goodmail_simulators)
+
+# Build output under BUILD_ROOT, found by its markers: an Xcode DerivedData folder (its info.plist beside Build, Logs
+# or ModuleCache.noindex), a SwiftPM scratch folder (workspace-state.json), an archive. Only those go. Anything else
+# kept there, such as evidence screenshots or a dashboard's data, stays. The search skips what's inside them.
+build_outputs() {
+    find "$BUILD_ROOT" -maxdepth 5 \( -name .git -o -name Build -o -name Logs -o -name SourcePackages -o -name Index.noindex \
+        -o -name ModuleCache.noindex -o -name checkouts -o -name repositories -o -name Packages -o -name node_modules \
+        -o -name '*.xcresult' \) -prune -o -name '*.xcarchive' -print -prune \
+        -o \( -name info.plist -o -name workspace-state.json \) -print 2>/dev/null |
+        while IFS= read -r found; do
+            case "$found" in
+            *.xcarchive) echo "$found" ;;
+            */workspace-state.json) dirname "$found" ;;
+            *)
+                folder=$(dirname "$found")
+                [[ ! -d "$folder/Build" && ! -d "$folder/Logs" && ! -d "$folder/ModuleCache.noindex" ]] || echo "$folder"
+                ;;
+            esac
+        done | sort -u
+}
+# A worktree folder whose worktree is gone: "worktrees/<name>-<hash of its path>" with no live worktree of that key.
+orphaned() {
+    local key
+    case "$1" in "$BUILD_ROOT"/worktrees/*) ;; *) return 1 ;; esac
+    key=${1#"$BUILD_ROOT"/worktrees/}
+    key=${key%%/*}
+    [[ "$key" =~ -[0-9a-f]{8}$ && "$live_keys" != *" $key "* ]]
+}
+previous=""
+while IFS= read -r folder; do
+    [[ -z "$previous" || "$folder" != "$previous"/* ]] || continue # inside one already handled
+    previous=$folder
+    if orphaned "$folder"; then
+        remove_folder "$folder" "$BUSY_MINUTES" "its worktree is gone"
+    else
+        remove_folder "$folder" $((DAYS * 1440)) "untouched for $DAYS days"
+    fi
+done < <(build_outputs)
+for folder in "$BUILD_ROOT"/worktrees/*/results; do
+    ! orphaned "$folder" || remove_folder "$folder" "$BUSY_MINUTES" "its worktree is gone"
+done
+
+# Every check leaves a result bundle; the newest three per folder are plenty to read a failure.
+while IFS= read -r results; do
+    while IFS= read -r bundle; do
+        remove_folder "$bundle" "$BUSY_MINUTES" "an older check result"
+    done < <(ls -1dt "$results"/*.xcresult 2>/dev/null | tail -n +4)
+done < <(find "$BUILD_ROOT" -maxdepth 3 -type d -name results 2>/dev/null)
+while IFS= read -r log; do
+    ((dry_run)) || rm -f "$log"
+    echo "$(verb) $log"
+done < <(find "$BUILD_ROOT" -maxdepth 3 -name 'xcodebuild-*.log' -mmin "+$BUSY_MINUTES" 2>/dev/null)
+
+# SwiftPM builds inside the worktrees (swift test, swift build), on whichever disk the worktree is on.
+for worktree in "${worktree_paths[@]}"; do
+    for folder in "$worktree"/.build "$worktree"/Packages/*/.build; do
+        [[ "$folder" != "$BUILD_ROOT" ]] || continue
+        remove_folder "$folder" $((DAYS * 1440)) "untouched for $DAYS days"
+    done
+done
+
+# Xcode's own DerivedData, for builds that didn't pass -derivedDataPath. Each folder names its workspace.
+for folder in "$HOME"/Library/Developer/Xcode/DerivedData/*/; do
+    folder=${folder%/}
+    [[ -f "$folder/info.plist" ]] || continue
+    workspace=$(plutil -extract WorkspacePath raw -o - "$folder/info.plist" 2>/dev/null || true)
+    [[ "$(printf '%s' "$workspace" | tr '[:upper:]' '[:lower:]')" == *goodmail* ]] || continue
+    remove_folder "$folder" $((DAYS * 1440)) "Xcode's for $(basename "$workspace"), untouched for $DAYS days"
+done
+
+# A gone worktree's folder, left empty by the steps above. A live worktree's empty folder stays: its check may have
+# just made it.
+if ((!dry_run)); then
+    for folder in "$BUILD_ROOT"/worktrees/*/; do
+        folder=${folder%/}
+        ! orphaned "$folder" || rmdir "$folder" 2>/dev/null || true
+    done
+fi
+
+((dry_run)) || touch "$stamp"
+report

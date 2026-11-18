@@ -5,8 +5,8 @@
 # GOODMAIL_DEV_SIMULATOR picks the simulator (default: iPhone 18 Pro). Extra arguments go to the app.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-# Build output lives on the external drive when it's mounted, to spare the internal disk.
-BUILD_DIR="${GOODMAIL_BUILD_DIR:-$([[ -d /Volumes/Idan1TB ]] && echo /Volumes/Idan1TB/Goodmail-build || echo "$PWD/.build")}"
+source scripts/build-paths # BUILD_ROOT: on the external drive when it's mounted, to spare the internal disk
+BUILD_DIR="$BUILD_ROOT" # one signed dev build for every checkout, installed on the one dev simulator
 mkdir -p "$BUILD_DIR"
 
 simulator="${GOODMAIL_DEV_SIMULATOR:-iPhone 18 Pro}"

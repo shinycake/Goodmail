@@ -12,6 +12,8 @@ can start a process: builds fail and new Claude Code sessions don't open.
   Debug build on it. Only the main session uses it. Never slim, erase, reboot or shut it down.
 - **Goodmail Check** and **Goodmail Check <worktree>** belong to `scripts/check`. A worktree's own one is deleted when
   its check ends.
+- **Goodmail <purpose> <worktree>** belongs to the thread working in that worktree. `scripts/sim` creates them, and
+  `scripts/cleanup` deletes them ([mac-disk.md](mac-disk.md)).
 - Any other simulator a thread created is that thread's. Don't shut down or reboot a simulator you didn't boot.
 
 ## simslim
@@ -58,7 +60,7 @@ back on without a reboot when a task needs it, for example `simslim enable <udid
 
 - `scripts/check` slims its simulator automatically when simslim is installed and the simulator is shut down, which
   covers every new per-worktree check simulator.
-- Slim a simulator you created yourself before you boot it:
+- `scripts/sim` slims the simulators it creates. Slim any other simulator you created yourself before you boot it:
 
   ```bash
   simslim on <udid> --profile scripts/simslim-profile.json --preserve-boot-state

@@ -10,16 +10,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 scripts/cloud/ensure  # a Claude cloud session's toolchain, if it doesn't have it yet
-# Build output lives on the external drive when it's mounted, to spare the internal disk.
-BUILD_DIR="${GOODMAIL_BUILD_DIR:-$([[ -d /Volumes/Idan1TB ]] && echo /Volumes/Idan1TB/Goodmail-build || echo "$PWD/.build")}"
-# A linked worktree checks with its own build folder and simulator, so checks in parallel worktrees can't collide.
-# Folder names repeat (several worktrees are called "wt"), so the name carries a hash of the worktree's full path.
-CHECK_NAME="Goodmail Check"
-if [[ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ]]; then
-    worktree="$(basename "$PWD")-$(printf '%s' "$PWD" | git hash-object --stdin | cut -c1-8)"
-    BUILD_DIR="$BUILD_DIR/worktrees/$worktree"
-    CHECK_NAME="Goodmail Check $worktree"
-fi
+source scripts/build-paths  # BUILD_DIR and CHECK_NAME: this checkout's own build folder and simulator
 mkdir -p "$BUILD_DIR"
 # Git sets these for hooks; SwiftPM's own git calls would then act on this repository instead of package checkouts.
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX
@@ -84,6 +75,10 @@ if [[ "$(uname)" == Linux ]]; then
     exit 0
 fi
 
+# Goodmail's leftovers on the Mac: simulators and build folders nobody has used for days (scripts/cleanup). It runs at
+# most once every six hours and never fails the check.
+scripts/cleanup --if-due || echo "⚠ scripts/cleanup failed; the check goes on."
+
 check_simulator=$(xcrun simctl list devices available | grep -m1 -F "$CHECK_NAME (" | grep -oE '[0-9A-F-]{36}' || true)
 if [[ -z "$check_simulator" ]]; then
     check_simulator=$(xcrun simctl create "$CHECK_NAME" "${GOODMAIL_SIMULATOR:-iPhone 18 Pro}")
@@ -110,11 +105,13 @@ fi
 # header downgrades, so the Mac build fails on any warning in our sources that reaches the log too.
 strict_xcodebuild() {
     local log="$BUILD_DIR/xcodebuild-$$.log"
+    mkdir -p "$BUILD_DIR"
     xcodebuild "$@" 2>&1 | tee "$log"
     if grep -E '^/.*\.swift:[0-9]+:[0-9]+: warning:' "$log" | grep -v '/SourcePackages/checkouts/'; then
         echo "✘ Swift warnings above. Fix them: every warning is an error (ADR-021)."
         exit 1
     fi
+    rm -f "$log"  # kept only when the build fails, to read
 }
 
 # Each module is its own package (ADR-005); test every one that has tests.

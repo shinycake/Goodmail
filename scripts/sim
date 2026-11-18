@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# This worktree's own simulator for a purpose, so a task never creates one by hand (docs/setup/mac-disk.md).
+#
+#   scripts/sim <purpose> [device type]   print the UDID of "Goodmail <purpose> <worktree>", creating it if needed
+#   scripts/sim --list                    this worktree's simulators
+#
+# The name ties the simulator to this worktree, so `scripts/cleanup --done` deletes it with the worktree's build
+# folder, and the sweep deletes it once it has gone unused for a day. Same purpose, same simulator: reuse it, and
+# `xcrun simctl erase <udid>` when a task needs it clean, rather than making another.
+# The device type defaults to iPhone 18 Pro; `xcrun simctl list devicetypes` lists the others, such as an iPad.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+source scripts/build-paths
+key=$(worktree_key "$CHECKOUT")
+
+if [[ "${1:-}" == --list ]]; then
+    xcrun simctl list devices | grep -F " $key (" || true
+    exit 0
+fi
+[[ $# -ge 1 && "$1" != -* ]] || {
+    sed -n '4,5p' "$0" | cut -c3-
+    exit 2
+}
+name="Goodmail $1 $key"
+udid=$(xcrun simctl list devices available | grep -m1 -F "$name (" | grep -oE '[0-9A-F-]{36}' || true)
+if [[ -z "$udid" ]]; then
+    udid=$(xcrun simctl create "$name" "${2:-iPhone 18 Pro}")
+    # Slim it before its first boot, like the check simulator (docs/setup/mac-simulators.md).
+    if command -v simslim >/dev/null; then
+        simslim on "$udid" --profile scripts/simslim-profile.json --preserve-boot-state >/dev/null ||
+            echo "⚠ simslim could not slim $name." >&2
+    fi
+fi
+# A 16 GB Mac pages hard with two booted simulators next to the Claude sessions (load in the hundreds on 2026-11-18),
+# so say what else is running before a third one boots.
+booted=$(xcrun simctl list devices booted | grep -cE '[0-9A-F-]{36}' || true)
+if ((booted >= 2)); then
+    echo "⚠ $booted simulators are already booted. Shut yours down when you're not using them:" >&2
+    xcrun simctl list devices booted | grep -E '[0-9A-F-]{36}' >&2
+fi
+echo "$udid"

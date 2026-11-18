@@ -1,0 +1,20 @@
+# Sourced by the scripts that build or test: where a checkout's build output and check simulator live.
+#
+#   BUILD_ROOT   every Goodmail build folder: the external drive when it's mounted, to spare the internal disk
+#   BUILD_DIR    this checkout's: BUILD_ROOT itself, or BUILD_ROOT/worktrees/<key> in a linked worktree
+#   CHECKOUT     this checkout's top folder, as git reports it
+#   CHECK_NAME   this checkout's check simulator: "Goodmail Check", or "Goodmail Check <key>" in a linked worktree
+#
+# A linked worktree builds into its own folder with its own simulator, so checks in parallel worktrees can't collide.
+# Folder names repeat (several worktrees are called "wt"), so the key carries a hash of the worktree's full path.
+BUILD_ROOT="${GOODMAIL_BUILD_DIR:-$([[ -d /Volumes/Idan1TB ]] && echo /Volumes/Idan1TB/Goodmail-build || echo "$PWD/.build")}"
+BUILD_DIR="$BUILD_ROOT"
+CHECK_NAME="Goodmail Check"
+# Spaces become dashes, so the key is always the last word of a simulator's name.
+worktree_key() { printf '%s-%s' "$(basename "$1" | tr ' ' -)" "$(printf '%s' "$1" | git hash-object --stdin | cut -c1-8)"; }
+# Keyed on the path git reports, as `git worktree list` does, so a checkout reached through a symlink gets the same key.
+CHECKOUT="$(git rev-parse --show-toplevel)"
+if [[ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ]]; then
+    BUILD_DIR="$BUILD_ROOT/worktrees/$(worktree_key "$CHECKOUT")"
+    CHECK_NAME="Goodmail Check $(worktree_key "$CHECKOUT")"
+fi
