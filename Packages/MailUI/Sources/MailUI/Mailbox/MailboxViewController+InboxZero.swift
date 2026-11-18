@@ -62,7 +62,12 @@ extension MailboxViewController {
 
 /// The list's background, holding the Inbox Zero scene. The list sets its background's frame on every layout, which
 /// undoes a transform on the background itself, so the pull moves the scene inside it.
-private final class InboxZeroBackdrop: UIView {
+///
+/// Where the scene sits follows from the list's bounds alone, and UIKit already animates those when it settles a pull
+/// into the refreshing position. So neither the backdrop's place nor the pull animates on its own: the list's
+/// `scrollViewDidScroll` for that settle runs inside UIKit's animation, and an animated pull there would move the scene
+/// the same distance a second time, dropping it below its place until the animation catches up.
+final class InboxZeroBackdrop: UIView {
     private let scene: UIView
 
     init(scene: UIView) {
@@ -80,7 +85,11 @@ private final class InboxZeroBackdrop: UIView {
         scene.center = CGPoint(x: bounds.midX, y: bounds.midY)
     }
 
+    override func action(for layer: CALayer, forKey event: String) -> (any CAAction)? {
+        event == "position" ? NSNull() : super.action(for: layer, forKey: event)
+    }
+
     func pull(by distance: CGFloat) {
-        scene.transform = CGAffineTransform(translationX: 0, y: distance)
+        UIView.performWithoutAnimation { scene.transform = CGAffineTransform(translationX: 0, y: distance) }
     }
 }
