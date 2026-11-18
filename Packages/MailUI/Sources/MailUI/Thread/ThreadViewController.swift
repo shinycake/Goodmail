@@ -192,9 +192,12 @@ public final class ThreadViewController: UIViewController {
         composer.onResize = { [weak self] in self?.view.setNeedsLayout() }
         composer.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(composer)
+        // A bar's region along the bottom keeps the field and its buttons clear of the corner a window on iPad is
+        // resized by, as the system's toolbars are.
+        let bar = view.layoutGuide(for: .bar(onEdge: UIRectEdge.bottom))
         NSLayoutConstraint.activate([
-            composer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            composer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            composer.leadingAnchor.constraint(equalTo: bar.leadingAnchor),
+            composer.trailingAnchor.constraint(equalTo: bar.trailingAnchor),
             composer.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
         ])
     }

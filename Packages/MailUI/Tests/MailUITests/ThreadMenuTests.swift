@@ -27,6 +27,12 @@ struct ThreadMenuTests {
             ])
     }
 
+    @Test func answersAndStateSitInRowsSoTrashStaysInSight() {
+        let menu = ThreadMenu(
+            thread: thread([SystemLabel.inbox]), in: .inbox, reach: .actions(pinned: false), opensWindows: true)
+        #expect(menu.groups.map(\.layout) == [.row, .list, .row, .list, .list])
+    }
+
     @Test func togglesFollowTheThread() {
         let menu = ThreadMenu(
             thread: thread([SystemLabel.inbox, SystemLabel.starred, SystemLabel.muted]), in: .inbox,

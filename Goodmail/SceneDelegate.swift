@@ -10,6 +10,8 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         /// it has.
         case opening(Task<Void, Never>, link: URL?)
         case running(SceneCoordinator)
+        /// A window that holds one message being written.
+        case composing(ComposeWindowCoordinator)
         /// The database couldn't open; the window says so.
         case unavailable
     }
@@ -26,10 +28,12 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Unsafe because `delegate` is unowned. Safe: UIKit keeps the app delegate for the life of the process.
         let launch = (unsafe UIApplication.shared.delegate as! AppDelegate).launch
         // A handoff from another device wins over what this window showed when it was last saved.
-        let restoring = (connectionOptions.userActivities + [session.stateRestorationActivity].compactMap(\.self))
-            .lazy.compactMap(WindowState.init).first
+        let activities = connectionOptions.userActivities + [session.stateRestorationActivity].compactMap(\.self)
+        let restoring = activities.lazy.compactMap(WindowState.init).first
+        let composing = activities.lazy.compactMap(ComposeWindow.init).first
         let link = connectionOptions.urlContexts.first?.url
         if let services = launch.running {
+            if let composing { return compose(composing, in: windowScene, with: services) }
             return connect(windowScene, to: services, restoring: restoring, link: link)
         }
         show(LaunchViewController(), in: windowScene)
@@ -38,6 +42,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 do {
                     let services = try await launch.services()
                     guard case .opening(_, let link) = state else { return }
+                    if let composing { return compose(composing, in: windowScene, with: services) }
                     connect(windowScene, to: services, restoring: restoring, link: link)
                 } catch {
                     show(LaunchViewController(failure: error), in: windowScene)
@@ -61,13 +66,23 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         if let link { coordinator.open(link) }
     }
 
+    /// Fills the window with the one message it holds.
+    private func compose(_ shown: ComposeWindow, in windowScene: UIWindowScene, with services: AppServices) {
+        let coordinator = ComposeWindowCoordinator(windowScene: windowScene, model: services.model, showing: shown)
+        state = .composing(coordinator)
+        coordinator.start()
+        coordinator.window.makeKeyAndVisible()
+        window?.isHidden = true
+        window = coordinator.window
+    }
+
     /// A `mailto:` link or transfer code opened while the window is up, or while the database is still opening.
     func scene(_ scene: UIScene, openURLContexts contexts: Set<UIOpenURLContext>) {
         guard let link = contexts.first?.url else { return }
         switch state {
         case .running(let coordinator): coordinator.open(link)
         case .opening(let task, _): state = .opening(task, link: link)
-        case .notConnected, .unavailable: break
+        case .notConnected, .unavailable, .composing: break
         }
     }
 
@@ -87,12 +102,20 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     /// Saved with the scene when the system puts the window away, and handed back to `willConnectTo` with it.
     func stateRestorationActivity(for scene: UIScene) -> NSUserActivity? {
-        coordinator?.activity
+        switch state {
+        case .running(let coordinator): coordinator.activity
+        case .composing(let coordinator): coordinator.activity
+        case .notConnected, .opening, .unavailable: nil
+        }
     }
 
     /// The window closed, or the system put it away: its minimized messages are free for another window to take.
     func sceneDidDisconnect(_ scene: UIScene) {
-        coordinator?.close()
+        switch state {
+        case .running(let coordinator): coordinator.close()
+        case .composing(let coordinator): coordinator.close()
+        case .notConnected, .opening, .unavailable: break
+        }
     }
 
     /// Handoff into a window that is already open.

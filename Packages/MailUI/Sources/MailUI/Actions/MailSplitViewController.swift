@@ -1,8 +1,8 @@
 public import UIKit
 
 /// A window's mail screens: mailboxes, a mailbox's list and a thread side by side when the window is wide, one
-/// stack when it is narrow. The undo toast floats over them, above the toolbars, or
-/// in the middle of a toolbar that leaves it room (`UndoToastLane`), and off iPhone Duo's fold (`FoldLane`). Shaking to undo is
+/// stack when it is narrow. The undo toast floats over them, above the toolbars, over the thread's column when they
+/// are side by side, or in the middle of a toolbar that leaves it room (`UndoToastLane`), and off iPhone Duo's fold (`FoldLane`). Shaking to undo is
 /// the window's (`ShakeToUndoWindow`), so that no screen holds first responder and raises the keyboard with a menu.
 public final class MailSplitViewController: UISplitViewController {
     private let actions: MailActions
@@ -61,7 +61,7 @@ public final class MailSplitViewController: UISplitViewController {
 
     private func placeToast() {
         view.bringSubviewToFront(toast)
-        let lane = view.foldLane
+        let lane = toastLane
         let center = lane.midX - view.bounds.minX
         if toastCenter.constant != center { toastCenter.constant = center }
         let width = max(lane.width - 2 * Self.toastMargin, 0)
@@ -72,6 +72,27 @@ public final class MailSplitViewController: UISplitViewController {
         let constant = placement.bottomConstant(in: view.bounds, toastHeight: size.height)
         if toastBottom.constant != constant { toastBottom.constant = constant }
         tellFloors(toastHeight: actions.toast == nil ? 0 : size.height + Self.toastGap)
+    }
+
+    /// Where the toast sits across the window: the whole of it in one stack, and the thread's column side by side,
+    /// over its toolbar, rather than across the line between the columns and over the list's rows. The column's own
+    /// safe area leaves out the sidebar when it floats over the column's edge.
+    private var toastLane: CGRect {
+        let lane = view.foldLane
+        guard let column = toastScreens.first?.view, !isCollapsed else { return lane }
+        let insets = column.safeAreaInsets
+        let frame = column.convert(
+            column.bounds.inset(by: UIEdgeInsets(top: 0, left: insets.left, bottom: 0, right: insets.right)), to: view)
+        let inColumn = lane.intersection(frame)
+        return inColumn.width < Self.narrowestToastLane ? lane : inColumn
+    }
+
+    /// The least width the toast keeps to a column for; narrower, it takes the window's.
+    private static let narrowestToastLane: CGFloat = 280
+
+    /// The screens the toast sits above: the one stack's top, or the thread's column side by side.
+    private var toastScreens: [UIViewController] {
+        isCollapsed ? shownScreens : shownScreens(in: [.secondary])
     }
 
     /// The room between the toast and what it sits above.
@@ -88,7 +109,7 @@ public final class MailSplitViewController: UISplitViewController {
     /// How far the shown screens' content ends above the bottom: a screen's safe area ends above its toolbar when
     /// there is one, else above the home indicator, and a bar of its own, such as the chat's field, may end higher.
     private func aboveToolbars() -> CGFloat {
-        let insets = shownScreens.map { screen in
+        let insets = toastScreens.map { screen in
             guard let floor = (screen as? any UndoToastFloor)?.toastFloor, floor.window != nil else {
                 return screen.view.safeAreaInsets.bottom
             }
@@ -113,8 +134,12 @@ public final class MailSplitViewController: UISplitViewController {
 
     /// The screen on top in each shown column.
     private var shownScreens: [UIViewController] {
-        let columns: [Column] = isCollapsed ? [.compact] : [.primary, .supplementary, .secondary]
-        return columns.compactMap { column in
+        shownScreens(in: isCollapsed ? [.compact] : [.primary, .supplementary, .secondary])
+    }
+
+    /// The screen on top in each of `columns` that is on show.
+    private func shownScreens(in columns: [Column]) -> [UIViewController] {
+        columns.compactMap { column in
             let shown = viewController(for: column)
             let top = (shown as? UINavigationController)?.topViewController ?? shown
             guard let top, top.view.window != nil else { return nil }

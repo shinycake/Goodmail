@@ -74,7 +74,9 @@ public final class MailboxesViewController: UIViewController {
             primaryAction: UIAction { [weak self] _ in self?.viewModel.compose() })
         // New Message is the last to go into More when the toolbar runs short, as in a bar down iPhone Duo's side.
         compose.visibilityPriority = .high
-        toolbarItems = [settings, .flexibleSpace()] + [newLabelItem()].compactMap(\.self) + [compose]
+        // As a sidebar beside the list, New Message is the list's alone, so the window has one.
+        let ownCompose = style == .list ? [compose] : []
+        toolbarItems = [settings, .flexibleSpace()] + [newLabelItem()].compactMap(\.self) + ownCompose
         observation = Task { [viewModel] in await viewModel.observe() }
     }
 

@@ -57,6 +57,17 @@ extension MailDatabase {
         }
     }
 
+    /// The messages kept for `window` alone, as a window that holds one message reads back its own and takes no
+    /// other window's.
+    public func minimizedDrafts(of window: String) throws -> [Draft] {
+        let decoder = JSONDecoder()
+        return try pool.read { db in
+            try String.fetchAll(
+                db, sql: "SELECT draft FROM minimizedDraft WHERE window = ? ORDER BY position, rowid",
+                arguments: [window])
+        }.compactMap { try? decoder.decode(Draft.self, from: Data($0.utf8)) }
+    }
+
     private static func minimizedColumn(_ draft: Draft) throws -> String {
         String(decoding: try JSONEncoder().encode(draft), as: UTF8.self)
     }

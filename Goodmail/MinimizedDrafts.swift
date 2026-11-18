@@ -36,6 +36,24 @@ final class MinimizedDrafts {
         }
     }
 
+    /// Holds `window` open before it has connected, so no other window claims the message kept for it meanwhile, as a
+    /// message moving into a window of its own.
+    func reserve(_ window: String) {
+        open.insert(window)
+    }
+
+    /// Hands `window` the messages kept for it alone, taking no other window's: a window that holds one message.
+    func take(for window: String, then restore: @escaping ([Draft]) -> Void) {
+        open.insert(window)
+        claims[window] = Task { [store] in
+            let drafts = await BackgroundDatabaseWork.shared.run("Reading a window's message") {
+                await Self.drafts(of: window, in: store)
+            }
+            guard !Task.isCancelled else { return }
+            restore(drafts)
+        }
+    }
+
     /// Makes `drafts` the minimized messages of `window`. The app keeps itself awake for a few seconds after it
     /// leaves the screen, which covers the write made then.
     func keep(_ drafts: [Draft], for window: String) {
@@ -60,6 +78,15 @@ final class MinimizedDrafts {
             return try await store.claim(for: window, sparing: sparing)
         } catch {
             log.error("Couldn't read the minimized drafts: \(error, privacy: .public)")
+            return []
+        }
+    }
+
+    @concurrent private static func drafts(of window: String, in store: MinimizedDraftStore) async -> [Draft] {
+        do {
+            return try await store.drafts(of: window)
+        } catch {
+            log.error("Couldn't read a window's message: \(error, privacy: .public)")
             return []
         }
     }

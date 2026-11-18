@@ -23,6 +23,17 @@ struct MinimizedDraftTests {
         Draft(accountID: account.id, subject: subject, body: MessageBody(plain: "About \(subject)"))
     }
 
+    @Test func aWindowReadsItsOwnDraftsAndLeavesTheOthers() throws {
+        let lunch = draft("Lunch")
+        let budget = draft("Budget")
+        try database.keepMinimizedDrafts([lunch], for: "compose")
+        try database.keepMinimizedDrafts([budget], for: "closed")
+        #expect(try database.minimizedDrafts(of: "compose") == [lunch])
+        #expect(try database.claimMinimizedDrafts(for: "w1", sparing: ["compose"]) == [budget])
+        #expect(
+            try database.minimizedDrafts(of: "compose") == [lunch], "reading leaves the window's drafts where they are")
+    }
+
     @Test func nothingIsMinimizedAtFirst() throws {
         #expect(try database.claimMinimizedDrafts(for: "w1").isEmpty)
     }

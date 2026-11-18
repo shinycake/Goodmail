@@ -253,8 +253,9 @@ final class SceneCoordinator: NSObject {
         guard let split else { return }
         split.setViewController(
             UINavigationController(rootViewController: mailboxesViewController(style: .sidebar)), for: .primary)
-        split.setViewController(
-            UINavigationController(rootViewController: shownListViewController()), for: .supplementary)
+        let list = shownListViewController()
+        (list as? MailboxViewController)?.threadToMark = shown.openThread?.id
+        split.setViewController(UINavigationController(rootViewController: list), for: .supplementary)
         split.setViewController(
             UINavigationController(rootViewController: shownReader() ?? NoThreadViewController()), for: .secondary)
     }
@@ -476,20 +477,12 @@ final class SceneCoordinator: NSObject {
         }
     }
 
-    /// A composer for `draft`, or `nil` once its account is gone.
+    /// A composer for `draft` in this window, which can move into a window of its own, or `nil` once its account is
+    /// gone.
     private func composer(for draft: Draft) -> ComposeViewController? {
-        guard let account = model.accounts.first(where: { $0.id == draft.accountID }) else { return nil }
-        let actions = actions
-        let suggester = RecipientSuggester(
-            writtenIn: { [database = model.database] in try database.contacts(matching: $0) },
-            addressBook: SystemAddressBook())
-        return ComposeViewController(
-            viewModel: ComposeViewModel(
-                draft: draft, accountEmail: account.email, senders: model.accounts,
-                signature: { [database = model.database] in try? database.signature(for: $0) },
-                suggest: { await suggester.suggestions(for: $0) },
-                saveDraft: { actions.saveDraft($0, $1) }, deleteDraft: { actions.deleteDraft($0) },
-                send: { actions.send($0, at: $1) }))
+        let composer = model.composer(for: draft, actions: actions)
+        composer?.openInOwnWindow = { [weak self] in self?.openComposeWindow(for: $0) }
+        return composer
     }
 }
 

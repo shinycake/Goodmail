@@ -607,6 +607,17 @@
         }
       }
     },
+    "Open in New Window" : {
+      "comment" : "Moves the message being written into a window of its own",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פתיחה בחלון חדש"
+          }
+        }
+      }
+    },
     "Photo Library" : {
       "comment" : "Attach from Photos",
       "localizations" : {

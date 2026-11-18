@@ -1,4 +1,4 @@
-import MailCore
+public import MailCore
 public import UIKit
 
 /// Writing a message: recipients, subject, then the body as the page. The quoted conversation stays out of the way
@@ -32,6 +32,9 @@ public final class ComposeViewController: UIViewController {
     lazy var picker = AttachmentPicker { [weak self] in self?.add($0) }
     /// Keeps the composer while it is minimized, moves it on and off the screen, and hears when it is done.
     weak var host: (any ComposerHost)?
+    /// Moves the message into a window of its own, with it as written so far, where the device has windows; `nil`
+    /// where it can't, as in a window that holds this message alone. Set before the composer shows.
+    public var openInOwnWindow: ((Draft) -> Void)?
     /// The window scene the composer was shown in, kept while it is minimized and out of any window.
     private weak var scene: UIScene?
 
@@ -183,7 +186,7 @@ public final class ComposeViewController: UIViewController {
             : String(localized: "New Message", table: "Compose", bundle: .module, comment: "Composer title")
         let close = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { [weak self] _ in self?.cancel() })
         close.accessibilityIdentifier = "compose.close"
-        navigationItem.leftBarButtonItem = close
+        navigationItem.leftBarButtonItems = [close] + [ownWindowItem()].compactMap(\.self)
         sendItem.image = UIImage(systemName: "arrow.up")
         sendItem.style = .prominent
         sendItem.accessibilityLabel = String(
@@ -534,6 +537,15 @@ public final class ComposeViewController: UIViewController {
         close()
     }
 
+    /// Takes the message off this window, as written so far, for a window of its own to go on with it. Nothing is
+    /// sent, kept or deleted: the same message carries on there.
+    func handOff() -> Draft {
+        fieldChanged()
+        let draft = written
+        close()
+        return draft
+    }
+
     /// The message is done with: sent, deleted, saved away or closed unchanged. The host takes it off the screen.
     private func close() {
         picker.finish()
@@ -541,7 +553,7 @@ public final class ComposeViewController: UIViewController {
     }
 
     /// The draft as written so far, for the minimized bar and the picker; as it opened before the editor loads.
-    var written: Draft { isViewLoaded ? viewModel.finished(body: body) : viewModel.draft }
+    public var written: Draft { isViewLoaded ? viewModel.finished(body: body) : viewModel.draft }
 
     /// How a message dragged down leaves: one with something in it is minimized, one without is discarded.
     enum Leaving {
@@ -600,7 +612,7 @@ public final class ComposeViewController: UIViewController {
 
     /// The VoiceOver escape gesture minimizes the message, as the swipe down does.
     public override func accessibilityPerformEscape() -> Bool {
-        guard host != nil else { return false }
+        guard host?.canMinimize == true else { return false }
         minimize()
         return true
     }

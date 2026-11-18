@@ -12,6 +12,11 @@ public actor MinimizedDraftStore {
         self.database = database
     }
 
+    /// The messages kept for `window` alone.
+    public func drafts(of window: String) throws -> [Draft] {
+        try database.minimizedDrafts(of: window)
+    }
+
     /// The minimized messages of every window but those `open`, which now belong to `window`.
     public func claim(for window: String, sparing open: Set<String>) throws -> [Draft] {
         try database.claimMinimizedDrafts(for: window, sparing: open)

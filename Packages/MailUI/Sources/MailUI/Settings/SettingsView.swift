@@ -261,6 +261,8 @@ public enum SettingsScreen {
         init(model: SettingsViewModel, page: SettingsPage) {
             self.model = model
             super.init(rootView: Root(model: model, page: page))
+            // A page sheet, so Settings gets most of a large iPad's height rather than a small form in the middle.
+            modalPresentationStyle = .pageSheet
         }
 
         @available(*, unavailable)

@@ -15,6 +15,18 @@ struct ThreadMenu: Equatable {
         case changeLabels
     }
 
+    /// A section of the menu. The answers and the thread's state sit side by side in one row each, as in Apple Mail,
+    /// so the whole menu fits beside the preview on iPad without scrolling Trash out of sight.
+    struct Group: Equatable {
+        enum Layout: Equatable {
+            case row
+            case list
+        }
+
+        let items: [Item]
+        let layout: Layout
+    }
+
     /// What the list can do to its threads.
     enum Reach: Equatable {
         /// Nothing, which leaves only the answers and Open in New Window.
@@ -23,7 +35,10 @@ struct ThreadMenu: Equatable {
         case actions(pinned: Bool?)
     }
 
-    let sections: [[Item]]
+    let groups: [Group]
+
+    /// The items of each section, in order.
+    var sections: [[Item]] { groups.map(\.items) }
 
     /// With `opensWindows`, the menu offers Open in New Window.
     init(thread: ThreadSummary, in mailbox: Mailbox, reach: Reach, opensWindows: Bool) {
@@ -32,7 +47,8 @@ struct ThreadMenu: Equatable {
             mailbox.labelID == SystemLabel.draft ? [] : [.answer(.reply), .answer(.replyAll), .answer(.forward)]
         let windows: [Item] = opensWindows ? [.openInNewWindow] : []
         guard case .actions(let pinned) = reach else {
-            sections = [answers, windows].filter { !$0.isEmpty }
+            groups = [Group(items: answers, layout: .row), Group(items: windows, layout: .list)]
+                .filter { !$0.items.isEmpty }
             return
         }
         let state: [Item] =
@@ -46,7 +62,11 @@ struct ThreadMenu: Equatable {
         if place.canReportSpam {
             away.insert(.reportSpam, at: away.firstIndex(of: .trash) ?? away.endIndex)
         }
-        sections = [answers, windows, state, organize, away.map(Item.perform)].filter { !$0.isEmpty }
+        groups = [
+            Group(items: answers, layout: .row), Group(items: windows, layout: .list),
+            Group(items: state, layout: .row),
+            Group(items: organize, layout: .list), Group(items: away.map(Item.perform), layout: .list),
+        ].filter { !$0.items.isEmpty }
     }
 }
 
@@ -76,7 +96,7 @@ extension ThreadMenu {
         perform: @escaping (ThreadAction) -> Void
     ) -> UIContextMenuConfiguration? {
         let menu = viewModel.menu(for: thread)
-        guard !menu.sections.isEmpty else { return nil }
+        guard !menu.groups.isEmpty else { return nil }
         let id = thread.id
         return UIContextMenuConfiguration(
             identifier: Identifier(id),
@@ -87,11 +107,10 @@ extension ThreadMenu {
                 guard let viewModel, let presenter else { return nil }
                 let menuItems = Elements(id: id, viewModel: viewModel, presenter: presenter, perform: perform)
                 return UIMenu(
-                    children: menu.sections.map { items in
-                        UIMenu(
-                            options: .displayInline,
-                            children: items.map(menuItems.element)
-                        )
+                    children: menu.groups.map { group in
+                        let section = UIMenu(options: .displayInline, children: group.items.map(menuItems.element))
+                        if group.layout == .row { section.preferredElementSize = .medium }
+                        return section
                     })
             })
     }

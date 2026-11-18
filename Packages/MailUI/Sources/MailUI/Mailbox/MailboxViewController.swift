@@ -13,6 +13,9 @@ public final class MailboxViewController: UIViewController {
     /// Drags a row out into a new window, where the device has windows. The list's drag delegate, which it doesn't keep.
     private var windowDrag: ThreadWindowDrag?
     private let searchResults: SearchResultsController?
+    /// The thread open beside a list built after it opened, as when the window widens back into columns, which the
+    /// list marks as selected once its row arrives (`markOpenThread`). `nil` once marked.
+    public var threadToMark: ThreadSummary.ID?
     /// Search, while browsing. Selecting takes it away: its button would otherwise move up to the navigation bar and
     /// stay there beside the toolbar's once selecting ends.
     private(set) var search: UISearchController?
@@ -294,7 +297,7 @@ public final class MailboxViewController: UIViewController {
                 if state.isSelected || state.isHighlighted {
                     background.backgroundColor = .tintColor.withAlphaComponent(0.14)
                 }
-                cell.backgroundConfiguration = background
+                cell.backgroundConfiguration = background.kept(toSafeAreaOf: cell)
             }
             // VoiceOver reaches the swipe actions through the rotor.
             cell.accessibilityCustomActions =
@@ -324,6 +327,7 @@ public final class MailboxViewController: UIViewController {
         var content = UIListContentConfiguration.header()
         content.text = sectionTitles[section]
         header.contentConfiguration = content
+        header.backgroundConfiguration = .pinnedHeader(in: header)
     }
 
     private func applySections(_ sections: [MailboxViewModel.Section]) {
@@ -354,6 +358,7 @@ public final class MailboxViewController: UIViewController {
             if let header = header as? UICollectionViewListCell { title(header, as: section) }
         }
         swipes.rowsDidChange()
+        markOpenThread()
         // Selected threads may have left the list.
         if isEditing { updateSelectionChrome() }
     }

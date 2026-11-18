@@ -56,7 +56,10 @@ final class FormattingBar: UIView {
                 comment: "Formatting: the paragraph direction menu"))
         super.init(frame: CGRect(x: 0, y: 0, width: 400, height: Self.capsuleHeight + Self.inset))
         // Flexible height lets the system grow the bar by the bottom safe area when it sits at the screen's edge,
-        // as it does with a hardware keyboard, so the capsule clears the home indicator and the rounded corners.
+        // as it does with a hardware keyboard, so the capsule clears the home indicator and the rounded corners. The
+        // capsule hangs from the top and leaves that growth empty: tying it to the safe area as well made each height
+        // the system tried ask for another, and on iPad the keyboard then swapped between the software keyboard and
+        // the hardware keyboard's bar without end.
         autoresizingMask = .flexibleHeight
         // At the largest text sizes, pressing and holding a control shows its name large.
         addInteraction(UILargeContentViewerInteraction())
@@ -95,7 +98,6 @@ final class FormattingBar: UIView {
         let content = scrollView.contentLayoutGuide
         NSLayoutConstraint.activate([
             glass.topAnchor.constraint(equalTo: topAnchor, constant: Self.inset / 2),
-            glass.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -Self.inset / 2),
             glass.heightAnchor.constraint(equalToConstant: Self.capsuleHeight),
             glass.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor, constant: Self.inset),
             glass.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor, constant: -Self.inset),
