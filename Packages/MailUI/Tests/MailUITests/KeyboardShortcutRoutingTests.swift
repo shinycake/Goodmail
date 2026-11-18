@@ -80,10 +80,7 @@ struct KeyboardShortcutRoutingTests {
     }
 
     private func perform(_ shortcut: KeyboardShortcut, in root: UIViewController) {
-        let command = UIKeyCommand(
-            title: shortcut.title, action: #selector(UIResponder.copy(_:)), input: shortcut.input,
-            modifierFlags: shortcut.modifiers, propertyList: shortcut.rawValue)
-        KeyboardShortcuts.perform(command, in: root)
+        KeyboardShortcuts.action(for: shortcut, in: root)?()
     }
 }
 

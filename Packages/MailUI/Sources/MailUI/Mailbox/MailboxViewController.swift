@@ -5,7 +5,7 @@ public import UIKit
 public final class MailboxViewController: UIViewController {
     let viewModel: MailboxViewModel
     private(set) var collectionView: UICollectionView!
-    private var dataSource: UICollectionViewDiffableDataSource<MailboxSection, ThreadSummary.ID>!
+    private(set) var dataSource: UICollectionViewDiffableDataSource<MailboxSection, ThreadSummary.ID>!
     private var threadsByID: [ThreadSummary.ID: ThreadSummary] = [:]
     private var sectionTitles = SectionTitles()
     private var observation: Task<Void, Never>?
@@ -546,7 +546,7 @@ extension MailboxViewController {
         toolbarEndsChanged()
     }
 
-    private var selectedIDs: [ThreadSummary.ID] {
+    var selectedIDs: [ThreadSummary.ID] {
         (collectionView.indexPathsForSelectedItems ?? []).compactMap(dataSource.itemIdentifier)
     }
 

@@ -14,7 +14,8 @@ extension ThreadViewController: KeyboardShortcutScreen {
         case .trash: return model.isInTrash ? nil : { model.perform(.trash) }
         case .markUnread: return { model.perform(.markRead(false)) }
         case .star: return { model.perform(.star(!model.isStarred)) }
-        case .newMessage, .getMail, .search, .send: return nil
+        case .newMessage, .getMail, .search, .send, .previousThread, .nextThread, .newWindow, .closeWindow, .settings:
+            return nil
         }
     }
 }

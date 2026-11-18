@@ -13,7 +13,7 @@ import UserNotifications
 /// One per window (ADR-011): decides what the window shows and owns the flows that change it.
 final class SceneCoordinator: NSObject {
     /// The window this coordinator fills, which undoes the last mail action when shaken.
-    let window: UIWindow
+    let window: ShakeToUndoWindow
     let model: AppModel
     private let actions: MailActions
     private var failures: Task<Void, Never>?
@@ -51,6 +51,7 @@ final class SceneCoordinator: NSObject {
         window = ShakeToUndoWindow(windowScene: windowScene, undo: { actions.undoLast() })
         window.traitOverrides.senderPictures = model.senderPictures
         super.init()
+        window.windowAction = { [weak self] in self?.windowAction(for: $0) }
         actions.reopen = { [weak self] draft in self?.handle(.compose(draft)) }
         drafts.newMessage = { [weak self] account in self?.handle(.compose(Draft(accountID: account))) }
         drafts.keep = { [minimized = model.minimizedDrafts, window = windowID] in minimized.keep($0, for: window) }
@@ -423,15 +424,8 @@ final class SceneCoordinator: NSObject {
                 split.show(.secondary)
             }
         case .newWindow(let id, let mailbox):
-            let options = UIScene.ActivationRequestOptions()
-            options.requestingScene = window.windowScene
-            var request = UISceneSessionActivationRequest()
-            request.userActivity = shown.opening(id, in: mailbox).activity
-            request.options = options
-            // iPhone Duo opens new windows only on its inner display, so closed, the thread opens here instead. UIKit
-            // doesn't say which queue the handler runs on; the hop to the main actor is all it does, and it ends there.
-            UIApplication.shared.activateSceneSession(for: request) { @Sendable [weak self] _ in
-                Task { @MainActor in self?.handle(.thread(id, in: mailbox)) }
+            // iPhone Duo opens new windows only on its inner display, so closed, the thread opens here instead.
+            openWindow(showing: shown.opening(id, in: mailbox)) { [weak self] in self?.handle(.thread(id, in: mailbox))
             }
         case .changeLabels(let ids):
             let threads = ids.compactMap { try? model.database.thread($0) }

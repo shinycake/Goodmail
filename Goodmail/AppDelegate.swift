@@ -1,3 +1,4 @@
+import MailUI
 import OSLog
 import UIKit
 
@@ -33,5 +34,13 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: any Error) {
         Logger.push.error("Couldn't register for push: \(error, privacy: .public)")
+    }
+}
+
+extension AppDelegate {
+    /// The menu bar. Its commands perform on the window with the keyboard focus (`ShakeToUndoWindow`).
+    override func buildMenu(with builder: any UIMenuBuilder) {
+        super.buildMenu(with: builder)
+        MailMenus.build(builder, action: #selector(ShakeToUndoWindow.performShortcut(_:)))
     }
 }

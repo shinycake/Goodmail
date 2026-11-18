@@ -12,6 +12,17 @@
         }
       }
     },
+    "Close Window" : {
+      "comment" : "Keyboard command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סגור חלון"
+          }
+        }
+      }
+    },
     "Forward" : {
       "comment" : "Keyboard command",
       "localizations" : {
@@ -34,6 +45,17 @@
         }
       }
     },
+    "Mailbox" : {
+      "comment" : "Menu bar menu",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תיבת דואר"
+          }
+        }
+      }
+    },
     "Mark as Unread" : {
       "comment" : "Keyboard command",
       "localizations" : {
@@ -41,6 +63,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "סימון כלא נקרא"
+          }
+        }
+      }
+    },
+    "Message" : {
+      "comment" : "Menu bar menu",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הודעה"
           }
         }
       }
@@ -63,6 +96,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "הודעה חדשה"
+          }
+        }
+      }
+    },
+    "New Window" : {
+      "comment" : "Keyboard command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חלון חדש"
+          }
+        }
+      }
+    },
+    "Next Message" : {
+      "comment" : "Keyboard command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ההודעה הבאה"
+          }
+        }
+      }
+    },
+    "Previous Message" : {
+      "comment" : "Keyboard command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ההודעה הקודמת"
           }
         }
       }
@@ -107,6 +173,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "שלח"
+          }
+        }
+      }
+    },
+    "Settings…" : {
+      "comment" : "Keyboard command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הגדרות…"
           }
         }
       }

@@ -14,10 +14,16 @@ public nonisolated enum KeyboardShortcut: String, CaseIterable, Sendable {
     case markUnread
     case star
     case send
+    case previousThread
+    case nextThread
+    /// Answered by the window rather than a screen (`WindowCommands`).
+    case newWindow
+    case closeWindow
+    case settings
 
     var input: String {
         switch self {
-        case .newMessage, .getMail: "n"
+        case .newMessage, .getMail, .newWindow: "n"
         case .search, .forward: "f"
         case .reply, .replyAll: "r"
         case .archive: "a"
@@ -25,15 +31,19 @@ public nonisolated enum KeyboardShortcut: String, CaseIterable, Sendable {
         case .markUnread: "u"
         case .star: "l"
         case .send: "d"
+        case .previousThread: UIKeyCommand.inputUpArrow
+        case .nextThread: UIKeyCommand.inputDownArrow
+        case .closeWindow: "w"
+        case .settings: ","
         }
     }
 
     var modifiers: UIKeyModifierFlags {
         switch self {
-        case .newMessage, .reply, .trash: .command
+        case .newMessage, .reply, .trash, .closeWindow, .settings: .command
         case .getMail, .replyAll, .forward, .markUnread, .star, .send: [.command, .shift]
-        case .search: [.command, .alternate]
-        case .archive: [.command, .control]
+        case .search, .newWindow: [.command, .alternate]
+        case .archive, .previousThread, .nextThread: [.command, .control]
         }
     }
 }
@@ -54,19 +64,13 @@ public enum KeyboardShortcuts {
         let screens = screens(in: root)
         return KeyboardShortcut.allCases.compactMap { shortcut in
             guard screens.contains(where: { $0.action(for: shortcut) != nil }) else { return nil }
-            let command = UIKeyCommand(
-                title: shortcut.title, action: action, input: shortcut.input, modifierFlags: shortcut.modifiers,
-                propertyList: shortcut.rawValue)
-            // Delete edits text first, where the composer's field has the keyboard.
-            command.wantsPriorityOverSystemBehavior = shortcut != .trash
-            return command
+            return shortcut.command(action: action)
         }
     }
 
-    /// Performs the shortcut `command` stands for on the frontmost screen that answers it.
-    public static func perform(_ command: UIKeyCommand, in root: UIViewController?) {
-        guard let raw = command.propertyList as? String, let shortcut = KeyboardShortcut(rawValue: raw) else { return }
-        screens(in: root).lazy.compactMap { $0.action(for: shortcut) }.first?()
+    /// What `shortcut` does on the frontmost screen that answers it, or `nil` when none does.
+    public static func action(for shortcut: KeyboardShortcut, in root: UIViewController?) -> (() -> Void)? {
+        screens(in: root).lazy.compactMap { $0.action(for: shortcut) }.first
     }
 
     static func screens(in root: UIViewController?) -> [any KeyboardShortcutScreen] {
@@ -94,6 +98,21 @@ public enum KeyboardShortcuts {
 }
 
 extension KeyboardShortcut {
+    /// The shortcut a key command made by `command(action:)` stands for.
+    public init?(_ command: UICommand) {
+        guard let raw = command.propertyList as? String else { return nil }
+        self.init(rawValue: raw)
+    }
+
+    /// A key command for the shortcut, performing through `action`.
+    func command(action: Selector) -> UIKeyCommand {
+        let command = UIKeyCommand(
+            title: title, action: action, input: input, modifierFlags: modifiers, propertyList: rawValue)
+        // Delete edits text first, where the composer's field has the keyboard, and the arrows move its caret.
+        command.wantsPriorityOverSystemBehavior = ![.trash, .previousThread, .nextThread].contains(self)
+        return command
+    }
+
     /// The command's name in the list Command shows, and for Full Keyboard Access.
     var title: String {
         switch self {
@@ -115,6 +134,16 @@ extension KeyboardShortcut {
         case .star:
             String(localized: "Star or Unstar", table: "Keyboard", bundle: .module, comment: "Keyboard command")
         case .send: String(localized: "Send", table: "Keyboard", bundle: .module, comment: "Keyboard command")
+        case .previousThread:
+            String(localized: "Previous Message", table: "Keyboard", bundle: .module, comment: "Keyboard command")
+        case .nextThread:
+            String(localized: "Next Message", table: "Keyboard", bundle: .module, comment: "Keyboard command")
+        case .newWindow:
+            String(localized: "New Window", table: "Keyboard", bundle: .module, comment: "Keyboard command")
+        case .closeWindow:
+            String(localized: "Close Window", table: "Keyboard", bundle: .module, comment: "Keyboard command")
+        case .settings:
+            String(localized: "Settings…", table: "Keyboard", bundle: .module, comment: "Keyboard command")
         }
     }
 }
