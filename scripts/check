@@ -74,9 +74,10 @@ fi
 if [[ "$(uname)" == Linux ]]; then
     step "Packages and tests compiled for iOS (scripts/ios-build)"
     scripts/ios-build
+    # One scratch folder for all of them, so the modules they share, such as MailCore, compile once.
     for package in "${LINUX_TESTED_PACKAGES[@]}"; do
         step "$package tests on Linux"
-        swift test --package-path "Packages/$package"
+        swift test --package-path "Packages/$package" --scratch-path "$BUILD_DIR/linux-packages"
     done
     printf '\n✔ scripts/check passed on Linux: lint, the iOS compile and the %s tests.\n' "${LINUX_TESTED_PACKAGES[*]}"
     exit 0

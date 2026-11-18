@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # The merge queue's planner (docs/setup/merge-queue.md). Looks at every ready PR from this repository, oldest first,
 # puts each one's place in the queue on its `merge-queue` status, reruns a failed review run up to MAX_ATTEMPTS times,
-# and names the first PR that can merge: approved by the Claude review, with `scripts/check` green on its head.
+# and names the train: the PRs that can merge (approved by the Claude review, with `scripts/check` green on their
+# heads), oldest first and at most MAX_TRAIN of them, which the verifier checks together on top of main.
 #
 # Each PR is in exactly one queue state, which `assess` prints as "state<TAB>why<TAB>checked tree":
 #   ready    approved and green: it can merge, and the tree is the PR merged with main as the check saw it
@@ -12,6 +13,8 @@ set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
 MAX_ATTEMPTS=3
+# More PRs per train means fewer checks, but a failing train costs a check of its first PR alone.
+MAX_TRAIN=6
 main=$(gh api "repos/$R/commits/main" --jq .sha)
 on_main=$(stamp "$main")
 
@@ -94,28 +97,26 @@ assess() {
 }
 
 summary=$'| PR | Queue | Why |\n|---|---|---|\n'
-next=""
+train='[]'
 while IFS=$'\t' read -r pr sha ref author_id author_login; do
     [[ -n "$pr" ]] || continue
     labels=$(gh api "repos/$R/issues/$pr/labels" --jq '.[].name')
     IFS=$'\t' read -r state why tree < <(assess "$pr" "$sha" "$labels" </dev/null)
     case "$state" in
         ready)
-            if [[ -z "$next" ]]; then
-                next=$pr
-                report "$sha" pending "Approved and green: next to merge."
-                {
-                    echo "pr=$pr"
-                    echo "sha=$sha"
-                    echo "ref=$ref"
-                    echo "tree=$tree"
-                    echo "author_id=$author_id"
-                    echo "author_login=$author_login"
-                } >>"$GITHUB_OUTPUT"
+            cars=$(jq length <<<"$train")
+            if ((cars < MAX_TRAIN)); then
+                train=$(jq -c --arg pr "$pr" --arg sha "$sha" --arg ref "$ref" --arg tree "$tree" \
+                    --arg author_id "$author_id" --arg author_login "$author_login" \
+                    '. + [{pr: $pr, sha: $sha, ref: $ref, tree: $tree, author_id: $author_id, author_login: $author_login}]' \
+                    <<<"$train")
+                if ((cars == 0)); then why="Approved and green: next to merge."; else
+                    why="Approved and green: merges with #$(jq -r '.[0].pr' <<<"$train")'s train."
+                fi
             else
-                why="Approved and green: queued behind #$next."
-                report "$sha" pending "$why"
+                why="Approved and green: queued behind #$(jq -r '.[0].pr' <<<"$train")'s train."
             fi
+            report "$sha" pending "$why"
             ;;
         waiting) report "$sha" pending "$why" ;;
         stuck) report "$sha" failure "$why" ;;
@@ -128,6 +129,8 @@ while IFS=$'\t' read -r pr sha ref author_id author_login; do
 done < <(gh api "repos/$R/pulls?state=open&sort=created&direction=asc&per_page=100" --paginate \
     --jq ".[] | select(.draft | not) | select((.head.repo.full_name // \"\" | ascii_downcase) == (\"$R\" | ascii_downcase))
         | [.number, .head.sha, .head.ref, .user.id, .user.login] | @tsv")
+# The train, as a JSON array of {pr, sha, ref, tree, author_id, author_login}, empty when nothing can merge.
+echo "train=$train" >>"$GITHUB_OUTPUT"
 
 echo "Main is at ${main:0:7}."$'\n\n'"$summary" >>"$GITHUB_STEP_SUMMARY"
 echo "$summary"

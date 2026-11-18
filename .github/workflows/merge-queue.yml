@@ -1,10 +1,10 @@
 # The merge queue (docs/setup/merge-queue.md, ADR-020): lands every PR the Claude review approved and scripts/check
-# passed, one at a time, with nobody watching. review.yml only checks and reviews; this workflow merges.
+# passed, with nobody watching. review.yml only checks and reviews; this workflow merges.
 #
-# A sweep plans (which PR is next, and where every other one stands), verifies the next PR squashed onto the current
-# main, checking it again only if main moved since its review run checked it, and lands it by fast-forwarding main.
-# Then it starts the next sweep, until no PR is left to merge. Every PR's place in the queue is its `merge-queue`
-# commit status, and each sweep's summary lists them all.
+# A sweep plans (the train of PRs that can merge, and where every other one stands), verifies the train squashed onto
+# the current main with one scripts/check, skipped for a lone PR whose review run checked that same tree, and lands it
+# by fast-forwarding main one PR at a time. Then it starts the next sweep, until no PR is left to merge. Every PR's
+# place in the queue is its `merge-queue` commit status, and each sweep's summary lists them all.
 name: merge-queue
 
 on:
@@ -39,12 +39,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     outputs:
-      pr: ${{ steps.plan.outputs.pr }}
-      sha: ${{ steps.plan.outputs.sha }}
-      ref: ${{ steps.plan.outputs.ref }}
-      tree: ${{ steps.plan.outputs.tree }}
-      author_id: ${{ steps.plan.outputs.author_id }}
-      author_login: ${{ steps.plan.outputs.author_login }}
+      train: ${{ steps.plan.outputs.train }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -56,7 +51,7 @@ jobs:
   # Runs the PR's code, so it gets read access only.
   verify:
     needs: plan
-    if: ${{ needs.plan.outputs.pr != '' }}
+    if: ${{ needs.plan.outputs.train != '[]' && needs.plan.outputs.train != '' }}
     runs-on: ubuntu-latest
     container: swift:6.4.2-noble
     timeout-minutes: 60
@@ -67,15 +62,16 @@ jobs:
         shell: bash
     env:
       HOME: /root
-      PR: ${{ needs.plan.outputs.pr }}
-      SHA: ${{ needs.plan.outputs.sha }}
-      CHECKED_TREE: ${{ needs.plan.outputs.tree }}
+      TRAIN: ${{ needs.plan.outputs.train }}
       HAS_SDK_KEY: ${{ secrets.GOODMAIL_SDK_DEPLOY_KEY != '' }}
     outputs:
       main: ${{ steps.squash.outputs.main }}
-      tree: ${{ steps.squash.outputs.tree }}
+      cars: ${{ steps.squash.outputs.cars }}
       verdict: ${{ steps.check.outputs.state || steps.squash.outputs.state }}
+      count: ${{ steps.check.outputs.count || steps.squash.outputs.count }}
     steps:
+      # The image has no jq, which the verifier reads the train with.
+      - run: apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q jq
       - uses: actions/checkout@v4
         with:
           path: goodmail
@@ -91,11 +87,13 @@ jobs:
       - id: check
         if: steps.squash.outputs.state == 'unverified'
         working-directory: goodmail
+        env:
+          CARS: ${{ steps.squash.outputs.cars }}
         run: .github/merge-queue/verify check
 
   land:
     needs: [plan, verify]
-    if: ${{ always() && needs.plan.outputs.pr != '' }}
+    if: ${{ always() && needs.plan.outputs.train != '[]' && needs.plan.outputs.train != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -106,14 +104,11 @@ jobs:
       statuses: write
     env:
       GH_TOKEN: ${{ github.token }}
-      PR: ${{ needs.plan.outputs.pr }}
-      SHA: ${{ needs.plan.outputs.sha }}
-      REF: ${{ needs.plan.outputs.ref }}
-      AUTHOR_ID: ${{ needs.plan.outputs.author_id }}
-      AUTHOR_LOGIN: ${{ needs.plan.outputs.author_login }}
+      TRAIN: ${{ needs.plan.outputs.train }}
       MAIN: ${{ needs.verify.outputs.main }}
-      TREE: ${{ needs.verify.outputs.tree }}
+      CARS: ${{ needs.verify.outputs.cars }}
       VERDICT: ${{ needs.verify.outputs.verdict }}
+      COUNT: ${{ needs.verify.outputs.count }}
     steps:
       - uses: actions/checkout@v4
         with:

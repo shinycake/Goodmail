@@ -23,6 +23,10 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OB
 # macOS compiler plugin. Linux can't build them; the Mac's scripts/check does, and the app type-checks without them.
 mac_only=(MailIntents)
 
+# Every package builds into one scratch folder, so a module the packages share, such as MailCore or GRDB, compiles
+# once rather than once per package that depends on it.
+scratch="$PWD/.build/ios-packages"
+
 app_targets=false
 if (($# == 0)); then
     app_targets=true
@@ -37,7 +41,7 @@ for package in "$@"; do
     tests=()
     if [[ -d "Packages/$package/Tests" ]]; then tests=(--build-tests); fi
     printf '\n▸ %s for iOS\n' "$package"
-    swift build --package-path "Packages/$package" --build-system swiftbuild --triple arm64-apple-ios \
+    swift build --package-path "Packages/$package" --scratch-path "$scratch" --build-system swiftbuild --triple arm64-apple-ios \
         --toolset "$bundle/toolset-swb.json" "${tests[@]}"
 done
 $app_targets || exit 0
@@ -46,10 +50,9 @@ $app_targets || exit 0
 # the strict settings Goodmail.xcodeproj shares with every package (scripts/strict-swift) and the app's MainActor
 # default isolation.
 deployment_target=$(grep -oE '"IPHONEOS_DEPLOYMENT_TARGET": "[0-9.]+"' Goodmail.xcodeproj/project.xcproj | grep -oE '[0-9.]+')
-module_paths=()
-for package in Packages/*/; do module_paths+=(-I "$package.build/out/Products/Debug-iphoneos"); done
+module_paths=(-I "$scratch/out/Products/Debug-iphoneos")
 read -ra strict_flags <<<"$(scripts/strict-swift --swiftc-flags)"
-grdb_sqlite=Packages/MailStore/.build/checkouts/GRDB.swift/Sources/GRDBSQLite/module.modulemap
+grdb_sqlite=$scratch/checkouts/GRDB.swift/Sources/GRDBSQLite/module.modulemap
 typecheck() {
     local target="$1" sources="$2"
     shift 2

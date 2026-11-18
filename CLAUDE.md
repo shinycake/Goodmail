@@ -17,7 +17,7 @@ A native iOS email client. Read [README.md](README.md) for the build and the gat
 
 The process is autonomous. Nobody needs to approve routine work.
 
-1. Work on a short-lived branch, one small vertical slice per PR. Pass `scripts/check` locally.
+1. Work on a short-lived branch, one complete vertical slice per PR. A PR can be big, as long as the review can still read all of it (ADR-018). Pass `scripts/check` locally.
    - **One ready PR per thread (ADR-018):** land your open PR, by fixing its findings and failing checks first, before you open the next one. Keep later slices on local branches until then.
    - New code goes in new files. Don't grow a central file every feature touches (coordinators, registries, shared string tables): give each feature its own file or table.
 2. Open a ready (not draft) PR with evidence: the `scripts/check` output, plus simulator screenshots or recordings for UI changes.
