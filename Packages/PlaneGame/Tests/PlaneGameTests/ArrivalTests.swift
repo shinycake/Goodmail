@@ -16,7 +16,12 @@ struct ArrivalTests {
         var spawner = PlaneGameSpawner()
         var generator = SeededGenerator(seed: seed)
         return stride(from: 0, through: seconds, by: 1.0 / 20).map { time in
-            (time, spawner.arrivals(at: time, in: field, livesMissing: livesMissing, using: &generator))
+            (
+                time,
+                spawner.arrivals(
+                    at: time, in: field, openings: .init(livesMissing: livesMissing, powerUpInPlay: false),
+                    using: &generator)
+            )
         }
     }
 

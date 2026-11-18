@@ -19,11 +19,16 @@ public struct PlaneGameWorld: Equatable, Sendable {
     public internal(set) var elapsed: TimeInterval = 0
     /// Points the world has scrolled, which the backdrop is drawn from.
     public internal(set) var distance: CGFloat = 0
+    /// What the plane fires.
+    public internal(set) var weapon = PlaneGameWeapon.single
+    /// Bubble Wrap is around the plane, and the next hit costs no life.
+    public internal(set) var isShielded = false
 
     /// When the plane sets off, in seconds played. The scroll eases in from then.
     let setOff: TimeInterval
     var generator: SeededGenerator
     var spawner = PlaneGameSpawner()
+    var encounter = Encounter.waves(played: 0, next: 1)
     var trigger = Trigger.ready
     /// Seconds since the plane's trail last took a sample.
     var sinceTrailSample: TimeInterval = 0
@@ -80,7 +85,8 @@ public struct PlaneGameWorld: Equatable, Sendable {
     }
 
     /// The field changed size, as on rotation. The plane moves to the new row inside the new lanes, or a launching
-    /// one heads for its new starting place, and everything in play is brought inside the lanes. Nothing else moves.
+    /// one heads for its new starting place, everything in play is brought inside the lanes, and a boss keeps inside
+    /// them and under the new ceiling. Nothing else moves.
     public mutating func resize(to field: PlaneGameField) {
         self.field = field
         switch plane.status {
@@ -96,11 +102,16 @@ public struct PlaneGameWorld: Equatable, Sendable {
             things[index].lane = field.lanes(inset: kind.radius + kind.swing).clamping(things[index].lane)
             things[index].position.x = field.lanes.clamping(things[index].position.x)
         }
+        if case .boss(var boss) = encounter {
+            boss.place(on: field)
+            encounter = .boss(boss)
+        }
     }
 
-    /// Puts a thing of `kind` at `position`. Arrivals come through here, and tests place things with it.
-    mutating func add(_ kind: PlaneGameThing.Kind, at position: CGPoint) {
-        things.append(PlaneGameThing(id: takeID(), kind: kind, position: position))
+    /// Puts a thing of `kind` at `position`, sliding sideways at `drift`. Arrivals come through here, and tests place
+    /// things with it.
+    mutating func add(_ kind: PlaneGameThing.Kind, at position: CGPoint, drift: CGFloat = 0) {
+        things.append(PlaneGameThing(id: takeID(), kind: kind, position: position, drift: drift))
     }
 
     mutating func takeID() -> Int {

@@ -39,8 +39,15 @@ extension PlaneGameWorld {
         sampleTrail(over: dt)
     }
 
-    /// The plane hit something solid or a bad guy: a life lost, and then a blink or the fall.
+    /// The plane hit something solid, a bad guy or a lure: a life lost, and then a blink or the fall. Bubble Wrap
+    /// takes the hit in its place and bursts, and the plane still blinks.
     mutating func hitPlane() -> [PlaneGameEvent] {
+        if isShielded {
+            isShielded = false
+            burst(.unwrapped, at: plane.position)
+            plane.status = .shaken(remaining: PlaneGameRules.shakenFor)
+            return [.hit(livesLeft: lives)]
+        }
         lives -= 1
         guard lives == 0 else {
             plane.status = .shaken(remaining: PlaneGameRules.shakenFor)
@@ -51,30 +58,33 @@ extension PlaneGameWorld {
         return [.hit(livesLeft: 0), .fell]
     }
 
-    /// Fires while the finger is down and the plane is in play, never more often than `fireEvery`, however fast the
-    /// finger taps. Steps are never longer than `fireEvery`, so one shot a step is enough.
+    /// Fires while the finger is down and the plane is in play, never more often than the weapon fires, however fast
+    /// the finger taps. Steps are never longer than that, so one volley a step is enough.
     mutating func pullTrigger(_ isFiring: Bool, over dt: TimeInterval) {
         let wantsToFire = isFiring && plane.isInPlay
+        let fireEvery = weapon.fireEvery
         switch trigger {
         case .ready where wantsToFire:
             fire()
             trigger = .cooling(sinceShot: 0)
         case .ready:
             break
-        case .cooling(let since) where since + dt < PlaneGameRules.fireEvery:
+        case .cooling(let since) where since + dt < fireEvery:
             trigger = .cooling(sinceShot: since + dt)
         case .cooling(let since) where wantsToFire:
             fire()
-            trigger = .cooling(sinceShot: since + dt - PlaneGameRules.fireEvery)
+            trigger = .cooling(sinceShot: since + dt - fireEvery)
         case .cooling:
             trigger = .ready
         }
     }
 
+    /// One volley: a shot, or Reply All's three.
     private mutating func fire() {
-        shots.append(
-            PlaneGameShot(
-                id: takeID(), position: CGPoint(x: plane.position.x, y: plane.position.y - PlaneGameRules.planeRadius)))
+        let nose = CGPoint(x: plane.position.x, y: plane.position.y - PlaneGameRules.planeRadius)
+        for drift in weapon.drifts {
+            shots.append(PlaneGameShot(id: takeID(), position: nose, drift: drift))
+        }
     }
 
     /// Slides the plane sideways by the finger's movement, on the row and inside the lanes, and banks it into the
@@ -141,6 +151,11 @@ extension PlaneGamePlane {
     /// Waiting at its launch point to set off.
     var isWaiting: Bool {
         if case .launching(_, let elapsed) = status { elapsed < 0 } else { false }
+    }
+
+    /// Out of lives and falling.
+    var isDown: Bool {
+        if case .down = status { true } else { false }
     }
 
     /// Steering, firing and catching pickups.

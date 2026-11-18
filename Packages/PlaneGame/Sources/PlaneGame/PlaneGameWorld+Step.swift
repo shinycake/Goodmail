@@ -11,23 +11,22 @@ extension PlaneGameWorld {
         let speed = speed
         distance += speed * dt
         movePlane(by: dt, slide: input.slide)
+        weapon = weapon.aged(by: dt)
         pullTrigger(input.isFiring, over: dt)
         moveShots(by: dt)
         moveThings(by: dt, speed: speed)
         ageBursts(by: dt)
-        for arrival in spawner.arrivals(
-            at: elapsed, in: field, livesMissing: lives < PlaneGameRules.lives, using: &generator)
-        {
-            add(arrival.kind, at: arrival.position)
-        }
+        stepEncounter(by: dt)
         return collideShots() + collidePlane()
     }
 
+    /// Shots fly up, Reply All's side shots leaning out, and are gone past the top or a side edge.
     private mutating func moveShots(by dt: TimeInterval) {
         for index in shots.indices {
             shots[index].position.y -= PlaneGameRules.shotSpeed * dt
+            shots[index].position.x += shots[index].drift * dt
         }
-        shots.removeAll { $0.position.y < 0 }
+        shots.removeAll { $0.position.y < 0 || !(0...field.size.width).contains($0.position.x) }
     }
 
     private mutating func moveThings(by dt: TimeInterval, speed: CGFloat) {
@@ -44,17 +43,22 @@ extension PlaneGameWorld {
         bursts.removeAll { $0.age >= PlaneGameBurst.lifetime }
     }
 
-    /// Shots stop on the first obstacle or bad guy they touch and pass over pickups.
+    /// Shots stop on the first obstacle, bad guy or fighting boss they touch, and pass over pickups and through
+    /// lures.
     private mutating func collideShots() -> [PlaneGameEvent] {
         var events: [PlaneGameEvent] = []
         var flying: [PlaneGameShot] = []
         for shot in shots {
             guard
                 let index = things.firstIndex(where: {
-                    $0.kind.role != .pickup && $0.touches(shot.position, within: PlaneGameRules.shotRadius)
+                    $0.kind.role.stopsShots && $0.touches(shot.position, within: PlaneGameRules.shotRadius)
                 })
             else {
-                flying.append(shot)
+                if let boss, boss.canBeHit, boss.touches(shot.position, within: PlaneGameRules.shotRadius) {
+                    events += strikeBoss(1, at: shot.position)
+                } else {
+                    flying.append(shot)
+                }
                 continue
             }
             switch things[index].kind.role {
@@ -66,7 +70,7 @@ extension PlaneGameWorld {
             case .badGuy:
                 things[index].hitsLeft -= 1
                 burst(.tick, at: shot.position)
-            case .obstacle, .pickup:
+            case .obstacle, .pickup, .hazard:
                 burst(.tick, at: shot.position)
             }
         }
@@ -74,40 +78,31 @@ extension PlaneGameWorld {
         return events
     }
 
-    /// The plane catches pickups while it is in play, and loses a life to the first obstacle or bad guy it touches
-    /// while it can be hit. A bad guy that hits it is destroyed; an obstacle stays.
+    /// The plane catches pickups while it is in play, and loses a life to the first obstacle, bad guy or lure it
+    /// touches while it can be hit. A bad guy or lure that hits it is destroyed; an obstacle stays.
     private mutating func collidePlane() -> [PlaneGameEvent] {
         guard plane.isInPlay else { return [] }
         var events: [PlaneGameEvent] = []
         for thing in things where thing.touches(plane.position, within: PlaneGameRules.planeRadius) {
+            // Unsubscribe, caught earlier in this loop, may have popped it already.
+            guard things.contains(where: { $0.id == thing.id }) else { continue }
             switch thing.kind.role {
             case .pickup:
-                catchPickup(thing)
-                events.append(.caught(thing.kind))
-            case .badGuy where plane.status == .flying:
+                events += catchPickup(thing)
+            case .badGuy where plane.status == .flying, .hazard where plane.status == .flying:
                 things.removeAll { $0.id == thing.id }
                 burst(.pop(points: 0), at: thing.position)
                 events += hitPlane()
             case .obstacle where plane.status == .flying:
                 events += hitPlane()
-            case .badGuy, .obstacle:
+            case .badGuy, .obstacle, .hazard:
                 break
             }
         }
         return events
     }
 
-    private mutating func catchPickup(_ pickup: PlaneGameThing) {
-        things.removeAll { $0.id == pickup.id }
-        burst(.caught, at: pickup.position)
-        switch pickup.kind {
-        case .star: score += PlaneGameRules.starPoints
-        case .heart: lives = min(lives + 1, PlaneGameRules.lives)
-        case .stamp, .postmark, .spam, .phish: break
-        }
-    }
-
-    private mutating func burst(_ kind: PlaneGameBurst.Kind, at position: CGPoint) {
+    mutating func burst(_ kind: PlaneGameBurst.Kind, at position: CGPoint) {
         bursts.append(PlaneGameBurst(id: takeID(), kind: kind, position: position, age: 0))
     }
 }

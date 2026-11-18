@@ -7,7 +7,7 @@ import Testing
     import CoreGraphics
 #endif
 
-/// Long games with random input: replayable, and never out of bounds.
+/// Long games with random input, bosses and power-ups included: replayable, and never out of bounds.
 struct SoakTests {
     /// Random slides, taps and frame lengths from `seed`, the same every time.
     private struct Player {
@@ -50,6 +50,7 @@ struct SoakTests {
         var player = Player(generator: SeededGenerator(seed: 11))
         var mostThings = 0
         var mostShots = 0
+        var bossesMet: Set<Int> = []
         let lanes = field.lanes(inset: PlaneGameRules.planeRadius)
         while world.elapsed < 300 {
             // A plane that never runs out of lives, so things keep arriving for the whole five minutes.
@@ -70,10 +71,17 @@ struct SoakTests {
                 #expect(lanes.contains(world.plane.position.x))
             }
             #expect(world.things.allSatisfy { field.lanes.contains($0.position.x) })
+            if let boss = world.boss {
+                bossesMet.insert(boss.number)
+                #expect(field.lanes(inset: boss.radius).contains(boss.position.x))
+                #expect(boss.position.y <= field.ceiling + boss.radius)
+                #expect(boss.position.x.isFinite && boss.position.y.isFinite)
+            }
         }
         #expect(world.distance > 280 * PlaneGameRules.cruisingSpeed * field.pace)
         #expect(mostThings <= 60)
-        #expect(mostShots <= 16)
+        #expect(mostShots <= 48)
+        #expect(bossesMet.contains(1))
     }
 
     @Test func aNonsenseStepChangesNothingAndAHugeOneIsCapped() {

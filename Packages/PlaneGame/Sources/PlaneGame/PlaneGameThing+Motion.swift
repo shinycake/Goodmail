@@ -4,7 +4,7 @@ import Foundation
     import CoreGraphics
 #endif
 
-/// How each kind moves: everything falls with the world, and bad guys fall faster than it.
+/// How each kind moves: everything falls with the world, and bad guys and lures fall faster than it.
 extension PlaneGameThing {
     /// Moves it on by `dt` with the world falling at `speed`, on `field`, keeping its x inside the lanes.
     mutating func move(by dt: TimeInterval, speed: CGFloat, towardX planeX: CGFloat, on field: PlaneGameField) {
@@ -22,7 +22,9 @@ extension PlaneGameThing {
             position.x += min(max(planeX - position.x, -reach), reach)
         case .star:
             turn += PlaneGameRules.starSpin * dt
-        case .heart:
+        case .lure:
+            position.x += drift * dt
+        case .heart, .spread, .rapid, .shield, .sweep:
             break
         }
         position.x = field.lanes.clamping(position.x)
@@ -39,7 +41,8 @@ extension PlaneGameThing.Kind {
         switch self {
         case .spam: PlaneGameRules.spamExtraSpeed
         case .phish: PlaneGameRules.phishExtraSpeed
-        case .stamp, .postmark, .star, .heart: 0
+        case .lure: PlaneGameRules.lureExtraSpeed
+        case .stamp, .postmark, .star, .heart, .spread, .rapid, .shield, .sweep: 0
         }
     }
 
@@ -48,7 +51,7 @@ extension PlaneGameThing.Kind {
         switch self {
         case .postmark: PlaneGameRules.postmarkSway / 2
         case .spam: PlaneGameRules.spamWeave
-        case .stamp, .phish, .star, .heart: 0
+        case .stamp, .phish, .star, .heart, .spread, .rapid, .shield, .sweep, .lure: 0
         }
     }
 }

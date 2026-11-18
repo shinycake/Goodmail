@@ -21,8 +21,13 @@ public struct PlaneGameInput: Equatable, Sendable {
 /// Something a step did that the screen answers with a haptic or a change of phase.
 public enum PlaneGameEvent: Equatable, Sendable {
     case shotDown(points: Int)
+    /// The plane caught a star or a heart.
     case caught(PlaneGameThing.Kind)
+    /// The plane caught a power-up.
+    case powered(PlaneGameThing.Kind)
     case hit(livesLeft: Int)
     /// The plane is out of lives and starts to fall.
     case fell
+    /// A boss ran out of hits, for `points`.
+    case bossDown(points: Int)
 }

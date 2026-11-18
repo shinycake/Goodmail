@@ -14,9 +14,15 @@ public struct PlaneGameBurst: Equatable, Sendable, Identifiable {
         case tick
         /// The plane caught a pickup.
         case caught
+        /// A shot struck a boss, which flashes for `PlaneGameBurst.flash`.
+        case struck
+        /// The plane's Bubble Wrap took a hit in its place.
+        case unwrapped
     }
 
     public static let lifetime: TimeInterval = 0.5
+    /// How long a boss flashes after a shot strikes it.
+    public static let flash: TimeInterval = 0.08
 
     public let id: Int
     public let kind: Kind

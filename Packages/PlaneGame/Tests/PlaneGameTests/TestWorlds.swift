@@ -45,4 +45,26 @@ extension PlaneGameWorld {
     mutating func addAhead(_ kind: PlaneGameThing.Kind, by offset: CGFloat = 0) {
         add(kind, at: CGPoint(x: plane.position.x, y: plane.position.y - offset))
     }
+
+    /// Brings boss `number` on over an empty field and lets it slide in, so it is fighting.
+    mutating func meetBoss(_ number: Int = 1) {
+        things.removeAll()
+        encounter = .clearing(number: number, elapsed: 0)
+        run(for: PlaneGameRules.bossArrival + 2 * frame)
+    }
+
+    /// Changes the boss on the field, as a test needs it.
+    mutating func changeBoss(_ change: (inout PlaneGameBoss) -> Void) {
+        guard case .boss(var boss) = encounter else { return }
+        change(&boss)
+        encounter = .boss(boss)
+    }
+
+    /// Puts a shot just under the boss, to strike it on the next step.
+    mutating func shootBoss() {
+        guard let boss else { return }
+        shots.append(
+            PlaneGameShot(
+                id: takeID(), position: CGPoint(x: boss.position.x, y: boss.position.y + boss.radius + 2), drift: 0))
+    }
 }
