@@ -252,3 +252,9 @@ Amended by ADR-023: Gmail and Outlook accounts are now read on the watch itself.
   - One object per mailbox: two always-on objects go over the free daily duration.
   - Forwarding iCloud mail to a Cloudflare Email Worker: needs a domain on Cloudflare and a forwarding rule set up in each mailbox. Kept in reserve.
   - A home server or a small VM: something more to run and keep up, for the same result.
+
+## ADR-027: The paper plane game's rules are their own package
+
+- **Decision (2026-11-18):** the paper plane game hidden in the empty Inbox keeps its rules in `PlaneGame`, a package of its own: the tap streak that opens it, the launch loop, and the world with its plane, arrivals, shots, collisions and score, as `Sendable` values stepped by `PlaneGameWorld.advance(by:input:)`. It imports Foundation only. MailUI depends on it and draws it, and owns everything with a look or a clock: the art, the morphs in and out, the HUD and the display link.
+- **Why:** the rules are logic, so they belong in a module of their own (ADR-005) and out of MailUI, whose tests run only on the Mac. With Foundation alone the package builds on Linux, so `scripts/check` runs its tests on every push and a cloud session can build it test-first.
+- **Replays:** a world takes a seed, and its random numbers come from a small seeded generator stored in it, so the same seed and inputs always give the same world. Tests rely on this, and so can a bug report.
