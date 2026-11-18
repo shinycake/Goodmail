@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
-import { signerFor } from "./apns";
 import type { Env } from "./env";
+import { alertsFor } from "./fallback";
 import { connectToServer } from "./imap";
 import { pollWatches } from "./imap-poll";
 import { InboxWatches } from "./inbox-watches";
@@ -32,7 +32,12 @@ export interface Holder {
  * arrived meanwhile.
  */
 export class InboxHolder extends DurableObject<Env> implements Holder {
-  private readonly watches = new InboxWatches(this.env, signerFor(this.env), connectToServer, { watchMs: HOLD_MS, restMs: REST_MS });
+  private readonly watches = new InboxWatches(
+    this.env,
+    alertsFor(this.env, (work) => this.ctx.waitUntil(work)),
+    connectToServer,
+    { watchMs: HOLD_MS, restMs: REST_MS },
+  );
 
   /** Starts the beat when it isn't running: the first time ever, and after an alarm was lost. */
   async wake(): Promise<void> {
@@ -63,7 +68,12 @@ export async function keepInboxesWatched(
   env: Env,
   now: number,
   holder: Holder = env.INBOX_HOLDER.getByName("inboxes"),
-  watch: () => Promise<void> = () => pollWatches(env, signerFor(env), now),
+  watch: () => Promise<void> = async () => {
+    // The run ends only once each watch's fallback has had its wait.
+    const fallbacks: Promise<unknown>[] = [];
+    await pollWatches(env, alertsFor(env, (work) => fallbacks.push(work)), now);
+    await Promise.all(fallbacks);
+  },
 ): Promise<void> {
   try {
     await holder.wake();

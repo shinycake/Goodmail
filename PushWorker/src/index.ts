@@ -1,13 +1,24 @@
-import { type ApnsEnvironment, type PushOutcome, sendAlert, signerFor } from "./apns";
+import { acknowledge } from "./acks";
+import { type ApnsEnvironment, type PushOutcome } from "./apns";
 import { guardDevice, issueChallenge, registerKey } from "./attest-routes";
 import { base64Decode } from "./encoding";
 import type { Env } from "./env";
+import { alertsFor, pruneAlerts } from "./fallback";
 import { TokenError, verifyIdToken, verifyPubSubToken } from "./google";
 import { forgetGrant, grantsFor, storeGrant } from "./grant-routes";
 import { keepInboxesWatched } from "./inbox-holder";
 import { registerWatch, unregisterWatch } from "./imap-routes";
 import { OutlookGrantRevoked, OutlookGrants, refreshOutlookToken } from "./outlook";
-import { BadRequest, googleKeys, mailboxCheck, nowSeconds, outlookCheck, readJson } from "./shared";
+import {
+  BadRequest,
+  DEVICE_TOKEN,
+  googleKeys,
+  mailboxCheck,
+  nowSeconds,
+  outlookCheck,
+  readJson,
+  watchTokenIn,
+} from "./shared";
 import {
   hasGraphSubscriptions,
   registerGraphSubscription,
@@ -24,12 +35,10 @@ import {
   releasePushSlot,
   unregisterDevice,
 } from "./store";
-import { forgetDeviceToken } from "./tokens";
 
 export type { Env } from "./env";
 export { InboxHolder } from "./inbox-holder";
 
-const DEVICE_TOKEN = /^[0-9a-f]{64,200}$/i;
 const HISTORY_ID = /^\d{1,20}$/;
 const ENVIRONMENTS: readonly ApnsEnvironment[] = ["sandbox", "production"];
 const GRAPH_SUBSCRIPTION_ID = /^[0-9a-f-]{36}$/i;
@@ -63,7 +72,8 @@ export default {
       }
       if (pathname === "/v1/devices" && request.method === "POST") return await register(request, env);
       if (pathname === "/v1/devices" && request.method === "DELETE") return await unregister(request, env);
-      if (pathname === "/v1/pubsub" && request.method === "POST") return await pubSubPush(request, env);
+      if (pathname === "/v1/pubsub" && request.method === "POST") return await pubSubPush(request, env, context);
+      if (pathname === "/v1/acks" && request.method === "POST") return await acknowledge(request, env);
       if (pathname === "/v1/gmail/grants" && request.method === "POST") return await storeGrant(request, env);
       if (pathname === "/v1/graph" && request.method === "POST") return await graphNotification(request, url, env, context);
       if (pathname === "/v1/graph/subscriptions" && request.method === "POST") return await registerGraph(request, env);
@@ -76,6 +86,7 @@ export default {
         "/v1/attest/keys",
         "/v1/devices",
         "/v1/pubsub",
+        "/v1/acks",
         "/v1/graph",
         "/v1/graph/subscriptions",
         "/v1/graph/grants",
@@ -95,7 +106,8 @@ export default {
 
   /** Every 5 minutes (wrangler.toml `[triggers]`): sees that the IMAP Inboxes are being watched. */
   async scheduled(_controller: ScheduledController, env: Env, context: ExecutionContext): Promise<void> {
-    context.waitUntil(keepInboxesWatched(env, Date.now()));
+    const now = Date.now();
+    context.waitUntil(Promise.all([keepInboxesWatched(env, now), pruneAlerts(env.DB, now)]));
   },
 } satisfies ExportedHandler<Env>;
 
@@ -113,7 +125,8 @@ async function register(request: Request, env: Env): Promise<Response> {
   const environment = ENVIRONMENTS.find((candidate) => candidate === body.environment);
   if (!environment) throw new BadRequest("environment must be sandbox or production");
   const { account, token } = await authenticateDevice(body, env);
-  await registerDevice(env.DB, account, { token, environment }, Date.now());
+  const watchToken = watchTokenIn(body);
+  await registerDevice(env.DB, account, { token, environment, ...(watchToken && { watchToken }) }, Date.now());
   return new Response(null, { status: 204 });
 }
 
@@ -129,7 +142,7 @@ async function unregister(request: Request, env: Env): Promise<Response> {
  * Handles one Pub/Sub push. Any 2xx acknowledges the message; malformed messages are acknowledged too, since
  * redelivering them can't help.
  */
-async function pubSubPush(request: Request, env: Env): Promise<Response> {
+async function pubSubPush(request: Request, env: Env, context: ExecutionContext): Promise<Response> {
   const bearer = /^Bearer (.+)$/.exec(request.headers.get("authorization") ?? "")?.[1];
   if (!bearer) return new Response(null, { status: 401 });
   await verifyPubSubToken(bearer, env.PUBSUB_AUDIENCE, env.PUBSUB_SERVICE_ACCOUNT, googleKeys, nowSeconds());
@@ -162,13 +175,9 @@ async function pubSubPush(request: Request, env: Env): Promise<Response> {
   // Pub/Sub's redelivery is the only retry, so an alert that reached no device gives its claim back and asks for it.
   let outcomes: PushOutcome[];
   try {
-    const signer = signerFor(env);
+    const alerts = alertsFor(env, (work) => context.waitUntil(work));
     outcomes = await Promise.all(
-      devices.map(async (device) => {
-        const outcome = await sendAlert(signer, device, arrival.newest, { account: emailAddress, historyId });
-        if (outcome === "gone") await forgetDeviceToken(env.DB, device.token);
-        return outcome;
-      }),
+      devices.map((device) => alerts.send(device, arrival.newest, { account: emailAddress, historyId })),
     );
   } catch (error) {
     await release();
@@ -201,9 +210,11 @@ async function registerGraph(request: Request, env: Env): Promise<Response> {
   if (typeof account !== "string" || !ACCOUNT_ID.test(account)) throw new BadRequest("bad account");
   if (typeof deviceToken !== "string" || !DEVICE_TOKEN.test(deviceToken)) throw new BadRequest("bad deviceToken");
   if (typeof expiresAt !== "number" || !Number.isFinite(expiresAt)) throw new BadRequest("bad expiresAt");
+  const watchToken = watchTokenIn(body);
+  const device = { token: deviceToken.toLowerCase(), environment, ...(watchToken && { watchToken }) };
   const stored = await registerGraphSubscription(
     env.DB,
-    { subscriptionId, account, device: { token: deviceToken.toLowerCase(), environment }, expiresAt },
+    { subscriptionId, account, device, expiresAt },
     clientState,
     Date.now(),
   );
@@ -288,10 +299,7 @@ async function graphNotification(request: Request, url: URL, env: Env, context: 
           arrival = await outlookCheck.arrival(grants, env.OUTLOOK_CLIENT_ID, subscription.account, ids);
         }
         if (arrival.kind !== "mail") return;
-        const outcome = await sendAlert(signerFor(env), subscription.device, arrival.newest, {
-          accountID: subscription.account,
-        });
-        if (outcome === "gone") await forgetDeviceToken(env.DB, subscription.device.token);
+        await alertsFor(env, (work) => context.waitUntil(work)).send(subscription.device, arrival.newest, { accountID: subscription.account });
       }),
     ),
   );

@@ -107,6 +107,7 @@ async function messageState(
   if (response.status === 404) return "quiet";
   if (!response.ok) return "retry";
   const message = (await response.json()) as {
+    threadId?: unknown;
     labelIds?: unknown;
     internalDate?: unknown;
     payload?: { headers?: { name?: unknown; value?: unknown }[] };
@@ -120,7 +121,11 @@ async function messageState(
   if (typeof from !== "string" || from.trim() === "") return "retry";
   const subject = header("subject");
   return {
-    mail: { sender: senderName(from), subject: typeof subject === "string" ? decodeEncodedWords(subject) : "" },
+    mail: {
+      sender: senderName(from),
+      subject: typeof subject === "string" ? decodeEncodedWords(subject) : "",
+      ...(typeof message.threadId === "string" && { threadID: message.threadId }),
+    },
     at: Number(message.internalDate) || 0,
   };
 }

@@ -9,18 +9,29 @@ public struct WristMailHost: Sendable {
     private let database: MailDatabase
     private let commands: MailCommands
     private let answers: ThreadAnswers
+    private let independence: @Sendable () -> WristIndependence
 
-    public init(database: MailDatabase, commands: MailCommands, answers: ThreadAnswers) {
+    /// `independence` is the owner's switch, read for each snapshot.
+    public init(
+        database: MailDatabase, commands: MailCommands, answers: ThreadAnswers,
+        independence: @escaping @Sendable () -> WristIndependence = { .default }
+    ) {
         self.database = database
         self.commands = commands
         self.answers = answers
+        self.independence = independence
     }
 
-    /// The Inbox as the watch lists it, again after every change to it, each made at `now()`.
+    /// The Inbox as the watch lists it, with what only this device knows, again after every change to it, each made
+    /// at `now()`.
     public func snapshots(
         now: @escaping @Sendable () -> Date = { .now }
     ) -> AsyncMapSequence<AsyncThrowingStream<InboxGlance, any Error>, WristSnapshot> {
-        database.wristSnapshots(now: now)
+        database.wristSnapshots(now: now) { [database, independence] accounts in
+            // Without them the watch keeps the last extras it heard.
+            guard let marks = try? database.deviceMarks() else { return nil }
+            return WristExtras(marks, accounts: accounts, independence: independence())
+        }
     }
 
     /// Makes the change the reader made on the watch. A reply is sent; everything else is queued for the service.

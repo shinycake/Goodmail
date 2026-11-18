@@ -43,6 +43,7 @@ extension SceneCoordinator {
                 })
         }
         viewModel.badges = model.badgeChoices()
+        viewModel.watch = model.watchChoices
         enter(.mailbox(split, accounts: accounts, cover: .settings(page)))
         presenter.present(SettingsScreen.make(model: viewModel, at: page), animated: true)
     }

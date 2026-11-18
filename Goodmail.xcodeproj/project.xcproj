@@ -268,6 +268,12 @@
         }, {
           "product-name": "MailWristUI",
           "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "product-name": "MailStore",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "product-name": "MailWristHost",
+          "build-phase": { "build-phase": "frameworks" },
         },
       ],
       "build-settings": {
@@ -380,6 +386,7 @@
         "CODE_SIGN_STYLE": "Automatic",
         "CURRENT_PROJECT_VERSION": "1",
         "GENERATE_INFOPLIST_FILE": "YES",
+        "GOODMAIL_PUSH_RELAY_URL": "https://goodmail-push.goodmail-push-worker.workers.dev",
         "INFOPLIST_FILE": "NotificationService/Info.plist",
         "INFOPLIST_KEY_CFBundleDisplayName": "Goodmail",
         "LD_RUNPATH_SEARCH_PATHS": [

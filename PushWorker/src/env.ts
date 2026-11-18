@@ -14,6 +14,8 @@ export interface Env {
   /** The service account the push subscription signs its OIDC tokens as. */
   PUBSUB_SERVICE_ACCOUNT: string;
   APNS_TOPIC: string;
+  /** The watch app's bundle ID: the topic of an alert sent to a watch token. */
+  APNS_WATCH_TOPIC: string;
   APNS_KEY_ID: string;
   APNS_TEAM_ID: string;
   /** Secret: the APNs auth key (.p8, PKCS #8 PEM). */

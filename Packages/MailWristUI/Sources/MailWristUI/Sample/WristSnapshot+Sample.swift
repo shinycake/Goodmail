@@ -18,8 +18,9 @@
             return WristSnapshot(
                 madeAt: now,
                 accounts: [
-                    WristAccount(id: personal, address: "maya@example.com", color: .blue, unread: 2),
-                    WristAccount(id: work, address: "maya@example.org", color: .orange, unread: 1),
+                    // A Gmail account the watch can read itself (ADR-023) and an iCloud one only the iPhone can.
+                    WristAccount(id: personal, address: "maya@example.com", color: .blue, unread: 2, service: .gmail),
+                    WristAccount(id: work, address: "maya@example.org", color: .orange, unread: 1, service: .icloud),
                 ],
                 rows: mail.enumerated().map { index, mail in
                     WristRow(

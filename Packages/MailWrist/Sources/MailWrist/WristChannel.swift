@@ -16,6 +16,8 @@
         case threadRequest(Data)
         /// The iPhone answered a request for a conversation.
         case thread(Data)
+        /// For the iPhone: the watch's APNs token as hex, or `nil` once no paired watch has the app (ADR-023).
+        case watchPushToken(String?)
     }
 
     /// The link between the iPhone and the Apple Watch (ADR-022). The iPhone sends its Inbox as the application
@@ -84,6 +86,11 @@
         }
 
         #if os(iOS)
+            /// Whether a paired watch has the app, as of the last `ready`.
+            public nonisolated var hasWatchApp: Bool {
+                WCSession.isSupported() && WCSession.default.isPaired && WCSession.default.isWatchAppInstalled
+            }
+
             /// Makes `snapshot` the watch's, now if the session can take it, otherwise once it is `ready`.
             public func send(_ snapshot: WristSnapshot) {
                 unsent = snapshot
@@ -120,13 +127,21 @@
         ) {
             guard state == .activated else { return }
             events.yield(.ready)
-            if let data = session.receivedApplicationContext[WristChannel.snapshotKey] as? Data {
-                events.yield(.received(data))
-            }
+            #if os(iOS)
+                events.yield(WristChannel.pushToken(of: session))
+            #else
+                if let data = session.receivedApplicationContext[WristChannel.snapshotKey] as? Data {
+                    events.yield(.received(data))
+                }
+            #endif
         }
 
         func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
-            if let data = applicationContext[WristChannel.snapshotKey] as? Data { events.yield(.received(data)) }
+            #if os(iOS)
+                events.yield(WristChannel.pushToken(of: session))
+            #else
+                if let data = applicationContext[WristChannel.snapshotKey] as? Data { events.yield(.received(data)) }
+            #endif
         }
 
         func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
@@ -150,8 +165,10 @@
                 session.activate()
             }
 
+            /// The watch app was installed or removed, or the watch unpaired.
             func sessionWatchStateDidChange(_ session: WCSession) {
                 events.yield(.ready)
+                events.yield(WristChannel.pushToken(of: session))
             }
         #endif
     }

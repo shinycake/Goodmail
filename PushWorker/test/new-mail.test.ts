@@ -3,14 +3,31 @@ import { alertPayload, decodeEncodedWords, newestOf, senderName } from "../src/n
 
 describe("the alert gate", () => {
   it("titles the alert with the sender and shows the subject", () => {
-    expect(alertPayload({ sender: "Dana", subject: "Lunch?" }, { accountID: "a1" })).toEqual({
+    expect(alertPayload({ sender: "Dana", subject: "Lunch?" }, { accountID: "a1" }, "alert-1")).toEqual({
       aps: { alert: { title: "Dana", body: "Lunch?" }, sound: "default", "mutable-content": 1 },
       accountID: "a1",
+      alert: "alert-1",
     });
   });
 
+  it("names the conversation when the provider knows it", () => {
+    const payload = alertPayload({ sender: "Dana", subject: "Lunch?", threadID: "t1" }, { accountID: "a1" }, "alert-1");
+    expect(payload).toMatchObject({ alert: "alert-1", threadID: "t1" });
+  });
+
+  it("gives only the watch's copy the actions' category, and only when it names the conversation", () => {
+    const mail = { sender: "Dana", subject: "Lunch?", threadID: "t1" };
+    expect(alertPayload(mail, { accountID: "a1" }, "alert-1", "watch")).toMatchObject({ aps: { category: "newMail" } });
+    const phone = alertPayload(mail, { accountID: "a1" }, "alert-1") as { aps: object };
+    expect(phone.aps).not.toHaveProperty("category");
+    const unnamed = alertPayload({ sender: "Dana", subject: "Lunch?" }, { accountID: "a1" }, "alert-1", "watch") as {
+      aps: object;
+    };
+    expect(unnamed.aps).not.toHaveProperty("category");
+  });
+
   it("shows the sender alone for an email without a subject, and clips long text", () => {
-    const payload = alertPayload({ sender: "x".repeat(300), subject: "  " }, { account: "a@b", historyId: "1" }) as {
+    const payload = alertPayload({ sender: "x".repeat(300), subject: "  " }, { account: "a@b", historyId: "1" }, "alert-1") as {
       aps: { alert: Record<string, string> };
     };
     expect(Object.keys(payload.aps.alert)).toEqual(["title"]);

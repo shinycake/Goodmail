@@ -129,4 +129,5 @@ private final class RecordingRelay: PushRelay {
     }
     func register(_ watch: RelayMailboxWatch) async throws {}
     func unregisterMailboxWatch(id: String, secret: String) async throws {}
+    func acknowledge(alert id: String) async throws {}
 }

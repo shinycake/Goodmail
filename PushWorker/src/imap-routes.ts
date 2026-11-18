@@ -24,12 +24,11 @@ import {
   WATCHING,
   type WatchState,
 } from "./imap-watches";
-import { BadRequest, readJson } from "./shared";
+import { BadRequest, DEVICE_TOKEN, readJson, watchTokenIn } from "./shared";
 
 const WATCH_ID = /^[0-9a-f-]{36}$/i;
 const SECRET = /^[0-9a-f]{64}$/i;
 const ACCOUNT_ID = /^[A-Za-z0-9-]{1,64}$/;
-const DEVICE_TOKEN = /^[0-9a-f]{64,200}$/i;
 /** A host name, never a URL or anything with spaces. */
 const HOST = /^[A-Za-z0-9.-]{1,253}$/;
 const ENVIRONMENTS: readonly ApnsEnvironment[] = ["sandbox", "production"];
@@ -85,7 +84,8 @@ export async function registerWatch(
   if (typeof account !== "string" || !ACCOUNT_ID.test(account)) throw new BadRequest("bad account");
   if (typeof deviceToken !== "string" || !DEVICE_TOKEN.test(deviceToken)) throw new BadRequest("bad deviceToken");
   const login = loginIn(body);
-  const device = { token: deviceToken.toLowerCase(), environment };
+  const watchToken = watchTokenIn(body);
+  const device = { token: deviceToken.toLowerCase(), environment, ...(watchToken && { watchToken }) };
   const expiresAt = now + WATCH_LIFETIME_MS;
 
   const sealer = loginSealer(env.EMAIL_HMAC_SECRET);

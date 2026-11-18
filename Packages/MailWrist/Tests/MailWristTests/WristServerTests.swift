@@ -52,6 +52,29 @@ struct WristServerTests {
         #expect(log.sent.withLock { $0 } == [snapshot])
     }
 
+    @Test func theSwitchReachesTheWatchWithoutWaitingForMail() async {
+        let server = server()
+        var withExtras = snapshot
+        withExtras.extras = WristExtras(independence: .on)
+        await server.inboxChanged(withExtras)
+        let later = Date(timeIntervalSince1970: 1_800_000_060)
+
+        await server.independenceChanged(to: .off, at: later)
+
+        let sent = log.sent.withLock { $0.last }
+        #expect(sent?.extras?.independence == .off)
+        #expect(sent?.madeAt == later)
+        #expect(sent?.rows == withExtras.rows)
+    }
+
+    @Test func anIPhoneWithoutExtrasHasNoSwitchToSend() async {
+        let server = server()
+        await server.independenceChanged(to: .off, at: .now)
+        await server.inboxChanged(snapshot)
+        await server.independenceChanged(to: .off, at: .now)
+        #expect(log.sent.withLock { $0 } == [snapshot])
+    }
+
     @Test func runsACommandOnceAndListsItAsApplied() async throws {
         let server = server()
         await server.inboxChanged(snapshot)

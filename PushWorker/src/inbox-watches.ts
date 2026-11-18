@@ -1,5 +1,5 @@
-import type { ApnsSigner } from "./apns";
 import type { Env } from "./env";
+import type { Alerts } from "./fallback";
 import type { Connect } from "./imap";
 import { label, MOST_AT_ONCE, watchMailbox } from "./imap-poll";
 import { loginsDue, type WatchedLogin } from "./imap-watches";
@@ -30,7 +30,7 @@ export class InboxWatches {
 
   constructor(
     private readonly env: Env,
-    private readonly signer: ApnsSigner,
+    private readonly alerts: Alerts,
     private readonly open: Connect,
     private readonly pace: HoldPace,
   ) {}
@@ -54,7 +54,7 @@ export class InboxWatches {
     this.watching.add(login.loginHash);
     this.startedAt.set(login.loginHash, started);
     try {
-      await watchMailbox(this.env, this.signer, login, now, started + this.pace.watchMs, this.open);
+      await watchMailbox(this.env, this.alerts, login, now, started + this.pace.watchMs, this.open);
     } catch (error) {
       console.warn(`An Inbox watch failed: ${error instanceof Error ? error.message : String(error)}`);
     } finally {

@@ -15,6 +15,7 @@ extension WristOwnHost {
         }
         self.accounts = accounts
         self.independence = independence
+        publishFreshness()
     }
 
     private func drop(_ account: Account) throws {

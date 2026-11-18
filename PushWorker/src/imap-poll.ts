@@ -1,5 +1,5 @@
-import { type ApnsSigner, sendAlert } from "./apns";
 import type { Env } from "./env";
+import type { Alerts } from "./fallback";
 import {
   type Connect,
   connectToServer,
@@ -20,7 +20,6 @@ import {
   watchesOn,
   WATCHING,
 } from "./imap-watches";
-import { forgetDeviceToken } from "./tokens";
 
 /** Mailboxes watched at once. A Worker may hold six connections, and APNs needs one too. */
 export const MOST_AT_ONCE = 4;
@@ -39,7 +38,7 @@ export const WATCH_MS = 290_000;
  */
 export async function pollWatches(
   env: Env,
-  signer: ApnsSigner,
+  alerts: Alerts,
   now: number,
   open: Connect = connectToServer,
   watchMs = WATCH_MS,
@@ -49,7 +48,7 @@ export async function pollWatches(
   const mailboxes = logins.length;
   const workers = Array.from({ length: Math.min(MOST_AT_ONCE, logins.length) }, async () => {
     for (let login = logins.shift(); login; login = logins.shift()) {
-      await watchMailbox(env, signer, login, now, until, open);
+      await watchMailbox(env, alerts, login, now, until, open);
     }
   });
   await Promise.all(workers);
@@ -65,7 +64,7 @@ export async function pollWatches(
  */
 export async function watchMailbox(
   env: Env,
-  signer: ApnsSigner,
+  alerts: Alerts,
   login: WatchedLogin,
   now: number,
   until: number,
@@ -84,7 +83,7 @@ export async function watchMailbox(
       }
       // Read each time: devices start and stop watching while the connection is held, and another check may have
       // moved a watch. One at a time: the new-mail check talks over the one connection.
-      for (const watch of await watchesOn(env.DB, login.loginHash)) await alert(env, signer, watch, inbox, fresh);
+      for (const watch of await watchesOn(env.DB, login.loginHash)) await alert(env, alerts, watch, inbox, fresh);
     };
     await watchInbox(JSON.parse(sealed) as ImapLogin, until, onStatus, open);
   } catch (error) {
@@ -110,7 +109,7 @@ const MOST_CHECKED = 50;
  * (`FreshMail`): mail read or deleted before the check stays quiet. Mail the server couldn't be
  * asked about, or an alert APNs didn't take, moves the watch back, so the next STATUS or check tries again.
  */
-async function alert(env: Env, signer: ApnsSigner, watch: ImapWatch, inbox: InboxStatus, fresh: FreshMail) {
+async function alert(env: Env, alerts: Alerts, watch: ImapWatch, inbox: InboxStatus, fresh: FreshMail) {
   const before = watch.inbox;
   if (before.uidValidity === inbox.uidValidity && before.uidNext === inbox.uidNext) return;
   if (!(await advanceWatch(env.DB, watch.watchId, before, inbox))) return;
@@ -119,8 +118,7 @@ async function alert(env: Env, signer: ApnsSigner, watch: ImapWatch, inbox: Inbo
   const arrival = await fresh(Math.max(before.uidNext, inbox.uidNext - MOST_CHECKED));
   if (arrival.kind === "none") return;
   const outcome =
-    arrival.kind === "mail" ? await sendAlert(signer, watch.device, arrival.newest, { accountID: watch.account }) : "failed";
+    arrival.kind === "mail" ? await alerts.send(watch.device, arrival.newest, { accountID: watch.account }) : "failed";
   console.log(`IMAP alert for watch ${label(watch.watchId)}: ${arrival.kind === "mail" ? outcome : "couldn't read the mail"}`);
-  if (outcome === "gone") await forgetDeviceToken(env.DB, watch.device.token);
   if (outcome === "failed") await advanceWatch(env.DB, watch.watchId, inbox, before);
 }

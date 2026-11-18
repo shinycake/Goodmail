@@ -5,7 +5,7 @@ import { GMAIL_API, GOOGLE_TOKEN_URL } from "../src/gmail";
 import { GOOGLE_JWKS_URL } from "../src/google";
 import { GmailGrants } from "../src/grants";
 import worker, { type Env } from "../src/index";
-import { accountId, BURST_MS } from "../src/store";
+import { accountId, BURST_MS, devicesFor } from "../src/store";
 import { generateApnsKey, generateGoogleKey, idTokenClaims, jwksResponse, signGoogleToken, type TestGoogleKey } from "./keys";
 
 const EMAIL = "someone@gmail.com";
@@ -193,6 +193,7 @@ describe("Pub/Sub push", () => {
       aps: { alert: { title: "Dana Levi", body: "Lunch?" }, sound: "default", "mutable-content": 1 },
       account: EMAIL,
       historyId: "4242",
+      alert: expect.stringMatching(/^[0-9a-f-]{36}$/),
     });
 
     const jwt = /^bearer (.+)$/.exec(call.headers.get("authorization") ?? "")?.[1] ?? "";
@@ -331,5 +332,45 @@ describe("Pub/Sub push", () => {
     });
     expect((await send(request)).status).toBe(204);
     expect(apnsCalls).toHaveLength(0);
+  });
+});
+
+describe("a device's watch token", () => {
+  const WATCH = "c".repeat(64);
+
+  it("is stored with the device's registration", async () => {
+    const response = await devicesRequest("POST", {
+      idToken: await idToken(),
+      deviceToken: DEVICE,
+      environment: "sandbox",
+      watchToken: WATCH.toUpperCase(),
+    });
+    expect(response.status).toBe(204);
+    expect(await storedDevices()).toMatchObject([{ device_token: DEVICE, watch_token: WATCH }]);
+    expect(await devicesFor(env.DB, await accountId(EMAIL, testEnv.EMAIL_HMAC_SECRET))).toEqual([
+      { token: DEVICE, environment: "sandbox", watchToken: WATCH },
+    ]);
+  });
+
+  it("is left empty by a registration without one, and cleared by one that stops carrying it", async () => {
+    await register(DEVICE);
+    expect(await storedDevices()).toMatchObject([{ watch_token: null }]);
+    await devicesRequest("POST", { idToken: await idToken(), deviceToken: DEVICE, environment: "sandbox", watchToken: WATCH });
+    await register(DEVICE);
+    expect(await storedDevices()).toMatchObject([{ watch_token: null }]);
+    expect(await devicesFor(env.DB, await accountId(EMAIL, testEnv.EMAIL_HMAC_SECRET))).toEqual([
+      { token: DEVICE, environment: "sandbox" },
+    ]);
+  });
+
+  it("is refused when it isn't a token", async () => {
+    const response = await devicesRequest("POST", {
+      idToken: await idToken(),
+      deviceToken: DEVICE,
+      environment: "sandbox",
+      watchToken: "not-a-token",
+    });
+    expect(response.status).toBe(400);
+    expect(await storedDevices()).toHaveLength(0);
   });
 });

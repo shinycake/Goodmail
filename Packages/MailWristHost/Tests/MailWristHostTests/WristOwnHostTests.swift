@@ -81,6 +81,21 @@ struct WristOwnHostTests {
         #expect(try shared.data(for: OAuthClient.gmail.refreshTokenKey(gmail.id)) != nil, "the iPhone's copy stays")
     }
 
+    @Test func thePruneDropsWhatLeftTheInboxBeforeAnySync() async throws {
+        let host = host()
+        try await host.follow([gmail], independence: .on)
+        try database.upsert([
+            ThreadSummary(
+                id: ThreadSummary.ID(accountID: gmail.id, threadID: "archived"), subject: "Old", snippet: "",
+                sender: Contact(name: "Noa", address: "noa@x.com"), date: Self.now - 600, isUnread: false,
+                messageCount: 1, labelIDs: [])
+        ])
+
+        try await host.prune()
+
+        #expect(try database.thread(ThreadSummary.ID(accountID: gmail.id, threadID: "archived")) == nil)
+    }
+
     @Test func theSwitchOffLeavesEveryAccountToTheIPhone() async throws {
         let host = host()
         try await host.follow([gmail, icloud], independence: .on)
@@ -117,6 +132,25 @@ struct WristOwnHostTests {
         _ = await (first, second)
 
         #expect(provider.changeRequests == before + 1)
+    }
+
+    @Test func aCancelledCatchUpKeepsWhatWasStoredAndTheAccountsHealth() async throws {
+        let host = host()
+        try await host.follow([gmail], independence: .on)
+        try await host.sync()
+        let before = provider.changeRequests
+        let open = provider.holdChanges()
+
+        let refresh = Task { await host.catchUp() }
+        while provider.changeRequests == before { await Task.yield() }
+        refresh.cancel()
+        await refresh.value
+        open.finish()
+
+        #expect(try await host.sources() == [gmail.id: .direct])
+        #expect(try await storedThreads() == ["t1"])
+        await host.catchUp()
+        #expect(provider.changeRequests == before + 2, "the next catch-up runs afresh")
     }
 }
 

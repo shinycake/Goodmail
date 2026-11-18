@@ -51,6 +51,19 @@ struct WristSignInsTests {
         #expect(try providers().provider(for: outlook) is OutlookClient)
     }
 
+    @Test func aSignInKeptOnTheDeviceAloneServesTheAccount() throws {
+        try signIns.keepOnDevice(refreshToken: "g-token", for: gmail)
+
+        #expect(try signIns.held(by: [gmail]) == [gmail.id])
+        #expect(try shared.data(for: OAuthClient.gmail.refreshTokenKey(gmail.id)) == nil)
+    }
+
+    @Test func noSignInIsKeptForAnICloudAccount() throws {
+        try signIns.keepOnDevice(refreshToken: "token", for: icloud)
+
+        #expect(try signIns.held(by: [icloud]).isEmpty)
+    }
+
     @Test func anICloudAccountNeverDoes() throws {
         try shared.set(Data("app-password".utf8), for: "icloud.app-password.i")
 

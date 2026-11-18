@@ -89,7 +89,7 @@ Apple Mail has no push for Gmail. Gmail's own app is cluttered. Most other clien
 ### Part of the system
 
 - **Interactive widgets**: the Inbox on the Home Screen, with Archive right in the widget.
-- **Apple Watch**: the Inbox on the wrist, relayed by the iPhone, with swipes and Undo, conversations as chat bubbles, Reply by dictation or quick replies, Snooze and Pin, one-time codes shown big, and complications and a Smart Stack card that open the conversation they show. Alerts tapped on the watch open there too.
+- **Apple Watch**: the Inbox on the wrist, relayed by the iPhone, with swipes and Undo, conversations as chat bubbles, Reply by dictation or quick replies, Snooze and Pin, one-time codes shown big, and complications and a Smart Stack card that open the conversation they show. Alerts tapped on the watch open there too. With Mail Without iPhone (on by default), the watch reads Gmail and Outlook itself, checks in the background, and gets its own alerts when the iPhone is off or out of reach.
 - **App Intents and Shortcuts** in English and Hebrew: write a message, open the Inbox or any mailbox, and act on mail from Siri and Shortcuts, with Undo.
 - **Spotlight** search of your threads, **Handoff**, and window state restoration.
 - **Default mail app**: `mailto:` links open Goodmail's composer.
@@ -100,7 +100,7 @@ Apple Mail has no push for Gmail. Gmail's own app is cluttered. Most other clien
 
 ## Privacy
 
-Credentials (OAuth tokens and app passwords) live in the device's Keychain. There is no analytics, no telemetry and no AI of its own. The push relay stores which device to wake for which account, with addresses only as keyed hashes. So it can tell when new mail arrives, it also keeps each Gmail account's refresh token and each iCloud or IMAP login, encrypted with AES-GCM. It uses them only to read Gmail's change history or the Inbox's UID counters, and it never reads or stores mail. See [docs/release/privacy.md](docs/release/privacy.md).
+Credentials (OAuth tokens and app passwords) live in the device's Keychain. There is no analytics, no telemetry and no AI of its own. The push relay stores which device to wake for which account, with addresses only as keyed hashes. So it can tell when new mail arrives, it also keeps each Gmail account's refresh token and each iCloud or IMAP login, encrypted with AES-GCM. It uses them only to tell that new mail reached the Inbox and to read its sender and subject for the alert, and it never reads a body or stores mail. With Mail Without iPhone on, the Apple Watch gets the iPhone's Gmail and Outlook sign-ins through iCloud Keychain and talks to those providers directly. See [docs/release/privacy.md](docs/release/privacy.md).
 
 ## How it's built
 

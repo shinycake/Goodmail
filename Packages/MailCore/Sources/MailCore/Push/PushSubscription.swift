@@ -6,20 +6,39 @@ public enum APNsEnvironment: String, Codable, Sendable {
     case sandbox, production
 }
 
-/// This device's APNs address.
+/// This device's APNs address, with its paired watch's when the watch app has one (ADR-023).
 public struct DeviceToken: Equatable, Sendable {
     /// The token as lowercase hex, as the relay takes it.
     public let hex: String
     public let environment: APNsEnvironment
+    /// The paired watch's token as lowercase hex, in the same environment. The relay alerts the watch with it when
+    /// the iPhone doesn't confirm an alert in time; the watch never registers itself. Anything the relay would refuse
+    /// as a token is left out, so a bad one never costs the iPhone its own alerts.
+    public let watch: String?
 
-    public init(_ data: Data, environment: APNsEnvironment) {
-        hex = data.lowercaseHex
-        self.environment = environment
+    public init(_ data: Data, environment: APNsEnvironment, watch: String? = nil) {
+        self.init(hex: data.lowercaseHex, environment: environment, watch: watch)
     }
 
-    public init(hex: String, environment: APNsEnvironment) {
+    public init(hex: String, environment: APNsEnvironment, watch: String? = nil) {
         self.hex = hex.lowercased()
         self.environment = environment
+        self.watch = watch.map { $0.lowercased() }.flatMap { Self.isToken($0) ? $0 : nil }
+    }
+
+    /// What the relay takes as an APNs token: 32 to 100 bytes as hex.
+    static func isToken(_ hex: String) -> Bool {
+        (64...200).contains(hex.count) && hex.allSatisfy(\.isHexDigit)
+    }
+
+    /// The same iPhone token, with `watch` as its companion.
+    public func pairing(_ watch: String?) -> DeviceToken {
+        DeviceToken(hex: hex, environment: environment, watch: watch)
+    }
+
+    /// Whether `other` is this iPhone's own token, whatever watch either names.
+    func isSamePhone(as other: DeviceToken) -> Bool {
+        hex == other.hex && environment == other.environment
     }
 }
 
@@ -97,6 +116,9 @@ public protocol PushRelay: Sendable {
     /// IMAP: stores or renews the device's watch on the account's Inbox, which hands the relay the login.
     func register(_ watch: RelayMailboxWatch) async throws
     func unregisterMailboxWatch(id: String, secret: String) async throws
+
+    /// Confirms that this iPhone received the alert with `id`, so the relay doesn't send it to the watch as well.
+    func acknowledge(alert id: String) async throws
 }
 
 /// What the relay and the service know about one account's pushes to this device.

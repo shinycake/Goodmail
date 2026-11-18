@@ -57,6 +57,17 @@ struct WristOwnCommandTests {
             send: { snapshot in sent.snapshots.withLock { $0.append(snapshot) } }, remember: { _ in })
     }
 
+    @Test func aConversationIsFetchedFromTheAccountsServiceBeforeAnySync() async throws {
+        let reply = try await host.conversation(id)
+
+        guard case .thread(let thread) = reply else {
+            Issue.record("Expected a conversation, got \(reply)")
+            return
+        }
+        #expect(thread.subject == "Lunch?")
+        #expect(thread.bubbles.count == 1)
+    }
+
     @Test func aCommandDeliveredTwiceRunsOnce() async throws {
         let server = server()
         let archive = command(.archive)

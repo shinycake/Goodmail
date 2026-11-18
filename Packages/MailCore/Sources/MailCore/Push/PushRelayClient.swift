@@ -29,7 +29,9 @@ public struct PushRelayClient: PushRelay {
     public func register(_ device: DeviceToken, proof: String) async throws {
         try await send(
             "POST", "v1/devices",
-            ["idToken": proof, "deviceToken": device.hex, "environment": device.environment.rawValue])
+            DeviceRegistration(
+                idToken: proof, deviceToken: device.hex, environment: device.environment.rawValue,
+                watchToken: device.watch))
     }
 
     public func unregister(deviceToken: String, proof: String) async throws {
@@ -62,6 +64,10 @@ public struct PushRelayClient: PushRelay {
         try await send("DELETE", "v1/imap/watches", ["watchId": id, "secret": secret])
     }
 
+    public func acknowledge(alert id: String) async throws {
+        try await send("POST", "v1/acks", ["alert": id])
+    }
+
     private func send(_ method: String, _ path: String, _ body: some Encodable) async throws {
         let data = try JSONEncoder().encode(body)
         var status = try await send(method, path, data)
@@ -90,6 +96,14 @@ public struct PushRelayClient: PushRelay {
     }
 }
 
+/// `POST v1/devices`'s body. A missing `watchToken` clears the one the relay stored before.
+private struct DeviceRegistration: Encodable {
+    let idToken: String
+    let deviceToken: String
+    let environment: String
+    let watchToken: String?
+}
+
 /// `POST v1/graph/subscriptions`'s body.
 private struct GraphRegistration: Encodable {
     let subscriptionId: String
@@ -97,6 +111,7 @@ private struct GraphRegistration: Encodable {
     let account: String
     let deviceToken: String
     let environment: String
+    let watchToken: String?
     /// Milliseconds since 1970.
     let expiresAt: Int64
 
@@ -106,6 +121,7 @@ private struct GraphRegistration: Encodable {
         account = subscription.account.rawValue
         deviceToken = subscription.device.hex
         environment = subscription.device.environment.rawValue
+        watchToken = subscription.device.watch
         expiresAt = Int64(subscription.expiresAt.timeIntervalSince1970 * 1000)
     }
 }
@@ -117,6 +133,7 @@ private struct MailboxWatchRegistration: Encodable {
     let account: String
     let deviceToken: String
     let environment: String
+    let watchToken: String?
     let host: String
     let port: UInt16
     let security: String
@@ -129,6 +146,7 @@ private struct MailboxWatchRegistration: Encodable {
         account = watch.account.rawValue
         deviceToken = watch.device.hex
         environment = watch.device.environment.rawValue
+        watchToken = watch.device.watch
         host = watch.server.host
         port = watch.server.port
         security = watch.server.security.rawValue

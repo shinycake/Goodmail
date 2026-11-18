@@ -1,6 +1,7 @@
 import { env } from "cloudflare:test";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApnsSigner } from "../src/apns";
+import { Alerts } from "../src/fallback";
 import type { Env } from "../src/index";
 import { InboxWatches, MOST_AT_ONCE } from "../src/inbox-watches";
 import { pollWatches } from "../src/imap-poll";
@@ -28,8 +29,12 @@ let testAddress = 0;
 beforeAll(async () => {
   const apns = await generateApnsKey();
   testEnv = { ...env, APNS_PRIVATE_KEY: apns.pem };
-  signer = new ApnsSigner({ keyId: "KEY1234567", teamId: "TEAM123456", privateKey: apns.pem, topic: "com.idanbirman.goodmail" });
+  signer = new ApnsSigner({ keyId: "KEY1234567", teamId: "TEAM123456", privateKey: apns.pem });
 });
+
+/** Alerts as the cron run sends them; a watch's fallback isn't waited for here. */
+const alerts = () =>
+  new Alerts(env.DB, signer, { app: "com.idanbirman.goodmail", watch: "com.idanbirman.goodmail.watchkitapp" }, () => {});
 
 beforeEach(async () => {
   await env.DB.prepare("DELETE FROM imap_watches").run();
@@ -85,7 +90,7 @@ async function registerAt(now: number): Promise<Response> {
   return registerWatch(request("POST", watchBody()), testEnv, now, imap.connect);
 }
 
-const poll = (now = NOW) => pollWatches(testEnv, signer, now, imap.connect, 0);
+const poll = (now = NOW) => pollWatches(testEnv, alerts(), now, imap.connect, 0);
 
 describe("registering a watch", () => {
   it("checks a new login and starts from the Inbox's UIDs, keeping the password sealed", async () => {
@@ -177,6 +182,21 @@ describe("registering a watch", () => {
   });
 });
 
+describe("an IMAP watch's watch token", () => {
+  const WATCH = "c".repeat(64);
+
+  it("is stored with a new watch and with a renewal, and cleared by a renewal without it", async () => {
+    expect((await register({ watchToken: WATCH })).status).toBe(204);
+    expect((await findWatch(env.DB, WATCH_ID))?.device).toEqual({ token: DEVICE, environment: "sandbox", watchToken: WATCH });
+
+    expect((await register()).status).toBe(204);
+    expect((await findWatch(env.DB, WATCH_ID))?.device).toEqual({ token: DEVICE, environment: "sandbox" });
+
+    expect((await register({ watchToken: WATCH })).status).toBe(204);
+    expect((await findWatch(env.DB, WATCH_ID))?.device.watchToken).toBe(WATCH);
+  });
+});
+
 describe("polling", () => {
   it("alerts the device by account ID when new mail grows UIDNEXT, once", async () => {
     await register();
@@ -187,6 +207,7 @@ describe("polling", () => {
     expect(apnsCalls[0]?.body).toEqual({
       aps: { alert: { title: "Dana Levi", body: "Lunch?" }, sound: "default", "mutable-content": 1 },
       accountID: "account-1",
+      alert: expect.stringMatching(/^[0-9a-f-]{36}$/),
     });
     await poll();
     expect(apnsCalls).toHaveLength(1);
@@ -197,7 +218,7 @@ describe("polling", () => {
     const inbox = { uidValidity: 7, uidNext: 100 };
     server = inboxServer(inbox);
     imap.sessions.length = 0;
-    const run = pollWatches(testEnv, signer, NOW, imap.connect, 4_500);
+    const run = pollWatches(testEnv, alerts(), NOW, imap.connect, 4_500);
     await vi.waitUntil(() => imap.sessions[0]?.lines.some((line) => line.endsWith(" IDLE")));
     expect(apnsCalls).toHaveLength(0);
     inbox.uidNext = 101;
@@ -346,7 +367,7 @@ describe("polling", () => {
 
 describe("holding the Inboxes", () => {
   const idling = (session: number) => () => imap.sessions[session]?.lines.some((line) => line.endsWith(" IDLE"));
-  const holding = (watchMs: number, restMs = 0) => new InboxWatches(testEnv, signer, imap.connect, { watchMs, restMs });
+  const holding = (watchMs: number, restMs = 0) => new InboxWatches(testEnv, alerts(), imap.connect, { watchMs, restMs });
 
   it("watches a due mailbox on one connection, alerting as soon as the server announces mail", async () => {
     await register();

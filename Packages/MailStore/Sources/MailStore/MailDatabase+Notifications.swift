@@ -114,6 +114,8 @@ struct PushSubscriptionRecord: Codable, FetchableRecord, PersistableRecord {
     var accountID: String
     var deviceToken: String
     var environment: String
+    /// The paired watch's token the relay was given, if any.
+    var watchToken: String?
     /// The `PushChannel`, as JSON.
     var channel: String
     var renewedAt: Date
@@ -123,6 +125,7 @@ struct PushSubscriptionRecord: Codable, FetchableRecord, PersistableRecord {
         accountID = account.rawValue
         deviceToken = subscription.device.hex
         environment = subscription.device.environment.rawValue
+        watchToken = subscription.device.watch
         channel = String(decoding: try JSONEncoder().encode(subscription.channel), as: UTF8.self)
         renewedAt = subscription.renewedAt
         expiresAt = subscription.expiresAt
@@ -134,7 +137,8 @@ struct PushSubscriptionRecord: Codable, FetchableRecord, PersistableRecord {
             let channel = try? JSONDecoder().decode(PushChannel.self, from: Data(channel.utf8))
         else { return nil }
         return PushSubscription(
-            device: DeviceToken(hex: deviceToken, environment: environment), channel: channel, renewedAt: renewedAt,
+            device: DeviceToken(hex: deviceToken, environment: environment, watch: watchToken),
+            channel: channel, renewedAt: renewedAt,
             expiresAt: expiresAt)
     }
 }

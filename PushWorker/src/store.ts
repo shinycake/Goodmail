@@ -12,10 +12,11 @@ export async function accountId(email: string, secret: string): Promise<string> 
 export async function registerDevice(db: D1Database, account: string, device: Device, now: number): Promise<void> {
   await db
     .prepare(
-      `INSERT INTO devices (account, device_token, environment, updated_at) VALUES (?1, ?2, ?3, ?4)
-       ON CONFLICT (account, device_token) DO UPDATE SET environment = excluded.environment, updated_at = excluded.updated_at`,
+      `INSERT INTO devices (account, device_token, environment, updated_at, watch_token) VALUES (?1, ?2, ?3, ?4, ?5)
+       ON CONFLICT (account, device_token) DO UPDATE SET environment = excluded.environment,
+         updated_at = excluded.updated_at, watch_token = excluded.watch_token`,
     )
-    .bind(account, device.token, device.environment, now)
+    .bind(account, device.token, device.environment, now, device.watchToken ?? null)
     .run();
 }
 
@@ -25,10 +26,15 @@ export async function unregisterDevice(db: D1Database, account: string, token: s
 
 export async function devicesFor(db: D1Database, account: string): Promise<Device[]> {
   const { results } = await db
-    .prepare("SELECT device_token, environment FROM devices WHERE account = ?1")
+    .prepare("SELECT device_token, environment, watch_token FROM devices WHERE account = ?1")
     .bind(account)
-    .all<{ device_token: string; environment: ApnsEnvironment }>();
-  return results.map((row) => ({ token: row.device_token, environment: row.environment }));
+    .all<{ device_token: string; environment: ApnsEnvironment; watch_token: string | null }>();
+  return results.map((row) => device(row.device_token, row.environment, row.watch_token));
+}
+
+/** A stored device, with its watch's token when it registered one. */
+export function device(token: string, environment: ApnsEnvironment, watchToken: string | null): Device {
+  return watchToken === null ? { token, environment } : { token, environment, watchToken };
 }
 
 /** A history ID recorded as the newest pushed for an account, and the one it replaced, so a failed send can undo it. */

@@ -2,12 +2,12 @@
 
 The M11 privacy review: what Goodmail stores, where it goes, the privacy manifests, and the App Store privacy label. It checks the code against the product brief's [Data and privacy](../product-brief.md#data-and-privacy) and [Backend](../product-brief.md#backend-cloudflare-workers) sections. Re-run it whenever a change adds storage, a network destination, a log line with user data, or a required-reason API.
 
-Reviewed 2026-11-13, against `main` at 42720fc. The push Worker section was updated on 2026-11-16 for Outlook, the Gmail history check (#232) and iCloud/IMAP watches (#241, #243).
+Reviewed 2026-11-13, against `main` at 42720fc. The push Worker section was updated on 2026-11-16 for Outlook, the Gmail history check (#232) and iCloud/IMAP watches (#241, #243), and on 2026-11-18 for the independent Apple Watch (ADR-023).
 
 ## Summary
 
 - Mail and settings stay on the device or go straight to the user's mail provider. Goodmail has no server that sees mail.
-- Credentials live in the Keychain. The push Worker also keeps two kinds, encrypted, so it can tell when new mail arrives: each Gmail account's refresh token, and each iCloud or IMAP login. It uses them only to read Gmail's change history or the Inbox's UID counters.
+- Credentials live in the Keychain. The push Worker also keeps two kinds, encrypted, so it can tell when new mail arrives: each Gmail account's refresh token, and each iCloud or IMAP login. It uses them only to read Gmail's change history or the Inbox's UID counters, and the sender and subject of the newest message for the alert.
 - Otherwise the push Worker stores keyed hashes of addresses, opaque account IDs and APNs device tokens. It logs nothing personal.
 - No tracking, no analytics SDKs, no third-party code besides GRDB, which ships its own privacy manifest.
 - The release build today collects no data in Apple's sense. When the app starts registering with the push Worker, the label changes to one entry, **User ID**. See [Privacy label](#app-store-privacy-label).
@@ -23,10 +23,13 @@ Reviewed 2026-11-13, against `main` at 42720fc. The push Worker section was upda
 | Preferences: undo-send delay, accounts with unsorted Inbox | `UserDefaults.standard` | Default | None |
 | Recent searches (up to 8 query strings) | `UserDefaults.standard` | Default | None |
 | Apple Watch mailbox: the Inbox's newest rows (sender, subject, a short preview, a one-time code when the message has one), the unread counts and the changes the iPhone hasn't run yet | JSON at `<watch App Group>/wrist-mailbox.json` (`WristStore`), written by the watch app and read by its watch face widget | Default class (`completeUntilFirstUserAuthentication`) | The watch app and its widget extension. The iPhone sends it over WatchConnectivity, which Apple encrypts between the paired devices |
-| Watch changes already run (command IDs, the last 64) | `UserDefaults.standard` on the iPhone (`WristAppliedCommands`) | Default | None |
+| Watch changes already run (command IDs, the last 64) | `UserDefaults.standard` on the iPhone (`WristAppliedCommands`), and on the watch for the changes it ran itself (`WristOwnAppliedCommands`) | Default | None |
+| The watch's own mail cache, for the Gmail and Outlook accounts it reads itself (ADR-023): the same tables as the iPhone's, for the Inbox's newest threads | SQLite (GRDB) at `Application Support/OwnMail/mail.sqlite` on the watch | `completeUntilFirstUserAuthentication` | None |
+| Sign-ins the watch reads mail with | The iPhone's Gmail and Outlook refresh tokens, in the shared Keychain access group, reaching the watch through iCloud Keychain (account sharing) | Synchronizable Keychain items, end-to-end encrypted by iCloud Keychain | The watch app |
+| The watch's APNs token and the Mail Without iPhone switch | `UserDefaults.standard` on the iPhone (`WristPushToken`, `mailWithoutIPhone`) | Default | The relay gets the token, below |
 | Diagnostics | Unified logging (`os.Logger`), MetricKit and Xcode Organizer | On device; leaves only in a sysdiagnose the user sends, or Apple's opt-in diagnostics sharing | Apple, if the user opts in |
 
-Debug builds also read a few launch arguments through `UserDefaults` (`GoodmailSyntheticThreads`, `GoodmailSyntheticCorpus`, `GoodmailDeliverTestMessageAfter`, the test-mail tools, and the watch app's `GoodmailWristSample` and `GoodmailWristSampleOpen`). They are compiled out of Release.
+Debug builds also read a few launch arguments through `UserDefaults` (`GoodmailSyntheticThreads`, `GoodmailSyntheticCorpus`, `GoodmailDeliverTestMessageAfter`, the test-mail tools, and the watch app's `GoodmailWristSample`, `GoodmailWristSampleOpen`, `GoodmailWristSampleState`, `GoodmailWristIndependent` and `GoodmailWristSeedSignIns`). They are compiled out of Release.
 
 Removing an account (`AppModel.removeAccount`) deletes its refresh token, its rows in the database and its opened attachments; the next snapshot the iPhone sends leaves its rows off the watch. Deleting the app removes everything above except Keychain items, which iOS keeps across reinstalls. Items that are `ThisDeviceOnly` never leave the device.
 
@@ -43,7 +46,8 @@ Removing an account (`AppModel.removeAccount`) deletes its refresh token, its ro
 | `gmail.googleapis.com` | Mail: read, send, modify, delete forever, settings (`https://mail.google.com/`, `gmail.settings.basic`) | The user's own mail, to the user's own provider |
 | `people.googleapis.com` | Contacts for address completion (`contacts.readonly`, `contacts.other.readonly`) | Read only |
 | Remote content in messages | Images, only when the reader allows them for a message | The image request (IP address, user agent). Blocked by default |
-| The push Worker | Push registration | Gmail: Google ID token, APNs device token, and the account's refresh token. Outlook: the Graph subscription's ID and secret, the app's account ID, the device token. iCloud/IMAP: the server, user name and app password, the app's account ID, the device token |
+| `gmail.googleapis.com`, `oauth2.googleapis.com`, `graph.microsoft.com`, `login.microsoftonline.com`, from the watch | The watch reads, archives, trashes, marks and answers Gmail and Outlook itself when Mail Without iPhone is on (ADR-023). iCloud and IMAP stay relayed through the iPhone | The user's own mail, to the user's own provider |
+| The push Worker | Push registration | Gmail: Google ID token, APNs device token, and the account's refresh token. Outlook: the Graph subscription's ID and secret, the app's account ID, the device token. iCloud/IMAP: the server, user name and app password, the app's account ID, the device token. Each also carries the paired watch's APNs token. The notification extension posts each alert's random ID back (`/v1/acks`) |
 
 Google here is the user's own mail provider, acting for the user. Data the app exchanges with it isn't collected by Goodmail.
 
@@ -58,6 +62,8 @@ Google here is the user's own mail provider, acting for the user. Data the app e
 - `POST /v1/gmail/grants`: the Gmail account's refresh token, on every push refresh.
 - `POST`/`DELETE /v1/graph/subscriptions` and `POST /v1/graph`: Outlook's Graph subscriptions and their change notifications, which name a subscription and carry no mail.
 - `POST`/`DELETE /v1/imap/watches`: an iCloud or IMAP account's server, user name and app password, the app's account ID, the device token, and a watch ID and secret the device made.
+- `watchToken` on the three registrations: the APNs token of the iPhone's paired Apple Watch. The watch never registers itself.
+- `POST /v1/acks`: an alert's random ID, which the iPhone's notification extension sends as the alert arrives. It names no account or device.
 
 **What it stores** (`migrations/`)
 
@@ -65,18 +71,22 @@ Google here is the user's own mail provider, acting for the user. Data the app e
 - `gmail_grants`: the refresh token, AES-GCM encrypted, and an HMAC of it to recognize it when sent again.
 - `graph_subscriptions`: the subscription ID, a SHA-256 of its secret, the app's opaque account ID, the device token and the expiry.
 - `imap_watches`: the login (server, user name and password) as AES-GCM encrypted JSON, an HMAC of it, a SHA-256 of the watch secret, the app's account ID, the device token, the Inbox's UIDVALIDITY and UIDNEXT, and whether the server refused the login, how many times in a row and when.
+- `watch_token` in `devices`, `graph_subscriptions` and `imap_watches` (migration `0010`): the paired watch's APNs token, cleared by a registration without one or when APNs calls it gone.
+- `acks`: each alert's random ID, when it went out, and whether the iPhone confirmed it or the watch got it instead. Kept for a day.
 - `attest_keys`: each install's App Attest public key, its environment, its newest counter and when it was last used, so only the genuine app can register (`src/attest-routes.ts`). A key names no person or account. `attest_challenges` holds one-time challenges for 5 minutes.
 - No addresses in the clear and no mail. The ID token is verified and dropped.
 - **Encryption:** the AES-GCM keys are derived with HKDF from the Worker secret `EMAIL_HMAC_SECRET`, one key per kind of secret. A copy of the database alone reveals no token or password. Someone who controls the Cloudflare account, or Cloudflare itself, could run code with the secret and decrypt them. D1 is also encrypted at rest by Cloudflare.
 
 **What it does with the credentials**
 
-- Gmail: refreshes an access token and lists history since the last notification (`messageAdded`, Inbox only), to stay silent when nothing new reached the Inbox.
+- Gmail: refreshes an access token, lists history since the last notification (`messageAdded`, Inbox only) to stay silent when nothing new reached the Inbox, and reads the newest message's From and Subject headers (`format=metadata`), never a body.
+- Outlook: reads the new message's sender and subject from Graph, never a body.
 - iCloud/IMAP: it logs in every 30 minutes, reads `STATUS INBOX (UIDNEXT UIDVALIDITY)`, selects the Inbox read-only and holds IDLE on that connection until the next login. When UIDNEXT grew, it fetches the From and Subject headers and the flags of what arrived, for the alert, and never a body. A refused login is tried again after about 5 minutes, then 15 minutes, an hour, and every 6 hours.
 
 **What it sends**
 
-- APNs: the alert `Goodmail` / `New mail`, plus `account` (the email address) and `historyId` for Gmail, or `accountID` (the app's opaque ID) for Outlook and IMAP, so the Notification Service Extension knows which account to sync. Apple relays this and keeps it only until delivery.
+- APNs: the alert with the sender as its title and the subject as its body, plus `account` (the email address) and `historyId` for Gmail, or `accountID` (the app's opaque ID) for Outlook and IMAP, so the Notification Service Extension knows which account to sync. Every alert also carries a random `alert` ID, and `threadID` when the provider knows the conversation. Apple relays this and keeps it only until delivery.
+- The paired Apple Watch: when the iPhone hasn't confirmed an alert within 8 seconds, the same alert goes to the watch's token, so it arrives with the iPhone off (ADR-023). The watch's copy adds the `newMail` category for its actions.
 - Follow-up to consider: send an opaque per-account ID for Gmail too, so the address doesn't transit APNs. Low risk either way, since the payload goes over TLS and only to the user's own device.
 
 **What it logs**

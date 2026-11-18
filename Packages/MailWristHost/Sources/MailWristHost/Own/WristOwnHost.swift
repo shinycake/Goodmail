@@ -21,6 +21,8 @@ public actor WristOwnHost {
     let now: @Sendable () -> Date
     let commands: MailCommands
     let answers: ThreadAnswers
+    /// Builds conversations from the watch's database, as the iPhone's host does from its own.
+    private let conversations: WristMailHost
     let uploads: InlineUploads
     /// Where a send's upload body waits until its outcome is in.
     private let uploadFiles: URL
@@ -36,6 +38,15 @@ public actor WristOwnHost {
     var health: [AccountID: AccountHealth] = [:]
     /// The catch-up in progress, which a second caller joins.
     private var catchingUp: Task<Void, Never>?
+    /// Whether a check runs now, and when one last worked. Only `run` changes it.
+    public private(set) var checking = Checking.idle(lastChecked: nil) {
+        didSet { publishFreshness() }
+    }
+    /// The footer as it was last sent on `freshnessUpdates`.
+    var published: WristFreshness?
+    /// Each change to `freshness()`, for the list footer.
+    public nonisolated let freshnessUpdates: AsyncStream<WristFreshness?>
+    let freshnessContinuation: AsyncStream<WristFreshness?>.Continuation
 
     /// - Parameters:
     ///   - database: the watch app's own database, in its own container.
@@ -53,10 +64,21 @@ public actor WristOwnHost {
         self.now = now
         uploadFiles = uploads
         self.uploads = InlineUploads(http: http)
+        (freshnessUpdates, freshnessContinuation) = AsyncStream.makeStream(of: WristFreshness?.self)
         // The host drains the queues itself, after each command and before each sync, so none is left unowned.
         let commands = MailCommands(store: database, replay: { _ in }, now: now)
         self.commands = commands
-        answers = ThreadAnswers(database: database, commands: commands, provider: shelf.provider(for:))
+        let answers = ThreadAnswers(database: database, commands: commands, provider: shelf.provider(for:))
+        self.answers = answers
+        conversations = WristMailHost(database: database, commands: commands, answers: answers)
+    }
+
+    /// A conversation of an account the watch reads itself, as the chat view shows it: from the database when it's
+    /// current, otherwise fetched from the account's service first. `.gone` when the account or the conversation is.
+    /// It works before the first sync since launch, as when an alert opens the app.
+    public func conversation(_ id: ThreadSummary.ID) async throws -> WristThreadReply {
+        serve()
+        return try await conversations.conversation(id)
     }
 
     /// Each of the iPhone's accounts' source: direct once the watch has filled it, the iPhone otherwise.
@@ -85,14 +107,29 @@ public actor WristOwnHost {
         await run { engine in try await engine.sync() }
     }
 
+    /// Drops the threads that left the Inbox from every account the watch keeps, as at launch and when the app goes to
+    /// the background, where no undo can still need them.
+    public func prune() throws {
+        for account in try database.accounts() { try database.pruneOutsideInbox(account: account.id) }
+    }
+
     /// Fetches what changed since each filled account's cursor, as a background refresh does: no resync, no labels.
-    /// A second caller while one runs joins it.
+    /// A second caller while one runs joins it. Cancelling a caller, as the system does when a background refresh's
+    /// time runs out, cancels the catch-up: what each account stored so far stays, and its health doesn't count it.
     public func catchUp() async {
-        if let catchingUp { return await catchingUp.value }
+        if let catchingUp { return await Self.wait(for: catchingUp) }
         let task = Task { await runCatchUp() }
         catchingUp = task
         defer { catchingUp = nil }
-        await task.value
+        await Self.wait(for: task)
+    }
+
+    private static func wait(for task: Task<Void, Never>) async {
+        await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
     }
 
     private func runCatchUp() async {
@@ -127,6 +164,8 @@ public actor WristOwnHost {
     /// Runs `step` on every served account's engine at once and keeps how each went.
     private func run(_ step: @escaping @Sendable (SyncEngine) async throws -> Void) async {
         let engines = served.mapValues(\.engine)
+        let lastChecked = checking.lastChecked
+        checking = .running(lastChecked: lastChecked)
         let outcomes = await withTaskGroup(of: (AccountID, Result<Void, any Error>).self) { group in
             for (id, engine) in engines {
                 group.addTask {
@@ -140,22 +179,31 @@ public actor WristOwnHost {
             }
             return await group.reduce(into: [:]) { $0[$1.0] = $1.1 }
         }
+        // A run cut short says nothing about the accounts.
+        guard !Task.isCancelled else {
+            checking = .idle(lastChecked: lastChecked)
+            return
+        }
         let date = now()
         for (id, outcome) in outcomes where served[id] != nil {
             health[id] = (health[id] ?? .healthy).after(outcome, at: date)
         }
+        let worked = outcomes.values.contains { if case .success = $0 { true } else { false } }
+        checking = .idle(lastChecked: worked ? date : lastChecked)
     }
 }
 
 extension MailDatabase {
-    /// The Inbox as the watch lists it, again after every change to it, each made at `now()`.
+    /// The Inbox as the watch lists it, again after every change to it, each made at `now()` and carrying the
+    /// `extras` of its accounts.
     func wristSnapshots(
-        now: @escaping @Sendable () -> Date
+        now: @escaping @Sendable () -> Date,
+        extras: @escaping @Sendable ([Account]) -> WristExtras? = { _ in nil }
     ) -> AsyncMapSequence<AsyncThrowingStream<InboxGlance, any Error>, WristSnapshot> {
         inboxGlance(limit: WristSnapshot.rowLimit).map { glance in
             WristSnapshot(
                 accounts: glance.accounts, threads: glance.threads, pinned: glance.pinned, unread: glance.unread,
-                madeAt: now())
+                extras: extras(glance.accounts), madeAt: now())
         }
     }
 }

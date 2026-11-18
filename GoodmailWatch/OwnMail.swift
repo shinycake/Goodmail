@@ -1,0 +1,218 @@
+import Foundation
+import MailCore
+import MailStore
+import MailWrist
+import MailWristHost
+import OSLog
+
+/// The Gmail and Outlook accounts the watch reads itself (ADR-023): its own database and host, following the accounts
+/// and the switch each iPhone snapshot carries, feeding the host's Inbox to the Inbox screen and running the commands
+/// stamped for the watch, each once.
+final class OwnMail {
+    nonisolated static let log = Logger(subsystem: "com.idanbirman.goodmail", category: "own-mail")
+
+    /// Upkeep the app asks for as it comes and goes, done one at a time in order.
+    enum Chore {
+        /// Check the mail, as when the app comes to the front.
+        case check
+        /// Drop the threads that left the Inbox, as when the app goes to the background.
+        case prune
+    }
+
+    /// Opens the host once, at launch; the app's run and each background refresh wait for it. `nil` when the database
+    /// can't open, and the watch shows what the iPhone sends.
+    let opening: Task<WristOwnHost?, Never>
+    /// The commands stamped for the watch, in the order they were made.
+    private let commands: AsyncStream<WristCommand>
+    private let commandsIn: AsyncStream<WristCommand>.Continuation
+    private let chores: AsyncStream<Chore>
+    private let choresIn: AsyncStream<Chore>.Continuation
+
+    init() {
+        opening = Task { await Self.openHost() }
+        (commands, commandsIn) = AsyncStream.makeStream(of: WristCommand.self)
+        (chores, choresIn) = AsyncStream.makeStream(of: Chore.self)
+    }
+
+    /// Runs `command` at the account's service. Returns at once, so it never holds up the link to the iPhone.
+    func run(_ command: WristCommand) {
+        commandsIn.yield(command)
+    }
+
+    /// Runs `command` now and returns once it ran, as for an action on an alert, which the system may have launched
+    /// the app for: the host first follows the accounts of the stored `mailbox`, in case the app's run hasn't yet.
+    func perform(_ command: WristCommand, following mailbox: WristMailbox) async {
+        guard let host = await opening.value else { return }
+        do {
+            if let following = Following(mailbox) {
+                try await host.follow(following.accounts, independence: following.independence)
+            }
+            try await host.execute(command)
+        } catch {
+            Self.log.error("Couldn't run an alert's action on the watch: \(error, privacy: .public)")
+        }
+    }
+
+    /// Asks for `chore`, done after the ones asked before it.
+    func ask(_ chore: Chore) {
+        choresIn.yield(chore)
+    }
+
+    /// Runs for the app's lifetime: waits for the watch's own mail to open and prunes it, then follows the iPhone's
+    /// accounts, feeds the Inbox, runs commands and does the chores asked for. Without its database the watch shows
+    /// what the iPhone sends.
+    func run(inbox: WristInboxModel, threads: WristThreads) async {
+        guard let host = await opening.value else { return }
+        await Self.prune(host)
+        threads.own = { id in try await host.conversation(id) }
+        let server = WristServer(
+            applied: AppliedCommands.load(), execute: { try await host.execute($0) },
+            send: { snapshot in await Self.show(snapshot, sources: try? await host.sources(), in: inbox, threads) },
+            remember: AppliedCommands.save)
+        async let following: Void = follow(inbox, threads: threads, host: host)
+        async let feeding: Void = Self.feed(from: host, to: server)
+        async let running: Void = Self.run(commands, on: server)
+        async let choring: Void = doChores(on: host, inbox: inbox, threads: threads)
+        async let footing: Void = Self.showFreshness(of: host, in: inbox)
+        _ = await (following, feeding, running, choring, footing)
+    }
+
+    /// Keeps the list footer on how fresh the watch's own mail is.
+    private static func showFreshness(of host: WristOwnHost, in inbox: WristInboxModel) async {
+        for await freshness in host.freshnessUpdates { inbox.freshness = freshness }
+    }
+
+    /// Opens the database in the app's own container, which only the watch app reads, and the host over it.
+    @concurrent private static func openHost() async -> WristOwnHost? {
+        let folder = URL.applicationSupportDirectory.appending(path: "OwnMail", directoryHint: .isDirectory)
+        do {
+            // MailDatabase protects its folder until the first unlock, so background checks can still open it.
+            let database = try MailDatabase(url: folder.appending(path: "mail.sqlite"))
+            let signIns = WristSignIns(device: Keychain(), shared: Keychain.iCloud)
+            #if DEBUG
+                seedSignInsIfRequested(into: signIns)
+            #endif
+            let providers = WristProviders(signIns: signIns, index: database)
+            return WristOwnHost(
+                database: database, signIns: signIns, provider: { try providers.provider(for: $0) },
+                uploads: folder.appending(path: "Uploads", directoryHint: .isDirectory))
+        } catch {
+            log.error("Couldn't open the watch's own mail: \(error, privacy: .public)")
+            return nil
+        }
+    }
+
+    /// Takes the accounts and the switch from each iPhone snapshot that changes them, and checks the mail after.
+    private func follow(_ inbox: WristInboxModel, threads: WristThreads, host: WristOwnHost) async {
+        var followed: Following?
+        for await following in Observations({ Following(inbox.mailbox) }) {
+            guard let following, following != followed else { continue }
+            followed = following
+            do {
+                try await host.follow(following.accounts, independence: following.independence)
+            } catch {
+                Self.log.error("Couldn't follow the iPhone's accounts: \(error, privacy: .public)")
+            }
+            Self.resend(in: inbox, threads, sources: try? await host.sources())
+            ask(.check)
+        }
+    }
+
+    /// Does each chore asked for. After a check it shows each account's source again: a sync can change one without
+    /// changing the Inbox, as when a sign-in is turned down.
+    private func doChores(on host: WristOwnHost, inbox: WristInboxModel, threads: WristThreads) async {
+        for await chore in chores {
+            switch chore {
+            case .check:
+                do {
+                    try await host.sync()
+                } catch {
+                    Self.log.error("Couldn't check the watch's own mail: \(error, privacy: .public)")
+                }
+                Self.resend(in: inbox, threads, sources: try? await host.sources())
+            case .prune:
+                await Self.prune(host)
+            }
+        }
+    }
+
+    private static func prune(_ host: WristOwnHost) async {
+        do {
+            try await host.prune()
+        } catch {
+            log.error("Couldn't prune the watch's own mail: \(error, privacy: .public)")
+        }
+    }
+
+    @concurrent private static func feed(from host: WristOwnHost, to server: WristServer) async {
+        do {
+            for try await snapshot in host.snapshots() { await server.inboxChanged(snapshot) }
+        } catch {
+            log.error("Stopped reading the watch's own Inbox: \(error, privacy: .public)")
+        }
+    }
+
+    @concurrent private static func run(_ commands: AsyncStream<WristCommand>, on server: WristServer) async {
+        for await command in commands {
+            do {
+                try await server.received(command)
+            } catch {
+                log.error("Couldn't run a command on the watch: \(error, privacy: .public)")
+            }
+        }
+    }
+
+    /// Shows the watch's own `snapshot` with each account's `sources`, or the last sources when they can't be read.
+    static func show(
+        _ snapshot: WristSnapshot, sources: [AccountID: WristAccountSource]?, in inbox: WristInboxModel,
+        _ threads: WristThreads
+    ) {
+        let sources = sources ?? inbox.mailbox.sources
+        inbox.receiveOwn(snapshot, sources: sources)
+        threads.direct = Set(sources.filter { $0.value == .direct }.keys)
+    }
+
+    /// Shows the last own snapshot again with new `sources`.
+    private static func resend(
+        in inbox: WristInboxModel, _ threads: WristThreads, sources: [AccountID: WristAccountSource]?
+    ) {
+        guard let own = inbox.mailbox.own else { return }
+        show(own, sources: sources, in: inbox, threads)
+    }
+}
+
+/// What the watch's own mail takes from the iPhone: its accounts, without their counts, and the owner's switch.
+private nonisolated struct Following: Equatable, Sendable {
+    let accounts: [WristAccount]
+    let independence: WristIndependence
+
+    /// `nil` until the iPhone has sent a snapshot, so a watch that hasn't heard from it yet keeps its accounts.
+    init?(_ mailbox: WristMailbox) {
+        guard let phone = mailbox.snapshot else { return nil }
+        accounts = phone.accounts.map { account in
+            var account = account
+            account.unread = 0
+            return account
+        }
+        #if DEBUG
+            if OwnMail.forcesIndependence {
+                independence = .on
+                return
+            }
+        #endif
+        independence = mailbox.extras?.independence ?? .default
+    }
+}
+
+/// The commands the watch ran itself, kept so a command made again after a relaunch still runs once.
+private nonisolated enum AppliedCommands {
+    private static let key = "WristOwnAppliedCommands"
+
+    static func load() -> [UUID] {
+        (UserDefaults.standard.stringArray(forKey: key) ?? []).compactMap(UUID.init(uuidString:))
+    }
+
+    static func save(_ applied: [UUID]) {
+        UserDefaults.standard.set(applied.map(\.uuidString), forKey: key)
+    }
+}

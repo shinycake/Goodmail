@@ -1,0 +1,61 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Archive": {
+      "comment": "Alert action that archives the mail",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "העברה לארכיון"
+          }
+        }
+      }
+    },
+    "Mark as Read": {
+      "comment": "Alert action that marks mail read",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "סימון כנקרא"
+          }
+        }
+      }
+    },
+    "Reply": {
+      "comment": "Alert action that replies to the mail",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "השב"
+          }
+        }
+      }
+    },
+    "Send": {
+      "comment": "Sends the reply typed in an alert",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "שלח"
+          }
+        }
+      }
+    },
+    "Trash": {
+      "comment": "Alert action that moves the mail to Trash",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "העברה לפח"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

@@ -48,7 +48,8 @@ final class PushCoordinator {
     }
 
     func didRegister(deviceToken: Data) {
-        model.pushDevice = DeviceToken(deviceToken, environment: PushConfiguration.environment)
+        model.pushDevice = DeviceToken(
+            deviceToken, environment: PushConfiguration.environment, watch: AppModel.watchPushToken)
         updateSubscriptions()
     }
 

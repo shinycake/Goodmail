@@ -93,6 +93,19 @@ struct NotificationStoreTests {
         #expect(try database.pushSubscription(for: account.id) == nil)
     }
 
+    @Test func theWatchTokenIsKeptWithTheSubscription() throws {
+        let watch = String(repeating: "cd", count: 32)
+        var paired = PushSubscription(
+            device: DeviceToken(hex: "ab", environment: .production, watch: watch), channel: .watch, renewedAt: now,
+            expiresAt: now.addingTimeInterval(9))
+        try database.setPushSubscription(paired, for: account.id)
+        #expect(try database.pushSubscription(for: account.id)?.device.watch == watch)
+
+        paired.device = paired.device.pairing(nil)
+        try database.setPushSubscription(paired, for: account.id)
+        #expect(try database.pushSubscription(for: account.id) == paired)
+    }
+
     @Test func removingTheAccountTakesItsSettingsWithIt() throws {
         try database.setNotificationLevel(.off, for: account.id, now: now)
         try database.setPushSubscription(
