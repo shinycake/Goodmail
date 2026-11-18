@@ -7,4 +7,11 @@ protocol ComposerHost: AnyObject {
     func minimize(_ composer: ComposeViewController, then next: (() -> Void)?)
     /// The composer's message was sent, deleted, saved to Drafts or closed unchanged, so it is no longer in progress.
     func composerDidClose(_ composer: ComposeViewController)
+    /// The composer is about to put the keyboard away at once, as its card sets off: the host may keep a picture of
+    /// it to travel with the card.
+    func keyboardWillLeave(_ composer: ComposeViewController)
+}
+
+extension ComposerHost {
+    func keyboardWillLeave(_ composer: ComposeViewController) {}
 }

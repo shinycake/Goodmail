@@ -18,6 +18,14 @@ public final class MailSplitViewController: UISplitViewController {
     /// Where an empty Inbox's paper planes fly in this window, and the view drawing them over the columns.
     let inboxZeroSky = InboxZeroSky()
     private(set) lazy var inboxZeroSkyView = makeInboxZeroSkyView()
+    /// Told where the bottom toolbar's buttons are each time that changes, for the minimized messages to sit there.
+    var onBottomLineChange: ((BottomLine) -> Void)?
+    /// The bottom line last told, so an unchanged one isn't told again.
+    private var toldBottomLine: BottomLine?
+    /// What the minimized messages take of the screens' bottom: the toast keeps clear of it.
+    var draftDock = DraftDock.none {
+        didSet { if draftDock != oldValue { view.setNeedsLayout() } }
+    }
 
     public init(actions: MailActions) {
         self.actions = actions
@@ -62,6 +70,7 @@ public final class MailSplitViewController: UISplitViewController {
         super.viewDidLayoutSubviews()
         placeInboxZeroSky()
         placeToast()
+        tellBottomLine()
     }
 
     private func placeToast() {
@@ -73,7 +82,8 @@ public final class MailSplitViewController: UISplitViewController {
         if toastWidth.constant != width { toastWidth.constant = width }
         let size = toast.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
         let placement = UndoToastPlacement.choose(
-            ends: toolbarEnds(), midX: lane.midX, toastSize: size, aboveInset: aboveToolbars() + Self.toastGap)
+            ends: draftDock == .inToolbar ? [] : toolbarEnds(), midX: lane.midX, toastSize: size,
+            aboveInset: aboveToolbars() + Self.toastGap + draftDockHeight)
         let constant = placement.bottomConstant(in: view.bounds, toastHeight: size.height)
         if toastBottom.constant != constant { toastBottom.constant = constant }
         tellFloors(toastHeight: actions.toast == nil ? 0 : size.height + Self.toastGap)
@@ -82,7 +92,7 @@ public final class MailSplitViewController: UISplitViewController {
     /// Where the toast sits across the window: the whole of it in one stack, and the thread's column side by side,
     /// over its toolbar, rather than across the line between the columns and over the list's rows. The column's own
     /// safe area leaves out the sidebar when it floats over the column's edge.
-    private var toastLane: CGRect {
+    var toastLane: CGRect {
         let lane = view.foldLane
         guard let column = toastScreens.first?.view, !isCollapsed else { return lane }
         let insets = column.safeAreaInsets
@@ -103,6 +113,22 @@ public final class MailSplitViewController: UISplitViewController {
     /// The room between the toast and what it sits above.
     private static let toastGap: CGFloat = 12
 
+    /// How much higher the toast sits above the toolbar to clear minimized messages floating there.
+    private var draftDockHeight: CGFloat {
+        switch draftDock {
+        case .none, .inToolbar: 0
+        case .floating(let height): height + DraftDockPlacement.floatingGap
+        }
+    }
+
+    /// Tells `onBottomLineChange` where the bottom toolbar's buttons are, if that changed.
+    private func tellBottomLine() {
+        let line = bottomLine
+        guard line != toldBottomLine else { return }
+        toldBottomLine = line
+        onBottomLineChange?(line)
+    }
+
     /// Tells screens with a bar of their own how much the toast covers above it.
     private func tellFloors(toastHeight: CGFloat) {
         for case let floor as any UndoToastFloor in shownScreens { floor.toastCovers(toastHeight) }
@@ -113,7 +139,7 @@ public final class MailSplitViewController: UISplitViewController {
 
     /// How far the shown screens' content ends above the bottom: a screen's safe area ends above its toolbar when
     /// there is one, else above the home indicator, and a bar of its own, such as the chat's field, may end higher.
-    private func aboveToolbars() -> CGFloat {
+    func aboveToolbars() -> CGFloat {
         let insets = toastScreens.map { screen in
             guard let floor = (screen as? any UndoToastFloor)?.toastFloor, floor.window != nil else {
                 return screen.view.safeAreaInsets.bottom
@@ -129,7 +155,7 @@ public final class MailSplitViewController: UISplitViewController {
     /// stands for a button the search controller draws, and reports an empty frame: the toast, centered, keeps the
     /// same room from both ends, so the buttons that do report one are enough. A toolbar in a bar down the side, as
     /// on iPhone Duo's outer display, has no middle for the toast.
-    private func toolbarEnds() -> [CGRect] {
+    func toolbarEnds() -> [CGRect] {
         guard isCollapsed, traitCollection.verticalBarEdge == .unspecified,
             let lane = shownScreens.first as? any UndoToastLane,
             lane.navigationController?.isToolbarHidden == false

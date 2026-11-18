@@ -1,15 +1,28 @@
+import MailCore
 import UIKit
 
-/// The card the composer is written in, over the mail screens. Its grabber shows it can be pulled down to the bar,
-/// which the card shrinks into as it goes.
+/// The card the composer is written in, over the mail screens. Pulled down, it shrinks into the minimized message in
+/// the bottom toolbar: the composer itself scales down with the card, then gives way to the capsule it becomes.
+///
+/// Two layers: the `face`, the same capsule as the minimized messages, and over it the `cover`, which holds the
+/// composer at its open size and the grabber. The cover scales with the card's width, its top at the card's top, so
+/// the composer fills the card's width at every moment of the motion and the card clips what falls below.
 final class ComposerCardView: UIView {
     /// The corner radius while the card fills the screen.
     static let openCornerRadius: CGFloat = 38
     /// How far the composer starts below the card's top, leaving the grabber its room.
     static let grabberRoom: CGFloat = 12
-    /// What the composer's content sits in, so it can fade without the card and grabber.
-    let content = UIView()
+    /// How far an open card reaches past the bottom of the screen, so only its top corners show round.
+    static let overhang = openCornerRadius
+    /// The capsule the card becomes, under the composer.
+    let face = DraftPillView(interactive: false)
+    /// The composer at its open size, and the grabber, over the face.
+    private let cover = UIView()
     private let grabber = Grabber()
+    /// The keyboard as it stood when the card set off, traveling with the composer, if it was up.
+    private weak var keyboard: UIView?
+    /// The cover's size, the card's when open.
+    private var openSize = CGSize.zero
     /// Moves the message to the bar: the grabber's VoiceOver action.
     var onMinimize: (() -> Void)? {
         get { grabber.onMinimize }
@@ -18,20 +31,23 @@ final class ComposerCardView: UIView {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        backgroundColor = .shelfCard
         layer.cornerCurve = .continuous
         layer.cornerRadius = Self.openCornerRadius
-        layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         clipsToBounds = true
         // VoiceOver stays in the message while it's open, as it would in a sheet.
         accessibilityViewIsModal = true
-        content.frame = bounds
-        addSubview(content)
+        face.frame = bounds
+        face.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        addSubview(face)
+        // One surface from the grabber down, lifted off the screen behind it as a sheet is.
+        cover.backgroundColor = .systemBackground
+        cover.traitOverrides.userInterfaceLevel = .elevated
+        addSubview(cover)
         grabber.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(grabber)
+        cover.addSubview(grabber)
         NSLayoutConstraint.activate([
-            grabber.topAnchor.constraint(equalTo: topAnchor),
-            grabber.centerXAnchor.constraint(equalTo: centerXAnchor),
+            grabber.topAnchor.constraint(equalTo: cover.topAnchor),
+            grabber.centerXAnchor.constraint(equalTo: cover.centerXAnchor),
             grabber.widthAnchor.constraint(equalToConstant: Grabber.size.width),
             grabber.heightAnchor.constraint(equalToConstant: Grabber.size.height),
         ])
@@ -40,16 +56,53 @@ final class ComposerCardView: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("Programmatic UI only") }
 
-    /// The composer's view, kept at the size it has open: as the card shrinks into the bar it clips the composer
-    /// rather than squeezing it.
+    /// Takes the composer's view, kept at the size it has open, `openSize` less the overhang: as the card shrinks the
+    /// composer scales with it rather than squeezing.
     func hold(_ composerView: UIView, openSize: CGSize) {
+        self.openSize = openSize
+        cover.transform = .identity
+        cover.bounds = CGRect(origin: .zero, size: openSize)
         composerView.frame = CGRect(
-            x: (bounds.width - openSize.width) / 2, y: Self.grabberRoom, width: openSize.width,
-            height: openSize.height - Self.grabberRoom)
-        composerView.autoresizingMask = [.flexibleLeftMargin, .flexibleRightMargin, .flexibleBottomMargin]
-        content.frame = bounds
-        content.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        content.addSubview(composerView)
+            x: 0, y: Self.grabberRoom, width: openSize.width,
+            height: openSize.height - Self.overhang - Self.grabberRoom)
+        composerView.autoresizingMask = []
+        cover.insertSubview(composerView, belowSubview: grabber)
+    }
+
+    /// Puts the card at `frame` with corners of `cornerRadius`, the composer scaled to its width. Animatable.
+    func fit(_ frame: CGRect, cornerRadius: CGFloat) {
+        self.frame = frame
+        layer.cornerRadius = cornerRadius
+        let scale = openSize.width > 0 ? frame.width / openSize.width : 1
+        cover.transform = CGAffineTransform(scaleX: scale, y: scale)
+        cover.center = CGPoint(x: frame.width / 2, y: openSize.height * scale / 2)
+        face.layoutIfNeeded()
+    }
+
+    /// How much of the composer shows over the face. Animatable.
+    var composerAlpha: CGFloat {
+        get { cover.alpha }
+        set { cover.alpha = newValue }
+    }
+
+    /// How much of the grabber shows. Animatable.
+    var grabberAlpha: CGFloat {
+        get { grabber.alpha }
+        set { grabber.alpha = newValue }
+    }
+
+    /// Carries `standIn`, a picture of the keyboard at `frame` in `space`, with the composer. Only while the card
+    /// is open, as the cover is then unscaled.
+    func carryKeyboard(_ standIn: UIView, at frame: CGRect, in space: UIView) {
+        dropKeyboard()
+        standIn.frame = space.convert(frame, to: cover)
+        cover.addSubview(standIn)
+        keyboard = standIn
+    }
+
+    /// Lets go of the keyboard's picture, once the real one is back or the card has gone.
+    func dropKeyboard() {
+        keyboard?.removeFromSuperview()
     }
 }
 
@@ -58,6 +111,8 @@ final class ComposerCardView: UIView {
 private final class Grabber: UIView {
     /// Room enough for VoiceOver to land on, with the capsule at its top.
     static let size = CGSize(width: 88, height: 44)
+    private static let capsuleTop: CGFloat = 6
+    private static let capsuleSize = CGSize(width: 36, height: 5)
     var onMinimize: (() -> Void)?
 
     override init(frame: CGRect) {
@@ -65,14 +120,14 @@ private final class Grabber: UIView {
         isUserInteractionEnabled = false
         let capsule = UIView()
         capsule.backgroundColor = .tertiaryLabel
-        capsule.layer.cornerRadius = MinimizedDraftsBar.grabberSize.height / 2
+        capsule.layer.cornerRadius = Self.capsuleSize.height / 2
         capsule.translatesAutoresizingMaskIntoConstraints = false
         addSubview(capsule)
         NSLayoutConstraint.activate([
-            capsule.topAnchor.constraint(equalTo: topAnchor, constant: MinimizedDraftsBar.grabberTop),
+            capsule.topAnchor.constraint(equalTo: topAnchor, constant: Self.capsuleTop),
             capsule.centerXAnchor.constraint(equalTo: centerXAnchor),
-            capsule.widthAnchor.constraint(equalToConstant: MinimizedDraftsBar.grabberSize.width),
-            capsule.heightAnchor.constraint(equalToConstant: MinimizedDraftsBar.grabberSize.height),
+            capsule.widthAnchor.constraint(equalToConstant: Self.capsuleSize.width),
+            capsule.heightAnchor.constraint(equalToConstant: Self.capsuleSize.height),
         ])
         isAccessibilityElement = true
         accessibilityTraits = .button

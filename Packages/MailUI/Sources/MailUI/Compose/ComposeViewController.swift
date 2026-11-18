@@ -573,7 +573,8 @@ public final class ComposeViewController: UIViewController {
     func stayed() {
         guard case .leaving(let field) = showing else { return }
         showing = .shown
-        field?.becomeFirstResponder()
+        // Back at once, where the picture of it the card carried stands.
+        UIView.performWithoutAnimation { _ = field?.becomeFirstResponder() }
     }
 
     /// The card reached the bar.
@@ -599,7 +600,10 @@ public final class ComposeViewController: UIViewController {
         if keeping { viewModel.keepNow(body: body) }
         // Read before editing ends, which leaves no field focused.
         showing = .leaving(lastFocused)
-        view.endEditing(true)
+        // The keyboard goes at once rather than sliding away on its own: the host carries a picture of it down
+        // with the card, in step with the finger.
+        host?.keyboardWillLeave(self)
+        UIView.performWithoutAnimation { view.endEditing(true) }
     }
 
     /// Whether the message shows from its top, where a drag down takes the card down rather than scrolling.

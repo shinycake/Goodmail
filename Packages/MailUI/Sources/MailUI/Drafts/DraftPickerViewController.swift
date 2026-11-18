@@ -232,3 +232,10 @@ private final class DraftCard: UIView {
         onOpen?()
     }
 }
+
+extension UIColor {
+    /// A laid-out draft: lifted off the mail screens' background in both themes.
+    fileprivate static let shelfCard = UIColor { traits in
+        traits.userInterfaceStyle == .dark ? .tertiarySystemBackground : .systemBackground
+    }
+}

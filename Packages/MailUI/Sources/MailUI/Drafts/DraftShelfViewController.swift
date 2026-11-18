@@ -1,22 +1,19 @@
 public import MailCore
 public import UIKit
 
-/// The window's root: the mail screens, and under them, once a message is minimized, a bar to swipe up and open it
-/// again. Several messages can wait there; swiping up on several lays them out to pick one.
+/// The window's root: the mail screens, and over them, once a message is minimized, a capsule in the bottom toolbar
+/// between Search and Compose to swipe up or tap to open it again (above the toolbar where there's no room in it).
+/// Several messages can wait there; opening several lays them out to pick one.
 public final class DraftShelfViewController: UIViewController {
     /// The messages in progress. Only the methods below change it, each presenting what its new state shows.
     private var shelf = DraftShelf<ComposeViewController>()
-    private let bar = MinimizedDraftsBar()
+    /// The minimized messages: every one in progress but the one on the composer's card.
+    private let bar = DraftPillView(interactive: true)
     /// The message being written, on its card over the mail screens, and its moves to and from the bar.
-    private lazy var stage = ComposerStage(shelf: self, bar: bar) { [unowned self] in layOutContent(showsBar: $0) }
-    /// Ends the content at the bar while messages are minimized, else at the bottom of the screen.
-    private var contentBottom: NSLayoutConstraint?
+    private lazy var stage = ComposerStage(shelf: self, dock: bar)
     /// Keeps the messages in progress, the last one written first, so they come back after the app is closed. Told
     /// after each change, and as the window leaves the screen with the one being written as it stands then.
     public var keep: (([Draft]) -> Void)?
-    /// The bar's sides, from the physical left and right: inside the safe area, and off iPhone Duo's fold (`FoldLane`).
-    private var barLeft: NSLayoutConstraint!
-    private var barRight: NSLayoutConstraint!
     /// Starts a new message from the account, after the picker's New Message button. It comes back through `open`.
     public var newMessage: ((AccountID) -> Void)?
 
@@ -27,6 +24,7 @@ public final class DraftShelfViewController: UIViewController {
             oldValue?.willMove(toParent: nil)
             oldValue?.view.removeFromSuperview()
             oldValue?.removeFromParent()
+            (oldValue as? any DraftDockSite)?.onBottomLineChange = nil
             if let content { embed(content) }
             setNeedsUpdateOfVerticalBarConfiguration()
         }
@@ -41,32 +39,17 @@ public final class DraftShelfViewController: UIViewController {
 
     public override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .shelfBackground
-        bar.translatesAutoresizingMaskIntoConstraints = false
+        view.backgroundColor = .systemBackground
         bar.isHidden = true
-        bar.alpha = 0
         bar.onOpen = { [weak self] in self?.reopen() }
         bar.onDrag = { [weak self] in self?.reopen(following: $0) }
         NotificationCenter.default.addObserver(
             self, selector: #selector(sceneDidEnterBackground(_:)), name: UIScene.didEnterBackgroundNotification,
             object: nil)
         view.addSubview(bar)
-        // At least this tall; larger text grows the bar, and the mail screens above it shrink to fit.
-        let fitted = bar.topAnchor.constraint(
-            equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -MinimizedDraftsBar.height)
-        fitted.priority = .defaultHigh
-        barLeft = bar.leftAnchor.constraint(equalTo: view.leftAnchor)
-        barRight = bar.rightAnchor.constraint(equalTo: view.rightAnchor)
-        NSLayoutConstraint.activate([
-            barLeft,
-            barRight,
-            bar.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            bar.topAnchor.constraint(
-                lessThanOrEqualTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -MinimizedDraftsBar.height),
-            fitted,
-        ])
         stage.install()
         stage.planLeaving = { [unowned self] in planLeaving($0) }
+        stage.onChange = { [unowned self] in updateBar() }
     }
 
     /// Only this window's own scene keeps its drafts as it leaves, with what is being written as it stands.
@@ -79,16 +62,10 @@ public final class DraftShelfViewController: UIViewController {
 
     public override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        let lane = view.foldLane
-        let left = lane.minX - view.bounds.minX + Self.barInset
-        let right = lane.maxX - view.bounds.maxX - Self.barInset
-        if barLeft.constant != left { barLeft.constant = left }
-        if barRight.constant != right { barRight.constant = right }
+        // The content lays out first, telling the bar its line if that changed; without a line, it floats.
+        if !(content is any DraftDockSite) { placeBar() }
         stage.layout()
     }
-
-    /// The room between the bar and the sides of its lane.
-    private static let barInset: CGFloat = 8
 
     public override var childForStatusBarStyle: UIViewController? { content }
     /// The mail screens decide whether their bars may run down the side, as on iPhone Duo.
@@ -96,17 +73,14 @@ public final class DraftShelfViewController: UIViewController {
 
     private func embed(_ content: UIViewController) {
         addChild(content)
-        content.view.translatesAutoresizingMaskIntoConstraints = false
-        content.view.layer.cornerCurve = .continuous
-        content.view.layer.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
+        content.view.frame = view.bounds
+        content.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         view.insertSubview(content.view, belowSubview: bar)
-        NSLayoutConstraint.activate([
-            content.view.topAnchor.constraint(equalTo: view.topAnchor),
-            content.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            content.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-        ])
         content.didMove(toParent: self)
-        layOutContent(showsBar: barShows)
+        if let site = content as? any DraftDockSite {
+            site.onBottomLineChange = { [weak self] _ in self?.placeBar() }
+        }
+        placeBar()
     }
 
     /// Writes `composer`'s message, minimizing the one being written. A message already in progress opens in the
@@ -130,7 +104,7 @@ public final class DraftShelfViewController: UIViewController {
         shelf.open(composer.viewModel.draft, in: composer)
         shelfChanged()
         guard let writing = shelf.writing?.composer else { return }
-        stage.open(writing, from: .below, barShowing: barBelongs)
+        stage.open(writing, from: .below)
     }
 
     /// Dragging up on the bar, or tapping it: one message comes up, following the finger if it drags; several are laid
@@ -143,7 +117,7 @@ public final class DraftShelfViewController: UIViewController {
             return showPicker(following: pan)
         }
         // The shelf writes it once it's up; let go short, it stays minimized.
-        stage.open(front.composer, from: .bar, barShowing: false, following: pan) { [weak self] opened in
+        stage.open(front.composer, from: .dock(showing: waiting), following: pan) { [weak self] opened in
             guard let self, opened else { return }
             shelf.reopen()
             shelfChanged()
@@ -202,7 +176,7 @@ public final class DraftShelfViewController: UIViewController {
         guard let composer = shelf.writing?.composer else { return }
         closePicker { [weak self] in
             guard let self else { return }
-            stage.open(composer, from: .bar, barShowing: barBelongs)
+            stage.open(composer, from: .dock(showing: [composer.written]))
         }
     }
 
@@ -242,9 +216,8 @@ public final class DraftShelfViewController: UIViewController {
 
     /// Shows what the shelf holds now, and hands it to `keep`.
     private func shelfChanged() {
-        let drafts = inProgress
-        updateBar(drafts)
-        keep?(drafts)
+        updateBar()
+        keep?(inProgress)
     }
 
     /// The messages in progress as written so far, the last one written first: the one being written as it stands
@@ -262,45 +235,55 @@ public final class DraftShelfViewController: UIViewController {
         shelfChanged()
     }
 
-    /// Shows the bar while messages are minimized, and fits the content above it. While the card moves, it moves the
-    /// bar and the content with it.
-    private func updateBar(_ drafts: [Draft]) {
+    /// The messages waiting in the bar, the last one written first: all in progress but the one on the card, being
+    /// written or on its way.
+    private var waiting: [Draft] {
+        shelf.entries.filter { $0.composer !== stage.composer && shelf.state != .writing($0.id) }.map(\.draft)
+    }
+
+    /// Shows the waiting messages in the bar, or hides it when none are.
+    private func updateBar() {
+        let drafts = waiting
         bar.show(drafts)
-        let showsBar = barBelongs
-        guard !stage.isMoving, showsBar != barShows else { return }
-        bar.isHidden = false
-        UIView.animate(springDuration: 0.4, bounce: Motion.bounce(0.15)) {
-            self.bar.alpha = showsBar ? 1 : 0
-            self.layOutContent(showsBar: showsBar)
-            self.view.layoutIfNeeded()
-        } completion: { _ in
-            // A show that came while this hide ran leaves the bar showing.
-            self.bar.isHidden = !self.barShows
+        bar.isHidden = drafts.isEmpty
+        tellContentWhatBarTakes()
+    }
+
+    /// Puts the bar on the content's bottom line: in its toolbar's middle when there's room, else above it.
+    private func placeBar() {
+        let placement = DraftDockPlacement.choose(line: bottomLine, height: DraftPillView.height)
+        if bar.frame != placement.frame { bar.frame = placement.frame }
+        self.placement = placement
+        tellContentWhatBarTakes()
+    }
+
+    /// Where the bar sits now.
+    private var placement: DraftDockPlacement?
+
+    /// The content's bottom line in this view, or, for content without one, the bottom of the screen.
+    private var bottomLine: BottomLine {
+        guard let site = content as? any DraftDockSite else {
+            return BottomLine(
+                lane: view.foldLane, ends: [], bottom: view.bounds.maxY, barsInset: view.safeAreaInsets.bottom)
         }
+        let line = site.bottomLine
+        let shift = site.view.convert(CGPoint.zero, to: view)
+        return BottomLine(
+            lane: line.lane.offsetBy(dx: shift.x, dy: shift.y),
+            ends: line.ends.map { $0.offsetBy(dx: shift.x, dy: shift.y) }, bottom: line.bottom + shift.y,
+            barsInset: line.barsInset)
     }
 
-    /// Whether the bar belongs on the screen: every message but the one being written waits in it.
-    private var barBelongs: Bool {
-        shelf.entries.contains { shelf.state != .writing($0.id) }
-    }
-
-    /// Whether the bar shows, or is on its way in. Its alpha holds where the last change sends it, even mid-animation.
-    private var barShows: Bool {
-        bar.alpha > 0
-    }
-
-    private func layOutContent(showsBar: Bool) {
-        guard let content else { return }
-        contentBottom?.isActive = false
-        contentBottom =
-            showsBar
-            ? content.view.bottomAnchor.constraint(equalTo: bar.topAnchor, constant: -14)
-            : content.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-        contentBottom?.isActive = true
-        content.view.layer.cornerRadius = showsBar ? 36 : 0
-        content.view.clipsToBounds = showsBar
-        // The content no longer reaches the home indicator, so its bottom bars need their own room.
-        content.additionalSafeAreaInsets.bottom = showsBar ? 10 : 0
+    /// Tells the content what the bar takes of its bottom, for the undo toast to keep clear of it.
+    private func tellContentWhatBarTakes() {
+        guard let site = content as? any DraftDockSite else { return }
+        let dock: DraftDock =
+            switch (bar.isHidden, placement) {
+            case (true, _), (false, nil): .none
+            case (false, .inToolbar): .inToolbar
+            case (false, .floating(let frame)): .floating(height: frame.height)
+            }
+        if site.draftDock != dock { site.draftDock = dock }
     }
 }
 
@@ -311,8 +294,7 @@ extension DraftShelfViewController: ComposerHost {
             next?()
             return
         }
-        bar.show(inProgress)
-        stage.leave(to: .bar, barShowing: true) { [weak self] _ in
+        stage.leave(to: .dock(showing: [composer.written] + waiting)) { [weak self] _ in
             self?.didMinimize(composer)
             next?()
         }
@@ -329,12 +311,12 @@ extension DraftShelfViewController: ComposerHost {
     private func planLeaving(_ composer: ComposeViewController) -> ComposerStage.Leaving {
         switch composer.startLeaving() {
         case .minimize:
-            bar.show(inProgress)
-            return ComposerStage.Leaving(destination: .bar, barShowing: true) { [weak self] minimized in
+            return ComposerStage.Leaving(destination: .dock(showing: [composer.written] + waiting)) {
+                [weak self] minimized in
                 if minimized { self?.didMinimize(composer) } else { composer.stayed() }
             }
         case .discard:
-            return ComposerStage.Leaving(destination: .away, barShowing: barBelongs) { discarded in
+            return ComposerStage.Leaving(destination: .away) { discarded in
                 if discarded { composer.discard() } else { composer.stayed() }
             }
         }
@@ -342,20 +324,17 @@ extension DraftShelfViewController: ComposerHost {
 
     var canMinimize: Bool { true }
 
+    func keyboardWillLeave(_ composer: ComposeViewController) {
+        stage.carryKeyboard(of: composer)
+    }
+
     func composerDidClose(_ composer: ComposeViewController) {
         shelf.finish(composer.viewModel.draft.id)
         shelfChanged()
-        if stage.composer === composer { stage.leave(to: .away, barShowing: barBelongs) }
+        if stage.composer === composer { stage.leave(to: .away) }
         switch shelf.state {
         case .choosing: picker?.show(shelf.entries.map(\.draft))
         case .empty, .minimized, .writing: closePicker()
         }
-    }
-}
-
-extension UIColor {
-    /// Behind the mail screens while a message is minimized: the edge the bar slides out from.
-    fileprivate static let shelfBackground = UIColor { traits in
-        traits.userInterfaceStyle == .dark ? .systemGray6 : .systemGray5
     }
 }
