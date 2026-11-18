@@ -85,6 +85,7 @@ public final class MailboxViewModel {
     @ObservationIgnored private let refreshAction: () async throws -> Void
     @ObservationIgnored private let loadOlderAction: () async throws -> Bool
     @ObservationIgnored private let navigate: (Route) -> Void
+    @ObservationIgnored private let readAheadAction: ([ThreadSummary.ID], ThreadFetcher.ReadAhead) -> Void
     @ObservationIgnored private var mayHaveOlder = true
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let calendar: Calendar
@@ -99,6 +100,7 @@ public final class MailboxViewModel {
         refresh: @escaping () async throws -> Void,
         loadOlder: @escaping () async throws -> Bool = { false },
         navigate: @escaping (Route) -> Void = { _ in },
+        readAhead: @escaping ([ThreadSummary.ID], ThreadFetcher.ReadAhead) -> Void = { _, _ in },
         actions: MailActions? = nil,
         health: AccountHealthBoard = AccountHealthBoard(),
         combinedTheme: CombinedTheme = Preferences.combinedTheme,
@@ -119,6 +121,7 @@ public final class MailboxViewModel {
         refreshAction = refresh
         loadOlderAction = loadOlder
         self.navigate = navigate
+        readAheadAction = readAhead
         self.now = now
         self.calendar = calendar
     }
@@ -276,6 +279,11 @@ public final class MailboxViewModel {
 
     public func open(_ id: ThreadSummary.ID) {
         navigate(.thread(id, in: mailbox))
+    }
+
+    /// Starts fetching a thread's bodies before it opens: its row showed, or the reader is touching it.
+    func readAhead(_ id: ThreadSummary.ID, because reason: ThreadFetcher.ReadAhead) {
+        readAheadAction([id], reason)
     }
 
     public func openInNewWindow(_ id: ThreadSummary.ID) {

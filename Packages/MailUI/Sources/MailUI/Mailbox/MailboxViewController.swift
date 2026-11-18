@@ -426,6 +426,7 @@ extension MailboxViewController: UICollectionViewDelegate {
     public func collectionView(
         _ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath
     ) {
+        if let id = dataSource.itemIdentifier(for: indexPath) { viewModel.readAhead(id, because: .visible) }
         let snapshot = dataSource.snapshot()
         guard let section = dataSource.sectionIdentifier(for: indexPath.section) else { return }
         let before = snapshot.sectionIdentifiers.prefix { $0 != section }
@@ -455,6 +456,12 @@ extension MailboxViewController: UICollectionViewDelegate {
     public func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
         // A tap while actions are open just closes them.
         !swipes.close()
+    }
+
+    /// A row held under the finger is likely to open, so its bodies start downloading before the tap ends.
+    public func collectionView(_ collectionView: UICollectionView, didHighlightItemAt indexPath: IndexPath) {
+        guard !isEditing, let id = dataSource.itemIdentifier(for: indexPath) else { return }
+        viewModel.readAhead(id, because: .touched)
     }
 
     public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {

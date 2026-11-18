@@ -13,7 +13,9 @@ public final class SearchResultsController: UIViewController, UISearchResultsUpd
     private weak var searchController: UISearchController?
 
     public init(
-        search: ThreadSearch, accounts: [Account], navigate: @escaping (Route) -> Void, actions: MailActions?,
+        search: ThreadSearch, accounts: [Account], navigate: @escaping (Route) -> Void,
+        readAhead: @escaping ([ThreadSummary.ID], ThreadFetcher.ReadAhead) -> Void = { _, _ in },
+        actions: MailActions?,
         contacts: @escaping (String) -> [Contact] = { _ in [] }, recents: RecentSearches = RecentSearches()
     ) {
         self.search = search
@@ -39,6 +41,7 @@ public final class SearchResultsController: UIViewController, UISearchResultsUpd
                     return true
                 },
                 navigate: navigate,
+                readAhead: readAhead,
                 actions: actions),
             empty: .search())
         super.init(nibName: nil, bundle: nil)

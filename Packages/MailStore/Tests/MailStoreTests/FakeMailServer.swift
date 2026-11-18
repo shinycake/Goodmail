@@ -42,6 +42,7 @@ final class FakeMailServer: SendAsSyncing {
         var messages: [String: [Message]] = [:]
         var messageRequests: [String] = []
         var failMessages: (any Error)?
+        var onMessagesRequested: (@Sendable (String) async -> Void)?
         var labels = [
             MailLabel(id: "INBOX", name: "INBOX", kind: .system),
             MailLabel(id: "Label_1", name: "Receipts", kind: .user),
@@ -156,9 +157,14 @@ final class FakeMailServer: SendAsSyncing {
         }
     }
 
+    /// Runs `onMessagesRequested` after counting the request and before answering, as a slow reply would.
     func messages(inThread threadID: String) async throws -> [Message] {
-        try state.withLock { state in
+        let hook = state.withLock { state in
             state.messageRequests.append(threadID)
+            return state.onMessagesRequested
+        }
+        await hook?(threadID)
+        return try state.withLock { state in
             if let failure = state.failMessages { throw failure }
             return state.messages[threadID] ?? []
         }
@@ -461,6 +467,10 @@ extension FakeMailServer {
                 state.threads[threadID]?.labelIDs.subtract(doomed)
             }
         }
+    }
+
+    func onMessagesRequested(_ hook: (@Sendable (String) async -> Void)?) {
+        state.withLock { $0.onMessagesRequested = hook }
     }
 
     func onLabelsRead(_ hook: (@Sendable () async -> Void)?) {

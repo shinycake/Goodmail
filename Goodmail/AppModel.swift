@@ -20,7 +20,9 @@ final class AppModel {
     let providers: Providers
     private var engines: [AccountID: SyncEngine] = [:]
     private var prefetchers: [AccountID: BodyPrefetcher] = [:]
-    private let path = PathMonitor()
+    private let path: PathMonitor
+    /// Fetches threads as they open, joining a fetch their row began when touched or scrolled into view.
+    let threadFetcher: ThreadFetcher
     /// Where opened attachments are kept; they count toward the cache cap with the bodies.
     let attachmentsDirectory = URL.cachesDirectory.appending(path: "Attachments", directoryHint: .isDirectory)
     let outboxes: Outboxes
@@ -81,6 +83,9 @@ final class AppModel {
         }
         let providers = Providers(database: database)
         self.providers = providers
+        let path = PathMonitor()
+        self.path = path
+        threadFetcher = ThreadFetcher(provider: { try providers.provider(for: $0) }, store: database, path: path)
         let outboxes = Outboxes { id in
             Outbox(accountID: id, provider: try providers.provider(for: id), store: database)
         }
@@ -360,6 +365,7 @@ final class AppModel {
     /// Stops prefetching, as when the app leaves the foreground. The next sync picks up where it left off.
     func cancelPrefetch() async {
         for prefetcher in prefetchers.values { await prefetcher.cancel() }
+        await threadFetcher.cancelReadAhead()
     }
 
     /// Evicts the least recently read bodies and attachments when the cache is over its cap (ADR-007). Off the
@@ -423,15 +429,16 @@ final class AppModel {
     }
 
     /// What the reader does on opening a thread: marks its cached bodies as read, which the cache cap evicts by,
-    /// then fetches the latest.
+    /// then fetches the latest. A fetch its row began ahead stored them as unread, so they are marked again.
     func open(_ thread: ThreadSummary.ID) async throws {
         try? await Self.store { [database] in try database.touchMessages(inThread: thread) }
         try await loadMessages(of: thread)
+        try? await Self.store { [database] in try database.touchMessages(inThread: thread) }
     }
 
     /// Fetches a thread's messages with their bodies into the store, where the thread view reads them.
     func loadMessages(of thread: ThreadSummary.ID) async throws {
-        try await answers.loadMessages(of: thread)
+        try await threadFetcher.load(thread)
     }
 
     /// A thread's messages, to answer its newest (`ThreadAnswers.messagesToAnswer(in:)`).

@@ -165,43 +165,65 @@ extension MailDatabase {
     }
 }
 
-extension MailDatabase: PrefetchStore {
+extension MailDatabase: ThreadFetchStore {
+    /// Whether thread `t`, with its `accountID`, `id` and `date`, lacks bodies.
+    ///
     /// A thread whose cached bodies stop short of its date by more than a second lacks a newer message. The store
     /// keeps the thread's date to the millisecond and each message's whole, so a second is allowed.
     ///
     /// One whose bodies were fetched more than an hour after its date counts as whole even so: a message the provider
     /// leaves out of the thread, such as a draft, must not have it fetched again on every run. A message that arrives
     /// later than that after it was written is fetched when its thread opens.
+    ///
+    /// The newest date comes from the message index alone; `fetchedAt`, stored past each body, is read only for the
+    /// few threads that are behind.
+    private static let lacksBodies = """
+        (NOT EXISTS (SELECT 1 FROM message m WHERE m.accountID = t.accountID AND m.threadID = t.id)
+            OR (julianday((
+                    SELECT MAX(m.date) FROM message m WHERE m.accountID = t.accountID AND m.threadID = t.id
+                )) < julianday(t.date) - 1.0 / 86400
+                AND julianday((
+                    SELECT MAX(m.fetchedAt) FROM message m WHERE m.accountID = t.accountID AND m.threadID = t.id
+                )) < julianday(t.date) + 1.0 / 24))
+        """
+
     public func threadsMissingBodies(account: AccountID, among newest: Int) throws -> [ThreadSummary.ID] {
         try pool.read { db in
             try String.fetchAll(
                 db,
                 sql: """
                     SELECT id FROM (
-                        SELECT t.id, t.date FROM thread t
+                        SELECT t.accountID, t.id, t.date FROM thread t
                         WHERE t.accountID = ? AND NOT EXISTS (
                             SELECT 1 FROM threadLabel l
                             WHERE l.accountID = t.accountID AND l.threadID = t.id AND l.labelID IN (?, ?))
                         ORDER BY t.date DESC
                         LIMIT ?
-                    ) AS newest
-                    WHERE NOT EXISTS (SELECT 1 FROM message m WHERE m.accountID = ? AND m.threadID = newest.id)
-                        -- The newest date comes from the index alone; fetchedAt, stored past each body, is read only
-                        -- for the few threads that are behind.
-                        OR (julianday((
-                                SELECT MAX(m.date) FROM message m WHERE m.accountID = ? AND m.threadID = newest.id
-                            )) < julianday(newest.date) - 1.0 / 86400
-                            AND julianday((
-                                SELECT MAX(m.fetchedAt) FROM message m WHERE m.accountID = ? AND m.threadID = newest.id
-                            )) < julianday(newest.date) + 1.0 / 24)
-                    ORDER BY newest.date DESC
+                    ) AS t
+                    WHERE \(Self.lacksBodies)
+                    ORDER BY date DESC
                     """,
-                arguments: [
-                    account.rawValue, SystemLabel.spam, SystemLabel.trash, newest, account.rawValue, account.rawValue,
-                    account.rawValue,
-                ]
+                arguments: [account.rawValue, SystemLabel.spam, SystemLabel.trash, newest]
             ).map { ThreadSummary.ID(accountID: account, threadID: $0) }
         }
+    }
+
+    public func threadsMissingBodies(among threads: [ThreadSummary.ID]) throws -> [ThreadSummary.ID] {
+        let missing = try pool.read { db in
+            try Dictionary(grouping: threads, by: \.accountID).flatMap { account, threads in
+                try String.fetchAll(
+                    db,
+                    sql: """
+                        SELECT t.id FROM thread t
+                        WHERE t.accountID = ? AND t.id IN (\(databaseQuestionMarks(count: threads.count)))
+                            AND \(Self.lacksBodies)
+                        """,
+                    arguments: StatementArguments([account.rawValue] + threads.map(\.threadID))
+                ).map { ThreadSummary.ID(accountID: account, threadID: $0) }
+            }
+        }
+        let lacking = Set(missing)
+        return threads.filter { lacking.contains($0) }
     }
 
     public func savePrefetched(_ messages: [Message], inThread thread: ThreadSummary.ID, fetchedAt: Date) throws {
