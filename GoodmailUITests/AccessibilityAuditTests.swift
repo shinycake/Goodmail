@@ -139,6 +139,7 @@ final class AccessibilityAuditTests: XCTestCase {
             .subtracting(skipped)
         let bar = app.navigationBars.firstMatch
         let barFrame = bar.exists ? bar.frame : .null
+        let screen = app.windows.firstMatch.frame
         let glassButtons = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'addAccount.'"))
             .allElementsBoundByIndex.map(\.frame)
         var found: [String] = []
@@ -150,7 +151,8 @@ final class AccessibilityAuditTests: XCTestCase {
                     let element = issue.element
                     let who = [element?.identifier, element?.label].compactMap { $0 }.filter { !$0.isEmpty }
                         .joined(separator: " / ")
-                    let reason = Tolerated.reason(for: issue, navigationBar: barFrame, glassButtons: glassButtons)
+                    let reason = Tolerated.reason(
+                        for: issue, screen: screen, navigationBar: barFrame, glassButtons: glassButtons)
                     found.append(
                         (reason.map { "tolerated (\($0)) " } ?? "")
                             + "[\(issue.auditType)] \(who.isEmpty ? "?" : who): \(issue.compactDescription)")
@@ -177,7 +179,7 @@ final class AccessibilityAuditTests: XCTestCase {
     private enum Tolerated {
         @MainActor
         static func reason(
-            for issue: XCUIAccessibilityAuditIssue, navigationBar: CGRect, glassButtons: [CGRect]
+            for issue: XCUIAccessibilityAuditIssue, screen: CGRect, navigationBar: CGRect, glassButtons: [CGRect]
         ) -> String? {
             let element = issue.element
             let identifier = element?.identifier ?? ""
@@ -211,6 +213,11 @@ final class AccessibilityAuditTests: XCTestCase {
                 // The audit names the text inside a welcome button, not the button. The screenshot shows black on
                 // near-white; the audit samples the glass's translucent layers instead.
                 return "a Liquid Glass button's label, which the audit measures against the glass, not what it draws"
+            }
+            if issue.auditType == .contrast, let element, element.exists, !element.frame.intersects(screen) {
+                // A chat opens at its newest message, with its first timestamp scrolled far above the screen. The audit
+                // now and then still measures it, though none of it is drawn; on screen it passes.
+                return "text scrolled out of sight, which the audit measures though none of it is drawn"
             }
             if issue.compactDescription == "Label not human-readable", label.contains("@") {
                 return "an email address, read as one"

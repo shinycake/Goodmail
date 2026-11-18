@@ -13,9 +13,10 @@ scripts/cloud/ensure  # a Claude cloud session's toolchain, if it doesn't have i
 # Build output lives on the external drive when it's mounted, to spare the internal disk.
 BUILD_DIR="${GOODMAIL_BUILD_DIR:-$([[ -d /Volumes/Idan1TB ]] && echo /Volumes/Idan1TB/Goodmail-build || echo "$PWD/.build")}"
 # A linked worktree checks with its own build folder and simulator, so checks in parallel worktrees can't collide.
+# Folder names repeat (several worktrees are called "wt"), so the name carries a hash of the worktree's full path.
 CHECK_NAME="Goodmail Check"
 if [[ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ]]; then
-    worktree=$(basename "$PWD")
+    worktree="$(basename "$PWD")-$(printf '%s' "$PWD" | git hash-object --stdin | cut -c1-8)"
     BUILD_DIR="$BUILD_DIR/worktrees/$worktree"
     CHECK_NAME="Goodmail Check $worktree"
 fi
@@ -86,6 +87,10 @@ fi
 check_simulator=$(xcrun simctl list devices available | grep -m1 -F "$CHECK_NAME (" | grep -oE '[0-9A-F-]{36}' || true)
 if [[ -z "$check_simulator" ]]; then
     check_simulator=$(xcrun simctl create "$CHECK_NAME" "${GOODMAIL_SIMULATOR:-iPhone 18 Pro}")
+    # A new iOS 27.2 simulator ignores dark appearance until its first reboot, so the dark accessibility audit would
+    # quietly run in light. One boot and shutdown settles it.
+    xcrun simctl bootstatus "$check_simulator" -b >/dev/null
+    xcrun simctl shutdown "$check_simulator"
 fi
 # simslim, where installed, switches off the background services tests don't need before the simulator boots, which
 # cuts it from about 200 processes to 70 (docs/setup/mac-simulators.md). It never reboots a simulator already booted.
