@@ -4,7 +4,6 @@ import SwiftUI
 /// by their handles and leave a side by their delete buttons. Actions on neither side wait below to be added.
 struct SwipeSettingsView: View {
     @Bindable var model: SettingsViewModel
-    @Environment(\.layoutDirection) private var layoutDirection
 
     static var title: String {
         String(localized: "Swipe Actions", table: "Swipe", bundle: .module, comment: "Title of the swipe settings")
@@ -67,17 +66,11 @@ struct SwipeSettingsView: View {
     }
 
     /// The sides in the order they sit on screen: the left one first.
-    private var sides: [SwipeArrangement.Side] {
-        layoutDirection == .leftToRight ? [.leading, .trailing] : [.trailing, .leading]
-    }
+    private let sides = SwipeSide.allCases
 
-    /// A side is named by the swipe that shows it: the leading side by swiping toward the trailing edge.
-    private func showsOnSwipeRight(_ side: SwipeArrangement.Side) -> Bool {
-        (side == .leading) == (layoutDirection == .leftToRight)
-    }
-
-    private func title(of side: SwipeArrangement.Side) -> String {
-        showsOnSwipeRight(side)
+    /// A side is named by the swipe that shows it: the left side's buttons by swiping right.
+    private func title(of side: SwipeSide) -> String {
+        side == .left
             ? String(
                 localized: "Swipe Right", table: "Swipe", bundle: .module,
                 comment: "Swipe settings section: the actions a swipe to the right shows")

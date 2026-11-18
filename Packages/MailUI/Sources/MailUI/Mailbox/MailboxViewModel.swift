@@ -321,10 +321,10 @@ public final class MailboxViewModel {
     }
 
     /// The swipe buttons for a row, edge-most first, as the reader arranged and tinted them.
-    func swipeActions(for thread: ThreadSummary, leading: Bool) -> [SwipeButton] {
+    func swipeActions(for thread: ThreadSummary, on side: SwipeSide) -> [SwipeButton] {
         guard actions != nil else { return [] }
         return Preferences.swipeArrangement.buttons(
-            for: thread, at: ThreadPlace(thread, in: mailbox), on: leading ? .leading : .trailing,
+            for: thread, at: ThreadPlace(thread, in: mailbox), on: side,
             tints: Preferences.swipeTints)
     }
 

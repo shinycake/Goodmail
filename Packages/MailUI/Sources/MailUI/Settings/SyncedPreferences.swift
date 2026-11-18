@@ -13,7 +13,7 @@ extension Preferences {
                 name: syncedGroup,
                 keys: [
                     undoSendKey, unsortedInboxKey, previewLinesKey, showsAvatarsKey, conversationLayoutKey,
-                    removalAnimationKey, combinedThemeColorKey, swipeLeadingKey, swipeTrailingKey, swipeTintsKey,
+                    removalAnimationKey, combinedThemeColorKey, swipeLeftKey, swipeRightKey, swipeTintsKey,
                     showsDoodlesKey,
                 ]),
             DefaultsList(name: "imageTrustRules", key: ImageTrustRules.standardKey, storage: .json),

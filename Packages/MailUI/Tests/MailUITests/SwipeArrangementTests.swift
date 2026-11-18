@@ -14,7 +14,7 @@ struct SwipeArrangementTests {
 
     /// What `side` does for `thread` listed in `mailbox`, leaving out the tints.
     private func swipes(
-        _ arrangement: SwipeArrangement, _ thread: ThreadSummary, _ side: SwipeArrangement.Side,
+        _ arrangement: SwipeArrangement, _ thread: ThreadSummary, _ side: SwipeSide,
         in mailbox: Mailbox = .inbox
     ) -> [MailboxViewModel.Swipe] {
         arrangement.buttons(for: thread, at: ThreadPlace(thread, in: mailbox), on: side, tints: .standard)
@@ -24,76 +24,76 @@ struct SwipeArrangementTests {
     @Test func theStandardArrangementKeepsTheUsualSwipesInEveryMailbox() {
         let standard = SwipeArrangement.standard
         #expect(
-            swipes(standard, thread(["INBOX"]), .leading) == [.perform(.markRead(true)), .perform(.star(true))])
+            swipes(standard, thread(["INBOX"]), .left) == [.perform(.markRead(true)), .perform(.star(true))])
         #expect(
-            swipes(standard, thread(["INBOX"]), .trailing) == [.perform(.archive), .snooze, .perform(.trash)])
+            swipes(standard, thread(["INBOX"]), .right) == [.perform(.archive), .snooze, .perform(.trash)])
         #expect(
-            swipes(standard, thread(["SPAM"]), .trailing, in: .spam) == [.perform(.moveToInbox), .perform(.trash)])
+            swipes(standard, thread(["SPAM"]), .right, in: .spam) == [.perform(.moveToInbox), .perform(.trash)])
         #expect(
-            swipes(standard, thread(["TRASH"]), .trailing, in: .trash)
+            swipes(standard, thread(["TRASH"]), .right, in: .trash)
                 == [.perform(.untrash), .perform(.deleteForever)])
-        #expect(swipes(standard, thread(["SENT"]), .trailing, in: .sent) == [.perform(.trash)])
+        #expect(swipes(standard, thread(["SENT"]), .right, in: .sent) == [.perform(.trash)])
     }
 
     @Test func anInboxThreadWithTrashedMessagesSwipesAsAnInboxThread() {
         // A reply that came in to a trashed thread puts it back in the Inbox, still carrying Trash for the rest.
         let mixed = thread(["INBOX", "TRASH"])
         #expect(
-            swipes(.standard, mixed, .trailing) == [.perform(.archive), .snooze, .perform(.trash)],
+            swipes(.standard, mixed, .right) == [.perform(.archive), .snooze, .perform(.trash)],
             "Delete Forever there would delete only the trashed messages, and the reply would come back")
         #expect(
-            swipes(.standard, mixed, .trailing, in: .trash) == [.perform(.untrash), .perform(.deleteForever)],
+            swipes(.standard, mixed, .right, in: .trash) == [.perform(.untrash), .perform(.deleteForever)],
             "in Trash it deletes forever")
     }
 
     @Test func choicesFollowTheThreadsState() {
-        let arrangement = SwipeArrangement(leading: [.read, .star], trailing: [])
-        let shown = swipes(arrangement, thread(["INBOX", "STARRED"], unread: false), .leading)
+        let arrangement = SwipeArrangement(left: [.read, .star], right: [])
+        let shown = swipes(arrangement, thread(["INBOX", "STARRED"], unread: false), .left)
         #expect(shown == [.perform(.markRead(false)), .perform(.star(false))])
     }
 
     @Test func aChoiceThatMeansNothingHereIsLeftOut() {
-        let arrangement = SwipeArrangement(leading: [.spam, .snooze], trailing: [])
-        #expect(swipes(arrangement, thread(["SPAM"]), .leading, in: .spam).isEmpty)
-        #expect(swipes(arrangement, thread(["INBOX"]), .leading) == [.perform(.reportSpam), .snooze])
+        let arrangement = SwipeArrangement(left: [.spam, .snooze], right: [])
+        #expect(swipes(arrangement, thread(["SPAM"]), .left, in: .spam).isEmpty)
+        #expect(swipes(arrangement, thread(["INBOX"]), .left) == [.perform(.reportSpam), .snooze])
     }
 
     @Test func eachChoiceSitsOnOneSideAtMostAndASideHoldsThree() {
-        let arrangement = SwipeArrangement(leading: [.read, .star, .read, .trash, .spam], trailing: [.star, .archive])
-        #expect(arrangement.leading == [.read, .star, .trash])
-        #expect(arrangement.trailing == [.archive])
+        let arrangement = SwipeArrangement(left: [.read, .star, .read, .trash, .spam], right: [.star, .archive])
+        #expect(arrangement.left == [.read, .star, .trash])
+        #expect(arrangement.right == [.archive])
         #expect(arrangement.unused == [.snooze, .spam])
     }
 
     @Test func addingMovesAChoiceAcrossAndAFullSideRefuses() {
         var arrangement = SwipeArrangement.standard
-        arrangement.add(.star, to: .trailing)
-        #expect(arrangement.trailing == [.archive, .snooze, .trash])
-        arrangement.remove(at: [1], from: .trailing)
-        arrangement.add(.star, to: .trailing)
-        #expect(arrangement.leading == [.read])
-        #expect(arrangement.trailing == [.archive, .trash, .star])
+        arrangement.add(.star, to: .right)
+        #expect(arrangement.right == [.archive, .snooze, .trash])
+        arrangement.remove(at: [1], from: .right)
+        arrangement.add(.star, to: .right)
+        #expect(arrangement.left == [.read])
+        #expect(arrangement.right == [.archive, .trash, .star])
     }
 
     @Test func reorderingPutsTheMovedChoiceFirst() {
         var arrangement = SwipeArrangement.standard
-        arrangement.move(from: [2], to: 0, on: .trailing)
-        #expect(arrangement.trailing == [.trash, .archive, .snooze])
-        arrangement.move(from: [0], to: 3, on: .trailing)
-        #expect(arrangement.trailing == [.archive, .snooze, .trash])
+        arrangement.move(from: [2], to: 0, on: .right)
+        #expect(arrangement.right == [.trash, .archive, .snooze])
+        arrangement.move(from: [0], to: 3, on: .right)
+        #expect(arrangement.right == [.archive, .snooze, .trash])
     }
 
     @Test func aSideCanBeEmptied() {
         var arrangement = SwipeArrangement.standard
-        arrangement.remove(at: [0, 1], from: .leading)
-        #expect(arrangement.leading.isEmpty)
-        #expect(swipes(arrangement, thread(["INBOX"]), .leading).isEmpty)
+        arrangement.remove(at: [0, 1], from: .left)
+        #expect(arrangement.left.isEmpty)
+        #expect(swipes(arrangement, thread(["INBOX"]), .left).isEmpty)
     }
 
     @MainActor @Test func anEmptiedSideStaysEmptyOnceStored() {
         let saved = Preferences.swipeArrangement
         defer { Preferences.swipeArrangement = saved }
-        Preferences.swipeArrangement = SwipeArrangement(leading: [], trailing: [.trash, .archive])
-        #expect(Preferences.swipeArrangement == SwipeArrangement(leading: [], trailing: [.trash, .archive]))
+        Preferences.swipeArrangement = SwipeArrangement(left: [], right: [.trash, .archive])
+        #expect(Preferences.swipeArrangement == SwipeArrangement(left: [], right: [.trash, .archive]))
     }
 }

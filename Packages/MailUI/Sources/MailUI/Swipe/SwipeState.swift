@@ -1,7 +1,8 @@
 import CoreGraphics
 
-/// The side of a row a swipe uncovers, on screen.
-nonisolated enum SwipeSide: Equatable, Sendable {
+/// A side of a row on screen: the side a swipe uncovers, where the buttons it shows sit. Sides are the same in every
+/// language, so a swipe works the same whichever way the reader's language runs.
+nonisolated public enum SwipeSide: CaseIterable, Equatable, Sendable {
     case left, right
 
     /// The side a drag heading `dx` uncovers: moving left uncovers the right, as if the row slid.

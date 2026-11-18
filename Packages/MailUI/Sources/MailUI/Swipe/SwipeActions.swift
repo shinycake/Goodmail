@@ -26,10 +26,6 @@ struct SwipeAction {
 /// row's edge, following the finger. Releasing past halfway keeps them open; swiping far enough fires the edge-most
 /// action. The buttons ride on the row's cell, so they stay on their row when mail arrives above it.
 final class SwipeActionsController: NSObject {
-    enum Edge {
-        case leading, trailing
-    }
-
     /// A row whose actions are on screen.
     struct Row: Identifiable {
         let id: ThreadSummary.ID
@@ -37,8 +33,8 @@ final class SwipeActionsController: NSObject {
         let feedback: UIImpactFeedbackGenerator
     }
 
-    /// The actions for a row and edge, edge-most first. Empty means that edge has none.
-    var actions: (ThreadSummary.ID, Edge) -> [SwipeAction] = { _, _ in [] }
+    /// The actions for a row and side, edge-most first. Empty means that side has none.
+    var actions: (ThreadSummary.ID, SwipeSide) -> [SwipeAction] = { _, _ in [] }
     /// Opens the swipe settings, as when a button is touched and held.
     var openSettings: () -> Void = {}
 
@@ -91,17 +87,19 @@ final class SwipeActionsController: NSObject {
 
     @objc private func handlePan(_ pan: UIPanGestureRecognizer) {
         guard let collectionView else { return }
-        let dx = pan.translation(in: collectionView).x
+        // Directions are read in the window's coordinates: a right-to-left list runs its x axis mirrored, which would
+        // turn a swipe left into a swipe right. Swipes go by the screen, the same in every language.
+        let dx = pan.translation(in: nil).x
         switch pan.state {
         case .began:
             // The translation is still zero when the pan begins; the velocity tells which way it's heading.
-            begin(at: pan.location(in: collectionView), heading: pan.velocity(in: collectionView).x, in: collectionView)
+            begin(at: pan.location(in: collectionView), heading: pan.velocity(in: nil).x, in: collectionView)
         case .changed:
             guard let row = state.row, let distance = state.distance(afterMoving: dx) else { return }
             update(distance: distance, row: row)
         case .ended, .cancelled, .failed:
             guard let layout = state.row?.overlay.layout else { return }
-            let velocity = pan.velocity(in: collectionView).x
+            let velocity = pan.velocity(in: nil).x
             switch state.end(afterMoving: dx, velocity: velocity, layout: layout, cancelled: pan.state != .ended) {
             case .fired(let row):
                 guard let action = row.overlay.actions.first, let button = row.overlay.buttons.first else { break }
@@ -136,9 +134,7 @@ final class SwipeActionsController: NSObject {
     private func makeRow(
         _ id: ThreadSummary.ID, side: SwipeSide, on cell: UICollectionViewCell, in collectionView: UICollectionView
     ) -> Row? {
-        let isRightToLeft = collectionView.effectiveUserInterfaceLayoutDirection == .rightToLeft
-        let edge: Edge = (side == .right) != isRightToLeft ? .trailing : .leading
-        let actions = actions(id, edge)
+        let actions = actions(id, side)
         guard !actions.isEmpty else { return nil }
         let overlay = SwipeOverlayView(actions: actions, side: side)
         overlay.onAction = { [weak self] action, button in

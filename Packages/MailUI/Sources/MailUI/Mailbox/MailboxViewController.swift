@@ -232,16 +232,16 @@ public final class MailboxViewController: UIViewController {
             collectionView: collectionView,
             rowID: { [weak self] in self?.dataSource.itemIdentifier(for: $0) },
             indexPath: { [weak self] in self?.dataSource.indexPath(for: $0) })
-        swipes.actions = { [weak self] id, edge in
+        swipes.actions = { [weak self] id, side in
             guard let self, !isEditing else { return [] }
-            return swipeActions(for: id, leading: edge == .leading)
+            return swipeActions(for: id, on: side)
         }
         swipes.openSettings = { [weak self] in self?.viewModel.openSwipeSettings() }
     }
 
-    private func swipeActions(for id: ThreadSummary.ID, leading: Bool) -> [SwipeAction] {
+    private func swipeActions(for id: ThreadSummary.ID, on side: SwipeSide) -> [SwipeAction] {
         guard let thread = threadsByID[id] else { return [] }
-        return viewModel.swipeActions(for: thread, leading: leading).map { button in
+        return viewModel.swipeActions(for: thread, on: side).map { button in
             switch button.swipe {
             case .perform(let action):
                 SwipeAction(
@@ -298,8 +298,8 @@ public final class MailboxViewController: UIViewController {
             }
             // VoiceOver reaches the swipe actions through the rotor.
             cell.accessibilityCustomActions =
-                (swipeActions(for: id, leading: false)
-                + swipeActions(for: id, leading: true)).map { action in
+                (swipeActions(for: id, on: .right)
+                + swipeActions(for: id, on: .left)).map { action in
                     UIAccessibilityCustomAction(name: action.title) { _ in
                         action.handler(nil)
                         return true

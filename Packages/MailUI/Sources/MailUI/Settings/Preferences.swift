@@ -74,12 +74,12 @@ public enum Preferences {
                 (defaults.stringArray(forKey: key)?.compactMap(SwipeChoice.init(rawValue:))) ?? standard
             }
             return SwipeArrangement(
-                leading: side(swipeLeadingKey, standard: SwipeArrangement.standard.leading),
-                trailing: side(swipeTrailingKey, standard: SwipeArrangement.standard.trailing))
+                left: side(swipeLeftKey, standard: SwipeArrangement.standard.left),
+                right: side(swipeRightKey, standard: SwipeArrangement.standard.right))
         }
         set {
-            defaults.set(newValue.leading.map(\.rawValue), forKey: swipeLeadingKey)
-            defaults.set(newValue.trailing.map(\.rawValue), forKey: swipeTrailingKey)
+            defaults.set(newValue.left.map(\.rawValue), forKey: swipeLeftKey)
+            defaults.set(newValue.right.map(\.rawValue), forKey: swipeRightKey)
         }
     }
 
@@ -103,8 +103,10 @@ public enum Preferences {
     private static let declinedSharedKey = "declinedSharedAccounts"
     nonisolated static let swipeTintsKey = "swipeTints"
     nonisolated static let undoSendKey = "undoSendSeconds"
-    nonisolated static let swipeLeadingKey = "swipeLeadingActions"
-    nonisolated static let swipeTrailingKey = "swipeTrailingActions"
+    /// The keys keep their names from when the sides followed the reading direction; a left-to-right reader's sides
+    /// are where they were.
+    nonisolated static let swipeLeftKey = "swipeLeadingActions"
+    nonisolated static let swipeRightKey = "swipeTrailingActions"
     nonisolated static let previewLinesKey = "previewLines"
     nonisolated static let showsAvatarsKey = "showsAvatars"
     nonisolated static let unsortedInboxKey = "unsortedInboxAccounts"
