@@ -2,8 +2,8 @@ import PlaneGame
 import SwiftUI
 
 /// One frame of the game in one canvas: the ring of doodles in washed ink behind, then what is in play and the boss,
-/// the bursts, and the plane with its trail and what the power-ups put on it in front. The world is in the window's coordinates, which are the canvas's, and up is
-/// up in every language, so nothing in play is mirrored.
+/// the bursts, and the plane with its trail and what the power-ups put on it in front. The world is in the window's
+/// coordinates, which are the canvas's, and up is up in every language, so nothing in play is mirrored.
 struct PlaneGameCanvas: View {
     let frame: PlaneGameFrame
     @Environment(\.colorScheme) private var colorScheme

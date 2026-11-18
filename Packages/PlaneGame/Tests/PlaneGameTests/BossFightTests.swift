@@ -46,6 +46,27 @@ struct BossFightTests {
         #expect(abs(xs[xs.count - 1] - phoneField.startingPlace.x) < 6)
     }
 
+    @Test func junkMailGlidesNoFartherFromTheMiddleOfAWideWindowThanItsReach() throws {
+        let wide = PlaneGameField(size: CGSize(width: 1024, height: 860), lanes: 12...1012, ceiling: 80, row: 720)
+        var world = PlaneGameWorld.flying(on: wide)
+        world.meetBoss(1)
+        var farthest: CGFloat = 0
+        for _ in 0..<Int(PlaneGameRules.junkGlidePeriod / frame) {
+            world.advance(by: frame, input: PlaneGameInput())
+            farthest = max(farthest, abs(try #require(world.boss).position.x - wide.startingPlace.x))
+        }
+        #expect(abs(farthest - PlaneGameRules.junkGlideReach) < 1)
+    }
+
+    @Test func aLureSpreadsOutThroughTheSideAndIsGone() {
+        var world = PlaneGameWorld.flying()
+        world.add(.lure, at: CGPoint(x: phoneField.lanes.upperBound - 5, y: 100), drift: 200)
+        world.run(for: 0.2)
+        #expect(world.things.first.map { $0.position.x > phoneField.lanes.upperBound } == true)
+        world.run(for: 0.5)
+        #expect(world.things.isEmpty)
+    }
+
     @Test func thePhisherCastsAFanOfThreeLuresThenFiveOnceItIsAngry() throws {
         var world = PlaneGameWorld.flying()
         world.meetBoss(2)

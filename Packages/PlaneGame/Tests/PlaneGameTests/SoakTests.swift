@@ -70,7 +70,8 @@ struct SoakTests {
                 #expect(world.plane.position.y == field.row)
                 #expect(lanes.contains(world.plane.position.x))
             }
-            #expect(world.things.allSatisfy { field.lanes.contains($0.position.x) })
+            // Everything keeps inside the lanes but lures, which spread out through the sides.
+            #expect(world.things.allSatisfy { $0.kind == .lure || field.lanes.contains($0.position.x) })
             if let boss = world.boss {
                 bossesMet.insert(boss.number)
                 #expect(field.lanes(inset: boss.radius).contains(boss.position.x))

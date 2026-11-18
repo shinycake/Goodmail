@@ -58,7 +58,7 @@ extension PlaneGameBoss {
         case .fighting:
             if kind == .junk {
                 let glide = sin(2 * .pi * (age - PlaneGameRules.bossArrival) / PlaneGameRules.junkGlidePeriod)
-                position.x = middle + (lanes.upperBound - middle) * CGFloat(glide)
+                position.x = middle + min(lanes.upperBound - middle, PlaneGameRules.junkGlideReach) * CGFloat(glide)
             }
             position.y = hover
         case .falling:

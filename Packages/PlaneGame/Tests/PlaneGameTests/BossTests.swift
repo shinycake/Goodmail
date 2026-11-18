@@ -169,9 +169,9 @@ struct BossTests {
     }
 
     @Test(arguments: [
-        (1, 20, PlaneGameBoss.Kind.junk), (2, 28, .phisher), (3, 36, .junk), (6, 60, .phisher), (9, 60, .junk),
+        (1, 20, PlaneGameBoss.Kind.junk), (2, 28, .phisher), (3, 36, .junk), (4, 44, .phisher), (9, 44, .junk),
     ])
-    func bossesTakeTurnsWithEightMoreHitsEachUpToSixty(number: Int, hits: Int, kind: PlaneGameBoss.Kind) {
+    func bossesTakeTurnsWithEightMoreHitsEachUpToFortyFour(number: Int, hits: Int, kind: PlaneGameBoss.Kind) {
         let boss = PlaneGameBoss(number: number, on: phoneField)
         #expect(boss.hits == hits)
         #expect(boss.kind == kind)

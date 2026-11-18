@@ -33,7 +33,10 @@ extension PlaneGameWorld {
         for index in things.indices {
             things[index].move(by: dt, speed: speed, towardX: plane.position.x, on: field)
         }
-        things.removeAll { $0.position.y > field.size.height + PlaneGameRules.leaveBeyond }
+        let across = -PlaneGameRules.leaveBeyond...field.size.width + PlaneGameRules.leaveBeyond
+        things.removeAll {
+            $0.position.y > field.size.height + PlaneGameRules.leaveBeyond || !across.contains($0.position.x)
+        }
     }
 
     private mutating func ageBursts(by dt: TimeInterval) {

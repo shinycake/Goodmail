@@ -6,7 +6,8 @@ import Foundation
 
 /// How each kind moves: everything falls with the world, and bad guys and lures fall faster than it.
 extension PlaneGameThing {
-    /// Moves it on by `dt` with the world falling at `speed`, on `field`, keeping its x inside the lanes.
+    /// Moves it on by `dt` with the world falling at `speed`, on `field`, keeping its x inside the lanes. A lure is
+    /// the one thing that isn't kept in: it spreads until it is past a side edge.
     mutating func move(by dt: TimeInterval, speed: CGFloat, towardX planeX: CGFloat, on field: PlaneGameField) {
         age += dt
         position.y += (speed + kind.extraSpeed * field.pace) * dt
@@ -27,7 +28,7 @@ extension PlaneGameThing {
         case .heart, .spread, .rapid, .shield, .sweep:
             break
         }
-        position.x = field.lanes.clamping(position.x)
+        if kind != .lure { position.x = field.lanes.clamping(position.x) }
     }
 
     private func swingPhase(_ period: TimeInterval) -> CGFloat {

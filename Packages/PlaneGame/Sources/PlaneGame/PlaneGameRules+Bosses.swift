@@ -19,15 +19,17 @@ extension PlaneGameRules {
     /// Hits for the first boss, and how many more each one after it takes, up to `bossMostHits`.
     public static let bossFirstHits = 20
     public static let bossMoreHits = 8
-    public static let bossMostHits = 60
+    public static let bossMostHits = 44
     /// Points for a boss, times its number.
     public static let bossPoints = 250
     /// How far apart the two pickups a beaten boss leaves are.
     public static let bossDropSpacing: CGFloat = 48
 
-    /// Junk Mail glides across the lanes and back once a period, and drops spam: one at a time, then two side by
+    /// Junk Mail glides across the lanes and back once a period, never farther than `junkGlideReach` from the
+    /// middle, so it is no faster in a wide window. It drops spam: one at a time, then two side by
     /// side, this far apart, once it is down to half its hits.
     public static let junkGlidePeriod: TimeInterval = 5
+    public static let junkGlideReach: CGFloat = 200
     public static let junkDropEvery: TimeInterval = 1.1
     public static let junkAngryDropEvery: TimeInterval = 0.8
     public static let junkPairSpacing: CGFloat = 52
