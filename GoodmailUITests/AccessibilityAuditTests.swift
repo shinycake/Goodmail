@@ -214,10 +214,13 @@ final class AccessibilityAuditTests: XCTestCase {
                 // near-white; the audit samples the glass's translucent layers instead.
                 return "a Liquid Glass button's label, which the audit measures against the glass, not what it draws"
             }
-            if issue.auditType == .contrast, let element, element.exists, !element.frame.intersects(screen) {
-                // A chat opens at its newest message, with its first timestamp scrolled far above the screen. The audit
-                // now and then still measures it, though none of it is drawn; on screen it passes.
-                return "text scrolled out of sight, which the audit measures though none of it is drawn"
+            if issue.auditType == .contrast, let element, element.exists,
+                !(scrollArea(holding: element) ?? screen).contains(element.frame)
+            {
+                // The audit samples text the edge of its scrolling area cuts or hides: a chat's first timestamp far
+                // above the screen, or an iPad settings footer half under the sheet's bottom edge. What shows is the
+                // scroll-edge fade, not the text's own colors; scrolled into view, the same text passes.
+                return "text scrolled partly or wholly out of its scrolling area, which the audit measures as drawn"
             }
             if issue.compactDescription == "Label not human-readable", label.contains("@") {
                 return "an email address, read as one"
@@ -227,6 +230,21 @@ final class AccessibilityAuditTests: XCTestCase {
                 return "system secondary text, as iOS draws section headers and footers"
             }
             return nil
+        }
+
+        /// The frame of the innermost scrolling area that holds `element`, or nil when none does.
+        @MainActor
+        private static func scrollArea(holding element: XCUIElement) -> CGRect? {
+            let key = element.identifier.isEmpty ? "label" : "identifier"
+            let value = element.identifier.isEmpty ? element.label : element.identifier
+            guard !value.isEmpty else { return nil }
+            let match = NSPredicate(format: "%K == %@", key, value)
+            let app = XCUIApplication()
+            return [app.collectionViews, app.scrollViews, app.tables]
+                .flatMap { $0.containing(match).allElementsBoundByIndex }
+                .map(\.frame)
+                .filter { $0.intersects(element.frame) }
+                .min { $0.width * $0.height < $1.width * $1.height }
         }
     }
 

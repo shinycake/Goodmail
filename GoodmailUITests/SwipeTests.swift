@@ -38,11 +38,11 @@ final class SwipeTests: XCTestCase {
         let row = firstThread(in: app)
         swipeOpen(row, showing: app.buttons["Archive"])
 
-        row.swipeRight(velocity: .slow)
+        swipeRight(row, in: app)
         XCTAssertTrue(app.buttons["Archive"].waitForNonExistence(timeout: 5), "the trailing buttons closed")
         XCTAssertFalse(app.buttons["Star"].exists || app.buttons["Unstar"].exists, "the leading ones stayed hidden")
 
-        row.swipeRight(velocity: .slow)
+        swipeRight(row, in: app)
         XCTAssertTrue(
             app.buttons["Star"].waitForExistence(timeout: 5) || app.buttons["Unstar"].exists,
             "a fresh swipe reveals the leading buttons")
@@ -68,6 +68,20 @@ final class SwipeTests: XCTestCase {
             if button.waitForExistence(timeout: 3) { return }
         }
         XCTFail("the swipe never opened the row's buttons")
+    }
+
+    /// Swipes `row` right from the part of it on show. On iPad the sidebar floats over the list's leading edge, and a
+    /// swipe that starts under it lands on the sidebar, not the row. There the drag starts just past the sidebar and
+    /// stops short of a full swipe, which would run the first action instead of showing the buttons.
+    @MainActor
+    private func swipeRight(_ row: XCUIElement, in app: XCUIApplication) {
+        let sidebar = app.navigationBars["Mailboxes"]
+        guard sidebar.exists, sidebar.frame.maxX > row.frame.minX else { return row.swipeRight(velocity: .slow) }
+        let start = (sidebar.frame.maxX + 16 - row.frame.minX) / row.frame.width
+        row.coordinate(withNormalizedOffset: CGVector(dx: start, dy: 0.5))
+            .press(
+                forDuration: 0.05, thenDragTo: row.coordinate(withNormalizedOffset: CGVector(dx: start + 0.3, dy: 0.5)),
+                withVelocity: .slow, thenHoldForDuration: 0)
     }
 
     /// The first thread row; section headers are cells too, so it's picked by what it says.
