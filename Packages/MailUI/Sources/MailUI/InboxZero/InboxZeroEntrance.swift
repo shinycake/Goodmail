@@ -16,6 +16,9 @@ nonisolated struct InboxZeroEntrance: Equatable, Sendable {
     static let fanOpens: TimeInterval = 0.18
     /// When the doodles start drawing themselves in.
     static let doodlesDraw: TimeInterval = 0.30
+    /// When the doodles in the pane beside the list start drawing themselves in: as the ring's outer doodles do, so
+    /// the drawing carries on across the line between them.
+    static let beyondDraws: TimeInterval = doodlesDraw + 0.2
     /// When the drift starts easing in.
     static let driftStarts: TimeInterval = 0.35
     /// When the title comes in, and the line under it a moment later.
@@ -64,6 +67,13 @@ nonisolated struct InboxZeroEntrance: Equatable, Sendable {
     func reveal(from origin: CGPoint, reach: CGFloat) -> DoodleReveal? {
         guard arrival == .earned, let elapsed, elapsed < Self.doodlesDraw + DoodleReveal.total else { return nil }
         return DoodleReveal(origin: origin, reach: reach, elapsed: elapsed - Self.doodlesDraw)
+    }
+
+    /// The doodles in the pane beside the list drawing themselves in from `origin`, the envelopes in the pane's space,
+    /// out to `reach`, its farthest corner; or `nil` when they are all there from the start.
+    func revealBeyond(from origin: CGPoint, reach: CGFloat) -> DoodleReveal? {
+        guard arrival == .earned, let elapsed, elapsed < Self.beyondDraws + DoodleReveal.total else { return nil }
+        return DoodleReveal(origin: origin, reach: reach, elapsed: elapsed - Self.beyondDraws)
     }
 
     /// How far a line of text that comes in at `delay` has come: 0 hidden and 10 points low, 1 in place.

@@ -13,7 +13,7 @@ nonisolated struct DoodleScene: Equatable, Sendable {
 
     let size: CGSize
     let pokes: [DoodlePoke]
-    let clock: Clock
+    var clock: Clock
     /// Mirrors the doodles and sends the planes off to the left.
     let rightToLeft: Bool
     /// Where the envelopes sit, which pokes are placed from: the middle of the stage unless given.
@@ -27,6 +27,11 @@ nonisolated struct DoodleScene: Equatable, Sendable {
     var quietFrom: Date = .distantFuture
     /// No plane sets off by itself before this, so a stage that wakes from rest doesn't show one already in the air.
     var passesFrom: Date = .distantPast
+    /// How far down the stage a plane passing by itself comes in: low on the stage, four fifths of the way down,
+    /// unless given, as by a stage reaching past the doodles' own field.
+    var passLane: CGFloat? = nil
+    /// The doodles keep within this width around the envelopes.
+    var widest: CGFloat = DoodleScene.widestField
 
     /// The doodles keep within this width around the envelopes on a wide screen, so they don't thin out to nothing.
     static let widestField: CGFloat = 600
@@ -52,7 +57,7 @@ nonisolated struct DoodleScene: Equatable, Sendable {
     /// Where a doodle is: `anchor` gives its place as fractions of the field's width and height, and `phase` sets
     /// its drift apart from its neighbors'.
     func position(anchor: CGPoint, phase: Double) -> CGPoint {
-        let field = min(size.width, Self.widestField)
+        let field = min(size.width, widest)
         let across = rightToLeft ? 1 - anchor.x : anchor.x
         let rest = CGPoint(x: (size.width - field) / 2 + field * across, y: size.height * anchor.y)
         guard case .running(let now) = clock else { return rest }
@@ -80,7 +85,7 @@ nonisolated struct DoodleScene: Equatable, Sendable {
         let pass = (seconds / passInterval).rounded(.down)
         let setOff = pass * passInterval
         // It comes in low from beyond the leading edge.
-        let entry = CGPoint(x: rightToLeft ? size.width + 30 : -30, y: size.height * 0.8)
+        let entry = CGPoint(x: rightToLeft ? size.width + 30 : -30, y: passLane ?? size.height * 0.8)
         let passing =
             setOff >= passesFrom.timeIntervalSinceReferenceDate && setOff < quietFrom.timeIntervalSinceReferenceDate
             ? PlaneCourse(origin: entry, size: size, rightToLeft: rightToLeft)
@@ -88,6 +93,16 @@ nonisolated struct DoodleScene: Equatable, Sendable {
             : nil
         return touches(at: now).compactMap { $0.flight(in: size, rightToLeft: rightToLeft) }
             + [passing].compactMap(\.self)
+    }
+
+    /// The planes in the air at this instant carrying on `later` seconds on, with no plane setting off by itself
+    /// after this instant, so they all leave and none follows.
+    func carriedOn(by later: TimeInterval) -> DoodleScene {
+        guard case .running(let now) = clock else { return self }
+        var scene = self
+        scene.clock = .running(now + later)
+        scene.quietFrom = min(quietFrom, now)
+        return scene
     }
 
     private func touches(at now: Date) -> [DoodleTouch] {

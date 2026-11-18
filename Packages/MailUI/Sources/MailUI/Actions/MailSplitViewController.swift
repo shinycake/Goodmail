@@ -15,6 +15,9 @@ public final class MailSplitViewController: UISplitViewController {
     private var toastWidth: NSLayoutConstraint!
     /// The column arrangement last asked for, so a width that keeps it doesn't undo the sidebar button.
     private var preferredColumns: DisplayMode?
+    /// Where an empty Inbox's paper planes fly in this window, and the view drawing them over the columns.
+    let inboxZeroSky = InboxZeroSky()
+    private(set) lazy var inboxZeroSkyView = makeInboxZeroSkyView()
 
     public init(actions: MailActions) {
         self.actions = actions
@@ -28,6 +31,7 @@ public final class MailSplitViewController: UISplitViewController {
 
     public override func viewDidLoad() {
         super.viewDidLoad()
+        view.addSubview(inboxZeroSkyView)
         let haptics = HapticPlayer(view: view)
         actions.feedback = { haptics.play($0) }
         toast.alpha = 0
@@ -56,6 +60,7 @@ public final class MailSplitViewController: UISplitViewController {
 
     public override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        placeInboxZeroSky()
         placeToast()
     }
 

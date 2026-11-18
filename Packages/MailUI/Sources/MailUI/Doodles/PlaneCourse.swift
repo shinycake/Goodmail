@@ -4,7 +4,9 @@ import Foundation
 /// The path a paper plane flies: off toward the trailing edge of the stage, climbing, with a loop on the way.
 nonisolated struct PlaneCourse: Sendable {
     let origin: CGPoint
-    /// How far it travels sideways, to just past the edge it leaves by. Negative flies left.
+    /// How far it travels sideways: far enough that it is past the edge it leaves by before it starts to fade, so on a
+    /// long run, like the sky across a list and the pane beside it, it doesn't fade out short of the edge. Negative
+    /// flies left.
     let run: CGFloat
     /// How far it climbs. Less from near the top, so it leaves by the side and not through the status bar.
     let climb: CGFloat
@@ -13,7 +15,9 @@ nonisolated struct PlaneCourse: Sendable {
 
     init(origin: CGPoint, size: CGSize, rightToLeft: Bool) {
         self.origin = origin
-        run = rightToLeft ? -max(origin.x + 40, 120) : max(size.width - origin.x + 40, 120)
+        // It starts to fade 88% of the way, when it has flown 0.2 × 0.88 + 0.8 × 0.88², about 0.795, of its run.
+        let ahead = (rightToLeft ? origin.x : size.width - origin.x) + Self.loopRadius
+        run = (rightToLeft ? -1 : 1) * max(ahead / 0.795, 120)
         climb = origin.y * 0.4
     }
 

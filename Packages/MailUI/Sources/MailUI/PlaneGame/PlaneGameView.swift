@@ -17,11 +17,10 @@ struct PlaneGameView: View {
                     PlaneGamePileView(pile: pile)
                 }
                 if let flights = look.flights {
-                    let field = model.handoff.stage.field
                     PaperPlanes(scene: flights.scene)
-                        .frame(width: field.width, height: field.height)
+                        .frame(width: flights.frame.width, height: flights.frame.height)
                         .opacity(flights.opacity)
-                        .position(x: field.midX, y: field.midY)
+                        .position(x: flights.frame.midX, y: flights.frame.midY)
                 }
                 Text("Drag to fly", tableName: "PlaneGame", bundle: .module, comment: "Hint at the start of the game")
                     .font(.callout)

@@ -25,6 +25,8 @@ public final class MailboxViewController: UIViewController {
     private var emptyState: EmptyState?
     /// The scene an empty Inbox shows instead, behind the list; `nil` in every other mailbox.
     let inboxZero: InboxZeroModel?
+    /// Where the scene is lent, so it can be taken back after the list has left the window.
+    var inboxZeroLoan = InboxZeroLoan()
     /// When the reader last took threads out of this list, which tells an Inbox they cleared from one found empty.
     private(set) var lastRemoval: ContinuousClock.Instant?
     /// Threads just deleted forever from this list, with when, so their rows dissolve as they leave. A thread the
@@ -147,11 +149,22 @@ public final class MailboxViewController: UIViewController {
         wear(viewModel.theme)
     }
 
+    public override func viewIsAppearing(_ animated: Bool) {
+        super.viewIsAppearing(animated)
+        lendInboxZero()
+    }
+
+    public override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        lendInboxZero()
+    }
+
     /// Search as a glass button in the toolbar that expands into the field, or none when there is no search.
     private func searchItem() -> UIBarButtonItem? {
         guard let searchResults else { return nil }
         let search = UISearchController(searchResultsController: searchResults)
         search.searchResultsUpdater = searchResults
+        search.delegate = self
         search.searchBar.placeholder = String(
             localized: "Search Mail", table: "Mailbox", bundle: .module, comment: "Placeholder of the search field")
         self.search = search

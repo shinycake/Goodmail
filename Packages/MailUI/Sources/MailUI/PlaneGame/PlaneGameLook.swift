@@ -22,9 +22,11 @@ nonisolated struct PlaneGameLook: Equatable, Sendable {
         let width: CGFloat
     }
 
-    /// The scene's paper planes on the scene's field, fading with the paper over them.
+    /// The window's paper planes in the window's sky, fading with the paper over them.
     nonisolated struct Flights: Equatable, Sendable {
         let scene: DoodleScene
+        /// The sky, in the window's coordinates.
+        let frame: CGRect
         let opacity: Double
     }
 }
@@ -189,16 +191,10 @@ extension PlaneGameModel {
             opacity: opacity * blink)
     }
 
-    /// The scene's paper planes carrying on from the tenth tap, on the scene's clock, with no new one setting off,
-    /// at `fading`. They keep their courses but go with the paper, so only the envelopes and the ring are left once
-    /// it is up.
+    /// The sky's paper planes carrying on from the tenth tap, with no new one setting off, at `fading`. They keep
+    /// their courses but go with the paper, so only the envelopes and the ring are left once it is up.
     private func flightsInTheAir(fading: Double) -> PlaneGameLook.Flights? {
-        let scene = handoff.scene
-        guard handoff.stage.isDecorated, fading > 0, case .running(let tapped) = scene.clock else { return nil }
-        return PlaneGameLook.Flights(
-            scene: DoodleScene(
-                size: scene.size, pokes: scene.pokes, clock: .running(tapped + clock), rightToLeft: scene.rightToLeft,
-                focus: scene.focus, energy: scene.energy, passInterval: scene.passInterval, quietFrom: tapped),
-            opacity: fading)
+        guard let sky = handoff.sky, fading > 0 else { return nil }
+        return PlaneGameLook.Flights(scene: sky.scene.carriedOn(by: clock), frame: sky.frame, opacity: fading)
     }
 }

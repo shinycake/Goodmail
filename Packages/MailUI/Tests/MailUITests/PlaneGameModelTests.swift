@@ -34,8 +34,15 @@ struct PlaneGameModelTests {
         let scene = DoodleScene(
             size: stage.field.size, pokes: pokes, clock: .running(tapped), rightToLeft: rightToLeft,
             focus: stage.focus)
+        // The planes in the air fly in the window's sky, which hands them over as they were at the tenth tap.
+        let window = CGRect(origin: .zero, size: screen)
+        let sky = InboxZeroSkyHandoff(
+            scene: DoodleScene(
+                sky: window, stage: stage, pokes: pokes, wake: .awake(since: tapped, rampFrom: nil),
+                clock: .running(tapped), rightToLeft: rightToLeft),
+            frame: window)
         return PlaneGameModel(
-            handoff: InboxZeroHandoff(scene: scene, stage: stage), screen: screen, safeArea: safeArea,
+            handoff: InboxZeroHandoff(scene: scene, stage: stage, sky: sky), screen: screen, safeArea: safeArea,
             reduceMotion: reduceMotion,
             list: PlaneGameList(stage: { [list] in list.stage }, threads: { [list] in list.threads }),
             defaults: defaults, seed: 1)

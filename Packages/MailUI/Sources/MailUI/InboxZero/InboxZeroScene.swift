@@ -6,11 +6,12 @@ import SwiftUI
 /// a paper plane off and the envelopes can be dragged about. It drifts for a while after it arrives or is touched,
 /// then comes to rest and stops drawing. With Reduce Motion on it holds still. Ten quick taps on the envelopes start
 /// the paper plane game, which draws the envelopes and doodles while it is up, so the scene leaves only its words.
+///
+/// The planes its touches send off fly in the window's sky (`InboxZeroSkyView`) rather than here, so they cross the
+/// pane beside the list and leave by the window's edge instead of vanishing at the list's.
 struct InboxZeroScene: View {
     let showing: InboxZeroShowing
     let model: InboxZeroModel
-    @State private var pokes = DoodlePokes()
-    @State private var wake: InboxZeroWake
     @State private var streak = TapStreak()
     /// Where the envelopes and doodles are, once the scene has laid out.
     @State private var stage: InboxZeroStage?
@@ -20,53 +21,24 @@ struct InboxZeroScene: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
-    /// A plane passes by itself a little less often than on the welcome screen, which is seen once.
-    private static let passEvery: TimeInterval = 16
-
-    init(showing: InboxZeroShowing, model: InboxZeroModel) {
-        self.showing = showing
-        self.model = model
-        // Seeded once: the scene that arrives is awake, and its own touches keep it so. One that arrives while the game
-        // is up, as when mail came and went during it, waits asleep for the game to hand back.
-        let driftStarts: Date? =
-            switch showing.arrival {
-            case .earned: showing.arrivedAt + InboxZeroEntrance.driftStarts
-            case .found: showing.arrivedAt
-            case .settled: nil
-            }
-        _wake = State(
-            initialValue: model.isPlaying ? .asleep : .awake(since: showing.arrivedAt, rampFrom: driftStarts))
-    }
-
     var body: some View {
         GeometryReader { proxy in
-            let layout = InboxZeroLayout(
-                height: proxy.size.height, accessibilityText: dynamicTypeSize.isAccessibilitySize)
+            let layout = InboxZeroLayout(size: proxy.size, accessibilityText: dynamicTypeSize.isAccessibilitySize)
             let pileWidth = layout.pileWidth(wide: horizontalSizeClass == .regular && proxy.size.width >= 600)
-            TimelineView(.animation(minimumInterval: 1.0 / 60, paused: reduceMotion || wake == .asleep)) { timeline in
+            TimelineView(.animation(minimumInterval: 1.0 / 60, paused: reduceMotion || model.wake == .asleep)) {
+                timeline in
                 frame(at: timeline.date, layout: layout, pileWidth: pileWidth)
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
         }
-        .onAppear {
-            // An empty Inbox the reader just cleared sees a plane off, unless there's still unread mail to point to.
-            if showing.arrival == .earned, showing.pointing == nil, !reduceMotion, !model.isPlaying {
-                pokes.land(offset: .zero, time: showing.arrivedAt + InboxZeroEntrance.planeLeaves)
-            }
-        }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             greeting = InboxZeroGreeting(at: .now)
         }
-        .task(id: wake) {
-            guard let sleepsAt = wake.sleepsAt,
+        .task(id: model.wake) {
+            guard let sleepsAt = model.wake.sleepsAt,
                 (try? await Task.sleep(for: .seconds(max(sleepsAt.timeIntervalSinceNow, 0)))) != nil
             else { return }
-            wake = .asleep
-        }
-        .onChange(of: model.isPlaying) { _, playing in
-            // The game handed back with everything at rest, so the drift eases in from there.
-            pokes = DoodlePokes()
-            wake = playing ? .asleep : InboxZeroWake.asleep.woken(at: .now)
+            model.rest()
         }
     }
 
@@ -77,12 +49,15 @@ struct InboxZeroScene: View {
         let field = stage.field.size
         let focus = stage.focus
         let playing = model.isPlaying
+        let wake = model.wake
         let scene = DoodleScene(
-            size: field, pokes: pokes.live, clock: reduceMotion ? .stopped : .running(now),
+            size: field, pokes: model.pokes, clock: reduceMotion ? .stopped : .running(now),
             rightToLeft: layoutDirection == .rightToLeft, focus: focus, energy: wake.energy(at: now),
-            passInterval: Self.passEvery, quietFrom: wake.quietFrom, passesFrom: wake.passesFrom)
+            passInterval: InboxZeroSky.passEvery, quietFrom: wake.quietFrom, passesFrom: wake.passesFrom)
+        // Beside the envelopes the doodles aren't the ring the game takes over, so they stay under its paper.
+        let drawsDoodles = layout.hasDoodles && (!playing || !layout.isRinged)
         return VStack(spacing: layout.gap) {
-            EnvelopePile(width: pileWidth, fan: scene.fan - 1 + entrance.fan, released: wakeUp)
+            EnvelopePile(width: pileWidth, fan: scene.fan - 1 + entrance.fan, released: model.wakeUp)
                 .offset(y: entrance.pileDrop - scene.lift)
                 .scaleEffect(entrance.pileScale)
                 .opacity(playing ? 0 : entrance.pileOpacity)
@@ -103,17 +78,12 @@ struct InboxZeroScene: View {
             model.stage = laidOut
         }
         .background {
-            if layout.isDecorated, !playing {
+            if drawsDoodles {
                 DoodleField(
-                    doodles: Doodle.inboxZero, scene: scene,
+                    doodles: layout.doodles, scene: scene,
                     reveal: entrance.reveal(from: focus, reach: hypot(field.width, field.height) / 2)
                 )
                 .accessibilityHidden(true)
-            }
-        }
-        .overlay {
-            if layout.isDecorated, !playing {
-                PaperPlanes(scene: scene).accessibilityHidden(true)
             }
         }
         .contentShape(.rect)
@@ -125,14 +95,9 @@ struct InboxZeroScene: View {
                 return
             }
             guard !reduceMotion else { return }
-            pokes.land(offset: CGSize(width: location.x - focus.x, height: location.y - focus.y), time: .now)
-            wakeUp()
+            model.poke(at: CGSize(width: location.x - focus.x, height: location.y - focus.y))
         }
         .opacity(entrance.opacity)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private func wakeUp() {
-        wake = wake.woken(at: .now)
     }
 }

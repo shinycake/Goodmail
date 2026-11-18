@@ -1,6 +1,6 @@
 import MailCore
 import SwiftUI
-import UIKit
+public import UIKit
 
 extension MailboxViewController {
     /// Puts the Inbox Zero scene behind the list, where pull to refresh and the list's own touches keep working
@@ -8,6 +8,7 @@ extension MailboxViewController {
     func installInboxZero(_ model: InboxZeroModel) {
         model.go = { [weak self] in self?.show($0) }
         model.play = { [weak self] in self?.playPlaneGame(from: $0) }
+        model.laidOut = { [weak self] in self?.placeInboxZero() }
         collectionView.backgroundView = InboxZeroBackdrop(
             scene: UIHostingConfiguration { InboxZeroView(model: model) }.margins(.all, 0).makeContentView())
     }
@@ -29,26 +30,43 @@ extension MailboxViewController {
     func showInboxZero(for state: EmptyState?, after previous: EmptyState?) {
         guard let inboxZero else { return }
         guard case .inboxZero(let pointing) = state else {
-            inboxZero.showing = nil
+            inboxZero.leave()
             return
         }
-        if case .inboxZero = previous, var showing = inboxZero.showing {
-            showing.pointing = pointing
-            inboxZero.showing = showing
+        if case .inboxZero = previous, inboxZero.showing != nil {
+            inboxZero.point(to: pointing)
             return
         }
         let arrival = InboxZeroArrival(
             onScreen: view.window != nil, hadThreads: previous == nil,
             sinceRemoval: lastRemoval.map { ContinuousClock.now - $0 })
-        inboxZero.showing = InboxZeroShowing(arrival: arrival, arrivedAt: .now, pointing: pointing)
+        inboxZero.arrive(InboxZeroShowing(arrival: arrival, arrivedAt: .now, pointing: pointing))
         // The row VoiceOver was on is gone, so it moves to the words that say why.
         if arrival == .earned {
             SystemAccessibility.post(.layoutChanged, argument: collectionView.backgroundView)
         }
     }
 
+    /// Lends the window's sky this list's scene while the scene can be seen, so its planes fly across the window and
+    /// the pane beside it carries its doodles on, and takes it back once it can't: the list went off screen, or search
+    /// results cover it, which they do without the list disappearing. The list calls this as it appears and
+    /// disappears and as search comes and goes.
+    func lendInboxZero() {
+        guard let inboxZero else { return }
+        inboxZeroLoan.update(
+            inboxZero, found: (splitViewController as? MailSplitViewController)?.inboxZeroSky,
+            shows: viewIfLoaded?.window != nil && search?.isActive != true)
+    }
+
+    /// `stage` in the window's coordinates, which are the sky's and the game's. Converted from the view hosting the
+    /// scene, which is right even while the list is pulled and the scene moves with it.
+    func inWindow(_ stage: InboxZeroStage) -> InboxZeroStage? {
+        guard let backdrop = collectionView.backgroundView as? InboxZeroBackdrop else { return nil }
+        return stage.converted { backdrop.scene.convert($0, to: nil) }
+    }
+
     /// Keeps the scene between the list's bars and beside a sidebar floating over the list, and moves it down with the
-    /// list as it is pulled to refresh.
+    /// list as it is pulled to refresh, and tells the sky where it is in the window.
     func placeInboxZero() {
         guard let inboxZero, let backdrop = collectionView.backgroundView as? InboxZeroBackdrop else { return }
         // Refreshing adds the spinner's room to the top inset. The scene keeps its place between the bars at rest, and
@@ -62,6 +80,19 @@ extension MailboxViewController {
             if inboxZero.insets != clear { inboxZero.insets = clear }
         }
         backdrop.pull(by: max(-(collectionView.contentOffset.y + inboxZero.insets.top), 0))
+        let onScreen = view.window == nil ? nil : inboxZero.stage.flatMap(inWindow)
+        if inboxZero.onScreen != onScreen { inboxZero.onScreen = onScreen }
+    }
+}
+
+extension MailboxViewController: UISearchControllerDelegate {
+    /// Search results cover the Inbox Zero scene, so its planes stop flying over them.
+    public func willPresentSearchController(_ searchController: UISearchController) {
+        lendInboxZero()
+    }
+
+    public func didDismissSearchController(_ searchController: UISearchController) {
+        lendInboxZero()
     }
 }
 

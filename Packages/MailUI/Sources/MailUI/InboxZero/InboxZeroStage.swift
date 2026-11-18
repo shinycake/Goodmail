@@ -8,8 +8,8 @@ nonisolated struct InboxZeroStage: Equatable, Sendable {
     /// The middle of the envelopes at rest, in the field.
     let focus: CGPoint
     let pileWidth: CGFloat
-    /// Whether the ring of doodles is drawn around the envelopes.
-    let isDecorated: Bool
+    /// How much of the scene the space allowed.
+    let layout: InboxZeroLayout
 
     /// The coordinate space of the whole of `InboxZeroView`, which fills the view hosting it, safe areas included.
     static let space = "inboxZero"
@@ -19,8 +19,12 @@ nonisolated struct InboxZeroStage: Equatable, Sendable {
         self.field = field
         focus = CGPoint(x: field.width / 2, y: layout.haloAbove + pileWidth * EnvelopeLayer.aspect / 2)
         self.pileWidth = pileWidth
-        isDecorated = layout.isDecorated
+        self.layout = layout
     }
+
+    /// Whether the ring of doodles is drawn around the envelopes, the one the game takes over and folds back into.
+    /// Doodles beside the envelopes aren't that ring, so the game fades its own in instead.
+    var isDecorated: Bool { layout.isRinged }
 
     /// The envelopes at rest, in the field: the only place a tap counts toward the game.
     var pile: CGRect {
@@ -41,7 +45,9 @@ nonisolated struct InboxZeroStage: Equatable, Sendable {
 
 /// What the Inbox Zero scene hands the game when the tenth tap lands: what it drew in that frame, and where.
 nonisolated struct InboxZeroHandoff: Equatable, Sendable {
-    /// The scene as the frame drew it: the envelopes' pose, the doodles' drift and the planes in the air.
+    /// The scene as the frame drew it: the envelopes' pose and the doodles' drift.
     let scene: DoodleScene
     let stage: InboxZeroStage
+    /// The paper planes in the air, which fly in the window's sky, or `nil` when none could.
+    var sky: InboxZeroSkyHandoff? = nil
 }

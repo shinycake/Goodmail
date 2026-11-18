@@ -13,20 +13,22 @@ struct InboxZeroTests {
     // MARK: Layout
 
     @Test(arguments: [
-        (CGFloat(640), false, InboxZeroLayout.full),
-        (560, false, .full),
-        (480, false, .short),
-        (399, false, .bare),
-        (640, true, .bare),
+        (CGSize(width: 390, height: 640), false, InboxZeroLayout.full),
+        (CGSize(width: 390, height: 560), false, .full),
+        (CGSize(width: 390, height: 480), false, .short),
+        (CGSize(width: 420, height: 300), false, .flanked),
+        (CGSize(width: 300, height: 399), false, .bare),
+        (CGSize(width: 390, height: 640), true, .bare),
     ])
-    func theSpaceAndTheTextSizeChooseTheLayout(height: CGFloat, accessibilityText: Bool, layout: InboxZeroLayout) {
-        #expect(InboxZeroLayout(height: height, accessibilityText: accessibilityText) == layout)
+    func theSpaceAndTheTextSizeChooseTheLayout(size: CGSize, accessibilityText: Bool, layout: InboxZeroLayout) {
+        #expect(InboxZeroLayout(size: size, accessibilityText: accessibilityText) == layout)
     }
 
     @Test func onlyTheBareLayoutLeavesTheDoodlesOut() {
-        #expect(InboxZeroLayout.full.isDecorated)
-        #expect(InboxZeroLayout.short.isDecorated)
-        #expect(!InboxZeroLayout.bare.isDecorated)
+        #expect(InboxZeroLayout.full.hasDoodles)
+        #expect(InboxZeroLayout.short.hasDoodles)
+        #expect(InboxZeroLayout.flanked.hasDoodles)
+        #expect(!InboxZeroLayout.bare.hasDoodles)
         #expect(InboxZeroLayout.bare.haloAbove == 0)
         #expect(InboxZeroLayout.full.pileWidth(wide: true) > InboxZeroLayout.full.pileWidth(wide: false))
     }
