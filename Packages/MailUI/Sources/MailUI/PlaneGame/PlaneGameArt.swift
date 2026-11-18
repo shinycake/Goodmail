@@ -12,10 +12,12 @@ nonisolated enum PlaneGameArt {
         case .phish: phish
         case .star: star
         case .heart: heart
+        case .spread, .rapid, .shield, .sweep: powerUp(kind)
+        case .lure: lure
         }
     }
 
-    /// The doodle it is drawn from.
+    /// The doodle it is placed as. Only the plane is ever mirrored, so the rest are placed alike.
     static func shape(of kind: PlaneGameThing.Kind) -> DoodleShape {
         switch kind {
         case .stamp: .stamp
@@ -24,6 +26,8 @@ nonisolated enum PlaneGameArt {
         case .phish: .at
         case .star: .star
         case .heart: .heart
+        case .spread, .rapid, .shield, .sweep: .ring
+        case .lure: .at
         }
     }
 
@@ -35,14 +39,16 @@ nonisolated enum PlaneGameArt {
         case .spam: 38
         case .phish: 34
         case .star, .heart: 24
+        case .spread, .rapid, .shield, .sweep: 30
+        case .lure: 16
         }
     }
 
-    /// Which of the icon's colors it is drawn in: blue is solid, pink is a bad guy, purple is yours.
+    /// Which of the icon's colors it is drawn in: blue is solid, pink is a bad guy or a hazard, purple is yours.
     static func tint(of kind: PlaneGameThing.Kind) -> Int {
         switch kind.role {
         case .obstacle: blue
-        case .badGuy: pink
+        case .badGuy, .hazard: pink
         case .pickup: purple
         }
     }
@@ -52,7 +58,7 @@ nonisolated enum PlaneGameArt {
     static let purple = 1
     static let pink = 2
 
-    /// A shot, in points around the origin, flying straight up.
+    /// A shot, in points around the origin, flying straight up. Reply All's side shots are turned to lean.
     static let shot: Path = {
         var path = Path()
         path.move(to: CGPoint(x: 0, y: 5))

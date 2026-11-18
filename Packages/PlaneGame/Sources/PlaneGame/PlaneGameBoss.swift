@@ -6,7 +6,7 @@ public import Foundation
 #endif
 
 /// A boss: it slides in under the ceiling, moves and attacks until its hits run out, then comes apart. Its status
-/// changes only here and in `PlaneGameBoss+Motion.swift`.
+/// moves on only through `strike(_:)` and `advance(by:towardX:on:attacking:)`.
 public struct PlaneGameBoss: Equatable, Sendable {
     public enum Kind: Equatable, Sendable {
         /// Junk Mail, the spam envelope in a crown, which drops spam.
@@ -27,16 +27,16 @@ public struct PlaneGameBoss: Equatable, Sendable {
     public let kind: Kind
     /// 1 for the first boss of a game.
     public let number: Int
-    public internal(set) var position: CGPoint
+    public var position: CGPoint
     public let hits: Int
-    public internal(set) var hitsLeft: Int
-    public internal(set) var status: Status
+    public var hitsLeft: Int
+    public var status: Status
     /// Seconds since it started to slide in, which Junk Mail's glide is timed from.
     var age: TimeInterval = 0
 
     /// Boss `number` of a game, above the top edge of `field` and about to slide in. They take turns, Junk Mail
     /// first, and each takes more hits than the last.
-    init(number: Int, on field: PlaneGameField) {
+    public init(number: Int, on field: PlaneGameField) {
         kind = number.isMultiple(of: 2) ? .phisher : .junk
         self.number = number
         hits = min(

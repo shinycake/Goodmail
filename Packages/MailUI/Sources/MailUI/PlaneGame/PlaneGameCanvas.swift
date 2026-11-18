@@ -1,8 +1,8 @@
 import PlaneGame
 import SwiftUI
 
-/// One frame of the game in one canvas: the ring of doodles in washed ink behind, then what is in play, the bursts,
-/// and the plane with its trail in front. The world is in the window's coordinates, which are the canvas's, and up is
+/// One frame of the game in one canvas: the ring of doodles in washed ink behind, then what is in play and the boss,
+/// the bursts, and the plane with its trail and what the power-ups put on it in front. The world is in the window's coordinates, which are the canvas's, and up is
 /// up in every language, so nothing in play is mirrored.
 struct PlaneGameCanvas: View {
     let frame: PlaneGameFrame
@@ -15,8 +15,10 @@ struct PlaneGameCanvas: View {
             drawBackdrop(in: &context, inks: washed)
             context.opacity = frame.play
             drawThings(in: &context, inks: inks)
+            drawBoss(in: &context, ink: inks[PlaneGameArt.pink])
             drawShots(in: &context, ink: inks[PlaneGameArt.purple])
             drawBursts(in: &context, inks: inks)
+            drawBossFalling(in: &context, ink: inks[PlaneGameArt.pink])
             drawPlane(in: &context, ink: inks[PlaneGameArt.purple])
         }
         .ignoresSafeArea()
@@ -42,8 +44,9 @@ struct PlaneGameCanvas: View {
             let placed = PlaneGameArt.shape(of: thing.kind).placement(
                 at: thing.position, angle: thing.turn, size: PlaneGameArt.size(of: thing.kind), rightToLeft: false)
             let ink = inks[PlaneGameArt.tint(of: thing.kind)]
-            // Paper behind the line, so the backdrop doesn't show through what is in play.
+            // Paper behind the line and inside a dotted ring, so the backdrop doesn't show through what is in play.
             context.fill(art.line.applying(placed), with: paper)
+            context.fill(art.dots.applying(placed), with: paper)
             context.stroke(art.line.applying(placed), with: ink, style: DoodleField.line)
             context.stroke(art.dots.applying(placed), with: ink, style: DoodleField.dots)
         }
@@ -52,7 +55,9 @@ struct PlaneGameCanvas: View {
     private func drawShots(in context: inout GraphicsContext, ink: GraphicsContext.Shading) {
         var shots = Path()
         for shot in frame.world.shots {
-            shots.addPath(PlaneGameArt.shot, transform: CGAffineTransform.identity.translatedBy(shot.position))
+            let lean = atan2(shot.drift, PlaneGameRules.shotSpeed)
+            shots.addPath(
+                PlaneGameArt.shot, transform: CGAffineTransform.identity.translatedBy(shot.position).rotated(by: lean))
         }
         context.stroke(shots, with: ink, style: Self.shot)
     }
@@ -77,9 +82,13 @@ struct PlaneGameCanvas: View {
                         .font(.callout.bold().monospacedDigit())
                         .foregroundStyle(DoodlePalette.purple))
                 context.draw(label, at: CGPoint(x: at.x, y: at.y - 16 - rise))
-            case .tick:
+            case .tick, .struck:
                 context.stroke(
                     PlaneGameArt.tick.applying(moved), with: inks[PlaneGameArt.blue], style: DoodleField.line)
+            case .unwrapped:
+                context.stroke(
+                    PlaneGameArt.unwrapped(progress: progress, reduceMotion: frame.reduceMotion).applying(moved),
+                    with: inks[PlaneGameArt.purple], style: DoodleField.dots)
             case .caught:
                 context.stroke(
                     PlaneGameArt.caught(progress: progress, reduceMotion: frame.reduceMotion).applying(moved),
@@ -104,6 +113,7 @@ struct PlaneGameCanvas: View {
             .scaledBy(x: Self.planeSize, y: Self.planeSize)
         context.fill(Self.planeArt.applying(placed), with: .color(Color(uiColor: .systemBackground)))
         context.stroke(Self.planeArt.applying(placed), with: ink, style: DoodleField.line)
+        drawKit(on: plane, in: &context, ink: ink)
     }
 
     /// The same size as the scene's paper planes, so the one the envelopes fold into matches them.

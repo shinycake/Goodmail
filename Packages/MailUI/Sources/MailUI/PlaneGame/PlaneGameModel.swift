@@ -14,10 +14,11 @@ import UIKit
     private(set) var backdrop: PlaneGameBackdrop
     /// When a finger first moved the plane, on the game clock, which sends the hint away.
     private(set) var steeredAt: TimeInterval?
-    /// Counters the screen plays a haptic on each change of: a kill, a pickup and a hit.
+    /// Counters the screen plays a haptic on each change of: a kill, a pickup or power-up, a hit and a beaten boss.
     private(set) var kills = 0
     private(set) var catches = 0
     private(set) var hits = 0
+    private(set) var bossesDown = 0
     /// Threads in the Inbox list the game came from, which was empty when it began: mail that arrived during the game.
     private(set) var mailWaiting = 0
     /// Counts the rises in `mailWaiting`, for a haptic and a hop on each.
@@ -202,8 +203,9 @@ import UIKit
         for event in events {
             switch event {
             case .shotDown: kills += 1
-            case .caught: catches += 1
+            case .caught, .powered: catches += 1
             case .hit: hits += 1
+            case .bossDown: bossesDown += 1
             case .fell: break
             }
         }

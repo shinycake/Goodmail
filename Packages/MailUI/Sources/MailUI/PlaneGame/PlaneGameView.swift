@@ -32,10 +32,13 @@ struct PlaneGameView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .ignoresSafeArea()
-            VStack {
+            VStack(spacing: 0) {
                 PlaneGameHUD(
                     lives: model.world.lives, score: model.world.score, mailWaiting: model.mailWaiting,
                     mailArrivals: model.mailArrivals, exit: model.exit)
+                if let boss = model.world.boss {
+                    PlaneGameBossMeter(line: PlaneGameBossLine(boss: boss, reduceMotion: model.reduceMotion))
+                }
                 Spacer()
             }
             .opacity(look.hud)
@@ -55,6 +58,7 @@ struct PlaneGameView: View {
         .sensoryFeedback(.impact(weight: .light), trigger: model.kills)
         .sensoryFeedback(.impact(flexibility: .soft), trigger: model.catches)
         .sensoryFeedback(.warning, trigger: model.hits)
+        .sensoryFeedback(.success, trigger: model.bossesDown)
     }
 }
 
