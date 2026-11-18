@@ -236,8 +236,8 @@ nonisolated enum SwipeReveal: Equatable {
 /// Where a swipe button sits, measured inward from the row's edge to its outer side, and its size.
 nonisolated struct SwipePlacement: Equatable {
     var offset: CGFloat
-    var width = SwipeLayout.diameter
-    var height = SwipeLayout.diameter
+    var width: CGFloat
+    var height: CGFloat
     var isVisible: Bool
 }
 
@@ -246,8 +246,19 @@ nonisolated struct SwipeLayout {
     var count: Int
     var rowWidth: CGFloat
     var rowHeight: CGFloat
+    /// The size the buttons would like, before the row's room caps it: `baseDiameter` scaled for the text size.
+    var preferredDiameter = Self.baseDiameter
 
-    static let diameter: CGFloat = 60
+    /// The buttons' size at the default text size.
+    static let baseDiameter: CGFloat = 72
+    /// The buttons never get smaller than this, however little room the row has.
+    static let minimumDiameter: CGFloat = 60
+    /// Nor larger than this, however large the text.
+    static let maximumDiameter: CGFloat = 96
+    /// The share of the row's width the revealed buttons may take, leaving room to swipe on past them.
+    static let maximumRevealFraction: CGFloat = 0.8
+    /// The least gap a button leaves above and below it inside its row.
+    static let rowClearance: CGFloat = 6
     static let spacing: CGFloat = 12
     static let inset: CGFloat = 16
     /// The gap a full swipe's grown button leaves above and below it.
@@ -255,9 +266,17 @@ nonisolated struct SwipeLayout {
     /// How far past the revealed buttons a swipe must travel, as a share of the row's width, to fire the first.
     static let fullSwipeFraction: CGFloat = 0.55
 
+    /// The buttons' size: as large as preferred, as long as they fit inside the row's height and leave room to swipe
+    /// past them.
+    var diameter: CGFloat {
+        let widthRoom = (rowWidth * Self.maximumRevealFraction - Self.inset) / CGFloat(max(1, count)) - Self.spacing
+        let heightRoom = rowHeight - 2 * Self.rowClearance
+        return max(Self.minimumDiameter, min(preferredDiameter, Self.maximumDiameter, widthRoom, heightRoom))
+    }
+
     /// The swipe distance at which every button is fully shown.
     var revealWidth: CGFloat {
-        Self.inset + CGFloat(count) * (Self.diameter + Self.spacing)
+        Self.inset + CGFloat(count) * (diameter + Self.spacing)
     }
 
     func reveal(at distance: CGFloat) -> SwipeReveal {
@@ -266,7 +285,14 @@ nonisolated struct SwipeLayout {
 
     /// Where button `index` rests once fully shown, from the edge to its outer side.
     func restingOffset(_ index: Int) -> CGFloat {
-        Self.inset + CGFloat(index) * (Self.diameter + Self.spacing)
+        Self.inset + CGFloat(index) * (diameter + Self.spacing)
+    }
+
+    /// How far a button placed at `placement` takes touches beyond its glass: up and down to the row's own edges,
+    /// and side to side halfway to its neighbors, so the buttons share the row between them and a tap that misses
+    /// the glass still lands on the nearest one.
+    func touchOutset(for placement: SwipePlacement) -> CGSize {
+        CGSize(width: Self.spacing / 2, height: max(0, (rowHeight - placement.height) / 2))
     }
 
     /// Each button's place and size, and whether it shows.
@@ -276,17 +302,21 @@ nonisolated struct SwipeLayout {
     /// the edge-most button grows into a capsule as tall as the row allows, stretching from the edge to the finger
     /// until it covers the row, and the rest fall away.
     func placements(for reveal: SwipeReveal) -> [SwipePlacement] {
-        (0..<count).map { index in
+        let diameter = diameter
+        return (0..<count).map { index in
             let rest = restingOffset(index)
             switch reveal {
             case .tracking(let distance):
                 let progress = min(1, max(0, distance / revealWidth))
-                let offset = -Self.diameter + (rest + Self.diameter) * progress
-                return SwipePlacement(offset: offset, isVisible: offset > -Self.diameter)
+                let offset = -diameter + (rest + diameter) * progress
+                return SwipePlacement(
+                    offset: offset, width: diameter, height: diameter, isVisible: offset > -diameter)
             case .fullSwipe(let distance):
-                guard index == 0 else { return SwipePlacement(offset: rest, isVisible: false) }
-                let width = min(max(Self.diameter, distance - Self.inset - Self.spacing), rowWidth - 2 * Self.inset)
-                let height = max(Self.diameter, rowHeight - 2 * Self.verticalInset)
+                guard index == 0 else {
+                    return SwipePlacement(offset: rest, width: diameter, height: diameter, isVisible: false)
+                }
+                let width = min(max(diameter, distance - Self.inset - Self.spacing), rowWidth - 2 * Self.inset)
+                let height = max(diameter, rowHeight - 2 * Self.verticalInset)
                 return SwipePlacement(offset: Self.inset, width: width, height: height, isVisible: true)
             }
         }
@@ -311,13 +341,20 @@ final class SwipeOverlayView: UIView {
     var layout: SwipeLayout {
         SwipeLayout(
             count: actions.count, rowWidth: bounds.width - safeAreaInsets.left - safeAreaInsets.right,
-            rowHeight: bounds.height)
+            rowHeight: bounds.height,
+            preferredDiameter: UIFontMetrics(forTextStyle: .body).scaledValue(
+                for: SwipeLayout.baseDiameter, compatibleWith: traitCollection))
     }
 
     init(actions: [SwipeAction], side: SwipeSide) {
         self.actions = actions
         self.side = side
         super.init(frame: .zero)
+        // Past this, larger text would only crowd the symbols out of buttons that stopped growing.
+        maximumContentSizeCategory = .accessibilityMedium
+        registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (overlay: Self, _) in
+            overlay.setNeedsLayout()
+        }
         for action in actions {
             let button = GlassActionButton(action: action)
             button.addAction(
@@ -334,9 +371,9 @@ final class SwipeOverlayView: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("Programmatic UI only") }
 
-    /// Touches between the buttons fall through to the list, so a tap on the row still reaches it.
+    /// Touches beside the buttons' share of the row fall through to the list, so a tap on the row still reaches it.
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
-        buttons.contains { $0.alpha > 0 && $0.frame.insetBy(dx: -4, dy: -4).contains(point) }
+        buttons.contains { $0.alpha > 0 && $0.point(inside: convert(point, to: $0), with: event) }
     }
 
     override func layoutSubviews() {
@@ -350,6 +387,7 @@ final class SwipeOverlayView: UIView {
     }
 
     private func layoutButtons() {
+        let layout = layout
         for (button, placement) in zip(buttons, layout.placements(for: reveal)) {
             let x =
                 side == .right
@@ -359,6 +397,7 @@ final class SwipeOverlayView: UIView {
                 x: x, y: bounds.midY - placement.height / 2, width: placement.width, height: placement.height)
             // Fading rather than hiding keeps the slide smooth inside the spring animations.
             button.alpha = placement.isVisible ? 1 : 0
+            button.touchOutset = layout.touchOutset(for: placement)
             button.isCommitted = reveal.isFullSwipe && placement.isVisible
             // Lays the symbol and title out now, inside any animation, so they move with the button's shape.
             button.layoutIfNeeded()
@@ -387,6 +426,13 @@ final class GlassActionButton: UIControl {
 
     /// Touching and holding the button asks for this, as to open the swipe settings.
     var onLongPress: (() -> Void)?
+
+    /// How far beyond its glass the button still takes a touch, on each side and above and below.
+    var touchOutset = CGSize.zero
+
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        bounds.insetBy(dx: -touchOutset.width, dy: -touchOutset.height).contains(point)
+    }
 
     init(action: SwipeAction) {
         tint = action.tint
