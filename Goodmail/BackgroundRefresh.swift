@@ -12,8 +12,8 @@ nonisolated protocol RefreshTask: AnyObject {
 
 extension BGAppRefreshTask: RefreshTask {}
 
-/// Background app refresh: a sync without prefetching, asked for again each time by when the next scheduled message
-/// or snoozed thread is due.
+/// Background app refresh: a sync, then the bodies of the few newest threads, asked for again each time by when the
+/// next scheduled message or snoozed thread is due.
 ///
 /// Nonisolated, unlike the rest of the app target: iOS calls the launch handler on a background queue, and a handler
 /// inferred to be on the main actor traps there (the TestFlight crash of build 1.0 (1)). The sync engines are actors,
@@ -62,6 +62,7 @@ nonisolated struct BackgroundRefresh: Sendable {
             let success = await BackgroundDatabaseWork.shared.run("Background refresh") {
                 do {
                     try await refresh.model.syncAll(prefetch: false)
+                    await refresh.model.prefetchNewest()
                     return true
                 } catch {
                     log.error("Background sync failed: \(error, privacy: .public)")

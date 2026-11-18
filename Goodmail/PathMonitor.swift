@@ -2,11 +2,12 @@ import MailCore
 import Network
 import Synchronization
 
-/// Tells prefetch whether the connection suits bulk downloads: up, and neither expensive (cellular, a personal
-/// hotspot) nor constrained (Low Data Mode). Unknown until the first path report, which comes within moments.
+/// Tells prefetch how much the connection allows: nothing offline or in Low Data Mode, a little when it is expensive
+/// (cellular, a personal hotspot), and the rest otherwise. Nothing until the first path report, which comes within
+/// moments.
 nonisolated final class PathMonitor: NetworkPath, Sendable {
     private struct State {
-        var allowed = false
+        var allowance = NetworkAllowance.none
         var listeners: [UInt64: AsyncStream<Void>.Continuation] = [:]
         var nextListener: UInt64 = 0
     }
@@ -16,7 +17,7 @@ nonisolated final class PathMonitor: NetworkPath, Sendable {
 
     init() {
         monitor.pathUpdateHandler = { [weak self] path in
-            self?.update(allowed: path.status == .satisfied && !path.isExpensive && !path.isConstrained)
+            self?.update(Self.allowance(of: path))
         }
         monitor.start(queue: DispatchQueue(label: "com.idanbirman.goodmail.path"))
     }
@@ -25,10 +26,16 @@ nonisolated final class PathMonitor: NetworkPath, Sendable {
         monitor.cancel()
     }
 
-    var allowsBulkDownload: Bool { state.withLock { $0.allowed } }
+    var allowance: NetworkAllowance { state.withLock { $0.allowance } }
 
-    /// Emits each time the connection turns cheap, as when Wi-Fi comes back, until the iterating task is cancelled.
-    func becameAllowed() -> AsyncStream<Void> {
+    private static func allowance(of path: NWPath) -> NetworkAllowance {
+        guard path.status == .satisfied, !path.isConstrained else { return .none }
+        return path.isExpensive ? .metered : .unmetered
+    }
+
+    /// Emits each time the connection allows more than it did, as when cellular comes up or Wi-Fi comes back, until
+    /// the iterating task is cancelled.
+    func allowsMore() -> AsyncStream<Void> {
         let (stream, continuation) = AsyncStream.makeStream(of: Void.self, bufferingPolicy: .bufferingNewest(1))
         let id = state.withLock { state in
             defer { state.nextListener += 1 }
@@ -41,10 +48,10 @@ nonisolated final class PathMonitor: NetworkPath, Sendable {
         return stream
     }
 
-    private func update(allowed: Bool) {
+    private func update(_ allowance: NetworkAllowance) {
         let woken = state.withLock { state in
-            defer { state.allowed = allowed }
-            return allowed && !state.allowed ? Array(state.listeners.values) : []
+            defer { state.allowance = allowance }
+            return allowance > state.allowance ? Array(state.listeners.values) : []
         }
         for listener in woken { listener.yield() }
     }

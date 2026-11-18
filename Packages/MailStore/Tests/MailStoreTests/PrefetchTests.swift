@@ -9,13 +9,13 @@ import Testing
 /// Body prefetch against the real store and a fake server: it fetches the newest threads that lack bodies, no
 /// more than its limit, and only on a path that allows bulk downloads.
 struct PrefetchTests {
-    /// A connection that is cheap or not, as the test sets it.
+    /// A connection that allows what the test sets.
     final class FakePath: NetworkPath {
-        private let allowed: Mutex<Bool>
-        init(allowed: Bool = true) { self.allowed = Mutex(allowed) }
-        var allowsBulkDownload: Bool {
-            get { allowed.withLock { $0 } }
-            set { allowed.withLock { $0 = newValue } }
+        private let current: Mutex<NetworkAllowance>
+        init(_ allowance: NetworkAllowance = .unmetered) { current = Mutex(allowance) }
+        var allowance: NetworkAllowance {
+            get { current.withLock { $0 } }
+            set { current.withLock { $0 = newValue } }
         }
     }
 
@@ -35,11 +35,13 @@ struct PrefetchTests {
     }
 
     private func prefetcher(
-        limit: Int = 500, concurrency: Int = 1, didFinish: @escaping @Sendable () async -> Void = {}
+        limit: Int = 500, meteredLimit: Int = 50, scope: PrefetchScope = .default, concurrency: Int = 1,
+        at now: Date = PrefetchTests.now, didFinish: @escaping @Sendable () async -> Void = {}
     ) -> BodyPrefetcher {
         BodyPrefetcher(
-            accountID: account.id, provider: server, store: database, path: path, threadLimit: limit,
-            concurrency: concurrency, now: { Self.now }, didFinish: didFinish)
+            accountID: account.id, provider: server, store: database, path: path, scope: { scope },
+            threadLimit: limit, meteredThreadLimit: meteredLimit, concurrency: concurrency, now: { now },
+            didFinish: didFinish)
     }
 
     /// Stores a thread and gives the server its message. Lower `hoursAgo` is newer.
@@ -59,6 +61,32 @@ struct PrefetchTests {
                     from: Contact(name: nil, address: "a@example.com"), subject: "Subject \(threadID)", date: date,
                     body: MessageBody(html: nil, plain: "body of \(threadID)"))
             ], inThread: threadID)
+    }
+
+    /// Dates the thread by a reply `hoursAgo`, as sync does when one arrives, and gives the server the reply too unless
+    /// `onServer` is false.
+    private func reply(in threadID: String, hoursAgo: Double, onServer: Bool = true) throws {
+        let id = ThreadSummary.ID(accountID: account.id, threadID: threadID)
+        let date = Self.now.addingTimeInterval(-hoursAgo * 3600)
+        try database.upsert([
+            ThreadSummary(
+                id: id, subject: "Subject \(threadID)", snippet: "",
+                sender: Contact(name: nil, address: "b@example.com"), date: date, isUnread: true, messageCount: 2,
+                labelIDs: ["INBOX"])
+        ])
+        guard onServer else { return }
+        let reply = Message(
+            id: Message.ID(accountID: account.id, messageID: "r-\(threadID)"), threadID: threadID,
+            from: Contact(name: nil, address: "b@example.com"), subject: "Re: Subject \(threadID)", date: date,
+            body: MessageBody(html: nil, plain: "reply in \(threadID)"))
+        server.append(reply, inThread: threadID)
+    }
+
+    private func cachedMessages(in threadID: String) throws -> [String] {
+        try database.pool.read {
+            try String.fetchAll(
+                $0, sql: "SELECT id FROM message WHERE threadID = ? ORDER BY date", arguments: [threadID])
+        }
     }
 
     private func cached() throws -> Set<String> {
@@ -107,27 +135,90 @@ struct PrefetchTests {
         #expect(try cached() == ["inbox", "archived"], "they don't use up the limit either")
     }
 
-    @Test func doesNothingOnAnExpensivePath() async throws {
+    @Test func doesNothingOfflineOrInLowDataMode() async throws {
         try seed("t1", hoursAgo: 1)
-        path.allowsBulkDownload = false
+        path.allowance = .none
         #expect(await prefetcher().run() == 0)
         #expect(server.messageRequests.isEmpty)
         #expect(try cached().isEmpty)
 
-        path.allowsBulkDownload = true
+        path.allowance = .unmetered
         #expect(await prefetcher().run() == 1, "it picks up when the path allows")
     }
 
-    @Test func stopsWhenThePathBecomesExpensive() async throws {
+    @Test func onCellularFetchesOnlyTheNewestFew() async throws {
+        for index in 1...4 { try seed("t\(index)", hoursAgo: Double(index)) }
+        path.allowance = .metered
+        #expect(await prefetcher(meteredLimit: 2).run() == 2)
+        #expect(try cached() == ["t1", "t2"])
+    }
+
+    @Test(arguments: [PrefetchScope.wifiOnly, .never])
+    func aScopeWithoutCellularFetchesNothingThere(scope: PrefetchScope) async throws {
+        try seed("t1", hoursAgo: 1)
+        path.allowance = .metered
+        #expect(await prefetcher(scope: scope).run() == 0)
+        #expect(server.messageRequests.isEmpty)
+    }
+
+    @Test func neverFetchesNothingOnWiFiEither() async throws {
+        try seed("t1", hoursAgo: 1)
+        #expect(await prefetcher(scope: .never).run() == 0)
+        #expect(server.messageRequests.isEmpty)
+    }
+
+    @Test func stopsWhenThePathAllowsNoMore() async throws {
         try seed("t1", hoursAgo: 1)
         try seed("t2", hoursAgo: 2)
         try seed("t3", hoursAgo: 3)
-        // Allows the run to start and the first fetch to launch, then not.
-        let path = CountingPath(allowing: 2)
+        // Allows the run to start and the first fetch to launch, then nothing.
+        let path = SteppingPath([.unmetered, .unmetered], then: .none)
         let prefetcher = BodyPrefetcher(
             accountID: account.id, provider: server, store: database, path: path, concurrency: 1)
         #expect(await prefetcher.run() == 1)
         #expect(server.messageRequests == ["t1"])
+    }
+
+    @Test func droppingToCellularStopsOnceTheNewestFewAreFetched() async throws {
+        for index in 1...5 { try seed("t\(index)", hoursAgo: Double(index)) }
+        // Wi-Fi to start the run and launch the first fetch, then cellular.
+        let path = SteppingPath([.unmetered, .unmetered], then: .metered)
+        let prefetcher = BodyPrefetcher(
+            accountID: account.id, provider: server, store: database, path: path, meteredThreadLimit: 2,
+            concurrency: 1)
+        #expect(await prefetcher.run() == 2)
+        #expect(server.messageRequests == ["t1", "t2"])
+    }
+
+    @Test func atMostCapsTheRun() async throws {
+        for index in 1...4 { try seed("t\(index)", hoursAgo: Double(index)) }
+        #expect(await prefetcher().run(atMost: 3) == 3)
+        #expect(try cached() == ["t1", "t2", "t3"], "the newest first")
+    }
+
+    @Test func fetchesAThreadAgainWhenANewerMessageCame() async throws {
+        try seed("t1", hoursAgo: 3)
+        await prefetcher(at: Self.now.addingTimeInterval(-2 * 3600)).run()
+        try reply(in: "t1", hoursAgo: 1)
+
+        #expect(await prefetcher().run() == 1)
+        #expect(try cachedMessages(in: "t1") == ["m-t1", "r-t1"])
+        #expect(await prefetcher().run() == 0, "it has them all now")
+    }
+
+    @Test func aMessageTheThreadNeverReturnsIsGivenUpOnAfterAnHour() async throws {
+        try seed("t1", hoursAgo: 3)
+        // The thread says a message came an hour and a half ago, but the server leaves it out of the thread.
+        try reply(in: "t1", hoursAgo: 1.5, onServer: false)
+        #expect(await prefetcher().run() == 1, "fetched once, when it lacked any body")
+        #expect(await prefetcher().run() == 0, "fetched more than an hour after the thread's date: whole")
+    }
+
+    @Test func aMessageTheThreadLeavesOutIsAskedForAgainWithinTheHour() async throws {
+        try seed("t1", hoursAgo: 3)
+        try reply(in: "t1", hoursAgo: 0.5, onServer: false)
+        await prefetcher().run()
+        #expect(await prefetcher().run() == 1, "it may still be on its way to the server's thread")
     }
 
     @Test func aFailedFetchStopsTheRun() async throws {
@@ -192,14 +283,15 @@ struct PrefetchTests {
     }
 }
 
-/// Allows bulk downloads for its first `allowing` questions.
-private final class CountingPath: NetworkPath {
-    private let remaining: Mutex<Int>
-    init(allowing count: Int) { remaining = Mutex(count) }
-    var allowsBulkDownload: Bool {
-        remaining.withLock { remaining in
-            defer { remaining -= 1 }
-            return remaining > 0
-        }
+/// Allows `steps` in turn, one per question, then `rest` from then on.
+private final class SteppingPath: NetworkPath {
+    private let remaining: Mutex<[NetworkAllowance]>
+    private let rest: NetworkAllowance
+    init(_ steps: [NetworkAllowance], then rest: NetworkAllowance) {
+        remaining = Mutex(steps)
+        self.rest = rest
+    }
+    var allowance: NetworkAllowance {
+        remaining.withLock { $0.isEmpty ? rest : $0.removeFirst() }
     }
 }

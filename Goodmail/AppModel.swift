@@ -333,14 +333,29 @@ final class AppModel {
         for account in accounts { if case .failure(let error) = outcomes[account.id] { throw error } }
     }
 
-    /// Starts prefetching again each time the connection turns cheap, as when Wi-Fi comes back, until the calling
+    /// Starts prefetching again each time the connection allows more, as when Wi-Fi comes back, until the calling
     /// task is cancelled. Sync starts prefetch too, but a sync may be a while off.
     func prefetchWhenConnectionAllows() async {
-        for await _ in path.becameAllowed() {
+        for await _ in path.allowsMore() {
             // An account removed meanwhile has no prefetcher to start.
             for account in accounts { await (try? prefetcher(for: account.id))?.start() }
         }
     }
+
+    /// Fetches the bodies of a few of each account's newest threads, as a background refresh does after its sync, so
+    /// the mail that came meanwhile opens at once. Waits for them, unlike `start()`, since the refresh's time is short.
+    func prefetchNewest() async {
+        let prefetchers = accounts.compactMap { try? prefetcher(for: $0.id) }
+        await withTaskGroup(of: Void.self) { group in
+            for prefetcher in prefetchers {
+                group.addTask { await prefetcher.run(atMost: Self.backgroundPrefetchCount) }
+            }
+        }
+        await trimCache()
+    }
+
+    /// How many threads per account a background refresh fetches the bodies of: what a few seconds allow.
+    private static let backgroundPrefetchCount = 20
 
     /// Stops prefetching, as when the app leaves the foreground. The next sync picks up where it left off.
     func cancelPrefetch() async {

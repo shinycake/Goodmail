@@ -166,7 +166,13 @@ extension MailDatabase {
 }
 
 extension MailDatabase: PrefetchStore {
-    public func threadsWithoutBodies(account: AccountID, among newest: Int) throws -> [ThreadSummary.ID] {
+    /// A thread whose cached bodies stop short of its date by more than a second lacks a newer message. The store
+    /// keeps the thread's date to the millisecond and each message's whole, so a second is allowed.
+    ///
+    /// One whose bodies were fetched more than an hour after its date counts as whole even so: a message the provider
+    /// leaves out of the thread, such as a draft, must not have it fetched again on every run. A message that arrives
+    /// later than that after it was written is fetched when its thread opens.
+    public func threadsMissingBodies(account: AccountID, among newest: Int) throws -> [ThreadSummary.ID] {
         try pool.read { db in
             try String.fetchAll(
                 db,
@@ -180,9 +186,20 @@ extension MailDatabase: PrefetchStore {
                         LIMIT ?
                     ) AS newest
                     WHERE NOT EXISTS (SELECT 1 FROM message m WHERE m.accountID = ? AND m.threadID = newest.id)
-                    ORDER BY date DESC
+                        -- The newest date comes from the index alone; fetchedAt, stored past each body, is read only
+                        -- for the few threads that are behind.
+                        OR (julianday((
+                                SELECT MAX(m.date) FROM message m WHERE m.accountID = ? AND m.threadID = newest.id
+                            )) < julianday(newest.date) - 1.0 / 86400
+                            AND julianday((
+                                SELECT MAX(m.fetchedAt) FROM message m WHERE m.accountID = ? AND m.threadID = newest.id
+                            )) < julianday(newest.date) + 1.0 / 24)
+                    ORDER BY newest.date DESC
                     """,
-                arguments: [account.rawValue, SystemLabel.spam, SystemLabel.trash, newest, account.rawValue]
+                arguments: [
+                    account.rawValue, SystemLabel.spam, SystemLabel.trash, newest, account.rawValue, account.rawValue,
+                    account.rawValue,
+                ]
             ).map { ThreadSummary.ID(accountID: account, threadID: $0) }
         }
     }

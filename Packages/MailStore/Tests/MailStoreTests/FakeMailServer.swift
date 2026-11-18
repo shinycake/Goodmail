@@ -410,6 +410,11 @@ extension FakeMailServer {
         state.withLock { $0.messages[threadID] = messages }
     }
 
+    /// Adds a message to what `messages(inThread:)` returns for the thread.
+    func append(_ message: Message, inThread threadID: String) {
+        state.withLock { $0.messages[threadID, default: []].append(message) }
+    }
+
     /// The threads whose messages were asked for, in order.
     var messageRequests: [String] { state.withLock(\.messageRequests) }
 
