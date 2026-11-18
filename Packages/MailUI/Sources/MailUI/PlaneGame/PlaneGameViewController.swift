@@ -6,7 +6,8 @@ import UIKit
 /// a frame while the scene is active.
 final class PlaneGameViewController: UIViewController {
     private let model: PlaneGameModel
-    /// Takes the envelopes and doodles from the Inbox Zero scene, as the game first draws them.
+    /// Takes the envelopes and doodles from the Inbox Zero scene that shows, as the game first draws them and every
+    /// frame after, since the Inbox can be built anew under the game with a scene of its own.
     private let takeOver: () -> Void
     /// Gives the Inbox Zero scene its envelopes and doodles back.
     private let handBack: () -> Void
@@ -90,7 +91,7 @@ final class PlaneGameViewController: UIViewController {
         guard case .running(_, let lastFrame) = clock else { return }
         clock = .running(link, lastFrame: link.timestamp)
         model.tick(by: lastFrame.map { link.timestamp - $0 } ?? link.targetTimestamp - link.timestamp)
-        if model.phase == .gone { handBack() }
+        if model.phase == .gone { handBack() } else { takeOver() }
         updateChrome()
     }
 

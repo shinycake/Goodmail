@@ -14,10 +14,13 @@ nonisolated struct PlaneGameMirror: Equatable, Sendable {
 
 /// The Inbox Zero ring of doodles behind the game. Each drifts toward the leading edge at its own share of the world's
 /// speed, and once past it comes round again from the trailing edge at a new height. Where each is follows from how far
-/// the world has scrolled, so a frame is drawn by asking. At distance 0 it is the ring as the scene last drew it.
+/// the world has scrolled, so a frame is drawn by asking. At distance 0 it is the ring as the scene last drew it, until
+/// the screen changes size.
 nonisolated struct PlaneGameBackdrop: Equatable, Sendable {
-    /// Where each doodle is on the screen at distance 0.
-    let seeds: [DoodlePose]
+    /// Where each doodle is on the screen at `origin`.
+    private(set) var seeds: [DoodlePose]
+    /// The distance the drift is measured from: 0, or where the screen last changed size.
+    private(set) var origin: CGFloat = 0
     /// The angle each doodle rests at, which it comes round again at.
     let angles: [Double]
     /// The screen's width, flipped through for a right-to-left layout.
@@ -53,8 +56,14 @@ nonisolated struct PlaneGameBackdrop: Equatable, Sendable {
         self.reduceMotion = reduceMotion
     }
 
-    /// The screen changed size, as on rotation: the doodles come round within the new width and band.
-    mutating func fit(mirror: PlaneGameMirror, band: ClosedRange<CGFloat>) {
+    /// The screen changed size, as on rotation, once the world had scrolled `distance` points. Each doodle stays where it
+    /// is, measured from the leading edge, drifts on from there, and comes round within the new width and band.
+    mutating func fit(mirror: PlaneGameMirror, band: ClosedRange<CGFloat>, at distance: CGFloat) {
+        let old = self.mirror
+        seeds = poses(at: distance).map {
+            DoodlePose(position: mirror.flipped(old.flipped($0.position)), angle: $0.angle)
+        }
+        origin = distance
         self.mirror = mirror
         self.band = band
     }
@@ -98,11 +107,11 @@ nonisolated struct PlaneGameBackdrop: Equatable, Sendable {
     private func pose(of index: Int, at distance: CGFloat) -> DoodlePose {
         let seed = seeds[index]
         guard !reduceMotion else { return seed }
-        let drift = Self.depth(of: index) * distance
+        let drift = Self.depth(of: index) * (distance - origin)
         // Where it is in flight coordinates, before any wrap.
         let along = mirror.flipped(seed.position).x - drift
         guard along < -Self.margin else {
-            // Moved on the screen directly, so at distance 0 it is exactly where the scene drew it.
+            // Moved on the screen directly, so at `origin` it is exactly at its seed.
             let x = seed.position.x + (mirror.rightToLeft ? drift : -drift)
             return DoodlePose(position: CGPoint(x: x, y: seed.position.y), angle: seed.angle)
         }

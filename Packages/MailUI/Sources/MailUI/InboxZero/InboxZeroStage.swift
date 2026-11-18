@@ -11,7 +11,7 @@ nonisolated struct InboxZeroStage: Equatable, Sendable {
     /// Whether the ring of doodles is drawn around the envelopes.
     let isDecorated: Bool
 
-    /// The coordinate space at the root of `InboxZeroView`, which fills the list's background.
+    /// The coordinate space of the whole of `InboxZeroView`, which fills the view hosting it, safe areas included.
     static let space = "inboxZero"
 
     /// The stage of a field laid out `layout`'s way, with envelopes `pileWidth` wide at the top of its halo.

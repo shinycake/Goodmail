@@ -241,4 +241,60 @@ import Testing
             #expect(rest[index].angle == doodle.angle)
         }
     }
+
+    // MARK: Windows that change size
+
+    /// How far `pose` is from the leading edge of a screen `width` wide.
+    private func fromLeading(_ pose: DoodlePose, width: CGFloat, rightToLeft: Bool) -> CGFloat {
+        rightToLeft ? width - pose.position.x : pose.position.x
+    }
+
+    @Test(arguments: [false, true], [CGFloat(300), 1000])
+    func aResizeKeepsEveryDoodleWhereItWasFromTheLeadingEdge(rightToLeft: Bool, width: CGFloat) {
+        var backdrop = backdrop(rightToLeft: rightToLeft)
+        // Far enough that some doodles have come round again.
+        let distance: CGFloat = 1800
+        let before = backdrop.poses(at: distance)
+        backdrop.fit(mirror: PlaneGameMirror(width: width, rightToLeft: rightToLeft), band: 200...600, at: distance)
+        let after = backdrop.poses(at: distance)
+        for (old, new) in zip(before, after) {
+            let kept = fromLeading(old, width: screen.width, rightToLeft: rightToLeft)
+            #expect(abs(fromLeading(new, width: width, rightToLeft: rightToLeft) - kept) < 0.001)
+            #expect(new.position.y == old.position.y)
+            #expect(new.angle == old.angle)
+        }
+    }
+
+    @Test(arguments: [false, true], [CGFloat(300), 1000])
+    func afterAResizeEachDoodleDriftsOnFromWhereItWas(rightToLeft: Bool, width: CGFloat) {
+        var backdrop = backdrop(rightToLeft: rightToLeft)
+        let distance: CGFloat = 1800
+        backdrop.fit(mirror: PlaneGameMirror(width: width, rightToLeft: rightToLeft), band: 200...600, at: distance)
+        let extra: CGFloat = 12
+        let start = backdrop.poses(at: distance)
+        let later = backdrop.poses(at: distance + extra)
+        for (index, (from, to)) in zip(start, later).enumerated() {
+            let along = fromLeading(from, width: width, rightToLeft: rightToLeft)
+            // One that goes past the leading edge in the extra comes round instead.
+            guard along - PlaneGameBackdrop.depth(of: index) * extra >= -PlaneGameBackdrop.margin else { continue }
+            let drifted = along - fromLeading(to, width: width, rightToLeft: rightToLeft)
+            #expect(abs(drifted - PlaneGameBackdrop.depth(of: index) * extra) < 0.001)
+            #expect(to.position.y == from.position.y)
+        }
+    }
+
+    @Test(arguments: [false, true], [CGFloat(300), 1000])
+    func afterAResizeDoodlesComeRoundInsideTheNewBandAndWidth(rightToLeft: Bool, width: CGFloat) {
+        var backdrop = backdrop(rightToLeft: rightToLeft)
+        let band: ClosedRange<CGFloat> = 200...600
+        backdrop.fit(mirror: PlaneGameMirror(width: width, rightToLeft: rightToLeft), band: band, at: 1800)
+        // Past the farthest a doodle can have been, so every one has come round since the resize.
+        for distance in stride(from: CGFloat(1800 + 2 * (1000 + 900) / 0.35), through: 40000, by: 997) {
+            for pose in backdrop.poses(at: distance) {
+                #expect(band.contains(pose.position.y))
+                #expect(pose.position.x >= -PlaneGameBackdrop.margin)
+                #expect(pose.position.x <= width + PlaneGameBackdrop.margin)
+            }
+        }
+    }
 }

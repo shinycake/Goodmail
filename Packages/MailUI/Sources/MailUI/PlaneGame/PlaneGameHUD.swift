@@ -11,6 +11,7 @@ struct PlaneGameHUD: View {
     let mailArrivals: Int
     let exit: () -> Void
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     var body: some View {
         let washed = DoodleField.inks(for: colorScheme)
@@ -50,6 +51,9 @@ struct PlaneGameHUD: View {
                         "\(score) points", tableName: "PlaneGame", bundle: .module,
                         comment: "The paper plane game's score, read by VoiceOver"))
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, horizontalSizeClass == .regular ? 20 : 12)
+        // Narrowed to keep clear of an iPad window's own controls, which stay in its top left corner in either
+        // direction, so they sit beside the lives, or beside the way out in a right-to-left layout.
+        .containerCornerOffset(.horizontal, sizeToFit: true)
     }
 }

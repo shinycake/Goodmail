@@ -46,6 +46,16 @@ nonisolated struct PlaneGameLeaving: Equatable, Sendable {
     /// The game over card it left from, which fades with what was in play, or `nil` when it left mid-game.
     let ending: PlaneGameResult?
 
+    /// The same way out, folding back into the envelopes on `stage` instead, as when the Inbox lays out again while
+    /// the plane is on its way home. The plane's loop keeps its start and heads for the new place, in flight
+    /// coordinates through `mirror`.
+    func landing(on stage: InboxZeroStage, mirror: PlaneGameMirror) -> PlaneGameLeaving {
+        guard case .home(let landingOn, let path) = way, landingOn != stage else { return self }
+        return PlaneGameLeaving(
+            since: since, way: .home(stage, path: LoopPath(from: path.start, to: mirror.flipped(stage.center))),
+            ending: ending)
+    }
+
     /// How much of what was in play still shows, `elapsed` seconds into the way out.
     func play(at elapsed: TimeInterval, reduceMotion: Bool) -> Double {
         switch way {

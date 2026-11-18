@@ -15,9 +15,11 @@ struct InboxZeroView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .ignoresSafeArea()
-        // The whole of the list's background, which the game converts to the window from.
+        // Named before the safe area is ignored, so the space is the whole of the hosting view, which the game converts
+        // to the window from. Named after, it would begin at the safe area's corner, which is the edge of a sidebar
+        // floating over the list.
         .coordinateSpace(.named(InboxZeroStage.space))
+        .ignoresSafeArea()
         .animation(reduceMotion ? .linear(duration: 0.3) : .smooth(duration: 0.25), value: model.showing == nil)
     }
 }

@@ -260,4 +260,112 @@ struct PlaneGameModelTests {
         #expect(PlaneGameBest.record(80, in: defaults) == PlaneGameResult(score: 80, best: 120, isNewBest: false))
         #expect(defaults.integer(forKey: PlaneGameBest.key) == 120)
     }
+
+    // MARK: Windows that change size
+
+    /// Where the Inbox lays its envelopes out after the window changes size under the landing.
+    private let movedStage = InboxZeroStage(
+        field: CGRect(x: 320, y: 90, width: 500, height: 600), layout: .full, pileWidth: 220)
+
+    @Test func theLandingFollowsTheEnvelopesWhenTheInboxLaysOutAgain() throws {
+        let model = try model()
+        run(model, for: PlaneGameTakeoff.duration + 0.1)
+        model.exit()
+        run(model, for: 0.3)
+        list.stage = movedStage
+        run(model, for: PlaneGameLanding.duration - 0.3 - 1.0 / 60)
+        guard case .leaving(let leaving) = model.phase, case .home(let stage, let path) = leaving.way else {
+            Issue.record("Expected to fold back home, got \(model.phase)")
+            return
+        }
+        #expect(stage == movedStage)
+        #expect(path.end == movedStage.center)
+        let look = model.look
+        #expect(look.pile?.center == movedStage.center)
+        #expect(look.pile?.width == movedStage.pileWidth)
+        let rest = PlaneGameBackdrop.rest(of: Doodle.inboxZero, on: movedStage, rightToLeft: false)
+        #expect(look.canvas.backdrop.map(\.pose) == rest)
+        run(model, for: 2.0 / 60)
+        #expect(model.phase == .gone)
+    }
+
+    @Test func theLandingKeepsItsPlaceWhenTheSceneIsGoneMidway() throws {
+        let model = try model()
+        run(model, for: PlaneGameTakeoff.duration + 0.1)
+        model.exit()
+        run(model, for: 0.3)
+        let landing = model.phase
+        list.stage = nil
+        run(model, for: 0.5)
+        #expect(model.phase == landing)
+    }
+
+    /// A field that is a window's whole size, safe areas and all, from the smallest the system allows to a 13 inch
+    /// iPad's.
+    private static let windows: [(CGSize, UIEdgeInsets)] = [
+        CGSize(width: 200, height: 150), CGSize(width: 320, height: 480), CGSize(width: 402, height: 874),
+        CGSize(width: 874, height: 402), CGSize(width: 1366, height: 1024), CGSize(width: 1024, height: 1366),
+        CGSize(width: 507, height: 1180), CGSize(width: 1180, height: 820),
+    ].flatMap { size in
+        [(size, UIEdgeInsets.zero), (size, UIEdgeInsets(top: 62, left: 62, bottom: 34, right: 62))]
+    }
+
+    enum Moment: CaseIterable, Sendable {
+        case takeoff, play, over, landing, flyingOff
+    }
+
+    /// `model` brought to `moment`.
+    private func bring(_ model: PlaneGameModel, to moment: Moment) {
+        switch moment {
+        case .takeoff:
+            run(model, for: 0.3)
+        case .play:
+            run(model, for: PlaneGameTakeoff.duration + 2)
+        case .over:
+            for _ in 0..<(60 * 600) where !model.phase.isOverForTests { model.tick(by: 1.0 / 60) }
+        case .landing:
+            run(model, for: PlaneGameTakeoff.duration + 0.1)
+            model.exit()
+        case .flyingOff:
+            run(model, for: PlaneGameTakeoff.duration + 0.1)
+            list.stage = nil
+            model.exit()
+        }
+    }
+
+    @Test(arguments: Moment.allCases)
+    func resizingAnyWayNeverBreaksTheGame(at moment: Moment) throws {
+        let model = try model()
+        bring(model, to: moment)
+        if moment == .over { try #require(model.phase.isOverForTests) }
+        for (screen, safeArea) in Self.windows + Self.windows.reversed() {
+            model.resize(screen: screen, safeArea: safeArea)
+            for _ in 0..<3 {
+                model.tick(by: 1.0 / 60)
+                let look = model.look
+                let points =
+                    look.canvas.backdrop.map(\.pose.position) + (look.canvas.plane.map { [$0.position] } ?? [])
+                    + (look.pile.map { [$0.center] } ?? [])
+                #expect(points.allSatisfy { $0.x.isFinite && $0.y.isFinite })
+                #expect(look.paper.isFinite && look.hud.isFinite)
+                let field = model.world.field
+                let plane = model.world.plane
+                switch plane.status {
+                case .flying, .shaken:
+                    let nearest = field.leadingInset + PlaneGameRules.planeRadius
+                    #expect(plane.position.x >= nearest - 0.001)
+                    #expect(plane.position.x <= max(field.size.width * PlaneGameRules.planeReach, nearest) + 0.001)
+                    #expect(field.band.contains(plane.position.y))
+                case .launching, .down:
+                    break
+                }
+            }
+        }
+    }
+}
+
+extension PlaneGamePhase {
+    fileprivate var isOverForTests: Bool {
+        if case .over = self { true } else { false }
+    }
 }

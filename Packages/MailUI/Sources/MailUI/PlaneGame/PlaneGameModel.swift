@@ -108,7 +108,13 @@ import UIKit
             answer(world.advance(by: dt, input: input))
             if world.isOver { phase = .over(PlaneGameBest.record(world.score, in: defaults)) }
         case .leaving(let leaving):
-            if clock - leaving.since >= leaving.duration(reduceMotion: reduceMotion) { phase = .gone }
+            // The scene underneath lays out after the game does, so it is asked every frame where its envelopes are.
+            let landing = list.stage().map { leaving.landing(on: $0, mirror: mirror) } ?? leaving
+            if clock - landing.since >= landing.duration(reduceMotion: reduceMotion) {
+                phase = .gone
+            } else if landing != leaving {
+                phase = .leaving(landing)
+            }
         case .over, .gone:
             break
         }
@@ -164,7 +170,7 @@ import UIKit
         guard field != world.field else { return }
         world.resize(to: field)
         mirror = PlaneGameMirror(width: screen.width, rightToLeft: mirror.rightToLeft)
-        backdrop.fit(mirror: mirror, band: field.band)
+        backdrop.fit(mirror: mirror, band: field.band, at: distance)
     }
 
     // MARK: Helpers
