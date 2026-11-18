@@ -11,19 +11,17 @@ public enum PlaneGameRules {
 
     public static let lives = 3
     public static let planeRadius: CGFloat = 11
-    /// How far toward the trailing edge the plane may go, as a share of the width.
-    public static let planeReach = 0.62
-    /// Where the plane's launch loop ends, as a share of the field's width and height.
-    public static let startAt = CGPoint(x: 0.22, y: 0.45)
+    /// How far below the bottom edge a plane that comes up from there starts.
+    public static let belowField: CGFloat = 60
     /// How long a hit plane blinks and can't be hit again.
     public static let shakenFor: TimeInterval = 1.5
     /// How long the plane takes to tumble off the bottom once it is out of lives.
     public static let fallTime: TimeInterval = 1.0
-    /// Radians of tilt for each point a second the plane climbs or dives, and the most it tilts.
-    public static let tiltPerSpeed = 0.0016
-    public static let maxTilt = 0.7
-    /// How quickly the tilt catches up with the plane's climb, a share of the gap a second.
-    public static let tiltEasing = 10.0
+    /// Radians of bank for each point a second the plane slides sideways, and the most it banks either way.
+    public static let bankPerSpeed = 0.0016
+    public static let maxBank = 0.5
+    /// How quickly the bank catches up with the plane's slide, a share of the gap a second.
+    public static let bankEasing = 10.0
     /// How fast the plane turns over while it falls, in radians a second.
     public static let tumbleSpeed = 7.0
 
@@ -41,7 +39,7 @@ public enum PlaneGameRules {
 
     // The world.
 
-    /// Scroll speed at the start and after `hardeningTime`, rising evenly between.
+    /// Scroll speed at the start and after `hardeningTime`, rising evenly between, on a field whose pace is 1.
     public static let cruisingSpeed: CGFloat = 150
     public static let topSpeed: CGFloat = 270
     /// How long the game takes to reach its hardest, its fastest scroll and its quickest arrivals.
@@ -67,7 +65,7 @@ public enum PlaneGameRules {
     public static let postmarksFrom: TimeInterval = 14
     public static let spamRowsFrom: TimeInterval = 20
     public static let phishFrom: TimeInterval = 30
-    /// Things arrive this far beyond the trailing edge and are removed this far past the leading edge.
+    /// Things arrive this far above the top edge and are removed this far past the bottom edge.
     public static let arriveBeyond: CGFloat = 40
     public static let leaveBeyond: CGFloat = 60
     /// How often each kind of arrival comes, against the others open at the time.
@@ -78,21 +76,21 @@ public enum PlaneGameRules {
     public static let phishWeight = 1.5
     public static let starWeight = 1.0
     public static let heartWeight = 0.8
-    /// The gap between the spam in a row of three, along and across.
+    /// The gap between the spam in a row of three, across and down, on a slant.
     public static let rowSpacing = CGSize(width: 52, height: 30)
 
-    // How things move.
+    // How things move. Extra speeds are on a field whose pace is 1.
 
-    /// Spam comes this much faster than the world and weaves up and down.
+    /// Spam falls this much faster than the world and weaves side to side.
     public static let spamExtraSpeed: CGFloat = 70
     public static let spamWeave: CGFloat = 22
     public static let spamWeavePeriod: TimeInterval = 1.3
-    /// Phish comes a little faster than the world and drifts toward the plane's height.
+    /// Phish falls a little faster than the world and drifts toward the plane's x.
     public static let phishExtraSpeed: CGFloat = 20
     public static let phishDrift: CGFloat = 45
-    /// Postmarks bob this far, top to bottom, once a period.
-    public static let postmarkBob: CGFloat = 50
-    public static let postmarkBobPeriod: TimeInterval = 2.4
+    /// Postmarks sway this far, side to side, once a period.
+    public static let postmarkSway: CGFloat = 50
+    public static let postmarkSwayPeriod: TimeInterval = 2.4
     /// How fast stamps and stars turn, in degrees a second.
     public static let stampSpin = 25.0
     public static let starSpin = 90.0

@@ -25,7 +25,7 @@ nonisolated struct PlaneGameTakeoff: Equatable, Sendable {
     let elapsed: TimeInterval
     let reduceMotion: Bool
 
-    /// When the plane sets off on its loop, from the line the envelopes squeezed to.
+    /// When the plane sets off on its launch, from the line the envelopes squeezed to.
     static let planeSetsOff: TimeInterval = 0.42
     /// How long the morph takes, and how long the cross-fade takes with Reduce Motion on.
     static let duration: TimeInterval = 1.3
@@ -59,8 +59,19 @@ nonisolated struct PlaneGameTakeoff: Equatable, Sendable {
 
     /// How much of the plane's width shows as it opens from the line, overshooting a little.
     var planeWidth: CGFloat {
-        reduceMotion ? 1 : PlaneGameEasing.backOut(PlaneGameEasing.ramp(elapsed, from: Self.planeSetsOff, to: 0.60))
+        reduceMotion
+            ? 1 : PlaneGameEasing.backOut(PlaneGameEasing.ramp(elapsed, from: Self.planeSetsOff, to: Self.planeOpen))
     }
+
+    /// How far the plane has turned from pointing up, as it opens from the upright line, to the heading of its
+    /// launch: none until it sets off, all of it once it is open.
+    var planeTurn: Double {
+        reduceMotion
+            ? 1 : PlaneGameEasing.smoothstep(PlaneGameEasing.ramp(elapsed, from: Self.planeSetsOff, to: Self.planeOpen))
+    }
+
+    /// When the plane is open.
+    private static let planeOpen: TimeInterval = 0.60
 
     /// The plane's opacity: there from the fold on, or fading in with Reduce Motion.
     var planeOpacity: Double {

@@ -23,20 +23,23 @@ struct PlaneGameView: View {
                         .opacity(flights.opacity)
                         .position(x: field.midX, y: field.midY)
                 }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .ignoresSafeArea()
-            VStack {
-                PlaneGameHUD(
-                    lives: model.world.lives, score: model.world.score, mailWaiting: model.mailWaiting,
-                    mailArrivals: model.mailArrivals, exit: model.exit)
-                Spacer()
                 Text("Drag to fly", tableName: "PlaneGame", bundle: .module, comment: "Hint at the start of the game")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .opacity(model.hint)
-                    .padding(.bottom, 56)
+                    .position(model.hintCenter)
                     .accessibilityHidden(model.hint == 0)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .ignoresSafeArea()
+            VStack(spacing: 0) {
+                PlaneGameHUD(
+                    lives: model.world.lives, score: model.world.score, mailWaiting: model.mailWaiting,
+                    mailArrivals: model.mailArrivals, exit: model.exit)
+                if let boss = model.world.boss {
+                    PlaneGameBossMeter(line: PlaneGameBossLine(boss: boss, reduceMotion: model.reduceMotion))
+                }
+                Spacer()
             }
             .opacity(look.hud)
             if let card = model.card {
@@ -49,12 +52,13 @@ struct PlaneGameView: View {
         .contentShape(.rect)
         .gesture(
             DragGesture(minimumDistance: 0)
-                .onChanged { model.touch($0.translation) }
+                .onChanged { model.touch(sideways: $0.translation.width) }
                 .onEnded { _ in model.release() }
         )
         .sensoryFeedback(.impact(weight: .light), trigger: model.kills)
         .sensoryFeedback(.impact(flexibility: .soft), trigger: model.catches)
         .sensoryFeedback(.warning, trigger: model.hits)
+        .sensoryFeedback(.success, trigger: model.bossesDown)
     }
 }
 

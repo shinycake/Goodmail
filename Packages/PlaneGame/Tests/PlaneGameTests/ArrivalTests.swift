@@ -10,22 +10,34 @@ import Testing
 /// What arrives when, and where.
 struct ArrivalTests {
     /// Everything that arrives over `seconds`, asked for every frame, with the time it was asked for.
-    private func arrivals(over seconds: TimeInterval, livesMissing: Bool, seed: UInt64 = 7)
-        -> [(time: TimeInterval, arrivals: [PlaneGameSpawner.Arrival])]
-    {
+    private func arrivals(
+        over seconds: TimeInterval, livesMissing: Bool, seed: UInt64 = 7, on field: PlaneGameField = phoneField
+    ) -> [(time: TimeInterval, arrivals: [PlaneGameSpawner.Arrival])] {
         var spawner = PlaneGameSpawner()
         var generator = SeededGenerator(seed: seed)
         return stride(from: 0, through: seconds, by: 1.0 / 20).map { time in
-            (time, spawner.arrivals(at: time, in: phoneField, livesMissing: livesMissing, using: &generator))
+            (
+                time,
+                spawner.arrivals(
+                    at: time, in: field, openings: .init(livesMissing: livesMissing, powerUpInPlay: false),
+                    using: &generator)
+            )
         }
     }
 
     @Test func nothingArrivesBeforeTheFirstArrival() {
-        var world = PlaneGameWorld(field: phoneField, launchingFrom: CGPoint(x: -40, y: 400), after: 0.4, seed: 3)
+        var world = PlaneGameWorld(field: phoneField, launch: .fromBelow, after: 0.4, seed: 3)
         world.run(for: PlaneGameRules.firstArrival - frame)
         #expect(world.things.isEmpty)
         world.run(for: 2 * frame)
         #expect(!world.things.isEmpty)
+    }
+
+    @Test func lanesTwiceAsWideBringArrivalsTwiceAsOften() {
+        let wide = PlaneGameField(size: CGSize(width: 776, height: 860), lanes: 12...764, ceiling: 80, row: 720)
+        let onAPhone = arrivals(over: 120, livesMissing: false).count { !$0.arrivals.isEmpty }
+        let onWide = arrivals(over: 120, livesMissing: false, on: wide).count { !$0.arrivals.isEmpty }
+        #expect(abs(Double(onWide) / Double(onAPhone) - 2) < 0.1)
     }
 
     @Test func heartsArriveOnlyWhileALifeIsMissing() {
@@ -56,17 +68,25 @@ struct ArrivalTests {
         #expect(opening.flatMap(\.arrivals).allSatisfy { [PlaneGameThing.Kind.spam, .star].contains($0.kind) })
     }
 
-    @Test func aRowIsThreeSpamStaggeredOneBehindAnother() throws {
+    @Test func aRowIsThreeSpamOnASlant() throws {
         let row = try #require(arrivals(over: 300, livesMissing: false).first { $0.arrivals.count == 3 }?.arrivals)
         #expect(row.map(\.kind) == [.spam, .spam, .spam])
-        #expect(zip(row, row.dropFirst()).allSatisfy { $1.position.x > $0.position.x && $1.position.y > $0.position.y })
+        for (one, next) in zip(row, row.dropFirst()) {
+            #expect(next.position.x - one.position.x == PlaneGameRules.rowSpacing.width)
+            #expect(one.position.y - next.position.y == PlaneGameRules.rowSpacing.height)
+        }
     }
 
-    @Test func everythingArrivesInsideTheBandJustBeyondTheTrailingEdge() {
+    @Test func everythingArrivesAboveTheTopEdgeWithItsWeaveInsideTheLanes() {
         let all = arrivals(over: 300, livesMissing: true).flatMap(\.arrivals)
         #expect(all.count > 300)
-        #expect(all.allSatisfy { phoneField.band.contains($0.position.y) })
-        #expect(all.allSatisfy { $0.position.x >= phoneField.size.width + PlaneGameRules.arriveBeyond })
+        #expect(all.allSatisfy { $0.position.y <= -PlaneGameRules.arriveBeyond })
+        #expect(
+            all.allSatisfy {
+                let reach = $0.kind.radius + $0.kind.swing
+                return $0.position.x - reach >= phoneField.lanes.lowerBound
+                    && $0.position.x + reach <= phoneField.lanes.upperBound
+            })
     }
 
     @Test func arrivalsComeQuickerOverTheFirstTwoMinutes() {
@@ -77,13 +97,13 @@ struct ArrivalTests {
     }
 
     @Test(arguments: PlaneGameThing.Kind.allCases)
-    func whatArrivesStaysInsideTheBandAsItComes(kind: PlaneGameThing.Kind) {
+    func whatComesDownStaysInsideTheLanes(kind: PlaneGameThing.Kind) {
         var world = PlaneGameWorld.flying()
-        world.add(kind, at: CGPoint(x: 440, y: phoneField.band.lowerBound))
-        world.add(kind, at: CGPoint(x: 440, y: phoneField.band.upperBound))
+        world.add(kind, at: CGPoint(x: phoneField.lanes.lowerBound, y: -40))
+        world.add(kind, at: CGPoint(x: phoneField.lanes.upperBound, y: -40))
         for _ in 0..<120 {
             world.advance(by: frame, input: PlaneGameInput())
-            #expect(world.things.allSatisfy { phoneField.band.contains($0.position.y) })
+            #expect(world.things.allSatisfy { phoneField.lanes.contains($0.position.x) })
         }
     }
 }

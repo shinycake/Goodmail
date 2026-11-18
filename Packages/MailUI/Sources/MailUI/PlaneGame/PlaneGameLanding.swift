@@ -1,8 +1,9 @@
 import CoreGraphics
 import Foundation
+import PlaneGame
 
-/// The morph from the game back into the Inbox, at one instant: what was in play fades, the plane loops down onto the
-/// envelopes' place and squeezes to a line, the envelopes open from it and spring back to size, the ring of doodles
+/// The morph from the game back into the Inbox, at one instant: what was in play fades, the plane flies up and round
+/// into the envelopes' place and squeezes to a line, the envelopes open from it and spring back to size, the ring of doodles
 /// flies home and the paper fades. Its last frame is the scene's rest pose exactly. With Reduce Motion on it is a
 /// cross-fade.
 nonisolated struct PlaneGameLanding: Equatable, Sendable {
@@ -25,10 +26,24 @@ nonisolated struct PlaneGameLanding: Equatable, Sendable {
         1 - PlaneGameEasing.ramp(elapsed, from: 0, to: Self.crossFade)
     }
 
-    /// How far along its loop to the envelopes' place the plane is.
+    /// How far along its path to the envelopes' place the plane is.
     var planeProgress: Double {
         reduceMotion ? 0 : PlaneGameEasing.ramp(elapsed, from: 0, to: Self.planeArrives)
     }
+
+    /// The plane's heading on its way home: its path's, with the heading it left play at, a bank or partway through
+    /// its launch, eased out over the first `bankEasesOut` seconds, so it never snaps to the path's on the first frame.
+    func planeHeading(on path: FlightPath, leavingAt heading: Double) -> Double {
+        let along = path.heading(at: planeProgress)
+        guard !reduceMotion else { return along }
+        // The short way round, so a plane pointing down partway through its launch doesn't spin a whole turn.
+        let gap = remainder(heading - path.heading(at: 0), 2 * .pi)
+        return along + gap
+            * (1 - PlaneGameEasing.smoothstep(PlaneGameEasing.ramp(elapsed, from: 0, to: Self.bankEasesOut)))
+    }
+
+    /// How long the heading the plane left play at takes to give way to its path's.
+    static let bankEasesOut: TimeInterval = 0.2
 
     /// How much of the plane's width shows as it squeezes to a line.
     var planeWidth: CGFloat {
@@ -87,19 +102,24 @@ nonisolated struct PlaneGameLanding: Equatable, Sendable {
     }
 }
 
-/// Leaving when the Inbox has mail again, so there is nothing to fold back into: the plane flies off the trailing
-/// edge and the paper fades, showing the list.
+/// Leaving when the Inbox has mail again, so there is nothing to fold back into: the plane flies straight up off the
+/// top edge and the paper fades, showing the list.
 nonisolated struct PlaneGameFlyOff: Equatable, Sendable {
     /// Seconds since the exit was asked for.
     let elapsed: TimeInterval
 
     static let duration: TimeInterval = 0.4
-    /// How fast the plane leaves, in points a second.
-    static let speed: CGFloat = 900
 
     /// The paper's opacity, and everything on it.
     var paper: Double { 1 - PlaneGameEasing.ramp(elapsed, from: 0, to: Self.duration) }
 
-    /// How far the plane has flown toward the trailing edge.
-    var planeShift: CGFloat { Self.speed * CGFloat(max(elapsed, 0)) }
+    /// How far the plane has flown up from `height`, speeding up from its row so that it is past the top edge, out
+    /// of sight, as the paper goes.
+    func planeRise(from height: CGFloat) -> CGFloat {
+        let along = CGFloat(PlaneGameEasing.ramp(elapsed, from: 0, to: Self.duration))
+        return (height + Self.clearance) * along * along
+    }
+
+    /// How far past the top edge the plane is when it has gone.
+    private static let clearance: CGFloat = 60
 }

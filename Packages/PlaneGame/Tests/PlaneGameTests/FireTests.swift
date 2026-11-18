@@ -7,13 +7,13 @@ import Testing
     import CoreGraphics
 #endif
 
-/// The plane fires by itself while a finger is down, and shots hit what is ahead.
+/// The plane fires straight up by itself while a finger is down, and shots hit what is above it.
 struct FireTests {
     @Test func itFiresOnceAsTheFingerComesDownAndThenEveryFireInterval() {
         var world = PlaneGameWorld.flying()
         world.run(for: 0.5, input: PlaneGameInput(isFiring: true))
         #expect(world.shots.count == 3)
-        #expect(Set(world.shots.map(\.position.y)) == [world.plane.position.y])
+        #expect(Set(world.shots.map(\.position.x)) == [world.plane.position.x])
     }
 
     @Test func tappingFastFiresNoFasterThanHolding() {
@@ -30,17 +30,22 @@ struct FireTests {
         #expect(world.shots.isEmpty)
     }
 
-    @Test func shotsLeaveAtTheTrailingEdge() {
+    @Test func shotsFlyUpAndAreGoneAboveTheTopEdge() throws {
         var world = PlaneGameWorld.flying()
         world.advance(by: frame, input: PlaneGameInput(isFiring: true))
-        #expect(world.shots.count == 1)
-        world.run(for: 0.6)
+        let fired = try #require(world.shots.first)
+        #expect(fired.position.y < world.plane.position.y)
+        world.advance(by: frame, input: PlaneGameInput())
+        let later = try #require(world.shots.first)
+        #expect(later.position.x == fired.position.x)
+        #expect(abs(fired.position.y - later.position.y - PlaneGameRules.shotSpeed * frame) < 0.0001)
+        world.run(for: phoneField.row / PlaneGameRules.shotSpeed + 0.05)
         #expect(world.shots.isEmpty)
     }
 
     @Test func spamDiesToOneShotForTen() {
         var world = PlaneGameWorld.flying()
-        world.addAhead(.spam, by: 120)
+        world.addAhead(.spam, by: 160)
         world.advance(by: frame, input: PlaneGameInput(isFiring: true))
         let events = world.run(for: 0.2)
         #expect(events == [.shotDown(points: 10)])
@@ -65,7 +70,7 @@ struct FireTests {
 
     @Test func aShotStopsOnAnObstacleAndLeavesATick() {
         var world = PlaneGameWorld.flying()
-        world.addAhead(.stamp, by: 150)
+        world.addAhead(.stamp, by: 160)
         world.advance(by: frame, input: PlaneGameInput(isFiring: true))
         world.run(for: 0.3)
         #expect(world.shots.isEmpty)
@@ -76,7 +81,7 @@ struct FireTests {
 
     @Test func shotsPassOverPickups() {
         var world = PlaneGameWorld.flying()
-        world.addAhead(.star, by: 150)
+        world.addAhead(.star, by: 200)
         world.advance(by: frame, input: PlaneGameInput(isFiring: true))
         world.run(for: 0.2)
         #expect(world.things.map(\.kind) == [.star])
@@ -85,7 +90,7 @@ struct FireTests {
 
     @Test func burstsFadeAfterTheirLifetime() {
         var world = PlaneGameWorld.flying()
-        world.addAhead(.spam, by: 120)
+        world.addAhead(.spam, by: 160)
         world.advance(by: frame, input: PlaneGameInput(isFiring: true))
         world.run(for: 0.2)
         #expect(world.bursts.count == 1)
@@ -94,9 +99,9 @@ struct FireTests {
     }
 
     @Test(arguments: PlaneGameThing.Kind.allCases)
-    func thingsThatPassTheLeadingEdgeAreRemovedWithoutAScore(kind: PlaneGameThing.Kind) {
+    func thingsThatPassTheBottomEdgeAreRemovedWithoutAScore(kind: PlaneGameThing.Kind) {
         var world = PlaneGameWorld.flying()
-        world.add(kind, at: CGPoint(x: 20, y: 700))
+        world.add(kind, at: CGPoint(x: 330, y: 800))
         world.run(for: 1)
         #expect(world.things.isEmpty)
         #expect(world.score == 0)

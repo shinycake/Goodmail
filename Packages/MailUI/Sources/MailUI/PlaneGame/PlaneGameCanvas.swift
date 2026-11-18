@@ -1,9 +1,9 @@
 import PlaneGame
 import SwiftUI
 
-/// One frame of the game in one canvas: the ring of doodles in washed ink behind, then what is in play, the bursts,
-/// and the plane with its trail in front. The world is in flight coordinates; the canvas flips them for a
-/// right-to-left layout, and mirrors only what has a direction, the plane and its shots.
+/// One frame of the game in one canvas: the ring of doodles in washed ink behind, then what is in play and the boss,
+/// the bursts, and the plane with its trail and what the power-ups put on it in front. The world is in the window's
+/// coordinates, which are the canvas's, and up is up in every language, so nothing in play is mirrored.
 struct PlaneGameCanvas: View {
     let frame: PlaneGameFrame
     @Environment(\.colorScheme) private var colorScheme
@@ -15,8 +15,10 @@ struct PlaneGameCanvas: View {
             drawBackdrop(in: &context, inks: washed)
             context.opacity = frame.play
             drawThings(in: &context, inks: inks)
+            drawBoss(in: &context, ink: inks[PlaneGameArt.pink])
             drawShots(in: &context, ink: inks[PlaneGameArt.purple])
             drawBursts(in: &context, inks: inks)
+            drawBossFalling(in: &context, ink: inks[PlaneGameArt.pink])
             drawPlane(in: &context, ink: inks[PlaneGameArt.purple])
         }
         .ignoresSafeArea()
@@ -24,14 +26,12 @@ struct PlaneGameCanvas: View {
         .accessibilityHidden(true)
     }
 
-    private var mirror: PlaneGameMirror { frame.mirror }
-
     private func drawBackdrop(in context: inout GraphicsContext, inks: [GraphicsContext.Shading]) {
         for (doodle, drawn) in zip(Doodle.inboxZero, frame.backdrop) where drawn.opacity > 0 {
             context.opacity = drawn.opacity
             let pose = drawn.pose
             let placed = doodle.shape.placement(
-                at: pose.position, angle: pose.angle, size: doodle.size, rightToLeft: mirror.rightToLeft)
+                at: pose.position, angle: pose.angle, size: doodle.size, rightToLeft: frame.ringRightToLeft)
             context.stroke(doodle.art.line.applying(placed), with: inks[doodle.tint], style: DoodleField.line)
             context.stroke(doodle.art.dots.applying(placed), with: inks[doodle.tint], style: DoodleField.dots)
         }
@@ -42,11 +42,11 @@ struct PlaneGameCanvas: View {
         for thing in frame.world.things {
             let art = PlaneGameArt.art(of: thing.kind)
             let placed = PlaneGameArt.shape(of: thing.kind).placement(
-                at: mirror.flipped(thing.position), angle: thing.turn, size: PlaneGameArt.size(of: thing.kind),
-                rightToLeft: mirror.rightToLeft)
+                at: thing.position, angle: thing.turn, size: PlaneGameArt.size(of: thing.kind), rightToLeft: false)
             let ink = inks[PlaneGameArt.tint(of: thing.kind)]
-            // Paper behind the line, so the backdrop doesn't show through what is in play.
+            // Paper behind the line and inside a dotted ring, so the backdrop doesn't show through what is in play.
             context.fill(art.line.applying(placed), with: paper)
+            context.fill(art.dots.applying(placed), with: paper)
             context.stroke(art.line.applying(placed), with: ink, style: DoodleField.line)
             context.stroke(art.dots.applying(placed), with: ink, style: DoodleField.dots)
         }
@@ -55,8 +55,9 @@ struct PlaneGameCanvas: View {
     private func drawShots(in context: inout GraphicsContext, ink: GraphicsContext.Shading) {
         var shots = Path()
         for shot in frame.world.shots {
+            let lean = atan2(shot.drift, PlaneGameRules.shotSpeed)
             shots.addPath(
-                PlaneGameArt.shot, transform: CGAffineTransform.identity.translatedBy(mirror.flipped(shot.position)))
+                PlaneGameArt.shot, transform: CGAffineTransform.identity.translatedBy(shot.position).rotated(by: lean))
         }
         context.stroke(shots, with: ink, style: Self.shot)
     }
@@ -65,7 +66,7 @@ struct PlaneGameCanvas: View {
         let play = frame.play
         for burst in frame.world.bursts {
             let progress = min(max(burst.age / PlaneGameBurst.lifetime, 0), 1)
-            let at = mirror.flipped(burst.position)
+            let at = burst.position
             let moved = CGAffineTransform.identity.translatedBy(at)
             context.opacity = play * (1 - progress)
             switch burst.kind {
@@ -81,9 +82,13 @@ struct PlaneGameCanvas: View {
                         .font(.callout.bold().monospacedDigit())
                         .foregroundStyle(DoodlePalette.purple))
                 context.draw(label, at: CGPoint(x: at.x, y: at.y - 16 - rise))
-            case .tick:
+            case .tick, .struck:
                 context.stroke(
                     PlaneGameArt.tick.applying(moved), with: inks[PlaneGameArt.blue], style: DoodleField.line)
+            case .unwrapped:
+                context.stroke(
+                    PlaneGameArt.unwrapped(progress: progress, reduceMotion: frame.reduceMotion).applying(moved),
+                    with: inks[PlaneGameArt.purple], style: DoodleField.dots)
             case .caught:
                 context.stroke(
                     PlaneGameArt.caught(progress: progress, reduceMotion: frame.reduceMotion).applying(moved),
@@ -97,23 +102,24 @@ struct PlaneGameCanvas: View {
         guard let plane = frame.plane, plane.opacity > 0, plane.width > 0 else { return }
         context.opacity = plane.opacity
         var trail = Path()
-        trail.addLines(plane.trail.map(mirror.flipped))
+        trail.addLines(plane.trail)
         context.stroke(trail, with: ink, style: DoodleField.dots)
-        // Drawn the way the scene's paper planes are, mirrored when it flies left so its keel stays underneath, and
-        // squeezed sideways as it opens from a line or folds back into one.
-        let heading = mirror.rightToLeft ? .pi - plane.heading : plane.heading
-        let nose = mirror.rightToLeft ? .pi - DoodleShape.planeHeading : DoodleShape.planeHeading
+        // Drawn the way the scene's paper planes are, turned from where the art's nose points to the plane's heading,
+        // and squeezed sideways as it opens from an upright line or folds back into one.
         let placed = CGAffineTransform.identity
-            .translatedBy(mirror.flipped(plane.position))
+            .translatedBy(plane.position)
             .scaledBy(x: plane.width, y: 1)
-            .rotated(by: heading - nose)
-            .scaledBy(x: mirror.rightToLeft ? -Self.planeSize : Self.planeSize, y: Self.planeSize)
+            .rotated(by: plane.heading - Self.artHeading)
+            .scaledBy(x: Self.planeSize, y: Self.planeSize)
         context.fill(Self.planeArt.applying(placed), with: .color(Color(uiColor: .systemBackground)))
         context.stroke(Self.planeArt.applying(placed), with: ink, style: DoodleField.line)
+        drawKit(on: plane, in: &context, ink: ink)
     }
 
     /// The same size as the scene's paper planes, so the one the envelopes fold into matches them.
     static let planeSize: CGFloat = 30
+    /// The way the art's nose points, in radians clockwise from pointing up.
+    private static let artHeading = DoodleShape.planeHeading + .pi / 2
     private static let planeArt = DoodleShape.plane.art.line
     private static let shot = StrokeStyle(lineWidth: 2.5, lineCap: .round)
 }

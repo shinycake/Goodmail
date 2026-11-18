@@ -1,6 +1,53 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%lld hits left" : {
+      "comment" : "How many hits the boss in the paper plane game can still take, read by VoiceOver",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "1 hit left"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld hits left"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "נותרה פגיעה אחת"
+                }
+              },
+              "two" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "נותרו %lld פגיעות"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "נותרו %lld פגיעות"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld points" : {
       "comment" : "The paper plane game's score, read by VoiceOver",
       "localizations" : {
@@ -81,6 +128,17 @@
         }
       }
     },
+    "Junk Mail" : {
+      "comment" : "A boss in the paper plane game: a spam envelope wearing a crown",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דואר זבל"
+          }
+        }
+      }
+    },
     "New Best" : {
       "comment" : "A game that beat the best score",
       "localizations" : {
@@ -132,6 +190,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ניקוד"
+          }
+        }
+      }
+    },
+    "The Phisher" : {
+      "comment" : "A boss in the paper plane game: an at sign that casts hooks",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הדייג"
           }
         }
       }

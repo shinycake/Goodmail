@@ -7,33 +7,31 @@ import Testing
     import CoreGraphics
 #endif
 
-/// Long games with random input: replayable, and never out of bounds.
+/// Long games with random input, bosses and power-ups included: replayable, and never out of bounds.
 struct SoakTests {
-    /// Random drags, taps and frame lengths from `seed`, the same every time.
+    /// Random slides, taps and frame lengths from `seed`, the same every time.
     private struct Player {
         var generator: SeededGenerator
 
         mutating func nextFrame() -> (dt: TimeInterval, input: PlaneGameInput) {
             let dt = TimeInterval.random(in: 0.004...0.05, using: &generator)
             let input = PlaneGameInput(
-                drag: CGSize(
-                    width: CGFloat.random(in: -25...25, using: &generator),
-                    height: CGFloat.random(in: -25...25, using: &generator)),
-                isFiring: Bool.random(using: &generator))
+                slide: CGFloat.random(in: -25...25, using: &generator), isFiring: Bool.random(using: &generator))
             return (dt, input)
         }
     }
 
-    private static let fields = [
-        phoneField,
-        PlaneGameField(size: CGSize(width: 1376, height: 1032), band: 90...990),
-    ]
+    /// Where the envelopes are when the plane unfolds from them, about where the Inbox draws them.
+    private func envelopes(in field: PlaneGameField) -> CGPoint {
+        CGPoint(x: field.size.width / 2, y: field.size.height * 0.35)
+    }
 
-    @Test(arguments: fields)
+    @Test(arguments: windowFields)
     func theSameSeedAndInputsGiveEqualWorlds(field: PlaneGameField) {
-        var first = PlaneGameWorld(field: field, launchingFrom: CGPoint(x: 200, y: 500), after: 0.4, seed: 42)
+        let launch = PlaneGameLaunch.unfolding(at: envelopes(in: field))
+        var first = PlaneGameWorld(field: field, launch: launch, after: 0.4, seed: 42)
         var second = first
-        var different = PlaneGameWorld(field: field, launchingFrom: CGPoint(x: 200, y: 500), after: 0.4, seed: 43)
+        var different = PlaneGameWorld(field: field, launch: launch, after: 0.4, seed: 43)
         var player = Player(generator: SeededGenerator(seed: 9))
         var differed = false
         for _ in 0..<1200 {
@@ -46,12 +44,14 @@ struct SoakTests {
         #expect(differed)
     }
 
-    @Test(arguments: fields)
+    @Test(arguments: windowFields)
     func fiveMinutesOfRandomInputStayInBounds(field: PlaneGameField) {
-        var world = PlaneGameWorld(field: field, launchingFrom: CGPoint(x: -40, y: 500), after: 0.4, seed: 5)
+        var world = PlaneGameWorld(field: field, launch: .unfolding(at: envelopes(in: field)), after: 0.4, seed: 5)
         var player = Player(generator: SeededGenerator(seed: 11))
         var mostThings = 0
         var mostShots = 0
+        var bossesMet: Set<Int> = []
+        let lanes = field.lanes(inset: PlaneGameRules.planeRadius)
         while world.elapsed < 300 {
             // A plane that never runs out of lives, so things keep arriving for the whole five minutes.
             world.lives = max(world.lives, 2)
@@ -67,12 +67,22 @@ struct SoakTests {
                 return
             }
             if world.plane.isInPlay {
-                #expect(CGRect(origin: .zero, size: field.size).contains(world.plane.position))
+                #expect(world.plane.position.y == field.row)
+                #expect(lanes.contains(world.plane.position.x))
+            }
+            // Everything keeps inside the lanes but lures, which spread out through the sides.
+            #expect(world.things.allSatisfy { $0.kind == .lure || field.lanes.contains($0.position.x) })
+            if let boss = world.boss {
+                bossesMet.insert(boss.number)
+                #expect(field.lanes(inset: boss.radius).contains(boss.position.x))
+                #expect(boss.position.y <= field.ceiling + boss.radius)
+                #expect(boss.position.x.isFinite && boss.position.y.isFinite)
             }
         }
-        #expect(world.distance > 60_000)
+        #expect(world.distance > 280 * PlaneGameRules.cruisingSpeed * field.pace)
         #expect(mostThings <= 60)
-        #expect(mostShots <= 16)
+        #expect(mostShots <= 48)
+        #expect(bossesMet.contains(1))
     }
 
     @Test func aNonsenseStepChangesNothingAndAHugeOneIsCapped() {
@@ -85,8 +95,8 @@ struct SoakTests {
         var paused = world
         paused.advance(by: 1e300, input: PlaneGameInput())
         #expect(abs(paused.elapsed - world.elapsed - PlaneGameRules.longestAdvance) < 0.000_001)
-        var dragged = world
-        dragged.advance(by: frame, input: PlaneGameInput(drag: CGSize(width: CGFloat.nan, height: 4)))
-        #expect(dragged.plane.position == world.plane.position)
+        var slid = world
+        slid.advance(by: frame, input: PlaneGameInput(slide: .nan))
+        #expect(slid.plane.position == world.plane.position)
     }
 }

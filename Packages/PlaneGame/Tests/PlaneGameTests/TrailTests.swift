@@ -9,9 +9,9 @@ import Testing
 
 /// The dots behind the plane stay short however fast it moves.
 struct TrailTests {
-    @Test func aFastDragLeavesATrailNoLongerThanTheReach() {
+    @Test func aFastSlideLeavesATrailNoLongerThanTheReach() {
         var world = PlaneGameWorld.flying()
-        world.advance(by: frame, input: PlaneGameInput(drag: CGSize(width: 0, height: 300)))
+        world.advance(by: frame, input: PlaneGameInput(slide: -300))
         for _ in 0..<60 {
             world.advance(by: frame, input: PlaneGameInput())
             #expect(world.plane.trail.length <= PlaneGameRules.trailReach + 0.0001)
@@ -34,7 +34,7 @@ struct TrailTests {
 
     @Test func theTailShortensSmoothlyAtTheReach() {
         var world = PlaneGameWorld.flying()
-        world.advance(by: frame, input: PlaneGameInput(drag: CGSize(width: 0, height: 300)))
+        world.advance(by: frame, input: PlaneGameInput(slide: -300))
         world.run(for: 0.1)
         let lengths = (0..<60).map { _ in
             world.advance(by: frame, input: PlaneGameInput())

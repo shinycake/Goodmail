@@ -17,7 +17,7 @@ nonisolated enum PlaneGamePhase: Equatable, Sendable {
 nonisolated enum PlaneGameOpening: Equatable, Sendable {
     /// Folded out of the Inbox's envelopes: the takeoff plays from the start of the game clock.
     case takeoff
-    /// Play Again: a new plane flies in from beyond the leading edge, on paper that is already there.
+    /// Play Again: a new plane comes up from below the bottom edge, on paper that is already there.
     case again
 }
 
@@ -33,9 +33,9 @@ nonisolated struct PlaneGameResult: Equatable, Sendable {
 /// The way out, from the moment it was asked for.
 nonisolated struct PlaneGameLeaving: Equatable, Sendable {
     nonisolated enum Way: Equatable, Sendable {
-        /// Folding back into the Inbox Zero scene laid out on `stage`, on the screen, with the plane flying `path`, in
-        /// flight coordinates, onto its envelopes.
-        case home(InboxZeroStage, path: LoopPath)
+        /// Folding back into the Inbox Zero scene laid out on `stage`, on the screen, with the plane flying `path` onto
+        /// its envelopes.
+        case home(InboxZeroStage, path: FlightPath)
         /// The Inbox has mail again, so there is nothing to fold back into: the plane flies off and the paper fades.
         case away
     }
@@ -47,13 +47,10 @@ nonisolated struct PlaneGameLeaving: Equatable, Sendable {
     let ending: PlaneGameResult?
 
     /// The same way out, folding back into the envelopes on `stage` instead, as when the Inbox lays out again while
-    /// the plane is on its way home. The plane's loop keeps its start and heads for the new place, in flight
-    /// coordinates through `mirror`.
-    func landing(on stage: InboxZeroStage, mirror: PlaneGameMirror) -> PlaneGameLeaving {
+    /// the plane is on its way home. The plane's path keeps its start and its handles and heads for the new place.
+    func landing(on stage: InboxZeroStage) -> PlaneGameLeaving {
         guard case .home(let landingOn, let path) = way, landingOn != stage else { return self }
-        return PlaneGameLeaving(
-            since: since, way: .home(stage, path: LoopPath(from: path.start, to: mirror.flipped(stage.center))),
-            ending: ending)
+        return PlaneGameLeaving(since: since, way: .home(stage, path: path.ending(at: stage.center)), ending: ending)
     }
 
     /// How much of what was in play still shows, `elapsed` seconds into the way out.

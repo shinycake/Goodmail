@@ -33,12 +33,17 @@ nonisolated struct PlaneGameLook: Equatable, Sendable {
 nonisolated struct PlaneGameFrame: Equatable, Sendable {
     /// The ring of doodles, on the screen, one for each of `Doodle.inboxZero`.
     let backdrop: [Placed]
-    /// Obstacles, bad guys, pickups, shots and bursts, in flight coordinates.
+    /// Obstacles, bad guys, pickups, shots and bursts.
     let world: PlaneGameWorld
     /// Their opacity.
     let play: Double
     let plane: PlaneGameSprite?
-    let mirror: PlaneGameMirror
+    /// What the power-ups put on the plane, while it plays.
+    let kit: PlaneGameKit?
+    let boss: PlaneGameBossSprite?
+    /// Whether the ring is drawn the way the Inbox Zero scene draws it for a right-to-left language, so it is the
+    /// ring the game takes over and folds back into. Nothing in play is mirrored.
+    let ringRightToLeft: Bool
     let reduceMotion: Bool
 
     /// A doodle of the ring where it is drawn, and how strongly.
@@ -48,10 +53,10 @@ nonisolated struct PlaneGameFrame: Equatable, Sendable {
     }
 }
 
-/// The reader's plane as drawn, in flight coordinates.
+/// The reader's plane as drawn.
 nonisolated struct PlaneGameSprite: Equatable, Sendable {
     let position: CGPoint
-    /// Radians clockwise from pointing at the trailing edge.
+    /// Radians clockwise from pointing up.
     let heading: Double
     /// Where it has just been, nearest first.
     let trail: [CGPoint]
@@ -76,20 +81,23 @@ extension PlaneGameModel {
                     backdrop: ring(
                         backdrop.poses(at: distance), opacity: takeoff.backdrop(decorated: handoff.stage.isDecorated),
                         planes: takeoff.planeDoodle),
-                    play: 1, plane: sprite(width: takeoff.planeWidth, opacity: takeoff.planeOpacity)))
+                    play: 1,
+                    plane: sprite(
+                        width: takeoff.planeWidth, opacity: takeoff.planeOpacity, turning: takeoff.planeTurn),
+                    kit: kit))
         case .flying(.again), .over:
             return PlaneGameLook(
                 paper: 1, hud: 1, pile: nil, flights: nil,
                 canvas: frame(
                     backdrop: ring(backdrop.poses(at: distance), opacity: 1, planes: 0), play: 1,
-                    plane: sprite(width: 1, opacity: 1)))
+                    plane: sprite(width: 1, opacity: 1), kit: kit))
         case .leaving(let leaving):
             return look(leaving: leaving, elapsed: clock - leaving.since)
         case .gone:
             // The scene underneath draws the envelopes and the ring again from this frame on.
             return PlaneGameLook(
                 paper: 0, hud: 0, pile: nil, flights: nil,
-                canvas: frame(backdrop: [], play: 0, plane: nil))
+                canvas: frame(backdrop: [], play: 0, plane: nil, kit: nil))
         }
     }
 
@@ -101,11 +109,14 @@ extension PlaneGameModel {
                 stage.isDecorated
                 ? backdrop.poses(
                     at: distance, returning: landing.ringReturn,
-                    to: PlaneGameBackdrop.rest(of: Doodle.inboxZero, on: stage, rightToLeft: mirror.rightToLeft))
+                    to: PlaneGameBackdrop.rest(of: Doodle.inboxZero, on: stage, rightToLeft: handoff.scene.rightToLeft))
                 : backdrop.poses(at: distance)
             let progress = landing.planeProgress
+            // A plane that fell is gone, and the one coming home is new, so it has no heading of its own to ease from.
+            let leftAt: Double =
+                if case .down = world.plane.status { path.heading(at: 0) } else { world.plane.heading }
             let plane = PlaneGameSprite(
-                position: path.point(at: progress), heading: path.heading(at: progress),
+                position: path.point(at: progress), heading: landing.planeHeading(on: path, leavingAt: leftAt),
                 trail: (1...PlaneFlight.trailSteps).map { path.point(at: progress - Double($0) * 0.02) },
                 width: landing.planeWidth, opacity: landing.planeOpacity)
             return PlaneGameLook(
@@ -115,25 +126,39 @@ extension PlaneGameModel {
                 canvas: frame(
                     backdrop: self.ring(
                         ring, opacity: landing.backdrop(decorated: stage.isDecorated), planes: landing.planeDoodle),
-                    play: landing.play, plane: plane))
+                    play: landing.play, plane: plane, kit: nil))
         case .away:
             let flyOff = PlaneGameFlyOff(elapsed: elapsed)
             let plane = sprite(width: 1, opacity: 1).map {
                 PlaneGameSprite(
-                    position: CGPoint(x: $0.position.x + flyOff.planeShift, y: $0.position.y), heading: $0.heading,
+                    position: CGPoint(x: $0.position.x, y: $0.position.y - flyOff.planeRise(from: $0.position.y)),
+                    heading: $0.heading,
                     trail: $0.trail, width: 1, opacity: 1)
             }
             return PlaneGameLook(
                 paper: flyOff.paper, hud: flyOff.paper, pile: nil, flights: nil,
                 canvas: frame(
                     backdrop: ring(backdrop.poses(at: distance), opacity: flyOff.paper, planes: 0),
-                    play: flyOff.paper, plane: plane))
+                    play: flyOff.paper, plane: plane, kit: nil))
         }
     }
 
-    private func frame(backdrop: [PlaneGameFrame.Placed], play: Double, plane: PlaneGameSprite?) -> PlaneGameFrame {
+    private func frame(
+        backdrop: [PlaneGameFrame.Placed], play: Double, plane: PlaneGameSprite?, kit: PlaneGameKit?
+    ) -> PlaneGameFrame {
         PlaneGameFrame(
-            backdrop: backdrop, world: world, play: play, plane: plane, mirror: mirror, reduceMotion: reduceMotion)
+            backdrop: backdrop, world: world, play: play, plane: plane, kit: kit,
+            boss: world.boss.map {
+                PlaneGameBossSprite(
+                    boss: $0, sinceStruck: world.bursts.filter { $0.kind == .struck }.map(\.age).min(),
+                    reduceMotion: reduceMotion)
+            },
+            ringRightToLeft: handoff.scene.rightToLeft, reduceMotion: reduceMotion)
+    }
+
+    /// What the power-ups put on the world's plane.
+    private var kit: PlaneGameKit {
+        PlaneGameKit(weapon: world.weapon, isWrapped: world.isShielded, reduceMotion: reduceMotion)
     }
 
     /// The ring at `poses`, at `opacity`, with its paper plane doodles at `planes` of that: in play they would read
@@ -144,8 +169,9 @@ extension PlaneGameModel {
         }
     }
 
-    /// The world's plane, or `nil` once it has fallen off the field.
-    private func sprite(width: CGFloat, opacity: Double) -> PlaneGameSprite? {
+    /// The world's plane, or `nil` once it has fallen off the field. It points `turning` of the way from straight up
+    /// to its own heading.
+    private func sprite(width: CGFloat, opacity: Double, turning: Double = 1) -> PlaneGameSprite? {
         let plane = world.plane
         let blink: Double
         switch plane.status {
@@ -159,7 +185,7 @@ extension PlaneGameModel {
             blink = 1
         }
         return PlaneGameSprite(
-            position: plane.position, heading: plane.heading, trail: plane.trail, width: width,
+            position: plane.position, heading: plane.heading * turning, trail: plane.trail, width: width,
             opacity: opacity * blink)
     }
 
