@@ -75,7 +75,7 @@ struct ThreadFetcherTests {
     }
 
     @Test func openingJoinsTheFetchItsRowBegan() async throws {
-        try seed("t1")
+        try seed("t1", hoursAgo: 2)
         let gate = Gate()
         server.onMessagesRequested { _ in await gate.wait() }
         let fetcher = fetcher()
@@ -85,7 +85,28 @@ struct ThreadFetcherTests {
         await gate.open()
         try await opened
         #expect(server.messageRequests == ["t1"])
-        #expect(try cached().keys.sorted() == ["t1"])
+        #expect(try cached() == ["t1": Self.now], "stored as read, since the reader joined it")
+    }
+
+    @Test func openingAfterLeavingTheForegroundStartsANewFetch() async throws {
+        try seed("t1")
+        let gate = Gate()
+        let (arrivals, arrived) = AsyncStream<String>.makeStream()
+        server.onMessagesRequested { thread in
+            arrived.yield(thread)
+            await gate.wait()
+        }
+        let fetcher = fetcher()
+        await fetcher.readAhead([id("t1")], because: .touched)
+        var iterator = arrivals.makeAsyncIterator()
+        _ = await iterator.next()
+        await fetcher.cancelReadAhead()
+        async let opened: Void = fetcher.load(id("t1"))
+        _ = await iterator.next()
+        await gate.open()
+        try await opened
+        #expect(server.messageRequests == ["t1", "t1"], "the cancelled read ahead isn't joined")
+        #expect(try cached() == ["t1": Self.now])
     }
 
     @Test func rowsWhoseBodiesAreCachedAreLeftAlone() async throws {
@@ -145,6 +166,27 @@ struct ThreadFetcherTests {
         await gate.open()
         await fetcher.idle()
         #expect(try cached().count == 5)
+    }
+
+    @Test func rowsComingUpTogetherStartNearestFirst() async throws {
+        for index in 1...5 { try seed("t\(index)") }
+        let gate = Gate()
+        let (arrivals, arrived) = AsyncStream<String>.makeStream()
+        server.onMessagesRequested { thread in
+            arrived.yield(thread)
+            await gate.wait()
+        }
+        let fetcher = fetcher()
+        await fetcher.readAhead((1...5).map { id("t\($0)") }, because: .visible)
+        var iterator = arrivals.makeAsyncIterator()
+        var first: Set<String> = []
+        for _ in 0..<ThreadFetcher.visibleConcurrency { first.insert(await iterator.next() ?? "") }
+        #expect(first == ["t1", "t2", "t3"])
+
+        await fetcher.skip([id("t4")])
+        await gate.open()
+        await fetcher.idle()
+        #expect(server.messageRequests.sorted() == ["t1", "t2", "t3", "t5"], "a row that scrolled away is skipped")
     }
 
     @Test func leavingTheForegroundStopsReadingAhead() async throws {

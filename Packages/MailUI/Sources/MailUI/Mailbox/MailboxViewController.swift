@@ -6,7 +6,7 @@ public final class MailboxViewController: UIViewController {
     let viewModel: MailboxViewModel
     private(set) var collectionView: UICollectionView!
     private(set) var dataSource: UICollectionViewDiffableDataSource<MailboxSection, ThreadSummary.ID>!
-    private var threadsByID: [ThreadSummary.ID: ThreadSummary] = [:]
+    private(set) var threadsByID: [ThreadSummary.ID: ThreadSummary] = [:]
     private var sectionTitles = SectionTitles()
     private var observation: Task<Void, Never>?
     private var swipes: SwipeActionsController!
@@ -16,7 +16,7 @@ public final class MailboxViewController: UIViewController {
     /// Search, while browsing. Selecting takes it away: its button would otherwise move up to the navigation bar and
     /// stay there beside the toolbar's once selecting ends.
     private(set) var search: UISearchController?
-    private let display: RowDisplay
+    let display: RowDisplay
     /// What an empty list shows.
     private let empty: UIContentUnavailableConfiguration
     private var emptyState: EmptyState?
@@ -97,6 +97,7 @@ public final class MailboxViewController: UIViewController {
         collectionView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         collectionView.accessibilityIdentifier = "mailbox"
         collectionView.delegate = self
+        collectionView.prefetchDataSource = self
         collectionView.allowsMultipleSelectionDuringEditing = true
         collectionView.refreshControl = UIRefreshControl(
             frame: .zero,
@@ -426,7 +427,7 @@ extension MailboxViewController: UICollectionViewDelegate {
     public func collectionView(
         _ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath
     ) {
-        if let id = dataSource.itemIdentifier(for: indexPath) { viewModel.readAhead(id, because: .visible) }
+        if let id = dataSource.itemIdentifier(for: indexPath) { viewModel.readAhead([id], because: .visible) }
         let snapshot = dataSource.snapshot()
         guard let section = dataSource.sectionIdentifier(for: indexPath.section) else { return }
         let before = snapshot.sectionIdentifiers.prefix { $0 != section }
@@ -461,7 +462,7 @@ extension MailboxViewController: UICollectionViewDelegate {
     /// A row held under the finger is likely to open, so its bodies start downloading before the tap ends.
     public func collectionView(_ collectionView: UICollectionView, didHighlightItemAt indexPath: IndexPath) {
         guard !isEditing, let id = dataSource.itemIdentifier(for: indexPath) else { return }
-        viewModel.readAhead(id, because: .touched)
+        viewModel.readAhead([id], because: .touched)
     }
 
     public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {

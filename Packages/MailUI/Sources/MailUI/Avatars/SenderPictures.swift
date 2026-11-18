@@ -51,34 +51,47 @@ nonisolated public final class SenderPictures: Sendable {
 
     /// The sender's picture, loaded once however many rows ask for it at the same time.
     @concurrent func picture(for address: String) async -> UIImage? {
-        guard let key = Self.key(for: address) else { return nil }
-        enum Pending {
-            case known(UIImage?)
-            case loading(Task<UIImage?, Never>)
+        switch pending(address) {
+        case .known(let image): image
+        case .loading(let task): await task.value
         }
-        let pending: Pending = state.withLock { state in
+    }
+
+    /// Starts loading the pictures of senders whose rows are about to show, so they're known when the rows draw.
+    /// Each load remembers its picture when it finishes, whether or not anyone waits for it.
+    func warm(_ addresses: [String]) {
+        for address in addresses { _ = pending(address) }
+    }
+
+    private enum Pending {
+        case known(UIImage?)
+        case loading(Task<UIImage?, Never>)
+    }
+
+    /// The picture if it's known, else the load under way for it, started now if there is none.
+    private func pending(_ address: String) -> Pending {
+        guard let key = Self.key(for: address) else { return .known(nil) }
+        return state.withLock { state in
             if let known = state.pictures[key] { return .known(known) }
             if let running = state.loads[key] { return .loading(running) }
-            let started = Task { @concurrent [load, scale] in
-                await load(address).flatMap { Self.decode($0, scale: scale) }
+            // It can't finish before it's recorded below: remembering takes the lock this holds.
+            let started = Task { @concurrent [self] in
+                let image = await load(address).flatMap { Self.decode($0, scale: scale) }
+                remember(image, for: key)
+                return image
             }
             state.loads[key] = started
             return .loading(started)
         }
-        let task: Task<UIImage?, Never>
-        switch pending {
-        case .known(let image): return image
-        case .loading(let running): task = running
-        }
-        let image = await task.value
+    }
+
+    private func remember(_ image: UIImage?, for key: String) {
         state.withLock { state in
-            // The first caller to finish keeps the result; the others share it.
-            guard state.loads.removeValue(forKey: key) != nil else { return }
+            state.loads[key] = nil
             state.pictures[key] = image
             state.order.append(key)
             if state.order.count > Self.capacity { state.pictures[state.order.removeFirst()] = nil }
         }
-        return image
     }
 
     /// One entry per address, however it's capitalized; `nil` for no address.

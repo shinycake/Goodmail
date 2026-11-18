@@ -429,11 +429,10 @@ final class AppModel {
     }
 
     /// What the reader does on opening a thread: marks its cached bodies as read, which the cache cap evicts by,
-    /// then fetches the latest. A fetch its row began ahead stored them as unread, so they are marked again.
+    /// then fetches the latest.
     func open(_ thread: ThreadSummary.ID) async throws {
         try? await Self.store { [database] in try database.touchMessages(inThread: thread) }
         try await loadMessages(of: thread)
-        try? await Self.store { [database] in try database.touchMessages(inThread: thread) }
     }
 
     /// Fetches a thread's messages with their bodies into the store, where the thread view reads them.

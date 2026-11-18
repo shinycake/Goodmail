@@ -36,6 +36,22 @@ struct SenderPicturesTests {
         }
     }
 
+    @Test func aWarmedPictureIsLoadedOnceAndKept() async {
+        let asked = Mutex(0)
+        let png = Self.png
+        let pictures = SenderPictures(scale: 2) { _ in
+            asked.withLock { $0 += 1 }
+            return png
+        }
+        pictures.warm(["a@paypal.com", "A@PayPal.com"])
+        #expect(await pictures.picture(for: "a@paypal.com") != nil)
+        #expect(asked.withLock { $0 } == 1)
+        guard case .picture = pictures.lookup(for: "a@paypal.com") else {
+            Issue.record("A warmed picture is known at once")
+            return
+        }
+    }
+
     @Test func aMissingPictureIsRememberedSoInitialsShow() async {
         let pictures = SenderPictures(scale: 2) { _ in nil }
         #expect(await pictures.picture(for: "a@example.com") == nil)

@@ -360,7 +360,7 @@ final class SceneCoordinator: NSObject {
             local: { model.database.search($0, including: $1) }, remote: { try await model.search($0, after: $1) })
         let results = SearchResultsController(
             search: search, accounts: model.accounts, navigate: { [weak self] route in self?.handle(route) },
-            readAhead: { model.readAhead($0, because: $1) }, actions: actions,
+            readAhead: { model.readAhead($0) }, actions: actions,
             contacts: { (try? model.database.contacts(matching: $0, limit: 3)) ?? [] })
         return MailboxViewController(
             viewModel: MailboxViewModel(
@@ -373,7 +373,7 @@ final class SceneCoordinator: NSObject {
                 refresh: { try await model.syncAll() },
                 loadOlder: { try await model.loadOlder(mailbox) },
                 navigate: { [weak self] route in self?.handle(route) },
-                readAhead: { model.readAhead($0, because: $1) },
+                readAhead: { model.readAhead($0) },
                 actions: actions,
                 health: model.health
             ),

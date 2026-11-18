@@ -14,7 +14,7 @@ public final class SearchResultsController: UIViewController, UISearchResultsUpd
 
     public init(
         search: ThreadSearch, accounts: [Account], navigate: @escaping (Route) -> Void,
-        readAhead: @escaping ([ThreadSummary.ID], ThreadFetcher.ReadAhead) -> Void = { _, _ in },
+        readAhead: @escaping (ThreadFetcher.Request) -> Void = { _ in },
         actions: MailActions?,
         contacts: @escaping (String) -> [Contact] = { _ in [] }, recents: RecentSearches = RecentSearches()
     ) {
