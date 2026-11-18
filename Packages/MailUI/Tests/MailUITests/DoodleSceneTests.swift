@@ -28,12 +28,43 @@ struct DoodleSceneTests {
 
     // MARK: Touches
 
-    @Test func aFlurryOfTapsKeepsOnlyItsLastFew() {
+    /// Ten quick taps, a tenth of a second apart, on the envelopes.
+    private func flurry() -> DoodlePokes {
         var pokes = DoodlePokes()
-        for tap in 0..<6 {
-            pokes.land(offset: CGSize(width: tap, height: 0), time: landing + Double(tap) * 0.1)
+        for tap in 0..<10 {
+            pokes.land(offset: .zero, time: landing + Double(tap) * 0.1)
         }
-        #expect(pokes.live.map(\.number) == [2, 3, 4, 5])
+        return pokes
+    }
+
+    @Test func everyPlaneOfAFlurryOfTapsFliesUntilItLeaves() {
+        let pokes = flurry()
+        let lastTap = landing + 0.9
+        let stage = DoodleScene(size: size, pokes: pokes.live, clock: .running(lastTap + 0.05), rightToLeft: false)
+        #expect(stage.flights.map(\.number) == Array(0..<10))
+    }
+
+    @Test func aFlurryOfTapsThrowsNothingFartherThanTheMostItCanGo() {
+        let pokes = flurry().live
+        let anchor = CGPoint(x: 0.6, y: 0.5)
+        for elapsed in stride(from: 0.0, to: 2, by: 0.05) {
+            let now = landing + elapsed
+            let stage = DoodleScene(size: size, pokes: pokes, clock: .running(now), rightToLeft: false)
+            let calm = DoodleScene(size: size, pokes: [], clock: .running(now), rightToLeft: false)
+            let pushed = stage.position(anchor: anchor, phase: 0)
+            let unpushed = calm.position(anchor: anchor, phase: 0)
+            #expect(hypot(pushed.x - unpushed.x, pushed.y - unpushed.y) <= DoodleScene.farthestPush.most + 0.01)
+            #expect(stage.fan - calm.fan <= 0.45 * DoodleScene.highestHop.most + 0.01)
+        }
+    }
+
+    @Test func oneTouchMovesThingsAsFarAsItWouldAlone() {
+        let reach = DoodleReach(one: 22, most: 34)
+        #expect(reach.ease(-15) == -15)
+        #expect(reach.ease(CGSize(width: 12, height: 9)) == CGSize(width: 12, height: 9))
+        #expect(reach.ease(30) > 22)
+        #expect(reach.ease(30) < reach.ease(60))
+        #expect(reach.ease(1000) <= 34)
     }
 
     @Test func aTouchThatHasPlayedOutIsDroppedWhenTheNextLands() {

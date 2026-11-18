@@ -53,13 +53,12 @@ nonisolated struct DoodlePokes: Equatable, Sendable {
     private(set) var live: [DoodlePoke] = []
     private var landed = 0
 
-    /// A flurry of taps keeps only its last few, so the stage stays cheap to draw.
-    static let limit = 4
-
-    /// Adds a touch, and drops the ones that have played out.
+    /// Adds a touch, and drops the ones that have played out. A touch is never dropped while it plays, or its
+    /// plane would vanish mid-flight: a flurry of taps is kept in check by ``DoodleScene`` easing off how far
+    /// touches together can push, not by forgetting them.
     mutating func land(offset: CGSize, time: Date) {
         live.removeAll { time.timeIntervalSince($0.time) > DoodlePoke.lifetime }
-        live = live.suffix(Self.limit - 1) + [DoodlePoke(offset: offset, time: time, number: landed)]
+        live.append(DoodlePoke(offset: offset, time: time, number: landed))
         landed += 1
     }
 }

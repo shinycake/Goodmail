@@ -55,10 +55,11 @@ nonisolated struct DoodleScene: Equatable, Sendable {
         let rest = CGPoint(x: (size.width - field) / 2 + field * across, y: size.height * anchor.y)
         guard case .running(let now) = clock else { return rest }
         let seconds = now.timeIntervalSinceReferenceDate
-        let pushed = touches(at: now).reduce(CGSize.zero) { sum, touch in
+        let pushes = touches(at: now).reduce(CGSize.zero) { sum, touch in
             let push = touch.push(on: rest)
             return CGSize(width: sum.width + push.width, height: sum.height + push.height)
         }
+        let pushed = Self.farthestPush.ease(pushes)
         return CGPoint(
             x: rest.x + 4 * energy * sin(seconds * 0.35 + phase) + pushed.width,
             y: rest.y + 5 * energy * cos(seconds * 0.3 + phase) + pushed.height)
@@ -95,7 +96,12 @@ nonisolated struct DoodleScene: Equatable, Sendable {
         }
     }
 
+    /// A doodle is pushed as far as one touch pushes it, and however many touches pile up, never farther than this.
+    static let farthestPush = DoodleReach(one: 22, most: 34)
+    /// The envelopes hop as high as one touch makes them, and however many touches pile up, never higher than this.
+    static let highestHop = DoodleReach(one: 1, most: 1.6)
+
     private func hop(at now: Date) -> Double {
-        touches(at: now).reduce(0) { $0 + $1.hop(around: center) }
+        Self.highestHop.ease(touches(at: now).reduce(0) { $0 + $1.hop(around: center) })
     }
 }
