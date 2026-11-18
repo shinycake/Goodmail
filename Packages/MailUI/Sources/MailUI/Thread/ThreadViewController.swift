@@ -49,8 +49,9 @@ public final class ThreadViewController: UIViewController {
     private lazy var unsubscribeBanner = UnsubscribeBanner()
     /// The reader's request to leave the list, cancelled if the reader leaves first.
     private var unsubscribing: Task<Void, Never>?
-    /// The toolbar's Share menu: the conversation as files to share, or printed.
+    /// The Share menu: the conversation as files to share, or printed.
     private lazy var exporter = ConversationExporter(presenter: self)
+    private lazy var shareItem = exporter.shareItem { [weak self] in self?.exportedConversation }
 
     public init(
         viewModel: ThreadViewModel, openURL: @escaping (URL) -> Void, unsubscribeOffer: UnsubscribeOffer? = nil
@@ -98,7 +99,8 @@ public final class ThreadViewController: UIViewController {
         stack.addArrangedSubview(header)
         configureToolbar()
         layoutItem.primaryAction = UIAction { [weak self] _ in self?.viewModel.switchLayout() }
-        navigationItem.rightBarButtonItem = layoutItem
+        placeShareItem()
+        registerForTraitChanges([UITraitHorizontalSizeClass.self]) { (self: Self, _) in self.placeShareItem() }
         stack.translatesAutoresizingMaskIntoConstraints = false
         scrollView.addSubview(stack)
 
@@ -279,8 +281,18 @@ public final class ThreadViewController: UIViewController {
                 pin: { [weak self] in self?.viewModel.pin($0) },
                 mute: { [weak self] in self?.viewModel.muteAction },
                 perform: { [weak self] in self?.viewModel.perform($0) }),
-            exporter.shareItem { [weak self] in self?.exportedConversation }, .fixedSpace(0), replyItem,
+            .fixedSpace(0), replyItem,
         ]
+    }
+
+    /// Share sits beside the layout switch in a regular-width window, where the toolbar has no More menu to take
+    /// what doesn't fit and dropped it, and in the toolbar on a phone, where More holds it when the bar runs short.
+    private func placeShareItem() {
+        let regular = traitCollection.horizontalSizeClass == .regular
+        navigationItem.rightBarButtonItems = regular ? [layoutItem, shareItem] : [layoutItem]
+        var items = (toolbarItems ?? []).filter { $0 !== shareItem }
+        if !regular, let reply = items.indices.last { items.insert(shareItem, at: reply - 1) }
+        toolbarItems = items
     }
 
     public override func updateProperties() {

@@ -51,7 +51,11 @@ struct WelcomeView: View {
                     Label {
                         Text(
                             "Transfer from Another Device", tableName: "Welcome", bundle: .module,
-                            comment: "Welcome screen: scans the QR code another device shows to get its accounts")
+                            comment: "Welcome screen: scans the QR code another device shows to get its accounts"
+                        )
+                        // Wraps rather than truncates at the largest text sizes.
+                        .fixedSize(horizontal: false, vertical: true)
+                        .multilineTextAlignment(.center)
                     } icon: {
                         Image(systemName: "qrcode.viewfinder")
                     }

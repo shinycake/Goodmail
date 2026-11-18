@@ -157,9 +157,21 @@ public final class MailboxViewController: UIViewController {
         self.search = search
         navigationItem.searchController = search
         navigationItem.preferredSearchBarPlacement = .integratedButton
-        navigationItem.searchBarPlacementAllowsToolbarIntegration = true
         definesPresentationContext = true
         return navigationItem.searchBarPlacementBarButtonItem
+    }
+
+    /// Search goes in the toolbar only while the list fills the window. Beside the thread, as on a large iPhone held
+    /// sideways, the split view lays the toolbar out in a bar across the whole window, where the search field it
+    /// makes runs past the list's column, so search sits in the navigation bar there, as it does on iPad. The
+    /// column's own size class is compact either way, so it's the split view collapsing that tells; turning the
+    /// device lays the list out again.
+    public override func viewWillLayoutSubviews() {
+        super.viewWillLayoutSubviews()
+        let fillsWindow = splitViewController?.isCollapsed ?? true
+        if navigationItem.searchBarPlacementAllowsToolbarIntegration != fillsWindow {
+            navigationItem.searchBarPlacementAllowsToolbarIntegration = fillsWindow
+        }
     }
 
     /// Called by UIKit whenever an observed view-model property changes.

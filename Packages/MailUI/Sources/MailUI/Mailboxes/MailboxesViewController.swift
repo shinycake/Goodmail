@@ -229,6 +229,8 @@ public final class MailboxesViewController: UIViewController {
             case .account(let account):
                 // The service's logo beside the account's name; its color is on its mailboxes' icons below.
                 content.text = account.title
+                // An address wraps, rather than clips, in a sidebar at the largest text sizes.
+                content.textProperties.numberOfLines = 0
                 content.image = account.service.markImage
                 // The same box for a logo and a symbol, so every account's address starts at one edge.
                 content.imageProperties.maximumSize = CGSize(width: 18, height: 18)

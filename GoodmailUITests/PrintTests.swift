@@ -62,9 +62,16 @@ final class PrintTests: XCTestCase {
         attach(app, "share-menu-he")
     }
 
-    /// On a phone the Share button folds into the toolbar's More menu, as a top-level submenu.
+    /// On a phone the Share button folds into the toolbar's More menu, as a top-level submenu. On iPad it sits in the
+    /// navigation bar.
     @MainActor
     private func openShareMenu(in app: XCUIApplication) {
+        let label = NSPredicate(format: "label == 'Share' OR label == 'שיתוף'")
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            let share = app.navigationBars.buttons.matching(label).firstMatch
+            XCTAssertTrue(share.waitForExistence(timeout: 5), "the navigation bar holds Share")
+            return share.tap()
+        }
         let more = app.buttons["BottomOverflowBarButtonItem"]
         XCTAssertTrue(more.waitForExistence(timeout: 5))
         more.tap()

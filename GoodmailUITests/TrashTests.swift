@@ -63,8 +63,9 @@ final class TrashTests: XCTestCase {
         ]
         app.launch()
         XCTAssertTrue(app.collectionViews["mailbox"].cells.firstMatch.waitForExistence(timeout: 15))
-        app.navigationBars.buttons.element(boundBy: 0).tap()
         let trash = app.collectionViews["mailboxes"].cells["mailbox.TRASH"].firstMatch
+        // On a phone the mailboxes are behind the list; on iPad the sidebar already shows them.
+        if !trash.isHittable { app.navigationBars.buttons.element(boundBy: 0).tap() }
         XCTAssertTrue(trash.waitForExistence(timeout: 5))
         trash.tap()
         XCTAssertTrue(app.navigationBars["Trash"].waitForExistence(timeout: 5))
