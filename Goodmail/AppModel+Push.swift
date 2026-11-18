@@ -2,28 +2,35 @@ import Foundation
 import MailCore
 import MailNotifications
 import MailStore
+import MailUI
 import MailWristHost
 import OSLog
 
 /// Push subscriptions, alert choices, and what the reader does from an alert.
 extension AppModel {
-    /// Brings every push-capable account's subscription up to date. Cheap when nothing is due, so it runs on every
-    /// activation.
+    /// Brings every push-capable account's subscription up to date, and tells `health` how the relay answered
+    /// each, so alerts the mail server's refusals have paused show in the mailbox lists. Cheap when nothing is due,
+    /// so it runs on every activation.
     func refreshPush() async {
         guard let registrar = pushRegistrar, let device = pushDevice else { return }
         let sources = accounts.compactMap { account in
             pushSource(for: account.id).map { (account.id, $0) }
         }
-        await withTaskGroup(of: Void.self) { group in
+        let outcomes = await withTaskGroup(of: (AccountID, Result<Void, any Error>).self) { group in
             for (id, source) in sources {
                 group.addTask {
-                    do {
-                        try await registrar.refresh(id, source: source, device: device)
-                    } catch {
-                        Logger.push.error("Couldn't update push for an account: \(error, privacy: .public)")
-                    }
+                    (id, await Result { try await registrar.refresh(id, source: source, device: device) })
                 }
             }
+            var outcomes: [AccountID: Result<Void, any Error>] = [:]
+            for await (id, outcome) in group { outcomes[id] = outcome }
+            return outcomes
+        }
+        for (id, outcome) in outcomes {
+            if case .failure(let error) = outcome {
+                Logger.push.error("Couldn't update push for an account: \(error, privacy: .public)")
+            }
+            health.recordAlerts(outcome, for: id)
         }
     }
 

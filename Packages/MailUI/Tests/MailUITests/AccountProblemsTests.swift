@@ -16,11 +16,11 @@ import UIKit
 
     private func viewModel(
         _ mailbox: Mailbox = .inbox, health: AccountHealthBoard, refresh: @escaping () async throws -> Void = {},
-        navigate: @escaping (Route) -> Void = { _ in }
+        retryAlerts: @escaping () async -> Void = {}, navigate: @escaping (Route) -> Void = { _ in }
     ) -> MailboxViewModel {
         MailboxViewModel(
             mailbox: mailbox, accounts: [gmail, icloud], source: .flat { AsyncThrowingStream { $0.finish() } },
-            refresh: refresh, navigate: navigate, health: health)
+            refresh: refresh, retryAlerts: retryAlerts, navigate: navigate, health: health)
     }
 
     @Test func aTurnedDownSignInShowsInEveryMailboxOfItsAccount() {
@@ -55,8 +55,46 @@ import UIKit
     @Test func aRemovedAccountIsForgotten() {
         let health = AccountHealthBoard()
         health.record(.failure(OAuthSession.Failure.signedOut), for: gmail.id)
+        health.recordAlerts(.failure(PushRelayClient.Failure.loginRefused), for: gmail.id)
         health.forget(gmail.id)
         #expect(health.health.isEmpty)
+        #expect(health.alerts.isEmpty)
+    }
+
+    @Test func alertsTheMailServerKeepsRefusingShowAsPausedUntilTheRelayTakesTheLogin() {
+        var now = Date(timeIntervalSinceReferenceDate: 0)
+        let health = AccountHealthBoard(now: { now })
+        let refused = Result<Void, any Error>.failure(PushRelayClient.Failure.loginRefused)
+        health.recordAlerts(refused, for: icloud.id)
+        #expect(viewModel(health: health).problems.isEmpty)
+
+        now += AccountHealth.patience
+        health.recordAlerts(refused, for: icloud.id)
+        let paused = viewModel(health: health).problems
+        #expect(paused == [AccountProblemNotice(account: icloud, problem: .alertsPaused)])
+        #expect(paused.summary?.title == "Alerts Paused")
+        #expect(paused[0].message.contains("i@icloud.com"))
+
+        health.recordAlerts(.success(()), for: icloud.id)
+        #expect(viewModel(health: health).problems.isEmpty)
+    }
+
+    @Test func anAccountThatCantSyncSaysSoBeforeItsPausedAlerts() {
+        var now = Date(timeIntervalSinceReferenceDate: 0)
+        let health = AccountHealthBoard(now: { now })
+        health.recordAlerts(.failure(PushRelayClient.Failure.loginRefused), for: icloud.id)
+        now += AccountHealth.patience
+        health.recordAlerts(.failure(PushRelayClient.Failure.loginRefused), for: icloud.id)
+        health.record(.failure(IMAPSignInRejected()), for: icloud.id)
+
+        #expect(viewModel(health: health).problems.map(\.problem) == [.signInRejected])
+    }
+
+    @Test func fixingPausedAlertsRegistersWithTheRelayAgain() async {
+        var retried = 0
+        let model = viewModel(health: AccountHealthBoard(), retryAlerts: { retried += 1 })
+        await model.fix(AccountProblemNotice(account: icloud, problem: .alertsPaused))
+        #expect(retried == 1)
     }
 
     @Test func fixingATurnedDownSignInOpensTheSignIn() async {
@@ -103,4 +141,9 @@ import UIKit
                 "Sign In Again: g@gmail.com", "Update Password: i@icloud.com", "Not Now",
             ])
     }
+}
+
+/// A sign-in the mail server turned down, as an IMAP provider's error says it.
+private struct IMAPSignInRejected: SignInRejecting {
+    var rejectsSignIn: Bool { true }
 }

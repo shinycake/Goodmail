@@ -4,8 +4,6 @@ import type { Connect } from "./imap";
 import { label, MOST_AT_ONCE, watchMailbox } from "./imap-poll";
 import { loginsDue, type WatchedLogin } from "./imap-watches";
 
-export { MOST_AT_ONCE };
-
 /** How the holder paces its watches. Tests pass shorter times. */
 export interface HoldPace {
   /** How long one watch holds its connection. */
@@ -18,15 +16,19 @@ export interface HoldPace {
   restMs: number;
 }
 
+/** A login's latest watch: when it started, and whether it is still under way. */
+interface Watch {
+  startedAt: number;
+  active: boolean;
+}
+
 /**
  * The Inboxes being watched over connections that stay open, one per login: what the holder (inbox-holder.ts) keeps
  * in memory. Each watch lasts `pace.watchMs`, then ends, and the next `start` opens a new one.
  */
 export class InboxWatches {
-  /** The logins being watched now, by `loginHash`. */
-  private readonly watching = new Set<string>();
-  /** When each login's latest watch started, so the one that waited longest goes first. */
-  private readonly startedAt = new Map<string, number>();
+  /** Each login's latest watch, by `loginHash`. */
+  private readonly watches = new Map<string, Watch>();
 
   constructor(
     private readonly env: Env,
@@ -37,29 +39,40 @@ export class InboxWatches {
 
   /**
    * Starts watching the logins due at `now` that aren't being watched and have rested, up to `MOST_AT_ONCE` at a
-   * time; with more, each gets its turn as watches end. Returns the watches it started, each settling when it ends,
-   * never rejecting.
+   * time; with more, the one whose watch started longest ago goes first, so each gets its turn as watches end.
+   * Returns the watches it started, each settling when it ends, never rejecting.
    */
   async start(now: number): Promise<Promise<void>[]> {
-    const lastStart = (login: WatchedLogin) => this.startedAt.get(login.loginHash) ?? 0;
+    const due = await loginsDue(this.env.DB, now);
+    this.forgetAllBut(due);
+    const lastStart = (login: WatchedLogin) => this.watches.get(login.loginHash)?.startedAt ?? 0;
     const rested = Date.now() - this.pace.restMs;
-    const waiting = (await loginsDue(this.env.DB, now))
-      .filter((login) => !this.watching.has(login.loginHash) && lastStart(login) <= rested)
-      .sort((a, b) => lastStart(a) - lastStart(b));
-    return waiting.slice(0, MOST_AT_ONCE - this.watching.size).map((login) => this.watch(login, now));
+    const active = [...this.watches.values()].filter((watch) => watch.active).length;
+    return due
+      .filter((login) => !this.watches.get(login.loginHash)?.active && lastStart(login) <= rested)
+      .sort((a, b) => lastStart(a) - lastStart(b))
+      .slice(0, Math.max(0, MOST_AT_ONCE - active))
+      .map((login) => this.watch(login, now));
+  }
+
+  /** Drops the ended watches of logins that aren't in `due`, as after the last device stopped watching with one. */
+  private forgetAllBut(due: WatchedLogin[]): void {
+    const kept = new Set(due.map((login) => login.loginHash));
+    for (const [loginHash, watch] of this.watches) {
+      if (!watch.active && !kept.has(loginHash)) this.watches.delete(loginHash);
+    }
   }
 
   private async watch(login: WatchedLogin, now: number): Promise<void> {
-    const started = Date.now();
-    this.watching.add(login.loginHash);
-    this.startedAt.set(login.loginHash, started);
+    const startedAt = Date.now();
+    this.watches.set(login.loginHash, { startedAt, active: true });
     try {
-      await watchMailbox(this.env, this.alerts, login, now, started + this.pace.watchMs, this.open);
+      await watchMailbox(this.env, this.alerts, login, now, startedAt + this.pace.watchMs, this.open);
     } catch (error) {
       console.warn(`An Inbox watch failed: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
-      this.watching.delete(login.loginHash);
-      console.log(`Inbox watch with login ${label(login.loginHash)} ended after ${Math.round((Date.now() - started) / 1000)} s`);
+      this.watches.set(login.loginHash, { startedAt, active: false });
+      console.log(`Inbox watch with login ${label(login.loginHash)} ended after ${Math.round((Date.now() - startedAt) / 1000)} s`);
     }
   }
 }

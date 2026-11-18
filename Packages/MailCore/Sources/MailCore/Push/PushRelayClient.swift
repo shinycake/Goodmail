@@ -7,9 +7,10 @@ public import Foundation
 /// The relay's HTTP API (PushWorker/README.md).
 public struct PushRelayClient: PushRelay {
     public enum Failure: Error, Equatable {
-        /// The relay refused the proof, the server refused the IMAP login, or the Graph subscription or IMAP watch
-        /// is registered under another secret.
+        /// The relay refused the proof, or the Graph subscription or IMAP watch is registered under another secret.
         case unauthorized
+        /// The mail server refused the login the relay watches an IMAP Inbox with. The relay keeps trying it.
+        case loginRefused
         case status(Int)
     }
 
@@ -79,6 +80,7 @@ public struct PushRelayClient: PushRelay {
         switch status {
         case 200..<300: return
         case 401, 403: throw Failure.unauthorized
+        case 424: throw Failure.loginRefused
         default: throw Failure.status(status)
         }
     }

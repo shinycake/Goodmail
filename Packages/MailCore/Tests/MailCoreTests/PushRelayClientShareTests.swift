@@ -90,6 +90,14 @@ struct PushRelayClientWatchTests {
         #expect(body["password"] as? String == "abcd-efgh-ijkl-mnop")
     }
 
+    @Test func aLoginTheMailServerRefusesIsToldApartFromARequestTheRelayRefuses() async {
+        let relay = PushRelayClient(
+            baseURL: URL(string: "https://relay.example.test/")!, http: RecordingServer(status: 424))
+        await #expect(throws: PushRelayClient.Failure.loginRefused) {
+            try await relay.unregisterMailboxWatch(id: "watch-1", secret: "s3cret")
+        }
+    }
+
     @Test func aLoginTheServerRefusesThrows() async {
         let relay = PushRelayClient(
             baseURL: URL(string: "https://relay.example.test/")!, http: RecordingServer(status: 401))

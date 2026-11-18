@@ -3,8 +3,8 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { ApnsSigner } from "../src/apns";
 import { Alerts } from "../src/fallback";
 import type { Env } from "../src/index";
-import { InboxWatches, MOST_AT_ONCE } from "../src/inbox-watches";
-import { pollWatches } from "../src/imap-poll";
+import { InboxWatches } from "../src/inbox-watches";
+import { MOST_AT_ONCE, pollWatches } from "../src/imap-poll";
 import { findWatch, WATCH_LIFETIME_MS } from "../src/imap-watches";
 import { RECHECK_AFTER_MS, registerWatch, unregisterWatch } from "../src/imap-routes";
 import { fakeImap, inboxServer, type Reply } from "./fake-imap";
@@ -127,9 +127,9 @@ describe("registering a watch", () => {
   it("refuses a login the server refuses, and answers the same for a minute without logging in again", async () => {
     server = inboxServer({ uidValidity: 7, uidNext: 100 }, "refused");
     imap.sessions.length = 0;
-    expect((await register()).status).toBe(401);
+    expect((await register()).status).toBe(424);
     expect((await findWatch(env.DB, WATCH_ID))?.state).toEqual({ kind: "refused", refusals: 1, refusedAt: NOW });
-    expect((await register({ watchId: OTHER_WATCH_ID })).status).toBe(401);
+    expect((await register({ watchId: OTHER_WATCH_ID })).status).toBe(424);
     expect(imap.sessions).toHaveLength(1);
   });
 
@@ -137,7 +137,7 @@ describe("registering a watch", () => {
     server = inboxServer({ uidValidity: 7, uidNext: 100 }, "refused");
     await register();
     imap.sessions.length = 0;
-    expect((await registerAt(NOW + RECHECK_AFTER_MS)).status).toBe(401);
+    expect((await registerAt(NOW + RECHECK_AFTER_MS)).status).toBe(424);
     expect(imap.sessions).toHaveLength(1);
     expect((await findWatch(env.DB, WATCH_ID))?.state).toMatchObject({ kind: "refused", refusals: 2 });
     server = inboxServer({ uidValidity: 7, uidNext: 104 });

@@ -45,12 +45,14 @@ public enum AccountHealth: Equatable, Sendable {
     }
 }
 
-/// An account's sync problem that the reader is told of.
+/// An account's problem that the reader is told of.
 public enum AccountProblem: Equatable, Sendable {
     /// The service turned down the stored sign-in; signing in again fixes it.
     case signInRejected
     /// Syncs have failed for a while, the latest for this reason.
     case cantSync(FailureReason)
+    /// The mail syncs, but its server has kept refusing the relay's login, so new mail doesn't alert (`AlertHealth`).
+    case alertsPaused
 }
 
 /// An error that can say the service turned down the account's stored sign-in: a revoked token, a changed password.

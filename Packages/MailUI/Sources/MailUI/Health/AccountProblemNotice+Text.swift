@@ -13,6 +13,12 @@ extension AccountProblemNotice {
             String(
                 localized: "Can’t Sync", table: "Health", bundle: .module,
                 comment: "Mailbox toolbar status: an account has failed to sync for a while")
+        case .alertsPaused:
+            String(
+                localized: "Alerts Paused", table: "Health", bundle: .module,
+                comment:
+                    "Mailbox toolbar status: the account's mail server keeps refusing the sign-in that new-mail alerts need"
+            )
         }
     }
 
@@ -39,6 +45,22 @@ extension AccountProblemNotice {
             String(
                 localized: "\(email) hasn’t synced for a while. \(reason.message)", table: "Health", bundle: .module,
                 comment: "An account has failed to sync for minutes; then why, as a sentence")
+        case (.alertsPaused, .icloud):
+            String(
+                localized:
+                    "iCloud keeps refusing the sign-in that Goodmail’s alerts use for \(email), so new mail won’t alert. It still arrives when you open Goodmail.",
+                table: "Health", bundle: .module,
+                comment:
+                    "iCloud has refused the alert relay's sign-in for a while, though the app itself can sign in; with the address"
+            )
+        case (.alertsPaused, _):
+            String(
+                localized:
+                    "The mail server keeps refusing the sign-in that Goodmail’s alerts use for \(email), so new mail won’t alert. It still arrives when you open Goodmail.",
+                table: "Health", bundle: .module,
+                comment:
+                    "An IMAP server has refused the alert relay's sign-in for a while, though the app itself can sign in; with the address"
+            )
         }
     }
 
@@ -53,9 +75,10 @@ extension AccountProblemNotice {
             String(
                 localized: "Update Password", table: "Health", bundle: .module,
                 comment: "Button: asks for the account's new password")
-        case (.cantSync, _):
+        case (.cantSync, _), (.alertsPaused, _):
             String(
-                localized: "Try Again", table: "Health", bundle: .module, comment: "Button: syncs the accounts now")
+                localized: "Try Again", table: "Health", bundle: .module,
+                comment: "Button: syncs the accounts now, or asks the relay to try the account's sign-in again")
         }
     }
 }

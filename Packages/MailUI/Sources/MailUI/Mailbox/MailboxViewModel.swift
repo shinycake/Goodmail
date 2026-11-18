@@ -83,6 +83,7 @@ public final class MailboxViewModel {
     @ObservationIgnored private var woken: [ThreadSummary.ID: Date] = [:]
     @ObservationIgnored private var pinned: Set<ThreadSummary.ID> = []
     @ObservationIgnored private let refreshAction: () async throws -> Void
+    @ObservationIgnored private let retryAlerts: () async -> Void
     @ObservationIgnored private let loadOlderAction: () async throws -> Bool
     @ObservationIgnored private let navigate: (Route) -> Void
     @ObservationIgnored private let readAheadAction: (ThreadFetcher.Request) -> Void
@@ -98,6 +99,7 @@ public final class MailboxViewModel {
         woken: (() -> AsyncThrowingStream<[ThreadSummary.ID: Date], any Error>)? = nil,
         pins: (() -> AsyncThrowingStream<Set<ThreadSummary.ID>, any Error>)? = nil,
         refresh: @escaping () async throws -> Void,
+        retryAlerts: @escaping () async -> Void = {},
         loadOlder: @escaping () async throws -> Bool = { false },
         navigate: @escaping (Route) -> Void = { _ in },
         readAhead: @escaping (ThreadFetcher.Request) -> Void = { _ in },
@@ -119,6 +121,7 @@ public final class MailboxViewModel {
         wokenThreads = woken
         pinnedThreads = pins
         refreshAction = refresh
+        self.retryAlerts = retryAlerts
         loadOlderAction = loadOlder
         self.navigate = navigate
         readAheadAction = readAhead
@@ -251,11 +254,13 @@ public final class MailboxViewModel {
         try? await refreshAction()
     }
 
-    /// What a notice's button does: the service's sign-in for a sign-in it turned down, a sync now for the rest.
+    /// What a notice's button does: the service's sign-in for a sign-in it turned down, a sync now for one that
+    /// can't sync, and registering with the relay again for paused alerts, which has it try the login once more.
     public func fix(_ notice: AccountProblemNotice) async {
         switch notice.problem {
         case .signInRejected: navigate(.signInAgain(notice.account.id))
         case .cantSync: await refresh()
+        case .alertsPaused: await retryAlerts()
         }
     }
 

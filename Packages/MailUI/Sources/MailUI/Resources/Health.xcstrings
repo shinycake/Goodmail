@@ -45,6 +45,17 @@
         }
       }
     },
+    "Alerts Paused" : {
+      "comment" : "Mailbox toolbar status: the account's mail server keeps refusing the sign-in that new-mail alerts need",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ההתראות מושהות"
+          }
+        }
+      }
+    },
     "Cancel" : {
       "comment" : "Closes the password update without changing it",
       "localizations" : {
@@ -122,6 +133,17 @@
         }
       }
     },
+    "The mail server keeps refusing the sign-in that Goodmail’s alerts use for %@, so new mail won’t alert. It still arrives when you open Goodmail." : {
+      "comment" : "An IMAP server has refused the alert relay's sign-in for a while, though the app itself can sign in; with the address",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שרת הדואר ממשיך לדחות את ההתחברות שמשמשת את ההתראות של Goodmail עבור %@, ולכן דואר חדש לא יתריע. הוא עדיין מגיע כשפותחים את Goodmail."
+          }
+        }
+      }
+    },
     "The mail server no longer accepts the password for %@. It may have been changed." : {
       "comment" : "An IMAP server turned down the account's stored password",
       "localizations" : {
@@ -156,7 +178,7 @@
       }
     },
     "Try Again" : {
-      "comment" : "Button: syncs the accounts now",
+      "comment" : "Button: syncs the accounts now, or asks the relay to try the account's sign-in again",
       "localizations" : {
         "he" : {
           "stringUnit" : {
@@ -173,6 +195,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "עדכון סיסמה"
+          }
+        }
+      }
+    },
+    "iCloud keeps refusing the sign-in that Goodmail’s alerts use for %@, so new mail won’t alert. It still arrives when you open Goodmail." : {
+      "comment" : "iCloud has refused the alert relay's sign-in for a while, though the app itself can sign in; with the address",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‏iCloud ממשיך לדחות את ההתחברות שמשמשת את ההתראות של Goodmail עבור %@, ולכן דואר חדש לא יתריע. הוא עדיין מגיע כשפותחים את Goodmail."
           }
         }
       }

@@ -65,9 +65,15 @@ function loginIn(body: Record<string, unknown>): ImapLogin {
 export const RECHECK_AFTER_MS = 60_000;
 
 /**
+ * The answer when the mail server refuses the login: 424, a status no other refusal here uses, so the app can tell
+ * the reader that alerts are paused, which a 401 for a request it signed wrongly must never do.
+ */
+const loginRefused = () => new Response(null, { status: 424 });
+
+/**
  * Stores or renews a device's watch on an IMAP Inbox. A login the relay already watches with is renewed without
- * logging in, and one the server refused under any watch within the last minute is refused at once (401). Any other
- * login is checked by logging in, which also gives the Inbox's UIDs to compare later ones with: 401 when the server
+ * logging in, and one the server refused under any watch within the last minute is refused at once (424). Any other
+ * login is checked by logging in, which also gives the Inbox's UIDs to compare later ones with: 424 when the server
  * refuses it, 503 when the server can't be reached, so the app tries again. 403 when the watch ID is someone else's.
  */
 export async function registerWatch(
@@ -99,7 +105,7 @@ export async function registerWatch(
   }
   // By login, not by watch: a device whose registration failed makes a new watch ID for the same login.
   const known = await loginState(env.DB, loginHash);
-  if (known?.kind === "refused" && now < known.refusedAt + RECHECK_AFTER_MS) return new Response(null, { status: 401 });
+  if (known?.kind === "refused" && now < known.refusedAt + RECHECK_AFTER_MS) return loginRefused();
 
   // Each check is a login at someone's server: a few a minute from one address is plenty for the app, and too few
   // to try passwords with.
@@ -133,7 +139,7 @@ export async function registerWatch(
   if (!stored) return new Response(null, { status: 403 });
   // The server's answer holds for every device watching with this login.
   await setLoginState(env.DB, loginHash, checked.state);
-  return new Response(null, { status: checked.state.kind === "watching" ? 204 : 401 });
+  return checked.state.kind === "watching" ? new Response(null, { status: 204 }) : loginRefused();
 }
 
 export async function unregisterWatch(request: Request, env: Env): Promise<Response> {
