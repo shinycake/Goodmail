@@ -34,9 +34,10 @@ extension PlaneGameRules {
     public static let junkAngryDropEvery: TimeInterval = 0.8
     public static let junkPairSpacing: CGFloat = 52
 
-    /// The Phisher creeps toward the plane's x and casts a fan of lures: three, then five once it is down to half
-    /// its hits.
+    /// The Phisher creeps to stay `phisherOffset` to one side of the plane, so a plane that waits under it never
+    /// gets to shoot it, and casts a fan of lures: three, then five once it is down to half its hits.
     public static let phisherCreep: CGFloat = 70
+    public static let phisherOffset: CGFloat = 90
     public static let phisherCastEvery: TimeInterval = 1.5
     public static let phisherAngryCastEvery: TimeInterval = 1.3
     public static let phisherLures = 3

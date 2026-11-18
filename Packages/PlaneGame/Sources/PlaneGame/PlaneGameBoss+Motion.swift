@@ -5,7 +5,7 @@ import Foundation
 #endif
 
 /// How a boss moves and attacks: it slides in, then Junk Mail glides across the lanes dropping spam and the Phisher
-/// creeps toward the plane casting lures. What it sends falls at the field's pace like everything else.
+/// keeps to one side of the plane casting lures. What it sends falls at the field's pace like everything else.
 extension PlaneGameBoss {
     /// Something a boss sends at the plane.
     struct Sent: Equatable, Sendable {
@@ -29,7 +29,8 @@ extension PlaneGameBoss {
         case .fighting(let sinceAttack):
             if kind == .phisher {
                 let reach = PlaneGameRules.phisherCreep * dt
-                position.x += min(max(planeX - position.x, -reach), reach)
+                let aim = phisherAim(besideX: planeX, within: field.lanes(inset: radius))
+                position.x += min(max(aim - position.x, -reach), reach)
             }
             var since = sinceAttack + dt
             if since >= attackEvery {
@@ -65,6 +66,14 @@ extension PlaneGameBoss {
             position.y = hover
         }
         position.x = lanes.clamping(position.x)
+    }
+
+    /// Where the Phisher creeps to: `phisherOffset` from the plane on the side it is on now, or on the other side when
+    /// a wall leaves no room there, so it crosses over the plane, which is the plane's chance to hit it.
+    private func phisherAim(besideX planeX: CGFloat, within lanes: ClosedRange<CGFloat>) -> CGFloat {
+        let side: CGFloat = position.x < planeX ? -1 : 1
+        let aim = planeX + side * PlaneGameRules.phisherOffset
+        return lanes.contains(aim) ? aim : planeX - side * PlaneGameRules.phisherOffset
     }
 
     /// The time between attacks, shorter once it is angry.

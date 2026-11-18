@@ -48,12 +48,14 @@ nonisolated extension PlaneGameArt {
         var path = Path()
         switch kind {
         case .spread:
-            // Three short lines fanning up from a point.
-            let foot = CGPoint(x: 0, y: 0.2)
-            for degrees in [-30.0, 0, 30] {
+            // Three shots fanning up, apart from each other as the shots are: joined at a point, they read as an
+            // arrow pointing down.
+            let foot = CGPoint(x: 0, y: 0.26)
+            for degrees in [-32.0, 0, 32] {
                 let angle = degrees * .pi / 180
-                path.move(to: foot)
-                path.addLine(to: CGPoint(x: foot.x + 0.38 * sin(angle), y: foot.y - 0.38 * cos(angle)))
+                let direction = CGPoint(x: sin(angle), y: -cos(angle))
+                path.move(to: CGPoint(x: foot.x + 0.16 * direction.x, y: foot.y + 0.16 * direction.y))
+                path.addLine(to: CGPoint(x: foot.x + 0.44 * direction.x, y: foot.y + 0.44 * direction.y))
             }
         case .rapid:
             // Two chevrons pointing up.

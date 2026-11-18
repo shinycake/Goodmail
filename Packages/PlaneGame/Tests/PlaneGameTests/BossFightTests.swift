@@ -82,14 +82,36 @@ struct BossFightTests {
         #expect(angry.map(\.kind) == Array(repeating: .lure, count: 5))
     }
 
-    @Test func thePhisherCreepsTowardThePlane() throws {
+    @Test func thePhisherCreepsToOneSideOfThePlaneAndStaysThere() throws {
         var world = PlaneGameWorld.flying()
         world.advance(by: frame, input: PlaneGameInput(slide: 150))
         world.meetBoss(2)
         let before = try #require(world.boss).position.x
-        world.run(for: 1)
+        world.run(for: 0.5)
         let after = try #require(world.boss).position.x
-        #expect(abs(after - before - PlaneGameRules.phisherCreep) < 2)
+        #expect(abs(after - before - PlaneGameRules.phisherCreep / 2) < 2)
+        world.run(for: 3)
+        #expect(abs(try #require(world.boss).position.x - (world.plane.position.x - PlaneGameRules.phisherOffset)) < 1)
+    }
+
+    @Test func thePhisherBacksAwayFromAPlaneThatWaitsUnderIt() throws {
+        var world = PlaneGameWorld.flying()
+        world.meetBoss(2)
+        // It slid in over the plane and has had two frames to start backing away.
+        #expect(abs(try #require(world.boss).position.x - world.plane.position.x) < 3)
+        world.run(for: 3)
+        #expect(
+            abs(abs(try #require(world.boss).position.x - world.plane.position.x) - PlaneGameRules.phisherOffset) < 1)
+    }
+
+    @Test func thePhisherCrossesOverThePlaneWhenAWallLeavesNoRoomOnItsSide() throws {
+        var world = PlaneGameWorld.flying()
+        world.advance(by: frame, input: PlaneGameInput(slide: 100))
+        world.meetBoss(2)
+        let lanes = phoneField.lanes(inset: try #require(world.boss).radius)
+        world.changeBoss { $0.position.x = lanes.upperBound }
+        world.run(for: 4)
+        #expect(abs(try #require(world.boss).position.x - (world.plane.position.x - PlaneGameRules.phisherOffset)) < 1)
     }
 
     @Test func luresCantBeShotAndCostALife() {
