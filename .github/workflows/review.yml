@@ -29,7 +29,8 @@ jobs:
   claude:
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
-    timeout-minutes: 60  # bigger PRs (ADR-018) need room for a full read
+    # A big PR (ADR-018) gets a deep review, fanned out to subagents, which takes a while.
+    timeout-minutes: 120
     permissions:
       contents: read
       pull-requests: write
@@ -59,6 +60,34 @@ jobs:
             echo "approved=true" >>"$GITHUB_OUTPUT"
           fi
 
+      # How much there is to read, which sets how deep the review goes and how many turns it gets. The files listed
+      # in reviewable.txt are the ones the review must say it read in full; recorded fixtures, string catalogs and
+      # binaries are left out.
+      - id: scope
+        if: steps.prior.outputs.approved != 'true'
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          base=$(git merge-base "origin/$GITHUB_BASE_REF" "$HEAD_SHA")
+          git diff --numstat --diff-filter=d "$base" "$HEAD_SHA" |
+            awk -F'\t' '$1 != "-" && $3 !~ /(^|\/)Fixtures\// && $3 !~ /\.xcstrings$/ && $3 !~ /Package\.resolved$/ { print $3 }' \
+            >"$RUNNER_TEMP/reviewable.txt"
+          lines=$(git diff --numstat "$base" "$HEAD_SHA" | awk -F'\t' '$1 != "-" { n += $1 + $2 } END { print n + 0 }')
+          files=$(wc -l <"$RUNNER_TEMP/reviewable.txt")
+          if ((lines < 300)); then depth=standard; elif ((lines < 1200)); then depth=thorough; else depth=deep; fi
+          turns=$((100 + 6 * files + lines / 20))
+          ((turns <= 500)) || turns=500
+          echo "$lines changed lines in $files reviewable files: a $depth review with up to $turns turns."
+          {
+            echo "lines=$lines"
+            echo "files=$files"
+            echo "depth=$depth"
+            echo "turns=$turns"
+            echo "list<<EOF"
+            cat "$RUNNER_TEMP/reviewable.txt"
+            echo "EOF"
+          } >>"$GITHUB_OUTPUT"
+
       - id: review
         if: steps.prior.outputs.approved != 'true'
         uses: anthropics/claude-code-action@v1
@@ -70,11 +99,28 @@ jobs:
             BASE: origin/${{ github.event.pull_request.base.ref }}
             HEAD SHA: ${{ github.event.pull_request.head.sha }}
 
-            You are the merge gate for this PR. Nothing merges unless you approve it.
+            SIZE: ${{ steps.scope.outputs.lines }} changed lines, ${{ steps.scope.outputs.files }} files to review
+            DEPTH: ${{ steps.scope.outputs.depth }}
+            FILES TO REVIEW:
+            ${{ steps.scope.outputs.list }}
+
+            You are the merge gate for this PR. Nothing merges unless you approve it. PRs here can be big, and the
+            owner allows that only because this review reads all of it. A quick approval of a big PR is a failed
+            review: take the time the size needs.
 
             1. Read CLAUDE.md and docs/review.md in full. docs/review.md is the standard you enforce.
-            2. Read the diff (`gh pr diff`, `git diff BASE...HEAD`) and the PR description, then read every changed
-               file in full, plus the code it calls and is called by, until you understand the change.
+            2. Read the diff (`gh pr diff`, `git diff BASE...HEAD`) and the PR description, then read every file in
+               FILES TO REVIEW in full, plus the code it calls and is called by, until you understand the change.
+               How to split that work depends on DEPTH:
+               - standard: read it all yourself.
+               - thorough: go file by file. For each file, note what it changes and what could break, and read its
+                 callers and callees before moving on.
+               - deep: split FILES TO REVIEW into groups of related files, about 400 changed lines each, and give
+                 each group to a subagent (the Agent or Task tool) with these instructions, docs/review.md, and the
+                 PR's purpose. Each subagent reads its files in full plus their callers and callees, and reports
+                 candidate findings with file, line and evidence. Read the cross-cutting parts yourself: the public
+                 interfaces between groups, the state each feature keeps, and the tests. Then check every candidate
+                 finding against the code yourself before you post it.
             3. Review it against docs/review.md. Implicit state machines, files over 1000 lines, correctness bugs,
                and the code-quality blockers listed there all block approval.
             4. Post each blocking finding as an inline comment on the line it is about, written as prose that names
@@ -82,14 +128,18 @@ jobs:
                author's time.
             5. Post one summary comment with `gh pr comment`. Start it with "**Claude review: approved**" or
                "**Claude review: changes requested**", then list the blocking findings in a sentence each.
-            6. Return the verdict: "approve" only if there are no blocking findings.
+            6. Return the verdict: "approve" only if there are no blocking findings. List in files_reviewed every
+               path from FILES TO REVIEW that was read in full, by you or a subagent. The gate rejects a review that
+               leaves one out.
 
             If this PR changes docs/review.md, CLAUDE.md or .github/, review it against the standard on the base
             branch (`git show BASE:docs/review.md`), not the PR's copy.
           claude_args: |
-            --max-turns 120
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(wc:*),Read,Grep,Glob"
-            --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["approve","request_changes"]},"blocking_findings":{"type":"integer","minimum":0}},"required":["verdict","blocking_findings"]}'
+            --model claude-opus-5-5
+            --fallback-model claude-sonnet-5-5
+            --max-turns ${{ steps.scope.outputs.turns }}
+            --allowedTools "Agent,Task,mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(wc:*),Read,Grep,Glob"
+            --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["approve","request_changes"]},"blocking_findings":{"type":"integer","minimum":0},"files_reviewed":{"type":"array","items":{"type":"string"}}},"required":["verdict","blocking_findings","files_reviewed"]}'
 
       # Two steps, so the merge queue can tell a review that asked for changes (this one failed) from one that crashed
       # or returned nothing (the review step or the next one failed), which it runs again.
@@ -98,8 +148,16 @@ jobs:
         if: steps.prior.outputs.approved != 'true'
         env:
           RESULT: ${{ steps.review.outputs.structured_output }}
+          REVIEWABLE: ${{ steps.scope.outputs.list }}
         run: |
           verdict=$(jq -er '.verdict | select(. == "approve" or . == "request_changes")' <<<"$RESULT")
+          # An approval that didn't read every file is unfinished, so it fails here and the merge queue runs the
+          # review again. Changes requested on the files read so far stand.
+          missed=$(comm -23 <(grep . <<<"$REVIEWABLE" | sort -u) <(jq -r '.files_reviewed[]' <<<"$RESULT" | sort -u))
+          if [[ "$verdict" == approve && -n "$missed" ]]; then
+            echo "::error::The review didn't read these files in full:"$'\n'"$missed"
+            exit 1
+          fi
           echo "Verdict: $verdict ($(jq -r '.blocking_findings' <<<"$RESULT") blocking findings)"
           echo "verdict=$verdict" >>"$GITHUB_OUTPUT"
 
