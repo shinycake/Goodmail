@@ -37,7 +37,7 @@ struct PlaneGameOverCard: View {
             label
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Text(value, format: .number)
+            Text(verbatim: value.formatted(.number))
                 .font(.title.bold())
                 .monospacedDigit()
         }

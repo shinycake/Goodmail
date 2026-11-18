@@ -39,6 +39,8 @@ struct InboxZeroScene: View {
                 (try? await Task.sleep(for: .seconds(max(sleepsAt.timeIntervalSinceNow, 0)))) != nil
             else { return }
             model.rest()
+            // Nothing on screen moves now, so the first game's first frame can be paid for here.
+            PlaneGameWarmUp.run()
         }
     }
 
