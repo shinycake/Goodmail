@@ -44,6 +44,8 @@ public final class SettingsViewModel {
     public var notifications: NotificationChoices?
     /// What each account counts toward the app badge.
     public var badges: BadgeChoices?
+    /// The space downloaded mail takes, and how much to keep and download ahead.
+    @ObservationIgnored public var storage: StorageSettings?
     /// The Apple Watch choice; `nil` without a paired watch that has the app.
     public var watch: WatchChoices?
     /// The mail rules, when the app keeps them.

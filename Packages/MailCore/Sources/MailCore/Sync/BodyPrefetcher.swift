@@ -26,6 +26,7 @@ public actor BodyPrefetcher {
     private let store: any PrefetchStore
     private let path: any NetworkPath
     private let scope: @Sendable () -> PrefetchScope
+    private let hasRoom: @Sendable () -> Bool
     private let threadLimit: Int
     private let meteredThreadLimit: Int
     private let concurrency: Int
@@ -41,6 +42,7 @@ public actor BodyPrefetcher {
         store: any PrefetchStore,
         path: any NetworkPath,
         scope: @escaping @Sendable () -> PrefetchScope = { .default },
+        hasRoom: @escaping @Sendable () -> Bool = { true },
         threadLimit: Int = BodyPrefetcher.threadLimit,
         meteredThreadLimit: Int = BodyPrefetcher.meteredThreadLimit,
         concurrency: Int = BodyPrefetcher.concurrency,
@@ -52,6 +54,7 @@ public actor BodyPrefetcher {
         self.store = store
         self.path = path
         self.scope = scope
+        self.hasRoom = hasRoom
         self.threadLimit = threadLimit
         self.meteredThreadLimit = meteredThreadLimit
         self.concurrency = max(1, concurrency)
@@ -79,16 +82,16 @@ public actor BodyPrefetcher {
     }
 
     /// Fetches the bodies the newest threads lack, at most `count` of them, and returns how many threads it stored.
-    /// Does nothing when the path or the scope allows nothing, and stops when the task is cancelled, a fetch fails
-    /// for any reason but its thread being gone, or the path changes to allow fewer than it has fetched, as when
-    /// Wi-Fi drops to cellular.
+    /// Does nothing when the path or the scope allows nothing, or the cache has no room, and stops when the task is
+    /// cancelled, a fetch fails for any reason but its thread being gone, or the path changes to allow fewer than it
+    /// has fetched, as when Wi-Fi drops to cellular.
     @discardableResult
     public func run(atMost count: Int = .max) async -> Int {
         let limit = { [scope, path, threadLimit, meteredThreadLimit] in
             scope().threadLimit(on: path.allowance, unmetered: threadLimit, metered: meteredThreadLimit)
         }
         let newest = limit()
-        guard newest > 0, let missing = try? store.threadsMissingBodies(account: accountID, among: newest)
+        guard newest > 0, hasRoom(), let missing = try? store.threadsMissingBodies(account: accountID, among: newest)
         else { return 0 }
         var remaining = missing.prefix(count).makeIterator()
         var launched = 0

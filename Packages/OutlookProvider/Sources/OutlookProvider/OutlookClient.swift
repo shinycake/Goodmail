@@ -14,6 +14,8 @@ public struct OutlookClient: MailProvider {
     /// Which conversation each message is in, so a message Graph reports deleted names the thread to refetch.
     let index: any MessageIndexStore
     let folders = FolderCache()
+    /// Each message's MIME for a moment after it downloads, so its inline images don't download it again each.
+    let sources = RecentSources()
     private let pageSize: Int
 
     /// `retryDelays` are the waits before each retry of a throttled or failed request.

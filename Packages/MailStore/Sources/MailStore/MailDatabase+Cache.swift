@@ -44,6 +44,14 @@ extension MailDatabase {
             bodies: bodies, attachments: Self.attachmentFolders(in: attachments).reduce(0) { $0 + $1.size })
     }
 
+    /// Whether the cached bodies leave room to prefetch more under `limit`. Prefetch stops at nine tenths of it, so it
+    /// never fetches what the cap would evict at once, and a run after an eviction doesn't fetch the same mail again.
+    /// A cache that can't be measured doesn't stop it.
+    public func hasRoomToPrefetch(under limit: Int) -> Bool {
+        guard let bodies = try? cacheUsage().bodies else { return true }
+        return bodies < limit / 10 * 9
+    }
+
     /// Evicts the least recently read bodies (a thread's together) and attachment files until the cache fits
     /// `limit`. Threads with a draft or a queued action are never evicted, though they count toward the size.
     ///

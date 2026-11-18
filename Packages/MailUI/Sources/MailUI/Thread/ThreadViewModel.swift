@@ -252,36 +252,19 @@ public final class ThreadViewModel {
         trustRules = imageTrust.all
     }
 
-    /// A local copy of an attachment for Quick Look, named as the sender named it. Fetched once per message part.
-    /// Each use stamps the file's modification date: the cache cap evicts the least recently used first.
+    /// A local copy of an attachment for Quick Look, named as the sender named it. Fetched once per message part;
+    /// each use stamps the file, which the cache cap evicts by.
     public func file(for attachment: Attachment, in message: Message.ID) async throws -> URL {
-        let folder =
-            attachmentsDirectory
-            .appending(path: message.accountID.rawValue, directoryHint: .isDirectory)
-            .appending(path: "\(message.messageID)-\(attachment.id)", directoryHint: .isDirectory)
-        let url = folder.appending(path: Self.safeFilename(attachment.filename))
-        if FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) {
-            try? FileManager.default.setAttributes(
-                [.modificationDate: now()], ofItemAtPath: url.path(percentEncoded: false))
-            return url
-        }
+        let files = AttachmentFiles(root: attachmentsDirectory)
+        if let url = await files.cachedFile(for: attachment, in: message, at: now()) { return url }
         // A reply on its way has its files in its draft, not with the provider.
-        let data: Data
         if let draftData = replies.first(where: { $0.letterID == message })?.data(for: attachment) {
-            data = draftData
-        } else {
-            data = try await attachmentData(attachment, message)
+            return try await files.keep(draftData, for: attachment, in: message)
         }
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try data.write(to: url, options: .atomic)
-        return url
-    }
-
-    /// Path separators and leading dots can't escape the folder or hide the file.
-    static func safeFilename(_ name: String) -> String {
-        let cleaned = name.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
-            .trimmingCharacters(in: CharacterSet(charactersIn: ". ").union(.whitespacesAndNewlines))
-        return cleaned.isEmpty ? "Attachment" : cleaned
+        let data = try await attachmentData(attachment, message)
+        // The fetch keeps the file it reads, unless the disk refused it.
+        if let url = await files.cachedFile(for: attachment, in: message, at: now()) { return url }
+        return try await files.keep(data, for: attachment, in: message)
     }
 
     /// Whether any message carries the star; the toolbar's star button toggles it for the thread.

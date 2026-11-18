@@ -112,6 +112,7 @@ struct SettingsView: View {
 
             if let rules = model.rules { RulesSection(service: rules) }
 
+            if let storage = model.storage { StorageSection(model: storage) }
             if let watch = model.watch {
                 WatchSection(choices: watch, sharesSignIns: model.sharing?.mode.shares ?? false)
             }

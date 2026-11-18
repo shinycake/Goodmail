@@ -1,0 +1,204 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Attachments" : {
+      "comment" : "Row: the space downloaded attachments and images take",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קבצים מצורפים"
+          }
+        }
+      }
+    },
+    "Couldn't measure the downloaded mail." : {
+      "comment" : "Shown when the space downloaded mail takes can't be read",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן היה למדוד את הדואר שהורד."
+          }
+        }
+      }
+    },
+    "Couldn't remove the downloaded mail." : {
+      "comment" : "Shown when downloaded mail couldn't be removed to fit the size chosen, or at all",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן היה להסיר את הדואר שהורד."
+          }
+        }
+      }
+    },
+    "Download Ahead" : {
+      "comment" : "Setting for when messages download before they're opened",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הורדה מראש"
+          }
+        }
+      }
+    },
+    "Downloaded Mail" : {
+      "comment" : "Section for the space downloaded mail takes",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דואר שהורד"
+          }
+        }
+      }
+    },
+    "Drafts and messages waiting to send stay." : {
+      "comment" : "Explains what removing downloaded mail keeps",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "טיוטות והודעות שממתינות לשליחה נשארות."
+          }
+        }
+      }
+    },
+    "Goodmail downloads your newest conversations so they open at once, even offline: up to 500 on Wi-Fi and 50 on cellular. Nothing downloads ahead in Low Data Mode." : {
+      "comment" : "Explains the Download Ahead setting",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‏Goodmail מוריד את השיחות החדשות ביותר שלך כדי שייפתחו מיד, גם בלי חיבור: עד 500 ב-Wi-Fi ו-50 בסלולרי. במצב ״צריכת נתונים נמוכה״ שום דבר לא יורד מראש."
+          }
+        }
+      }
+    },
+    "Keep Up To" : {
+      "comment" : "Setting for the most space downloaded mail may take",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לשמור עד"
+          }
+        }
+      }
+    },
+    "Messages" : {
+      "comment" : "Row: the space downloaded messages take",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הודעות"
+          }
+        }
+      }
+    },
+    "Messages download again when you open them." : {
+      "comment" : "Says what happens after removing downloaded mail",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הודעות יורדות שוב כשפותחים אותן."
+          }
+        }
+      }
+    },
+    "Never" : {
+      "comment" : "Download Ahead choice: messages download only when opened",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אף פעם"
+          }
+        }
+      }
+    },
+    "Remove" : {
+      "comment" : "Confirms removing downloaded mail",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הסרה"
+          }
+        }
+      }
+    },
+    "Remove Downloaded Mail" : {
+      "comment" : "Removes the downloaded messages and attachments from the device",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הסרת הדואר שהורד"
+          }
+        }
+      }
+    },
+    "Remove Downloaded Mail?" : {
+      "comment" : "Title asking to confirm removing downloaded mail",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "להסיר את הדואר שהורד?"
+          }
+        }
+      }
+    },
+    "Storage" : {
+      "comment" : "Title of the storage settings page",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אחסון"
+          }
+        }
+      }
+    },
+    "When it's full, the mail you read longest ago goes first. Mail lists and search keep working, and a message downloads again when you open it." : {
+      "comment" : "Explains the storage limit",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כשהמקום מתמלא, הדואר שקראת לפני הכי הרבה זמן נמחק ראשון. רשימות הדואר והחיפוש ממשיכים לעבוד, והודעה יורדת שוב כשפותחים אותה."
+          }
+        }
+      }
+    },
+    "Wi-Fi Only" : {
+      "comment" : "Download Ahead choice",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wi-Fi בלבד"
+          }
+        }
+      }
+    },
+    "Wi-Fi and Cellular" : {
+      "comment" : "Download Ahead choice: on any connection but Low Data Mode",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wi-Fi וסלולרי"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

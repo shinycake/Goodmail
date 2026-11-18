@@ -115,6 +115,16 @@ struct CacheCapTests {
         #expect(try database.cacheUsage().attachments == 0, "without a folder there are none to count")
     }
 
+    @Test func prefetchStopsShortOfTheLimit() throws {
+        #expect(database.hasRoomToPrefetch(under: 0) == false)
+        try cache("t1", readAtMinute: 0)
+        let bodies = try database.cacheUsage().bodies
+        #expect(database.hasRoomToPrefetch(under: bodies * 2))
+        #expect(database.hasRoomToPrefetch(under: bodies * 10 / 9 + 20))
+        #expect(!database.hasRoomToPrefetch(under: bodies), "at the limit, a fetch would be evicted at once")
+        #expect(!database.hasRoomToPrefetch(under: bodies * 10 / 9 - 10), "it leaves a tenth of the limit free")
+    }
+
     @Test func aCacheWithinTheLimitIsLeftAlone() throws {
         try cache("t1", readAtMinute: 0)
         try cache("t2", readAtMinute: 1)

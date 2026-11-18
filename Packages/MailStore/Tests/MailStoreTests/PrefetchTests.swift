@@ -36,10 +36,11 @@ struct PrefetchTests {
 
     private func prefetcher(
         limit: Int = 500, meteredLimit: Int = 50, scope: PrefetchScope = .default, concurrency: Int = 1,
-        at now: Date = PrefetchTests.now, didFinish: @escaping @Sendable () async -> Void = {}
+        at now: Date = PrefetchTests.now, hasRoom: Bool = true, didFinish: @escaping @Sendable () async -> Void = {}
     ) -> BodyPrefetcher {
         BodyPrefetcher(
             accountID: account.id, provider: server, store: database, path: path, scope: { scope },
+            hasRoom: { hasRoom },
             threadLimit: limit, meteredThreadLimit: meteredLimit, concurrency: concurrency, now: { now },
             didFinish: didFinish)
     }
@@ -144,6 +145,13 @@ struct PrefetchTests {
 
         path.allowance = .unmetered
         #expect(await prefetcher().run() == 1, "it picks up when the path allows")
+    }
+
+    @Test func doesNothingWhenTheCacheHasNoRoom() async throws {
+        try seed("t1", hoursAgo: 1)
+        #expect(await prefetcher(hasRoom: false).run() == 0)
+        #expect(server.messageRequests.isEmpty)
+        #expect(await prefetcher(hasRoom: true).run() == 1)
     }
 
     @Test func onCellularFetchesOnlyTheNewestFew() async throws {

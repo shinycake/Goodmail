@@ -17,6 +17,8 @@ public struct IMAPClient: MailProvider {
     let index: any MessageIndexStore
     /// Messages per page of threads.
     let pageSize: Int
+    /// Each message's source for a moment after it downloads, so its inline images don't download it again each.
+    let sources = RecentSources()
 
     #if canImport(Network)
         /// Reads mail from `settings.imap` and sends it through `settings.smtp`, logging in to both with

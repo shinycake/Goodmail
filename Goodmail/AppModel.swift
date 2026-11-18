@@ -87,7 +87,9 @@ final class AppModel {
         self.providers = providers
         let path = PathMonitor()
         self.path = path
-        threadFetcher = ThreadFetcher(provider: { try providers.provider(for: $0) }, store: database, path: path)
+        threadFetcher = ThreadFetcher(
+            provider: { try providers.provider(for: $0) }, store: database, path: path,
+            scope: { Preferences.prefetchScope })
         let outboxes = Outboxes { id in
             Outbox(accountID: id, provider: try providers.provider(for: id), store: database)
         }
@@ -378,7 +380,7 @@ final class AppModel {
 
     @concurrent private static func trim(_ database: MailDatabase, attachments: URL) async {
         do {
-            try database.trimCache(attachments: attachments)
+            try database.trimCache(to: Preferences.cacheLimit, attachments: attachments)
         } catch {
             Logger(subsystem: "com.idanbirman.goodmail", category: "cache")
                 .error("Couldn't trim the cache: \(error, privacy: .public)")
@@ -453,8 +455,14 @@ final class AppModel {
         try write()
     }
 
+    /// A part's data, from its kept file, or fetched and kept, so a body's inline images download once.
     func attachmentData(_ attachment: Attachment, in message: Message.ID) async throws -> Data {
-        try await providers.provider(for: message.accountID).data(for: attachment, in: message)
+        let files = AttachmentFiles(root: attachmentsDirectory)
+        if let data = await files.cachedData(for: attachment, in: message) { return data }
+        let data = try await providers.provider(for: message.accountID).data(for: attachment, in: message)
+        // A file that can't be kept, as on a full disk, costs only the next fetch.
+        _ = try? await files.keep(data, for: attachment, in: message)
+        return data
     }
 
     func source(of message: Message.ID) async throws -> Data {
@@ -466,6 +474,8 @@ final class AppModel {
         let (database, attachments) = (database, attachmentsDirectory)
         let prefetcher = BodyPrefetcher(
             accountID: id, provider: try providers.provider(for: id), store: database, path: path,
+            scope: { Preferences.prefetchScope },
+            hasRoom: { database.hasRoomToPrefetch(under: Preferences.cacheLimit) },
             didFinish: { await Self.trim(database, attachments: attachments) })
         prefetchers[id] = prefetcher
         return prefetcher

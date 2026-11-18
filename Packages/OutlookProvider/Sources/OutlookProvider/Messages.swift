@@ -48,7 +48,7 @@ extension OutlookClient {
 
     /// The message's MIME, or `nil` when it's gone.
     private func mime(of messageID: String) async throws -> MIMEPart? {
-        try await raw(messageID).map(MIMEPart.init(parsing:))
+        try await sources.source(of: messageID) { try await raw(messageID) }.map(MIMEPart.init(parsing:))
     }
 
     /// The RFC 5322 message Exchange keeps, or `nil` when it's gone.

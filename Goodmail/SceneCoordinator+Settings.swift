@@ -30,6 +30,7 @@ extension SceneCoordinator {
                 read: { try await model.signature(for: $0) }, store: { try await model.setSignature($0, for: $1) }),
             closed: { [weak self] in self?.settingsClosed(changed: Appearance(model) != before) })
         viewModel.rules = model.rulesService()
+        viewModel.storage = model.storageSettings()
         viewModel.autoReply = { model.autoReplyService(for: $0) }
         viewModel.serverSettings = { model.serverSettingsService(for: $0) }
         viewModel.sharing = model.sharingChoices()

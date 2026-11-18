@@ -32,9 +32,11 @@ extension IMAPClient {
         }
     }
 
-    /// Reads the message again and takes the part out, since IMAP part IDs are its section numbers.
+    /// Reads the message again, or takes the copy read a moment ago, and takes the part out, since IMAP part IDs are
+    /// its section numbers.
     public func data(for attachment: Attachment, in message: Message.ID) async throws -> Data {
-        guard let data = MIMEPart(parsing: try await source(of: message)).part(withID: attachment.id)?.data else {
+        let source = try await sources.source(of: message.messageID) { try await source(of: message) }
+        guard let source, let data = MIMEPart(parsing: source).part(withID: attachment.id)?.data else {
             throw ProviderError.notFound
         }
         return data
