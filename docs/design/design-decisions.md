@@ -69,6 +69,7 @@ There's one main color: the account's theme color. Everything else is neutral.
   - Leading: Read/Unread (theme color, the full-swipe action), Star (neutral glass).
   - Haptic on commit, mirrored in RTL. No configuration in v1.
 - **Empty inbox:** `UIContentUnavailableConfiguration` with an SF Symbol effect and warm, time-aware copy ("All caught up. Nothing new since 17:10."). If another category has unread mail, a link points there.
+  - A hidden paper plane game: ten quick taps on the envelopes fold them into a plane that flies through the doodles, dodging blue stamps and postmarks and shooting pink spam. A quiet cross doodle, Escape or VoiceOver's escape gesture folds it back into the Inbox. It still runs with Reduce Motion, as cross-fades. Mail that arrives during it shows as a small purple envelope with a count in the corner, which is also a way back. The best score stays on the device.
 
 ## Thread view
 

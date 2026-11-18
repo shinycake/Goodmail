@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 /// One of the app icon's three envelopes, from the back of the pile to the front.
-enum EnvelopeLayer: String, CaseIterable {
+nonisolated enum EnvelopeLayer: String, CaseIterable {
     case back = "Back"
     case mid = "Mid"
     case front = "Front"

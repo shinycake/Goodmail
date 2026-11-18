@@ -25,6 +25,8 @@ nonisolated struct DoodleScene: Equatable, Sendable {
     var passInterval: TimeInterval = DoodleScene.passEvery
     /// No plane sets off by itself from now on, so the stage can come to rest with nothing in the air.
     var quietFrom: Date = .distantFuture
+    /// No plane sets off by itself before this, so a stage that wakes from rest doesn't show one already in the air.
+    var passesFrom: Date = .distantPast
 
     /// The doodles keep within this width around the envelopes on a wide screen, so they don't thin out to nothing.
     static let widestField: CGFloat = 600
@@ -80,7 +82,7 @@ nonisolated struct DoodleScene: Equatable, Sendable {
         // It comes in low from beyond the leading edge.
         let entry = CGPoint(x: rightToLeft ? size.width + 30 : -30, y: size.height * 0.8)
         let passing =
-            setOff < quietFrom.timeIntervalSinceReferenceDate
+            setOff >= passesFrom.timeIntervalSinceReferenceDate && setOff < quietFrom.timeIntervalSinceReferenceDate
             ? PlaneCourse(origin: entry, size: size, rightToLeft: rightToLeft)
                 .flight(at: (seconds - setOff) / Self.passTime, number: Int(pass))
             : nil

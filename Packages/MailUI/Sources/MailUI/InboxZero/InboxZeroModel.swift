@@ -23,4 +23,11 @@ nonisolated struct InboxZeroPointer: Equatable, Sendable {
     var insets = EdgeInsets()
     /// Switches the list to a category.
     @ObservationIgnored var go: (InboxCategory) -> Void = { _ in }
+    /// Whether the paper plane game is up. It draws the envelopes, doodles and planes then, so the scene doesn't.
+    var isPlaying = false
+    /// Where the scene's envelopes and doodles are, in the scene's own space, as it last laid out. The game takes over
+    /// from here and folds back to here. Not observed: nothing draws from it.
+    @ObservationIgnored var stage: InboxZeroStage?
+    /// Starts the game. The list sets it.
+    @ObservationIgnored var play: (InboxZeroHandoff) -> Void = { _ in }
 }

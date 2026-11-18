@@ -27,9 +27,11 @@ public enum PlaneGameRules {
     /// How fast the plane turns over while it falls, in radians a second.
     public static let tumbleSpeed = 7.0
 
-    /// The dots behind the plane: one every `trailEvery` seconds, at most `trailLength`.
+    /// The dots behind the plane: one every `trailEvery` seconds, `trailLength` of them in steady flight.
     public static let trailEvery: TimeInterval = 0.03
     public static let trailLength = 14
+    /// The longest the trail gets, measured along it, so a fast drag or the fall can't draw a long straight line.
+    public static let trailReach: CGFloat = 90
 
     // Shooting.
 
@@ -57,12 +59,14 @@ public enum PlaneGameRules {
 
     public static let firstArrival: TimeInterval = 2.0
     /// Time between arrivals at the start and after `hardeningTime`, shrinking evenly between.
-    public static let firstInterval: TimeInterval = 1.15
+    public static let firstInterval: TimeInterval = 1.4
     public static let lastInterval: TimeInterval = 0.55
-    /// When postmarks, rows of three spam and phish start to arrive, in seconds played.
-    public static let postmarksFrom: TimeInterval = 10
-    public static let spamRowsFrom: TimeInterval = 15
-    public static let phishFrom: TimeInterval = 25
+    /// When stamps, postmarks, rows of three spam and phish start to arrive, in seconds played. Until stamps come, the
+    /// game brings only single spam and stars.
+    public static let stampsFrom: TimeInterval = 8
+    public static let postmarksFrom: TimeInterval = 14
+    public static let spamRowsFrom: TimeInterval = 20
+    public static let phishFrom: TimeInterval = 30
     /// Things arrive this far beyond the trailing edge and are removed this far past the leading edge.
     public static let arriveBeyond: CGFloat = 40
     public static let leaveBeyond: CGFloat = 60

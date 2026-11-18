@@ -1,0 +1,141 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%lld points" : {
+      "comment" : "The paper plane game's score, read by VoiceOver",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "1 point"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld points"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "נקודה אחת"
+                }
+              },
+              "two" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld נקודות"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld נקודות"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Back to Inbox" : {
+      "comment" : "Leaves the paper plane game",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חזרה לדואר הנכנס"
+          }
+        }
+      }
+    },
+    "Best" : {
+      "comment" : "The best score on this device",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שיא"
+          }
+        }
+      }
+    },
+    "Drag to fly" : {
+      "comment" : "Hint at the start of the game",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "יש לגרור כדי לעוף"
+          }
+        }
+      }
+    },
+    "New Best" : {
+      "comment" : "A game that beat the best score",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שיא חדש"
+          }
+        }
+      }
+    },
+    "New Mail" : {
+      "comment" : "Mail arrived during the paper plane game: the HUD's envelope, and what VoiceOver says when it shows",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דואר חדש"
+          }
+        }
+      }
+    },
+    "Play Again" : {
+      "comment" : "Starts another game",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "משחק חדש"
+          }
+        }
+      }
+    },
+    "Returned to Sender" : {
+      "comment" : "Title of the game over card",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הוחזר לשולח"
+          }
+        }
+      }
+    },
+    "Score" : {
+      "comment" : "The game's score",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ניקוד"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

@@ -10,9 +10,12 @@ public struct PlaneGameField: Equatable, Sendable {
     public var size: CGSize
     /// The heights the plane and everything that arrives keep between.
     public var band: ClosedRange<CGFloat>
+    /// How far from the leading edge the plane keeps, as clear of a camera housing in landscape.
+    public var leadingInset: CGFloat
 
-    public init(size: CGSize, band: ClosedRange<CGFloat>) {
+    public init(size: CGSize, band: ClosedRange<CGFloat>, leadingInset: CGFloat = 0) {
         self.size = size
         self.band = band
+        self.leadingInset = leadingInset
     }
 }

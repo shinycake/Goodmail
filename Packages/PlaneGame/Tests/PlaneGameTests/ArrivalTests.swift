@@ -40,11 +40,20 @@ struct ArrivalTests {
         let firstPostmark = try #require(timeline.first { $0.arrivals.contains { $0.kind == .postmark } }?.time)
         let firstPhish = try #require(timeline.first { $0.arrivals.contains { $0.kind == .phish } }?.time)
         let firstRow = try #require(timeline.first { $0.arrivals.count == 3 }?.time)
+        let firstStamp = try #require(timeline.first { $0.arrivals.contains { $0.kind == .stamp } }?.time)
         let firstAny = try #require(timeline.first { !$0.arrivals.isEmpty }?.time)
         #expect(firstAny >= PlaneGameRules.firstArrival)
+        #expect(firstStamp >= PlaneGameRules.stampsFrom)
         #expect(firstPostmark >= PlaneGameRules.postmarksFrom)
         #expect(firstPhish >= PlaneGameRules.phishFrom)
         #expect(firstRow >= PlaneGameRules.spamRowsFrom)
+    }
+
+    @Test(arguments: 1...20 as ClosedRange<UInt64>)
+    func theOpeningSecondsBringOnlySingleSpamAndStars(seed: UInt64) {
+        let opening = arrivals(over: PlaneGameRules.stampsFrom - 0.01, livesMissing: false, seed: seed)
+        #expect(opening.allSatisfy { $0.arrivals.count <= 1 })
+        #expect(opening.flatMap(\.arrivals).allSatisfy { [PlaneGameThing.Kind.spam, .star].contains($0.kind) })
     }
 
     @Test func aRowIsThreeSpamStaggeredOneBehindAnother() throws {
@@ -62,7 +71,7 @@ struct ArrivalTests {
 
     @Test func arrivalsComeQuickerOverTheFirstTwoMinutes() {
         #expect(PlaneGameSpawner.interval(at: 0) == PlaneGameRules.firstInterval)
-        #expect(abs(PlaneGameSpawner.interval(at: 60) - 0.85) < 0.0001)
+        #expect(abs(PlaneGameSpawner.interval(at: 60) - 0.975) < 0.0001)
         #expect(PlaneGameSpawner.interval(at: PlaneGameRules.hardeningTime) == PlaneGameRules.lastInterval)
         #expect(PlaneGameSpawner.interval(at: 600) == PlaneGameRules.lastInterval)
     }

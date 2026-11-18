@@ -32,6 +32,15 @@ struct SteeringTests {
         #expect(world.plane.position == CGPoint(x: PlaneGameRules.planeRadius, y: 760))
     }
 
+    @Test func itKeepsClearOfTheLeadingInset() {
+        var world = PlaneGameWorld.flying(
+            on: PlaneGameField(size: CGSize(width: 874, height: 402), band: 64...357, leadingInset: 62))
+        world.advance(by: frame, input: PlaneGameInput(drag: CGSize(width: -1000, height: 0)))
+        #expect(world.plane.position.x == 62 + PlaneGameRules.planeRadius)
+        world.resize(to: PlaneGameField(size: CGSize(width: 874, height: 402), band: 64...357, leadingInset: 120))
+        #expect(world.plane.position.x == 120 + PlaneGameRules.planeRadius)
+    }
+
     @Test func itTiltsNoseUpClimbingAndNoseDownDiving() {
         var climbing = PlaneGameWorld.flying()
         var diving = climbing

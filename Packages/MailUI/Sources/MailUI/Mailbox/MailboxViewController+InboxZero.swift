@@ -7,6 +7,7 @@ extension MailboxViewController {
     /// over it.
     func installInboxZero(_ model: InboxZeroModel) {
         model.go = { [weak self] in self?.show($0) }
+        model.play = { [weak self] in self?.playPlaneGame(from: $0) }
         collectionView.backgroundView = InboxZeroBackdrop(
             scene: UIHostingConfiguration { InboxZeroView(model: model) }.margins(.all, 0).makeContentView())
     }
@@ -68,7 +69,8 @@ extension MailboxViewController {
 /// `scrollViewDidScroll` for that settle runs inside UIKit's animation, and an animated pull there would move the scene
 /// the same distance a second time, dropping it below its place until the animation catches up.
 final class InboxZeroBackdrop: UIView {
-    private let scene: UIView
+    /// The view hosting the scene, whose space is the scene's stage space.
+    let scene: UIView
 
     init(scene: UIView) {
         self.scene = scene

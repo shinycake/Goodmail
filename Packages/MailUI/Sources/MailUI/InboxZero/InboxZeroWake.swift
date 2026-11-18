@@ -30,6 +30,16 @@ nonisolated enum InboxZeroWake: Equatable, Sendable {
         return since + Self.restsAfter
     }
 
+    /// No plane sets off by itself before this. One that set off while the scene rested would show up mid-flight as
+    /// it wakes, and one just after would crowd the moment it wakes in, as when the paper plane game lands back on it.
+    var passesFrom: Date {
+        guard case .awake(_, let rampFrom) = self else { return .distantFuture }
+        return rampFrom.map { $0 + Self.passGap } ?? .distantPast
+    }
+
+    /// How long after easing in from rest the scene keeps its sky clear.
+    static let passGap: TimeInterval = 3
+
     /// When it goes to sleep, if it is awake.
     var sleepsAt: Date? {
         guard case .awake(let since, _) = self else { return nil }

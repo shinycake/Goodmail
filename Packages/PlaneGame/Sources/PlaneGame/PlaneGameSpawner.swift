@@ -42,7 +42,8 @@ struct PlaneGameSpawner: Equatable, Sendable {
 
         func isOpen(at elapsed: TimeInterval, livesMissing: Bool) -> Bool {
             switch self {
-            case .one(.spam), .one(.stamp), .one(.star): true
+            case .one(.spam), .one(.star): true
+            case .one(.stamp): elapsed >= PlaneGameRules.stampsFrom
             case .one(.postmark): elapsed >= PlaneGameRules.postmarksFrom
             case .spamRow: elapsed >= PlaneGameRules.spamRowsFrom
             case .one(.phish): elapsed >= PlaneGameRules.phishFrom

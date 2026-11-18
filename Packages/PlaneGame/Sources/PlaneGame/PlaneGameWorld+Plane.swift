@@ -97,8 +97,43 @@ extension PlaneGameWorld {
         sinceTrailSample += dt
         guard sinceTrailSample >= PlaneGameRules.trailEvery else { return }
         sinceTrailSample -= PlaneGameRules.trailEvery
+        let previous = plane.trail.length
         plane.trail.insert(plane.position, at: 0)
-        plane.trail = Array(plane.trail.prefix(PlaneGameRules.trailLength))
+        let newest = Array(plane.trail.prefix(2)).length
+        // The usual trail is the last `trailLength` samples. Longer than that, as when a fast drag left a long
+        // segment, the tail recedes as fast as the head moves on, so it shortens smoothly instead of dropping a
+        // long segment at once.
+        let usual = Array(plane.trail.prefix(PlaneGameRules.trailLength)).length
+        let target = min(PlaneGameRules.trailReach, max(usual, previous - newest))
+        plane.trail = plane.trail.cut(at: target)
+    }
+}
+
+extension [CGPoint] {
+    /// The length along the points, first to last.
+    var length: CGFloat {
+        zip(self, dropFirst()).map { hypot($1.x - $0.x, $1.y - $0.y) }.reduce(0, +)
+    }
+
+    /// The start of the points up to `reach` along them. The segment that crosses the reach ends at a point on it
+    /// exactly there.
+    func cut(at reach: CGFloat) -> [CGPoint] {
+        var kept = Array(prefix(1))
+        var length: CGFloat = 0
+        for (from, to) in zip(self, dropFirst()) {
+            let segment = hypot(to.x - from.x, to.y - from.y)
+            guard length + segment > reach else {
+                kept.append(to)
+                length += segment
+                continue
+            }
+            let share = (reach - length) / segment
+            if share > 0 {
+                kept.append(CGPoint(x: from.x + (to.x - from.x) * share, y: from.y + (to.y - from.y) * share))
+            }
+            break
+        }
+        return kept
     }
 }
 

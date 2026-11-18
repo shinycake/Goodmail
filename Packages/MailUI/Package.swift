@@ -22,15 +22,15 @@ let package = Package(
     defaultLocalization: "en",
     platforms: [.iOS("27.2")],
     products: [.library(name: "MailUI", targets: ["MailUI"])],
-    dependencies: [.package(path: "../MailCore")],
+    dependencies: [.package(path: "../MailCore"), .package(path: "../PlaneGame")],
     targets: [
         .target(
             name: "MailUI",
-            dependencies: ["MailCore"],
+            dependencies: ["MailCore", "PlaneGame"],
             resources: [.process("Resources")],
             swiftSettings: strictSwift + [.defaultIsolation(MainActor.self)]
         ),
-        .testTarget(name: "MailUITests", dependencies: ["MailUI"], swiftSettings: strictSwift),
+        .testTarget(name: "MailUITests", dependencies: ["MailUI", "PlaneGame"], swiftSettings: strictSwift),
     ],
     swiftLanguageModes: [.v6]
 )

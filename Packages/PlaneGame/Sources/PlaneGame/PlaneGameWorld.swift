@@ -110,8 +110,9 @@ public struct PlaneGameWorld: Equatable, Sendable {
 extension PlaneGameField {
     /// `point` moved the least it takes to be where the plane may fly.
     func keepingPlane(_ point: CGPoint) -> CGPoint {
-        let reach = max(size.width * PlaneGameRules.planeReach, PlaneGameRules.planeRadius)
-        return CGPoint(x: min(max(point.x, PlaneGameRules.planeRadius), reach), y: band.clamping(point.y))
+        let nearest = leadingInset + PlaneGameRules.planeRadius
+        let reach = max(size.width * PlaneGameRules.planeReach, nearest)
+        return CGPoint(x: min(max(point.x, nearest), reach), y: band.clamping(point.y))
     }
 
     /// Where the plane's launch loop ends.

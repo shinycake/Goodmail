@@ -16,11 +16,9 @@ struct CornerDoodleGroup: View {
         let rightToLeft = layoutDirection == .rightToLeft
         Canvas { context, size in
             for doodle in doodles {
-                let placed = CGAffineTransform.identity
-                    .translatedBy(doodle.point(width: size.width, rightToLeft: rightToLeft))
-                    .rotated(by: (rightToLeft ? -1 : 1) * doodle.angle * .pi / 180)
-                    // Only the plane has a direction to mirror.
-                    .scaledBy(x: doodle.size * (doodle.shape == .plane && rightToLeft ? -1 : 1), y: doodle.size)
+                let placed = doodle.shape.placement(
+                    at: doodle.point(width: size.width, rightToLeft: rightToLeft), angle: doodle.angle,
+                    size: doodle.size, rightToLeft: rightToLeft)
                 let art = doodle.shape.art
                 context.stroke(art.line.applying(placed), with: inks[doodle.tint], style: DoodleField.line)
                 context.stroke(art.dots.applying(placed), with: inks[doodle.tint], style: DoodleField.dots)

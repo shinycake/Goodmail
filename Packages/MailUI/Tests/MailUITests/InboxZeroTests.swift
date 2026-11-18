@@ -137,6 +137,33 @@ struct InboxZeroTests {
         #expect(wake.energy(at: arrived + 0.3) < 0.5)
     }
 
+    /// The scene `wake` draws at `now`, with a plane passing every 16 s.
+    private func scene(_ wake: InboxZeroWake, at now: Date) -> DoodleScene {
+        DoodleScene(
+            size: CGSize(width: 400, height: 400), pokes: [], clock: .running(now), rightToLeft: false,
+            passInterval: 16, quietFrom: wake.quietFrom, passesFrom: wake.passesFrom)
+    }
+
+    /// A pass that set off a second before the game handed back would show up mid-flight, and one setting off two
+    /// seconds after would follow the landing too closely.
+    @Test(arguments: [-1.0, 2.0])
+    func noPlanePassesJustAfterTheGameHandsBack(passSetsOff: TimeInterval) {
+        let pass = (arrived.timeIntervalSinceReferenceDate / 16).rounded(.up) * 16
+        let landed = Date(timeIntervalSinceReferenceDate: pass - passSetsOff)
+        let wake = InboxZeroWake.asleep.woken(at: landed)
+        #expect(scene(wake, at: landed + passSetsOff + 0.1).flights.isEmpty)
+        for after in stride(from: 0.0, through: InboxZeroWake.passGap + DoodleScene.passTime, by: 0.05) {
+            #expect(scene(wake, at: landed + after).flights.isEmpty)
+        }
+        // The next pass flies as usual.
+        #expect(scene(wake, at: Date(timeIntervalSinceReferenceDate: pass + 16 + 0.5)).flights.count == 1)
+    }
+
+    @Test func aSleepingSceneHasNoPlaneInTheAir() {
+        let pass = (arrived.timeIntervalSinceReferenceDate / 16).rounded(.up) * 16
+        #expect(scene(.asleep, at: Date(timeIntervalSinceReferenceDate: pass + 0.5)).flights.isEmpty)
+    }
+
     @Test func noPlaneSetsOffOnceTheSceneStartsToRest() {
         let wake = InboxZeroWake.awake(since: arrived, rampFrom: nil)
         let size = CGSize(width: 400, height: 400)

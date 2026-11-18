@@ -9,13 +9,15 @@ struct InboxZeroView: View {
     var body: some View {
         ZStack {
             if let showing = model.showing {
-                InboxZeroScene(showing: showing, go: model.go)
+                InboxZeroScene(showing: showing, model: model)
                     .padding(model.insets)
                     .transition(InboxZeroTransition(reduceMotion: reduceMotion))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .ignoresSafeArea()
+        // The whole of the list's background, which the game converts to the window from.
+        .coordinateSpace(.named(InboxZeroStage.space))
         .animation(reduceMotion ? .linear(duration: 0.3) : .smooth(duration: 0.25), value: model.showing == nil)
     }
 }
