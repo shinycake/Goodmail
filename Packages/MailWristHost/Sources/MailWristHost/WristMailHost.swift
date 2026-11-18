@@ -20,11 +20,7 @@ public struct WristMailHost: Sendable {
     public func snapshots(
         now: @escaping @Sendable () -> Date = { .now }
     ) -> AsyncMapSequence<AsyncThrowingStream<InboxGlance, any Error>, WristSnapshot> {
-        database.inboxGlance(limit: WristSnapshot.rowLimit).map { glance in
-            WristSnapshot(
-                accounts: glance.accounts, threads: glance.threads, pinned: glance.pinned, unread: glance.unread,
-                madeAt: now())
-        }
+        database.wristSnapshots(now: now)
     }
 
     /// Makes the change the reader made on the watch. A reply is sent; everything else is queued for the service.

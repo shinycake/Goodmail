@@ -15,8 +15,8 @@ import Testing
 
 /// The watch's sign-ins come from the iPhone through iCloud Keychain, and only Gmail and Outlook make providers.
 struct WristSignInsTests {
-    private let device = MemorySecrets()
-    private let shared = MemorySecrets()
+    private let device = MemoryKeychain()
+    private let shared = MemoryKeychain()
     private let gmail = WristAccount(
         id: AccountID(rawValue: "g"), address: "g@gmail.com", color: .teal, unread: 0, service: .gmail)
     private let outlook = WristAccount(
@@ -93,14 +93,6 @@ struct WristSignInsTests {
 
         #expect(try shared.data(for: OAuthClient.gmail.refreshTokenKey(gmail.id)) == Data("g-token".utf8))
     }
-}
-
-private final class MemorySecrets: SecretStore {
-    private let items = Mutex<[String: Data]>([:])
-
-    func data(for key: String) throws -> Data? { items.withLock { $0[key] } }
-    func set(_ data: Data, for key: String) throws { items.withLock { $0[key] = data } }
-    func remove(_ key: String) throws { _ = items.withLock { $0.removeValue(forKey: key) } }
 }
 
 /// A token endpoint that grants an access token, and rotates the refresh token when given one.
