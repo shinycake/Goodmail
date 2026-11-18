@@ -71,7 +71,9 @@ struct SettingsView: View {
             } header: {
                 Text(
                     "Mail List", tableName: "Settings", bundle: .module,
-                    comment: "Settings section for how mailbox rows look")
+                    comment: "Settings section for how mailbox rows look"
+                )
+                .headerDoodle(.star, size: 12, angle: -12, tint: 1)
             } footer: {
                 Text(
                     "Without avatars, a dot beside a row still marks unread mail.", tableName: "Settings",
@@ -97,7 +99,9 @@ struct SettingsView: View {
             } header: {
                 Text(
                     "Conversations", tableName: "Settings", bundle: .module,
-                    comment: "Settings section for how conversations read")
+                    comment: "Settings section for how conversations read"
+                )
+                .headerDoodle(.plane, size: 20, tint: 2)
             } footer: {
                 Text(
                     "Chat shows each message's new words as bubbles. Switch one conversation from its toolbar.",
@@ -121,13 +125,17 @@ struct SettingsView: View {
             } header: {
                 Text(
                     "Animations", tableName: "Settings", bundle: .module,
-                    comment: "Settings section for the app's animations")
+                    comment: "Settings section for the app's animations"
+                )
+                .headerDoodle(.sparkle, size: 12, tint: 0)
             } footer: {
                 Text(
                     "Playful puts mail into the trash can or archive box, and dissolves mail deleted forever. Subtle slides it away.",
                     tableName: "Settings", bundle: .module, comment: "Explains the delete and archive animation setting"
                 )
             }
+
+            DoodlesSection()
 
             Section {
                 Picker(selection: $model.undoSendSeconds) {

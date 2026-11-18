@@ -97,6 +97,9 @@ public enum Preferences {
         set { defaults.set(newValue.map(\.rawValue).sorted(), forKey: declinedSharedKey) }
     }
 
+    /// Whether faint doodles decorate Settings and Mailboxes, read where they're drawn. The welcome screen and Inbox
+    /// Zero keep theirs.
+    nonisolated static let showsDoodlesKey = "showsDoodles"
     private static let declinedSharedKey = "declinedSharedAccounts"
     nonisolated static let swipeTintsKey = "swipeTints"
     nonisolated static let undoSendKey = "undoSendSeconds"

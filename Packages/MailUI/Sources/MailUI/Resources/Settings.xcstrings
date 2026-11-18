@@ -240,6 +240,28 @@
         }
       }
     },
+    "Doodles" : {
+      "comment" : "Setting for the faint decorative doodles",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שרבוטים"
+          }
+        }
+      }
+    },
+    "Faint sketches in the corners of Settings and Mailboxes. Welcome and Inbox Zero always keep theirs." : {
+      "comment" : "Explains the Doodles setting",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "רישומים עדינים בפינות של ההגדרות ושל תיבות הדואר. במסך הפתיחה ובתיבת הדואר הריקה הם תמיד נשארים."
+          }
+        }
+      }
+    },
     "Gradient" : {
       "comment" : "Setting for a gradient of every account's color",
       "localizations" : {

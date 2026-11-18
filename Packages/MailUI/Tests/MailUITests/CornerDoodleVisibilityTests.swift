@@ -4,13 +4,13 @@ import Testing
 @testable import MailUI
 
 /// The Settings doodles keep to the open space at the top and bottom of the list, and are gone in between.
-struct SettingsDoodleVisibilityTests {
-    private let room = SettingsDoodleVisibility.room
+struct CornerDoodleVisibilityTests {
+    private let room = CornerDoodleVisibility.room
 
     /// A list whose rows are `rows` tall in a sheet 800 points high under a 100-point bar, scrolled `scrolled` points.
     /// As a List reports it: the room is part of the content, and the bottom inset is the home indicator's.
-    private func visibility(rows: CGFloat = 1600, scrolled: CGFloat) -> SettingsDoodleVisibility {
-        SettingsDoodleVisibility(
+    private func visibility(rows: CGFloat = 1600, scrolled: CGFloat) -> CornerDoodleVisibility {
+        CornerDoodleVisibility(
             contentHeight: rows + room, offset: scrolled - 100, insetTop: 100, insetBottom: 34, height: 800)
     }
 
@@ -25,7 +25,7 @@ struct SettingsDoodleVisibilityTests {
         let early = visibility(scrolled: 18)
         #expect(early.titleShift == -18)
         #expect(early.titleOpacity > 0 && early.titleOpacity < 1)
-        #expect(visibility(scrolled: SettingsDoodleVisibility.titleFade).titleOpacity == 0)
+        #expect(visibility(scrolled: CornerDoodleVisibility.titleFade).titleOpacity == 0)
     }
 
     @Test func midListNothingShowsAndScrollingChangesNothing() {
@@ -54,7 +54,7 @@ struct SettingsDoodleVisibilityTests {
     }
 
     @Test func doodlesMirrorInARightToLeftLanguage() {
-        let doodle = SettingsDoodle(.star, x: -50, y: 10, size: 10, angle: 0, tint: 0)
+        let doodle = CornerDoodle(.star, x: -50, y: 10, size: 10, angle: 0, tint: 0)
         #expect(doodle.point(width: 400, rightToLeft: false) == CGPoint(x: 350, y: 10))
         #expect(doodle.point(width: 400, rightToLeft: true) == CGPoint(x: 50, y: 10))
     }

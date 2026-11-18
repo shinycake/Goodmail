@@ -1,10 +1,10 @@
 import CoreGraphics
 import SwiftUI
 
-/// Where the Settings doodles are and how much of them shows, from how far the list has scrolled. The group beside the
+/// Where a list's corner doodles are and how much of them shows, from how far the list has scrolled. The group beside the
 /// large title fades before the title collapses into the bar; the group after the last section fades in as the room
 /// left for it comes on screen. Mid-list both are gone, and the value stays the same while scrolling there.
-nonisolated struct SettingsDoodleVisibility: Equatable, Sendable {
+nonisolated struct CornerDoodleVisibility: Equatable, Sendable {
     var titleOpacity: Double
     /// How far the title group has moved with the list, up as it scrolls.
     var titleShift: CGFloat
@@ -20,7 +20,7 @@ nonisolated struct SettingsDoodleVisibility: Equatable, Sendable {
     static let endHidden: CGFloat = 56
     static let endShown: CGFloat = 116
 
-    static let hidden = SettingsDoodleVisibility(titleOpacity: 0, titleShift: 0, endOpacity: 0, endTop: 0)
+    static let hidden = CornerDoodleVisibility(titleOpacity: 0, titleShift: 0, endOpacity: 0, endTop: 0)
 
     /// From the list's scroll geometry. `contentHeight` is its content's height, the room after the last section
     /// included: a List's content margins grow its content, not its insets. `offset` is its content offset, `insetTop`

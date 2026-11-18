@@ -15,7 +15,9 @@ public final class MailboxesViewController: UIViewController {
     public var selected: MailboxesViewModel.Destination? {
         didSet { selectShownMailbox() }
     }
-    private var collectionView: UICollectionView!
+    private(set) var collectionView: UICollectionView!
+    /// The faint doodles behind the list, which a sidebar goes without.
+    private(set) var doodles: MailboxesDoodlesModel?
     private var dataSource: UICollectionViewDiffableDataSource<MailboxesViewModel.Section, MailboxesViewModel.Item>!
     private var observation: Task<Void, Never>?
     /// Each account's label changes, made when first needed.
@@ -44,6 +46,8 @@ public final class MailboxesViewController: UIViewController {
         super.viewDidLoad()
         var list = UICollectionLayoutListConfiguration(appearance: style == .sidebar ? .sidebar : .insetGrouped)
         list.headerMode = .supplementary
+        // The list's sections would paint over the doodles behind it, which paint the grouped background themselves.
+        if style == .list { list.backgroundColor = .clear }
         list.trailingSwipeActionsConfigurationProvider = { [weak self] indexPath in
             self?.swipeActions(at: indexPath)
         }
@@ -54,6 +58,11 @@ public final class MailboxesViewController: UIViewController {
         collectionView.delegate = self
         view.addSubview(collectionView)
         configureDataSource()
+        if style == .list {
+            let doodles = MailboxesDoodlesModel()
+            installDoodles(doodles)
+            self.doodles = doodles
+        }
         let settings = UIBarButtonItem(
             title: String(
                 localized: "Settings", table: "Mailboxes", bundle: .module, comment: "Title of the settings screen"),
@@ -79,6 +88,11 @@ public final class MailboxesViewController: UIViewController {
         navigationController?.setToolbarHidden(false, animated: animated)
         navigationController?.navigationBar.prefersLargeTitles = true
         wear(viewModel.theme)
+    }
+
+    public override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        placeDoodles()
     }
 
     /// Called by UIKit whenever an observed view-model property changes.
@@ -231,6 +245,14 @@ public final class MailboxesViewController: UIViewController {
 }
 
 extension MailboxesViewController: UICollectionViewDelegate {
+    public func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        placeDoodles()
+    }
+
+    public func scrollViewDidChangeAdjustedContentInset(_ scrollView: UIScrollView) {
+        placeDoodles()
+    }
+
     public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         guard let item = dataSource.itemIdentifier(for: indexPath) else { return }
         viewModel.open(item.destination)
