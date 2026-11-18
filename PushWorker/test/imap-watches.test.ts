@@ -3,8 +3,8 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { ApnsSigner } from "../src/apns";
 import type { Env } from "../src/index";
 import { pollWatches } from "../src/imap-poll";
-import { registerWatch, unregisterWatch } from "../src/imap-routes";
 import { findWatch, WATCH_LIFETIME_MS } from "../src/imap-watches";
+import { RECHECK_AFTER_MS, registerWatch, unregisterWatch } from "../src/imap-routes";
 import { fakeImap, inboxServer, type Reply } from "./fake-imap";
 import { generateApnsKey } from "./keys";
 
@@ -79,6 +79,11 @@ async function register(overrides: Record<string, unknown> = {}, address?: strin
   return registerWatch(request("POST", watchBody(overrides), address), testEnv, NOW, imap.connect);
 }
 
+/** The same registration, sent at `now`. */
+async function registerAt(now: number): Promise<Response> {
+  return registerWatch(request("POST", watchBody()), testEnv, now, imap.connect);
+}
+
 const poll = (now = NOW) => pollWatches(testEnv, signer, now, imap.connect, 0);
 
 describe("registering a watch", () => {
@@ -90,7 +95,7 @@ describe("registering a watch", () => {
     expect(watch).toMatchObject({
       account: "account-1",
       device: { token: DEVICE, environment: "sandbox" },
-      state: "watching",
+      state: { kind: "watching" },
       inbox: { uidValidity: 7, uidNext: 100 },
       expiresAt: NOW + WATCH_LIFETIME_MS,
     });
@@ -113,15 +118,25 @@ describe("registering a watch", () => {
     expect(imap.sessions).toHaveLength(1);
   });
 
-  it("refuses a login the server refuses, and never tries it again under any watch", async () => {
+  it("refuses a login the server refuses, and answers the same for a minute without logging in again", async () => {
     server = inboxServer({ uidValidity: 7, uidNext: 100 }, "refused");
     imap.sessions.length = 0;
     expect((await register()).status).toBe(401);
-    expect((await findWatch(env.DB, WATCH_ID))?.state).toBe("refused");
+    expect((await findWatch(env.DB, WATCH_ID))?.state).toEqual({ kind: "refused", refusals: 1, refusedAt: NOW });
     expect((await register({ watchId: OTHER_WATCH_ID })).status).toBe(401);
     expect(imap.sessions).toHaveLength(1);
-    await poll();
+  });
+
+  it("checks a refused login again when the app registers it a minute later, and watches once the server takes it", async () => {
+    server = inboxServer({ uidValidity: 7, uidNext: 100 }, "refused");
+    await register();
+    imap.sessions.length = 0;
+    expect((await registerAt(NOW + RECHECK_AFTER_MS)).status).toBe(401);
     expect(imap.sessions).toHaveLength(1);
+    expect((await findWatch(env.DB, WATCH_ID))?.state).toMatchObject({ kind: "refused", refusals: 2 });
+    server = inboxServer({ uidValidity: 7, uidNext: 104 });
+    expect((await registerAt(NOW + 2 * RECHECK_AFTER_MS)).status).toBe(204);
+    expect(await findWatch(env.DB, WATCH_ID)).toMatchObject({ state: { kind: "watching" }, inbox: { uidNext: 104 } });
   });
 
   it("answers 503 when the server can't be reached, so the app tries again", async () => {
@@ -262,19 +277,43 @@ describe("polling", () => {
     expect(apnsCalls.map((call) => call.url.split("/").pop()).sort()).toEqual([DEVICE, OTHER_DEVICE]);
   });
 
-  it("stops logging in once the server refuses the login, until the app sends another", async () => {
+  it("tries a refused login again later, waiting longer each time", async () => {
     await register();
     server = inboxServer({ uidValidity: 7, uidNext: 100 }, "refused");
     await poll();
-    expect((await findWatch(env.DB, WATCH_ID))?.state).toBe("refused");
+    expect((await findWatch(env.DB, WATCH_ID))?.state).toEqual({ kind: "refused", refusals: 1, refusedAt: NOW });
     imap.sessions.length = 0;
+    await poll(NOW + 60_000);
+    expect(imap.sessions).toHaveLength(0);
+    await poll(NOW + 5 * 60_000);
+    expect(imap.sessions).toHaveLength(1);
+    expect((await findWatch(env.DB, WATCH_ID))?.state).toMatchObject({ kind: "refused", refusals: 2 });
+    await poll(NOW + 10 * 60_000);
+    expect(imap.sessions).toHaveLength(1);
+    await poll(NOW + 20 * 60_000);
+    expect(imap.sessions).toHaveLength(2);
+  });
+
+  it("watches again once the server takes a refused login, alerting for mail that arrived meanwhile", async () => {
+    await register();
+    server = inboxServer({ uidValidity: 7, uidNext: 100 }, "refused");
     await poll();
-    expect(imap.sessions).toHaveLength(0);
-    expect((await register()).status).toBe(401);
-    expect(imap.sessions).toHaveLength(0);
+    server = inboxServer({ uidValidity: 7, uidNext: 102 });
+    await poll(NOW + 5 * 60_000);
+    expect(await findWatch(env.DB, WATCH_ID)).toMatchObject({ state: { kind: "watching" }, inbox: { uidNext: 102 } });
+    expect(apnsCalls).toHaveLength(1);
+  });
+
+  it("puts every device's watch on a mailbox back to watching together", async () => {
+    await register();
+    await register({ watchId: OTHER_WATCH_ID, deviceToken: OTHER_DEVICE });
+    server = inboxServer({ uidValidity: 7, uidNext: 100 }, "refused");
+    await poll();
+    expect((await findWatch(env.DB, OTHER_WATCH_ID))?.state.kind).toBe("refused");
     server = inboxServer({ uidValidity: 7, uidNext: 100 });
-    expect((await register({ password: "new-app-password" })).status).toBe(204);
-    expect((await findWatch(env.DB, WATCH_ID))?.state).toBe("watching");
+    await poll(NOW + 5 * 60_000);
+    expect((await findWatch(env.DB, WATCH_ID))?.state.kind).toBe("watching");
+    expect((await findWatch(env.DB, OTHER_WATCH_ID))?.state.kind).toBe("watching");
   });
 
   it("alerts on the next check when APNs failed", async () => {

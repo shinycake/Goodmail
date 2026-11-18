@@ -13,12 +13,15 @@ import {
 import {
   canonicalLogin,
   findWatch,
-  isRefused,
   loginSealer,
+  loginState,
+  refusedAgain,
   removeWatch,
   renewWatch,
+  setLoginState,
   storeWatch,
   WATCH_LIFETIME_MS,
+  WATCHING,
   type WatchState,
 } from "./imap-watches";
 import { BadRequest, readJson } from "./shared";
@@ -57,10 +60,16 @@ function loginIn(body: Record<string, unknown>): ImapLogin {
 }
 
 /**
+ * A registration checks a refused login again once this long has passed since the server last refused it. Opening the
+ * app registers, so it brings a wrongly refused watch back, while a burst of registrations costs one login.
+ */
+export const RECHECK_AFTER_MS = 60_000;
+
+/**
  * Stores or renews a device's watch on an IMAP Inbox. A login the relay already watches with is renewed without
- * logging in, and one the server refused before, under any watch, is refused at once (401). A new or changed login is checked
- * by logging in, which also gives the Inbox's UIDs to compare later ones with: 401 when the server refuses it, 503
- * when the server can't be reached, so the app tries again. 403 when the watch ID is someone else's.
+ * logging in, and one the server refused under any watch within the last minute is refused at once (401). Any other
+ * login is checked by logging in, which also gives the Inbox's UIDs to compare later ones with: 401 when the server
+ * refuses it, 503 when the server can't be reached, so the app tries again. 403 when the watch ID is someone else's.
  */
 export async function registerWatch(
   request: Request,
@@ -84,12 +93,13 @@ export async function registerWatch(
   const loginHash = await sealer.hash(canonicalLogin(login));
   const existing = await findWatch(env.DB, watchId);
   if (existing && !sameHash(existing.secretHash, secretHash)) return new Response(null, { status: 403 });
-  if (existing?.loginHash === loginHash && existing.state === "watching") {
+  if (existing?.loginHash === loginHash && existing.state.kind === "watching") {
     await renewWatch(env.DB, watchId, account, device, expiresAt);
     return new Response(null, { status: 204 });
   }
-  // A refused login stays refused under any watch ID, since a device whose registration failed makes a new one.
-  if (await isRefused(env.DB, loginHash)) return new Response(null, { status: 401 });
+  // By login, not by watch: a device whose registration failed makes a new watch ID for the same login.
+  const known = await loginState(env.DB, loginHash);
+  if (known?.kind === "refused" && now < known.refusedAt + RECHECK_AFTER_MS) return new Response(null, { status: 401 });
 
   // Each check is a login at someone's server: a few a minute from one address is plenty for the app, and too few
   // to try passwords with.
@@ -97,14 +107,18 @@ export async function registerWatch(
   if (!(await env.IMAP_LOGIN_CHECKS.limit({ key: address })).success) return new Response(null, { status: 429 });
   let checked: { state: WatchState; inbox: InboxStatus };
   try {
-    checked = { state: "watching", inbox: await inboxStatus(login, open) };
+    checked = { state: WATCHING, inbox: await inboxStatus(login, open) };
   } catch (error) {
     if (!(error instanceof LoginRefused)) {
       console.warn(`IMAP check failed: ${error instanceof Error ? error.message : String(error)}`);
       return new Response(null, { status: 503 });
     }
-    // Kept, so the login is answered from here until it changes or the row lapses.
-    checked = { state: "refused", inbox: { uidValidity: 0, uidNext: 0 } };
+    // Kept, so the cron tries the login again later (`isDue`) and the next registrations are answered from here. A
+    // watch that was following this login keeps its place in the Inbox, for the mail that arrives meanwhile.
+    const refused = refusedAgain(known, now);
+    const inbox = existing?.loginHash === loginHash ? existing.inbox : { uidValidity: 0, uidNext: 0 };
+    checked = { state: refused, inbox };
+    console.warn(`IMAP login refused at registration (${refused.refusals} in a row): ${error.message}`);
   }
   const stored = await storeWatch(env.DB, {
     watchId,
@@ -117,7 +131,9 @@ export async function registerWatch(
     expiresAt,
   });
   if (!stored) return new Response(null, { status: 403 });
-  return new Response(null, { status: checked.state === "watching" ? 204 : 401 });
+  // The server's answer holds for every device watching with this login.
+  await setLoginState(env.DB, loginHash, checked.state);
+  return new Response(null, { status: checked.state.kind === "watching" ? 204 : 401 });
 }
 
 export async function unregisterWatch(request: Request, env: Env): Promise<Response> {

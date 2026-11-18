@@ -127,8 +127,10 @@ async function status(conversation: Conversation): Promise<InboxStatus> {
 }
 
 /**
- * Selects the Inbox read-only and idles in it until `deadline`, starting IDLE again every `renewMs`, reading the STATUS again whenever the server says the
- * Inbox grew (`* n EXISTS`). Returns at once when the server doesn't take IDLE.
+ * Selects the Inbox read-only and idles in it until `deadline`, starting IDLE again every `renewMs`, reading the
+ * STATUS again whenever mail arrived (`Conversation.arrivals`). An arrival counts whenever the server says it: while
+ * idling, or between two IDLE commands, where the server announces it only once and a wait for the next
+ * announcement would miss it. Returns at once when the server doesn't take IDLE.
  */
 async function idle(
   inbox: Inbox,
@@ -138,6 +140,7 @@ async function idle(
 ): Promise<void> {
   await inbox.examine();
   const { conversation } = inbox;
+  let seen = conversation.arrivals;
   while (Date.now() < deadline) {
     let tag;
     try {
@@ -146,16 +149,13 @@ async function idle(
       if (error instanceof CommandFailed) return;
       throw error;
     }
-    let arrived = false;
     const renewal = Math.min(deadline, Date.now() + renewMs);
-    for (let line = await conversation.lineBy(renewal); line !== undefined; line = await conversation.lineBy(renewal)) {
-      if (/^\* \d+ EXISTS\b/i.test(line)) {
-        arrived = true;
-        break;
-      }
-    }
+    while (conversation.arrivals === seen && (await conversation.lineBy(renewal)) !== undefined);
     await conversation.finish(tag, "DONE");
-    if (arrived) await onStatus(await status(conversation), inbox.fresh);
+    if (conversation.arrivals === seen) continue;
+    // Before the STATUS, so mail announced while it and the alert are under way starts the next round.
+    seen = conversation.arrivals;
+    await onStatus(await status(conversation), inbox.fresh);
   }
 }
 
@@ -315,6 +315,13 @@ class Conversation {
   private readonly decoder = new TextDecoder();
   private buffered = "";
   private pending: Promise<ReadableStreamReadResult<Uint8Array>> | undefined;
+  /** How many messages the selected mailbox holds, as the server last said (RFC 3501 §7.3.1, §7.4.1). */
+  private size = 0;
+  /**
+   * How many times the server said the selected mailbox grew, whichever command it said so during: a `* n EXISTS`
+   * above the count so far. A count the server only repeats, or one that fell with a `* n EXPUNGE`, is no arrival.
+   */
+  arrivals = 0;
 
   /** Tags carry on from `tagsSent` commands, as on the plain connection before STARTTLS. */
   constructor(
@@ -341,6 +348,7 @@ class Conversation {
       if (end >= 0) {
         const line = this.buffered.slice(0, end);
         this.buffered = this.buffered.slice(end + 2);
+        this.count(line);
         return line;
       }
       this.pending ??= this.reader.read();
@@ -355,6 +363,15 @@ class Conversation {
       if (result.done) throw new Error("IMAP server closed the connection");
       this.buffered += this.decoder.decode(result.value, { stream: true });
     }
+  }
+
+  /** Keeps `size` and `arrivals` up to date with a line the server sent. */
+  private count(line: string): void {
+    const [, number, change] = /^\* (\d+) (EXISTS|EXPUNGE)\b/i.exec(line) ?? [];
+    if (change?.toUpperCase() === "EXPUNGE") this.size = Math.max(0, this.size - 1);
+    if (change?.toUpperCase() !== "EXISTS") return;
+    if (Number(number) > this.size) this.arrivals++;
+    this.size = Number(number);
   }
 
   /** Sends `text` and reads to its tagged reply. Returns the untagged lines; throws `CommandFailed` for NO or BAD. */

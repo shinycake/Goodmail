@@ -124,6 +124,46 @@ describe("watchInbox", () => {
     expect(server.sessions).toHaveLength(1);
   });
 
+  it("notices mail the server announces between two IDLE commands", async () => {
+    statuses.length = 0;
+    const inbox = { uidValidity: 7, uidNext: 100 };
+    const plain = inboxServer(inbox);
+    let idles = 0;
+    const server = fakeImap(() => (tag, command) => {
+      if (command !== "IDLE" || ++idles !== 2) return plain(tag, command);
+      inbox.uidNext = 101;
+      return ["* 4 EXISTS", ...plain(tag, command)];
+    });
+    await watchInbox(ICLOUD, Date.now() + 5_500, record, server.connect, 1_000);
+    expect(statuses).toEqual([
+      { uidValidity: 7, uidNext: 100 },
+      { uidValidity: 7, uidNext: 101 },
+    ]);
+  });
+
+  it("reads the STATUS again only for mail that arrived, not for a count the server repeats", async () => {
+    statuses.length = 0;
+    const server = fakeImap(() => inboxServer({ uidValidity: 7, uidNext: 100 }));
+    const watching = watchInbox(ICLOUD, Date.now() + 4_500, record, server.connect);
+    await vi.waitUntil(() => server.sessions[0]?.lines.includes("g4 IDLE"));
+    server.announce("* 3 EXISTS");
+    await watching;
+    expect(statuses).toHaveLength(1);
+  });
+
+  it("counts mail that arrives after another message was removed, though the Inbox is no bigger", async () => {
+    statuses.length = 0;
+    const inbox = { uidValidity: 7, uidNext: 100 };
+    const server = fakeImap(() => inboxServer(inbox));
+    const watching = watchInbox(ICLOUD, Date.now() + 4_500, record, server.connect);
+    await vi.waitUntil(() => server.sessions[0]?.lines.includes("g4 IDLE"));
+    server.announce("* 1 EXPUNGE");
+    inbox.uidNext = 101;
+    server.announce("* 3 EXISTS");
+    await watching;
+    expect(statuses.at(-1)).toEqual({ uidValidity: 7, uidNext: 101 });
+  });
+
   it("starts IDLE again every renewal, so the connection never goes quiet for long", async () => {
     statuses.length = 0;
     const server = fakeImap(() => inboxServer({ uidValidity: 7, uidNext: 100 }));

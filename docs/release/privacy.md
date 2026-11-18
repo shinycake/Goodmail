@@ -64,7 +64,7 @@ Google here is the user's own mail provider, acting for the user. Data the app e
 - `devices`, `deliveries`, `push_times`: `HMAC-SHA256(lowercased email, EMAIL_HMAC_SECRET)`, APNs tokens, the newest Gmail history ID pushed, and when the last push went out.
 - `gmail_grants`: the refresh token, AES-GCM encrypted, and an HMAC of it to recognize it when sent again.
 - `graph_subscriptions`: the subscription ID, a SHA-256 of its secret, the app's opaque account ID, the device token and the expiry.
-- `imap_watches`: the login (server, user name and password) as AES-GCM encrypted JSON, an HMAC of it, a SHA-256 of the watch secret, the app's account ID, the device token, the Inbox's UIDVALIDITY and UIDNEXT, and whether the server refused the login.
+- `imap_watches`: the login (server, user name and password) as AES-GCM encrypted JSON, an HMAC of it, a SHA-256 of the watch secret, the app's account ID, the device token, the Inbox's UIDVALIDITY and UIDNEXT, and whether the server refused the login, how many times in a row and when.
 - `attest_keys`: each install's App Attest public key, its environment, its newest counter and when it was last used, so only the genuine app can register (`src/attest-routes.ts`). A key names no person or account. `attest_challenges` holds one-time challenges for 5 minutes.
 - No addresses in the clear and no mail. The ID token is verified and dropped.
 - **Encryption:** the AES-GCM keys are derived with HKDF from the Worker secret `EMAIL_HMAC_SECRET`, one key per kind of secret. A copy of the database alone reveals no token or password. Someone who controls the Cloudflare account, or Cloudflare itself, could run code with the secret and decrypt them. D1 is also encrypted at rest by Cloudflare.
@@ -72,7 +72,7 @@ Google here is the user's own mail provider, acting for the user. Data the app e
 **What it does with the credentials**
 
 - Gmail: refreshes an access token and lists history since the last notification (`messageAdded`, Inbox only), to stay silent when nothing new reached the Inbox.
-- iCloud/IMAP: every 5 minutes it logs in, reads `STATUS INBOX (UIDNEXT UIDVALIDITY)`, selects the Inbox read-only and holds IDLE until the next run. It never fetches a message, a header or a flag. A refused login is never tried again until the device sends a different one.
+- iCloud/IMAP: every 5 minutes it logs in, reads `STATUS INBOX (UIDNEXT UIDVALIDITY)`, selects the Inbox read-only and holds IDLE until the next run. When UIDNEXT grew, it fetches the From and Subject headers and the flags of what arrived, for the alert, and never a body. A refused login is tried again at the next run, then after about 15 minutes, an hour, and every 6 hours.
 
 **What it sends**
 
@@ -81,9 +81,9 @@ Google here is the user's own mail provider, acting for the user. Data the app e
 
 **What it logs**
 
-- `console.warn` lines: the APNs status and reason, and why a Gmail or IMAP check failed (fixed messages or the server's own error text, such as `IMAP NO [UNAVAILABLE]`). No token, password, address or account ID.
+- `console.warn` and `console.log` lines: the APNs status and reason, why a Gmail or IMAP check failed (fixed messages or the server's own error text, such as `IMAP NO [UNAVAILABLE]`), when an IMAP run ended, and for each IMAP alert or refused login the first 8 characters of the watch's ID. No token, password, address, account ID, sender or subject.
 - Thrown errors reach the Workers runtime log. Their messages are fixed strings with no request data.
-- `wrangler.toml` doesn't turn on Workers Logs or Logpush, so nothing is retained. `wrangler tail` shows live requests to the owner only, and the URLs carry no personal data.
+- `wrangler.toml` turns on Workers Logs, which keeps these lines and each request's route, status and outcome for a few days, readable by the owner only. Without them nobody could tell why iCloud alerts had stopped (2026-11-17). Logpush is off. The URLs carry no personal data.
 
 **Retention**
 
