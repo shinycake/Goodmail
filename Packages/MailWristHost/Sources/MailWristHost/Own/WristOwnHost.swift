@@ -2,6 +2,11 @@ public import Foundation
 public import MailCore
 public import MailStore
 public import MailWrist
+import Synchronization
+
+#if canImport(FoundationNetworking)
+    public import FoundationNetworking  // URLSession on Linux
+#endif
 
 /// The watch's own mail (ADR-023): a database of its own, one engine per Gmail or Outlook account it reads itself,
 /// each keeping the newest `inboxLimit` Inbox conversations. It follows the iPhone's account list, syncs, and says
@@ -14,12 +19,19 @@ public actor WristOwnHost {
     let signIns: WristSignIns
     private let provider: @Sendable (WristAccount) throws -> (any MailProvider)?
     let now: @Sendable () -> Date
+    let commands: MailCommands
+    let answers: ThreadAnswers
+    let uploads: InlineUploads
+    /// Where a send's upload body waits until its outcome is in.
+    private let uploadFiles: URL
+    /// The providers of `served`, for the reads that can't wait for the actor.
+    private let shelf = ProviderShelf()
     /// The iPhone's accounts, in its order.
     var accounts: [WristAccount] = []
     /// The owner's switch, as the iPhone last said it.
     var independence = WristIndependence.default
-    /// The engines of the accounts whose provider could be made, which are those whose sign-in is here.
-    var engines: [AccountID: SyncEngine] = [:]
+    /// The accounts the watch reads itself: those whose provider could be made, which are those whose sign-in is here.
+    var served: [AccountID: Served] = [:]
     /// How each account's syncs went.
     var health: [AccountID: AccountHealth] = [:]
     /// The catch-up in progress, which a second caller joins.
@@ -28,15 +40,23 @@ public actor WristOwnHost {
     /// - Parameters:
     ///   - database: the watch app's own database, in its own container.
     ///   - provider: the account's client, or `nil` when its sign-in isn't here (`WristProviders.provider(for:)`).
+    ///   - uploads: the folder where a Gmail send's body waits for its upload.
+    ///   - http: what a Gmail send is uploaded through.
     public init(
         database: MailDatabase, signIns: WristSignIns,
-        provider: @escaping @Sendable (WristAccount) throws -> (any MailProvider)?,
-        now: @escaping @Sendable () -> Date = { .now }
+        provider: @escaping @Sendable (WristAccount) throws -> (any MailProvider)?, uploads: URL,
+        http: any HTTPClient = URLSession.shared, now: @escaping @Sendable () -> Date = { .now }
     ) {
         self.database = database
         self.signIns = signIns
         self.provider = provider
         self.now = now
+        uploadFiles = uploads
+        self.uploads = InlineUploads(http: http)
+        // The host drains the queues itself, after each command and before each sync, so none is left unowned.
+        let commands = MailCommands(store: database, replay: { _ in }, now: now)
+        self.commands = commands
+        answers = ThreadAnswers(database: database, commands: commands, provider: shelf.provider(for:))
     }
 
     /// Each of the iPhone's accounts' source: direct once the watch has filled it, the iPhone otherwise.
@@ -59,8 +79,10 @@ public actor WristOwnHost {
     /// still finds them. A failed sync is kept in the account's health; it throws only what the database threw.
     public func sync() async throws {
         guard independence == .on else { return }
-        for id in engines.keys { try database.pruneOutsideInbox(account: id) }
-        await run(on: readable()) { engine in try await engine.sync() }
+        for id in served.keys { try database.pruneOutsideInbox(account: id) }
+        serve()
+        await drainQueues()
+        await run { engine in try await engine.sync() }
     }
 
     /// Fetches what changed since each filled account's cursor, as a background refresh does: no resync, no labels.
@@ -75,24 +97,36 @@ public actor WristOwnHost {
 
     private func runCatchUp() async {
         guard independence == .on else { return }
-        await run(on: readable()) { engine in _ = try await engine.catchUp() }
+        serve()
+        await drainQueues()
+        await run { engine in _ = try await engine.catchUp() }
     }
 
-    /// The engines of the accounts the watch can read, made for any whose sign-in arrived since.
-    private func readable() -> [AccountID: SyncEngine] {
-        for account in accounts where engines[account.id] == nil && WristSignIns.client(for: account) != nil {
+    /// Starts serving the accounts whose sign-in arrived since.
+    func serve() {
+        for account in accounts where served[account.id] == nil && WristSignIns.client(for: account) != nil {
             guard let provider = try? provider(account) else { continue }
-            engines[account.id] = SyncEngine(
-                accountID: account.id, provider: provider, store: database,
-                scope: .inboxHead(limit: Self.inboxLimit), now: now)
+            shelf.put(provider, for: account.id)
+            served[account.id] = Served(
+                engine: SyncEngine(
+                    accountID: account.id, provider: provider, store: database,
+                    scope: .inboxHead(limit: Self.inboxLimit), now: now),
+                outbox: Outbox(accountID: account.id, provider: provider, store: database, now: now),
+                sender: Sender(
+                    accountID: account.id, provider: provider, store: database, transport: uploads,
+                    uploads: uploadFiles, now: now))
         }
-        return engines
     }
 
-    /// Runs `step` on every engine at once and keeps how each went.
-    private func run(
-        on engines: [AccountID: SyncEngine], _ step: @escaping @Sendable (SyncEngine) async throws -> Void
-    ) async {
+    /// Stops serving an account, as when it leaves the watch.
+    func stopServing(_ account: AccountID) {
+        served[account] = nil
+        shelf.put(nil, for: account)
+    }
+
+    /// Runs `step` on every served account's engine at once and keeps how each went.
+    private func run(_ step: @escaping @Sendable (SyncEngine) async throws -> Void) async {
+        let engines = served.mapValues(\.engine)
         let outcomes = await withTaskGroup(of: (AccountID, Result<Void, any Error>).self) { group in
             for (id, engine) in engines {
                 group.addTask {
@@ -107,7 +141,7 @@ public actor WristOwnHost {
             return await group.reduce(into: [:]) { $0[$1.0] = $1.1 }
         }
         let date = now()
-        for (id, outcome) in outcomes where self.engines[id] != nil {
+        for (id, outcome) in outcomes where served[id] != nil {
             health[id] = (health[id] ?? .healthy).after(outcome, at: date)
         }
     }
@@ -123,5 +157,34 @@ extension MailDatabase {
                 accounts: glance.accounts, threads: glance.threads, pinned: glance.pinned, unread: glance.unread,
                 madeAt: now())
         }
+    }
+}
+
+/// What the watch keeps for an account it reads itself.
+struct Served {
+    let engine: SyncEngine
+    let outbox: Outbox
+    let sender: Sender
+}
+
+/// The providers of the served accounts, readable from anywhere, as `ThreadAnswers` needs.
+private final class ProviderShelf: Sendable {
+    private let providers = Mutex<[AccountID: any MailProvider]>([:])
+
+    func put(_ provider: (any MailProvider)?, for account: AccountID) {
+        providers.withLock { $0[account] = provider }
+    }
+
+    func provider(for account: AccountID) throws -> any MailProvider {
+        guard let provider = providers.withLock({ $0[account] }) else { throw ProviderError.notFound }
+        return provider
+    }
+}
+
+extension MailDatabase {
+    /// A stream's current value, without following it.
+    func firstValue<Element>(of stream: AsyncThrowingStream<[Element], any Error>) async throws -> [Element] {
+        for try await value in stream { return value }
+        return []
     }
 }

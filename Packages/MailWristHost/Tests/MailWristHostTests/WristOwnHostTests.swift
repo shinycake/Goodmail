@@ -35,7 +35,9 @@ struct WristOwnHostTests {
     private func host() -> WristOwnHost {
         WristOwnHost(
             database: database, signIns: WristSignIns(device: MemoryKeychain(), shared: shared),
-            provider: { [provider] _ in provider }, now: { Self.now })
+            provider: { [provider] _ in provider },
+            uploads: FileManager.default.temporaryDirectory.appending(path: "Uploads-\(UUID().uuidString)"),
+            now: { Self.now })
     }
 
     /// The threads of the watch's own Inbox snapshot.
