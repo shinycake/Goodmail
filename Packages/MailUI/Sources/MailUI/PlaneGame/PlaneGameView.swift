@@ -34,7 +34,8 @@ struct PlaneGameView: View {
             VStack(spacing: 0) {
                 PlaneGameHUD(
                     lives: model.world.lives, score: model.world.score, mailWaiting: model.mailWaiting,
-                    mailArrivals: model.mailArrivals, pause: model.pause, exit: model.exit)
+                    mailArrivals: model.mailArrivals, canPause: model.canPause, pause: model.pause,
+                    exit: model.exit)
                 if let boss = model.world.boss {
                     PlaneGameBossMeter(line: PlaneGameBossLine(boss: boss, reduceMotion: model.reduceMotion))
                 }

@@ -87,7 +87,10 @@ import UIKit
 
     /// How much of "Drag to fly" shows: it comes in with the HUD and goes once the plane moves, or after a while.
     var hint: Double {
-        guard case .flying(.takeoff) = phase else { return 0 }
+        switch phase {
+        case .flying(.takeoff), .paused(.takeoff): break
+        case .flying(.again), .paused(.again), .over, .leaving, .gone: return 0
+        }
         let goes = min(steeredAt ?? .infinity, PlaneGameTakeoff.duration + Self.hintStays)
         return takeoff.hud * (1 - PlaneGameEasing.ramp(clock, from: goes, to: goes + 0.3))
     }
@@ -130,7 +133,8 @@ import UIKit
     /// A finger is down and has moved `sideways` points to the right of where it touched. Only the sideways
     /// movement steers: the plane keeps its height.
     func touch(sideways: CGFloat) {
-        let last = if case .down(let last) = finger { last } else { CGFloat(0) }
+        // A finger the game didn't see touch down, as one still on the glass after a pause, starts from where it is.
+        let last = if case .down(let last) = finger { last } else { sideways }
         let moved = sideways - last
         finger = .down(sideways)
         slide += moved
@@ -144,21 +148,27 @@ import UIKit
 
     /// Holds the game still until `resume()`. The takeoff plays out first, and only a game in play pauses.
     func pause() {
+        guard canPause, case .flying(let opening) = phase else { return }
+        phase = .paused(opening)
+    }
+
+    /// Whether `pause()` does anything now, which is when the pause sign shows.
+    var canPause: Bool {
         switch phase {
-        case .flying(.takeoff) where !takeoff.isDone:
-            return
-        case .flying(let opening):
-            phase = .paused(opening)
-        case .paused, .over, .leaving, .gone:
-            return
+        case .flying(.takeoff): takeoff.isDone
+        case .flying(.again): true
+        case .paused, .over, .leaving, .gone: false
         }
     }
 
     /// Carries on from the pause.
     func resume() {
         guard case .paused(let opening) = phase else { return }
-        // A drag over the card steered nothing, so the plane doesn't start with it.
+        // A drag over the card steered nothing, so the plane doesn't start with it. A finger that was down when the
+        // game paused may have been taken away by the system without lifting, so the fire stops until a finger moves,
+        // and one still down steers from wherever it is then.
         slide = 0
+        finger = .up
         phase = .flying(opening)
     }
 

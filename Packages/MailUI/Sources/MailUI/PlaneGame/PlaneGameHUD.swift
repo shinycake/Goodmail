@@ -9,6 +9,8 @@ struct PlaneGameHUD: View {
     let score: Int
     let mailWaiting: Int
     let mailArrivals: Int
+    /// Whether the pause sign shows: only while the game is in play, where it does something.
+    let canPause: Bool
     let pause: () -> Void
     let exit: () -> Void
     @Environment(\.colorScheme) private var colorScheme
@@ -39,7 +41,13 @@ struct PlaneGameHUD: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(
-                Text("Pause", tableName: "PlaneGame", bundle: .module, comment: "Pauses the paper plane game"))
+                Text("Pause", tableName: "PlaneGame", bundle: .module, comment: "Pauses the paper plane game")
+            )
+            // Kept in the row when hidden, so nothing beside it shifts as it comes and goes.
+            .opacity(canPause ? 1 : 0)
+            .disabled(!canPause)
+            .accessibilityHidden(!canPause)
+            .animation(.easeOut(duration: 0.2), value: canPause)
             Button(action: exit) {
                 DoodleOutline(shape: .cross)
                     .stroke(washed[PlaneGameArt.pink], style: DoodleField.line)

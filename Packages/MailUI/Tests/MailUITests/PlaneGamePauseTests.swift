@@ -120,6 +120,55 @@ struct PlaneGamePauseTests {
         #expect(model.mailArrivals == 1)
     }
 
+    @Test func theHintStaysAsItWasUnderThePauseCard() throws {
+        let model = try playing(takeoff: PlaneGameTakeoff.duration + 1)
+        let hint = model.hint
+        try #require(hint > 0)
+        model.pause()
+        #expect(model.hint == hint)
+        model.resume()
+        #expect(model.hint == hint)
+    }
+
+    @Test func aFingerLostWhileTheGameWasPausedStopsFiringOnceItCarriesOn() throws {
+        let model = try playing()
+        // The system cancels a drag when the app goes inactive, and the end of the touch never arrives.
+        model.touch(sideways: 0)
+        model.pause()
+        model.resume()
+        let shots = model.world.shots.count
+        run(model, for: 1)
+        #expect(model.world.shots.count <= shots)
+    }
+
+    @Test func aDragStillGoingOnAfterAResumeSteersFromWhereItIsWithoutAJump() throws {
+        let model = try playing()
+        model.touch(sideways: 0)
+        model.touch(sideways: 40)
+        model.tick(by: 1.0 / 60)
+        let x = model.world.plane.position.x
+        model.pause()
+        model.resume()
+        model.touch(sideways: 50)
+        model.tick(by: 1.0 / 60)
+        #expect(model.world.plane.position.x == x)
+        model.touch(sideways: 60)
+        model.tick(by: 1.0 / 60)
+        #expect(abs(model.world.plane.position.x - (x + 10)) < 0.0001)
+    }
+
+    @Test func thePauseIsOnOfferOnlyWhileTheGameIsInPlay() throws {
+        let model = try playing(takeoff: 0.5)
+        #expect(!model.canPause)
+        run(model, for: PlaneGameTakeoff.duration)
+        #expect(model.canPause)
+        model.pause()
+        #expect(!model.canPause)
+        model.resume()
+        model.exit()
+        #expect(!model.canPause)
+    }
+
     @Test func aPausedGameDrawsWhatWasInPlay() throws {
         let model = try playing()
         let look = model.look
