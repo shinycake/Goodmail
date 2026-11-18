@@ -1,4 +1,5 @@
 import { base64Decode, base64UrlEncode, encodeUtf8 } from "./encoding";
+import type { Env } from "./env";
 import { alertPayload, type NewMail, type Target } from "./new-mail";
 
 export type ApnsEnvironment = "sandbox" | "production";
@@ -88,4 +89,19 @@ async function sendPayload(signer: ApnsSigner, device: Device, payload: object):
   if (response.status === 410 || reason === "BadDeviceToken") return "gone";
   console.warn(`APNs ${response.status} ${reason ?? ""}`.trim());
   return "failed";
+}
+
+/** Shared by everything this isolate does, so the APNs token is signed rarely. */
+let apnsSigner: ApnsSigner | undefined;
+
+/** The isolate's signer, rebuilt only when the APNs secrets change. */
+export function signerFor(env: Env): ApnsSigner {
+  const config: ApnsConfig = {
+    keyId: env.APNS_KEY_ID,
+    teamId: env.APNS_TEAM_ID,
+    privateKey: env.APNS_PRIVATE_KEY,
+    topic: env.APNS_TOPIC,
+  };
+  if (!apnsSigner || JSON.stringify(apnsSigner.config) !== JSON.stringify(config)) apnsSigner = new ApnsSigner(config);
+  return apnsSigner;
 }

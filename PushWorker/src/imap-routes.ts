@@ -113,7 +113,7 @@ export async function registerWatch(
       console.warn(`IMAP check failed: ${error instanceof Error ? error.message : String(error)}`);
       return new Response(null, { status: 503 });
     }
-    // Kept, so the cron tries the login again later (`isDue`) and the next registrations are answered from here. A
+    // Kept, so the login is tried again later (`isDue`) and the next registrations are answered from here. A
     // watch that was following this login keeps its place in the Inbox, for the mail that arrives meanwhile.
     const refused = refusedAgain(known, now);
     const inbox = existing?.loginHash === loginHash ? existing.inbox : { uidValidity: 0, uidNext: 0 };

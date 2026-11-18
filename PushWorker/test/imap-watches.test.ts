@@ -2,6 +2,7 @@ import { env } from "cloudflare:test";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApnsSigner } from "../src/apns";
 import type { Env } from "../src/index";
+import { InboxWatches, MOST_AT_ONCE } from "../src/inbox-watches";
 import { pollWatches } from "../src/imap-poll";
 import { findWatch, WATCH_LIFETIME_MS } from "../src/imap-watches";
 import { RECHECK_AFTER_MS, registerWatch, unregisterWatch } from "../src/imap-routes";
@@ -340,5 +341,85 @@ describe("polling", () => {
     await register();
     await poll(NOW + WATCH_LIFETIME_MS + 1);
     expect(await findWatch(env.DB, WATCH_ID)).toBeUndefined();
+  });
+});
+
+describe("holding the Inboxes", () => {
+  const idling = (session: number) => () => imap.sessions[session]?.lines.some((line) => line.endsWith(" IDLE"));
+  const holding = (watchMs: number, restMs = 0) => new InboxWatches(testEnv, signer, imap.connect, { watchMs, restMs });
+
+  it("watches a due mailbox on one connection, alerting as soon as the server announces mail", async () => {
+    await register();
+    const inbox = { uidValidity: 7, uidNext: 100 };
+    server = inboxServer(inbox);
+    imap.sessions.length = 0;
+    const started = await holding(4_500).start(NOW);
+    await vi.waitUntil(idling(0));
+    inbox.uidNext = 101;
+    imap.announce("* 4 EXISTS");
+    await vi.waitUntil(() => apnsCalls.length === 1);
+    await Promise.all(started);
+    expect(imap.sessions).toHaveLength(1);
+  });
+
+  it("leaves a mailbox it is watching alone, and watches it again once that watch has ended", async () => {
+    await register();
+    imap.sessions.length = 0;
+    const watches = holding(4_500);
+    const started = await watches.start(NOW);
+    expect(await watches.start(NOW)).toHaveLength(0);
+    await Promise.all(started);
+    await Promise.all(await watches.start(NOW));
+    expect(imap.sessions).toHaveLength(2);
+  });
+
+  it("alerts a device that started watching the mailbox after the connection was opened", async () => {
+    await register();
+    const inbox = { uidValidity: 7, uidNext: 100 };
+    server = inboxServer(inbox);
+    imap.sessions.length = 0;
+    const started = await holding(4_500).start(NOW);
+    await vi.waitUntil(idling(0));
+    await register({ watchId: OTHER_WATCH_ID, deviceToken: OTHER_DEVICE });
+    inbox.uidNext = 101;
+    imap.announce("* 4 EXISTS");
+    await Promise.all(started);
+    expect(apnsCalls.map((call) => call.url.split("/").pop()).sort()).toEqual([DEVICE, OTHER_DEVICE]);
+  });
+
+  it("gives every mailbox a turn when there are more than it watches at once", async () => {
+    const logins = Array.from({ length: MOST_AT_ONCE + 1 }, (_, index) => `someone${index}@icloud.com`);
+    for (const [index, username] of logins.entries()) {
+      const watchId = `${index}${WATCH_ID.slice(1)}`;
+      expect((await register({ watchId, username }, `198.51.100.${index}`)).status).toBe(204);
+    }
+    imap.sessions.length = 0;
+    const watches = holding(0);
+    await Promise.all(await watches.start(NOW));
+    await Promise.all(await watches.start(NOW));
+    const watched = imap.sessions.map((session) => session.login.username);
+    expect(watched).toHaveLength(2 * MOST_AT_ONCE);
+    expect(new Set(watched)).toEqual(new Set(logins));
+  });
+
+  it("lets a mailbox rest before logging in again when its watch ended early", async () => {
+    await register();
+    imap.sessions.length = 0;
+    const watches = holding(0, 60_000);
+    await Promise.all(await watches.start(NOW));
+    expect(await watches.start(NOW)).toHaveLength(0);
+    expect(imap.sessions).toHaveLength(1);
+  });
+
+  it("waits out a refused login as the cron run does", async () => {
+    await register();
+    server = inboxServer({ uidValidity: 7, uidNext: 100 }, "refused");
+    const watches = holding(0);
+    await Promise.all(await watches.start(NOW));
+    expect((await findWatch(env.DB, WATCH_ID))?.state).toEqual({ kind: "refused", refusals: 1, refusedAt: NOW });
+    expect(await watches.start(NOW + 60_000)).toHaveLength(0);
+    const again = await watches.start(NOW + 5 * 60_000);
+    expect(again).toHaveLength(1);
+    await Promise.all(again);
   });
 });

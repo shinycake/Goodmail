@@ -15,9 +15,9 @@ export type Refused = { kind: "refused"; refusals: number; refusedAt: number };
 export const WATCHING: WatchState = { kind: "watching" };
 
 /**
- * How long after each refusal in a row the login is tried again: the next cron run, then about a quarter of an hour,
- * an hour, and every six hours from then on. Each is a minute short of the round time, so the cron run at that mark
- * takes it. A wrong password is tried a few times a day at most, which locks no account.
+ * How long after each refusal in a row the login is tried again: about 5 minutes, a quarter of an hour, an hour, and
+ * every six hours from then on. Each is a minute short of the round time, so a cron run at that mark takes it when
+ * the cron does the watching. A wrong password is tried a few times a day at most, which locks no account.
  */
 const RETRY_AFTER_MS = [4, 14, 59].map((minutes) => minutes * 60_000);
 const LAST_RETRY_AFTER_MS = 359 * 60_000;
@@ -27,7 +27,7 @@ export function refusedAgain(state: WatchState | undefined, now: number): Refuse
   return { kind: "refused", refusals: (state?.kind === "refused" ? state.refusals : 0) + 1, refusedAt: now };
 }
 
-/** Whether a cron run at `now` logs in with a login in this state. */
+/** Whether a check at `now` logs in with a login in this state. */
 export function isDue(state: WatchState, now: number): boolean {
   if (state.kind === "watching") return true;
   return now >= state.refusedAt + (RETRY_AFTER_MS[state.refusals - 1] ?? LAST_RETRY_AFTER_MS);
@@ -141,13 +141,29 @@ export async function removeWatch(db: D1Database, watchId: string, secretHash: s
   await db.prepare("DELETE FROM imap_watches WHERE watch_id = ?1 AND secret_hash = ?2").bind(watchId, secretHash).run();
 }
 
-/** Drops lapsed watches, then returns the ones to look at now: those watching, and refused ones due another try. */
-export async function watchesDue(db: D1Database, now: number): Promise<ImapWatch[]> {
+/** A login the relay watches an Inbox with, and its state, which every watch on it shares (`setLoginState`). */
+export type WatchedLogin = Pick<ImapWatch, "login" | "loginHash" | "state">;
+
+/**
+ * Drops lapsed watches, then returns the logins to look at now, each once however many devices watch with it: those
+ * watching, and refused ones due another try.
+ */
+export async function loginsDue(db: D1Database, now: number): Promise<WatchedLogin[]> {
   const [, selected] = await db.batch<Row>([
     db.prepare("DELETE FROM imap_watches WHERE expires_at < ?1").bind(now),
     db.prepare("SELECT * FROM imap_watches"),
   ]);
-  return (selected?.results ?? []).map(watch).filter((found) => isDue(found.state, now));
+  const logins = new Map<string, WatchedLogin>();
+  for (const found of (selected?.results ?? []).map(watch)) {
+    if (isDue(found.state, now) && !logins.has(found.loginHash)) logins.set(found.loginHash, found);
+  }
+  return [...logins.values()];
+}
+
+/** Every device's watch on the Inbox of one login. */
+export async function watchesOn(db: D1Database, loginHash: string): Promise<ImapWatch[]> {
+  const { results } = await db.prepare("SELECT * FROM imap_watches WHERE login_hash = ?1").bind(loginHash).all<Row>();
+  return results.map(watch);
 }
 
 /**

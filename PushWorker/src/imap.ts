@@ -34,7 +34,10 @@ export const connectToServer: Connect = (login) =>
     { secureTransport: login.security === "tls" ? "on" : "starttls", allowHalfOpen: false },
   );
 
-/** Setting up, from the greeting to the first STATUS, gets this long; so does logging out after watching. */
+/**
+ * Setting up, from the greeting to the first STATUS, gets this long; so does logging out after watching, and so does
+ * the server for each line of a reply.
+ */
 const TIMEOUT_MS = 20_000;
 /** Watching stops this long before its deadline, to leave time to log out before the next check starts. */
 const IDLE_MARGIN_MS = 3_000;
@@ -43,6 +46,14 @@ const IDLE_MARGIN_MS = 3_000;
  * run (seen on iCloud from Workers, 2026-11-16), so the watch renews well before that.
  */
 const IDLE_RENEW_MS = 120_000;
+
+/** How a watch paces itself. Tests pass shorter times. */
+export interface Pace {
+  /** How often IDLE is ended and started again. */
+  renewMs: number;
+  /** How long the server gets for each line of a reply before the connection is given up. */
+  replyMs: number;
+}
 
 /**
  * Logs in and reads the Inbox's STATUS: one short conversation, so the relay holds no connection between checks.
@@ -69,15 +80,16 @@ export async function inboxStatus(login: ImapLogin, open: Connect = connectToSer
  * each time the server announces new mail, it reads the STATUS again and hands it over at once, so an alert goes out
  * within seconds. One login covers the whole time, and waiting costs the Worker no CPU. A server without IDLE gets the
  * first STATUS only. Throws as `inboxStatus` does, for the login or the first STATUS; a connection lost while
- * watching just ends the watch, since the next check logs in again.
+ * watching, or a server that stopped answering, just ends the watch, since the next check logs in again.
  */
 export async function watchInbox(
   login: ImapLogin,
   until: number,
   onStatus: (status: InboxStatus, fresh: FreshMail) => Promise<void>,
   open: Connect = connectToServer,
-  renewMs = IDLE_RENEW_MS,
+  pace: Partial<Pace> = {},
 ): Promise<void> {
+  const { renewMs, replyMs }: Pace = { renewMs: IDLE_RENEW_MS, replyMs: TIMEOUT_MS, ...pace };
   const deadline = until - IDLE_MARGIN_MS;
   let socket = open(login);
   const timers: ReturnType<typeof setTimeout>[] = [];
@@ -88,14 +100,14 @@ export async function watchInbox(
   try {
     const inbox = await Promise.race([
       (async () => {
-        let conversation = new Conversation(socket);
+        let conversation = new Conversation(socket, replyMs);
         const greeting = await conversation.line();
         if (!/^\* (OK|PREAUTH)\b/i.test(greeting)) throw new Error("IMAP server didn't greet");
         if (login.security === "startTLS") {
           await conversation.command("STARTTLS");
           conversation.release();
           socket = socket.startTls();
-          conversation = new Conversation(socket, conversation.tagsSent);
+          conversation = new Conversation(socket, replyMs, conversation.tagsSent);
         }
         if (!/^\* PREAUTH\b/i.test(greeting)) await logIn(conversation, login);
         const inbox = new Inbox(conversation);
@@ -323,18 +335,23 @@ class Conversation {
    */
   arrivals = 0;
 
-  /** Tags carry on from `tagsSent` commands, as on the plain connection before STARTTLS. */
+  /**
+   * The server gets `replyMs` for each line of a reply. Tags carry on from `tagsSent` commands, as on the plain
+   * connection before STARTTLS.
+   */
   constructor(
     socket: Socket,
+    private readonly replyMs: number,
     public tagsSent = 0,
   ) {
     this.reader = socket.readable.getReader();
     this.writer = socket.writable.getWriter();
   }
 
+  /** The next line of a reply the server owes. One that doesn't come in time means the server has gone quiet. */
   async line(): Promise<string> {
-    const line = await this.lineBy(Infinity);
-    if (line === undefined) throw new Error("IMAP server sent no line");
+    const line = await this.lineBy(Date.now() + this.replyMs);
+    if (line === undefined) throw new Error("IMAP server timed out");
     return line;
   }
 
@@ -352,12 +369,10 @@ class Conversation {
         return line;
       }
       this.pending ??= this.reader.read();
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      const late = new Promise<"late">((resolve) => {
-        if (deadline !== Infinity) timer = setTimeout(() => resolve("late"), Math.max(0, deadline - Date.now()));
-      });
-      const result = await Promise.race([this.pending, late]);
-      if (timer !== undefined) clearTimeout(timer);
+      const late = Promise.withResolvers<"late">();
+      const timer = setTimeout(() => late.resolve("late"), Math.max(0, deadline - Date.now()));
+      const result = await Promise.race([this.pending, late.promise]);
+      clearTimeout(timer);
       if (result === "late") return undefined;
       this.pending = undefined;
       if (result.done) throw new Error("IMAP server closed the connection");

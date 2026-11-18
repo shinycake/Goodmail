@@ -1,10 +1,10 @@
-import { type ApnsConfig, type ApnsEnvironment, ApnsSigner, type PushOutcome, sendAlert } from "./apns";
+import { type ApnsEnvironment, type PushOutcome, sendAlert, signerFor } from "./apns";
 import { guardDevice, issueChallenge, registerKey } from "./attest-routes";
 import { base64Decode } from "./encoding";
 import type { Env } from "./env";
 import { TokenError, verifyIdToken, verifyPubSubToken } from "./google";
 import { forgetGrant, grantsFor, storeGrant } from "./grant-routes";
-import { pollWatches } from "./imap-poll";
+import { keepInboxesWatched } from "./inbox-holder";
 import { registerWatch, unregisterWatch } from "./imap-routes";
 import { OutlookGrantRevoked, OutlookGrants, refreshOutlookToken } from "./outlook";
 import { BadRequest, googleKeys, mailboxCheck, nowSeconds, outlookCheck, readJson } from "./shared";
@@ -27,9 +27,7 @@ import {
 import { forgetDeviceToken } from "./tokens";
 
 export type { Env } from "./env";
-
-/** Shared by every request this isolate serves, so the APNs token is signed rarely. */
-let apnsSigner: ApnsSigner | undefined;
+export { InboxHolder } from "./inbox-holder";
 
 const DEVICE_TOKEN = /^[0-9a-f]{64,200}$/i;
 const HISTORY_ID = /^\d{1,20}$/;
@@ -95,9 +93,9 @@ export default {
     }
   },
 
-  /** Every 5 minutes (wrangler.toml `[triggers]`): watches the IMAP Inboxes until the next run. */
+  /** Every 5 minutes (wrangler.toml `[triggers]`): sees that the IMAP Inboxes are being watched. */
   async scheduled(_controller: ScheduledController, env: Env, context: ExecutionContext): Promise<void> {
-    context.waitUntil(pollWatches(env, signerFor(env), Date.now()));
+    context.waitUntil(keepInboxesWatched(env, Date.now()));
   },
 } satisfies ExportedHandler<Env>;
 
@@ -316,16 +314,4 @@ async function decodeNotification(request: Request): Promise<{ emailAddress: str
   } catch {
     return undefined;
   }
-}
-
-/** The isolate's signer, rebuilt only when the APNs secrets change. */
-function signerFor(env: Env): ApnsSigner {
-  const config: ApnsConfig = {
-    keyId: env.APNS_KEY_ID,
-    teamId: env.APNS_TEAM_ID,
-    privateKey: env.APNS_PRIVATE_KEY,
-    topic: env.APNS_TOPIC,
-  };
-  if (!apnsSigner || JSON.stringify(apnsSigner.config) !== JSON.stringify(config)) apnsSigner = new ApnsSigner(config);
-  return apnsSigner;
 }

@@ -134,7 +134,7 @@ describe("watchInbox", () => {
       inbox.uidNext = 101;
       return ["* 4 EXISTS", ...plain(tag, command)];
     });
-    await watchInbox(ICLOUD, Date.now() + 5_500, record, server.connect, 1_000);
+    await watchInbox(ICLOUD, Date.now() + 5_500, record, server.connect, { renewMs: 1_000 });
     expect(statuses).toEqual([
       { uidValidity: 7, uidNext: 100 },
       { uidValidity: 7, uidNext: 101 },
@@ -167,11 +167,20 @@ describe("watchInbox", () => {
   it("starts IDLE again every renewal, so the connection never goes quiet for long", async () => {
     statuses.length = 0;
     const server = fakeImap(() => inboxServer({ uidValidity: 7, uidNext: 100 }));
-    await watchInbox(ICLOUD, Date.now() + 5_500, record, server.connect, 1_000);
+    await watchInbox(ICLOUD, Date.now() + 5_500, record, server.connect, { renewMs: 1_000 });
     const lines = server.sessions[0]?.lines ?? [];
     expect(lines.filter((line) => line.endsWith(" IDLE")).length).toBeGreaterThanOrEqual(2);
     expect(lines.filter((line) => line === "DONE").length).toBe(lines.filter((line) => line.endsWith(" IDLE")).length);
     expect(statuses).toHaveLength(1);
+  });
+
+  it("gives up on a server that stops answering, long before the watch's time is up", async () => {
+    statuses.length = 0;
+    const plain = inboxServer({ uidValidity: 7, uidNext: 100 });
+    const server = fakeImap(() => (tag, command) => (tag === "DONE" ? [] : plain(tag, command)));
+    const started = Date.now();
+    await watchInbox(ICLOUD, Date.now() + 60_000, record, server.connect, { renewMs: 500, replyMs: 500 });
+    expect(Date.now() - started).toBeLessThan(5_000);
   });
 
   it("gives only the first STATUS for a server without IDLE", async () => {

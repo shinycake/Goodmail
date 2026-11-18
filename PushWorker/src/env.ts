@@ -1,6 +1,10 @@
+import type { InboxHolder } from "./inbox-holder";
+
 /** Bindings from wrangler.toml (vars, D1 and the rate limit) plus the two secrets set with `wrangler secret put`. */
 export interface Env {
   DB: D1Database;
+  /** The Durable Object that keeps a connection open to each watched IMAP Inbox (inbox-holder.ts). */
+  INBOX_HOLDER: DurableObjectNamespace<InboxHolder>;
   /** The app's Microsoft client ID, which its Outlook refresh tokens are refreshed with. */
   OUTLOOK_CLIENT_ID: string;
   /** The iOS OAuth client ID; registration ID tokens must carry it as `aud`. */

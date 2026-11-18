@@ -12,16 +12,18 @@ import {
 import {
   advanceWatch,
   type ImapWatch,
+  loginsDue,
   loginSealer,
   refusedAgain,
   setLoginState,
-  watchesDue,
+  type WatchedLogin,
+  watchesOn,
   WATCHING,
 } from "./imap-watches";
 import { forgetDeviceToken } from "./tokens";
 
 /** Mailboxes watched at once. A Worker may hold six connections, and APNs needs one too. */
-const CONCURRENCY = 4;
+export const MOST_AT_ONCE = 4;
 
 /**
  * How long each run watches: the cron starts one every 5 minutes (wrangler.toml), and each holds IDLE until just
@@ -30,12 +32,10 @@ const CONCURRENCY = 4;
 export const WATCH_MS = 290_000;
 
 /**
- * The cron trigger's work: logs in to every watched Inbox once, alerts for mail that arrived since the last run, then
- * watches each with IDLE until `now + watchMs`, alerting as mail arrives. Each watching device is alerted when its
- * Inbox's UIDNEXT grew, as only new mail makes it (a read, flag, archive or delete never does). A changed UIDVALIDITY
- * renumbers the Inbox, so it is taken as the new start without alerting. Mailboxes beyond `CONCURRENCY` wait their
- * turn and are only checked once, if the time is up by then. A login the server refuses is tried again in a later
- * run (`isDue`), and watches again as soon as the server takes it.
+ * A cron run that watches the Inboxes itself, as every run did before the holder (inbox-holder.ts) and as one still
+ * does when the holder can't be reached: logs in to every watched Inbox once, then watches each (`watchMailbox`)
+ * until `now + watchMs`. Mailboxes beyond `MOST_AT_ONCE` wait their turn and are only checked once, if the time is up
+ * by then.
  */
 export async function pollWatches(
   env: Env,
@@ -45,58 +45,61 @@ export async function pollWatches(
   watchMs = WATCH_MS,
 ) {
   const until = Date.now() + watchMs;
-  const byLogin = new Map<string, ImapWatch[]>();
-  for (const watch of await watchesDue(env.DB, now)) {
-    byLogin.set(watch.loginHash, [...(byLogin.get(watch.loginHash) ?? []), watch]);
-  }
-  const groups = [...byLogin.values()];
-  const mailboxes = groups.length;
-  const workers = Array.from({ length: Math.min(CONCURRENCY, groups.length) }, async () => {
-    for (let group = groups.shift(); group; group = groups.shift()) {
-      await watchMailbox(env, signer, group, now, until, open);
+  const logins = await loginsDue(env.DB, now);
+  const mailboxes = logins.length;
+  const workers = Array.from({ length: Math.min(MOST_AT_ONCE, logins.length) }, async () => {
+    for (let login = logins.shift(); login; login = logins.shift()) {
+      await watchMailbox(env, signer, login, now, until, open);
     }
   });
   await Promise.all(workers);
   console.log(`IMAP run ended: ${mailboxes} mailboxes`);
 }
 
-/** Watches one mailbox, which every watch in `watches` shares the login and so the state of. `now` is the run's start. */
-async function watchMailbox(
+/**
+ * Logs in to one Inbox, alerts for mail that arrived since the last check, then watches it with IDLE until `until`,
+ * alerting as mail arrives. Each device watching with the login is alerted when its Inbox's UIDNEXT grew, as only new
+ * mail makes it (a read, flag, archive or delete never does). A changed UIDVALIDITY renumbers the Inbox, so it is
+ * taken as the new start without alerting. A login the server refuses is tried again later (`isDue`), and watches
+ * again as soon as the server takes it. `now` is when the check started.
+ */
+export async function watchMailbox(
   env: Env,
   signer: ApnsSigner,
-  watches: ImapWatch[],
+  login: WatchedLogin,
   now: number,
   until: number,
   open: Connect,
 ) {
-  const first = watches[0]!;
-  const sealed = await loginSealer(env.EMAIL_HMAC_SECRET).open(first.login);
+  const sealed = await loginSealer(env.EMAIL_HMAC_SECRET).open(login.login);
   if (sealed === undefined) return console.warn("An IMAP login couldn't be opened");
+  let state = login.state;
   try {
     const onStatus = async (inbox: InboxStatus, fresh: FreshMail) => {
-      if (first.state.kind === "refused") {
+      if (state.kind === "refused") {
         // The server took the login it refused before.
-        await setLoginState(env.DB, first.loginHash, WATCHING);
-        for (const watch of watches) watch.state = WATCHING;
-        console.log(`IMAP login taken again for watch ${label(first)}`);
+        await setLoginState(env.DB, login.loginHash, WATCHING);
+        state = WATCHING;
+        console.log(`IMAP login ${label(login.loginHash)} taken again`);
       }
-      // One at a time: the new-mail check talks over the one connection.
-      for (const watch of watches) await alert(env, signer, watch, inbox, fresh);
+      // Read each time: devices start and stop watching while the connection is held, and another check may have
+      // moved a watch. One at a time: the new-mail check talks over the one connection.
+      for (const watch of await watchesOn(env.DB, login.loginHash)) await alert(env, signer, watch, inbox, fresh);
     };
     await watchInbox(JSON.parse(sealed) as ImapLogin, until, onStatus, open);
   } catch (error) {
     if (error instanceof LoginRefused) {
-      const refused = refusedAgain(first.state, now);
-      console.warn(`IMAP login refused for watch ${label(first)} (${refused.refusals} in a row): ${error.message}`);
-      return setLoginState(env.DB, first.loginHash, refused);
+      const refused = refusedAgain(state, now);
+      console.warn(`IMAP login ${label(login.loginHash)} refused (${refused.refusals} in a row): ${error.message}`);
+      return setLoginState(env.DB, login.loginHash, refused);
     }
     return console.warn(`IMAP check failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
-/** The start of a watch's ID: enough to find its row from a log line, and no secret. */
-function label(watch: ImapWatch): string {
-  return watch.watchId.slice(0, 8);
+/** The start of a watch's ID or a login's hash: enough to find its rows from a log line, and no secret. */
+export function label(id: string): string {
+  return id.slice(0, 8);
 }
 
 /** Mail this far below UIDNEXT and older is left alone: after a long gap, only the newest is worth an alert. */
@@ -105,21 +108,19 @@ const MOST_CHECKED = 50;
 /**
  * Moves `watch` to `inbox`, alerting its device with the newest mail that arrived and that the app alerts for
  * (`FreshMail`): mail read or deleted before the check stays quiet. Mail the server couldn't be
- * asked about, or an alert APNs didn't take, moves the watch back, so the next STATUS or run tries again. Keeps
- * `watch.inbox` as the stored baseline.
+ * asked about, or an alert APNs didn't take, moves the watch back, so the next STATUS or check tries again.
  */
 async function alert(env: Env, signer: ApnsSigner, watch: ImapWatch, inbox: InboxStatus, fresh: FreshMail) {
   const before = watch.inbox;
   if (before.uidValidity === inbox.uidValidity && before.uidNext === inbox.uidNext) return;
   if (!(await advanceWatch(env.DB, watch.watchId, before, inbox))) return;
-  watch.inbox = inbox;
   const arrived = before.uidValidity === inbox.uidValidity && inbox.uidNext > before.uidNext;
   if (!arrived) return;
   const arrival = await fresh(Math.max(before.uidNext, inbox.uidNext - MOST_CHECKED));
   if (arrival.kind === "none") return;
   const outcome =
     arrival.kind === "mail" ? await sendAlert(signer, watch.device, arrival.newest, { accountID: watch.account }) : "failed";
-  console.log(`IMAP alert for watch ${label(watch)}: ${arrival.kind === "mail" ? outcome : "couldn't read the mail"}`);
+  console.log(`IMAP alert for watch ${label(watch.watchId)}: ${arrival.kind === "mail" ? outcome : "couldn't read the mail"}`);
   if (outcome === "gone") await forgetDeviceToken(env.DB, watch.device.token);
-  if (outcome === "failed" && (await advanceWatch(env.DB, watch.watchId, inbox, before))) watch.inbox = before;
+  if (outcome === "failed") await advanceWatch(env.DB, watch.watchId, inbox, before);
 }

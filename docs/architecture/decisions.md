@@ -68,7 +68,7 @@ The owner decided these on 2026-10-20 after talking through the options. Each en
 - **Storage:** D1 holds HMAC(email) → device tokens and APNs environment. Duplicate Pub/Sub deliveries are dropped by a conditional write on `(account, historyId)`.
 - **Why:** D1 is the simplest fit for one table and has generous free limits.
 - **Rejected:**
-  - Durable Objects: more moving parts now. iCloud didn't need them either: a cron run every 5 minutes logs in to each watched IMAP Inbox and holds IDLE until the next run. An always-on object holding IDLE would use about 83% of the free daily duration quota (research in the project files, 2026-11-16).
+  - Durable Objects: more moving parts now. iCloud didn't need them either: a cron run every 5 minutes logs in to each watched IMAP Inbox and holds IDLE until the next run. An always-on object holding IDLE would use about 83% of the free daily duration quota (research in the project files, 2026-11-16). ADR-026 moved the IMAP watching into one.
   - KV: only 1k writes a day on the free plan, and eventually consistent.
 
 ## ADR-007: Windowed offline cache
@@ -239,3 +239,15 @@ Amended by ADR-023: Gmail and Outlook accounts are now read on the watch itself.
 - **Why:** the repository is public, so anyone can build the app with our Google and Microsoft client IDs and the Worker's address baked in. Without a check, a fork could store tokens and IMAP logins on our relay and take the IMAP watch slots our own mail needs. App Attest ties a key to our team's App ID on a real device, which a fork under another team can't fake.
 - **Replays:** an assertion covers the method, path, a timestamp and the body, and the Worker allows 10 minutes of skew, so a captured request can only be repeated as is for a short while. The assertion counter isn't required to increase, because the app's requests can arrive out of order.
 - **Limits:** the Simulator can't attest, so a Simulator build only reaches the relay while it is in `observe`. Google sign-in is guarded by the OAuth app staying in Testing with a short test-user list, and Microsoft's by Graph being free per mailbox; the Azure app has public client flows (device code, ROPC) turned off.
+
+## ADR-026: One Durable Object holds the IMAP Inboxes
+
+- **Decision (owner, 2026-11-17):** one Durable Object, `InboxHolder`, keeps an IMAP connection open to every watched Inbox. Its alarm goes off every minute and starts a watch on each mailbox that is due and has none. A watch holds IDLE for 30 minutes. The 5-minute cron stays as a watchdog: it wakes the holder, and when the holder can't be reached it watches the Inboxes itself, as every run did before.
+- **Why:** the cron runs were inexact. In 30 hours, 4 of 365 runs never started and 5 started more than once, and each run left about 13 seconds between its logout and the next login. The cron also logged in to iCloud 288 times a day for each mailbox. The holder logs in 48 times a day and has no gap between runs.
+- **Trial (2026-11-18, free plan):** one object held one iCloud connection for 46 minutes, until the trial ended it. Its 51 alarms came 60.001 to 60.011 seconds apart and used 0 to 2 ms of CPU each. Three test emails were announced 3 to 6 seconds after they were sent. After a forced reset the next alarm logged in again by itself.
+- **Cost:** $0. An object that never sleeps uses about 11,060 of the free plan's 13,000 GB-seconds a day, so the account has room for this one object and no second one. If Cloudflare refuses the object for the rest of a day, the cron's own watching takes over until the next day.
+- **State:** D1 keeps the watches, as before. The holder keeps only which mailboxes it is watching, in memory, and reads a mailbox's devices from D1 each time it reads the STATUS. A watch is moved with a conditional write, so the holder and a cron run that look at the same mailbox alert once.
+- **Rejected:**
+  - One object per mailbox: two always-on objects go over the free daily duration.
+  - Forwarding iCloud mail to a Cloudflare Email Worker: needs a domain on Cloudflare and a forwarding rule set up in each mailbox. Kept in reserve.
+  - A home server or a small VM: something more to run and keep up, for the same result.

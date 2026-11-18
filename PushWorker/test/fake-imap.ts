@@ -5,7 +5,7 @@ export interface FakeImap {
   connect: Connect;
   /** Each connection's login, then the lines the client sent on it ("[TLS]" marks STARTTLS taking effect). */
   sessions: { login: ImapLogin; lines: string[] }[];
-  /** Sends `line` unasked on the newest connection, as a server announcing new mail during IDLE. */
+  /** Sends `line` unasked on every connection, as a server announcing new mail to the clients idling in the Inbox. */
   announce(line: string): void;
 }
 
@@ -65,7 +65,7 @@ export function inboxServer(
 
 export function fakeImap(reply: () => Reply, greeting = "* OK [CAPABILITY IMAP4rev1] ready"): FakeImap {
   const sessions: FakeImap["sessions"] = [];
-  let latest: ((lines: string[]) => void) | undefined;
+  const connections: ((lines: string[]) => void)[] = [];
   const connect: Connect = (login) => {
     const session = { login, lines: [] as string[] };
     sessions.push(session);
@@ -75,7 +75,7 @@ export function fakeImap(reply: () => Reply, greeting = "* OK [CAPABILITY IMAP4r
     const send = (lines: string[]) => {
       for (const line of lines) controller.enqueue(encoder.encode(`${line}\r\n`));
     };
-    latest = send;
+    connections.push(send);
     const socket = {
       readable: new ReadableStream<Uint8Array>({
         start(started) {
@@ -100,5 +100,5 @@ export function fakeImap(reply: () => Reply, greeting = "* OK [CAPABILITY IMAP4r
     };
     return socket as unknown as Socket;
   };
-  return { connect, sessions, announce: (line) => latest?.([line]) };
+  return { connect, sessions, announce: (line) => connections.forEach((send) => send([line])) };
 }

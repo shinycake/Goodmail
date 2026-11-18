@@ -42,7 +42,7 @@ The backend relays push and nothing else. It never reads or stores mail.
 - **Gmail:** a Pub/Sub push subscription calls the Worker, which sends a content-free APNs push. The Notification Service Extension fetches the message on the device.
   - Watches expire every 7 days, so the device renews them (app launch, background refresh, extension runs).
 - **Outlook:** a Graph change-notification webhook calls the Worker, which pushes the same way. The device renews subscriptions.
-- **iCloud and other IMAP accounts:** the servers push to no one but Apple Mail, so the Worker watches the Inbox itself with the login the device registers. Every 5 minutes a run logs in, checks the Inbox's UIDNEXT and holds IDLE until the next run, and it pushes when new mail arrives. It reads only UID counters, never messages. The device fetches over IMAP.
+- **iCloud and other IMAP accounts:** the servers push to no one but Apple Mail, so the Worker watches the Inbox itself with the login the device registers. It keeps a connection open to each Inbox (IMAP IDLE, logging in again every 30 minutes) and pushes when the Inbox's UIDNEXT grows. For the alert it reads the sender, subject and flags of what arrived, never a body. The device fetches over IMAP.
   - Forwarding to a Cloudflare Email Worker was the earlier plan. It's kept as a fallback, since it would send a copy of every message through the relay (research in the project files, 2026-11-16).
 - **Testing caveat:** APNs needs HTTP/2, which works from deployed Workers but not from `wrangler dev`. Push tests run against a deployed preview.
 

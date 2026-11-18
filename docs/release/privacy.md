@@ -72,7 +72,7 @@ Google here is the user's own mail provider, acting for the user. Data the app e
 **What it does with the credentials**
 
 - Gmail: refreshes an access token and lists history since the last notification (`messageAdded`, Inbox only), to stay silent when nothing new reached the Inbox.
-- iCloud/IMAP: every 5 minutes it logs in, reads `STATUS INBOX (UIDNEXT UIDVALIDITY)`, selects the Inbox read-only and holds IDLE until the next run. When UIDNEXT grew, it fetches the From and Subject headers and the flags of what arrived, for the alert, and never a body. A refused login is tried again at the next run, then after about 15 minutes, an hour, and every 6 hours.
+- iCloud/IMAP: it logs in every 30 minutes, reads `STATUS INBOX (UIDNEXT UIDVALIDITY)`, selects the Inbox read-only and holds IDLE on that connection until the next login. When UIDNEXT grew, it fetches the From and Subject headers and the flags of what arrived, for the alert, and never a body. A refused login is tried again after about 5 minutes, then 15 minutes, an hour, and every 6 hours.
 
 **What it sends**
 
