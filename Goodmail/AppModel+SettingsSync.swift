@@ -10,8 +10,8 @@ import OSLog
 extension AppModel {
     /// Posted after a pass changed settings on this device, with the names of the groups that changed under
     /// `changedSettingsKey`, so the windows can show them.
-    static let settingsDidSync = Notification.Name("GoodmailSettingsDidSync")
-    static let changedSettingsKey = "changed"
+    nonisolated static let settingsDidSync = Notification.Name("GoodmailSettingsDidSync")
+    nonisolated static let changedSettingsKey = "changed"
 
     /// Shares what the reader just changed without waiting for the next round, as Settings closes or the app leaves
     /// the foreground. It runs as background work, so leaving the app straight after doesn't cut it short, and after
