@@ -21,6 +21,8 @@ struct DeviceMuteTests {
         try database.save(outlook)
         try database.save(gmail)
         try database.upsert([thread("t1", in: outlook), thread("t2", in: outlook), thread("t1", in: gmail)])
+        // The Inbox was seen as it stands, so only mail that arrives later alerts.
+        try database.markSeen(through: Self.start, for: outlook.id, now: Self.start)
     }
 
     private func thread(

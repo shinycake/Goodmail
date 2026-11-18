@@ -12,8 +12,9 @@ public enum NotificationLevel: String, CaseIterable, Codable, Sendable {
 
 /// One account's alert choice, and how far its new mail has been considered for alerts.
 public struct AccountNotifications: Equatable, Sendable {
-    /// How far back a first alert reaches, so the push that arrives right after setup still shows its mail.
-    public static let firstLookback: TimeInterval = 15 * 60
+    /// How far back an alert reaches for mail no push fetched: mail that arrived just before the account was set
+    /// up, and mail another sync stored without alerting. Older mail would alert long after it mattered.
+    public static let lookback: TimeInterval = 15 * 60
 
     public var level: NotificationLevel
     /// Mail dated at or before this already alerted, or was seen in the app. Only newer mail alerts.
@@ -26,7 +27,7 @@ public struct AccountNotifications: Equatable, Sendable {
 
     /// An account that never alerted: everything new alerts.
     public static func initial(at now: Date) -> AccountNotifications {
-        AccountNotifications(level: .all, seenThrough: now.addingTimeInterval(-firstLookback))
+        AccountNotifications(level: .all, seenThrough: now.addingTimeInterval(-lookback))
     }
 
     /// The threads among `arrived` that alert at this level, newest first, and how far the account's mail has been

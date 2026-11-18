@@ -130,6 +130,13 @@ struct NewMailFetchTests {
         #expect(outcome == .alerts([NewMail(thread: mail)], in: account))
     }
 
+    @Test func mailTheAppStoredBeforeItsPushCameStillAlerts() async throws {
+        try database.apply(StoreChanges(accountID: account.id, upserts: [thread("t1")]))
+
+        let outcome = try await fetch(ChangedThreads([])).run(.address(account.email))
+        #expect(outcome == .alerts([NewMail(thread: thread("t1"))], in: account))
+    }
+
     @Test func aReadChangeAlertsForNothing() async throws {
         #expect(
             try await fetch(ChangedThreads([thread("t1", unread: false)])).run(.address(account.email)) == .nothingNew)

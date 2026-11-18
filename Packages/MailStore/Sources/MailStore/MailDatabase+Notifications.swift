@@ -24,14 +24,21 @@ extension MailDatabase: NotificationStore {
         }
     }
 
-    /// The threads among `arrived` that alert, newest first, recorded as seen in the same transaction, so two
-    /// processes catching up on the same change alert for it once. A reply to a thread muted on the device never
-    /// alerts. An account the Focus leaves out alerts for none, and its mail still counts as seen, so it doesn't all
-    /// alert once the Focus ends.
+    /// The threads that alert, newest first, recorded as seen in the same transaction, so two processes catching up
+    /// on the same change alert for it once. They come from `arrived` and from Inbox mail stored within
+    /// `AccountNotifications.lookback` that never alerted: a sync that stores mail without alerting, as the app's
+    /// refresh in the background does, can get to a message before its push does. A reply to a thread muted on the
+    /// device never alerts. An account the Focus leaves out alerts for none, and its mail still counts as seen, so it
+    /// doesn't all alert once the Focus ends.
     public func claimAlerts(among arrived: [ThreadSummary], in account: Account, now: Date) throws -> [ThreadSummary] {
         try write { db in
             var settings = try Self.notifications(for: account.id, now: now, in: db)
-            let audible = try arrived.filter { try !Self.isDeviceMuted($0.id, in: db) }
+            let stored = try Self.inboxThreads(
+                of: account.id,
+                after: max(settings.seenThrough, now.addingTimeInterval(-AccountNotifications.lookback)), in: db)
+            let known = Set(arrived.map(\.id))
+            let audible = try (arrived + stored.filter { !known.contains($0.id) })
+                .filter { try !Self.isDeviceMuted($0.id, in: db) }
             let (threads, seenThrough) = settings.alerts(among: audible)
             settings.seenThrough = seenThrough
             try NotificationSettingsRecord(account: account.id, settings).save(db)
@@ -65,6 +72,14 @@ extension MailDatabase: NotificationStore {
                     """,
                 arguments: [account.rawValue, SystemLabel.inbox])
         }
+    }
+
+    /// The account's stored Inbox threads dated after `date`.
+    private static func inboxThreads(of account: AccountID, after date: Date, in db: Database) throws
+        -> [ThreadSummary]
+    {
+        let inbox = threadQuery(in: Mailbox(labelID: SystemLabel.inbox, accountID: account))
+        return try fetchThreads(db, query: (inbox.sql + " AND thread.date > ?", inbox.arguments + [date]))
     }
 
     private static func notifications(for account: AccountID, now: Date, in db: Database) throws

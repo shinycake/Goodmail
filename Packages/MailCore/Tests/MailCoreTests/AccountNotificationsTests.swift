@@ -72,6 +72,6 @@ struct AccountNotificationsTests {
         let now = Date(timeIntervalSince1970: 2_000_000)
         let initial = AccountNotifications.initial(at: now)
         #expect(initial.level == .all)
-        #expect(initial.seenThrough == now.addingTimeInterval(-AccountNotifications.firstLookback))
+        #expect(initial.seenThrough == now.addingTimeInterval(-AccountNotifications.lookback))
     }
 }

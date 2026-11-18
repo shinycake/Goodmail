@@ -9,7 +9,8 @@ public struct NewMailFetch: Sendable {
     public enum Outcome: Sendable, Equatable {
         /// Mail to alert for, newest first.
         case alerts([NewMail], in: Account)
-        /// Nothing in the push alerts: a read, an archive, mail already seen, or alerts turned off.
+        /// Nothing alerts: the push was for a read or an archive, its mail already alerted or was seen in the app,
+        /// or alerts are turned off.
         case nothingNew
     }
 

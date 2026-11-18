@@ -40,6 +40,42 @@ struct NotificationStoreTests {
         #expect(try database.claimAlerts(among: [arrived], in: account, now: now).isEmpty)
     }
 
+    @Test func mailAnotherSyncStoredAMomentAgoAlertsOnce() throws {
+        try database.apply(StoreChanges(accountID: account.id, upserts: [Self.stored("t", ago: 60)]))
+
+        #expect(try database.claimAlerts(among: [], in: account, now: now).map(\.id.threadID) == ["t"])
+        #expect(try database.claimAlerts(among: [], in: account, now: now).isEmpty)
+    }
+
+    @Test func mailThatArrivedAndWasAlsoStoredAlertsOnce() throws {
+        try database.apply(StoreChanges(accountID: account.id, upserts: [Self.stored("t", ago: 60)]))
+
+        let alerts = try database.claimAlerts(among: [Self.stored("t", ago: 60)], in: account, now: now)
+        #expect(alerts.map(\.id.threadID) == ["t"])
+    }
+
+    @Test(arguments: [
+        Self.stored("old", ago: 3600), Self.stored("read", ago: 60, isUnread: false),
+        Self.stored("sent", ago: 60, labels: [SystemLabel.sent]),
+    ])
+    func storedMailThatIsOldReadOrOutsideTheInboxStaysQuiet(thread: ThreadSummary) throws {
+        try database.markSeen(through: now.addingTimeInterval(-7200), for: account.id, now: now)
+        try database.apply(StoreChanges(accountID: account.id, upserts: [thread]))
+
+        #expect(try database.claimAlerts(among: [], in: account, now: now).isEmpty)
+    }
+
+    /// A thread of the account's dated `ago` seconds before `now`.
+    private static func stored(
+        _ id: String, ago: TimeInterval, isUnread: Bool = true, labels: Set<String> = [SystemLabel.inbox]
+    ) -> ThreadSummary {
+        ThreadSummary(
+            id: ThreadSummary.ID(accountID: AccountID(rawValue: "a1"), threadID: id), subject: id, snippet: "",
+            sender: Contact(name: nil, address: "dana@example.com"),
+            date: Date(timeIntervalSince1970: 1_800_000_000 - ago), isUnread: isUnread, messageCount: 1,
+            labelIDs: labels)
+    }
+
     @Test func aSubscriptionIsStoredReplacedAndForgotten() throws {
         let first = PushSubscription(
             device: DeviceToken(hex: "ab", environment: .sandbox), channel: .watch, renewedAt: now,
