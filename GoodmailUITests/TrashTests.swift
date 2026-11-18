@@ -11,9 +11,8 @@ final class TrashTests: XCTestCase {
         let app = openTrash()
         let list = app.collectionViews["mailbox"]
         let count = list.cells.count
-        list.cells.element(boundBy: 1).swipeLeft(velocity: .slow)
         let deleteForever = app.buttons["Delete Forever"]
-        XCTAssertTrue(deleteForever.waitForExistence(timeout: 5))
+        XCTAssertTrue(list.cells.element(boundBy: 1).swipeOpen(showing: deleteForever))
         XCTAssertTrue(app.buttons["Move Out of Trash"].exists)
         attach(app, "trash-swipe")
 
@@ -25,8 +24,7 @@ final class TrashTests: XCTestCase {
         alert.buttons["Cancel"].tap()
         XCTAssertEqual(list.cells.count, count, "Cancel keeps the thread")
 
-        list.cells.element(boundBy: 1).swipeLeft(velocity: .slow)
-        XCTAssertTrue(deleteForever.waitForExistence(timeout: 5))
+        XCTAssertTrue(list.cells.element(boundBy: 1).swipeOpen(showing: deleteForever))
         deleteForever.tap()
         app.alerts.firstMatch.buttons["Delete Forever"].tap()
         let gone = NSPredicate { _, _ in list.cells.count < count }

@@ -13,7 +13,7 @@ final class SwipeTests: XCTestCase {
         let row = firstThread(in: app)
         let before = row.frame
         let archive = app.buttons["Archive"]
-        swipeOpen(row, showing: archive)
+        XCTAssertTrue(row.swipeOpen(showing: archive), "the swipe opened the row's buttons")
 
         // Reads the row and the button between arrivals, once the list has stopped moving: frames read during the
         // insert animation, or across the next arrival, would compare two different moments.
@@ -36,7 +36,7 @@ final class SwipeTests: XCTestCase {
     func testSwipingBackOverOpenButtonsOnlyClosesThem() {
         let app = launch()
         let row = firstThread(in: app)
-        swipeOpen(row, showing: app.buttons["Archive"])
+        XCTAssertTrue(row.swipeOpen(showing: app.buttons["Archive"]), "the swipe opened the row's buttons")
 
         swipeRight(row, in: app)
         XCTAssertTrue(app.buttons["Archive"].waitForNonExistence(timeout: 5), "the trailing buttons closed")
@@ -57,17 +57,6 @@ final class SwipeTests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.collectionViews["mailbox"].cells.firstMatch.waitForExistence(timeout: 15))
         return app
-    }
-
-    /// Swipes `row` left until `button` shows. On a busy machine a synthesized swipe sometimes arrives too short or
-    /// too slow to pass halfway, and the row rightly springs back; that's the input, not the behavior under test.
-    @MainActor
-    private func swipeOpen(_ row: XCUIElement, showing button: XCUIElement) {
-        for _ in 0..<3 {
-            row.swipeLeft(velocity: .slow)
-            if button.waitForExistence(timeout: 3) { return }
-        }
-        XCTFail("the swipe never opened the row's buttons")
     }
 
     /// Swipes `row` right from the part of it on show. On iPad the sidebar floats over the list's leading edge, and a
