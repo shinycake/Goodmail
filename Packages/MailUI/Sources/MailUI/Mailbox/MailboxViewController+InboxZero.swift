@@ -47,17 +47,31 @@ extension MailboxViewController {
         }
     }
 
-    /// Keeps the scene between the list's bars, and moves it down with the list as it is pulled to refresh.
+    /// Keeps the scene between the list's bars and beside a sidebar floating over the list, and moves it down with the
+    /// list as it is pulled to refresh.
     func placeInboxZero() {
         guard let inboxZero, let backdrop = collectionView.backgroundView as? InboxZeroBackdrop else { return }
         // Refreshing adds the spinner's room to the top inset. The scene keeps its place between the bars at rest, and
         // the pull is measured from there, so it stays under the title while the spinner shows.
         if collectionView.refreshControl?.isRefreshing != true {
-            let insets = collectionView.adjustedContentInset
-            let bars = EdgeInsets(top: insets.top, leading: 0, bottom: insets.bottom, trailing: 0)
-            if inboxZero.insets != bars { inboxZero.insets = bars }
+            // The sides come from the list's container: in a right-to-left layout the list reports a sidebar on its right
+            // as being on its left.
+            let clear = EdgeInsets(
+                bars: collectionView.adjustedContentInset, sides: view.safeAreaInsets,
+                rightToLeft: view.effectiveUserInterfaceLayoutDirection == .rightToLeft)
+            if inboxZero.insets != clear { inboxZero.insets = clear }
         }
         backdrop.pull(by: max(-(collectionView.contentOffset.y + inboxZero.insets.top), 0))
+    }
+}
+
+extension EdgeInsets {
+    /// What the Inbox Zero scene keeps clear of: the list's `bars` above and below, and at the `sides` whatever the
+    /// safe area leaves out, which is a sidebar floating over the list on an iPad or the camera housing in landscape.
+    nonisolated init(bars: UIEdgeInsets, sides: UIEdgeInsets, rightToLeft: Bool) {
+        self.init(
+            top: bars.top, leading: rightToLeft ? sides.right : sides.left, bottom: bars.bottom,
+            trailing: rightToLeft ? sides.left : sides.right)
     }
 }
 

@@ -19,7 +19,7 @@ nonisolated struct InboxZeroPointer: Equatable, Sendable {
 @Observable final class InboxZeroModel {
     /// What shows, or `nil` while the Inbox has mail.
     var showing: InboxZeroShowing?
-    /// The list's bars, which the scene keeps clear of.
+    /// The list's bars and whatever covers its sides, which the scene keeps clear of.
     var insets = EdgeInsets()
     /// Switches the list to a category.
     @ObservationIgnored var go: (InboxCategory) -> Void = { _ in }

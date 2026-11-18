@@ -130,6 +130,12 @@ public final class MailboxViewController: UIViewController {
         observation = Task { [viewModel] in await viewModel.observe() }
     }
 
+    public override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        // A sidebar shown over the list changes only its safe area, which neither scrolls it nor changes its insets.
+        placeInboxZero()
+    }
+
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         for indexPath in collectionView.indexPathsForSelectedItems ?? [] {

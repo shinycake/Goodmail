@@ -1,3 +1,4 @@
+import SwiftUI
 import Testing
 import UIKit
 
@@ -22,5 +23,16 @@ struct InboxZeroBackdropTests {
         #expect(scene.layer.animationKeys() == nil)
         #expect(backdrop.center.y == 200)
         #expect(scene.transform.ty == 60)
+    }
+
+    /// A sidebar floating over the list covers its leading side, which is the right in a right-to-left layout.
+    @Test(arguments: [false, true])
+    func theSceneKeepsClearOfTheBarsAndOfASidebarOverTheList(rightToLeft: Bool) {
+        let bars = UIEdgeInsets(top: 116, left: 0, bottom: 83, right: 0)
+        let sides = UIEdgeInsets(
+            top: 24, left: rightToLeft ? 0 : 280, bottom: 20, right: rightToLeft ? 280 : 0)
+        #expect(
+            EdgeInsets(bars: bars, sides: sides, rightToLeft: rightToLeft)
+                == EdgeInsets(top: 116, leading: 280, bottom: 83, trailing: 0))
     }
 }
