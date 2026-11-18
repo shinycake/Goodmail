@@ -14,7 +14,7 @@ APNS_WATCH_TOPIC = "com.idanbirman.goodmail.watchkitapp"
 APNS_KEY_ID = "7H5XJ46XVH"
 APNS_TEAM_ID = "72D8U72V55"
 # App Attest (src/attest-routes.ts): "observe" only logs requests the genuine app didn't sign; "enforce" refuses them.
-APP_ATTEST = "observe"
+APP_ATTEST = "enforce"
 
 # Workers Logs keeps every run's log lines for a few days, so what a mail server answered a login with, or why an
 # alert didn't go out, can be looked up afterwards.

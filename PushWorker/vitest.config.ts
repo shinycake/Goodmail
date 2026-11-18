@@ -14,6 +14,8 @@ export default defineConfig(async () => {
             APNS_KEY_ID: "KEY1234567",
             APNS_TEAM_ID: "TEAM123456",
             EMAIL_HMAC_SECRET: "test-hmac-secret",
+            // The route tests send unsigned requests; test/attest-routes.test.ts sets "enforce" where it checks it.
+            APP_ATTEST: "observe",
           },
         },
       }),
