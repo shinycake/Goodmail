@@ -65,27 +65,56 @@ struct SwipeArrangementTests {
         #expect(arrangement.unused == [.snooze, .spam])
     }
 
-    @Test func addingMovesAChoiceAcrossAndAFullSideRefuses() {
+    @Test func addingPutsAChoiceLastAndAFullSideRefuses() {
         var arrangement = SwipeArrangement.standard
-        arrangement.add(.star, to: .right)
-        #expect(arrangement.right == [.archive, .snooze, .trash])
-        arrangement.remove(at: [1], from: .right)
-        arrangement.add(.star, to: .right)
-        #expect(arrangement.left == [.read])
-        #expect(arrangement.right == [.archive, .trash, .star])
+        arrangement.move([.spam], to: .side(.right))
+        #expect(arrangement == .standard)
+        arrangement.move([.spam], to: .side(.left))
+        #expect(arrangement.left == [.read, .star, .spam])
+        #expect(arrangement.unused == [])
     }
 
-    @Test func reorderingPutsTheMovedChoiceFirst() {
+    @Test func draggingAcrossTakesTheChoiceOffItsOldSide() {
         var arrangement = SwipeArrangement.standard
-        arrangement.move(from: [2], to: 0, on: .right)
-        #expect(arrangement.right == [.trash, .archive, .snooze])
-        arrangement.move(from: [0], to: 3, on: .right)
-        #expect(arrangement.right == [.archive, .snooze, .trash])
+        arrangement.move([.trash], to: .side(.left), before: .read)
+        #expect(arrangement.left == [.trash, .read, .star])
+        #expect(arrangement.right == [.archive, .snooze])
+    }
+
+    @Test func draggingOntoAFullSideChangesNothing() {
+        var arrangement = SwipeArrangement.standard
+        arrangement.move([.star], to: .side(.right), before: .archive)
+        #expect(arrangement == .standard)
+    }
+
+    @Test func draggingToMoreActionsTakesTheChoiceOffItsSide() {
+        var arrangement = SwipeArrangement.standard
+        arrangement.move([.snooze], to: .unused, before: .spam)
+        #expect(arrangement.right == [.archive, .trash])
+        #expect(arrangement.unused == [.snooze, .spam])
+    }
+
+    @Test(arguments: [
+        (SwipeChoice.trash, SwipeChoice?.some(.archive), [SwipeChoice.trash, .archive, .snooze]),
+        (.archive, nil, [.snooze, .trash, .archive]),
+        (.snooze, .snooze, [.archive, .snooze, .trash]),
+    ])
+    func reorderingWithinASide(moving choice: SwipeChoice, before anchor: SwipeChoice?, expected: [SwipeChoice]) {
+        var arrangement = SwipeArrangement.standard
+        arrangement.move([choice], to: .side(.right), before: anchor)
+        #expect(arrangement.right == expected)
+    }
+
+    @Test func severalChoicesMoveTogetherInTheirOrder() {
+        var arrangement = SwipeArrangement(left: [.read], right: [.archive, .snooze, .trash])
+        arrangement.move([.snooze, .trash], to: .side(.left), before: .read)
+        #expect(arrangement.left == [.snooze, .trash, .read])
+        #expect(arrangement.right == [.archive])
     }
 
     @Test func aSideCanBeEmptied() {
         var arrangement = SwipeArrangement.standard
-        arrangement.remove(at: [0, 1], from: .left)
+        arrangement.move(arrangement.left, to: .unused)
         #expect(arrangement.left.isEmpty)
         #expect(swipes(arrangement, thread(["INBOX"]), .left).isEmpty)
     }

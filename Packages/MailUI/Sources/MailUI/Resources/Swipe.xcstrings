@@ -23,13 +23,13 @@
         }
       }
     },
-    "A full swipe does the first action on its side. Each side fits up to three." : {
+    "A full swipe does the first action on its side. Each side fits up to three. Touch and hold an action to move it." : {
       "comment" : "Explains the swipe settings",
       "localizations" : {
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "החלקה מלאה מבצעת את הפעולה הראשונה בצד שלה. בכל צד יש מקום לעד שלוש פעולות."
+            "value" : "החלקה מלאה מבצעת את הפעולה הראשונה בצד שלה. בכל צד יש מקום לעד שלוש פעולות. לחיצה ארוכה על פעולה מאפשרת להזיז אותה."
           }
         }
       }
@@ -129,6 +129,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "נקרא או לא נקרא"
+          }
+        }
+      }
+    },
+    "Remove %@" : {
+      "comment" : "Takes a swipe action off its side",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הסרת %@"
           }
         }
       }

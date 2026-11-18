@@ -1,7 +1,10 @@
 import SwiftUI
 
-/// Which actions sit on each side of a mailbox row, and in what order: a list always in edit mode, so rows reorder
-/// by their handles and leave a side by their delete buttons. Actions on neither side wait below to be added.
+/// Which actions sit on each side of a mailbox row, and in what order. Each side and the unused actions below are one
+/// reorderable collection apiece in a single reorder container, so a held row drags within its side, across to the
+/// other, or down to More Actions to leave the swipes. Each row's own remove button or add menu does the same without
+/// dragging. The list stays out of edit mode: UIKit keeps a row's editing controls when it moves to another section,
+/// so an added action came over without its remove control.
 struct SwipeSettingsView: View {
     @Bindable var model: SettingsViewModel
 
@@ -13,41 +16,34 @@ struct SwipeSettingsView: View {
         List {
             ForEach(sides, id: \.self) { side in
                 Section {
-                    ForEach(model.swipeArrangement[side], id: \.self) { choice in
-                        ChoiceLabel(choice: choice, isPrimary: choice == model.swipeArrangement[side].first)
+                    ForEach(model.swipeArrangement[side]) { choice in
+                        row(choice, on: .side(side), isPrimary: choice == model.swipeArrangement[side].first)
                     }
-                    .onMove { model.swipeArrangement.move(from: $0, to: $1, on: side) }
-                    .onDelete { model.swipeArrangement.remove(at: $0, from: side) }
+                    .reorderable(collectionID: SwipeArrangement.Shelf.side(side))
                     if model.swipeArrangement[side].isEmpty {
-                        Text("None", tableName: "Swipe", bundle: .module, comment: "A swipe side with no actions")
-                            .foregroundStyle(.secondary)
+                        none
                     }
                 } header: {
                     Text(title(of: side))
                 }
             }
-            let unused = model.swipeArrangement.unused
-            if !unused.isEmpty {
-                Section {
-                    ForEach(unused, id: \.self) { choice in
-                        HStack {
-                            ChoiceLabel(choice: choice, isPrimary: false)
-                            Spacer()
-                            addMenu(choice)
-                        }
-                        .deleteDisabled(true)
-                        .moveDisabled(true)
-                    }
-                } header: {
-                    Text(
-                        "More Actions", tableName: "Swipe", bundle: .module,
-                        comment: "Swipe actions on neither side, waiting to be added")
+            Section {
+                ForEach(model.swipeArrangement.unused) { choice in
+                    row(choice, on: .unused, isPrimary: false)
                 }
+                .reorderable(collectionID: SwipeArrangement.Shelf.unused)
+                if model.swipeArrangement.unused.isEmpty {
+                    none
+                }
+            } header: {
+                Text(
+                    "More Actions", tableName: "Swipe", bundle: .module,
+                    comment: "Swipe actions on neither side, waiting to be added")
             }
             SwipeTintsSection(model: model)
             Section {
                 Button {
-                    model.swipeArrangement = .standard
+                    withAnimation { model.swipeArrangement = .standard }
                 } label: {
                     Text(
                         "Restore Defaults", tableName: "Swipe", bundle: .module,
@@ -56,13 +52,38 @@ struct SwipeSettingsView: View {
                 .disabled(model.swipeArrangement == .standard)
             } footer: {
                 Text(
-                    "A full swipe does the first action on its side. Each side fits up to three.",
+                    "A full swipe does the first action on its side. Each side fits up to three. Touch and hold an action to move it.",
                     tableName: "Swipe", bundle: .module, comment: "Explains the swipe settings")
             }
         }
-        .environment(\.editMode, .constant(.active))
+        .reorderContainer(for: SwipeChoice.self, in: SwipeArrangement.Shelf.self) { difference in
+            let anchor: SwipeChoice? =
+                switch difference.destination.position {
+                case .before(let choice): choice
+                case .end: nil
+                }
+            // Not in withAnimation: the list already animates the drop, and animating it again crashed a drop at the
+            // end of another section.
+            model.swipeArrangement.move(difference.sources, to: difference.destination.collectionID, before: anchor)
+        }
         .navigationTitle(Self.title)
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// A row leads with what its control does where it sits: a side's actions come off it, the unused ones go on one.
+    private func row(_ choice: SwipeChoice, on shelf: SwipeArrangement.Shelf, isPrimary: Bool) -> some View {
+        HStack {
+            switch shelf {
+            case .side: removeButton(choice)
+            case .unused: addMenu(choice)
+            }
+            ChoiceLabel(choice: choice, isPrimary: isPrimary)
+        }
+    }
+
+    private var none: some View {
+        Text("None", tableName: "Swipe", bundle: .module, comment: "A swipe settings section with no actions")
+            .foregroundStyle(.secondary)
     }
 
     /// The sides in the order they sit on screen: the left one first.
@@ -79,11 +100,26 @@ struct SwipeSettingsView: View {
                 comment: "Swipe settings section: the actions a swipe to the left shows")
     }
 
+    private func removeButton(_ choice: SwipeChoice) -> some View {
+        Button {
+            withAnimation { model.swipeArrangement.move([choice], to: .unused) }
+        } label: {
+            Image(systemName: "minus.circle.fill")
+                .foregroundStyle(.white, .red)
+                .imageScale(.large)
+                .accessibilityLabel(
+                    Text(
+                        "Remove \(choice.title)", tableName: "Swipe", bundle: .module,
+                        comment: "Takes a swipe action off its side"))
+        }
+        .buttonStyle(.borderless)
+    }
+
     private func addMenu(_ choice: SwipeChoice) -> some View {
         Menu {
             ForEach(sides, id: \.self) { side in
                 Button {
-                    withAnimation { model.swipeArrangement.add(choice, to: side) }
+                    withAnimation { model.swipeArrangement.move([choice], to: .side(side)) }
                 } label: {
                     Text(
                         "Add to \(title(of: side))", tableName: "Swipe", bundle: .module,
@@ -98,6 +134,7 @@ struct SwipeSettingsView: View {
                 .accessibilityLabel(
                     Text("Add \(choice.title)", tableName: "Swipe", bundle: .module, comment: "Adds a swipe action"))
         }
+        .buttonStyle(.borderless)
     }
 }
 
@@ -105,16 +142,25 @@ struct SwipeSettingsView: View {
 private struct ChoiceLabel: View {
     let choice: SwipeChoice
     let isPrimary: Bool
+    /// Symbols differ in width, so a shared icon width, growing with the text, lines the titles up.
+    @ScaledMetric private var iconWidth = 28.0
 
     var body: some View {
-        LabeledContent {
+        // Not LabeledContent: it lays a label out apart from one with no value, so titles stopped lining up.
+        HStack {
+            Label {
+                Text(choice.title)
+            } icon: {
+                Image(systemName: choice.symbol).frame(width: iconWidth)
+            }
+            Spacer()
             if isPrimary {
                 Text(
                     "Full Swipe", tableName: "Swipe", bundle: .module,
-                    comment: "Marks the swipe action a full swipe fires")
+                    comment: "Marks the swipe action a full swipe fires"
+                )
+                .foregroundStyle(.secondary)
             }
-        } label: {
-            Label(choice.title, systemImage: choice.symbol)
         }
     }
 }
