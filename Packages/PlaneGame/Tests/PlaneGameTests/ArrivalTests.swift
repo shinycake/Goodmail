@@ -10,13 +10,13 @@ import Testing
 /// What arrives when, and where.
 struct ArrivalTests {
     /// Everything that arrives over `seconds`, asked for every frame, with the time it was asked for.
-    private func arrivals(over seconds: TimeInterval, livesMissing: Bool, seed: UInt64 = 7)
-        -> [(time: TimeInterval, arrivals: [PlaneGameSpawner.Arrival])]
-    {
+    private func arrivals(
+        over seconds: TimeInterval, livesMissing: Bool, seed: UInt64 = 7, on field: PlaneGameField = phoneField
+    ) -> [(time: TimeInterval, arrivals: [PlaneGameSpawner.Arrival])] {
         var spawner = PlaneGameSpawner()
         var generator = SeededGenerator(seed: seed)
         return stride(from: 0, through: seconds, by: 1.0 / 20).map { time in
-            (time, spawner.arrivals(at: time, in: phoneField, livesMissing: livesMissing, using: &generator))
+            (time, spawner.arrivals(at: time, in: field, livesMissing: livesMissing, using: &generator))
         }
     }
 
@@ -26,6 +26,13 @@ struct ArrivalTests {
         #expect(world.things.isEmpty)
         world.run(for: 2 * frame)
         #expect(!world.things.isEmpty)
+    }
+
+    @Test func lanesTwiceAsWideBringArrivalsTwiceAsOften() {
+        let wide = PlaneGameField(size: CGSize(width: 776, height: 860), lanes: 12...764, ceiling: 80, row: 720)
+        let onAPhone = arrivals(over: 120, livesMissing: false).count { !$0.arrivals.isEmpty }
+        let onWide = arrivals(over: 120, livesMissing: false, on: wide).count { !$0.arrivals.isEmpty }
+        #expect(abs(Double(onWide) / Double(onAPhone) - 2) < 0.1)
     }
 
     @Test func heartsArriveOnlyWhileALifeIsMissing() {

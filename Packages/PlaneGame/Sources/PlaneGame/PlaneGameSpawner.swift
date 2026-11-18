@@ -54,7 +54,7 @@ struct PlaneGameSpawner: Equatable, Sendable {
 
     private(set) var state = State.waiting(due: PlaneGameRules.firstArrival)
 
-    /// The time between arrivals `elapsed` seconds into the game.
+    /// The time between arrivals `elapsed` seconds into the game, on a field whose breadth is 1.
     static func interval(at elapsed: TimeInterval) -> TimeInterval {
         let hardening = min(max(elapsed / PlaneGameRules.hardeningTime, 0), 1)
         return PlaneGameRules.firstInterval + (PlaneGameRules.lastInterval - PlaneGameRules.firstInterval) * hardening
@@ -69,7 +69,7 @@ struct PlaneGameSpawner: Equatable, Sendable {
         while case .waiting(let due) = state, due <= elapsed {
             let open = Pattern.all.filter { $0.isOpen(at: due, livesMissing: livesMissing) }
             arrivals += Self.place(Self.pick(from: open, using: &generator), in: field, using: &generator)
-            state = .waiting(due: due + Self.interval(at: due))
+            state = .waiting(due: due + Self.interval(at: due) / Double(field.breadth))
         }
         return arrivals
     }

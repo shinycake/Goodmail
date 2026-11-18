@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import PlaneGame
 import Testing
 
 @testable import MailUI
@@ -119,6 +120,22 @@ import Testing
         #expect(PlaneGameTakeoff(elapsed: PlaneGameTakeoff.duration, reduceMotion: reduceMotion).planeDoodle == 0)
     }
 
+    @Test(arguments: [0.4, -0.5, 2.8])
+    func theLandingEasesThePlanesHeadingIntoItsPathRatherThanSnapping(leftAt heading: Double) {
+        let path = FlightPath.landing(from: CGPoint(x: 120, y: 720), to: CGPoint(x: 201, y: 437))
+        let landing = { PlaneGameLanding(elapsed: $0, reduceMotion: false) }
+        #expect(abs(landing(0).planeHeading(on: path, leavingAt: heading) - heading) < 0.000_001)
+        // Never more than a small turn from one frame to the next, however it was banked or turned.
+        let headings = stride(from: 0.0, through: 0.5, by: 1.0 / 120).map {
+            landing($0).planeHeading(on: path, leavingAt: heading)
+        }
+        for (before, after) in zip(headings, headings.dropFirst()) {
+            #expect(abs(remainder(after - before, 2 * .pi)) < 0.2)
+        }
+        let eased = landing(PlaneGameLanding.bankEasesOut)
+        #expect(eased.planeHeading(on: path, leavingAt: heading) == path.heading(at: eased.planeProgress))
+    }
+
     @Test func theRingsPaperPlaneComesHomeWithTheRing() {
         let landing = { PlaneGameLanding(elapsed: $0, reduceMotion: false) }
         #expect(landing(0).planeDoodle == 0)
@@ -169,7 +186,18 @@ import Testing
     @Test func flyingOffFadesThePaperInAMoment() {
         #expect(PlaneGameFlyOff(elapsed: 0).paper == 1)
         #expect(PlaneGameFlyOff(elapsed: PlaneGameFlyOff.duration).paper == 0)
-        #expect(PlaneGameFlyOff(elapsed: 0.2).planeRise > 0)
+    }
+
+    @Test(arguments: [CGFloat(718), 317, 1100])
+    func flyingOffTakesThePlaneUpPastTheTopEdgeBeforeThePaperIsGone(from height: CGFloat) {
+        #expect(PlaneGameFlyOff(elapsed: 0).planeRise(from: height) == 0)
+        let rises = stride(from: 0.0, through: PlaneGameFlyOff.duration, by: 0.05).map {
+            PlaneGameFlyOff(elapsed: $0).planeRise(from: height)
+        }
+        #expect(zip(rises, rises.dropFirst()).allSatisfy { $0 < $1 })
+        // Past the top edge by more than the plane's size, so it is never seen to vanish.
+        let gone = height - PlaneGameFlyOff(elapsed: PlaneGameFlyOff.duration).planeRise(from: height)
+        #expect(gone < -PlaneGameCanvas.planeSize)
     }
 
     // MARK: Backdrop

@@ -108,8 +108,11 @@ extension PlaneGameModel {
                     to: PlaneGameBackdrop.rest(of: Doodle.inboxZero, on: stage, rightToLeft: handoff.scene.rightToLeft))
                 : backdrop.poses(at: distance)
             let progress = landing.planeProgress
+            // A plane that fell is gone, and the one coming home is new, so it has no heading of its own to ease from.
+            let leftAt: Double =
+                if case .down = world.plane.status { path.heading(at: 0) } else { world.plane.heading }
             let plane = PlaneGameSprite(
-                position: path.point(at: progress), heading: path.heading(at: progress),
+                position: path.point(at: progress), heading: landing.planeHeading(on: path, leavingAt: leftAt),
                 trail: (1...PlaneFlight.trailSteps).map { path.point(at: progress - Double($0) * 0.02) },
                 width: landing.planeWidth, opacity: landing.planeOpacity)
             return PlaneGameLook(
@@ -124,7 +127,8 @@ extension PlaneGameModel {
             let flyOff = PlaneGameFlyOff(elapsed: elapsed)
             let plane = sprite(width: 1, opacity: 1).map {
                 PlaneGameSprite(
-                    position: CGPoint(x: $0.position.x, y: $0.position.y - flyOff.planeRise), heading: $0.heading,
+                    position: CGPoint(x: $0.position.x, y: $0.position.y - flyOff.planeRise(from: $0.position.y)),
+                    heading: $0.heading,
                     trail: $0.trail, width: 1, opacity: 1)
             }
             return PlaneGameLook(

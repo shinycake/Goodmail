@@ -40,6 +40,13 @@ public struct PlaneGameField: Equatable, Sendable {
         min(max((row - ceiling) / 640, 0.35), 1.3)
     }
 
+    /// How much arrives here against a phone held upright: the lanes' width over 376 points, kept between 0.75 and
+    /// 2.5. Arrivals come this many times as often, so a still plane meets about as much in a wide window as in a
+    /// narrow one.
+    public var breadth: CGFloat {
+        min(max((lanes.upperBound - lanes.lowerBound) / 376, 0.75), 2.5)
+    }
+
     /// Where the plane's launch ends: the middle of the lanes, on the row.
     public var startingPlace: CGPoint {
         CGPoint(x: (lanes.lowerBound + lanes.upperBound) / 2, y: row)

@@ -89,8 +89,8 @@ extension FlightPath {
         let reach = reach(from: start, to: end)
         let side: CGFloat = lanes.upperBound - start.x >= start.x - lanes.lowerBound ? 1 : -1
         return FlightPath(
-            from: start, to: end, leaving: CGPoint(x: side * 1.2 * reach, y: -0.8 * reach),
-            arriving: CGPoint(x: 0, y: reach))
+            from: start, to: end, leaving: CGPoint(x: side * 1.8 * reach, y: -reach),
+            arriving: CGPoint(x: 0, y: 1.2 * reach))
     }
 
     /// The landing, from where the plane is to the envelopes: straight up first, then into them from below and from

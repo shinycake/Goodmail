@@ -88,15 +88,19 @@ nonisolated struct PlaneGameBackdrop: Equatable, Sendable {
         let seed = seeds[index]
         guard !reduceMotion else { return seed }
         let fallen = seed.position.y + Self.depth(of: index) * (distance - origin)
-        let bottom = size.height + Self.margin
+        // A screen that shrank can leave a doodle already below its bottom edge; it falls on out of sight from there
+        // before it comes round, rather than wrapping the moment the screen changes.
+        let bottom = max(size.height, seed.position.y) + Self.margin
         // Moved straight down, so at `origin` it is exactly at its seed.
         guard fallen > bottom else {
             return DoodlePose(position: CGPoint(x: seed.position.x, y: fallen), angle: seed.angle)
         }
         let span = size.height + 2 * Self.margin
-        let laps = Int(((fallen - bottom) / span).rounded(.up))
+        let past = fallen - bottom
+        let laps = Int((past / span).rounded(.up))
         return DoodlePose(
-            position: CGPoint(x: size.width * Self.scatter(index, laps), y: fallen - CGFloat(laps) * span),
+            position: CGPoint(
+                x: size.width * Self.scatter(index, laps), y: -Self.margin + past - CGFloat(laps - 1) * span),
             angle: angles[index])
     }
 
