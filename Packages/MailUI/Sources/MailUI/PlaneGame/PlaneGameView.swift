@@ -2,7 +2,8 @@ import PlaneGame
 import SwiftUI
 
 /// The game screen: paper over the window, the canvas, the envelopes while they fold, the scene's paper planes
-/// fading with the paper, the HUD, and the card over a paused game or a game over. A drag anywhere steers and fires. It fills the window,
+/// fading with the paper, the HUD, and the card over a paused game or a game over, the countdown before a paused game
+/// carries on and the question before leaving it for new mail. A drag anywhere steers and fires. It fills the window,
 /// so its coordinates are the window's.
 struct PlaneGameView: View {
     let model: PlaneGameModel
@@ -35,7 +36,7 @@ struct PlaneGameView: View {
                 PlaneGameHUD(
                     lives: model.world.lives, score: model.world.score, mailWaiting: model.mailWaiting,
                     mailArrivals: model.mailArrivals, canPause: model.canPause, pause: model.pause,
-                    exit: model.exit)
+                    leaveForMail: model.leaveForMail, exit: model.exit)
                 if let boss = model.world.boss {
                     PlaneGameBossMeter(line: PlaneGameBossLine(boss: boss, reduceMotion: model.reduceMotion))
                 }
@@ -47,13 +48,40 @@ struct PlaneGameView: View {
                     .opacity(card.opacity)
                     .transition(CardTransition())
             }
-            if model.phase.isPaused {
+            if model.phase.showsPauseCard {
                 PlaneGamePauseCard(resume: model.resume, exit: model.exit)
                     .transition(CardTransition())
             }
+            if case .paused(_, .countingDown(let left)) = model.phase {
+                PlaneGameCountdown(left: left, reduceMotion: model.reduceMotion)
+            }
         }
         .animation(.smooth(duration: 0.3), value: model.phase.isOver)
-        .animation(.smooth(duration: 0.3), value: model.phase.isPaused)
+        .animation(.smooth(duration: 0.3), value: model.phase.showsPauseCard)
+        .alert(
+            Text(
+                "Leave the Game?", tableName: "PlaneGame", bundle: .module,
+                comment: "Asked when the new mail is tapped during the paper plane game"),
+            isPresented: Binding(
+                get: { model.phase.isAskingToLeave },
+                // Dismissed without an answer, as it is when the window closes, counts as staying.
+                set: { if !$0 { model.stay() } })
+        ) {
+            Button(role: .destructive, action: model.exit) {
+                Text(
+                    "Leave", tableName: "PlaneGame", bundle: .module,
+                    comment: "Leaves the paper plane game for the new mail")
+            }
+            Button(role: .cancel, action: model.stay) {
+                Text(
+                    "Keep Playing", tableName: "PlaneGame", bundle: .module,
+                    comment: "Stays in the paper plane game instead of leaving for the new mail")
+            }
+        } message: {
+            Text(
+                "You'll lose your progress in this game.", tableName: "PlaneGame", bundle: .module,
+                comment: "Why the paper plane game asks before leaving for the new mail")
+        }
         .contentShape(.rect)
         .gesture(
             DragGesture(minimumDistance: 0)
@@ -64,6 +92,16 @@ struct PlaneGameView: View {
         .sensoryFeedback(.impact(flexibility: .soft), trigger: model.catches)
         .sensoryFeedback(.warning, trigger: model.hits)
         .sensoryFeedback(.success, trigger: model.bossesDown)
+        // A tick as each number of the countdown shows.
+        .sensoryFeedback(.impact(weight: .light), trigger: model.phase.countdown) { _, count in count != nil }
+        // VoiceOver's focus stays where the pause card was, so the countdown is said as it starts.
+        .onChange(of: model.phase.countdown) { before, count in
+            guard before == nil, let count else { return }
+            SystemAccessibility.announce(
+                String(
+                    localized: "Resuming in \(count)", table: "PlaneGame", bundle: .module,
+                    comment: "The countdown before a paused paper plane game carries on, read by VoiceOver"))
+        }
     }
 }
 
@@ -100,8 +138,21 @@ extension PlaneGamePhase {
         if case .over = self { true } else { false }
     }
 
-    /// Whether the pause card shows.
-    fileprivate var isPaused: Bool {
-        if case .paused = self { true } else { false }
+    /// Whether the pause card shows: while it waits, and under the question asked from it.
+    fileprivate var showsPauseCard: Bool {
+        switch self {
+        case .paused(_, .card), .paused(_, .askingToLeave(staying: .card)): true
+        case .flying, .paused, .over, .leaving, .gone: false
+        }
+    }
+
+    /// Whether the game asks before leaving for the new mail.
+    fileprivate var isAskingToLeave: Bool {
+        if case .paused(_, .askingToLeave) = self { true } else { false }
+    }
+
+    /// The number the countdown shows, or `nil` when it isn't counting down.
+    fileprivate var countdown: Int? {
+        if case .paused(_, let hold) = self { hold.count } else { nil }
     }
 }

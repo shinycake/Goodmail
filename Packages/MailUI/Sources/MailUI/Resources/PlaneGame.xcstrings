@@ -139,6 +139,39 @@
         }
       }
     },
+    "Keep Playing" : {
+      "comment" : "Stays in the paper plane game instead of leaving for the new mail",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "המשך לשחק"
+          }
+        }
+      }
+    },
+    "Leave" : {
+      "comment" : "Leaves the paper plane game for the new mail",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "יציאה"
+          }
+        }
+      }
+    },
+    "Leave the Game?" : {
+      "comment" : "Asked when the new mail is tapped during the paper plane game",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לצאת מהמשחק?"
+          }
+        }
+      }
+    },
     "New Best" : {
       "comment" : "A game that beat the best score",
       "localizations" : {
@@ -205,6 +238,17 @@
         }
       }
     },
+    "Resuming in %lld" : {
+      "comment" : "The countdown before a paused paper plane game carries on, read by VoiceOver",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ממשיכים בעוד %lld"
+          }
+        }
+      }
+    },
     "Returned to Sender" : {
       "comment" : "Title of the game over card",
       "localizations" : {
@@ -234,6 +278,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "הדייג"
+          }
+        }
+      }
+    },
+    "You'll lose your progress in this game." : {
+      "comment" : "Why the paper plane game asks before leaving for the new mail",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ההתקדמות שלך במשחק הזה תאבד."
           }
         }
       }

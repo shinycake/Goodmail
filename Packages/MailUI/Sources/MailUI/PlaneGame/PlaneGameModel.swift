@@ -4,8 +4,8 @@ import SwiftUI
 import UIKit
 
 /// The paper plane game's state: the world, the phase and the game clock, stepped on by the screen's display link.
-/// `tick(by:)` is the only place a phase changes apart from the reader's choices: pausing, carrying on, leaving and
-/// playing again.
+/// `tick(by:)` is the only place a phase changes apart from the reader's choices: pausing, carrying on, asking to leave
+/// for new mail, staying, leaving and playing again.
 @Observable final class PlaneGameModel {
     private(set) var phase: PlaneGamePhase = .flying(.takeoff)
     private(set) var world: PlaneGameWorld
@@ -88,8 +88,8 @@ import UIKit
     /// How much of "Drag to fly" shows: it comes in with the HUD and goes once the plane moves, or after a while.
     var hint: Double {
         switch phase {
-        case .flying(.takeoff), .paused(.takeoff): break
-        case .flying(.again), .paused(.again), .over, .leaving, .gone: return 0
+        case .flying(.takeoff), .paused(.takeoff, _): break
+        case .flying(.again), .paused(.again, _), .over, .leaving, .gone: return 0
         }
         let goes = min(steeredAt ?? .infinity, PlaneGameTakeoff.duration + Self.hintStays)
         return takeoff.hud * (1 - PlaneGameEasing.ramp(clock, from: goes, to: goes + 0.3))
@@ -105,8 +105,16 @@ import UIKit
     /// Moves the game on by `step` seconds, capped at `longestStep`.
     func tick(by step: TimeInterval) {
         notice(mail: list.threads())
-        // A paused game holds its clock too, so nothing drawn from it moves either.
-        if case .paused = phase { return }
+        // A paused game holds its clock too, so nothing drawn from it moves either. Only a countdown runs, on the time
+        // that passes, and the game carries on the frame after it runs out.
+        if case .paused(let opening, let hold) = phase {
+            if let held = hold.advanced(by: step) {
+                phase = .paused(opening, held)
+            } else {
+                carryOn(opening)
+            }
+            return
+        }
         let dt = min(max(step, 0), Self.longestStep)
         clock += dt
         switch phase {
@@ -146,30 +154,51 @@ import UIKit
         finger = .up
     }
 
-    /// Holds the game still until `resume()`. The takeoff plays out first, and only a game in play pauses.
+    /// Holds the game still under the pause card until `resume()`, or stops a countdown and shows the card again. The
+    /// takeoff plays out first, and a question about leaving keeps waiting for its answer.
     func pause() {
-        guard canPause, case .flying(let opening) = phase else { return }
-        phase = .paused(opening)
+        switch phase {
+        case .flying(let opening) where canPause:
+            phase = .paused(opening, .card)
+        case .paused(let opening, let hold):
+            phase = .paused(opening, hold.paused)
+        case .flying, .over, .leaving, .gone:
+            break
+        }
     }
 
-    /// Whether `pause()` does anything now, which is when the pause sign shows.
+    /// Whether `pause()` does anything now, which is when the pause sign shows: in play, and during the countdown.
     var canPause: Bool {
         switch phase {
         case .flying(.takeoff): takeoff.isDone
-        case .flying(.again): true
+        case .flying(.again), .paused(_, .countingDown): true
         case .paused, .over, .leaving, .gone: false
         }
     }
 
-    /// Carries on from the pause.
+    /// Carries on from the pause card, after a countdown.
     func resume() {
-        guard case .paused(let opening) = phase else { return }
-        // A drag over the card steered nothing, so the plane doesn't start with it. A finger that was down when the
-        // game paused may have been taken away by the system without lifting, so the fire stops until a finger moves,
-        // and one still down steers from wherever it is then.
-        slide = 0
-        finger = .up
-        phase = .flying(opening)
+        guard case .paused(let opening, let hold) = phase else { return }
+        phase = .paused(opening, hold.resumed)
+    }
+
+    /// The reader tapped the new mail. A game in play is held still and asks first, since leaving loses it; a game
+    /// over has nothing left to lose and goes.
+    func leaveForMail() {
+        switch phase {
+        case .flying(let opening) where canPause:
+            phase = .paused(opening, .askingToLeave(staying: .countdown))
+        case .paused(let opening, let hold):
+            phase = .paused(opening, hold.askingToLeave)
+        case .flying, .over, .leaving, .gone:
+            exit()
+        }
+    }
+
+    /// The reader chose to stay in the game rather than leave for the mail.
+    func stay() {
+        guard case .paused(let opening, let hold) = phase else { return }
+        phase = .paused(opening, hold.stayed)
     }
 
     /// Asks for the way out. The takeoff plays out first, so the game always folds back from the game.
@@ -212,6 +241,15 @@ import UIKit
         PlaneGameField(
             size: screen, safeTop: safeArea.top, safeLeft: safeArea.left, safeBottom: safeArea.bottom,
             safeRight: safeArea.right)
+    }
+
+    private func carryOn(_ opening: PlaneGameOpening) {
+        // A drag over the card or the countdown steered nothing, so the plane doesn't start with it. A finger that was
+        // down when the game paused may have been taken away by the system without lifting, so the fire stops until a
+        // finger moves, and one still down steers from wherever it is then.
+        slide = 0
+        finger = .up
+        phase = .flying(opening)
     }
 
     private func wayOut() -> PlaneGameLeaving.Way {
