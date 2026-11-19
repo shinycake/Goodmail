@@ -48,6 +48,10 @@ final class TrashTests: XCTestCase {
         alert.buttons["Empty Trash"].tap()
         XCTAssertTrue(app.staticTexts["No Mail"].waitForExistence(timeout: 10), "Trash is empty")
         attach(app, "trash-emptied")
+        let bar = app.navigationBars.firstMatch
+        XCTAssertFalse(bar.buttons["Done"].exists, "Emptying Trash ends selecting")
+        XCTAssertFalse(bar.buttons["Select"].exists, "An empty list has nothing to select")
+        XCTAssertTrue(bar.buttons["Search"].exists, "Search stays")
     }
 
     @MainActor
