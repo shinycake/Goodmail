@@ -66,6 +66,14 @@ struct WristAccountSourcesTests {
             signIns: [id], health: [:], syncStates: [id: current], independence: .on)
         #expect(sources == [id: .direct, other: .relayed(.service)])
     }
+
+    /// A stored snapshot that lists an account twice is read again at every launch, so it must not trap.
+    @Test func anAccountListedTwiceGetsOneSource() {
+        let sources = WristAccountSources.resolve(
+            accounts: [account(.gmail), account(.gmail)], signIns: [id], health: [:], syncStates: [id: current],
+            independence: .on)
+        #expect(sources == [id: .direct])
+    }
 }
 
 /// The watch runs what it can for an account it reads itself; the iPhone runs the rest.

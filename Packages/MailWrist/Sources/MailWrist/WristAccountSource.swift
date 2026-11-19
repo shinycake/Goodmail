@@ -31,15 +31,17 @@ public enum WristAccountSources {
         accounts: [WristAccount], signIns: Set<AccountID>, health: [AccountID: AccountHealth],
         syncStates: [AccountID: SyncState], independence: WristIndependence
     ) -> [AccountID: WristAccountSource] {
+        // A snapshot that lists an account twice keeps its first entry rather than trapping.
         Dictionary(
-            uniqueKeysWithValues: accounts.map { account in
+            accounts.map { account in
                 (
                     account.id,
                     source(
                         of: account, signedIn: signIns.contains(account.id), health: health[account.id] ?? .healthy,
                         sync: syncStates[account.id], independence: independence)
                 )
-            })
+            },
+            uniquingKeysWith: { first, _ in first })
     }
 
     /// The first reason the watch can't read the account itself, in order from the most lasting; direct when there is

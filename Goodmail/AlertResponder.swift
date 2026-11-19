@@ -51,15 +51,3 @@ extension AlertResponder: UNUserNotificationCenterDelegate {
         }
     }
 }
-
-/// iOS's completion handler, carried to the main actor and called there once the answer is done.
-///
-/// `@unchecked Sendable` because the handler's type isn't `Sendable`. Safe: it is created on iOS's queue, never
-/// touched there again, and called only on the main actor, once.
-nonisolated private struct MainActorCompletion: @unchecked Sendable {
-    let call: () -> Void
-
-    init(_ call: @escaping () -> Void) {
-        self.call = call
-    }
-}
