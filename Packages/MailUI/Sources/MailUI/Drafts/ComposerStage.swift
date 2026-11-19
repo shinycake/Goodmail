@@ -7,8 +7,8 @@ import UIKit
 /// under the finger; letting go, or a tap, hands it to a spring. The stage hands the bar over too (`BarHandOff`): the
 /// bar steps aside for a card that starts as it, and is back where a card ends as it. The mail screens make room for
 /// the bar, or take it back, through `fitContent` as the motion is let go toward its end, outside the animator the
-/// finger holds, so their toolbars never lay out under a paused animator. The keyboard runs outside the app, where it can't be pictured or
-/// moved, so it slides away on its own as the card sets off.
+/// finger holds, so their toolbars never lay out under a paused animator. The keyboard runs outside the app, where it
+/// can't be pictured or moved, so it slides away on its own as the card sets off.
 final class ComposerStage: NSObject {
     /// Where a card leaving the screen goes.
     enum Destination {
@@ -232,8 +232,10 @@ final class ComposerStage: NSObject {
         case (.cardBecomesBar, true), (.barBecomesCard(stays: false), false):
             bar.isHidden = false
             bar.alpha = 1
-        case (.none, _), (.cardBecomesBar, false), (.barBecomesCard(stays: false), true),
-            (.barBecomesCard(stays: true), _):
+        case (.barBecomesCard(stays: false), true):
+            // The card took the bar's place; the bar stays out of the way until the shelf next shows it.
+            bar.isHidden = true
+        case (.none, _), (.cardBecomesBar, false), (.barBecomesCard(stays: true), _):
             break
         }
     }
