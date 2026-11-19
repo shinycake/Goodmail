@@ -68,11 +68,12 @@ final class ComposerCardView: UIView {
         cover.insertSubview(composerView, belowSubview: grabber)
     }
 
-    /// Puts the card at `frame` with corners of `cornerRadius`, the composer scaled to its width. Animatable.
+    /// Puts the card at `frame` with corners of `cornerRadius`, the composer scaled down to its width, centered. A
+    /// card wider than the open composer, as the bar is on a wide window, never scales the composer up. Animatable.
     func fit(_ frame: CGRect, cornerRadius: CGFloat) {
         self.frame = frame
         layer.cornerRadius = cornerRadius
-        let scale = openSize.width > 0 ? frame.width / openSize.width : 1
+        let scale = openSize.width > 0 ? min(frame.width / openSize.width, 1) : 1
         cover.transform = CGAffineTransform(scaleX: scale, y: scale)
         cover.center = CGPoint(x: frame.width / 2, y: openSize.height * scale / 2)
         face.layoutIfNeeded()
