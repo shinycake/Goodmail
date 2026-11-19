@@ -17,6 +17,9 @@ final class FormattingBar: UIView {
     private let directionButton: UIButton
     private let scrollView = UIScrollView()
     private let fade = CAGradientLayer()
+    /// Arrows at the edges that have more controls past them: they show the bar scrolls, and a tap scrolls it.
+    private let moreLeft = FormattingBar.moreButton(symbol: "chevron.compact.left")
+    private let moreRight = FormattingBar.moreButton(symbol: "chevron.compact.right")
     /// The width the controls were last placed for; at a new width they go back to their start.
     private var laidOutWidth: CGFloat = 0
 
@@ -25,7 +28,9 @@ final class FormattingBar: UIView {
     private static let inset: CGFloat = 8
     private static let buttonSize = CGSize(width: 44, height: 40)
     /// How far the controls fade out at an edge that has more of them past it.
-    private static let fadeLength: CGFloat = 24
+    private static let fadeLength: CGFloat = 36
+    /// The width of the arrows at the edges, over the fade.
+    private static let moreWidth: CGFloat = 22
 
     init() {
         sizeButton = Self.button(
@@ -94,6 +99,14 @@ final class FormattingBar: UIView {
         fade.startPoint = CGPoint(x: 0, y: 0.5)
         fade.endPoint = CGPoint(x: 1, y: 0.5)
         scrollView.layer.mask = fade
+        for more in [moreLeft, moreRight] {
+            more.translatesAutoresizingMaskIntoConstraints = false
+            glass.contentView.addSubview(more)
+        }
+        moreLeft.addAction(
+            UIAction { [weak self] _ in self?.scrollPage(towardRight: false) }, for: .primaryActionTriggered)
+        moreRight.addAction(
+            UIAction { [weak self] _ in self?.scrollPage(towardRight: true) }, for: .primaryActionTriggered)
 
         let content = scrollView.contentLayoutGuide
         NSLayoutConstraint.activate([
@@ -112,7 +125,16 @@ final class FormattingBar: UIView {
             controls.heightAnchor.constraint(equalTo: scrollView.frameLayoutGuide.heightAnchor),
             // When everything fits, the controls spread across the capsule; otherwise they keep their size and scroll.
             controls.widthAnchor.constraint(greaterThanOrEqualTo: scrollView.frameLayoutGuide.widthAnchor),
+            moreLeft.leftAnchor.constraint(equalTo: glass.contentView.leftAnchor, constant: 2),
+            moreRight.rightAnchor.constraint(equalTo: glass.contentView.rightAnchor, constant: -2),
         ])
+        for more in [moreLeft, moreRight] {
+            NSLayoutConstraint.activate([
+                more.topAnchor.constraint(equalTo: glass.contentView.topAnchor),
+                more.bottomAnchor.constraint(equalTo: glass.contentView.bottomAnchor),
+                more.widthAnchor.constraint(equalToConstant: Self.moreWidth),
+            ])
+        }
         controls.distribution = .equalSpacing
         show(nil)
     }
@@ -145,15 +167,44 @@ final class FormattingBar: UIView {
         let offset = scrollView.contentOffset.x
         let hiddenBefore = offset > 1
         let hiddenAfter = offset + width < scrollView.contentSize.width - 1
+        // Under an arrow the controls are gone, so the arrow never sits on half of one; past it they fade in.
+        let under = (Self.moreWidth + 2 - Self.inset) / width
         let edge = Self.fadeLength / width
         let opaque = UIColor.black.cgColor
         let clear = UIColor.clear.cgColor
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         fade.frame = scrollView.bounds
-        fade.colors = [hiddenBefore ? clear : opaque, opaque, opaque, hiddenAfter ? clear : opaque]
-        fade.locations = [0, NSNumber(value: edge), NSNumber(value: 1 - edge), 1]
+        let before = hiddenBefore ? clear : opaque
+        let after = hiddenAfter ? clear : opaque
+        fade.colors = [before, before, opaque, opaque, after, after]
+        fade.locations = [0, under, edge, 1 - edge, 1 - under, 1].map { NSNumber(value: $0) }
         CATransaction.commit()
+        moreLeft.isHidden = !hiddenBefore
+        moreRight.isHidden = !hiddenAfter
+    }
+
+    /// Scrolls the controls a page toward the right or left, keeping the edge's fade's worth of the last page.
+    private func scrollPage(towardRight: Bool) {
+        let page = max(scrollView.bounds.width - 2 * Self.fadeLength, Self.buttonSize.width)
+        let maxOffset = max(scrollView.contentSize.width - scrollView.bounds.width, 0)
+        let target = scrollView.contentOffset.x + (towardRight ? page : -page)
+        scrollView.setContentOffset(CGPoint(x: min(max(target, 0), maxOffset), y: 0), animated: true)
+    }
+
+    /// An arrow at an edge with more controls past it. VoiceOver reaches every control by scrolling already, so it
+    /// skips the arrows.
+    private static func moreButton(symbol: String) -> UIButton {
+        var configuration = UIButton.Configuration.plain()
+        configuration.image = UIImage(systemName: symbol)
+        configuration.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(
+            textStyle: .body, scale: .large)
+        configuration.baseForegroundColor = .secondaryLabel
+        configuration.contentInsets = .zero
+        let button = UIButton(configuration: configuration)
+        button.isHidden = true
+        button.isAccessibilityElement = false
+        return button
     }
 
     private static func button(symbol: String, title: String) -> UIButton {
