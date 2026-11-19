@@ -26,7 +26,9 @@ enum ConversationPDF {
     /// The sheet a message prints on, around its page: white in light, the reader's dark card in dark. A painted body's
     /// own page is a shade lighter in dark, as its sheet is on the card.
     static func sheet(_ appearance: ForcedAppearance) -> UIColor {
-        appearance == .dark ? UIColor(red: 28 / 255, green: 28 / 255, blue: 30 / 255, alpha: 1) : .white
+        guard appearance == .dark else { return .white }
+        let channels = ReaderColors.darkCard.map { CGFloat($0) / 255 }
+        return UIColor(red: channels[0], green: channels[1], blue: channels[2], alpha: 1)
     }
 
     static func data(

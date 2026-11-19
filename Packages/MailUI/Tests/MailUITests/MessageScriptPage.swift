@@ -14,14 +14,15 @@ struct MessageScriptPage {
     /// `height`; the reader's starts 1 point tall and grows to what the script reports. A view out of a window
     /// follows the system's appearance, so a test that needs one forces it in the page, as the PDF does.
     static func load(
-        _ body: MessageBody, palette: MessagePalette, height: Double = 600, appearance: ForcedAppearance? = nil
+        _ body: MessageBody, palette: MessagePalette, height: Double = 600, appearance: ForcedAppearance? = nil,
+        foldLabel: String = "Show Quoted Text"
     ) async -> MessageScriptPage {
         let forced = { (text: String) in appearance.map { $0.apply(to: text) } ?? text }
         let view = WKWebView(frame: CGRect(x: 0, y: 0, width: 360, height: height))
         let contents = view.configuration.userContentController
         contents.addUserScript(
             WKUserScript(
-                source: forced(MessageScript.source(for: .reader(foldLabel: "Show Quoted Text"))),
+                source: forced(MessageScript.source(for: .reader(foldLabel: foldLabel))),
                 injectionTime: .atDocumentEnd,
                 forMainFrameOnly: true))
         let reports = Reports()

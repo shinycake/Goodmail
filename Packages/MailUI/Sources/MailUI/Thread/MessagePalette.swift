@@ -75,13 +75,13 @@ nonisolated enum MessagePalette: String, CaseIterable, Sendable {
             "<style>:root { color-scheme: light dark; }</style>\(Self.darkPassStyle)"
         case .painted:
             """
-            <style>:root { color-scheme: light dark; background-color: light-dark(#fff, \(MessageDarkPass.sheet)); }\
+            <style>:root { color-scheme: light dark; background-color: light-dark(#fff, \(ReaderColors.css(ReaderColors.darkSheet))); }\
             body { padding: 12px; }</style>\(Self.darkPassStyle)
             """
         }
     }
 
-    /// Applies the marks the script's dark pass sets (`MessageDarkPass`), in dark appearance only, so the sun button
+    /// Applies the marks the script's dark pass sets (`message-dark.js`), in dark appearance only, so the sun button
     /// shows the sender's own colors again without a reload. In a layer, so these `!important` rules beat the sender's
     /// own `!important` stylesheet rules, as responsive templates' are, whatever their specificity.
     private static let darkPassStyle = """

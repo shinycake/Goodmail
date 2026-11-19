@@ -56,7 +56,7 @@ nonisolated enum PrintDocument {
     /// that paints its own page comes later in the head and wins.
     private static let paperStyle = """
         <style>\
-        :root { color-scheme: light dark; background-color: light-dark(#fff, rgb(28, 28, 30)); }\
+        :root { color-scheme: light dark; background-color: light-dark(#fff, \(ReaderColors.css(ReaderColors.darkCard))); }\
         header.goodmail-print { font: 12px -apple-system; color: light-dark(#000, #fff); margin-bottom: 16px; \
         padding-bottom: 8px; border-bottom: 1px solid light-dark(#ccc, #48484a); }\
         header.goodmail-print h1 { font: bold 20px ui-serif, "New York", serif; margin: 0 0 8px; }\

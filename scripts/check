@@ -53,6 +53,16 @@ scripts/strict-swift --check
 step "App Intent text (scripts/intent-text)"
 scripts/intent-text
 
+# The message script ships as plain JavaScript parts (MessageScript), each run in a block of its own, so a part that
+# parses on its own also parses in the page. One that doesn't would only show as mail whose card never takes its
+# height. Nothing installs node: the Mac has it, and where a runner doesn't, the MailUI tests on the Mac still catch it.
+step "Message script syntax (node --check)"
+if command -v node >/dev/null; then
+    for script in Packages/MailUI/Sources/MailUI/Resources/*.js; do node --check "$script"; done
+else
+    echo "⚠ node isn't installed, so the message script's syntax goes unchecked here."
+fi
+
 [[ "${1:-}" == "--lint" ]] && exit 0
 
 # The push Worker (ADR-006): typecheck and tests, only where its dev tooling is installed (npm install in PushWorker/).

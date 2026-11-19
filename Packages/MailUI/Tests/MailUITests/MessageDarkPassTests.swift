@@ -46,7 +46,7 @@ struct MessageDarkPassTests {
 
         #expect(paper["banner"] == nil, "the brand's navy stays")
         #expect(ink["banner"] == nil, "white on navy already reads")
-        #expect(paper["panel"] == MessageDarkPass.sheet, "white becomes the sheet")
+        #expect(paper["panel"] == ReaderColors.css(ReaderColors.darkSheet), "white becomes the sheet")
         let note = try channels(paper["note"])
         #expect(note[2] > note[0] && note.allSatisfy { $0 < 100 }, "a pastel becomes a deep tint of its hue")
         let divider = try channels(marks["border"]?["note"])
@@ -65,7 +65,7 @@ struct MessageDarkPassTests {
                 <table id="panel" bgcolor="#ffffff"><tr><td id="text" class="ink">Hi Idan</td></tr></table>
                 """)
         let marks = try await marks(in: body, palette: .sendersOwn, appearance: .dark)
-        #expect(marks["paper"]?["panel"] == MessageDarkPass.sheet)
+        #expect(marks["paper"]?["panel"] == ReaderColors.css(ReaderColors.darkSheet))
         #expect(marks["ink"]?["text"] == nil, "their white text reads on the turned panel")
     }
 
@@ -100,7 +100,7 @@ struct MessageDarkPassTests {
                 <table class="panel" id="panel"><tr><td id="text" style="color: #0d1b4c">Hi</td></tr></table>
                 """)
         let shown = try await computed(body, palette: .painted)
-        #expect(shown["panel"]?.first == MessageDarkPass.sheet)
+        #expect(shown["panel"]?.first == ReaderColors.css(ReaderColors.darkSheet))
         let text = try channels(shown["text"]?.last)
         #expect(text.allSatisfy { $0 > 120 }, "the navy text reads on the turned panel")
     }
