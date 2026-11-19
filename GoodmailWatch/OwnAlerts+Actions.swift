@@ -1,5 +1,6 @@
 import Foundation
 import MailWrist
+import OSLog
 import UserNotifications
 
 /// The actions on an alert the relay sends the watch itself (ADR-023): Reply, Mark as Read, Archive and Trash, as on
