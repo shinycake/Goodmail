@@ -36,7 +36,7 @@ public final class WristInboxModel {
     public var freshness: WristFreshness?
     private var reading = Reading.current
     /// Whether the stored mailbox has been taken over.
-    private var restored = false
+    public private(set) var isRestored = false
     /// The reader's last change, which they can take back for a few seconds.
     public private(set) var undoable: WristCommand?
     /// Each change, in order, for `WristLink` to store and send.
@@ -60,8 +60,8 @@ public final class WristInboxModel {
     /// Takes over a mailbox read from the store at launch, once: the app's link and an alert or a refresh the system
     /// launched the app for may each restore it first. What arrived before it loaded stays (`WristMailbox.restore`).
     public func restore(_ stored: WristMailbox) {
-        guard !restored else { return }
-        restored = true
+        guard !isRestored else { return }
+        isRestored = true
         mailbox.restore(stored)
     }
 

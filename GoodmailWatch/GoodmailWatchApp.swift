@@ -94,9 +94,9 @@ extension WatchAppDelegate {
     }
 
     /// The Inbox, restored from the store first: the system can launch the app for an alert or a refresh, which then
-    /// runs before the link to the iPhone has restored it. Restoring again does nothing.
+    /// runs before the link to the iPhone has restored it.
     func restoredInbox() async -> WristInboxModel {
-        inbox.restore(await store.load())
+        if !inbox.isRestored { inbox.restore(await store.load()) }
         return inbox
     }
 }
