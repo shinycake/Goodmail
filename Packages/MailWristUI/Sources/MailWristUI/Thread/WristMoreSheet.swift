@@ -7,7 +7,7 @@ import SwiftUI
 struct WristMoreSheet: View {
     let row: WristRow
     let inbox: WristInboxModel
-    /// Called after a snooze, to close the conversation it took away.
+    /// Called on a snooze, before the sheet closes, so the conversation it took away closes after.
     let snoozed: () -> Void
     @Environment(\.dismiss) private var dismiss
 
@@ -36,8 +36,8 @@ struct WristMoreSheet: View {
                 ForEach(LaterTime.snoozeChoices(at: .now), id: \.date) { choice in
                     Button {
                         inbox.perform(.snooze(until: choice.date), on: [row])
-                        dismiss()
                         snoozed()
+                        dismiss()
                     } label: {
                         WristLaterLabel(choice: choice)
                     }

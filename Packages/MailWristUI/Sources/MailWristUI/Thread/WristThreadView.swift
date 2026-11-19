@@ -20,6 +20,8 @@ struct WristThreadView: View {
     /// Counts Try Again taps: each asks the iPhone again, with its own wait.
     @State private var attempt = 0
     @State private var showsMore = false
+    /// Set by a snooze in the More sheet, to close the conversation once the sheet is gone.
+    @State private var snoozed = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -49,9 +51,13 @@ struct WristThreadView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showsMore) {
-                if let row { WristMoreSheet(row: row, inbox: inbox) { dismiss() } }
-            }
+            // A snooze takes the conversation away, so it closes too, once the sheet has: two dismissals in one
+            // update can leave it open.
+            .sheet(
+                isPresented: $showsMore, onDismiss: { if snoozed { dismiss() } },
+                content: {
+                    if let row { WristMoreSheet(row: row, inbox: inbox) { snoozed = true } }
+                })
     }
 
     /// The conversation's row as the Inbox shows it now, pinned or not, since the reader may have changed it here;
