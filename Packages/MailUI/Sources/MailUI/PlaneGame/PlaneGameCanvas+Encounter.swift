@@ -29,7 +29,7 @@ extension PlaneGameCanvas {
         if let points = boss.points, points.opacity > 0 {
             context.opacity = frame.play * points.opacity
             let label = context.resolve(
-                Text(points.value, format: .number.sign(strategy: .always()))
+                Text(verbatim: points.value.formatted(.number.sign(strategy: .always())))
                     .font(.title3.bold().monospacedDigit())
                     .foregroundStyle(DoodlePalette.purple))
             context.draw(label, at: points.position)

@@ -61,7 +61,10 @@ struct PlaneGameHUD: View {
                 Text("Back to Inbox", tableName: "PlaneGame", bundle: .module, comment: "Leaves the paper plane game"))
         }
         .overlay {
-            Text(score, format: .number)
+            // Formatted to a string before it is a Text, here and across the game: a Text given a format style has
+            // SwiftUI look over Foundation's attribute scopes the first time, which took 35 to 40 ms of the first
+            // game's first frame.
+            Text(verbatim: score.formatted(.number))
                 .font(.title3.bold())
                 .monospacedDigit()
                 .accessibilityLabel(Text("Score", tableName: "PlaneGame", bundle: .module, comment: "The game's score"))

@@ -35,7 +35,7 @@ struct PlaneGameMailBadge: View {
                     }
                     .opacity(shown || !reduceMotion ? 1 : 0)
                 // Never 0, which would fade out under the first count as it fades in. Later counts roll in.
-                Text(max(count, 1), format: .number)
+                Text(verbatim: max(count, 1).formatted(.number))
                     .font(.footnote.bold())
                     .monospacedDigit()
                     .foregroundStyle(DoodlePalette.purple)
@@ -58,7 +58,7 @@ struct PlaneGameMailBadge: View {
         .allowsHitTesting(shown)
         .accessibilityHidden(!shown)
         .accessibilityLabel(Self.label)
-        .accessibilityValue(Text(count, format: .number))
+        .accessibilityValue(Text(verbatim: count.formatted(.number)))
         .accessibilityHint(
             Text("Back to Inbox", tableName: "PlaneGame", bundle: .module, comment: "Leaves the paper plane game")
         )

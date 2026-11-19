@@ -78,7 +78,7 @@ struct PlaneGameCanvas: View {
                 guard points > 0 else { continue }
                 let rise = frame.reduceMotion ? 0 : 22 * CGFloat(PlaneGameEasing.easeOut(progress))
                 let label = context.resolve(
-                    Text(points, format: .number.sign(strategy: .always()))
+                    Text(verbatim: points.formatted(.number.sign(strategy: .always())))
                         .font(.callout.bold().monospacedDigit())
                         .foregroundStyle(DoodlePalette.purple))
                 context.draw(label, at: CGPoint(x: at.x, y: at.y - 16 - rise))
