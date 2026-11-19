@@ -1,12 +1,13 @@
 public import Foundation
 
 /// What holds a paused game still, and the one way each hold carries on: the reader picks Resume on the pause card,
-/// which counts down before anything moves; the reader taps the new mail and is asked first whether to leave the game.
-/// Every change is one of the functions here, so the screen never has to work out which combination it is in.
+/// which counts down before anything moves; the reader taps the cross or the new mail and is asked first whether to
+/// leave the game. Every change is one of the functions here, so the screen never has to work out which combination it
+/// is in.
 public enum PlaneGameHold: Equatable, Sendable {
     /// The pause card shows and waits for the reader.
     case card
-    /// Asking whether to leave the game for the mail that arrived. Staying goes back to `staying`.
+    /// Asking whether to leave the game. Staying goes back to `staying`.
     case askingToLeave(staying: Staying)
     /// Counting down to carry on, `left` seconds from moving again.
     case countingDown(left: TimeInterval)
@@ -44,7 +45,7 @@ public enum PlaneGameHold: Equatable, Sendable {
         if case .countingDown = self { .card } else { self }
     }
 
-    /// The reader tapped the new mail: the game asks before it leaves, and staying goes back to what showed.
+    /// The reader asked to leave: the game asks before it does, and staying goes back to what showed.
     public var askingToLeave: PlaneGameHold {
         switch self {
         case .card: .askingToLeave(staying: .card)

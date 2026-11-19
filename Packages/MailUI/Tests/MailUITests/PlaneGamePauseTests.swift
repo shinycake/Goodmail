@@ -7,7 +7,7 @@ import UIKit
 @testable import MailUI
 
 /// Pausing the paper plane game: what can be paused, that nothing moves while it is, the countdown before it carries
-/// on, the question before leaving it for new mail, and the ways on from each.
+/// on, the question before leaving it, and the ways on from each.
 @MainActor
 struct PlaneGamePauseTests {
     private let stage: InboxZeroStage? = InboxZeroStage(
@@ -85,10 +85,10 @@ struct PlaneGamePauseTests {
         #expect(model.phase == .paused(.takeoff, .card))
     }
 
-    @Test func tappingTheNewMailInPlayHoldsTheGameAndAsks() throws {
+    @Test func askingToLeaveInPlayHoldsTheGameAndAsks() throws {
         let model = try playing()
         let world = model.world
-        model.leaveForMail()
+        model.askToLeave()
         #expect(model.phase == .paused(.takeoff, .askingToLeave(staying: .countdown)))
         #expect(!model.canPause)
         run(model, for: 5)
@@ -97,7 +97,7 @@ struct PlaneGamePauseTests {
 
     @Test func stayingInTheGameCountsDownBeforeItCarriesOn() throws {
         let model = try playing()
-        model.leaveForMail()
+        model.askToLeave()
         model.stay()
         #expect(model.phase == .paused(.takeoff, .countingDown(left: 3)))
         run(model, for: PlaneGameHold.countdown + 1.0 / 60)
@@ -107,7 +107,7 @@ struct PlaneGamePauseTests {
     @Test func stayingAfterAskingFromThePauseCardGoesBackToIt() throws {
         let model = try playing()
         model.pause()
-        model.leaveForMail()
+        model.askToLeave()
         #expect(model.phase == .paused(.takeoff, .askingToLeave(staying: .card)))
         model.stay()
         #expect(model.phase == .paused(.takeoff, .card))
@@ -115,7 +115,7 @@ struct PlaneGamePauseTests {
 
     @Test func leavingAfterTheQuestionFoldsBackHome() throws {
         let model = try playing()
-        model.leaveForMail()
+        model.askToLeave()
         model.exit()
         guard case .leaving(let leaving) = model.phase else {
             Issue.record("Expected to leave, got \(model.phase)")
@@ -126,16 +126,16 @@ struct PlaneGamePauseTests {
 
     @Test func theAppGoingInactiveLeavesTheQuestionUp() throws {
         let model = try playing()
-        model.leaveForMail()
+        model.askToLeave()
         model.pause()
         #expect(model.phase == .paused(.takeoff, .askingToLeave(staying: .countdown)))
     }
 
-    @Test func theNewMailAfterAGameOverLeavesWithoutAsking() throws {
+    @Test func askingToLeaveAfterAGameOverLeavesAtOnce() throws {
         let model = try playing()
         for _ in 0..<(60 * 600) where !model.isOver { model.tick(by: 1.0 / 60) }
         try #require(model.isOver)
-        model.leaveForMail()
+        model.askToLeave()
         guard case .leaving(let leaving) = model.phase else {
             Issue.record("Expected to leave, got \(model.phase)")
             return

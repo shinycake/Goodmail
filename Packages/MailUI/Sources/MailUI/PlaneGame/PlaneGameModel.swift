@@ -5,7 +5,7 @@ import UIKit
 
 /// The paper plane game's state: the world, the phase and the game clock, stepped on by the screen's display link.
 /// `tick(by:)` is the only place a phase changes apart from the reader's choices: pausing, carrying on, asking to leave
-/// for new mail, staying, leaving and playing again.
+/// to leave, staying, leaving and playing again.
 @Observable final class PlaneGameModel {
     private(set) var phase: PlaneGamePhase = .flying(.takeoff)
     private(set) var world: PlaneGameWorld
@@ -182,9 +182,10 @@ import UIKit
         phase = .paused(opening, hold.resumed)
     }
 
-    /// The reader tapped the new mail. A game in play is held still and asks first, since leaving loses it; a game
-    /// over has nothing left to lose and goes.
-    func leaveForMail() {
+    /// The reader asked to leave from the game itself: the cross, Escape, VoiceOver's escape gesture or the new mail. A
+    /// game in play is held still and asks first, since leaving loses it; a game over has nothing left to lose and goes.
+    /// The cards' own Back to Inbox leave at once through `exit()`.
+    func askToLeave() {
         switch phase {
         case .flying(let opening) where canPause:
             phase = .paused(opening, .askingToLeave(staying: .countdown))
@@ -195,7 +196,7 @@ import UIKit
         }
     }
 
-    /// The reader chose to stay in the game rather than leave for the mail.
+    /// The reader chose to stay in the game rather than leave it.
     func stay() {
         guard case .paused(let opening, let hold) = phase else { return }
         phase = .paused(opening, hold.stayed)
