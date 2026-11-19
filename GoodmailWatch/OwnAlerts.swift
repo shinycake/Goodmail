@@ -2,6 +2,7 @@ import Foundation
 import MailCore
 import MailWrist
 import OSLog
+import Observation
 import UserNotifications
 import WatchKit
 
@@ -47,6 +48,32 @@ final class OwnAlerts {
                 if let latest { await channel.send(pushToken: latest) }
             }
         }
+    }
+
+    /// Runs for the app's lifetime: each time the Inbox the watch holds changes, takes down the alerts the relay sent
+    /// the watch whose mail the reader has dealt with since (`WristMailbox.handledAlerts`). Alerts mirrored from the
+    /// iPhone come down with the iPhone's.
+    static func takeDownHandled(following inbox: WristInboxModel) async {
+        for await mailbox in Observations({ inbox.mailbox }) {
+            await takeDownHandled(in: mailbox)
+        }
+    }
+
+    /// Reads Notification Center off the main actor, and removes what `mailbox` says was dealt with.
+    @concurrent private static func takeDownHandled(in mailbox: WristMailbox) async {
+        let center = UNUserNotificationCenter.current()
+        // The relay's own pushes carry its payload, `aps` and all; mirrored alerts carry only the thread.
+        let alerts = await center.deliveredNotifications().compactMap { notification -> WristDeliveredAlert? in
+            let userInfo = notification.request.content.userInfo
+            guard userInfo["aps"] != nil else { return nil }
+            return WristDeliveredAlert(
+                identifier: notification.request.identifier, payload: TappedAlert(userInfo).strings,
+                deliveredAt: notification.date)
+        }
+        let handled = mailbox.handledAlerts(alerts)
+        guard !handled.isEmpty else { return }
+        center.removeDeliveredNotifications(withIdentifiers: handled)
+        log.notice("Took down \(handled.count, privacy: .public) alerts for mail dealt with")
     }
 
     func received(token: Data) {

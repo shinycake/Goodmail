@@ -1,3 +1,4 @@
+import MailNotifications
 import MailUI
 import OSLog
 import UIKit
@@ -30,6 +31,25 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         // Push registers only once the database has opened.
         launch.running?.push.didRegister(deviceToken: deviceToken)
+    }
+
+    /// The relay's quiet push, sent when mail was read, filed or deleted elsewhere (PushWorker/README.md). iOS can
+    /// launch the app for it, so the database may still be opening.
+    func application(
+        _ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+        fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+    ) {
+        // iOS hands over alerts that arrive while the app is open too: the extension and the sweep cover those.
+        guard userInfo["handled"] != nil, let target = NewMailFetch.target(in: userInfo) else {
+            return completionHandler(.noData)
+        }
+        Task { [launch] in
+            guard let model = try? await launch.services().model else { return completionHandler(.failed) }
+            let synced = await BackgroundDatabaseWork.shared.run("Mail dealt with elsewhere") {
+                await model.syncHandledElsewhere(target)
+            }
+            completionHandler(synced ? .newData : .failed)
+        }
     }
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: any Error) {

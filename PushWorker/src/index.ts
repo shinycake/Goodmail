@@ -6,8 +6,10 @@ import type { Env } from "./env";
 import { alertsFor, pruneAlerts } from "./fallback";
 import { TokenError, verifyIdToken, verifyPubSubToken } from "./google";
 import { forgetGrant, grantsFor, storeGrant } from "./grant-routes";
+import { sendHandled } from "./handled";
 import { keepInboxesWatched } from "./inbox-holder";
 import { registerWatch, unregisterWatch } from "./imap-routes";
+import { NONE } from "./new-mail";
 import { OutlookGrantRevoked, OutlookGrants, refreshOutlookToken } from "./outlook";
 import {
   BadRequest,
@@ -163,7 +165,12 @@ async function pubSubPush(request: Request, env: Env, context: ExecutionContext)
     await releaseHistoryId(env.DB, claim);
     return new Response(null, { status: 503 });
   }
-  if (arrival.kind === "none") return new Response(null, { status: 204 });
+  if (arrival.kind === "none") {
+    // A read, archive, move or delete: the devices take down alerts for what was dealt with (handled.ts).
+    const target = { account: emailAddress, historyId };
+    context.waitUntil(Promise.all(devices.map((device) => sendHandled(env, device, target))));
+    return new Response(null, { status: 204 });
+  }
   const now = Date.now();
   const slot = await claimPushSlot(env.DB, account, now);
   if (slot === false) return new Response(null, { status: 204 });
@@ -266,8 +273,11 @@ const GRAPH_RETRY_DELAYS_MS = [3_000, 10_000];
 /**
  * Graph's change notifications. Creating a subscription first checks the URL by sending a `validationToken`, which
  * must come straight back as text. A notification batch is acknowledged at once, as Graph wants within seconds. Each
- * subscription it names with the right clientState gets one alert, for the newest message it named that the app
- * alerts for (`new-mail.ts`), tried again a couple of times when the mail can't be read yet.
+ * subscription it names with the right clientState gets one alert, for the newest message it named as created that
+ * the app alerts for (`new-mail.ts`), tried again a couple of times when the mail can't be read yet. One whose batch
+ * named only messages that changed or left the Inbox (read, moved, deleted) gets the quiet push instead, so the
+ * device takes down the alerts it no longer needs (`handled.ts`). Only a created message can alert, since Graph also
+ * reports changes to mail that just arrived.
  */
 async function graphNotification(request: Request, url: URL, env: Env, context: ExecutionContext): Promise<Response> {
   const validationToken = url.searchParams.get("validationToken");
@@ -276,30 +286,40 @@ async function graphNotification(request: Request, url: URL, env: Env, context: 
   }
   const body = (await request.json().catch(() => undefined)) as { value?: unknown } | undefined;
   const notifications = Array.isArray(body?.value) ? body.value : [];
-  const named = new Map<string, { clientState: string; messageIds: Set<string> }>();
+  const named = new Map<string, { clientState: string; created: Set<string>; changed: boolean }>();
   for (const notification of notifications) {
-    const { subscriptionId, clientState, resourceData } = (notification ?? {}) as Record<string, unknown>;
+    const { subscriptionId, clientState, changeType, resourceData } = (notification ?? {}) as Record<string, unknown>;
     if (typeof subscriptionId !== "string" || typeof clientState !== "string") continue;
-    const entry = named.get(subscriptionId.toLowerCase()) ?? { clientState, messageIds: new Set<string>() };
+    const entry = named.get(subscriptionId.toLowerCase()) ?? { clientState, created: new Set<string>(), changed: false };
     const id = (resourceData as { id?: unknown } | undefined)?.id;
-    if (typeof id === "string") entry.messageIds.add(id);
+    // A subscription made before it reported changes sends no changeType it doesn't have: "created".
+    if (changeType === undefined || changeType === "created") {
+      if (typeof id === "string") entry.created.add(id);
+    } else if (changeType === "updated" || changeType === "deleted") {
+      entry.changed = true;
+    }
     named.set(subscriptionId.toLowerCase(), entry);
   }
   const grants = new OutlookGrants(env.DB, env.EMAIL_HMAC_SECRET);
   context.waitUntil(
     Promise.all(
-      [...named].map(async ([subscriptionId, { clientState, messageIds }]) => {
+      [...named].map(async ([subscriptionId, { clientState, created, changed }]) => {
         const subscription = await verifiedSubscription(env.DB, subscriptionId, clientState);
         if (!subscription) return;
-        const ids = [...messageIds];
-        let arrival = await outlookCheck.arrival(grants, env.OUTLOOK_CLIENT_ID, subscription.account, ids);
+        const target = { accountID: subscription.account };
+        const ids = [...created];
+        let arrival = ids.length > 0 ? await outlookCheck.arrival(grants, env.OUTLOOK_CLIENT_ID, subscription.account, ids) : NONE;
         for (const delay of GRAPH_RETRY_DELAYS_MS) {
           if (arrival.kind !== "retry") break;
           await new Promise((resolve) => setTimeout(resolve, delay));
           arrival = await outlookCheck.arrival(grants, env.OUTLOOK_CLIENT_ID, subscription.account, ids);
         }
-        if (arrival.kind !== "mail") return;
-        await alertsFor(env, (work) => context.waitUntil(work)).send(subscription.device, arrival.newest, { accountID: subscription.account });
+        if (arrival.kind === "mail") {
+          // The alert's own catch-up takes down what was dealt with too.
+          await alertsFor(env, (work) => context.waitUntil(work)).send(subscription.device, arrival.newest, target);
+        } else if (changed) {
+          await sendHandled(env, subscription.device, target);
+        }
       }),
     ),
   );

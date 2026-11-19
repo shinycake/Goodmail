@@ -1,6 +1,7 @@
 import { env } from "cloudflare:test";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApnsSigner } from "../src/apns";
+import { handledPushes } from "../src/handled";
 import { Alerts } from "../src/fallback";
 import type { Env } from "../src/index";
 import { InboxWatches } from "../src/inbox-watches";
@@ -37,6 +38,7 @@ const alerts = () =>
   new Alerts(env.DB, signer, { app: "com.idanbirman.goodmail", watch: "com.idanbirman.goodmail.watchkitapp" }, () => {});
 
 beforeEach(async () => {
+  handledPushes.clear();
   await env.DB.prepare("DELETE FROM imap_watches").run();
   await env.DB.prepare("DELETE FROM devices").run();
   apnsCalls = [];
@@ -227,6 +229,24 @@ describe("polling", () => {
     await run;
     expect(imap.sessions).toHaveLength(1);
     expect((await findWatch(env.DB, WATCH_ID))?.inbox.uidNext).toBe(101);
+  });
+
+  it("tells the device to take down alerts when mail is read or deleted in another app, without alerting", async () => {
+    await register();
+    server = inboxServer({ uidValidity: 7, uidNext: 100 });
+    imap.sessions.length = 0;
+    const run = pollWatches(testEnv, alerts(), NOW, imap.connect, 6_500);
+    await vi.waitUntil(() => imap.sessions[0]?.lines.some((line) => line.endsWith(" IDLE")));
+    imap.announce("* 2 FETCH (FLAGS (\\Seen))");
+    imap.announce("* 1 EXPUNGE");
+    await vi.waitUntil(() => apnsCalls.length === 1, { timeout: 4_000 });
+    await run;
+    expect(apnsCalls).toEqual([
+      {
+        url: `https://api.sandbox.push.apple.com/3/device/${DEVICE}`,
+        body: { aps: { "content-available": 1 }, accountID: "account-1", handled: 1 },
+      },
+    ]);
   });
 
   it("alerts for mail sent to oneself that lands unread in the Inbox, as Apple Mail does", async () => {

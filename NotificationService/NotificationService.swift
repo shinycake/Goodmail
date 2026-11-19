@@ -47,6 +47,8 @@ final class NotificationService: UNNotificationServiceExtension {
             } catch {
                 Logger.push.error("Couldn't set the badge after a push: \(error, privacy: .public)")
             }
+            // The catch-up also brought what was read, filed or deleted since, here or anywhere else.
+            await fetch.dismissHandledAlerts()
             await delivery.finish(with: outcome, pictures: pictures)
         } catch {
             Logger.push.error("Couldn't fetch the new mail: \(error, privacy: .public)")

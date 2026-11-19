@@ -1,0 +1,6 @@
+{
+  "id": "0a1b2c3d-0000-4000-8000-000000000001",
+  "resource": "me/mailFolders('inbox')/messages",
+  "changeType": "created",
+  "expirationDateTime": "2026-11-16T18:23:45.9356913Z"
+}

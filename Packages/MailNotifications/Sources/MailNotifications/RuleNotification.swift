@@ -25,7 +25,8 @@ public enum RuleNotification {
         content.userInfo = AlertedThread.userInfo(for: alert.thread)
         // One per rule and thread: the same rule matching a later reply replaces it.
         return UNNotificationRequest(
-            identifier: "rule/\(alert.rule)/\(NewMailAlert.identifier(for: alert.thread))", content: content,
+            identifier: "\(DeliveredAlert.rulePrefix)\(alert.rule)/\(NewMailAlert.identifier(for: alert.thread))",
+            content: content,
             trigger: nil)
     }
 

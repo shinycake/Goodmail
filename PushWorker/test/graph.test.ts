@@ -1,5 +1,6 @@
 import { createExecutionContext, env, waitOnExecutionContext } from "cloudflare:test";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { handledPushes } from "../src/handled";
 import worker, { type Env } from "../src/index";
 import { verifiedSubscription } from "../src/graph";
 import { GRAPH_API, MICROSOFT_TOKEN_URL } from "../src/outlook";
@@ -12,7 +13,7 @@ const ACCOUNT = "3F2504E0-4F89-11D3-9A0C-0305E82C3301";
 const DEVICE = "a".repeat(64);
 
 let testEnv: Env;
-let apnsCalls: { url: string; body: unknown }[];
+let apnsCalls: { url: string; body: unknown; type: string | null }[];
 let apnsStatus: number;
 /** The fake mailbox's messages by ID, as Graph answers `$select=subject,from,isRead,parentFolderId,receivedDateTime`. */
 let messages: Map<string, Record<string, unknown>>;
@@ -36,6 +37,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  handledPushes.clear();
   await env.DB.prepare("DELETE FROM graph_subscriptions").run();
   await env.DB.prepare("DELETE FROM graph_grants").run();
   apnsCalls = [];
@@ -57,7 +59,7 @@ beforeEach(async () => {
       return found ? Response.json(found) : Response.json({ error: { code: "ErrorItemNotFound" } }, { status: 404 });
     }
     if (!request.url.includes("push.apple.com")) throw new Error(`unexpected fetch ${request.url}`);
-    apnsCalls.push({ url: request.url, body: await request.json() });
+    apnsCalls.push({ url: request.url, body: await request.json(), type: request.headers.get("apns-push-type") });
     return new Response(apnsStatus === 410 ? JSON.stringify({ reason: "Unregistered" }) : null, { status: apnsStatus });
   });
 });
@@ -111,8 +113,8 @@ async function subscribed() {
   refreshes = [];
 }
 
-function created(id: string, clientState = CLIENT_STATE): Record<string, unknown> {
-  return { subscriptionId: SUBSCRIPTION, clientState, changeType: "created", resourceData: { id } };
+function created(id: string, clientState = CLIENT_STATE, changeType = "created"): Record<string, unknown> {
+  return { subscriptionId: SUBSCRIPTION, clientState, changeType, resourceData: { id } };
 }
 
 async function stored() {
@@ -257,6 +259,24 @@ describe("Graph notifications", () => {
     messages.set("moved", message({ parentFolderId: "archive-id" }));
     await notify(created("read"), created("moved"), created("gone"));
     expect(apnsCalls).toHaveLength(0);
+  });
+
+  it("tells the device to take down alerts when mail was read, moved or deleted, and alerts for none of it", async () => {
+    await subscribed();
+    await notify(created("m1", CLIENT_STATE, "updated"), created("gone", CLIENT_STATE, "deleted"));
+    expect(apnsCalls).toEqual([
+      {
+        url: `https://api.sandbox.push.apple.com/3/device/${DEVICE}`,
+        body: { aps: { "content-available": 1 }, accountID: ACCOUNT, handled: 1 },
+        type: "background",
+      },
+    ]);
+  });
+
+  it("alerts only for created mail, since Graph also reports changes to mail that just arrived", async () => {
+    await subscribed();
+    await notify(created("m1"), created("m1", CLIENT_STATE, "updated"));
+    expect(apnsCalls.map((call) => call.type)).toEqual(["alert"]);
   });
 
   it("sends nothing for an account whose token it doesn't hold, since it can't read the mail", async () => {

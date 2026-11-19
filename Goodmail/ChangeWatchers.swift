@@ -56,7 +56,7 @@ final class ChangeWatchers {
         Task { @concurrent [model, log] in
             do {
                 try await provider.watchChanges {
-                    await BackgroundDatabaseWork.shared.run("Reported change") { await model.syncChanged(id) }
+                    _ = await BackgroundDatabaseWork.shared.run("Reported change") { await model.syncChanged(id) }
                 }
             } catch is CancellationError {
                 // The app left the foreground, or the account was removed.

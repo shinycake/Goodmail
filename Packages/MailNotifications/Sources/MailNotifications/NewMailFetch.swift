@@ -46,6 +46,15 @@ public struct NewMailFetch: Sendable {
         case address(String)
         /// Outlook: by the app's own ID, which the device registered with its subscription.
         case account(AccountID)
+
+        /// The account among `accounts` the push is for.
+        public func account(among accounts: [Account]) -> Account? {
+            switch self {
+            case .address(let address):
+                accounts.first { $0.email.caseInsensitiveCompare(address) == .orderedSame }
+            case .account(let id): accounts.first { $0.id == id }
+            }
+        }
     }
 
     public static func target(in userInfo: [AnyHashable: Any]) -> Target? {
@@ -58,15 +67,13 @@ public struct NewMailFetch: Sendable {
         try database.badgeCount()
     }
 
+    /// Takes down the alerts whose mail the catch-up found dealt with elsewhere (`HandledAlerts`).
+    public func dismissHandledAlerts() async {
+        await HandledAlerts.dismiss(in: database)
+    }
+
     public func run(_ target: Target) async throws -> Outcome {
-        let accounts = try database.accounts()
-        let match: Account? =
-            switch target {
-            case .address(let address):
-                accounts.first { $0.email.caseInsensitiveCompare(address) == .orderedSame }
-            case .account(let id): accounts.first { $0.id == id }
-            }
-        guard let account = match else { throw Failure.unknownAccount }
+        guard let account = target.account(among: try database.accounts()) else { throw Failure.unknownAccount }
         let client = try provider(account)
         let caughtUp = try await SyncEngine(accountID: account.id, provider: client, store: database).catchUp()
         await runRules(in: account, provider: client)

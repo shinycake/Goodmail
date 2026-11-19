@@ -1,5 +1,6 @@
 import type { Env } from "./env";
 import type { Alerts } from "./fallback";
+import { sendHandled } from "./handled";
 import {
   type Connect,
   connectToServer,
@@ -85,7 +86,17 @@ export async function watchMailbox(
       // moved a watch. One at a time: the new-mail check talks over the one connection.
       for (const watch of await watchesOn(env.DB, login.loginHash)) await alert(env, alerts, watch, inbox, fresh);
     };
-    await watchInbox(JSON.parse(sealed) as ImapLogin, until, onStatus, open);
+    // Mail read, moved or deleted in another app: each watching device takes down the alerts it no longer needs.
+    // Best effort: a failure here must never end the watch that finds new mail.
+    const onHandled = async () => {
+      try {
+        const watches = await watchesOn(env.DB, login.loginHash);
+        await Promise.all(watches.map((watch) => sendHandled(env, watch.device, { accountID: watch.account })));
+      } catch (error) {
+        console.warn(`IMAP handled push failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    };
+    await watchInbox(JSON.parse(sealed) as ImapLogin, until, onStatus, open, {}, onHandled);
   } catch (error) {
     if (error instanceof LoginRefused) {
       const refused = refusedAgain(state, now);

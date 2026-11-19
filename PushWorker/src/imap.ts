@@ -46,6 +46,8 @@ const IDLE_MARGIN_MS = 3_000;
  * run (seen on iCloud from Workers, 2026-11-16), so the watch renews well before that.
  */
 const IDLE_RENEW_MS = 120_000;
+/** After mail changed or left, the watch waits this long for the rest of the burst before it sends one push. */
+const SETTLE_MS = 2_000;
 
 /** How a watch paces itself. Tests pass shorter times. */
 export interface Pace {
@@ -53,6 +55,8 @@ export interface Pace {
   renewMs: number;
   /** How long the server gets for each line of a reply before the connection is given up. */
   replyMs: number;
+  /** How long a burst of changes gets to settle before `onHandled`. */
+  settleMs: number;
 }
 
 /**
@@ -78,7 +82,8 @@ export async function inboxStatus(login: ImapLogin, open: Connect = connectToSer
  * Logs in, hands `onStatus` the Inbox's STATUS, then keeps watching the Inbox with IDLE (RFC 2177) until `until`
  * (ms since 1970):
  * each time the server announces new mail, it reads the STATUS again and hands it over at once, so an alert goes out
- * within seconds. One login covers the whole time, and waiting costs the Worker no CPU. A server without IDLE gets the
+ * within seconds. Each time it announces mail changing or leaving the Inbox (a flag such as `\Seen` set, or an
+ * EXPUNGE), as when the mail is read, moved or deleted in another app, it calls `onHandled` once the burst settles. One login covers the whole time, and waiting costs the Worker no CPU. A server without IDLE gets the
  * first STATUS only. Throws as `inboxStatus` does, for the login or the first STATUS; a connection lost while
  * watching, or a server that stopped answering, just ends the watch, since the next check logs in again.
  */
@@ -88,8 +93,9 @@ export async function watchInbox(
   onStatus: (status: InboxStatus, fresh: FreshMail) => Promise<void>,
   open: Connect = connectToServer,
   pace: Partial<Pace> = {},
+  onHandled: () => Promise<void> = async () => {},
 ): Promise<void> {
-  const { renewMs, replyMs }: Pace = { renewMs: IDLE_RENEW_MS, replyMs: TIMEOUT_MS, ...pace };
+  const { renewMs, replyMs, settleMs }: Pace = { renewMs: IDLE_RENEW_MS, replyMs: TIMEOUT_MS, settleMs: SETTLE_MS, ...pace };
   const deadline = until - IDLE_MARGIN_MS;
   let socket = open(login);
   const timers: ReturnType<typeof setTimeout>[] = [];
@@ -117,7 +123,7 @@ export async function watchInbox(
       timeout(TIMEOUT_MS),
     ]);
     if (Date.now() < deadline) {
-      await Promise.race([idle(inbox, deadline, renewMs, onStatus), timeout(deadline - Date.now() + TIMEOUT_MS)]).catch(
+      await Promise.race([idle(inbox, deadline, { renewMs, settleMs }, onStatus, onHandled), timeout(deadline - Date.now() + TIMEOUT_MS)]).catch(
         (error: unknown) => {
           if (error instanceof LoginRefused) throw error;
           console.warn(`IMAP watch ended early: ${error instanceof Error ? error.message : String(error)}`);
@@ -142,17 +148,24 @@ async function status(conversation: Conversation): Promise<InboxStatus> {
  * Selects the Inbox read-only and idles in it until `deadline`, starting IDLE again every `renewMs`, reading the
  * STATUS again whenever mail arrived (`Conversation.arrivals`). An arrival counts whenever the server says it: while
  * idling, or between two IDLE commands, where the server announces it only once and a wait for the next
- * announcement would miss it. Returns at once when the server doesn't take IDLE.
+ * announcement would miss it. Mail changing or leaving (`Conversation.changes`) calls `onHandled` once no more has
+ * come for `settleMs`, so reading a dozen messages costs one push. Returns at once when the server doesn't take IDLE.
  */
 async function idle(
   inbox: Inbox,
   deadline: number,
-  renewMs: number,
+  { renewMs, settleMs }: Pick<Pace, "renewMs" | "settleMs">,
   onStatus: (status: InboxStatus, fresh: FreshMail) => Promise<void>,
+  onHandled: () => Promise<void>,
 ): Promise<void> {
   await inbox.examine();
   const { conversation } = inbox;
-  let seen = conversation.arrivals;
+  let seen = { arrivals: conversation.arrivals, changes: conversation.changes };
+  /** What the server said since the last round was handled: nothing, new mail, or mail changing or leaving. */
+  const round = (): "quiet" | "arrived" | "changed" => {
+    if (conversation.arrivals !== seen.arrivals) return "arrived";
+    return conversation.changes !== seen.changes ? "changed" : "quiet";
+  };
   while (Date.now() < deadline) {
     let tag;
     try {
@@ -162,12 +175,15 @@ async function idle(
       throw error;
     }
     const renewal = Math.min(deadline, Date.now() + renewMs);
-    while (conversation.arrivals === seen && (await conversation.lineBy(renewal)) !== undefined);
+    while (round() === "quiet" && (await conversation.lineBy(renewal)) !== undefined);
+    // A change seldom comes alone: the rest of the burst comes before the push. New mail ends the wait at once.
+    while (round() === "changed" && (await conversation.lineBy(Math.min(renewal, Date.now() + settleMs))) !== undefined);
     await conversation.finish(tag, "DONE");
-    if (conversation.arrivals === seen) continue;
-    // Before the STATUS, so mail announced while it and the alert are under way starts the next round.
-    seen = conversation.arrivals;
-    await onStatus(await status(conversation), inbox.fresh);
+    const said = round();
+    // Before the STATUS or the push, so what the server says while they are under way starts the next round.
+    seen = { arrivals: conversation.arrivals, changes: conversation.changes };
+    if (said === "arrived") await onStatus(await status(conversation), inbox.fresh);
+    else if (said === "changed") await onHandled();
   }
 }
 
@@ -186,9 +202,12 @@ class Inbox {
   readonly fresh: FreshMail = async (since) => {
     try {
       await this.examine();
+      // The reply's FETCH lines answer the relay, so they are no change in the Inbox.
+      const changes = this.conversation.changes;
       const untagged = await this.conversation.command(
         `UID FETCH ${since}:* (UID FLAGS BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)])`,
       );
+      this.conversation.changes = changes;
       // `since:*` always matches the newest message, even one below `since`.
       const found = parseFetch(untagged).filter(
         (message) =>
@@ -334,6 +353,11 @@ class Conversation {
    * above the count so far. A count the server only repeats, or one that fell with a `* n EXPUNGE`, is no arrival.
    */
   arrivals = 0;
+  /**
+   * How many times the server said mail in the selected mailbox changed or left: a `* n FETCH` (its flags, as when
+   * another app reads it) or a `* n EXPUNGE`. The new-mail check leaves out the replies to its own FETCH.
+   */
+  changes = 0;
 
   /**
    * The server gets `replyMs` for each line of a reply. Tags carry on from `tagsSent` commands, as on the plain
@@ -382,6 +406,7 @@ class Conversation {
 
   /** Keeps `size` and `arrivals` up to date with a line the server sent. */
   private count(line: string): void {
+    if (/^\* \d+ (FETCH|EXPUNGE)\b/i.test(line)) this.changes++;
     const [, number, change] = /^\* (\d+) (EXISTS|EXPUNGE)\b/i.exec(line) ?? [];
     if (change?.toUpperCase() === "EXPUNGE") this.size = Math.max(0, this.size - 1);
     if (change?.toUpperCase() !== "EXISTS") return;

@@ -82,7 +82,8 @@ final class WatchAppDelegate: NSObject, WKApplicationDelegate {
                 ready: alerts.linkReady, stored: { WidgetCenter.shared.reloadAllTimelines() })
             async let ownMail: Void = own.run(inbox: inbox, threads: threads)
             async let alerting: Void = alerts.run()
-            _ = await (link, ownMail, alerting)
+            async let takingDown: Void = OwnAlerts.takeDownHandled(following: inbox)
+            _ = await (link, ownMail, alerting, takingDown)
         }
     }
 }
