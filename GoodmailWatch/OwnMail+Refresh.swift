@@ -37,7 +37,8 @@ extension OwnMail {
         else { return }
         WKApplication.shared().scheduleBackgroundRefresh(
             withPreferredDate: date, userInfo: refreshIdentifier as NSString
-        ) { error in
+        ) { @Sendable error in
+            // WatchKit calls this on its own queue, so it must not inherit the main actor; it only logs.
             if let error { log.error("Couldn't schedule the watch's refresh: \(error, privacy: .public)") }
         }
     }
