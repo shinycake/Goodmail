@@ -24,8 +24,6 @@ final class ScrubbedAnimation: NSObject {
 
     private let animator: UIViewPropertyAnimator
     private let landed: (Bool) -> Void
-    /// Told once, as the finger lets go or the motion runs by itself, whether it's headed for its end (`true`) or back.
-    private let headed: (Bool) -> Void
     /// Watches the spring come to rest, as an animator paused at its ends doesn't finish by itself.
     private var running: NSKeyValueObservation?
     private let drag: CardDrag
@@ -34,19 +32,17 @@ final class ScrubbedAnimation: NSObject {
     private unowned let space: UIView
     private var phase = Phase.ready
 
-    /// `animations` run over `distance` points heading `heading`; `headed` hears where they're going once nothing
-    /// holds them, and `landed` hears `true` at their end, `false` back where they started.
+    /// `animations` run over `distance` points heading `heading`; `landed` hears `true` at their end, `false` back where
+    /// they started.
     init(
         distance: CGFloat, heading: Heading, in space: UIView, duration: TimeInterval = 0.5,
-        animations: @escaping () -> Void, headed: @escaping (Bool) -> Void = { _ in },
-        landed: @escaping (Bool) -> Void
+        animations: @escaping () -> Void, landed: @escaping (Bool) -> Void
     ) {
         animator = UIViewPropertyAnimator(duration: duration, dampingRatio: 1, animations: animations)
         drag = CardDrag(distance: Double(abs(distance)))
         self.heading = heading
         self.space = space
         self.landed = landed
-        self.headed = headed
         super.init()
         // Left to finish on its own, an animator the finger is holding can run out from under it when the main
         // thread stalls. Paused at its ends instead, it waits for `settled` to end it once the spring has stopped.
@@ -66,7 +62,6 @@ final class ScrubbedAnimation: NSObject {
         guard case .ready = phase else { return }
         guard let pan else {
             phase = .settling
-            headed(true)
             return animator.startAnimation()
         }
         phase = .holding(pan)
@@ -85,7 +80,6 @@ final class ScrubbedAnimation: NSObject {
         case .ready, .settling:
             break
         }
-        if case .settling = phase {} else { headed(!animator.isReversed) }
         phase = .settling
         end()
     }
@@ -114,7 +108,6 @@ final class ScrubbedAnimation: NSObject {
             // Called off before it moved: nothing started, so it's where it began.
             pan.removeTarget(self, action: #selector(followed(_:)))
             phase = .settling
-            headed(false)
             landed(false)
         case .possible, .began, .recognized:
             break
@@ -170,7 +163,6 @@ final class ScrubbedAnimation: NSObject {
         let progress = Double(animator.fractionComplete)
         let push = CardDrag.springVelocity(progress: progress, velocity: speed, settle: target)
         animator.isReversed = target == .goBack
-        headed(target != .goBack)
         animator.continueAnimation(
             withTimingParameters: UISpringTimingParameters(
                 dampingRatio: 1, initialVelocity: CGVector(dx: push, dy: push)),

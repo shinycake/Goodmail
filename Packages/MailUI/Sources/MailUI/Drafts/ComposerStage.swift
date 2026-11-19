@@ -1,36 +1,32 @@
 import MailCore
 import UIKit
 
-/// Moves the composer's card between the screen, the bar of minimized messages and away, one motion at a time.
-/// Everything on the card (its frame, the composer scaling inside it, the grabber, the dimming) moves in one animator,
-/// so the motion is a single piece that ends as the bar itself. A drag on the card or on the bar scrubs that animator
-/// under the finger; letting go, or a tap, hands it to a spring. The stage hands the bar over too (`BarHandOff`): the
-/// bar steps aside for a card that starts as it, and is back where a card ends as it. The mail screens make room for
-/// the bar, or take it back, through `fitContent` as the motion is let go toward its end, outside the animator the
-/// finger holds, so their toolbars never lay out under a paused animator. The keyboard runs outside the app, where it
-/// can't be pictured or moved, so it slides away on its own as the card sets off.
+/// Moves the composer's card between the screen, the bar and away, one motion at a time. Everything that moves with
+/// it (the card, the mail screens making room for the bar, the bar, the dimming) moves in one animator, so the motion
+/// is a single piece. A drag on the card or on the bar scrubs that animator under the finger; letting go, or a tap,
+/// hands it to a spring.
 final class ComposerStage: NSObject {
     /// Where a card leaving the screen goes.
     enum Destination {
-        /// Into the bar, which then shows `drafts`, the last one written first.
-        case bar(showing: [Draft])
+        /// Into the bar, as a minimized message.
+        case bar
         /// Off the bottom of the screen: sent, saved away or discarded.
         case away
     }
 
     /// Where a card coming onto the screen starts.
     enum Origin {
-        /// The bar, showing `drafts`, for one of them coming back. The bar stays once it's up when others still wait
-        /// there (`barStays`), else it goes and the mail screens take its room back.
-        case bar(showing: [Draft], barStays: Bool)
+        /// The bar, for a minimized message coming back.
+        case bar
         /// Below the screen, for a new message.
         case below
     }
 
-    /// A card about to leave under the finger: where it goes, and what to do once it lands, `true` there or `false`
-    /// back on the screen.
+    /// A card about to leave under the finger: where it goes, whether the bar shows once it's gone, and what to do
+    /// once it lands, `true` there or `false` back on the screen.
     struct Leaving {
         let destination: Destination
+        let barShowing: Bool
         let landed: (Bool) -> Void
     }
 
@@ -65,43 +61,32 @@ final class ComposerStage: NSObject {
     private struct Move {
         let composer: ComposeViewController
         let direction: Direction
-        let handOff: BarHandOff
         let animation: ScrubbedAnimation
+        /// Whether the bar showed before, to put it back that way if the card goes back.
+        let barWasShowing: Bool
         let landed: (Bool) -> Void
     }
 
     private enum Direction {
         case opening
-        case leaving
+        case leaving(Destination)
     }
 
-    /// What a motion does with the bar and the room the mail screens leave it.
-    private enum BarHandOff {
-        /// Nothing: the card comes from below or goes off the bottom.
-        case none
-        /// The card ends as the bar: the screens make room for it as the card is let go there, and the bar shows once
-        /// the card has turned into it.
-        case cardBecomesBar
-        /// The card starts as the bar, which steps aside for it; let go short, the bar is back. Unless the bar `stays`
-        /// for the others waiting there, the screens take its room back as the card is let go toward the screen.
-        case barBecomesCard(stays: Bool)
-    }
-
-    /// Fits the mail screens above the bar (`true`) or to the bottom of the screen, in a spring like the card's.
-    private let fitContent: (Bool) -> Void
     private unowned let shelf: UIViewController
-    /// The bar of minimized messages, which a card minimizing ends as and one coming back starts from.
-    private unowned let bar: UIView
+    private let bar: UIView
+    /// Fits the mail screens above the bar when it shows, or to the bottom of the screen.
+    private let layOutContent: (Bool) -> Void
     private let card = ComposerCardView()
-    private let backdrop = ComposerBackdropView()
+    private let dimming = UIView()
     private let cardPan = UIPanGestureRecognizer()
 
-    init(shelf: UIViewController, bar: UIView, fitContent: @escaping (Bool) -> Void) {
+    init(shelf: UIViewController, bar: UIView, layOutContent: @escaping (Bool) -> Void) {
         self.shelf = shelf
         self.bar = bar
-        self.fitContent = fitContent
+        self.layOutContent = layOutContent
         super.init()
-        backdrop.isHidden = true
+        dimming.backgroundColor = UIColor.black.withAlphaComponent(0.3)
+        dimming.isHidden = true
         card.isHidden = true
         card.onMinimize = { [weak self] in self?.composer?.minimize() }
         cardPan.addTarget(self, action: #selector(cardPanned(_:)))
@@ -109,175 +94,137 @@ final class ComposerStage: NSObject {
         card.addGestureRecognizer(cardPan)
     }
 
-    /// Puts the backdrop and the card over the mail screens and the bar.
+    /// Puts the dimming and the card over the mail screens and the bar.
     func install() {
-        backdrop.frame = shelf.view.bounds
-        backdrop.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        shelf.view.addSubview(backdrop)
+        dimming.frame = shelf.view.bounds
+        dimming.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        shelf.view.addSubview(dimming)
         shelf.view.addSubview(card)
     }
 
     /// Keeps an open card filling the screen as the window changes size.
     func layout() {
         guard case .open(let composer) = motion, let navigation = composer.navigationController else { return }
-        let open = openFrame
-        card.hold(navigation.view, openSize: open.size)
-        card.refit(open, cornerRadius: ComposerCardView.openCornerRadius)
-        backdrop.curtain(down: curtainBottom)
+        card.frame = openFrame
+        navigation.view.frame = CGRect(
+            x: 0, y: ComposerCardView.grabberRoom, width: card.bounds.width,
+            height: card.bounds.height - ComposerCardView.grabberRoom)
     }
 
     // MARK: Moving
 
-    /// Brings `composer` onto the screen from `origin`, following `pan` if a finger is dragging it there. `landed`
-    /// hears whether it got there.
+    /// Brings `composer` onto the screen from `origin`, following `pan` if a finger is dragging it there. `barShowing`
+    /// is whether the bar shows behind the open card.
     func open(
-        _ composer: ComposeViewController, from origin: Origin, following pan: UIPanGestureRecognizer? = nil,
-        landed: @escaping (Bool) -> Void = { _ in }
+        _ composer: ComposeViewController, from origin: Origin, barShowing: Bool,
+        following pan: UIPanGestureRecognizer? = nil, landed: @escaping (Bool) -> Void = { _ in }
     ) {
         settleNow()
         let navigation = composer.navigationController ?? UINavigationController(rootViewController: composer)
         // As a sheet would be: lifted off the screen behind it.
         navigation.traitOverrides.userInterfaceLevel = .elevated
         let open = openFrame
+        let start: CGRect =
+            switch origin {
+            case .bar: bar.frame
+            case .below: open.offsetBy(dx: 0, dy: shelf.view.bounds.height - open.minY)
+            }
         shelf.addChild(navigation)
         card.hold(navigation.view, openSize: open.size)
         navigation.didMove(toParent: shelf)
         // Scrolling waits to see whether a drag down at the top of the message takes the card down instead.
         composer.scrollPan.require(toFail: cardPan)
+        card.frame = start
         card.isHidden = false
-        backdrop.isHidden = false
-        backdrop.curtain(down: curtainBottom)
-        let handOff: BarHandOff
-        let animation: ScrubbedAnimation
-        switch origin {
-        case .bar(let drafts, let stays):
-            // The minimize run backward: the bar grows into the composer. The card is the bar now, so the bar itself
-            // steps aside, unless the others waiting there keep it.
-            handOff = .barBecomesCard(stays: stays)
-            card.face.show(drafts)
-            let start = barFrame
-            pose(minimized: start)
-            if !stays { bar.alpha = 0 }
-            animation = self.animation(distance: start.minY - open.minY, heading: .up, handOff: handOff) {
-                self.keyframe(MinimizeMorph.travel.mirrored) {
-                    self.card.fit(open, cornerRadius: ComposerCardView.openCornerRadius)
-                    self.backdrop.dimming = 1
-                }
-                self.keyframe(MinimizeMorph.composer.mirrored) { self.card.composerAlpha = 1 }
-                self.keyframe(MinimizeMorph.curtain.mirrored) { self.backdrop.curtainAlpha = 1 }
-            }
-        case .below:
-            handOff = .none
-            let start = open.offsetBy(dx: 0, dy: shelf.view.bounds.height - open.minY)
-            pose(sliding: start)
-            animation = self.animation(distance: start.minY - open.minY, heading: .up, handOff: handOff) {
-                self.keyframe(MinimizeMorph.travel) { self.poseOpen(open) }
-            }
-        }
+        card.layer.cornerRadius = origin == .bar ? MinimizedDraftsBar.cornerRadius : ComposerCardView.openCornerRadius
+        card.content.alpha = origin == .bar ? 0 : 1
+        // From the bar, the card rises out of it: it fades in over the bar as it starts to grow.
+        card.alpha = origin == .bar ? 0 : 1
+        dimming.isHidden = false
+        dimming.alpha = 0
+        bar.isHidden = false
+        let fromBar = origin == .bar
+        let barWasShowing = bar.alpha > 0
         begin(
-            Move(composer: composer, direction: .opening, handOff: handOff, animation: animation, landed: landed),
+            Move(
+                composer: composer, direction: .opening,
+                animation: animation(distance: start.minY - open.minY, heading: .up) {
+                    UIView.addKeyframe(withRelativeStartTime: 0, relativeDuration: 1) {
+                        self.card.frame = open
+                        self.card.layer.cornerRadius = ComposerCardView.openCornerRadius
+                        self.dimming.alpha = 1
+                        self.layOutContent(barShowing)
+                        self.shelf.view.layoutIfNeeded()
+                    }
+                    UIView.addKeyframe(withRelativeStartTime: 0, relativeDuration: fromBar ? 0.4 : 1) {
+                        self.bar.alpha = barShowing ? 1 : 0
+                    }
+                    UIView.addKeyframe(withRelativeStartTime: 0, relativeDuration: 0.2) {
+                        self.card.alpha = 1
+                    }
+                    UIView.addKeyframe(withRelativeStartTime: 0.15, relativeDuration: 0.45) {
+                        self.card.content.alpha = 1
+                    }
+                },
+                barWasShowing: barWasShowing, landed: landed),
             following: pan)
     }
 
-    /// Takes the open card to `destination`.
-    func leave(to destination: Destination, landed: @escaping (Bool) -> Void = { _ in }) {
+    /// Takes the open card to `destination`. `barShowing` is whether the bar shows once it's gone.
+    func leave(to destination: Destination, barShowing: Bool, landed: @escaping (Bool) -> Void = { _ in }) {
         settleNow()
         guard case .open(let composer) = motion else { return landed(true) }
-        begin(leaving(composer, Leaving(destination: destination, landed: landed)), following: nil)
+        begin(leaving(composer, to: destination, barShowing: barShowing, landed: landed), following: nil)
     }
 
-    private func leaving(_ composer: ComposeViewController, _ leaving: Leaving) -> Move {
-        let from = card.frame
-        let handOff: BarHandOff
-        let animation: ScrubbedAnimation
-        switch leaving.destination {
-        case .bar(let drafts):
-            handOff = .cardBecomesBar
-            card.face.show(drafts)
-            let end = barFrame
-            animation = self.animation(distance: end.minY - from.minY, heading: .down, handOff: handOff) {
-                self.keyframe(MinimizeMorph.travel) {
-                    self.card.fit(end, cornerRadius: MinimizedDraftsBar.cornerRadius)
-                    self.backdrop.dimming = 0
-                }
-                self.keyframe(MinimizeMorph.curtain) { self.backdrop.curtainAlpha = 0 }
-                self.keyframe(MinimizeMorph.composer) { self.card.composerAlpha = 0 }
+    private func leaving(
+        _ composer: ComposeViewController, to destination: Destination, barShowing: Bool,
+        landed: @escaping (Bool) -> Void
+    ) -> Move {
+        let open = card.frame
+        let end: CGRect =
+            switch destination {
+            case .bar: bar.frame
+            case .away: open.offsetBy(dx: 0, dy: shelf.view.bounds.height - open.minY)
             }
-        case .away:
-            handOff = .none
-            let end = from.offsetBy(dx: 0, dy: shelf.view.bounds.height - from.minY)
-            animation = self.animation(distance: end.minY - from.minY, heading: .down, handOff: handOff) {
-                self.keyframe(MinimizeMorph.travel) { self.pose(sliding: end) }
-            }
-        }
+        bar.isHidden = false
+        let intoBar = destination == .bar
+        let barWasShowing = bar.alpha > 0
         return Move(
-            composer: composer, direction: .leaving, handOff: handOff, animation: animation, landed: leaving.landed)
-    }
-
-    /// The motion was let go toward its end (`true`) or back: the mail screens make room for the bar, or take it
-    /// back, along with it.
-    private func headed(toEnd: Bool, _ handOff: BarHandOff) {
-        guard toEnd else { return }
-        switch handOff {
-        case .none, .barBecomesCard(stays: true): break
-        case .cardBecomesBar: fitContent(true)
-        case .barBecomesCard(stays: false): fitContent(false)
-        }
-    }
-
-    /// The motion came to rest, at its end or not: the bar shows where the card turned into it, or where the card that
-    /// started as it went back.
-    private func landed(arrived: Bool, _ handOff: BarHandOff) {
-        switch (handOff, arrived) {
-        case (.cardBecomesBar, true), (.barBecomesCard(stays: false), false):
-            bar.isHidden = false
-            bar.alpha = 1
-        case (.barBecomesCard(stays: false), true):
-            // The card took the bar's place; the bar stays out of the way until the shelf next shows it.
-            bar.isHidden = true
-        case (.none, _), (.cardBecomesBar, false), (.barBecomesCard(stays: true), _):
-            break
-        }
-    }
-
-    /// The card open at `frame`, everything on it showing, the screens behind it dimmed.
-    private func poseOpen(_ frame: CGRect) {
-        card.fit(frame, cornerRadius: ComposerCardView.openCornerRadius)
-        card.composerAlpha = 1
-        backdrop.dimming = 1
-        backdrop.curtainAlpha = 1
-    }
-
-    /// The card whole at `frame`, below the screen or on its way there, the screens behind it clear.
-    private func pose(sliding frame: CGRect) {
-        card.fit(frame, cornerRadius: ComposerCardView.openCornerRadius)
-        card.composerAlpha = 1
-        backdrop.dimming = 0
-        backdrop.curtainAlpha = 0
-    }
-
-    /// The card as the bar at `frame`: only its face shows.
-    private func pose(minimized frame: CGRect) {
-        card.fit(frame, cornerRadius: MinimizedDraftsBar.cornerRadius)
-        card.composerAlpha = 0
-        backdrop.dimming = 0
-        backdrop.curtainAlpha = 0
-    }
-
-    private func keyframe(_ span: MorphSpan, _ animations: @escaping () -> Void) {
-        UIView.addKeyframe(withRelativeStartTime: span.start, relativeDuration: span.length, animations: animations)
+            composer: composer, direction: .leaving(destination),
+            animation: animation(distance: end.minY - open.minY, heading: .down) {
+                UIView.addKeyframe(withRelativeStartTime: 0, relativeDuration: 1) {
+                    self.card.frame = end
+                    if intoBar { self.card.layer.cornerRadius = MinimizedDraftsBar.cornerRadius }
+                    self.dimming.alpha = 0
+                    self.layOutContent(barShowing)
+                    self.shelf.view.layoutIfNeeded()
+                }
+                if intoBar {
+                    UIView.addKeyframe(withRelativeStartTime: 0.3, relativeDuration: 0.45) {
+                        self.card.content.alpha = 0
+                    }
+                    // Over the bar, the card gives way to it, so the bar is what's there when it lands.
+                    UIView.addKeyframe(withRelativeStartTime: 0.8, relativeDuration: 0.2) {
+                        self.card.alpha = 0
+                    }
+                }
+                UIView.addKeyframe(withRelativeStartTime: intoBar ? 0.55 : 0, relativeDuration: intoBar ? 0.45 : 1) {
+                    self.bar.alpha = barShowing ? 1 : 0
+                }
+            },
+            barWasShowing: barWasShowing, landed: landed)
     }
 
     /// One motion for everything that moves: `keyframes` run over its length, each piece at its own part of it.
-    private func animation(
-        distance: CGFloat, heading: ScrubbedAnimation.Heading, handOff: BarHandOff, keyframes: @escaping () -> Void
-    ) -> ScrubbedAnimation {
+    private func animation(distance: CGFloat, heading: ScrubbedAnimation.Heading, keyframes: @escaping () -> Void)
+        -> ScrubbedAnimation
+    {
         ScrubbedAnimation(
             distance: distance, heading: heading, in: shelf.view,
             animations: {
                 UIView.animateKeyframes(withDuration: 0, delay: 0, options: [.calculationModeLinear]) { keyframes() }
             },
-            headed: { [weak self] toEnd in self?.headed(toEnd: toEnd, handOff) },
             landed: { [weak self] arrived in self?.land(arrived: arrived) })
     }
 
@@ -302,21 +249,29 @@ final class ComposerStage: NSObject {
             }
         if onScreen {
             motion = .open(move.composer)
-            poseOpen(openFrame)
-            // Fits the composer and the curtain again, for the window may have changed size on the way.
-            layout()
+            card.frame = openFrame
+            card.layer.cornerRadius = ComposerCardView.openCornerRadius
+            card.content.alpha = 1
+            card.alpha = 1
+            dimming.alpha = 1
         } else {
             motion = .idle
             remove(move.composer)
         }
-        landed(arrived: arrived, move.handOff)
+        if !arrived {
+            // The constraints moved with the animation; they go back with the frames.
+            layOutContent(move.barWasShowing)
+            bar.alpha = move.barWasShowing ? 1 : 0
+        }
+        bar.isHidden = bar.alpha == 0
         if case .opening = move.direction, arrived { move.composer.didOpen() }
         move.landed(arrived)
     }
 
     private func remove(_ composer: ComposeViewController) {
         card.isHidden = true
-        backdrop.isHidden = true
+        card.alpha = 1
+        dimming.isHidden = true
         guard let navigation = composer.navigationController else { return }
         navigation.willMove(toParent: nil)
         navigation.view.removeFromSuperview()
@@ -327,35 +282,19 @@ final class ComposerStage: NSObject {
 
     @objc private func cardPanned(_ pan: UIPanGestureRecognizer) {
         guard pan.state == .began, case .open(let composer) = motion, let plan = planLeaving?(composer) else { return }
-        begin(leaving(composer, plan), following: pan)
+        begin(
+            leaving(composer, to: plan.destination, barShowing: plan.barShowing, landed: plan.landed), following: pan)
     }
 
     // MARK: Geometry
 
-    /// The card filling the screen, below the status bar as a sheet would be, and past the bottom by its overhang; a
-    /// readable width on a wide window, below the screens' top buttons. Kept to the fold lane, as the minimized
-    /// messages are, so it shrinks straight down into them on iPhone Duo.
+    /// The card filling the screen, below the status bar as a sheet would be; a readable width on a wide window.
+    /// Kept to the fold lane, as the bar is, so it shrinks straight down into it on iPhone Duo.
     private var openFrame: CGRect {
         let lane = shelf.view.foldLane
-        let top = shelf.view.safeAreaInsets.top + (isWide ? 64 : 8)
+        let top = shelf.view.safeAreaInsets.top + (isWide ? 24 : 8)
         let width = isWide ? min(lane.width - 80, 720) : lane.width
-        return CGRect(
-            x: lane.midX - width / 2, y: top, width: width,
-            height: shelf.view.bounds.maxY - top + ComposerCardView.overhang)
-    }
-
-    /// The bar, and past the bottom of the screen by the card's overhang, so the card turns into it with square
-    /// bottom corners hidden off the screen, as the bar's are.
-    private var barFrame: CGRect {
-        let frame = bar.frame
-        return CGRect(
-            x: frame.minX, y: frame.minY, width: frame.width,
-            height: shelf.view.bounds.maxY - frame.minY + ComposerCardView.overhang)
-    }
-
-    /// Where the curtain over the screens' top buttons ends on a narrow window: under the open card's corners.
-    private var curtainBottom: CGFloat? {
-        isWide ? nil : openFrame.minY + ComposerCardView.openCornerRadius
+        return CGRect(x: lane.midX - width / 2, y: top, width: width, height: shelf.view.bounds.maxY - top)
     }
 
     private var isWide: Bool { shelf.traitCollection.horizontalSizeClass == .regular }

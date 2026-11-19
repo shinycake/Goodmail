@@ -2,7 +2,7 @@ import MailCore
 import UIKit
 
 /// The bar under the mail screens that holds minimized messages, with the others peeking out behind it. Dragging up
-/// brings them up under the finger; tapping opens them. The composer's card ends its minimize as one of these.
+/// brings them up under the finger; tapping opens them.
 final class MinimizedDraftsBar: UIView {
     /// The bar's least height above the bottom safe area; larger text makes it taller.
     static let height: CGFloat = 54
@@ -20,9 +20,8 @@ final class MinimizedDraftsBar: UIView {
     private let detailLabel = UILabel()
     private let grabber = UIView()
 
-    /// A bar that takes taps and drags, or, on the composer's card, one only to look at.
-    init(interactive: Bool) {
-        super.init(frame: .zero)
+    override init(frame: CGRect) {
+        super.init(frame: frame)
         for (index, edge) in behind.enumerated().reversed() {
             edge.backgroundColor = index == 0 ? .shelfEdge : .shelfFarEdge
             edge.layer.cornerRadius = Self.cornerRadius
@@ -83,11 +82,6 @@ final class MinimizedDraftsBar: UIView {
             stack.bottomAnchor.constraint(lessThanOrEqualTo: card.safeAreaLayoutGuide.bottomAnchor, constant: -4),
         ])
 
-        isUserInteractionEnabled = interactive
-        guard interactive else {
-            accessibilityElementsHidden = true
-            return
-        }
         addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(open)))
         let pan = UIPanGestureRecognizer(target: self, action: #selector(dragged))
         addGestureRecognizer(pan)

@@ -1,27 +1,15 @@
-import MailCore
 import UIKit
 
-/// The card the composer is written in, over the mail screens. Pulled down, it shrinks into the bar of minimized
-/// messages under the mail screens: the composer itself scales down with the card, then gives way to the bar it
-/// becomes, grabber on grabber.
-///
-/// Two layers: the `face`, the same bar as the minimized messages, and over it the `cover`, which holds the
-/// composer at its open size and the grabber. The cover scales with the card's width, its top at the card's top, so
-/// the composer fills the card's width at every moment of the motion and the card clips what falls below.
+/// The card the composer is written in, over the mail screens. Its grabber shows it can be pulled down to the bar,
+/// which the card shrinks into as it goes.
 final class ComposerCardView: UIView {
     /// The corner radius while the card fills the screen.
     static let openCornerRadius: CGFloat = 38
     /// How far the composer starts below the card's top, leaving the grabber its room.
     static let grabberRoom: CGFloat = 12
-    /// How far the card reaches past the bottom of the screen, open or as the bar, so only its top corners show round.
-    static let overhang = openCornerRadius
-    /// The bar the card becomes, under the composer.
-    let face = MinimizedDraftsBar(interactive: false)
-    /// The composer at its open size, and the grabber, over the face.
-    private let cover = UIView()
+    /// What the composer's content sits in, so it can fade without the card and grabber.
+    let content = UIView()
     private let grabber = Grabber()
-    /// The cover's size, the card's when open.
-    private var openSize = CGSize.zero
     /// Moves the message to the bar: the grabber's VoiceOver action.
     var onMinimize: (() -> Void)? {
         get { grabber.onMinimize }
@@ -30,23 +18,20 @@ final class ComposerCardView: UIView {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
+        backgroundColor = .shelfCard
         layer.cornerCurve = .continuous
         layer.cornerRadius = Self.openCornerRadius
+        layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         clipsToBounds = true
         // VoiceOver stays in the message while it's open, as it would in a sheet.
         accessibilityViewIsModal = true
-        face.frame = bounds
-        face.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        addSubview(face)
-        // One surface from the grabber down, lifted off the screen behind it as a sheet is.
-        cover.backgroundColor = .systemBackground
-        cover.traitOverrides.userInterfaceLevel = .elevated
-        addSubview(cover)
+        content.frame = bounds
+        addSubview(content)
         grabber.translatesAutoresizingMaskIntoConstraints = false
-        cover.addSubview(grabber)
+        addSubview(grabber)
         NSLayoutConstraint.activate([
-            grabber.topAnchor.constraint(equalTo: cover.topAnchor),
-            grabber.centerXAnchor.constraint(equalTo: cover.centerXAnchor),
+            grabber.topAnchor.constraint(equalTo: topAnchor),
+            grabber.centerXAnchor.constraint(equalTo: centerXAnchor),
             grabber.widthAnchor.constraint(equalToConstant: Grabber.size.width),
             grabber.heightAnchor.constraint(equalToConstant: Grabber.size.height),
         ])
@@ -55,45 +40,16 @@ final class ComposerCardView: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("Programmatic UI only") }
 
-    /// Takes the composer's view, kept at the size it has open, `openSize` less the overhang: as the card shrinks the
-    /// composer scales with it rather than squeezing.
+    /// The composer's view, kept at the size it has open: as the card shrinks into the bar it clips the composer
+    /// rather than squeezing it.
     func hold(_ composerView: UIView, openSize: CGSize) {
-        self.openSize = openSize
-        cover.transform = .identity
-        cover.bounds = CGRect(origin: .zero, size: openSize)
         composerView.frame = CGRect(
-            x: 0, y: Self.grabberRoom, width: openSize.width,
-            height: openSize.height - Self.overhang - Self.grabberRoom)
-        composerView.autoresizingMask = []
-        cover.insertSubview(composerView, belowSubview: grabber)
-    }
-
-    /// Puts the card at `frame` with corners of `cornerRadius`, the composer scaled down to its width, centered. A
-    /// card wider than the open composer, as the bar is on a wide window, never scales the composer up. Animatable.
-    func fit(_ frame: CGRect, cornerRadius: CGFloat) {
-        self.frame = frame
-        layer.cornerRadius = cornerRadius
-        let scale = openSize.width > 0 ? min(frame.width / openSize.width, 1) : 1
-        cover.transform = CGAffineTransform(scaleX: scale, y: scale)
-        cover.center = CGPoint(x: frame.width / 2, y: openSize.height * scale / 2)
-        face.layoutIfNeeded()
-    }
-
-    /// Puts the card back at `frame` once a motion has run back to it. The animator puts its start back beneath the
-    /// views, where Auto Layout doesn't see it: it still has the card where the motion was headed, and with it the
-    /// composer's keyboard guide, which would squeeze the message into what's left above the bar. Setting the same
-    /// frame again changes nothing it sees, so the card passes through another one first.
-    func refit(_ frame: CGRect, cornerRadius: CGFloat) {
-        fit(frame.insetBy(dx: 1, dy: 0), cornerRadius: cornerRadius)
-        fit(frame, cornerRadius: cornerRadius)
-    }
-
-    /// How much of the composer shows over the face. Animatable.
-    var composerAlpha: CGFloat {
-        get { cover.alpha }
-        set {
-            cover.alpha = newValue
-        }
+            x: (bounds.width - openSize.width) / 2, y: Self.grabberRoom, width: openSize.width,
+            height: openSize.height - Self.grabberRoom)
+        composerView.autoresizingMask = [.flexibleLeftMargin, .flexibleRightMargin, .flexibleBottomMargin]
+        content.frame = bounds
+        content.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        content.addSubview(composerView)
     }
 }
 
