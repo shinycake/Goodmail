@@ -186,18 +186,17 @@ public final class MailboxViewController: UIViewController {
         self.search = search
         navigationItem.searchController = search
         navigationItem.preferredSearchBarPlacement = .integratedButton
-        // In the navigation bar on every device, beside Select. The toolbar's leading end is the drafts pill's. Set
+        // In the navigation bar on every device, at the corner beside Select. The toolbar's leading end is the drafts pill's. Set
         // once, before the first layout, so rotating or collapsing can't move the button between bars.
         navigationItem.searchBarPlacementAllowsToolbarIntegration = false
         definesPresentationContext = true
     }
 
-    /// The trailing items while browsing: Select at the corner, Search just inside it.
+    /// The trailing items while browsing: Select. The system places the search button beside it, at the corner. Placed
+    /// by hand among these items, the search button's pressed glass outlived its morph into the field and hung under
+    /// the field's leading end as a blank capsule until the field took focus.
     private var browsingTrailingItems: [UIBarButtonItem] {
-        var items: [UIBarButtonItem] = []
-        if viewModel.actions != nil { items.append(selectItem()) }
-        if search != nil { items.append(navigationItem.searchBarPlacementBarButtonItem) }
-        return items
+        viewModel.actions == nil ? [] : [selectItem()]
     }
 
     /// Called by UIKit whenever an observed view-model property changes.
@@ -579,7 +578,7 @@ extension MailboxViewController {
         super.setEditing(editing, animated: animated)
         swipes.close(animated: animated)
         collectionView.isEditing = editing
-        // The search controller first: its button in the trailing items is ignored while there is none.
+        // Selecting has no search; the system takes its button away with the controller.
         navigationItem.searchController = editing ? nil : search
         navigationItem.rightBarButtonItems =
             editing

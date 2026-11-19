@@ -123,6 +123,20 @@ final class DraftsPillTests: XCTestCase {
     }
 
     @MainActor
+    func testSearchOpensAndClosesLeavingTheBarAsItWas() {
+        let app = launch()
+        let bar = app.navigationBars.firstMatch
+        let buttons = [bar.buttons["Select"], bar.buttons["Search"], bar.buttons["mailboxesSidebar"]]
+        XCTAssertTrue(buttons[0].waitForExistence(timeout: 5))
+        let before = buttons.map(\.frame)
+        buttons[1].tap()
+        XCTAssertTrue(app.searchFields.firstMatch.waitForExistence(timeout: 5), "the field opens")
+        app.buttons["close"].firstMatch.tap()
+        XCTAssertTrue(buttons[0].waitForExistence(timeout: 5), "the bar comes back")
+        XCTAssertEqual(buttons.map(\.frame), before, "Select, Search and the sidebar button are where they were")
+    }
+
+    @MainActor
     func testMinimizingInHebrew() {
         let app = launch(language: "he", locale: "he_IL")
         write("ארוחת צהריים", in: app, compose: "הודעה חדשה")
