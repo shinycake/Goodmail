@@ -117,13 +117,13 @@ public final class ComposeViewController: UIViewController {
             scrollView.topAnchor.constraint(equalTo: view.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
             stack.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
             stack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -24),
             stack.leadingAnchor.constraint(equalTo: readable.leadingAnchor),
             stack.trailingAnchor.constraint(equalTo: readable.trailingAnchor),
             bodyView.heightAnchor.constraint(greaterThanOrEqualToConstant: 160),
         ])
+        updateScrollBottom()
         updateSendEnabled()
         // Leaving the app keeps the draft with the provider, in case the app isn't opened again.
         NotificationCenter.default.addObserver(
@@ -168,7 +168,30 @@ public final class ComposeViewController: UIViewController {
     private weak var lastFocused: UIResponder?
 
     /// Where the composer stands on screen, so the cursor is placed the first time and kept after minimizing.
-    private var showing = Showing.notYet
+    private var showing = Showing.notYet {
+        didSet { updateScrollBottom() }
+    }
+
+    /// The scroll view's bottom on the keyboard, or held on the safe area: one is active at a time
+    /// (`updateScrollBottom`).
+    private lazy var bottomOnKeyboard = scrollView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor)
+    private lazy var bottomHeld = scrollView.bottomAnchor.constraint(
+        equalTo: view.safeAreaLayoutGuide.bottomAnchor)
+
+    /// The message follows the keyboard while it is written in. Leaving or minimized, its card is scaled down and
+    /// carried across the keyboard as it slides away, which would otherwise squeeze the message under its bar on the
+    /// way, so its bottom holds still.
+    private func updateScrollBottom() {
+        let follows =
+            switch showing {
+            case .notYet, .shown: true
+            case .leaving, .minimized: false
+            }
+        guard isViewLoaded else { return }
+        // Off before on, so the two never conflict.
+        (follows ? bottomHeld : bottomOnKeyboard).isActive = false
+        (follows ? bottomOnKeyboard : bottomHeld).isActive = true
+    }
 
     private enum Showing {
         case notYet
@@ -552,7 +575,7 @@ public final class ComposeViewController: UIViewController {
         host?.composerDidClose(self)
     }
 
-    /// The draft as written so far, for the minimized bar and the picker; as it opened before the editor loads.
+    /// The draft as written so far, for the drafts shelf and the picker; as it opened before the editor loads.
     public var written: Draft { isViewLoaded ? viewModel.finished(body: body) : viewModel.draft }
 
     /// How a message dragged down leaves: one with something in it is minimized, one without is discarded.
@@ -576,7 +599,7 @@ public final class ComposeViewController: UIViewController {
         field?.becomeFirstResponder()
     }
 
-    /// The card reached the bar.
+    /// The card reached the drafts pill, or left by its corner.
     func didMinimize() {
         guard case .leaving(let field) = showing else { return }
         showing = .minimized(field)
@@ -588,7 +611,7 @@ public final class ComposeViewController: UIViewController {
         close()
     }
 
-    /// Moves the message out of the way to the bottom of the screen, kept as it is, to come back to.
+    /// Moves the message out of the way into the drafts pill, kept as it is, to come back to.
     func minimize(then next: (() -> Void)? = nil) {
         prepareToLeave(keeping: true)
         if let host { host.minimize(self, then: next) } else { next?() }

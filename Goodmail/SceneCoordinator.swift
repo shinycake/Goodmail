@@ -379,7 +379,7 @@ final class SceneCoordinator: NSObject {
                 actions: actions,
                 health: model.health
             ),
-            searchResults: results)
+            searchResults: results, draftsDock: drafts.dock)
     }
 
     /// An Inbox split into Gmail's categories when any account in it sorts it, opening on the one last shown; any

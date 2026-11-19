@@ -125,10 +125,10 @@ public final class MailSplitViewController: UISplitViewController {
 
     /// The frames of the toolbar's end buttons, in this view's coordinates, when one screen fills the window and
     /// its toolbar's middle is open for the toast. Side by side, the toast stays centered on the window, not on one
-    /// column's toolbar. The buttons' own frames, as the toolbar view's is the whole window on iOS 27. Search's item
-    /// stands for a button the search controller draws, and reports an empty frame: the toast, centered, keeps the
-    /// same room from both ends, so the buttons that do report one are enough. A toolbar in a bar down the side, as
-    /// on iPhone Duo's outer display, has no middle for the toast.
+    /// column's toolbar. The buttons' own frames, as the toolbar view's is the whole window on iOS 27. A button that
+    /// reports an empty frame is left out: the toast, centered, keeps the same room from both ends, so the buttons
+    /// that do report one are enough. A toolbar in a bar down the side, as on iPhone Duo's outer display, has no
+    /// middle for the toast.
     private func toolbarEnds() -> [CGRect] {
         guard isCollapsed, traitCollection.verticalBarEdge == .unspecified,
             let lane = shownScreens.first as? any UndoToastLane,

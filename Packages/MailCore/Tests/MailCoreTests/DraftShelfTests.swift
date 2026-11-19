@@ -177,4 +177,42 @@ struct DraftShelfTests {
         #expect(shelf.state == .minimized)
         #expect(shelf.entries.map(\.composer) == ["Lunch"])
     }
+
+    // MARK: Which wait minimized
+
+    @Test func anEmptyShelfHasNoneMinimized() {
+        #expect(DraftShelf<String>().minimized.isEmpty)
+    }
+
+    @Test func theOneBeingWrittenIsNotMinimized() {
+        var shelf = DraftShelf<String>()
+        shelf.open(draft("Lunch"), in: "Lunch")
+        #expect(shelf.minimized.isEmpty)
+    }
+
+    @Test func writingOneWithTwoMinimizedKeepsTheTwo() {
+        var shelf = shelved([draft("Lunch"), draft("Budget")])
+        shelf.open(draft("Trip"), in: "Trip")
+        #expect(shelf.minimized.map(\.subject) == ["Budget", "Lunch"])
+    }
+
+    @Test func allMinimizedAreAllKept() {
+        #expect(
+            shelved([draft("Lunch"), draft("Budget"), draft("Trip")]).minimized.map(\.subject) == [
+                "Trip", "Budget", "Lunch",
+            ])
+    }
+
+    @Test func choosingKeepsThemAll() {
+        var shelf = shelved([draft("Lunch"), draft("Budget")])
+        shelf.reopen()
+        #expect(shelf.state == .choosing)
+        #expect(shelf.minimized.map(\.subject) == ["Budget", "Lunch"])
+    }
+
+    @Test func finishingADraftDropsIt() {
+        var shelf = shelved([draft("Lunch"), draft("Budget")])
+        shelf.finish(shelf.entries[0].id)
+        #expect(shelf.minimized.map(\.subject) == ["Lunch"])
+    }
 }

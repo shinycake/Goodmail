@@ -48,13 +48,12 @@ There's one main color: the account's theme color. Everything else is neutral.
 
 ## Bars and search
 
-- **Top:** glass circle and capsule controls float over the content: the sidebar toggle or back button, and the category menu.
-- **Bottom on iPhone:** a glass search icon on one side and Compose on the other. There is no permanent search bar.
-- **Search:** tapping the icon expands search.
-  - The field rises above the keyboard.
+- **Top:** glass circle and capsule controls float over the content: the sidebar toggle or back button and the category menu on the leading side; Select and, just inside it, a glass Search icon on the trailing side, on every device. There is no permanent search bar.
+- **Bottom on iPhone:** the drafts pill (a glass capsule with the draft symbol and how many messages are minimized, shown only while there are any) at the leading end, and Compose at the trailing end. Minimizing the composer shrinks it into the pill; tapping the pill opens the message again, or lays several out to pick one.
+- **Search:** tapping the icon turns the top bar into the search field.
   - Recent searches appear as glass tokens (`from:maya`, `has:attachment`).
   - Top hits come first, with the matched term emphasized.
-- **iPad:** search is a glass icon in the list column's toolbar.
+- **iPad:** the same: Search in the list column's navigation bar beside Select, the drafts pill at the leading end of the list column's toolbar.
 
 ## Message list
 
