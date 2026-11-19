@@ -170,12 +170,20 @@ struct DraftShelfTests {
         #expect(shelf.entries.map(\.composer) == ["Budget", "Lunch"])
     }
 
-    @Test func discardingDownToOneDraftPutsItBackInTheBar() {
+    @Test func discardingOneOfTwoLaidOutDraftsKeepsTheOtherLaidOut() {
         var shelf = shelved([draft("Lunch"), draft("Budget")])
         shelf.reopen()
         shelf.finish(shelf.entries[0].id)
-        #expect(shelf.state == .minimized)
+        #expect(shelf.state == .choosing)
         #expect(shelf.entries.map(\.composer) == ["Lunch"])
+    }
+
+    @Test func discardingTheLastLaidOutDraftEmptiesTheShelf() {
+        var shelf = shelved([draft("Lunch"), draft("Budget")])
+        shelf.reopen()
+        shelf.finish(shelf.entries[0].id)
+        shelf.finish(shelf.entries[0].id)
+        #expect(shelf.state == .empty)
     }
 
     // MARK: Which wait minimized

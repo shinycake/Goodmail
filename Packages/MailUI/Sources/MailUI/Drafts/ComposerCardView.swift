@@ -2,7 +2,7 @@ import UIKit
 
 /// The card the composer is written in, over the mail screens. Its grabber shows it can be pulled down into the
 /// drafts pill. As it goes, the card's shape shrinks and the composer inside is scaled to its width, never squeezed,
-/// so what shows is always the top of the live composer; nothing on it changes opacity.
+/// so what shows is always the top of the live composer. Near the pill the whole card thins out as one group.
 ///
 /// The card is one surface colour, resolved at the elevated level as a sheet's is, so the grabber's strip and the
 /// composer below it match.
@@ -32,15 +32,6 @@ final class ComposerCardView: UIView {
         set { grabber.onMinimize = newValue }
     }
 
-    /// How the corners curve. Not animatable: set before a motion starts.
-    var cornerCurve: CALayerCornerCurve {
-        get { clip.layer.cornerCurve }
-        set {
-            backing.layer.cornerCurve = newValue
-            clip.layer.cornerCurve = newValue
-        }
-    }
-
     override init(frame: CGRect) {
         super.init(frame: frame)
         // As a sheet is: lifted off the screen behind it. The composer inherits it through the views.
@@ -54,7 +45,8 @@ final class ComposerCardView: UIView {
         backing.layer.shadowOffset = CGSize(width: 0, height: 8)
         clip.clipsToBounds = true
         cover.backgroundColor = .systemBackground
-        cornerCurve = .continuous
+        backing.layer.cornerCurve = .continuous
+        clip.layer.cornerCurve = .continuous
         addSubview(backing)
         addSubview(clip)
         clip.addSubview(cover)

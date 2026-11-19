@@ -65,6 +65,7 @@ public final class MailboxViewController: UIViewController {
     /// The leading end of the browsing toolbar, while messages are minimized.
     private(set) var draftsPill: DraftsPillItem?
     private lazy var problemsItem = AccountProblemsItem { [weak self] notices in self?.explain(notices) }
+    private lazy var select = SelectItem { [weak self] in self?.setEditing(true, animated: true) }
     /// The Inbox's category menu, when the list is split into categories.
     private let categoryButton: UIButton?
     private let categoryItem: UIBarButtonItem?
@@ -186,18 +187,17 @@ public final class MailboxViewController: UIViewController {
         self.search = search
         navigationItem.searchController = search
         navigationItem.preferredSearchBarPlacement = .integratedButton
-        // In the navigation bar on every device, beside Select. The toolbar's leading end is the drafts pill's. Set
+        // In the navigation bar on every device, at the corner beside Select. The toolbar's leading end is the drafts pill's. Set
         // once, before the first layout, so rotating or collapsing can't move the button between bars.
         navigationItem.searchBarPlacementAllowsToolbarIntegration = false
         definesPresentationContext = true
     }
 
-    /// The trailing items while browsing: Select at the corner, Search just inside it.
+    /// The trailing items while browsing: Select, while there are threads to select. The system places the search button beside it, at the corner. Placed
+    /// by hand among these items, the search button's pressed glass outlived its morph into the field and hung under
+    /// the field's leading end as a blank capsule until the field took focus.
     private var browsingTrailingItems: [UIBarButtonItem] {
-        var items: [UIBarButtonItem] = []
-        if viewModel.actions != nil { items.append(selectItem()) }
-        if search != nil { items.append(navigationItem.searchBarPlacementBarButtonItem) }
-        return items
+        viewModel.actions == nil ? [] : [select.item]
     }
 
     /// Called by UIKit whenever an observed view-model property changes.
@@ -226,8 +226,10 @@ public final class MailboxViewController: UIViewController {
     }
 
     /// Only on a change: setting the configuration lays the view out again, which would run this again. Reads the
-    /// rows on screen, not the model's, so nothing shows while rows are still going into a box or breaking up.
+    /// rows on screen, not the model's, so nothing shows while rows are still going into a box or breaking up. Select
+    /// goes with the last row and comes back with the first.
     private func updateEmptyState() {
+        select.show(rows: dataSource.snapshot().numberOfItems)
         let state: EmptyState? =
             !viewModel.hasLoaded || dataSource.snapshot().numberOfItems > 0
             ? nil
@@ -568,18 +570,11 @@ extension MailboxViewController {
 // MARK: - Selecting several threads
 
 extension MailboxViewController {
-    private func selectItem() -> UIBarButtonItem {
-        UIBarButtonItem(
-            title: String(
-                localized: "Select", table: "Mailbox", bundle: .module, comment: "Starts selecting several threads"),
-            primaryAction: UIAction { [weak self] _ in self?.setEditing(true, animated: true) })
-    }
-
     public override func setEditing(_ editing: Bool, animated: Bool) {
         super.setEditing(editing, animated: animated)
         swipes.close(animated: animated)
         collectionView.isEditing = editing
-        // The search controller first: its button in the trailing items is ignored while there is none.
+        // Selecting has no search; the system takes its button away with the controller.
         navigationItem.searchController = editing ? nil : search
         navigationItem.rightBarButtonItems =
             editing

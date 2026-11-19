@@ -1,10 +1,9 @@
 import UIKit
 
-/// Where a pill's glass and icon are, in some view's coordinates.
+/// Where a pill's glass is, in some view's coordinates.
 struct PillSpot {
     let pill: DraftsPillItem
     let frame: CGRect
-    let icon: CGPoint
 }
 
 /// The drafts pill: a toolbar item the system draws in glass, with the draft symbol and how many messages are
@@ -19,7 +18,8 @@ final class DraftsPillItem {
     /// What the only minimized message is called, which VoiceOver reads as the pill's value; `nil` with several.
     private var title: String?
 
-    init(site: any DraftsPillSite, opened: @escaping () -> Void) {
+    /// `dismissAll` hears Dismiss All picked in the menu a long press shows, with the pill's button.
+    init(site: any DraftsPillSite, opened: @escaping () -> Void, dismissAll: @escaping (UIView) -> Void = { _ in }) {
         self.site = site
         self.opened = opened
         var configuration = UIButton.Configuration.plain()
@@ -41,6 +41,15 @@ final class DraftsPillItem {
         button.accessibilityIdentifier = "drafts.pill"
         button.accessibilityTraits = .button
         button.addAction(UIAction { _ in opened() }, for: .primaryActionTriggered)
+        // A long press offers to dismiss them all; a tap still opens them.
+        button.menu = UIMenu(children: [
+            UIAction(
+                title: String(
+                    localized: "Dismiss All", table: "Drafts", bundle: .module,
+                    comment: "In the drafts pill's menu: asks whether to delete or save every minimized message"),
+                image: UIImage(systemName: "xmark")
+            ) { [weak button] _ in button.map(dismissAll) }
+        ])
         item = UIBarButtonItem(customView: button)
         item.isHidden = true
     }
@@ -60,35 +69,18 @@ final class DraftsPillItem {
         }
     }
 
-    /// Where the pill is in `view` when it shows `count`, or `nil` when its place isn't on show or the toolbar hasn't
-    /// placed it. Showing, laying out, reading and putting back all happen before the run loop commits, so nothing
-    /// of it reaches the screen.
-    func spot(in view: UIView, showing count: Int) -> PillSpot? {
+    /// Where the pill's glass is in `view` as it shows now, or `nil` when its place isn't on show or the toolbar
+    /// hasn't placed it.
+    func spot(in view: UIView) -> PillSpot? {
         guard let site, site.showsDraftsPill else { return nil }
-        var spot: PillSpot?
-        UIView.performWithoutAnimation {
-            let shown = self.count
-            if shown != count {
-                render(count)
-                site.draftsPillDidChange()
-            }
-            button.layoutIfNeeded()
-            if let frame = item.frame(in: view), DraftsPillPlacement.isPlaced(frame, in: view.bounds),
-                let icon = button.imageView
-            {
-                let containers = sequence(first: button, next: \.superview).dropFirst().prefix(4).map {
-                    $0.convert($0.bounds, to: view)
-                }
-                spot = PillSpot(
-                    pill: self, frame: DraftsPillPlacement.glass(around: frame, containers: Array(containers)),
-                    icon: icon.convert(CGPoint(x: icon.bounds.midX, y: icon.bounds.midY), to: view))
-            }
-            if shown != count {
-                render(shown)
-                site.draftsPillDidChange()
-            }
+        button.layoutIfNeeded()
+        guard let frame = item.frame(in: view), DraftsPillPlacement.isPlaced(frame, in: view.bounds) else {
+            return nil
         }
-        return spot
+        let containers = sequence(first: button, next: \.superview).dropFirst().prefix(4).map {
+            $0.convert($0.bounds, to: view)
+        }
+        return PillSpot(pill: self, frame: DraftsPillPlacement.glass(around: frame, containers: Array(containers)))
     }
 
     /// The icon bounces once, as a message lands in the pill.

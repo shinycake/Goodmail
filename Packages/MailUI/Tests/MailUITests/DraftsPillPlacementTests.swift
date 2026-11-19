@@ -80,12 +80,4 @@ struct DraftsPillPlacementTests {
         #expect(corner.maxX <= lane.maxX - 16)
         #expect(corner.minY > screen.maxY)
     }
-
-    @Test("The dot is 6 points across, centred on the icon")
-    func dot() {
-        let dot = DraftsPillPlacement.dot(at: CGPoint(x: 40, y: 818))
-        #expect(dot.size == CGSize(width: 6, height: 6))
-        #expect(dot.midX == 40)
-        #expect(dot.midY == 818)
-    }
 }

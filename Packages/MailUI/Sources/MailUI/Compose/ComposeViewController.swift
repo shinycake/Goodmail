@@ -555,6 +555,9 @@ public final class ComposeViewController: UIViewController {
 
     /// Keeps the message in the provider's Drafts and closes.
     func saveDraft() {
+        // Saving reads the editor, which a message restored to the pill hasn't loaded yet: blank fields would save over
+        // what it says.
+        loadViewIfNeeded()
         fieldChanged()
         viewModel.saveDraft(body: body)
         close()

@@ -40,6 +40,7 @@ public final class DraftShelfViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
         dock.onOpen = { [weak self] in self?.reopen() }
+        dock.onDismissAll = { [weak self] source in self?.askToDismissAll(from: source) }
         NotificationCenter.default.addObserver(
             self, selector: #selector(sceneDidEnterBackground(_:)), name: UIScene.didEnterBackgroundNotification,
             object: nil)
@@ -66,6 +67,8 @@ public final class DraftShelfViewController: UIViewController {
         to size: CGSize, with coordinator: any UIViewControllerTransitionCoordinator
     ) {
         super.viewWillTransition(to: size, with: coordinator)
+        // The picker first: a fold landing can open a message, which then settles with the rest.
+        settlePicker()
         stage.settleEverything()
     }
 
@@ -129,6 +132,9 @@ public final class DraftShelfViewController: UIViewController {
     /// A tap on the pill: one message opens out of it, several are laid out to pick from. A motion under way ends
     /// first, so the tap counts from where it lands.
     private func reopen() {
+        // A fold going on lets taps through to the pill; landing it first runs what it was to lead to, such as a new
+        // message, before the shelf is read.
+        settlePicker()
         stage.settleNow()
         guard shelf.state == .minimized else { return }
         shelf.reopen()
@@ -136,12 +142,33 @@ public final class DraftShelfViewController: UIViewController {
             shelfChanged()
             return showPicker()
         }
-        // The shelf writes it now, so a message opened while it lifts minimizes it first. The pill lets it go once
-        // the card covers it.
+        // The shelf writes it now, so a message opened while it grows minimizes it first. The pill lets it go once
+        // the card lands open over it.
         stage.open(writing, from: .dock(undocked: { [weak self] in self?.shelfChanged() }))
     }
 
-    /// Lays the drafts out to pick one.
+    /// The picker on screen, over the mail screens and under the composer's card. It is `.out` exactly while the
+    /// shelf is `.choosing`; once the shelf leaves that state, the picker plays out its fold as `.returning`. Only
+    /// `showPicker`, `closePicker` and `remove` change it; how the cards move is the picker's own business.
+    private var laid = Laid.away
+
+    private enum Laid {
+        case away
+        /// Laid out, or coming out of the pill.
+        case out(DraftPickerViewController)
+        /// Going back into the pill, picked from or not.
+        case returning(DraftPickerViewController)
+    }
+
+    /// Ends any fan or fold at once. A fold landing removes its picker and runs what it was to lead to.
+    private func settlePicker() {
+        switch laid {
+        case .away: break
+        case .out(let picker), .returning(let picker): picker.settleNow()
+        }
+    }
+
+    /// Lays the drafts out to pick one, coming out of the pill.
     private func showPicker() {
         let picker = DraftPickerViewController(entries: shelf.entries.map(\.draft))
         picker.onChoose = { [weak self] in self?.choose($0) }
@@ -155,65 +182,85 @@ public final class DraftShelfViewController: UIViewController {
             shelf.dismissChoice()
             closePicker { [weak self] in self?.newMessage?(account) }
         }
-        self.picker = picker
-        topPresenter.present(picker, animated: true)
+        addChild(picker)
+        picker.view.frame = view.bounds
+        picker.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        stage.place(picker.view)
+        picker.didMove(toParent: self)
+        picker.view.layoutIfNeeded()
+        laid = .out(picker)
+        picker.fanOut(from: pillFrame)
     }
 
-    /// The picker while the drafts are laid out.
-    private weak var picker: DraftPickerViewController?
-
-    private func closePicker(then next: (() -> Void)? = nil) {
-        guard let picker else {
+    /// Folds the laid-out drafts back into the pill, all but `chosen`, then calls `next`.
+    private func closePicker(leaving chosen: Draft.ID? = nil, then next: (() -> Void)? = nil) {
+        guard case .out(let picker) = laid else {
             next?()
             return
         }
-        picker.dismiss(animated: true, completion: next)
+        laid = .returning(picker)
+        picker.fold(into: pillFrame, leaving: chosen) { [weak self] in
+            self?.remove(picker)
+            next?()
+        }
     }
 
+    private func remove(_ picker: DraftPickerViewController) {
+        picker.willMove(toParent: nil)
+        picker.view.removeFromSuperview()
+        picker.removeFromParent()
+        if case .returning(let returning) = laid, returning === picker { laid = .away }
+    }
+
+    /// The pill on show, or its corner of the screen when none is.
+    private var pillFrame: CGRect { dock.spot(in: view)?.frame ?? stage.corner }
+
+    /// A laid-out draft was picked: its card grows into the composer as the others fold back into the pill, which
+    /// counts one fewer once the composer covers it.
     private func choose(_ id: Draft.ID) {
+        guard case .out(let picker) = laid else { return }
+        picker.settleNow()
+        let from = picker.frame(of: id, in: view)
         shelf.choose(id)
-        shelfChanged()
         guard let composer = shelf.writing?.composer else { return }
-        // The pill, behind the picker, already counts one fewer. Another message opened while the picker closed
-        // minimized this one first, and is the one to show.
-        closePicker { [weak self] in
-            guard let self, shelf.writing?.composer === composer else { return }
-            stage.open(composer, from: .dock(undocked: {}))
-        }
+        closePicker(leaving: id)
+        let undocked: () -> Void = { [weak self] in self?.shelfChanged() }
+        stage.open(
+            composer,
+            from: from.map { .card($0, cornerRadius: DraftCard.cornerRadius, undocked: undocked) }
+                ?? .dock(undocked: undocked))
     }
 
     /// The close button on a laid-out draft: delete it or keep it in Drafts, as the composer's own close button offers.
     private func askToClose(_ id: Draft.ID, from source: UIView) {
-        guard let composer = shelf.entries.first(where: { $0.id == id })?.composer, let picker else { return }
+        guard case .out(let picker) = laid, let entry = shelf.entries.first(where: { $0.id == id }) else { return }
+        askToDismiss([entry.composer], from: source, in: picker)
+    }
+
+    /// Dismiss All in the pill's menu: the same choice once, for every minimized message.
+    private func askToDismissAll(from source: UIView) {
+        let minimized = shelf.entries.filter { shelf.state != .writing($0.id) }.map(\.composer)
+        guard !minimized.isEmpty else { return }
+        askToDismiss(minimized, from: source, in: self)
+    }
+
+    /// Asks whether to delete `composers`' messages or keep them in Drafts, and does it to each of them.
+    private func askToDismiss(_ composers: [ComposeViewController], from source: UIView, in presenter: UIViewController)
+    {
         let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
-        sheet.addAction(
-            UIAlertAction(
-                title: String(
-                    localized: "Delete Draft", table: "Compose", bundle: .module, comment: "Discards the message"),
-                style: .destructive
-            ) { _ in composer.deleteDraft() })
-        if composer.viewModel.canSaveDraft {
+        let canSave = composers.allSatisfy(\.viewModel.canSaveDraft)
+        for dismissal in DraftDismissal.allCases where dismissal != .save || canSave {
             sheet.addAction(
-                UIAlertAction(
-                    title: String(
-                        localized: "Save Draft", table: "Compose", bundle: .module,
-                        comment: "Keeps the message in Drafts"),
-                    style: .default
-                ) { _ in composer.saveDraft() })
+                UIAlertAction(title: dismissal.title(count: composers.count), style: dismissal.style) { _ in
+                    for composer in composers { dismissal.apply(to: composer) }
+                })
         }
         sheet.addAction(
             UIAlertAction(
                 title: String(localized: "Cancel", table: "Drafts", bundle: .module, comment: "Keeps the draft"),
                 style: .cancel))
         sheet.popoverPresentationController?.sourceView = source
-        picker.present(sheet, animated: true)
-    }
-
-    /// The screen on top, which presents the composer.
-    private var topPresenter: UIViewController {
-        var top: UIViewController = self
-        while let presented = top.presentedViewController { top = presented }
-        return top
+        presenter.present(sheet, animated: true)
     }
 
     /// Shows the messages that wait on every pill, and hands what the shelf holds to `keep`.
@@ -284,9 +331,8 @@ extension DraftShelfViewController: ComposerHost {
         shelf.finish(composer.viewModel.draft.id)
         shelfChanged()
         if stage.composer === composer { stage.leave(composer, to: .away) }
-        switch shelf.state {
-        case .choosing: picker?.show(shelf.entries.map(\.draft))
-        case .empty, .minimized, .writing: closePicker()
-        }
+        // Laid out means choosing, which a finished draft ends only when it was the last one.
+        guard case .out(let picker) = laid else { return }
+        if shelf.state == .choosing { picker.show(shelf.entries.map(\.draft)) } else { closePicker() }
     }
 }
