@@ -164,6 +164,61 @@ describe("watchInbox", () => {
     expect(statuses.at(-1)).toEqual({ uidValidity: 7, uidNext: 101 });
   });
 
+  it("reports mail changing or leaving once the burst settles, and reads no STATUS for it", async () => {
+    statuses.length = 0;
+    let handled = 0;
+    const server = fakeImap(() => inboxServer({ uidValidity: 7, uidNext: 100 }));
+    const watching = watchInbox(ICLOUD, Date.now() + 4_500, record, server.connect, { settleMs: 500 }, async () => {
+      handled++;
+    });
+    await vi.waitUntil(() => server.sessions[0]?.lines.includes("g4 IDLE"));
+    server.announce("* 2 FETCH (FLAGS (\\Seen))");
+    server.announce("* 3 FETCH (FLAGS (\\Seen \\Flagged))");
+    server.announce("* 1 EXPUNGE");
+    await watching;
+    expect(handled).toBe(1);
+    expect(statuses).toHaveLength(1);
+  });
+
+  it("alerts at once for mail that arrives while a burst of changes settles, with no push for the changes", async () => {
+    statuses.length = 0;
+    let handled = 0;
+    const inbox = { uidValidity: 7, uidNext: 100 };
+    const server = fakeImap(() => inboxServer(inbox));
+    const watching = watchInbox(ICLOUD, Date.now() + 4_500, record, server.connect, { settleMs: 3_000 }, async () => {
+      handled++;
+    });
+    await vi.waitUntil(() => server.sessions[0]?.lines.includes("g4 IDLE"));
+    server.announce("* 2 FETCH (FLAGS (\\Seen))");
+    inbox.uidNext = 101;
+    const announced = Date.now();
+    server.announce("* 4 EXISTS");
+    await vi.waitUntil(() => statuses.length === 2);
+    expect(Date.now() - announced).toBeLessThan(1_000);
+    await watching;
+    expect(handled).toBe(0);
+  });
+
+  it("doesn't take the replies to its own new-mail check for changes", async () => {
+    statuses.length = 0;
+    let handled = 0;
+    const inbox = { uidValidity: 7, uidNext: 100 };
+    const server = fakeImap(() => inboxServer(inbox));
+    const fetching = async (status: InboxStatus, fresh: (since: number) => Promise<unknown>) => {
+      statuses.push(status);
+      await fresh(status.uidNext - 1);
+    };
+    const watching = watchInbox(ICLOUD, Date.now() + 4_500, fetching, server.connect, {}, async () => {
+      handled++;
+    });
+    await vi.waitUntil(() => server.sessions[0]?.lines.includes("g5 IDLE"));
+    inbox.uidNext = 101;
+    server.announce("* 4 EXISTS");
+    await watching;
+    expect(statuses).toHaveLength(2);
+    expect(handled).toBe(0);
+  });
+
   it("starts IDLE again every renewal, so the connection never goes quiet for long", async () => {
     statuses.length = 0;
     const server = fakeImap(() => inboxServer({ uidValidity: 7, uidNext: 100 }));

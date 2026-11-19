@@ -19,7 +19,7 @@ public enum WristAlertTarget: Equatable, Sendable {
         self = .thread(ThreadSummary.ID(accountID: account, threadID: thread))
     }
 
-    private static func account(in payload: [AnyHashable: Any], among accounts: [WristAccount]) -> AccountID? {
+    static func account(in payload: [AnyHashable: Any], among accounts: [WristAccount]) -> AccountID? {
         if let id = payload["accountID"] as? String {
             return accounts.first { $0.id.rawValue == id }?.id
         }

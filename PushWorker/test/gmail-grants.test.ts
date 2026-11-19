@@ -2,6 +2,7 @@ import { createExecutionContext, env, waitOnExecutionContext } from "cloudflare:
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { GMAIL_API, GOOGLE_TOKEN_URL } from "../src/gmail";
 import { GOOGLE_JWKS_URL } from "../src/google";
+import { handledPushes as spacing } from "../src/handled";
 import worker, { type Env } from "../src/index";
 import { accountId } from "../src/store";
 import { generateApnsKey, generateGoogleKey, idTokenClaims, jwksResponse, signGoogleToken, type TestGoogleKey } from "./keys";
@@ -24,6 +25,8 @@ let historyStarts: string[];
 let messages: Map<string, Record<string, unknown>>;
 /** The last alert APNs was sent. */
 let lastAlert: unknown;
+/** The quiet pushes that say mail was dealt with (handled.ts), which are no alerts. */
+let quietPushes: unknown[];
 
 function gmailMessage(labelIds: string[], from = '"Dana Levi" <dana@example.com>', subject = "Lunch?", at = "1800000000000") {
   return {
@@ -39,6 +42,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  spacing.clear();
   await env.DB.batch(
     ["devices", "deliveries", "push_times", "gmail_grants"].map((table) => env.DB.prepare(`DELETE FROM ${table}`)),
   );
@@ -46,6 +50,7 @@ beforeEach(async () => {
   historyStarts = [];
   messages = new Map([["m1", gmailMessage(["INBOX", "UNREAD"])]]);
   lastAlert = undefined;
+  quietPushes = [];
   refreshes = 0;
   tokenReply = () => Response.json({ access_token: "ya29.app", expires_in: 3599, scope: FULL_SCOPE });
   historyReply = () => Response.json({ history: [{ id: "12", messagesAdded: [{ message: { id: "m1" } }] }] });
@@ -53,6 +58,11 @@ beforeEach(async () => {
     const request = new Request(input, init);
     const url = new URL(request.url);
     if (request.url === GOOGLE_JWKS_URL) return jwksResponse([google]);
+    if (request.url.includes("push.apple.com") && request.headers.get("apns-push-type") === "background") {
+      expect(request.headers.get("apns-priority")).toBe("5");
+      quietPushes.push(await request.json());
+      return new Response(null, { status: 200 });
+    }
     if (request.url.includes("push.apple.com")) {
       apnsPushes += 1;
       lastAlert = await request.json();
@@ -119,6 +129,8 @@ async function primed() {
   await pubSub(10);
   await env.DB.prepare("UPDATE push_times SET pushed_at = 0").run();
   apnsPushes = 0;
+  quietPushes = [];
+  spacing.clear();
 }
 
 describe("Gmail grants", () => {
@@ -176,11 +188,20 @@ describe("Pub/Sub push with a grant", () => {
     expect(lastAlert).toMatchObject({ aps: { alert: { title: "Noa", body: "Later" } } });
   });
 
-  it("sends nothing for a read, archive, delete or label change", async () => {
+  it("alerts for no read, archive, delete or label change, and tells the device to take down what it no longer needs", async () => {
     await primed();
     historyReply = () => Response.json({ historyId: "13" });
     expect((await pubSub(13)).status).toBe(204);
     expect(apnsPushes).toBe(0);
+    expect(quietPushes).toEqual([{ aps: { "content-available": 1 }, account: EMAIL, historyId: "13", handled: 1 }]);
+  });
+
+  it("sends no quiet push beside an alert, whose own catch-up takes down what was dealt with", async () => {
+    await primed();
+    historyReply = () => Response.json({ history: [{ id: "13", messagesAdded: [{ message: { id: "m1" } }] }] });
+    expect((await pubSub(13)).status).toBe(204);
+    expect(apnsPushes).toBe(1);
+    expect(quietPushes).toEqual([]);
   });
 
   it("alerts for mail sent to oneself that lands unread in the Inbox, as Apple Mail does", async () => {

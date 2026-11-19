@@ -39,7 +39,7 @@ struct OutlookPushTests {
         #expect(relay.shared == [[subscriptionID, "secret", "refresh"]])
     }
 
-    @Test func subscribingAsksForNewInboxMailAndRegistersItWithTheRelay() async throws {
+    @Test func subscribingAsksForInboxMailArrivingChangingAndLeavingAndRegistersItWithTheRelay() async throws {
         let graph = graph()
         let relay = RecordingRelay()
         let client = try await OutlookClient.signedIn(to: graph)
@@ -48,7 +48,7 @@ struct OutlookPushTests {
 
         let request = try #require(graph.requests.first { $0.httpMethod == "POST" && $0.graphPath == "subscriptions" })
         let body = try #require(try JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: String])
-        #expect(body["changeType"] == "created")
+        #expect(body["changeType"] == "created,deleted,updated")
         #expect(body["resource"] == "me/mailFolders('inbox')/messages")
         #expect(body["notificationUrl"] == "https://relay.example.test/v1/graph")
         let clientState = try #require(body["clientState"])
@@ -74,6 +74,29 @@ struct OutlookPushTests {
         #expect(
             graph.requests.contains { $0.httpMethod == "PATCH" && $0.graphPath == "subscriptions/\(subscriptionID)" })
         #expect(!graph.requests.contains { $0.httpMethod == "POST" && $0.graphPath == "subscriptions" })
+    }
+
+    @Test func aSubscriptionThatReportsOnlyNewMailIsReplacedBeforeItGoes() async throws {
+        let graph = graph(renewal: "subscription-created-only")
+        let relay = RecordingRelay()
+        let client = try await OutlookClient.signedIn(to: graph)
+        let old = "0a1b2c3d-0000-4000-8000-000000000001"
+
+        let renewed = try await client.subscribe(
+            device, renewing: .subscription(id: old, clientState: "secret"), relay: relay)
+
+        guard case .subscription(let id, let clientState) = renewed.channel else {
+            Issue.record("expected a Graph subscription")
+            return
+        }
+        #expect(id == subscriptionID)
+        #expect(clientState != "secret")
+        #expect(relay.registered.map(\.id) == [subscriptionID])
+        #expect(relay.unregistered == [old])
+        let calls = graph.requests.map { "\($0.httpMethod ?? "") \($0.graphPath)" }
+        let created = try #require(calls.firstIndex(of: "POST subscriptions"))
+        let deleted = try #require(calls.firstIndex(of: "DELETE subscriptions/\(old)"))
+        #expect(created < deleted)
     }
 
     @Test func aLapsedSubscriptionIsMadeAgain() async throws {

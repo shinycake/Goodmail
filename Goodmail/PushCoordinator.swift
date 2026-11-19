@@ -17,11 +17,14 @@ final class PushCoordinator {
     private var placeholders: Task<Void, Never>?
     /// Keeps the app badge on the unread count for the app's lifetime.
     private let badge: AppBadge
+    /// Takes down alerts for mail the reader dealt with, for the app's lifetime.
+    private let handled: HandledAlertsSweep
 
     init(model: AppModel, routes: IntentRoutes) {
         self.model = model
         self.routes = routes
         badge = AppBadge(database: model.database)
+        handled = HandledAlertsSweep(database: model.database)
     }
 
     /// Call once, when the database has opened. `AlertResponder` answers the alerts from launch on, and hands them
@@ -29,6 +32,8 @@ final class PushCoordinator {
     func start(_ application: UIApplication) {
         UNUserNotificationCenter.current().setNotificationCategories([NewMailAlert.category])
         badge.start(accounts: { [model] in model.accounts })
+        // Rules post alerts too, so this runs with or without a push relay.
+        handled.start()
         guard model.pushRegistrar != nil else {
             Logger.push.notice("No push relay in this build; alerts are off")
             return

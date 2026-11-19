@@ -14,27 +14,41 @@ extension OutlookClient: PushSource {
     /// Subscriptions last under three days, so one is renewed each day the app runs.
     public var renewalMargin: TimeInterval { 2 * 86_400 }
 
-    /// Renews `channel` when it is still Graph's, otherwise makes a new subscription, then tells the relay.
+    /// Renews `channel` when it is still Graph's, otherwise makes a new subscription, then tells the relay. One made
+    /// before subscriptions also reported reads, moves and deletes is replaced, since Graph can't add change types
+    /// to a subscription: the new one is registered before the old one goes, so alerts never stop.
     public func subscribe(_ device: DeviceToken, renewing channel: PushChannel?, relay: any PushRelay) async throws
         -> (channel: PushChannel, expiresAt: Date)
     {
-        let expiration = Date.now.addingTimeInterval(Self.subscriptionLifetime)
         if case .subscription(let id, let clientState) = channel {
             do {
                 let renewed: GraphSubscription = try JSONDecoder.graph.decode(
                     GraphSubscription.self,
                     from: try await graph.send(
-                        subscriptionURL(id), method: "PATCH", json: SubscriptionRenewal(expiration)))
+                        subscriptionURL(id), method: "PATCH",
+                        json: SubscriptionRenewal(.now.addingTimeInterval(Self.subscriptionLifetime))))
+                guard renewed.reportsEveryChange else {
+                    let replacement = try await newSubscription(for: device, relay: relay)
+                    await retire(id, clientState: clientState, relay: relay)
+                    return replacement
+                }
                 try await relay.register(relayed(id, clientState, device, renewed.expirationDateTime))
                 return (.subscription(id: id, clientState: clientState), renewed.expirationDateTime)
             } catch let error as GraphError where error.status == 404 {
                 // The subscription lapsed, and Graph forgot it: make another.
             }
         }
+        return try await newSubscription(for: device, relay: relay)
+    }
+
+    /// Makes a subscription and registers it with the relay.
+    private func newSubscription(for device: DeviceToken, relay: any PushRelay) async throws
+        -> (channel: PushChannel, expiresAt: Date)
+    {
         let clientState = Self.newClientState()
         let request = SubscriptionRequest(
-            notificationUrl: relay.graphNotificationURL.absoluteString, expiration: expiration,
-            clientState: clientState)
+            notificationUrl: relay.graphNotificationURL.absoluteString,
+            expiration: .now.addingTimeInterval(Self.subscriptionLifetime), clientState: clientState)
         let created = try JSONDecoder.graph.decode(
             GraphSubscription.self,
             from: try await graph.send(
@@ -48,6 +62,13 @@ extension OutlookClient: PushSource {
             throw error
         }
         return (.subscription(id: created.id, clientState: clientState), created.expirationDateTime)
+    }
+
+    /// Takes a replaced subscription off the relay and Graph. Best effort: one left behind lapses within three days,
+    /// and the relay drops it a day after that.
+    private func retire(_ id: String, clientState: String, relay: any PushRelay) async {
+        try? await relay.unregisterGraphSubscription(id: id, clientState: clientState)
+        try? await deleteSubscription(id)
     }
 
     /// Hands the relay this account's refresh token, proven by the subscription's clientState, so it can read the
@@ -96,9 +117,11 @@ extension OutlookClient: PushSource {
     }()
 }
 
-/// `POST subscriptions`: new mail in the Inbox only.
+/// `POST subscriptions`: mail arriving in the Inbox, and mail in it changing or leaving it, as when it is read, moved
+/// or deleted on another device, so the relay can tell the app to take down alerts it no longer needs.
 struct SubscriptionRequest: Encodable {
-    let changeType = "created"
+    static let changeTypes: Set<String> = ["created", "updated", "deleted"]
+    let changeType = changeTypes.sorted().joined(separator: ",")
     let notificationUrl: String
     let resource = "me/mailFolders('inbox')/messages"
     let expirationDateTime: String
@@ -122,4 +145,12 @@ struct SubscriptionRenewal: Encodable {
 struct GraphSubscription: Decodable {
     let id: String
     let expirationDateTime: Date
+    /// The change types it reports, comma-separated. `nil` when Graph leaves it out, which is taken as current, so a
+    /// subscription is never replaced over an answer that says nothing.
+    let changeType: String?
+
+    var reportsEveryChange: Bool {
+        guard let changeType else { return true }
+        return SubscriptionRequest.changeTypes.isSubset(of: changeType.split(separator: ",").map(String.init))
+    }
 }
