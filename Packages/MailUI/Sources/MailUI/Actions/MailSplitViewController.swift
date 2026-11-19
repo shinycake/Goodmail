@@ -160,7 +160,10 @@ public final class MailSplitViewController: UISplitViewController {
             let lane = shownScreens.first as? any UndoToastLane,
             lane.navigationController?.isToolbarHidden == false
         else { return [] }
-        return lane.toolbarEnds.compactMap { $0.frame(in: view) }.filter { !$0.isEmpty }
+        // A button the toolbar hasn't placed yet, as while a pop brings the toolbar in, reports its size at the
+        // window's corner: only the buttons on the bottom bar count.
+        let bar = view.bounds.maxY - aboveToolbars()
+        return lane.toolbarEnds.compactMap { $0.frame(in: view) }.filter { !$0.isEmpty && $0.minY >= bar }
     }
 
     /// The screen on top in each shown column.

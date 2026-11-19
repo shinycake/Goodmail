@@ -19,8 +19,6 @@ final class ComposerCardView: UIView {
     /// The composer at its open size, and the grabber, over the face.
     private let cover = UIView()
     private let grabber = Grabber()
-    /// The keyboard as it stood when the card set off, traveling with the composer, if it was up.
-    private weak var keyboard: UIView?
     /// The cover's size, the card's when open.
     private var openSize = CGSize.zero
     /// Moves the message to the bar: the grabber's VoiceOver action.
@@ -79,30 +77,29 @@ final class ComposerCardView: UIView {
         face.layoutIfNeeded()
     }
 
-    /// How much of the composer shows over the face. Animatable.
+    /// Puts the card back at `frame` once a motion has run back to it. The animator puts its start back beneath the
+    /// views, where Auto Layout doesn't see it: it still has the card where the motion was headed, and with it the
+    /// composer's keyboard guide, which would squeeze the message into what's left above the bar. Setting the same
+    /// frame again changes nothing it sees, so the card passes through another one first.
+    func refit(_ frame: CGRect, cornerRadius: CGFloat) {
+        fit(frame.insetBy(dx: 1, dy: 0), cornerRadius: cornerRadius)
+        fit(frame, cornerRadius: cornerRadius)
+    }
+
+    /// How much of the composer shows; the face's title shows as much as the composer gives way. Animatable. The
+    /// title sits in glass, which can draw it past the card's rounded edge, so it can't wait under the open composer.
     var composerAlpha: CGFloat {
         get { cover.alpha }
-        set { cover.alpha = newValue }
+        set {
+            cover.alpha = newValue
+            face.labelsAlpha = 1 - newValue
+        }
     }
 
     /// How much of the grabber shows. Animatable.
     var grabberAlpha: CGFloat {
         get { grabber.alpha }
         set { grabber.alpha = newValue }
-    }
-
-    /// Carries `standIn`, a picture of the keyboard at `frame` in `space`, with the composer. Only while the card
-    /// is open, as the cover is then unscaled.
-    func carryKeyboard(_ standIn: UIView, at frame: CGRect, in space: UIView) {
-        dropKeyboard()
-        standIn.frame = space.convert(frame, to: cover)
-        cover.addSubview(standIn)
-        keyboard = standIn
-    }
-
-    /// Lets go of the keyboard's picture, once the real one is back or the card has gone.
-    func dropKeyboard() {
-        keyboard?.removeFromSuperview()
     }
 }
 

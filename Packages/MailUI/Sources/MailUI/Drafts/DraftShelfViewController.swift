@@ -324,10 +324,6 @@ extension DraftShelfViewController: ComposerHost {
 
     var canMinimize: Bool { true }
 
-    func keyboardWillLeave(_ composer: ComposeViewController) {
-        stage.carryKeyboard(of: composer)
-    }
-
     func composerDidClose(_ composer: ComposeViewController) {
         shelf.finish(composer.viewModel.draft.id)
         shelfChanged()

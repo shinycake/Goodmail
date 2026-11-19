@@ -167,14 +167,18 @@ final class FormattingBar: UIView {
         let offset = scrollView.contentOffset.x
         let hiddenBefore = offset > 1
         let hiddenAfter = offset + width < scrollView.contentSize.width - 1
+        // Under an arrow the controls are gone, so the arrow never sits on half of one; past it they fade in.
+        let under = (Self.moreWidth + 2 - Self.inset) / width
         let edge = Self.fadeLength / width
         let opaque = UIColor.black.cgColor
         let clear = UIColor.clear.cgColor
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         fade.frame = scrollView.bounds
-        fade.colors = [hiddenBefore ? clear : opaque, opaque, opaque, hiddenAfter ? clear : opaque]
-        fade.locations = [0, NSNumber(value: edge), NSNumber(value: 1 - edge), 1]
+        let before = hiddenBefore ? clear : opaque
+        let after = hiddenAfter ? clear : opaque
+        fade.colors = [before, before, opaque, opaque, after, after]
+        fade.locations = [0, under, edge, 1 - edge, 1 - under, 1].map { NSNumber(value: $0) }
         CATransaction.commit()
         moreLeft.isHidden = !hiddenBefore
         moreRight.isHidden = !hiddenAfter

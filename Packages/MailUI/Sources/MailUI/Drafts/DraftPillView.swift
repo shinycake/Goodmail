@@ -13,6 +13,13 @@ final class DraftPillView: UIView {
     private let glass = UIVisualEffectView(effect: UIGlassEffect())
     private let titleLabel = UILabel()
     private let detailLabel = UILabel()
+    private lazy var labels = UIStackView(arrangedSubviews: [titleLabel, detailLabel])
+
+    /// How much of what the capsule says shows; the glass always does, as it can't fade. Animatable.
+    var labelsAlpha: CGFloat {
+        get { labels.alpha }
+        set { labels.alpha = newValue }
+    }
 
     /// A capsule that takes taps and drags, or, on the composer's card, one only to look at.
     init(interactive: Bool) {
@@ -32,7 +39,7 @@ final class DraftPillView: UIView {
             label.textAlignment = .center
             label.lineBreakMode = .byTruncatingTail
         }
-        let stack = UIStackView(arrangedSubviews: [titleLabel, detailLabel])
+        let stack = labels
         stack.axis = .vertical
         stack.alignment = .fill
         stack.translatesAutoresizingMaskIntoConstraints = false

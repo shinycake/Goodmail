@@ -2,9 +2,10 @@ import MailCore
 import UIKit
 
 /// Moves the composer's card between the screen, the minimized messages and away, one motion at a time. Everything
-/// that moves with it (the card, the composer scaling inside it, the keyboard's picture, the dimming) moves in one
-/// animator, so the motion is a single piece; the mail screens behind it never move. A drag on the card or on the
-/// minimized messages scrubs that animator under the finger; letting go, or a tap, hands it to a spring.
+/// that moves with it (the card, the composer scaling inside it, the dimming) moves in one animator, so the motion is
+/// a single piece; the mail screens behind it never move. The keyboard runs outside the app, where it can't be
+/// pictured or moved, so it slides away on its own as the card sets off. A drag on the card or on the minimized
+/// messages scrubs that animator under the finger; letting go, or a tap, hands it to a spring.
 final class ComposerStage: NSObject {
     /// Where a card leaving the screen goes.
     enum Destination {
@@ -248,15 +249,14 @@ final class ComposerStage: NSObject {
             }
         if onScreen {
             motion = .open(move.composer)
+            card.refit(openFrame, cornerRadius: ComposerCardView.openCornerRadius)
             poseOpen(openFrame)
         } else {
             motion = .idle
             remove(move.composer)
         }
         if case .opening = move.direction, arrived { move.composer.didOpen() }
-        // Let go short, the composer takes the keyboard back first, where its picture stands, then lets go of it.
         move.landed(arrived)
-        card.dropKeyboard()
         onChange?()
     }
 
@@ -267,28 +267,6 @@ final class ComposerStage: NSObject {
         navigation.willMove(toParent: nil)
         navigation.view.removeFromSuperview()
         navigation.removeFromParent()
-    }
-
-    // MARK: The keyboard
-
-    /// Before the open card sets off with `composer`, takes a picture of the keyboard, and the formatting controls on
-    /// it, for the card to carry down: the keyboard can't follow a finger, and the minimized messages sit under it.
-    /// Only when the window fills the screen, as the picture is of the screen.
-    func carryKeyboard(of composer: ComposeViewController) {
-        guard case .open(let open) = motion, open === composer, let window = card.window,
-            let screen = window.windowScene?.screen, window.frame == screen.bounds
-        else { return }
-        let view = composer.view!
-        let keyboard = view.keyboardLayoutGuide.layoutFrame
-        guard keyboard.height > view.safeAreaInsets.bottom + 1 else { return }
-        let picture = screen.snapshotView(afterScreenUpdates: false)
-        let onScreen = view.convert(keyboard, to: window)
-        let standIn = UIView()
-        standIn.clipsToBounds = true
-        standIn.isUserInteractionEnabled = false
-        picture.frame.origin = CGPoint(x: -onScreen.minX, y: -onScreen.minY)
-        standIn.addSubview(picture)
-        card.carryKeyboard(standIn, at: keyboard, in: view)
     }
 
     // MARK: Dragging the card down

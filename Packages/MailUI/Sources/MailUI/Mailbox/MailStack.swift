@@ -36,13 +36,18 @@ public final class MailStackController: UINavigationController, UIGestureRecogni
         relayOutSplitAlong()
     }
 
-    /// Lays the split view out again with the transition under way, and once it ends; at once without one.
+    /// Lays the split view out again with the transition under way, and once more as it ends, moving what sits on the
+    /// toolbar's line to where the toolbar's buttons ended up; at once without a transition.
     private func relayOutSplitAlong() {
         guard let split = splitViewController?.view else { return }
         split.setNeedsLayout()
         guard let transition = transitionCoordinator else { return }
         transition.animate(
-            alongsideTransition: { _ in split.layoutIfNeeded() }, completion: { _ in split.setNeedsLayout() })
+            alongsideTransition: { _ in split.layoutIfNeeded() },
+            completion: { _ in
+                split.setNeedsLayout()
+                UIView.animate(withDuration: 0.25) { split.layoutIfNeeded() }
+            })
     }
 
     public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
