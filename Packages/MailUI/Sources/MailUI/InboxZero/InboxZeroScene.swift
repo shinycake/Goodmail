@@ -59,11 +59,13 @@ struct InboxZeroScene: View {
         // Beside the envelopes the doodles aren't the ring the game takes over, so they stay under its paper.
         let drawsDoodles = layout.hasDoodles && (!playing || !layout.isRinged)
         return VStack(spacing: layout.gap) {
-            EnvelopePile(width: pileWidth, fan: scene.fan - 1 + entrance.fan, released: model.wakeUp)
-                .offset(y: entrance.pileDrop - scene.lift)
-                .scaleEffect(entrance.pileScale)
-                .opacity(playing ? 0 : entrance.pileOpacity)
-                .accessibilityHidden(true)
+            EnvelopePile(
+                width: pileWidth, fan: scene.fan - 1 + entrance.fan, rise: scene.lift - entrance.pileDrop,
+                released: model.wakeUp
+            )
+            .scaleEffect(entrance.pileScale)
+            .opacity(playing ? 0 : entrance.pileOpacity)
+            .accessibilityHidden(true)
             InboxZeroCopy(
                 pointing: showing.pointing, greeting: greeting,
                 title: entrance.text(appearingAt: InboxZeroEntrance.titleAppears),

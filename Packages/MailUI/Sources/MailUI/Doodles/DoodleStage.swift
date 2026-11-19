@@ -25,8 +25,7 @@ struct DoodleStage: View {
                     if isDecorated {
                         DoodleField(doodles: doodles, scene: scene)
                     }
-                    EnvelopePile(width: envelopeWidth, fan: scene.fan)
-                        .offset(y: -scene.lift)
+                    EnvelopePile(width: envelopeWidth, fan: scene.fan, rise: scene.lift)
                     if isDecorated {
                         PaperPlanes(scene: scene)
                     }

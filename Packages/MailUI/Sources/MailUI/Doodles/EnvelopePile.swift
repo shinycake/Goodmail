@@ -37,6 +37,8 @@ struct EnvelopePile: View {
     let width: CGFloat
     /// How wide the pile is fanned: 1 as in the icon, 0 squared up.
     let fan: Double
+    /// How far the pile is raised above its place, in points. It moves by fractions of a pixel from frame to frame.
+    var rise: CGFloat = 0
     /// Called when a finger that dragged the pile lets go.
     var released: () -> Void = {}
     @State private var pull = CGSize.zero
@@ -56,6 +58,9 @@ struct EnvelopePile: View {
         .frame(width: width, height: width * EnvelopeLayer.aspect)
         .rotation3DEffect(.degrees(lean.pitch), axis: (x: 1, y: 0, z: 0), perspective: 0.6)
         .rotation3DEffect(.degrees(lean.yaw), axis: (x: 0, y: 1, z: 0), perspective: 0.6)
+        // Raised by a transform rather than `offset`: SwiftUI rounds an offset to whole pixels, so a bob of a few points
+        // over seconds stepped the envelopes one pixel at a time, a few times a second, instead of every frame.
+        .transformEffect(CGAffineTransform(translationX: 0, y: -rise))
         .gesture(
             EnvelopeDrag(
                 moved: { translation in

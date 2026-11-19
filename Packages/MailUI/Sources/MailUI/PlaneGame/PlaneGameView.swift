@@ -134,8 +134,7 @@ private struct PlaneGamePileView: View {
     let pile: PlaneGameLook.Pile
 
     var body: some View {
-        EnvelopePile(width: pile.width, fan: pile.pose.fan)
-            .offset(y: -pile.pose.lift)
+        EnvelopePile(width: pile.width, fan: pile.pose.fan, rise: pile.pose.lift)
             // Never quite zero across, which would leave nothing to scale back from.
             .scaleEffect(x: pile.pose.scale * max(pile.pose.width, 0.001), y: pile.pose.scale)
             .opacity(pile.pose.opacity)
