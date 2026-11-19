@@ -128,7 +128,7 @@ public final class SearchResultsController: UIViewController, UISearchResultsUpd
     }
 
     /// Puts a query in the field, its filters as tokens and the rest as text.
-    private func show(_ query: SearchQuery, in field: UISearchTextField) {
+    func show(_ query: SearchQuery, in field: UISearchTextField) {
         let filters = query.terms.compactMap(SearchFilter.init)
         field.tokens = filters.map(\.token)
         field.text = SearchQuery(terms: query.terms.filter { SearchFilter($0) == nil }).text

@@ -6,14 +6,21 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private enum State {
         /// UIKit hasn't connected the scene yet.
         case notConnected
-        /// The database is still opening; the window shows nothing yet. `link` is the link to open once
-        /// it has.
-        case opening(Task<Void, Never>, link: URL?)
+        /// The database is still opening; the window shows nothing yet. `arrival` is what to open once it has.
+        case opening(Task<Void, Never>, arrival: Arrival?)
         case running(SceneCoordinator)
         /// A window that holds one message being written.
         case composing(ComposeWindowCoordinator)
         /// The database couldn't open; the window says so.
         case unavailable
+    }
+
+    /// What the window was asked to open as it came up or while the database was opening.
+    private enum Arrival {
+        /// A `mailto:` link or transfer code.
+        case link(URL)
+        /// A Home Screen quick action.
+        case quickAction(QuickAction)
     }
 
     var window: UIWindow?
@@ -31,28 +38,32 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         let activities = connectionOptions.userActivities + [session.stateRestorationActivity].compactMap(\.self)
         let restoring = activities.lazy.compactMap(WindowState.init).first
         let composing = activities.lazy.compactMap(ComposeWindow.init).first
-        let link = connectionOptions.urlContexts.first?.url
+        let arrival =
+            connectionOptions.urlContexts.first.map { Arrival.link($0.url) }
+            ?? connectionOptions.shortcutItem?.quickAction.map(Arrival.quickAction)
         if let services = launch.running {
             if let composing { return compose(composing, in: windowScene, with: services) }
-            return connect(windowScene, to: services, restoring: restoring, link: link)
+            return connect(windowScene, to: services, restoring: restoring, arrival: arrival)
         }
         show(LaunchViewController(), in: windowScene)
         state = .opening(
             Task {
                 do {
                     let services = try await launch.services()
-                    guard case .opening(_, let link) = state else { return }
+                    guard case .opening(_, let arrival) = state else { return }
                     if let composing { return compose(composing, in: windowScene, with: services) }
-                    connect(windowScene, to: services, restoring: restoring, link: link)
+                    connect(windowScene, to: services, restoring: restoring, arrival: arrival)
                 } catch {
                     show(LaunchViewController(failure: error), in: windowScene)
                     state = .unavailable
                 }
             },
-            link: link)
+            arrival: arrival)
     }
 
-    private func connect(_ windowScene: UIWindowScene, to services: AppServices, restoring: WindowState?, link: URL?) {
+    private func connect(
+        _ windowScene: UIWindowScene, to services: AppServices, restoring: WindowState?, arrival: Arrival?
+    ) {
         let coordinator = SceneCoordinator(windowScene: windowScene, model: services.model, restoring: restoring)
         state = .running(coordinator)
         coordinator.start()
@@ -63,7 +74,11 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Messages open into a web view whose content process takes a while to start; start one now.
         MessageWebViewPool.shared.warmUp()
         // The composer and the transfer screen need a visible window to present on.
-        if let link { coordinator.open(link) }
+        switch arrival {
+        case .link(let link): coordinator.open(link)
+        case .quickAction(let action): coordinator.perform(action)
+        case nil: break
+        }
     }
 
     /// Fills the window with the one message it holds.
@@ -81,9 +96,29 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let link = contexts.first?.url else { return }
         switch state {
         case .running(let coordinator): coordinator.open(link)
-        case .opening(let task, _): state = .opening(task, link: link)
+        case .opening(let task, _): state = .opening(task, arrival: .link(link))
         case .notConnected, .unavailable, .composing: break
         }
+    }
+
+    /// A Home Screen quick action, while the window is up or the database is still opening. One that launches the
+    /// app comes to `willConnectTo` instead.
+    func windowScene(
+        _ windowScene: UIWindowScene, performActionFor shortcutItem: UIApplicationShortcutItem
+    ) async -> Bool {
+        guard let action = shortcutItem.quickAction else { return false }
+        switch state {
+        case .running(let coordinator): coordinator.perform(action)
+        case .opening(let task, _): state = .opening(task, arrival: .quickAction(action))
+        case .notConnected, .unavailable, .composing: return false
+        }
+        return true
+    }
+
+    /// The Home Screen menu is set as the app leaves the foreground, so it matches what the reader left.
+    func sceneWillResignActive(_ scene: UIScene) {
+        // Unsafe because `delegate` is unowned. Safe: UIKit keeps the app delegate for the life of the process.
+        (unsafe UIApplication.shared.delegate as! AppDelegate).launch.running?.quickActions.refresh()
     }
 
     /// Shows `controller` in a window of its own, until the coordinator's window replaces it.

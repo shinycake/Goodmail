@@ -9,12 +9,18 @@ public enum Route: Hashable, Sendable {
     case mailbox(Mailbox)
     /// The composer, with a new message, reply or forward.
     case compose(Draft)
+    /// The composer, finishing the draft that is a thread's newest message, which may still have to be fetched; the
+    /// thread itself when its newest message is no draft.
+    case draft(ThreadSummary.ID)
     /// The composer, answering a thread's newest message, which may still have to be fetched.
     case answer(ThreadSummary.ID, Answer)
     /// The label picker for these threads, which share one account.
     case changeLabels([ThreadSummary.ID])
     /// Where to move these threads, which the reader sees in `mailbox`.
     case move([ThreadSummary.ID], from: Mailbox)
+    /// Search over the shown mailbox's list, or the Inbox's, with `query` in the field: ready to type in when it is
+    /// empty, showing its results otherwise.
+    case search(SearchQuery)
     /// The messages waiting to be sent later.
     case scheduled
     /// The threads snoozed out of the Inbox until later.

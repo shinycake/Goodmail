@@ -125,6 +125,22 @@ public final class DraftShelfViewController: UIViewController {
         }
     }
 
+    /// Minimizes the message being written, or puts the drafts laid out to pick from away, so the mail screens show,
+    /// then calls `next`: for somewhere to go in them, such as search from a Home Screen quick action.
+    public func uncover(then next: @escaping () -> Void) {
+        switch shelf.state {
+        case .empty, .minimized:
+            next()
+        case .writing:
+            guard let shown = shelf.writing?.composer else { return next() }
+            // Minimizing tells the shelf through `composerDidMinimize`.
+            shown.minimize(then: next)
+        case .choosing:
+            shelf.dismissChoice()
+            closePicker(then: next)
+        }
+    }
+
     private func write(_ composer: ComposeViewController) {
         composer.host = self
         shelf.open(composer.viewModel.draft, in: composer)

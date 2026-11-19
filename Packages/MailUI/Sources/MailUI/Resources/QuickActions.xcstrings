@@ -1,0 +1,72 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Continue Draft" : {
+      "comment" : "Home Screen quick action that opens the newest draft in the composer, its subject below",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "המשך טיוטה"
+          }
+        }
+      }
+    },
+    "Inbox" : {
+      "comment" : "Below an account's name, in the Home Screen quick action that opens its Inbox",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דואר נכנס"
+          }
+        }
+      }
+    },
+    "New Message" : {
+      "comment" : "Home Screen quick action that starts a new email",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הודעה חדשה"
+          }
+        }
+      }
+    },
+    "No Subject" : {
+      "comment" : "Below Continue Draft, for a draft that has no subject",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ללא נושא"
+          }
+        }
+      }
+    },
+    "Search" : {
+      "comment" : "Home Screen quick action that opens the search field",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חיפוש"
+          }
+        }
+      }
+    },
+    "Unread" : {
+      "comment" : "Home Screen quick action that lists the unread mail in every account",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא נקראו"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

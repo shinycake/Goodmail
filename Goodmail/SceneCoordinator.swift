@@ -19,7 +19,7 @@ final class SceneCoordinator: NSObject {
     private var failures: Task<Void, Never>?
     /// The launch check for a Gmail sign-in that can't delete forever, or signing an account in again.
     private var signingInAgain: Task<Void, Never>?
-    /// An answer from the list waiting for the message it answers, which a newer answer replaces.
+    /// An answer or a draft to finish, waiting for the message it starts from, which a newer one replaces.
     private var answering: Task<Void, Never>?
     /// Failed sends already shown, so each is offered once per launch.
     private var shownFailures: Set<Draft.ID> = []
@@ -411,7 +411,7 @@ final class SceneCoordinator: NSObject {
     func handle(_ route: Route) {
         switch route {
         case .mailbox(let mailbox):
-            show(.mailbox(mailbox, thread: nil))
+            drafts.uncover { [weak self] in self?.show(.mailbox(mailbox, thread: nil)) }
         case .scheduled:
             show(.scheduled)
         case .snoozed:
@@ -472,6 +472,20 @@ final class SceneCoordinator: NSObject {
                     topViewController()?.present(UIAlertController.answerUnavailable(), animated: true)
                 }
             }
+        case .draft(let id):
+            guard let account = model.accounts.first(where: { $0.id == id.accountID }) else { return }
+            answering?.cancel()
+            answering = Task { [weak self, model] in
+                let newest = try? await model.messagesToAnswer(in: id).last
+                guard !Task.isCancelled, let self else { return }
+                if let newest, newest.labelIDs.contains(SystemLabel.draft) {
+                    handle(.compose(Draft.editing(newest, aliases: account.aliases)))
+                } else {
+                    handle(.thread(id, in: .drafts))
+                }
+            }
+        case .search(let query):
+            drafts.uncover { [weak self] in self?.search(for: query) }
         case .compose(let draft):
             guard let composer = composer(for: draft) else { return }
             drafts.open(composer)
@@ -493,8 +507,10 @@ extension SceneCoordinator {
         guard let split else { return }
         shown = WindowState(list: list, category: shown.category)
         let controller = shownListViewController()
-        if split.isCollapsed {
-            navigation(for: .compact)?.pushViewController(controller, animated: true)
+        if split.isCollapsed, let stack = navigation(for: .compact) {
+            // The list takes the place of any list or thread over the mailboxes, so the stack stays the one list
+            // `shown` names, even when an alert or a quick action opens a mailbox from deep in another.
+            stack.setViewControllers(Array(stack.viewControllers.prefix(1)) + [controller], animated: true)
         } else {
             navigation(for: .supplementary)?.setViewControllers([controller], animated: false)
             navigation(for: .secondary)?.setViewControllers([NoThreadViewController()], animated: false)
@@ -502,6 +518,26 @@ extension SceneCoordinator {
                 shown.destination
             split.showList()
         }
+    }
+}
+
+extension SceneCoordinator {
+    /// Begins search over the shown mailbox's list, closing the thread over it in a narrow window, or over the Inbox's
+    /// when the window shows no mailbox's list.
+    private func search(for query: SearchQuery) {
+        guard let split else { return }
+        let column: UISplitViewController.Column = split.isCollapsed ? .compact : .supplementary
+        func shownList() -> MailboxViewController? {
+            navigation(for: column)?.viewControllers.lazy.compactMap { $0 as? MailboxViewController }.first
+        }
+        if shownList() == nil { show(.mailbox(.inbox, thread: nil)) }
+        guard let list = shownList() else { return }
+        if split.isCollapsed {
+            navigation(for: .compact)?.popToViewController(list, animated: false)
+        } else {
+            split.showList()
+        }
+        list.beginSearch(query)
     }
 }
 
