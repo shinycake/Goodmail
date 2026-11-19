@@ -150,7 +150,7 @@ Claude Code tooling is declared in the repo:
 
 ### How changes land
 
-There are no pull requests. Each change gets a review against [docs/review.md](docs/review.md) from the session that wrote it, passes `scripts/check`, and is pushed straight to main (ADR-028). The pre-push hook runs `scripts/check` again, and `.github/workflows/check.yml` runs the Linux check on main after each push.
+There are no pull requests. Each change gets a review against [docs/review.md](docs/review.md) from the session that wrote it, passes `scripts/check`, and is pushed straight to main (ADR-028). The pre-push hook runs `scripts/check` again, GitHub runs nothing on its own: `.github/workflows/check.yml` runs the Linux check only when started by hand.
 
 ## License
 

@@ -1,19 +1,13 @@
-# The Linux scripts/check (docs/setup/cloud-builds.md) on main after each push: lint, every package and its tests
-# compiled for iOS, the app and extension targets type-checked, and the Linux-testable packages' tests. Work lands by
-# pushing straight to main (ADR-028), whose pre-push hook runs the same check, so this run catches a push that skipped
-# the hook. It needs the private goodmail-sdk repository, read with the GOODMAIL_SDK_DEPLOY_KEY secret. Until that
-# secret exists, it runs only the lint and the line cap (scripts/check --lint).
+# The Linux scripts/check (docs/setup/cloud-builds.md), run by hand: lint, every package and its tests compiled for
+# iOS, the app and extension targets type-checked, and the Linux-testable packages' tests. Work lands by pushing
+# straight to main (ADR-028), and the pre-push hook runs scripts/check on every push, so this workflow doesn't run on
+# its own: the private repository's Actions minutes are limited, and a run takes about 12 minutes. Start it from the
+# Actions tab or with `gh workflow run check.yml`. It needs the private goodmail-sdk repository, read with the
+# GOODMAIL_SDK_DEPLOY_KEY secret. Until that secret exists, it runs only the lint and the line cap (scripts/check --lint).
 name: check
 
 on:
-  push:
-    branches: [main]
-
-# A run takes about 12 minutes of the private repository's Actions minutes, so a newer push cancels the run of the
-# older one: only the newest main needs a verdict.
-concurrency:
-  group: check-main
-  cancel-in-progress: true
+  workflow_dispatch:
 
 permissions: {}
 
