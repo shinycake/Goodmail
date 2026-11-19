@@ -5,14 +5,16 @@ import MailCore
 /// whom and when, then the body as the reader shows it. Pure, so what goes on paper is testable.
 nonisolated enum PrintDocument {
     /// The body's document (`MessageDocument`) in the reader's palette, with the message's headers leading its
-    /// `<body>` and paper styles. Its colors follow the appearance its web view is given, as the card's do.
+    /// `<body>` and paper styles, laid out in `appearance` as the card shows it.
     static func html(
-        for message: Message, subject: String?, dateText: String, allowsRemoteContent: Bool
+        for message: Message, subject: String?, dateText: String, appearance: ForcedAppearance,
+        allowsRemoteContent: Bool
     ) -> String {
         let document = MessageDocument.html(
             for: message.body, palette: MessagePalette.of(message.body), allowsRemoteContent: allowsRemoteContent)
-        let withStyle = MessageDocument.inject(head: paperStyle, into: document)
-        return inject(body: header(for: message, subject: subject, dateText: dateText), into: withStyle)
+        let withStyle = MessageDocument.inject(head: paperStyle + appearance.rootStyle, into: document)
+        return appearance.apply(
+            to: inject(body: header(for: message, subject: subject, dateText: dateText), into: withStyle))
     }
 
     /// The headers block: the subject when given, then From, To, Cc and the date, each line reading its own way.
@@ -50,8 +52,8 @@ nonisolated enum PrintDocument {
         return html + document
     }
 
-    /// The page is the sheet (`ConversationPDF.sheet`), and the headers read on it in either appearance. A palette that paints its own page
-    /// comes later in the head and wins.
+    /// The page is the sheet (`ConversationPDF.sheet`), and the headers read on it in either appearance. A palette
+    /// that paints its own page comes later in the head and wins.
     private static let paperStyle = """
         <style>\
         :root { color-scheme: light dark; background-color: light-dark(#fff, rgb(28, 28, 30)); }\

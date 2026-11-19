@@ -23,9 +23,10 @@ enum ConversationPDF {
         return isLetter ? CGRect(x: 0, y: 0, width: 612, height: 792) : CGRect(x: 0, y: 0, width: 595, height: 842)
     }
 
-    /// The sheet a message prints on: white in light, the reader's dark card in dark, as the page's own style has it.
-    static func sheet(_ style: UIUserInterfaceStyle) -> UIColor {
-        style == .dark ? UIColor(red: 28 / 255, green: 28 / 255, blue: 30 / 255, alpha: 1) : .white
+    /// The sheet a message prints on, around its page: white in light, the reader's dark card in dark. A painted body's
+    /// own page is a shade lighter in dark, as its sheet is on the card.
+    static func sheet(_ appearance: ForcedAppearance) -> UIColor {
+        appearance == .dark ? UIColor(red: 28 / 255, green: 28 / 255, blue: 30 / 255, alpha: 1) : .white
     }
 
     static func data(
@@ -42,19 +43,20 @@ enum ConversationPDF {
         for (index, message) in messages.enumerated() {
             try Task.checkCancellation()
             let allows = allowsRemoteContent.contains(message.id)
-            let style: UIUserInterfaceStyle = appearance(message.id) == .dark ? .dark : .light
+            let forced: ForcedAppearance = appearance(message.id) == .dark ? .dark : .light
             let html = PrintDocument.html(
                 for: message, subject: index == 0 ? subject : nil,
-                dateText: message.date.formatted(date: .long, time: .shortened), allowsRemoteContent: allows)
+                dateText: message.date.formatted(date: .long, time: .shortened), appearance: forced,
+                allowsRemoteContent: allows)
             let view = try await loadedView(
-                html, message: message, style: style, width: printable.width, allowsRemoteContent: allows,
+                html, message: message, appearance: forced, width: printable.width, allowsRemoteContent: allows,
                 attachmentData: attachmentData)
             let pdf = try await view.pdf(configuration: WKPDFConfiguration())
             // WebKit returned a PDF, so it parses; if it ever doesn't, the export fails rather than drop a message.
             guard let document = CGDataProvider(data: pdf as CFData).flatMap(CGPDFDocument.init),
                 let page = document.page(at: 1)
             else { throw Failure.unreadableMessagePDF }
-            rendered.append((document, page, sheet(style)))
+            rendered.append((document, page, sheet(forced)))
         }
         return UIGraphicsPDFRenderer(bounds: paper).pdfData { context in
             for message in rendered {
@@ -90,9 +92,10 @@ enum ConversationPDF {
         } while offset < height
     }
 
-    /// A web view off screen with `html` loaded in `style`, its `cid:` images included and our script run over it.
+    /// A web view off screen with `html` loaded, its `cid:` images included and our script, answered for
+    /// `appearance`, run over it.
     private static func loadedView(
-        _ html: String, message: Message, style: UIUserInterfaceStyle, width: CGFloat, allowsRemoteContent: Bool,
+        _ html: String, message: Message, appearance: ForcedAppearance, width: CGFloat, allowsRemoteContent: Bool,
         attachmentData: @escaping (Attachment, Message.ID) async throws -> Data
     ) async throws -> WKWebView {
         let cid = CIDSchemeHandler()
@@ -104,7 +107,8 @@ enum ConversationPDF {
         configuration.setURLSchemeHandler(cid, forURLScheme: "cid")
         configuration.userContentController.addUserScript(
             WKUserScript(
-                source: MessageScript.source(for: .paper), injectionTime: .atDocumentEnd, forMainFrameOnly: true,
+                source: appearance.apply(to: MessageScript.source(for: .paper)), injectionTime: .atDocumentEnd,
+                forMainFrameOnly: true,
                 in: PreparedWebView.world))
         // A rule list that fails to compile is left out: the document's content security policy still blocks
         // remote loads, so the block fails closed, as in the reader.
@@ -113,9 +117,6 @@ enum ConversationPDF {
         }
         // As short as can be, so the content sets the height of its PDF and no blank paper follows a short message.
         let view = WKWebView(frame: CGRect(x: 0, y: 0, width: width, height: 1), configuration: configuration)
-        // Off screen the view has no window to take an appearance from, so it gets the one the message shows in.
-        // The page's `prefers-color-scheme` follows it.
-        view.overrideUserInterfaceStyle = style
         let loader = PageLoader()
         view.navigationDelegate = loader
         try await withTaskCancellationHandler {

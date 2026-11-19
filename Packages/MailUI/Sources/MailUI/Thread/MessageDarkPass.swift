@@ -56,12 +56,19 @@ nonisolated enum MessageDarkPass {
             : color.slice(0, 3).map((v, i) => Math.round(v * color[3] + below[i] * (1 - color[3])));
           const opaque = (color) => color.length >= 3 && (color[3] ?? 1) > 0;
           const css = (color) => `rgb(${color.join(', ')})`;
-          // Grays become white; other colors mix toward white until they pass, so red stays red.
-          const lightened = (ink, backdrop) => {
-            if (Math.max(...ink) - Math.min(...ink) < 40) return 'rgb(255, 255, 255)';
-            for (let mix = 0.05; ; mix += 0.05) {
-              const candidate = ink.map((v) => Math.round(v + (255 - v) * Math.min(mix, 1)));
-              if (mix >= 1 || contrast(candidate, backdrop) >= 4.5) return css(candidate);
+          // Text that fails on its backdrop moves toward whichever of white or black reads better there: white on the
+          // turned dark panels, black on a light color the pass kept, such as an orange button. Grays go all the way;
+          // a color keeps its hue and chroma in OKLab while only its lightness moves, so a link stays blue rather than
+          // washing out to lavender. It moves until it reads comfortably (7:1), not just past the 4.5:1 that flagged
+          // it, so body text reads like the rest of the app rather than barely legible.
+          const readable = (ink, backdrop) => {
+            const up = contrast([255, 255, 255], backdrop) >= contrast([0, 0, 0], backdrop);
+            if (Math.max(...ink) - Math.min(...ink) < 40) return up ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)';
+            const [L, a, b] = oklab(ink);
+            for (let step = 1; ; step += 1) {
+              const lightness = up ? Math.min(1, L + step * 0.02) : Math.max(0, L - step * 0.02);
+              const candidate = srgb([lightness, a, b]);
+              if (lightness === 0 || lightness === 1 || contrast(candidate, backdrop) >= 7) return css(candidate);
             }
           };
           const hasText = (el) => [...el.childNodes].some(
@@ -73,48 +80,79 @@ nonisolated enum MessageDarkPass {
             passed = true;
             const root = channels(getComputedStyle(document.documentElement).backgroundColor);
             const page = opaque(root) ? over(root, CARD) : CARD;
-            // What each element's content shows on in dark once the marks land; null over a background image.
+            // What each element's content shows on in dark once the marks land, and the element whose paper that is
+            // (null for the page); a null color over a background image, which the pass can't read.
             const backdrops = new Map();
             const marks = [];
             for (const el of [document.body, ...document.body.querySelectorAll('*')]) {
               const style = getComputedStyle(el);
-              const below = backdrops.has(el.parentElement) ? backdrops.get(el.parentElement) : page;
+              const below = backdrops.get(el.parentElement) ?? { color: page, owner: null };
               let backdrop = below;
               const paper = channels(style.backgroundColor);
               if (style.backgroundImage !== 'none') {
-                backdrop = null;
-              } else if (opaque(paper) && (below || (paper[3] ?? 1) >= 1)) {
-                const shown = over(paper, below ?? paper);
+                backdrop = { color: null, owner: el };
+              } else if (opaque(paper) && (below.color || (paper[3] ?? 1) >= 1)) {
+                const shown = over(paper, below.color ?? paper);
                 const replacement = turned(shown);
-                if (replacement) marks.push([el, 'paper', css(replacement)]);
-                backdrop = replacement ?? shown;
+                if (replacement) marks.push({ el, kind: 'paper', value: css(replacement), color: replacement });
+                backdrop = { color: replacement ?? shown, owner: el };
               }
               backdrops.set(el, backdrop);
-              if (backdrop && hasText(el)) {
-                const ink = channels(style.color);
-                if (opaque(ink)) {
-                  const shown = over(ink, backdrop);
-                  if (contrast(shown, backdrop) < 4.5) marks.push([el, 'ink', lightened(shown, backdrop)]);
+              let ink = null;
+              if (backdrop.color && hasText(el)) {
+                const color = channels(style.color);
+                const shown = opaque(color) ? over(color, backdrop.color) : null;
+                if (shown && contrast(shown, backdrop.color) < 4.5) {
+                  ink = readable(shown, backdrop.color);
+                  marks.push({ el, kind: 'ink', value: ink, owner: backdrop.owner });
                 }
               }
-              if (below) {
+              // A border is drawn over the element's own paper, and one in the text's color follows the text.
+              const under = backdrop.color ?? below.color;
+              if (under) {
                 const sides = SIDES.map((side) => {
                   const color = style.getPropertyValue(`border-${side}-color`);
+                  if (!(parseFloat(style.getPropertyValue(`border-${side}-width`)) > 0)) return [side, color, false];
+                  if (ink && color === style.color) return [side, ink, true];
                   const value = channels(color);
-                  const shows = parseFloat(style.getPropertyValue(`border-${side}-width`)) > 0 && opaque(value);
-                  const replacement = shows ? turned(over(value, below)) : null;
+                  const replacement = opaque(value) ? turned(over(value, under)) : null;
                   return [side, replacement ? css(replacement) : color, replacement !== null];
                 });
-                if (sides.some(([, , changed]) => changed)) marks.push([el, 'border', sides]);
+                if (sides.some(([, , changed]) => changed)) marks.push({ el, kind: 'border', value: sides });
               }
             }
-            for (const [el, kind, value] of marks) {
-              el.setAttribute(`data-goodmail-dark-${kind}`, '');
-              if (kind === 'border') {
-                for (const [side, color] of value) el.style.setProperty(`--goodmail-dark-border-${side}`, color);
+            const apply = (mark) => {
+              mark.el.setAttribute(`data-goodmail-dark-${mark.kind}`, '');
+              if (mark.kind === 'border') {
+                for (const [side, color] of mark.value) {
+                  mark.el.style.setProperty(`--goodmail-dark-border-${side}`, color);
+                }
               } else {
-                el.style.setProperty(`--goodmail-dark-${kind}`, value);
+                mark.el.style.setProperty(`--goodmail-dark-${mark.kind}`, mark.value);
               }
+            };
+            const remove = (mark) => {
+              mark.el.removeAttribute(`data-goodmail-dark-${mark.kind}`);
+              const names = mark.kind === 'border' ? SIDES.map((side) => `border-${side}`) : [mark.kind];
+              for (const name of names) mark.el.style.removeProperty(`--goodmail-dark-${name}`);
+            };
+            marks.forEach(apply);
+            // A sender's inline `!important` beats even our layered rules. Where a panel kept its light color, or
+            // text on it kept its dark one, the panel and every text replacement that counted on it go back to the
+            // sender's own pair, which reads.
+            const held = new Set();
+            for (const mark of marks) {
+              const style = getComputedStyle(mark.el);
+              if (mark.kind === 'paper' && channels(style.backgroundColor).slice(0, 3).join() !== mark.color.join()) {
+                held.add(mark.el);
+              } else if (mark.kind === 'ink' && mark.owner
+                && channels(style.color).slice(0, 3).join() !== channels(mark.value).join()) {
+                held.add(mark.owner);
+              }
+            }
+            for (const mark of marks) {
+              if (held.has(mark.el) && mark.kind === 'paper') remove(mark);
+              if (mark.kind === 'ink' && held.has(mark.owner)) remove(mark);
             }
           };
           pass();

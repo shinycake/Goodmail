@@ -11,9 +11,9 @@ import WebKit
 struct MessageDarkPassTests {
     /// The marks the pass set, by element id: what kind ("paper", "ink" or "border") and the color it set.
     private func marks(
-        in body: MessageBody, palette: MessagePalette, style: UIUserInterfaceStyle
+        in body: MessageBody, palette: MessagePalette, appearance: ForcedAppearance
     ) async throws -> [String: [String: String]] {
-        let view = await MessageScriptPage.load(body, palette: palette, style: style).view
+        let view = await MessageScriptPage.load(body, palette: palette, appearance: appearance).view
         let script = """
             (() => Object.fromEntries(['paper', 'ink', 'border'].map((kind) => [kind, Object.fromEntries(
               [...document.querySelectorAll('[data-goodmail-dark-' + kind + ']')].filter((el) => el.id)
@@ -40,7 +40,7 @@ struct MessageDarkPassTests {
             """)
 
     @Test func aPaintedBodyTurnsOverInDark() async throws {
-        let marks = try await marks(in: notice, palette: .painted, style: .dark)
+        let marks = try await marks(in: notice, palette: .painted, appearance: .dark)
         let paper = try #require(marks["paper"])
         let ink = try #require(marks["ink"])
 
@@ -64,20 +64,63 @@ struct MessageDarkPassTests {
                 <style>@media (prefers-color-scheme: dark) { .ink { color: #fff !important; } }</style>\
                 <table id="panel" bgcolor="#ffffff"><tr><td id="text" class="ink">Hi Idan</td></tr></table>
                 """)
-        let marks = try await marks(in: body, palette: .sendersOwn, style: .dark)
+        let marks = try await marks(in: body, palette: .sendersOwn, appearance: .dark)
         #expect(marks["paper"]?["panel"] == MessageDarkPass.sheet)
         #expect(marks["ink"]?["text"] == nil, "their white text reads on the turned panel")
     }
 
     @Test(arguments: [MessagePalette.painted, .sendersOwn])
     func lightLeavesTheSendersColors(palette: MessagePalette) async throws {
-        let marks = try await marks(in: notice, palette: palette, style: .light)
+        let marks = try await marks(in: notice, palette: palette, appearance: .light)
         #expect(marks.values.allSatisfy { $0.isEmpty })
     }
 
     @Test func plainMailIsLeftToTheAdaptivePass() async throws {
         let body = MessageBody(html: #"<div id="black" style="color: #000; border: 1px solid #eee">Hi</div>"#)
-        let marks = try await marks(in: body, palette: .adaptive, style: .dark)
+        let marks = try await marks(in: body, palette: .adaptive, appearance: .dark)
         #expect(marks.values.allSatisfy { $0.isEmpty })
+    }
+
+    /// The computed background and text color of each element by id, once the pass has run in dark.
+    private func computed(_ body: MessageBody, palette: MessagePalette) async throws -> [String: [String]] {
+        let view = await MessageScriptPage.load(body, palette: palette, appearance: .dark).view
+        let script = """
+            (() => Object.fromEntries([...document.querySelectorAll('[id]')].map((el) => {
+              const style = getComputedStyle(el);
+              return [el.id, [style.backgroundColor, style.color]];
+            })))()
+            """
+        return try #require(try await view.evaluateJavaScript(script) as? [String: [String]])
+    }
+
+    @Test func theSendersImportantStylesheetRulesStillTurn() async throws {
+        let body = MessageBody(
+            html: """
+                <style>.panel { background-color: #ffffff !important; }</style>\
+                <table class="panel" id="panel"><tr><td id="text" style="color: #0d1b4c">Hi</td></tr></table>
+                """)
+        let shown = try await computed(body, palette: .painted)
+        #expect(shown["panel"]?.first == MessageDarkPass.sheet)
+        let text = try channels(shown["text"]?.last)
+        #expect(text.allSatisfy { $0 > 120 }, "the navy text reads on the turned panel")
+    }
+
+    @Test func aPanelHeldLightInlineKeepsItsOwnDarkText() async throws {
+        let body = MessageBody(
+            html: """
+                <div id="panel" style="background-color: #fff !important">\
+                <span id="text" style="color: #0d1b4c">Hi</span></div>
+                """)
+        let shown = try await computed(body, palette: .painted)
+        #expect(shown["panel"]?.first == "rgb(255, 255, 255)")
+        #expect(shown["text"]?.last == "rgb(13, 27, 76)", "no pale text on the white the sender insisted on")
+    }
+
+    @Test func textOnALightColorTheSenderKeptTurnsDark() async throws {
+        let body = MessageBody(html: #"<div id="button" style="background: #ff9900">Buy</div>"#)
+        let shown = try await computed(body, palette: .painted)
+        #expect(shown["button"]?.first == "rgb(255, 153, 0)", "a brand orange stays")
+        let text = try channels(shown["button"]?.last)
+        #expect(text.allSatisfy { $0 < 60 }, "its default white text in dark turns dark to read")
     }
 }

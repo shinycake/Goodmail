@@ -17,7 +17,7 @@ struct PrintDocumentTests {
     @Test func theHeadersLeadTheSendersBody() throws {
         let html = PrintDocument.html(
             for: message(body: MessageBody(html: #"<html><head></head><body class="x"><p>Hi</p></body></html>"#)),
-            subject: "Plan & budget", dateText: "14 Nov 2026", allowsRemoteContent: false)
+            subject: "Plan & budget", dateText: "14 Nov 2026", appearance: .light, allowsRemoteContent: false)
 
         let header = html.range(of: #"<header class="goodmail-print">"#)
         let paragraph = html.range(of: "<p>Hi</p>")
@@ -40,5 +40,15 @@ struct PrintDocumentTests {
     @Test func aBodyWithoutABodyTagStillGetsItsHeaders() {
         let document = PrintDocument.inject(body: "<header></header>", into: "<html><head></head><p>Hi</p></html>")
         #expect(document == "<html><head></head><header></header><p>Hi</p></html>")
+    }
+
+    @Test func aForcedAppearanceAnswersEveryColorSchemeQuery() {
+        let sender = "@media (prefers-color-scheme: dark) { a } @media (PREFERS-COLOR-SCHEME:light) { b }"
+        #expect(
+            ForcedAppearance.dark.apply(to: sender)
+                == "@media (min-width: 0px) { a } @media (max-width: 0px) { b }")
+        #expect(
+            ForcedAppearance.light.apply(to: sender)
+                == "@media (max-width: 0px) { a } @media (min-width: 0px) { b }")
     }
 }

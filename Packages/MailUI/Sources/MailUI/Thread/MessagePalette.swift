@@ -82,15 +82,16 @@ nonisolated enum MessagePalette: String, CaseIterable, Sendable {
     }
 
     /// Applies the marks the script's dark pass sets (`MessageDarkPass`), in dark appearance only, so the sun button
-    /// shows the sender's own colors again without a reload.
+    /// shows the sender's own colors again without a reload. In a layer, so these `!important` rules beat the sender's
+    /// own `!important` stylesheet rules, as responsive templates' are, whatever their specificity.
     private static let darkPassStyle = """
-        <style>@media (prefers-color-scheme: dark) {\
+        <style>@layer goodmail-dark { @media (prefers-color-scheme: dark) {\
         [data-goodmail-dark-paper] { background-color: var(--goodmail-dark-paper) !important; }\
         [data-goodmail-dark-ink] { color: var(--goodmail-dark-ink) !important; }\
         [data-goodmail-dark-border] { border-top-color: var(--goodmail-dark-border-top) !important; \
         border-right-color: var(--goodmail-dark-border-right) !important; \
         border-bottom-color: var(--goodmail-dark-border-bottom) !important; \
         border-left-color: var(--goodmail-dark-border-left) !important; }\
-        }</style>
+        } }</style>
         """
 }
