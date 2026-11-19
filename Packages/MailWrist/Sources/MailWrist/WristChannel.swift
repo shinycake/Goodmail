@@ -50,6 +50,7 @@
 
         /// For the watch: hands `command` to the iPhone, at once when it is reachable, and in the queue the system
         /// delivers in order once it is. The iPhone runs each command once, so getting it both ways does no harm.
+        /// Before the session has activated it sends nothing: `WristLink` sends every pending command again on `ready`.
         public func send(_ command: WristCommand) {
             let session = WCSession.default
             guard session.activationState == .activated else { return }
@@ -62,15 +63,22 @@
             }
         }
 
-        /// For the watch: asks the iPhone for a conversation. `false` when the iPhone isn't reachable, so no answer
-        /// will come.
-        public func request(_ id: ThreadSummary.ID) -> Bool {
+        /// What became of a request for a conversation.
+        public enum RequestOutcome: Equatable, Sendable {
+            case sent
+            /// The session is still activating, as just after launch: ask again once it is `ready`.
+            case notReady
+            /// The iPhone isn't reachable, so no answer will come.
+            case unreachable
+        }
+
+        /// For the watch: asks the iPhone for a conversation.
+        public func request(_ id: ThreadSummary.ID) -> RequestOutcome {
             let session = WCSession.default
-            guard session.activationState == .activated, session.isReachable,
-                let data = try? JSONEncoder().encode(id)
-            else { return false }
+            guard session.activationState == .activated else { return .notReady }
+            guard session.isReachable, let data = try? JSONEncoder().encode(id) else { return .unreachable }
             session.sendMessage([Self.threadRequestKey: data], replyHandler: nil, errorHandler: nil)
-            return true
+            return .sent
         }
 
         /// For the iPhone: answers a request for a conversation.
