@@ -44,11 +44,31 @@
                     (.mine, "Deal. 1 PM?"),
                     (.theirs, "Perfect. I'll book a table for four at the new place on Dizengoff."),
                 ]
-            return lines.enumerated().map { index, line in
+            let chat = lines.enumerated().map { index, line in
                 WristBubble(
                     side: line.0, sender: sender, time: index == 0 ? now.addingTimeInterval(-3600) : nil,
                     content: .words(StyledText(line.1)))
             }
+            return chat + [WristBubble(side: .theirs, sender: sender, time: nil, content: .letter(booking(language)))]
+        }
+
+        /// A forwarded booking, long enough to open on its own screen.
+        private static func booking(_ language: WristSnapshot.SampleLanguage) -> WristLetter {
+            var words = StyledText()
+            if language == .hebrew {
+                words.append("ההזמנה שלך אושרה", style: .bold)
+                words.append("\nיום שישי, 13:00 · 4 סועדים\nדיזנגוף 99, תל אביב\n\n")
+                words.append("לשינוי או ביטול ההזמנה, ")
+                words.append("לחצו כאן", link: URL(string: "https://example.com/booking"))
+                words.append(" עד שעתיים לפני.\n\nהשולחן נשמר ל-15 דקות. מחכים לכם!")
+                return WristLetter(subject: "הזמנת שולחן", words: words, extent: .whole)
+            }
+            words.append("Your table is booked", style: .bold)
+            words.append("\nFriday, 1:00 PM · Party of 4\n99 Dizengoff St, Tel Aviv\n\n")
+            words.append("To change or cancel, ")
+            words.append("manage your booking", link: URL(string: "https://example.com/booking"))
+            words.append(" up to two hours before.\n\nWe hold tables for 15 minutes. See you soon!")
+            return WristLetter(subject: "Table for 4 confirmed", words: words, extent: .whole)
         }
     }
 #endif

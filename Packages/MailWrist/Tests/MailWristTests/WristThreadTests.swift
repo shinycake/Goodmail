@@ -4,7 +4,7 @@ import Testing
 
 @testable import MailWrist
 
-/// A conversation as the watch reads it: the iPhone's chat bubbles, newest kept, small enough to send.
+/// A conversation as the watch reads it: the iPhone's chat bubbles, newest kept, with every word of each message.
 struct WristThreadTests {
     private let account = AccountID(rawValue: "a")
     private let me = Contact(name: "Me", address: "me@example.com")
@@ -23,7 +23,8 @@ struct WristThreadTests {
 
     private func thread(_ messages: [Message]) -> WristThread {
         WristThread(
-            id: id, subject: "Lunch", transcript: ChatTranscript(messages: messages, accountEmail: me.address))
+            id: id, subject: "Lunch", transcript: ChatTranscript(messages: messages, accountEmail: me.address),
+            messages: messages)
     }
 
     @Test func bubblesKeepTheirSideSenderAndWords() {
@@ -54,14 +55,33 @@ struct WristThreadTests {
         #expect(thread([message("1", from: dana, minutes: 0), message("2", from: avi, minutes: 1)]).isGroup)
     }
 
-    @Test func longWordsAreCut() throws {
-        let long = String(repeating: "word ", count: 190)
+    @Test func wordsAreNeverCut() {
+        let long = String(repeating: "word ", count: 190).trimmingCharacters(in: .whitespaces)
+        #expect(
+            thread([message("1", from: dana, minutes: 0, text: long)]).bubbles.first?.content
+                == .words(StyledText(long)))
+    }
+
+    @Test func aLongMessageIsALetterWithEveryWord() throws {
+        let long = (1...300).map { "Line \($0) of the update." }.joined(separator: "\n")
         let bubble = try #require(thread([message("1", from: dana, minutes: 0, text: long)]).bubbles.first)
-        guard case .words(let words) = bubble.content else {
-            Issue.record("Expected words, got \(bubble.content)")
+        #expect(bubble.content == .letter(WristLetter(subject: "Lunch", words: StyledText(long), extent: .whole)))
+    }
+
+    /// A newsletter's own words, not just the preview the chat view shows, links and all.
+    @Test func aLaidOutMessageIsALetterWithItsWholeBody() throws {
+        var newsletter = message("1", from: dana, minutes: 0)
+        newsletter.body = MessageBody(
+            html: "<table><tr><td><table><tr><td>Weekly news</td></tr></table></td></tr></table>"
+                + "<p>Read <a href=\"https://example.com/a\">the story</a></p>")
+        let bubble = try #require(thread([newsletter]).bubbles.first)
+        guard case .letter(let letter) = bubble.content else {
+            Issue.record("Expected a letter, got \(bubble.content)")
             return
         }
-        #expect(words.plain.count == WristThread.wordsLimit)
+        #expect(letter.words.plain == "Weekly news\nRead the story")
+        #expect(letter.words.runs.contains { $0.link == URL(string: "https://example.com/a") })
+        #expect(letter.extent == .whole)
     }
 
     @Test func findsTheCodeInTheirNewestWords() {

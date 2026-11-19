@@ -413,13 +413,13 @@
         }
       }
     },
-    "Read on iPhone": {
-      "comment": "A long message's footer",
+    "Read Message": {
+      "comment": "A long message's footer, which opens it in full",
       "localizations": {
         "he": {
           "stringUnit": {
             "state": "translated",
-            "value": "לקריאה ב-iPhone"
+            "value": "לקריאת ההודעה"
           }
         }
       }
@@ -541,6 +541,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "שירות הדואר לא ענה."
+          }
+        }
+      }
+    },
+    "The rest of this message is on your iPhone.": {
+      "comment": "Below a message the watch could get only the start of",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "המשך ההודעה נמצא ב-iPhone."
           }
         }
       }

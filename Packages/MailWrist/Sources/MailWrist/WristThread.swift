@@ -1,13 +1,11 @@
 public import Foundation
 public import MailCore
 
-/// A conversation as the iPhone sends it to the watch: its newest bubbles, as the iPhone's chat view reads them, small
-/// enough for a WatchConnectivity message.
+/// A conversation as the watch shows it: its newest bubbles, as the iPhone's chat view reads them, with every word of
+/// each message. `encoded(within:)` makes one small enough for a WatchConnectivity message.
 public struct WristThread: Codable, Equatable, Identifiable, Sendable {
     /// As many bubbles as the watch shows; earlier ones are counted, not sent.
     static let bubbleLimit = 12
-    /// Words longer than this are cut, and the rest reads on the iPhone.
-    static let wordsLimit = 600
 
     public var id: ThreadSummary.ID
     public var subject: String
@@ -31,8 +29,17 @@ public struct WristThread: Codable, Equatable, Identifiable, Sendable {
         self.code = code
     }
 
-    public init(id: ThreadSummary.ID, subject: String, transcript: ChatTranscript) {
-        var all: [WristBubble] = []
+    /// The newest bubbles of `transcript`, made from `messages`, which give each letter its words. Only the
+    /// bubbles kept are made, since a letter reads its message's whole body.
+    public init(id: ThreadSummary.ID, subject: String, transcript: ChatTranscript, messages: [Message]) {
+        /// A bubble of the transcript, with what the watch shows around it.
+        struct Placed {
+            let side: WristBubble.Side
+            let sender: String
+            let time: Date?
+            let bubble: ChatTranscript.Bubble
+        }
+        var all: [Placed] = []
         var time: Date?
         for entry in transcript.entries {
             switch entry {
@@ -41,17 +48,24 @@ public struct WristThread: Codable, Equatable, Identifiable, Sendable {
             case .run(let run):
                 for bubble in run.bubbles {
                     all.append(
-                        WristBubble(
+                        Placed(
                             side: run.side == .mine ? .mine : .theirs, sender: run.sender.displayName, time: time,
-                            content: WristBubble.Content(bubble.content)))
+                            bubble: bubble))
                     time = nil
                 }
             }
         }
-        let shown = all.suffix(Self.bubbleLimit)
+        let kept = all.suffix(Self.bubbleLimit)
+        let byID = Dictionary(messages.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let shown = kept.map { placed in
+            WristBubble(
+                side: placed.side, sender: placed.sender, time: placed.time,
+                content: WristBubble.Content(
+                    placed.bubble.content, message: placed.bubble.message.flatMap { byID[$0] }))
+        }
         let newestTheirs = shown.last { $0.side == .theirs }?.content.text ?? ""
         self.init(
-            id: id, subject: subject, bubbles: Array(shown), earlier: all.count - shown.count,
+            id: id, subject: subject, bubbles: shown, earlier: all.count - shown.count,
             isGroup: transcript.isGroup, code: OneTimeCode(in: subject + "\n" + newestTheirs)?.code)
     }
 }
@@ -65,29 +79,34 @@ public struct WristBubble: Codable, Equatable, Sendable {
     public enum Content: Codable, Equatable, Sendable {
         /// The new words, with the bold, italics and links the mail gave them.
         case words(StyledText)
-        /// A message that reads in full on the iPhone: long, laid out, or forwarded.
-        case letter(subject: String, preview: String)
+        /// A message that opens on its own screen: long, laid out, or forwarded.
+        case letter(WristLetter)
         case attachment(name: String)
 
-        init(_ content: ChatTranscript.Content) {
+        /// `message` is the bubble's, for a letter's words; without it, a letter holds the transcript's preview.
+        init(_ content: ChatTranscript.Content, message: Message?) {
             switch content {
             case .words(let segments, _):
                 let words = segments.compactMap { segment -> StyledText? in
                     if case .text(let text) = segment { text } else { nil }
                 }
-                self = .words(StyledText.joined(words, separator: "\n").prefix(WristThread.wordsLimit))
+                self = .words(StyledText.joined(words, separator: "\n"))
             case .letter(let subject, let preview):
-                self = .letter(subject: subject, preview: String(preview.prefix(WristThread.wordsLimit)))
+                let words = message.map(ChatTranscript.letterWords) ?? StyledText()
+                self = .letter(
+                    WristLetter(
+                        subject: subject, words: words.isEmpty ? StyledText(preview) : words, extent: .whole))
             case .attachment(let attachment):
                 self = .attachment(name: attachment.filename)
             }
         }
 
-        /// The words a reader sees, for finding a code.
+        /// The words a reader sees first, for finding a code and the language: a letter's subject and start, where a
+        /// code sits, not a newsletter's every number.
         var text: String {
             switch self {
             case .words(let words): words.plain
-            case .letter(let subject, let preview): subject + "\n" + preview
+            case .letter(let letter): letter.subject + "\n" + letter.words.prefix(WristLetter.startLength).plain
             case .attachment(let name): name
             }
         }

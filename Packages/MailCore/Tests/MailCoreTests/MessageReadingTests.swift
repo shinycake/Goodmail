@@ -43,4 +43,23 @@ struct MessageReadingTests {
         #expect(HTMLEntities.words(ofSnippet: "<div><b>Lunch?</b></div><div>Dana</div>") == "Lunch? Dana")
         #expect(HTMLEntities.words(ofSnippet: "I'll be late <3") == "I'll be late <3")
     }
+
+    @Test func styledTextKeepsTheWholeBodyWithOneBlankLineBetweenBlocks() {
+        let html =
+            "<table><tr><td><b>Sale</b></td></tr></table><p></p><p> </p><p>Ends <a href=\"https://example.com\">Sunday</a></p>"
+        var expected = StyledText()
+        expected.append("Sale", style: .bold)
+        expected.append("\n\nEnds ")
+        expected.append("Sunday", link: URL(string: "https://example.com"))
+        #expect(MessageBody(html: html).styledText == expected)
+        #expect(MessageBody(plain: "Hi\r\n\r\n\r\n\r\nDana\r\n\r\n").styledText.plain == "Hi\n\nDana")
+        #expect(MessageBody().styledText.isEmpty)
+    }
+
+    @Test func styledTextLeavesOutWhatANewsletterHides() {
+        let html =
+            "<div style=\"display: none; max-height: 0\">Don't miss our sale \u{200C}\u{200C} \u{200C}</div>"
+            + "<span style='DISPLAY:NONE'>\u{034F} \u{00AD}</span><p>\u{200C} \u{200C}</p><p>Hello 👨‍👩‍👧</p>"
+        #expect(MessageBody(html: html).styledText.plain == "Hello 👨‍👩‍👧")
+    }
 }

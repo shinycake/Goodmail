@@ -58,6 +58,6 @@ public struct WristMailHost: Sendable {
         let messages = try await answers.messagesToAnswer(in: id)
         guard let first = messages.first else { return .gone(id) }
         let transcript = ChatTranscript(messages: messages, accountEmail: account.email, aliases: account.aliases)
-        return .thread(WristThread(id: id, subject: first.subject, transcript: transcript))
+        return .thread(WristThread(id: id, subject: first.subject, transcript: transcript, messages: messages))
     }
 }

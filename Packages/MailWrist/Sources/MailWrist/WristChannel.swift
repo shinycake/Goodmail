@@ -27,6 +27,9 @@
         static let commandKey = "command"
         static let threadRequestKey = "threadRequest"
         static let threadKey = "thread"
+        /// The most a conversation may take: WatchConnectivity refuses a message over 64 KB, with room left for the
+        /// dictionary around it.
+        static let threadLimit = 60_000
         static let log = Logger(subsystem: "com.idanbirman.goodmail", category: "wrist")
 
         /// The session's events, for one reader for the channel's life.
@@ -87,7 +90,10 @@
             guard session.activationState == .activated, session.isReachable else { return }
             do {
                 session.sendMessage(
-                    [Self.threadKey: try JSONEncoder().encode(reply)], replyHandler: nil, errorHandler: nil)
+                    [Self.threadKey: try reply.encoded(within: Self.threadLimit)], replyHandler: nil,
+                    errorHandler: { @Sendable error in
+                        Self.log.error("A conversation didn't reach the watch: \(error, privacy: .public)")
+                    })
             } catch {
                 Self.log.error("Couldn't send a conversation to the watch: \(error, privacy: .public)")
             }

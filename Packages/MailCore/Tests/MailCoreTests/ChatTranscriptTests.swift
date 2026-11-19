@@ -136,3 +136,39 @@ struct ChatTranscriptTests {
         #expect(group.isGroup)
     }
 }
+
+/// What a letter shows when it opens in full.
+struct ChatTranscriptLetterWordsTests {
+    private func message(_ body: MessageBody, answering: Bool) -> Message {
+        Message(
+            id: Message.ID(accountID: AccountID(rawValue: "a"), messageID: "m"), threadID: "t",
+            from: Contact(name: "Dana", address: "dana@example.com"), to: [], subject: "Re: Plan", date: .now,
+            snippet: "", labelIDs: [], body: body, attachments: [], internetMessageID: "m@example.com",
+            references: answering ? ["earlier@example.com"] : [])
+    }
+
+    private let receipt =
+        "<table><tr><td><table><tr><td>Order 1234</td></tr></table></td></tr></table><p>Total $20</p>"
+
+    @Test func aReplyLeavesOutTheHistoryItQuotes() {
+        let body = MessageBody(
+            html:
+                "<div>Thanks!</div><div class=\"gmail_quote\">On Monday, Shop wrote:<blockquote>\(receipt)</blockquote></div>"
+        )
+        #expect(ChatTranscript.letterWords(of: message(body, answering: true)).plain == "Thanks!")
+    }
+
+    @Test func aMessageThatAnswersNothingShowsItsWholeBody() {
+        #expect(
+            ChatTranscript.letterWords(of: message(MessageBody(html: receipt), answering: false)).plain
+                == "Order 1234\nTotal $20")
+    }
+
+    @Test func aForwardKeepsTheMessageItForwards() {
+        let note = String(repeating: "Have a look. ", count: 100)
+        let body = MessageBody(
+            plain: note
+                + "\n\n---------- Forwarded message ---------\nFrom: Avi <avi@example.com>\n\nThe plan for Sunday")
+        #expect(ChatTranscript.letterWords(of: message(body, answering: true)).plain.contains("The plan for Sunday"))
+    }
+}

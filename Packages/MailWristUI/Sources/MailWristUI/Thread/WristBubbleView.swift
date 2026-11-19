@@ -22,14 +22,17 @@ struct WristBubbleView: View {
             if showsSender, !isMine {
                 Text(bubble.sender).font(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8)
             }
-            content
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(
-                    isMine ? AnyShapeStyle(.tint) : AnyShapeStyle(.fill.secondary), in: .rect(cornerRadius: 14)
-                )
-                .foregroundStyle(isMine ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
-                .frame(maxWidth: .infinity, alignment: isMine ? .trailing : .leading)
+            if case .letter(let letter) = bubble.content {
+                // A letter opens on a screen of its own, with every word.
+                NavigationLink {
+                    WristLetterView(letter: letter, sender: bubble.sender)
+                } label: {
+                    shaped
+                }
+                .buttonStyle(.plain)
+            } else {
+                shaped
+            }
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel { label in
@@ -52,21 +55,35 @@ struct WristBubbleView: View {
         }
     }
 
+    /// The content in the bubble's shape and color, on its side.
+    private var shaped: some View {
+        content
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                isMine ? AnyShapeStyle(.tint) : AnyShapeStyle(.fill.secondary), in: .rect(cornerRadius: 14)
+            )
+            .foregroundStyle(isMine ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+            .frame(maxWidth: .infinity, alignment: isMine ? .trailing : .leading)
+    }
+
     @ViewBuilder private var content: some View {
         switch bubble.content {
         case .words(let words):
             // Links take the words' own color in the reader's tinted bubble, where the tint would vanish.
             Text(AttributedString(words)).font(.body).tint(isMine ? .white : nil)
-        case .letter(let subject, let preview):
+        case .letter(let letter):
             VStack(alignment: .leading, spacing: 2) {
-                if !subject.isEmpty {
-                    Text(verbatim: subject).font(.headline).lineLimit(2)
+                if !letter.subject.isEmpty {
+                    Text(verbatim: letter.subject).font(.headline).lineLimit(2)
                 }
-                Text(verbatim: preview).font(.footnote).lineLimit(4)
+                Text(AttributedString(letter.preview)).font(.footnote).lineLimit(4).tint(isMine ? .white : nil)
                 Label {
-                    Text("Read on iPhone", tableName: "Wrist", bundle: .module, comment: "A long message's footer")
+                    Text(
+                        "Read Message", tableName: "Wrist", bundle: .module,
+                        comment: "A long message's footer, which opens it in full")
                 } icon: {
-                    Image(systemName: "iphone")
+                    Image(systemName: "chevron.forward")
                 }
                 .font(.caption2)
                 .opacity(0.8)

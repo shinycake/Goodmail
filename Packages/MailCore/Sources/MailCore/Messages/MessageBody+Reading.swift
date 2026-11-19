@@ -32,6 +32,45 @@ extension MessageBody {
         }
     }
 
+    /// The whole body as words, with the bold, italics and links it gives them, for a screen that can't show HTML,
+    /// as the watch's. What a newsletter hides is left out: an element styled `display: none`, such as the preview
+    /// line written for inboxes, and the invisible characters that pad it. Blank lines in a row read as one, since a
+    /// laid-out message spaces its blocks with many.
+    public var styledText: StyledText {
+        let words: StyledText =
+            switch reading {
+            case .plain(let plain): StyledText.linking(plain.replacingOccurrences(of: "\r\n", with: "\n"))
+            case .html(let html): HTMLEntities.styledText(fromHTML: Self.withoutHidden(html))
+            case .empty: StyledText()
+            }
+        return Self.tidied(words)
+    }
+
+    /// `words` without invisible characters, each line trimmed, and blank lines in a row read as one.
+    static func tidied(_ words: StyledText) -> StyledText {
+        var lines: [StyledText] = []
+        for line in words.mapRuns(withoutInvisibles).split(separator: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty, lines.last?.isEmpty ?? true { continue }
+            lines.append(trimmed)
+        }
+        if lines.last?.isEmpty == true { lines.removeLast() }
+        return StyledText.joined(lines, separator: "\n")
+    }
+
+    /// The HTML without the elements styled `display: none`. One that holds another of its own kind ends at the inner
+    /// one's close, leaving the rest of it to show, which is no worse than showing all of it.
+    private static func withoutHidden(_ html: String) -> String {
+        html.replacing(/(?is)<(div|span|p|td|table)\b[^>]*display\s*:\s*none[^>]*>.*?<\/\1\s*>/, with: "")
+    }
+
+    /// Characters that take no space, which newsletters repeat after the preview line so inboxes show no more of it.
+    /// A joiner that builds an emoji stays.
+    private static func withoutInvisibles(_ text: String) -> String {
+        let invisibles: Set<Unicode.Scalar> = ["\u{200B}", "\u{200C}", "\u{FEFF}", "\u{034F}", "\u{00AD}"]
+        return String(String.UnicodeScalarView(text.unicodeScalars.filter { !invisibles.contains($0) }))
+    }
+
     private static func filled(_ part: String?) -> String? {
         guard let part, part.contains(where: { !$0.isWhitespace }) else { return nil }
         return part
