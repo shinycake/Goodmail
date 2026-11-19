@@ -23,4 +23,4 @@ There are no pull requests (owner, 2026-11-18). Nobody needs to approve routine 
 2. Before landing, review the whole diff against [docs/review.md](docs/review.md): correctness, concurrency and the rules above. Make it deep, with subagents for a big change. Fix everything it finds.
 3. Squash the slice into one commit whose subject is written for people (run it through the humanizer): `scripts/public-beta` puts commit subjects in TestFlight's What to Test notes. Run `swift format`, rebase onto the latest main, pass `scripts/check`, and `git push origin HEAD:main`. Main only fast-forwards and is never force-pushed. The pre-push hook runs `scripts/check` on what you push.
    - Show evidence in the thread: the `scripts/check` result, plus simulator screenshots or recordings for UI changes.
-4. GitHub runs nothing on its own. `.github/workflows/check.yml` runs the Linux `scripts/check` when started by hand (`gh workflow run check.yml`).
+4. `.github/workflows/check.yml` runs the Linux `scripts/check` on main after each push. If it fails, fix main before anything else.

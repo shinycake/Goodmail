@@ -8,7 +8,7 @@ import { BadRequest, readJson } from "./shared";
 import { type Certificate, pemCertificate } from "./x509";
 
 /**
- * Keeps the relay to the genuine app. The source was public once, so anyone could build it and point it here; only a build
+ * Keeps the relay to the genuine app. The source is public, so anyone could build it and point it here; only a build
  * signed by the owner's team can attest a key (app-attest.ts), and every request from the app is signed with one.
  *
  * The app attests once per install: `POST /v1/attest/challenges` for a challenge, then `POST /v1/attest/keys` with

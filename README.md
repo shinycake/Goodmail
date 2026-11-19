@@ -21,6 +21,8 @@ Gmail, Outlook, iCloud and any IMAP account, in one calm inbox.
 > [!IMPORTANT]
 > **This is a personal app.** I built Goodmail for myself, to read my own mail the way I want to. It is not a product, it is not on the App Store, and nobody supports it.
 >
+> **This repository is public for one reason only:** public repositories get free GitHub Actions minutes for the check that runs on every push. Being public is not an invitation to use, copy, fork or contribute.
+>
 > **All rights reserved.** No license is granted to use, copy, modify, distribute or commercially exploit any of this code. See [LICENSE](LICENSE). If you use any of it anyway, you do so entirely at your own risk and responsibility: it comes with no warranty, and it can lose, delete or missend mail.
 
 ## Why
@@ -150,7 +152,7 @@ Claude Code tooling is declared in the repo:
 
 ### How changes land
 
-There are no pull requests. Each change gets a review against [docs/review.md](docs/review.md) from the session that wrote it, passes `scripts/check`, and is pushed straight to main (ADR-028). The pre-push hook runs `scripts/check` again, GitHub runs nothing on its own: `.github/workflows/check.yml` runs the Linux check only when started by hand.
+There are no pull requests. Each change gets a review against [docs/review.md](docs/review.md) from the session that wrote it, passes `scripts/check`, and is pushed straight to main (ADR-028). The pre-push hook runs `scripts/check` again, and `.github/workflows/check.yml` runs the Linux check on main after each push.
 
 ## License
 

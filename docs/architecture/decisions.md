@@ -131,7 +131,7 @@ The owner decided these on 2026-10-20 after talking through the options. Each en
 - **Branching:** short-lived branches, one vertical slice per commit on `main`, linear history (since ADR-028, pushed straight to main, not merged through PRs).
 - **The gate:** `scripts/check` runs format lint, the line cap, the build and the tests. A tracked pre-push hook (`.githooks`, `core.hooksPath`) runs it.
 - **Merging:** superseded by ADR-016, then by ADR-028: changes are pushed straight to main after a local review. The owner reviews the result afterwards, and feedback becomes follow-up work.
-- **CI:** since ADR-028, the pre-push hook is the gate; a GitHub Actions run of the Linux `scripts/check` (ADR-017) is started only by hand. Xcode Cloud comes later, only for TestFlight builds.
+- **CI:** a GitHub Actions Linux runner runs the Linux `scripts/check` (ADR-017) on main. Xcode Cloud comes later, only for TestFlight builds.
 - **Merge-conflict hygiene:**
   - Code lives in local packages, and the app target uses Xcode synchronized (buildable) folders, so adding files doesn't edit `project.pbxproj`.
   - `swift format`, which ships with the toolchain, auto-formats.
@@ -240,7 +240,7 @@ Amended by ADR-023: Gmail and Outlook accounts are now read on the watch itself.
 ## ADR-025: Only the genuine app may use the push relay
 
 - **Decision (owner, 2026-11-17):** every request the app makes to the push Worker is signed with an App Attest key, and the Worker refuses unsigned ones once `APP_ATTEST` is `enforce`. `RelayAttestation` (MailCore) attests one key per install and signs each request; `PushRelayClient` sends the headers and, on a 428, attests again and retries once. The Worker checks attestations against Apple's App Attestation root (`PushWorker/src/app-attest.ts`) with its own small DER, X.509 and CBOR readers rather than a dependency.
-- **Why:** the repository was public until 2026-11-19 and anyone may still have a copy, and the app binary ships the same values, so anyone can build the app with our Google and Microsoft client IDs and the Worker's address baked in. Without a check, a fork could store tokens and IMAP logins on our relay and take the IMAP watch slots our own mail needs. App Attest ties a key to our team's App ID on a real device, which a fork under another team can't fake.
+- **Why:** the repository is public, so anyone can build the app with our Google and Microsoft client IDs and the Worker's address baked in. Without a check, a fork could store tokens and IMAP logins on our relay and take the IMAP watch slots our own mail needs. App Attest ties a key to our team's App ID on a real device, which a fork under another team can't fake.
 - **Replays:** an assertion covers the method, path, a timestamp and the body, and the Worker allows 10 minutes of skew, so a captured request can only be repeated as is for a short while. The assertion counter isn't required to increase, because the app's requests can arrive out of order.
 - **Limits:** the Simulator can't attest, so a Simulator build only reaches the relay while it is in `observe`. Google sign-in is guarded by the OAuth app staying in Testing with a short test-user list, and Microsoft's by Graph being free per mailbox; the Azure app has public client flows (device code, ROPC) turned off.
 
@@ -264,10 +264,10 @@ Amended by ADR-023: Gmail and Outlook accounts are now read on the watch itself.
 - **Replays:** a world takes a seed, and its random numbers come from a small seeded generator stored in it, so the same seed and inputs always give the same world. Tests rely on this, and so can a bug report.
 - **Bosses:** what the world sends at the plane is one `Encounter` value: ordinary waves, the field clearing, or a boss. `PlaneGameWorld.stepEncounter(by:)` is the only place it moves from one case to the next, and a boss's own status (arriving, fighting, falling) changes only through `PlaneGameBoss`. Ordinary arrivals come only during waves, so nothing else needs to know a boss is on.
 
-## ADR-028: Changes go straight to main, and the repository is private
+## ADR-028: Changes go straight to main
 
-- **Decision (owner, 2026-11-18 and 2026-11-19):** no more pull requests. The session that wrote a change reviews its whole diff against [docs/review.md](../review.md) (deep, with subagents for a big change), fixes what it finds, passes `scripts/check` and pushes to main. The repository became private on 2026-11-19.
-- **Why:** the PR loop of a Claude review, the merge queue and a check per train made landing slow, and threads sat open waiting on it. Builds, TestFlight uploads and the Mac tests already run on the owner's Mac, so GitHub doesn't need to run anything on its own.
-- **What's left on GitHub:** `check.yml` runs the Linux `scripts/check` only when started by hand. A private repository gets a limited number of free Actions minutes, a run takes about 12 minutes, and main gets dozens of pushes a day, so nothing runs per push. The pre-push hook runs `scripts/check` on every push instead. `review.yml` and `merge-queue.yml` (a sweep every 10 minutes) are gone.
+- **Decision (owner, 2026-11-18 and 2026-11-19):** no more pull requests. The session that wrote a change reviews its whole diff against [docs/review.md](../review.md) (deep, with subagents for a big change), fixes what it finds, passes `scripts/check` and pushes to main.
+- **Why:** the PR loop of a Claude review, the merge queue and a check per train made landing slow, and threads sat open waiting on it. Builds, TestFlight uploads and the Mac tests already run on the owner's Mac, so GitHub only needs to run one check.
+- **What's left on GitHub:** `check.yml` runs the Linux `scripts/check` on main after each push, and a newer push cancels an older run. The repository stays public (owner, 2026-11-19), so Actions minutes are free. `review.yml` and `merge-queue.yml` (a sweep every 10 minutes) are gone because they only served PRs.
 - **Commits:** squash each slice into one commit with a subject written for people, since `scripts/public-beta` lists the subjects in each TestFlight build's What to Test notes. Put evidence (screenshots, recordings) in the thread that did the work.
 - **Still true:** main only fast-forwards and is never force-pushed. The pre-push hook runs `scripts/check`. Commits use the owner's noreply address.
