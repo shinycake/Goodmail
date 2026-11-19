@@ -16,16 +16,14 @@ public struct MorphSpan: Equatable, Sendable {
     }
 }
 
-/// How the composer's card turns into the minimized message in the bottom bar, as one motion. It shrinks the whole
-/// way, the screen behind it brightening along with it; the grabber and the bar over the status bar go first; the
-/// composer gives way to the minimized message's title only once the card is nearly its size.
+/// How the composer's card turns into the bar of minimized messages, as one motion. It slides down into the bar's place
+/// the whole way, its grabber landing on the bar's, the screen behind it brightening along with it; the curtain over
+/// the status bar goes first; the composer gives way to what the bar says only once the card is nearly there.
 public enum MinimizeMorph {
     /// The card's frame, corners and scale, and the dimming behind it.
     public static let shrink = MorphSpan(start: 0, length: 1)
     /// The cover over the top of the screen while the card is open.
     public static let curtain = MorphSpan(start: 0, length: 0.2)
-    /// The grabber at the card's top.
-    public static let grabber = MorphSpan(start: 0, length: 0.25)
     /// The composer itself, showing the minimized message's title under it as it goes.
     public static let composer = MorphSpan(start: 0.8, length: 0.2)
 }

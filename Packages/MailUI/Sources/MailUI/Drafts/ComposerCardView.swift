@@ -1,10 +1,11 @@
 import MailCore
 import UIKit
 
-/// The card the composer is written in, over the mail screens. Pulled down, it shrinks into the minimized message in
-/// the bottom toolbar: the composer itself scales down with the card, then gives way to the capsule it becomes.
+/// The card the composer is written in, over the mail screens. Pulled down, it shrinks into the bar of minimized
+/// messages under the mail screens: the composer itself scales down with the card, then gives way to the bar it
+/// becomes, grabber on grabber.
 ///
-/// Two layers: the `face`, the same capsule as the minimized messages, and over it the `cover`, which holds the
+/// Two layers: the `face`, the same bar as the minimized messages, and over it the `cover`, which holds the
 /// composer at its open size and the grabber. The cover scales with the card's width, its top at the card's top, so
 /// the composer fills the card's width at every moment of the motion and the card clips what falls below.
 final class ComposerCardView: UIView {
@@ -12,10 +13,10 @@ final class ComposerCardView: UIView {
     static let openCornerRadius: CGFloat = 38
     /// How far the composer starts below the card's top, leaving the grabber its room.
     static let grabberRoom: CGFloat = 12
-    /// How far an open card reaches past the bottom of the screen, so only its top corners show round.
+    /// How far the card reaches past the bottom of the screen, open or as the bar, so only its top corners show round.
     static let overhang = openCornerRadius
-    /// The capsule the card becomes, under the composer.
-    let face = DraftPillView(interactive: false)
+    /// The bar the card becomes, under the composer.
+    let face = MinimizedDraftsBar(interactive: false)
     /// The composer at its open size, and the grabber, over the face.
     private let cover = UIView()
     private let grabber = Grabber()
@@ -86,20 +87,12 @@ final class ComposerCardView: UIView {
         fit(frame, cornerRadius: cornerRadius)
     }
 
-    /// How much of the composer shows; the face's title shows as much as the composer gives way. Animatable. The
-    /// title sits in glass, which can draw it past the card's rounded edge, so it can't wait under the open composer.
+    /// How much of the composer shows over the face. Animatable.
     var composerAlpha: CGFloat {
         get { cover.alpha }
         set {
             cover.alpha = newValue
-            face.labelsAlpha = 1 - newValue
         }
-    }
-
-    /// How much of the grabber shows. Animatable.
-    var grabberAlpha: CGFloat {
-        get { grabber.alpha }
-        set { grabber.alpha = newValue }
     }
 }
 
@@ -108,8 +101,6 @@ final class ComposerCardView: UIView {
 private final class Grabber: UIView {
     /// Room enough for VoiceOver to land on, with the capsule at its top.
     static let size = CGSize(width: 88, height: 44)
-    private static let capsuleTop: CGFloat = 6
-    private static let capsuleSize = CGSize(width: 36, height: 5)
     var onMinimize: (() -> Void)?
 
     override init(frame: CGRect) {
@@ -117,14 +108,14 @@ private final class Grabber: UIView {
         isUserInteractionEnabled = false
         let capsule = UIView()
         capsule.backgroundColor = .tertiaryLabel
-        capsule.layer.cornerRadius = Self.capsuleSize.height / 2
+        capsule.layer.cornerRadius = MinimizedDraftsBar.grabberSize.height / 2
         capsule.translatesAutoresizingMaskIntoConstraints = false
         addSubview(capsule)
         NSLayoutConstraint.activate([
-            capsule.topAnchor.constraint(equalTo: topAnchor, constant: Self.capsuleTop),
+            capsule.topAnchor.constraint(equalTo: topAnchor, constant: MinimizedDraftsBar.grabberTop),
             capsule.centerXAnchor.constraint(equalTo: centerXAnchor),
-            capsule.widthAnchor.constraint(equalToConstant: Self.capsuleSize.width),
-            capsule.heightAnchor.constraint(equalToConstant: Self.capsuleSize.height),
+            capsule.widthAnchor.constraint(equalToConstant: MinimizedDraftsBar.grabberSize.width),
+            capsule.heightAnchor.constraint(equalToConstant: MinimizedDraftsBar.grabberSize.height),
         ])
         isAccessibilityElement = true
         accessibilityTraits = .button
