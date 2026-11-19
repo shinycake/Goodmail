@@ -1,3 +1,4 @@
+import MailCore
 import Testing
 import UIKit
 
@@ -25,6 +26,11 @@ struct DraftsPillTests {
         try #require(pill.item.customView as? UIButton)
     }
 
+    /// `subjects.count` minimized drafts with those subjects.
+    private func drafts(_ subjects: String...) -> [Draft] {
+        subjects.map { Draft(accountID: AccountID(rawValue: "a"), subject: $0) }
+    }
+
     @Test("A new pill is hidden")
     func startsHidden() {
         let site = StubSite()
@@ -44,6 +50,32 @@ struct DraftsPillTests {
         #expect(button.accessibilityLabel == "1 Draft")
         #expect(button.accessibilityHint == "Opens the message.")
         #expect(button.accessibilityIdentifier == "drafts.pill")
+    }
+
+    @Test("VoiceOver reads the only draft's title as the pill's value, and none for several")
+    func readsTheOnlyTitle() throws {
+        let dock = DraftsDock()
+        let pill = dock.makePill(for: StubSite())
+        let button = try button(of: pill)
+        dock.show(drafts("Lunch"))
+        #expect(button.accessibilityValue == "Lunch")
+        dock.show(drafts("Budget"))
+        #expect(button.accessibilityValue == "Budget")
+        dock.show(drafts("Lunch", "Budget"))
+        #expect(button.accessibilityValue == nil)
+        dock.show(drafts(""))
+        #expect(button.accessibilityValue == "New Message")
+    }
+
+    @Test("A new title alone doesn't lay the toolbar out again")
+    func titleAloneKeepsLayout() {
+        let dock = DraftsDock()
+        let site = StubSite()
+        let pill = dock.makePill(for: site)
+        dock.show(drafts("Lunch"))
+        dock.show(drafts("Budget"))
+        #expect(site.changes == 1)
+        withExtendedLifetime(pill) {}
     }
 
     @Test("Several drafts say how many and offer to pick one")
@@ -80,7 +112,7 @@ struct DraftsPillTests {
     @Test("A pill made after the dock has drafts shows them")
     func madeLater() {
         let dock = DraftsDock()
-        dock.show(2)
+        dock.show(drafts("a", "b"))
         let site = StubSite()
         let pill = dock.makePill(for: site)
         #expect(pill.count == 2)
@@ -92,7 +124,7 @@ struct DraftsPillTests {
         let dock = DraftsDock()
         let sites = [StubSite(), StubSite()]
         let pills = sites.map { dock.makePill(for: $0) }
-        dock.show(4)
+        dock.show(drafts("a", "b", "c", "d"))
         #expect(pills.map(\.count) == [4, 4])
     }
 
@@ -107,7 +139,7 @@ struct DraftsPillTests {
         }
         #expect(released == nil)
         let kept = dock.makePill(for: site)
-        dock.show(1)
+        dock.show(drafts("a"))
         #expect(kept.count == 1)
         #expect(dock.shownPill === kept)
     }

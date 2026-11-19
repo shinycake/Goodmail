@@ -25,6 +25,35 @@ struct DraftsPillPlacementTests {
         #expect(!DraftsPillPlacement.isPlaced(frame, in: bounds))
     }
 
+    /// The button and the containers the iPad's toolbar wraps it in, innermost first, as iOS 27 lays them out.
+    private let button = CGRect(x: 14, y: 1151, width: 59, height: 34.5)
+    private let glass = CGRect(x: 10, y: 1146, width: 67, height: 44)
+
+    @Test("The glass is the button's first container bigger than it")
+    func glassIsTheFirstBiggerContainer() {
+        let containers = [button, button, glass, glass, CGRect(x: 0, y: 32, width: 834, height: 1178)]
+        #expect(DraftsPillPlacement.glass(around: button, containers: containers) == glass)
+    }
+
+    @Test("A container off the button by a rounding error is passed over for the glass")
+    func roundingErrorIsPassedOver() {
+        let rounded = button.insetBy(dx: -0.000_1, dy: 0)
+        #expect(DraftsPillPlacement.glass(around: button, containers: [rounded, glass]) == glass)
+    }
+
+    @Test(
+        "With no container a platter's margin bigger, the glass is the button's own frame",
+        arguments: [
+            [CGRect](),
+            [CGRect(x: 14, y: 1151, width: 59, height: 34.5)],
+            [CGRect(x: 0, y: 32, width: 834, height: 1178)],
+            // Bigger one way only: not a platter around the button.
+            [CGRect(x: 0, y: 1151, width: 87, height: 34.5)],
+        ])
+    func glassFallsBackToTheButton(containers: [CGRect]) {
+        #expect(DraftsPillPlacement.glass(around: button, containers: containers) == button)
+    }
+
     @Test("Left to right, the corner is at the lane's left, 16 points in, wholly below the screen")
     func cornerLeftToRight() {
         let corner = DraftsPillPlacement.corner(lane: bounds, bounds: bounds, rightToLeft: false)

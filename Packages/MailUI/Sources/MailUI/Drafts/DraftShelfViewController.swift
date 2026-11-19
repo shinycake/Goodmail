@@ -66,7 +66,7 @@ public final class DraftShelfViewController: UIViewController {
         to size: CGSize, with coordinator: any UIViewControllerTransitionCoordinator
     ) {
         super.viewWillTransition(to: size, with: coordinator)
-        stage.settleNow()
+        stage.settleEverything()
     }
 
     public override var childForStatusBarStyle: UIViewController? { content }
@@ -126,21 +126,19 @@ public final class DraftShelfViewController: UIViewController {
         stage.open(writing, from: .below)
     }
 
-    /// A tap on the pill: one message opens out of it, several are laid out to pick from.
+    /// A tap on the pill: one message opens out of it, several are laid out to pick from. A motion under way ends
+    /// first, so the tap counts from where it lands.
     private func reopen() {
-        guard shelf.state == .minimized, !stage.isMoving, let front = shelf.entries.first else { return }
-        guard shelf.entries.count == 1 else {
-            shelf.reopen()
+        stage.settleNow()
+        guard shelf.state == .minimized else { return }
+        shelf.reopen()
+        guard let writing = shelf.writing?.composer else {
             shelfChanged()
             return showPicker()
         }
-        // The shelf writes it once the card covers the pill, which then hides under it.
-        stage.open(
-            front.composer,
-            from: .dock(undocked: { [weak self] in
-                self?.shelf.reopen()
-                self?.shelfChanged()
-            }))
+        // The shelf writes it now, so a message opened while it lifts minimizes it first. The pill lets it go once
+        // the card covers it.
+        stage.open(writing, from: .dock(undocked: { [weak self] in self?.shelfChanged() }))
     }
 
     /// Lays the drafts out to pick one.
@@ -176,8 +174,12 @@ public final class DraftShelfViewController: UIViewController {
         shelf.choose(id)
         shelfChanged()
         guard let composer = shelf.writing?.composer else { return }
-        // The pill, behind the picker, already counts one fewer.
-        closePicker { [weak self] in self?.stage.open(composer, from: .dock(undocked: {})) }
+        // The pill, behind the picker, already counts one fewer. Another message opened while the picker closed
+        // minimized this one first, and is the one to show.
+        closePicker { [weak self] in
+            guard let self, shelf.writing?.composer === composer else { return }
+            stage.open(composer, from: .dock(undocked: {}))
+        }
     }
 
     /// The close button on a laid-out draft: delete it or keep it in Drafts, as the composer's own close button offers.
@@ -214,9 +216,9 @@ public final class DraftShelfViewController: UIViewController {
         return top
     }
 
-    /// Shows how many messages wait on every pill, and hands what the shelf holds to `keep`.
+    /// Shows the messages that wait on every pill, and hands what the shelf holds to `keep`.
     private func shelfChanged() {
-        dock.show(shelf.minimizedCount)
+        dock.show(shelf.minimized)
         keep?(inProgress)
     }
 
@@ -239,12 +241,15 @@ public final class DraftShelfViewController: UIViewController {
 
 extension DraftShelfViewController: ComposerHost {
     func minimize(_ composer: ComposeViewController, then next: (() -> Void)?) {
+        // A minimize under way finishes first: a message that has already drained into the pill ends minimized
+        // below rather than waiting to leave forever.
+        stage.settleNow()
         guard stage.composer === composer else {
             didMinimize(composer)
             next?()
             return
         }
-        stage.leave(to: .dock(docked: { [weak self] in self?.didMinimize(composer) })) { _ in next?() }
+        stage.leave(composer, to: .dock(docked: { [weak self] in self?.didMinimize(composer) })) { _ in next?() }
     }
 
     /// The card of `composer` reached the pill, or left by its corner: the shelf keeps the message as written, and
@@ -278,7 +283,7 @@ extension DraftShelfViewController: ComposerHost {
     func composerDidClose(_ composer: ComposeViewController) {
         shelf.finish(composer.viewModel.draft.id)
         shelfChanged()
-        if stage.composer === composer { stage.leave(to: .away) }
+        if stage.composer === composer { stage.leave(composer, to: .away) }
         switch shelf.state {
         case .choosing: picker?.show(shelf.entries.map(\.draft))
         case .empty, .minimized, .writing: closePicker()

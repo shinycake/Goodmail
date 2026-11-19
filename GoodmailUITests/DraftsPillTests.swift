@@ -49,7 +49,7 @@ final class DraftsPillTests: XCTestCase {
         let cards = app.otherElements.matching(identifier: "drafts.card")
         XCTAssertTrue(cards.firstMatch.waitForExistence(timeout: 5), "the drafts are laid out")
         XCTAssertEqual(cards.count, 2)
-        app.staticTexts["Lunch"].firstMatch.tap()
+        app.buttons["Lunch"].firstMatch.tap()
         let subject = app.textFields["compose.subject"]
         XCTAssertTrue(subject.waitForExistence(timeout: 5))
         XCTAssertEqual(subject.value as? String, "Lunch")
@@ -58,7 +58,7 @@ final class DraftsPillTests: XCTestCase {
         XCTAssertEqual(pill.label, "2 Drafts", "both wait again")
         pill.tap()
         XCTAssertTrue(cards.firstMatch.waitForExistence(timeout: 5))
-        app.staticTexts["Budget"].firstMatch.tap()
+        app.buttons["Budget"].firstMatch.tap()
         XCTAssertTrue(subject.waitForExistence(timeout: 5))
         XCTAssertEqual(subject.value as? String, "Budget")
     }
@@ -152,10 +152,13 @@ final class DraftsPillTests: XCTestCase {
 
     @MainActor
     private func launch(language: String = "en", locale: String = "en_US") -> XCUIApplication {
+        // The test-mail corpus files whole threads, bodies included, so Reply has a message to answer.
+        let corpus = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appending(path: "TestMail").path(percentEncoded: false)
         let app = XCUIApplication()
         app.launchArguments = [
-            "-GoodmailSyntheticThreads", "20", "-GoodmailSyntheticArrivalEvery", "3600",
-            "-AppleLanguages", "(\(language))", "-AppleLocale", locale,
+            "-GoodmailSyntheticThreads", "20", "-GoodmailSyntheticCorpus", corpus, "-GoodmailSyntheticArrivalEvery",
+            "3600", "-AppleLanguages", "(\(language))", "-AppleLocale", locale,
         ]
         app.launch()
         XCTAssertTrue(app.collectionViews["mailbox"].cells.firstMatch.waitForExistence(timeout: 15))

@@ -134,10 +134,11 @@ private final class Grabber: UIView {
         accessibilityIdentifier = "compose.grabber"
         accessibilityLabel = String(
             localized: "Minimize", table: "Drafts", bundle: .module,
-            comment: "VoiceOver: the grabber at the top of the composer, which moves the message down to the bar")
+            comment:
+                "VoiceOver: the grabber at the top of the composer, which minimizes the message into the drafts pill")
         accessibilityHint = String(
-            localized: "Keeps the message at the bottom of the screen to come back to.", table: "Drafts",
-            bundle: .module, comment: "VoiceOver hint of the composer's grabber")
+            localized: "Puts the message aside to come back to.", table: "Drafts", bundle: .module,
+            comment: "VoiceOver hint of the composer's grabber, which minimizes the message into the drafts pill")
     }
 
     @available(*, unavailable)

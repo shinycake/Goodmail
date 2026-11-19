@@ -41,10 +41,6 @@ final class ComposerStage: NSObject {
         }
     }
 
-    var isMoving: Bool {
-        if case .moving = motion { true } else { false }
-    }
-
     /// The card's motion. Only `begin` and `land` change it.
     private var motion = Motion.idle
 
@@ -65,9 +61,9 @@ final class ComposerStage: NSObject {
 
     private enum Leg {
         /// A dot grows out of the pill's icon until the card covers the pill. Then the pill lets the message go.
-        case lifting(PillSpot, undocked: () -> Void, landed: (Bool) -> Void)
+        case lifting(PillSpot, undocked: () -> Void)
         /// Onto the screen, from the pill, the corner or below.
-        case opening(landed: (Bool) -> Void)
+        case opening
         /// Off the screen to `landing`.
         case leaving(Landing, landed: (Bool) -> Void)
         /// Into the pill's icon, once the pill shows the message.
@@ -147,8 +143,9 @@ final class ComposerStage: NSObject {
     // MARK: Moving
 
     /// Brings `composer` onto the screen from `origin`.
-    func open(_ composer: ComposeViewController, from origin: Origin, landed: @escaping (Bool) -> Void = { _ in }) {
+    func open(_ composer: ComposeViewController, from origin: Origin) {
         settleNow()
+        clearLeftover()
         let navigation = composer.navigationController ?? UINavigationController(rootViewController: composer)
         shelf.addChild(navigation)
         card.hold(navigation.view, openSize: openFrame.size)
@@ -161,38 +158,65 @@ final class ComposerStage: NSObject {
         switch origin {
         case .below:
             start(at: below, cornerRadius: ComposerCardView.openCornerRadius)
-            begin(opening(composer, duration: Timing.slide, landed: landed), following: nil)
+            begin(opening(composer, duration: Timing.slide), following: nil)
         case .dock(let undocked):
             if SystemAccessibility.reducesMotion {
                 undocked()
                 start(at: below, cornerRadius: ComposerCardView.openCornerRadius)
-                begin(opening(composer, duration: Timing.slide, landed: landed), following: nil)
+                begin(opening(composer, duration: Timing.slide), following: nil)
             } else if let spot = dock.shownPill?.spot(in: shelf.view, showing: dock.count) {
                 card.cornerCurve = .circular
                 card.fit(DraftsPillPlacement.dot(at: spot.icon), cornerRadius: Self.dotRadius)
-                begin(lifting(composer, out: spot, undocked: undocked, landed: landed), following: nil)
+                begin(lifting(composer, out: spot, undocked: undocked), following: nil)
             } else {
                 undocked()
                 start(at: corner, cornerRadius: DraftsPillPlacement.chipSize.height / 2)
-                begin(opening(composer, duration: Timing.grow, landed: landed), following: nil)
+                begin(opening(composer, duration: Timing.grow), following: nil)
             }
         }
     }
 
-    /// Takes the open card to `destination`.
-    func leave(to destination: Destination, landed: @escaping (Bool) -> Void = { _ in }) {
+    /// Takes `composer`'s card to `destination` once it is open. When settling what is under way leaves another
+    /// message on the stage, as one opened once the last move landed, `composer` has already gone and only `landed`
+    /// runs.
+    func leave(
+        _ composer: ComposeViewController, to destination: Destination, landed: @escaping (Bool) -> Void = { _ in }
+    ) {
         settleNow()
-        guard case .open(let composer) = motion else { return landed(true) }
+        guard case .open(let open) = motion, open === composer else { return landed(true) }
         begin(leaving(composer, Leaving(destination: destination, landed: landed)), following: nil)
     }
 
-    /// Finishes every leg under way at once, each at its end: a minimize ends minimized, an open ends open.
+    /// Finishes the message's motion under way at once, every leg of it at its end: a minimize ends minimized, an
+    /// open ends open. A message that a landing opens moves on its own.
     func settleNow() {
-        while case .moving(let move) = motion {
+        guard case .moving(let first) = motion else { return }
+        while case .moving(let move) = motion, move.composer === first.composer {
             move.animation.finishNow()
             // Each leg lands as it finishes; one that didn't would otherwise be finished forever.
             if case .moving(let next) = motion, next.animation === move.animation { return }
         }
+    }
+
+    /// Finishes everything under way at once, a message that a landing opens too, as before the window changes size.
+    func settleEverything() {
+        while case .moving(let move) = motion {
+            settleNow()
+            if case .moving(let next) = motion, next.animation === move.animation { return }
+        }
+    }
+
+    /// The shelf minimizes the message being written before it opens another, so the stage is empty by the time one
+    /// opens. A message still on it would stay stuck under the new card: it is taken off.
+    private func clearLeftover() {
+        guard let leftover = composer else { return }
+        assertionFailure("A message opened while another was still on the stage")
+        if case .moving(let move) = motion {
+            // Idle first, so the leg lands on nothing.
+            motion = .idle
+            move.animation.finishNow()
+        }
+        clear(leftover)
     }
 
     /// Poses the card at a start that keeps its corners continuous, as an open card's are.
@@ -201,23 +225,20 @@ final class ComposerStage: NSObject {
         card.fit(frame, cornerRadius: cornerRadius)
     }
 
-    private func lifting(
-        _ composer: ComposeViewController, out spot: PillSpot, undocked: @escaping () -> Void,
-        landed: @escaping (Bool) -> Void
-    ) -> Move {
+    private func lifting(_ composer: ComposeViewController, out spot: PillSpot, undocked: @escaping () -> Void)
+        -> Move
+    {
         Move(
-            composer: composer, leg: .lifting(spot, undocked: undocked, landed: landed),
+            composer: composer, leg: .lifting(spot, undocked: undocked),
             animation: animation(distance: 0, heading: .up, duration: Timing.lift) {
                 self.card.fit(spot.frame, cornerRadius: spot.frame.height / 2)
             })
     }
 
-    private func opening(_ composer: ComposeViewController, duration: TimeInterval, landed: @escaping (Bool) -> Void)
-        -> Move
-    {
+    private func opening(_ composer: ComposeViewController, duration: TimeInterval) -> Move {
         let open = openFrame
         return Move(
-            composer: composer, leg: .opening(landed: landed),
+            composer: composer, leg: .opening,
             animation: animation(distance: 0, heading: .up, duration: duration) {
                 self.card.fit(open, cornerRadius: ComposerCardView.openCornerRadius)
                 self.dimming.alpha = 1
@@ -286,18 +307,17 @@ final class ComposerStage: NSObject {
         guard case .moving(let move) = motion else { return }
         let composer = move.composer
         switch move.leg {
-        case .lifting(_, let undocked, let landed):
-            // The pill hides, or counts one fewer, under the chip.
+        case .lifting(_, let undocked):
+            // The pill hides, or counts one fewer, under the chip. The chip's corners turn continuous while it is
+            // still the pill's size, as an open card's are, so they don't change as it comes to rest.
             undocked()
-            begin(opening(composer, duration: Timing.grow, landed: landed), following: nil)
-        case .opening(let landed):
-            if arrived {
-                rest(composer)
-                composer.didOpen()
-            } else {
-                clear(composer)
-            }
-            landed(arrived)
+            card.cornerCurve = .continuous
+            begin(opening(composer, duration: Timing.grow), following: nil)
+        case .opening:
+            // Nothing follows a finger onto the screen, so an opening always arrives.
+            assert(arrived, "An opening came back")
+            rest(composer)
+            composer.didOpen()
         case .leaving(let landing, let landed):
             guard arrived else {
                 rest(composer)

@@ -16,6 +16,8 @@ final class DraftsPillItem {
     private let opened: () -> Void
     /// What it shows. Zero hides the item.
     private(set) var count = 0
+    /// What the only minimized message is called, which VoiceOver reads as the pill's value; `nil` with several.
+    private var title: String?
 
     init(site: any DraftsPillSite, opened: @escaping () -> Void) {
         self.site = site
@@ -46,8 +48,11 @@ final class DraftsPillItem {
     /// Whether the pill's place is on screen and still, so a card can aim at it.
     var isOnShow: Bool { site?.showsDraftsPill ?? false }
 
-    /// Shows `count`; zero hides the pill. Only a change touches the button, as it lays the toolbar out again.
-    func show(_ count: Int) {
+    /// Shows `count`, and `title` as the value of a pill holding one message; zero hides the pill. Only a new count
+    /// touches the button, as it lays the toolbar out again.
+    func show(_ count: Int, title: String? = nil) {
+        self.title = title
+        button.accessibilityValue = title
         guard count != self.count else { return }
         UIView.performWithoutAnimation {
             render(count)
@@ -71,8 +76,11 @@ final class DraftsPillItem {
             if let frame = item.frame(in: view), DraftsPillPlacement.isPlaced(frame, in: view.bounds),
                 let icon = button.imageView
             {
+                let containers = sequence(first: button, next: \.superview).dropFirst().prefix(4).map {
+                    $0.convert($0.bounds, to: view)
+                }
                 spot = PillSpot(
-                    pill: self, frame: frame.inset(by: Self.platterOutset),
+                    pill: self, frame: DraftsPillPlacement.glass(around: frame, containers: Array(containers)),
                     icon: icon.convert(CGPoint(x: icon.bounds.midX, y: icon.bounds.midY), to: view))
             }
             if shown != count {
@@ -82,10 +90,6 @@ final class DraftsPillItem {
         }
         return spot
     }
-
-    /// What `frame(in:)` leaves out of the glass the system draws around the button. Zero until the Mac check says
-    /// otherwise.
-    private static let platterOutset = UIEdgeInsets.zero
 
     /// The icon bounces once, as a message lands in the pill.
     func bounce() {

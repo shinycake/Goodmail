@@ -11,9 +11,11 @@ extension MailboxViewController: DraftsPillSite {
             && transitionCoordinator == nil
     }
 
+    /// The whole window is laid out, not just this navigation stack: on iPad the split view places the column's
+    /// toolbar items, and a pill shown there for the first time has no frame until it does.
     func draftsPillDidChange() {
-        guard viewIfLoaded?.window != nil else { return }
-        navigationController?.view.layoutIfNeeded()
+        guard let window = viewIfLoaded?.window else { return }
+        window.layoutIfNeeded()
         toolbarEndsChanged()
     }
 }

@@ -75,7 +75,14 @@ final class AccessibilityAuditTests: XCTestCase {
 
         app = launch(scenario, chat: false)
         if app.windows.firstMatch.horizontalSizeClass == .compact {
-            app.navigationBars.buttons.element(boundBy: 0).tap()
+            let sidebar = app.navigationBars.buttons["mailboxesSidebar"]
+            if sidebar.exists {
+                sidebar.tap()
+            } else {
+                // At the largest sizes the bar runs short, and the button is in More.
+                app.navigationBars.buttons["TopOverflowBarButtonItem"].tap()
+                app.buttons[words.mailboxes].firstMatch.tap()
+            }
         }
         XCTAssertTrue(app.collectionViews["mailboxes"].waitForExistence(timeout: 5))
         audit(app, "\(scenario.name)-mailboxes", at: scenario.size)
@@ -278,6 +285,7 @@ final class AccessibilityAuditTests: XCTestCase {
         let mailActions: String
         let newMessage: String
         let settings: String
+        let mailboxes: String
 
         init(language: String) {
             if language == "he" {
@@ -286,12 +294,14 @@ final class AccessibilityAuditTests: XCTestCase {
                 mailActions = "פעולות דואר"
                 newMessage = "הודעה חדשה"
                 settings = "הגדרות"
+                mailboxes = "תיבות דואר"
             } else {
                 classicThread = "This week at Example Co"
                 chatThread = "Saturday?"
                 mailActions = "Mail Actions"
                 newMessage = "New Message"
                 settings = "Settings"
+                mailboxes = "Mailboxes"
             }
         }
     }

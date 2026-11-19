@@ -178,38 +178,41 @@ struct DraftShelfTests {
         #expect(shelf.entries.map(\.composer) == ["Lunch"])
     }
 
-    // MARK: How many wait minimized
+    // MARK: Which wait minimized
 
     @Test func anEmptyShelfHasNoneMinimized() {
-        #expect(DraftShelf<String>().minimizedCount == 0)
+        #expect(DraftShelf<String>().minimized.isEmpty)
     }
 
     @Test func theOneBeingWrittenIsNotMinimized() {
         var shelf = DraftShelf<String>()
         shelf.open(draft("Lunch"), in: "Lunch")
-        #expect(shelf.minimizedCount == 0)
+        #expect(shelf.minimized.isEmpty)
     }
 
-    @Test func writingOneWithTwoMinimizedCountsTheTwo() {
+    @Test func writingOneWithTwoMinimizedKeepsTheTwo() {
         var shelf = shelved([draft("Lunch"), draft("Budget")])
         shelf.open(draft("Trip"), in: "Trip")
-        #expect(shelf.minimizedCount == 2)
+        #expect(shelf.minimized.map(\.subject) == ["Budget", "Lunch"])
     }
 
-    @Test func allMinimizedCountsThemAll() {
-        #expect(shelved([draft("Lunch"), draft("Budget"), draft("Trip")]).minimizedCount == 3)
+    @Test func allMinimizedAreAllKept() {
+        #expect(
+            shelved([draft("Lunch"), draft("Budget"), draft("Trip")]).minimized.map(\.subject) == [
+                "Trip", "Budget", "Lunch",
+            ])
     }
 
-    @Test func choosingCountsThemAll() {
+    @Test func choosingKeepsThemAll() {
         var shelf = shelved([draft("Lunch"), draft("Budget")])
         shelf.reopen()
         #expect(shelf.state == .choosing)
-        #expect(shelf.minimizedCount == 2)
+        #expect(shelf.minimized.map(\.subject) == ["Budget", "Lunch"])
     }
 
-    @Test func finishingADraftDropsTheCount() {
+    @Test func finishingADraftDropsIt() {
         var shelf = shelved([draft("Lunch"), draft("Budget")])
         shelf.finish(shelf.entries[0].id)
-        #expect(shelf.minimizedCount == 1)
+        #expect(shelf.minimized.map(\.subject) == ["Lunch"])
     }
 }

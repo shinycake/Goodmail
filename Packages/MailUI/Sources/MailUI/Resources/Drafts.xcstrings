@@ -70,17 +70,6 @@
         }
       }
     },
-    "Keeps the message at the bottom of the screen to come back to." : {
-      "comment" : "VoiceOver hint of the composer's grabber",
-      "localizations" : {
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "שומר את ההודעה בתחתית המסך כדי לחזור אליה."
-          }
-        }
-      }
-    },
     "Message minimized" : {
       "comment" : "VoiceOver announcement after the composer shrinks into the drafts pill",
       "localizations" : {
@@ -93,7 +82,7 @@
       }
     },
     "Minimize" : {
-      "comment" : "VoiceOver: the grabber at the top of the composer, which moves the message down to the bar",
+      "comment" : "VoiceOver: the grabber at the top of the composer, which minimizes the message into the drafts pill",
       "localizations" : {
         "he" : {
           "stringUnit" : {
@@ -110,6 +99,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "פותח את ההודעה."
+          }
+        }
+      }
+    },
+    "Puts the message aside to come back to." : {
+      "comment" : "VoiceOver hint of the composer's grabber, which minimizes the message into the drafts pill",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שם את ההודעה בצד כדי לחזור אליה."
           }
         }
       }

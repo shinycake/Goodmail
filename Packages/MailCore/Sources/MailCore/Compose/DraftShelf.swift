@@ -1,5 +1,5 @@
-/// The messages a window has in progress: the one being written, and those minimized to the bottom of the screen to
-/// come back to. `Composer` is whatever edits a draft, kept alive while it waits so nothing typed is lost.
+/// The messages a window has in progress: the one being written, and those minimized to come back to. `Composer` is
+/// whatever edits a draft, kept alive while it waits so nothing typed is lost.
 ///
 /// Only the methods below change it, and each keeps `state` in step with `entries`: `.empty` exactly when there are
 /// none, and `.writing` always names one of them.
@@ -16,7 +16,7 @@ public struct DraftShelf<Composer> {
         case empty
         /// That draft fills the screen; any others wait minimized.
         case writing(Draft.ID)
-        /// Every draft waits at the bottom of the screen.
+        /// Every draft waits minimized, in the drafts pill.
         case minimized
         /// The drafts are laid out to pick one, after tapping the pill holding several.
         case choosing
@@ -28,9 +28,9 @@ public struct DraftShelf<Composer> {
 
     public init() {}
 
-    /// How many drafts wait minimized: all of them but the one being written.
-    public var minimizedCount: Int {
-        if case .writing = state { entries.count - 1 } else { entries.count }
+    /// The drafts that wait minimized, the last one written first: all of them but the one being written.
+    public var minimized: [Draft] {
+        entries.filter { state != .writing($0.id) }.map(\.draft)
     }
 
     /// The draft filling the screen, if one is.

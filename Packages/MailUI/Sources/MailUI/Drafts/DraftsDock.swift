@@ -1,3 +1,5 @@
+import MailCore
+
 /// A screen whose bottom toolbar holds the drafts pill. The mail list is one; any screen with a toolbar can be,
 /// by conforming and putting `DraftsDock.makePill(for:)`'s item in its toolbar.
 protocol DraftsPillSite: AnyObject {
@@ -15,6 +17,8 @@ protocol DraftsPillSite: AnyObject {
 public final class DraftsDock {
     /// How many messages are minimized. Only `show` changes it.
     private(set) var count = 0
+    /// What the only minimized message is called; `nil` unless there is exactly one.
+    private var title: String?
     /// A pill was tapped.
     var onOpen: (() -> Void)?
     private var pills: [WeakPill] = []
@@ -30,15 +34,15 @@ public final class DraftsDock {
         let pill = DraftsPillItem(site: site) { [weak self] in self?.onOpen?() }
         pills.removeAll { $0.pill == nil }
         pills.append(WeakPill(pill: pill))
-        pill.show(count)
+        pill.show(count, title: title)
         return pill
     }
 
-    /// Shows `count` on every pill; zero hides them.
-    func show(_ count: Int) {
-        guard count != self.count else { return }
-        self.count = count
-        for box in pills { box.pill?.show(count) }
+    /// Shows how many of `minimized` there are on every pill, and the title of a lone one; none hides them.
+    func show(_ minimized: [Draft]) {
+        count = minimized.count
+        title = minimized.count == 1 ? minimized[0].shelfTitle : nil
+        for box in pills { box.pill?.show(count, title: title) }
     }
 
     /// The pill whose place is on screen now, shown or hidden.
