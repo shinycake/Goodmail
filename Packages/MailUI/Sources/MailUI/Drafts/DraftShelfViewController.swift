@@ -8,7 +8,7 @@ public final class DraftShelfViewController: UIViewController {
     private var shelf = DraftShelf<ComposeViewController>()
     private let bar = MinimizedDraftsBar(interactive: true)
     /// The message being written, on its card over the mail screens, and its moves to and from the bar.
-    private lazy var stage = ComposerStage(shelf: self, bar: bar)
+    private lazy var stage = ComposerStage(shelf: self, bar: bar) { [unowned self] in fitContent(showsBar: $0) }
     /// Ends the content at the bar while messages are minimized, else at the bottom of the screen.
     private var contentBottom: NSLayoutConstraint?
     /// Keeps the messages in progress, the last one written first, so they come back after the app is closed. Told
@@ -142,23 +142,13 @@ public final class DraftShelfViewController: UIViewController {
             shelfChanged()
             return showPicker(following: pan)
         }
-        // The card starts as the bar itself, so the bar steps aside for it; let go short, it stays minimized, and the
-        // bar is back where the card ends. Let go toward the screen, the mail screens take the bar's room back with it.
-        // The shelf writes it once it's up.
-        let drafts = inProgress
-        bar.alpha = 0
-        stage.open(
-            front.composer, from: .bar(showing: drafts), following: pan,
-            headed: { [weak self] up in if up { self?.fitContent(showsBar: false) } },
-            landed: { [weak self] opened in
-                guard let self else { return }
-                guard opened else {
-                    bar.alpha = 1
-                    return
-                }
-                shelf.reopen()
-                shelfChanged()
-            })
+        // The shelf writes it once it's up; let go short, it stays minimized.
+        stage.open(front.composer, from: .bar(showing: inProgress, barStays: false), following: pan) {
+            [weak self] opened in
+            guard let self, opened else { return }
+            shelf.reopen()
+            shelfChanged()
+        }
     }
 
     /// Lays the drafts out to pick one, coming up under the finger dragging `pan` if there is one.
@@ -213,7 +203,8 @@ public final class DraftShelfViewController: UIViewController {
         guard let composer = shelf.writing?.composer else { return }
         closePicker { [weak self] in
             guard let self else { return }
-            stage.open(composer, from: .bar(showing: [composer.written]))
+            // The others still wait in the bar.
+            stage.open(composer, from: .bar(showing: [composer.written], barStays: true))
         }
     }
 
@@ -300,7 +291,8 @@ public final class DraftShelfViewController: UIViewController {
         bar.alpha > 0
     }
 
-    /// Fits the content above the bar, or to the bottom of the screen, in the card's spring, as its motion is let go.
+    /// Fits the content above the bar, or to the bottom of the screen, in a spring like the card's, as its motion is
+    /// let go.
     private func fitContent(showsBar: Bool) {
         UIView.animate(springDuration: 0.5, bounce: 0) {
             self.layOutContent(showsBar: showsBar)
@@ -330,20 +322,14 @@ extension DraftShelfViewController: ComposerHost {
             next?()
             return
         }
-        stage.leave(
-            to: .bar(showing: barShowing(inFront: composer)),
-            headed: { [weak self] down in if down { self?.fitContent(showsBar: true) } },
-            landed: { [weak self] _ in
-                self?.didMinimize(composer)
-                next?()
-            })
+        stage.leave(to: .bar(showing: barShowing(inFront: composer))) { [weak self] _ in
+            self?.didMinimize(composer)
+            next?()
+        }
     }
 
-    /// The card of `composer` has turned into the bar: the bar takes its place as it is, and the shelf keeps the
-    /// message as written.
+    /// `composer`'s message is in the bar: the shelf keeps it as written.
     private func didMinimize(_ composer: ComposeViewController) {
-        bar.isHidden = false
-        bar.alpha = 1
         composer.didMinimize()
         shelf.minimize(composer.written)
         shelfChanged()
@@ -358,12 +344,10 @@ extension DraftShelfViewController: ComposerHost {
     private func planLeaving(_ composer: ComposeViewController) -> ComposerStage.Leaving {
         switch composer.startLeaving() {
         case .minimize:
-            return ComposerStage.Leaving(
-                destination: .bar(showing: barShowing(inFront: composer)),
-                headed: { [weak self] down in if down { self?.fitContent(showsBar: true) } },
-                landed: { [weak self] minimized in
-                    if minimized { self?.didMinimize(composer) } else { composer.stayed() }
-                })
+            return ComposerStage.Leaving(destination: .bar(showing: barShowing(inFront: composer))) {
+                [weak self] minimized in
+                if minimized { self?.didMinimize(composer) } else { composer.stayed() }
+            }
         case .discard:
             return ComposerStage.Leaving(destination: .away) { discarded in
                 if discarded { composer.discard() } else { composer.stayed() }
