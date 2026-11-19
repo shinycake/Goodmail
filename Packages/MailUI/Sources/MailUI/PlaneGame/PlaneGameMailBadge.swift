@@ -3,20 +3,20 @@ import SwiftUI
 /// Mail that arrived during the game, in the HUD's corner: a purple envelope doodle that draws itself in with the
 /// count beside it, hops once on each arrival and undraws if the mail goes away. The app shows no banner while it is
 /// open and the game covers the list, so this says it, without pausing anything or covering the field. It is a way
-/// out: to the list, where the mail is.
+/// out: to the list, where the mail is, once the reader confirms leaving the game.
 struct PlaneGameMailBadge: View {
     /// Threads waiting in the Inbox.
     let count: Int
     /// Counts the arrivals, each of which hops the envelope.
     let arrivals: Int
-    let exit: () -> Void
+    let leave: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let shown = count > 0
         // Read here: the hop's closure is called off the main actor.
         let hops = !reduceMotion
-        Button(action: exit) {
+        Button(action: leave) {
             HStack(spacing: 4) {
                 DoodleOutline(shape: .envelope)
                     // Drawn in like a doodle being sketched, or with Reduce Motion on, faded in.

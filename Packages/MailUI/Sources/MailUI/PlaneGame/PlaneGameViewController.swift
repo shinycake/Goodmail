@@ -1,3 +1,4 @@
+import PlaneGame
 import SwiftUI
 import UIKit
 
@@ -151,9 +152,9 @@ final class PlaneGameViewController: UIViewController {
         return true
     }
 
-    /// VoiceOver's two finger double tap pauses the game and carries it on.
+    /// VoiceOver's two finger double tap pauses the game, and carries it on after the countdown.
     override func accessibilityPerformMagicTap() -> Bool {
-        if case .paused = model.phase { model.resume() } else { model.pause() }
+        if case .paused(_, .card) = model.phase { model.resume() } else { model.pause() }
         return true
     }
 }

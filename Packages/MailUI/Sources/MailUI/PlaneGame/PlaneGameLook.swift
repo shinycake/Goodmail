@@ -71,7 +71,7 @@ extension PlaneGameModel {
     /// What the screen draws now.
     var look: PlaneGameLook {
         switch phase {
-        case .flying(.takeoff), .paused(.takeoff):
+        case .flying(.takeoff), .paused(.takeoff, _):
             let takeoff = takeoff
             return PlaneGameLook(
                 paper: takeoff.paper, hud: takeoff.hud,
@@ -87,7 +87,7 @@ extension PlaneGameModel {
                     plane: sprite(
                         width: takeoff.planeWidth, opacity: takeoff.planeOpacity, turning: takeoff.planeTurn),
                     kit: kit))
-        case .flying(.again), .paused(.again), .over:
+        case .flying(.again), .paused(.again, _), .over:
             return PlaneGameLook(
                 paper: 1, hud: 1, pile: nil, flights: nil,
                 canvas: frame(
