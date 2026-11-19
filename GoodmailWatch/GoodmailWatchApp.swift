@@ -90,6 +90,13 @@ final class WatchAppDelegate: NSObject, WKApplicationDelegate {
 extension WatchAppDelegate {
     /// A background refresh of the mail the watch reads itself.
     func refreshOwnMail() async {
-        await own.refresh(inbox: inbox, threads: threads, store: store)
+        await own.refresh(inbox: await restoredInbox(), threads: threads, store: store)
+    }
+
+    /// The Inbox, restored from the store first: the system can launch the app for an alert or a refresh, which then
+    /// runs before the link to the iPhone has restored it. Restoring again does nothing.
+    func restoredInbox() async -> WristInboxModel {
+        inbox.restore(await store.load())
+        return inbox
     }
 }

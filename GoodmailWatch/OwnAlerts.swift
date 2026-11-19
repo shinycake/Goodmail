@@ -9,7 +9,7 @@ import WatchKit
 /// registers for remote notifications and hands its token to the iPhone, which registers it with the relay beside its
 /// own; the watch never talks to the relay.
 final class OwnAlerts {
-    private nonisolated static let log = Logger(subsystem: "com.idanbirman.goodmail", category: "own-alerts")
+    nonisolated static let log = Logger(subsystem: "com.idanbirman.goodmail", category: "own-alerts")
 
     /// What reaches the token's way to the iPhone.
     private enum Event {
@@ -62,6 +62,7 @@ final class OwnAlerts {
     /// otherwise.
     static func open(_ alert: TappedAlert, inbox: WristInboxModel, route: WristRoute) {
         if let thread = alert.mirroredThread { return route.open(thread) }
+        // `inbox` is restored, so a tap that launched the app finds the accounts and their sources.
         switch WristAlertTarget(
             payload: alert.payload, accounts: inbox.mailbox.snapshot?.accounts ?? [],
             sources: inbox.mailbox.sources)
@@ -133,7 +134,7 @@ extension WatchAppDelegate: UNUserNotificationCenterDelegate {
             if let action {
                 await act(action, on: alert, text: text)
             } else if isTap {
-                OwnAlerts.open(alert, inbox: inbox, route: route)
+                OwnAlerts.open(alert, inbox: await restoredInbox(), route: route)
             }
             done.call()
         }

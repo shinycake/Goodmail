@@ -12,10 +12,16 @@ extension OwnMail {
 
     /// One background refresh: fetches what changed, shows it, stores the mailbox and reloads the watch face before
     /// the system suspends the app, then asks for the next. When the system cuts the time short, the catch-up stops
-    /// and what came in so far is kept.
+    /// and what came in so far is kept. `inbox` is restored already, since the system may have launched the app for
+    /// the refresh, and the host follows its accounts first, or it would have none to check.
     func refresh(inbox: WristInboxModel, threads: WristThreads, store: WristStore) async {
         defer { Self.scheduleRefresh(after: .now) }
         guard let host = await opening.value else { return }
+        do {
+            try await Self.follow(inbox.mailbox, on: host)
+        } catch {
+            Self.log.error("Couldn't follow the stored accounts for a refresh: \(error, privacy: .public)")
+        }
         await host.catchUp()
         do {
             if let snapshot = try await Self.latest(of: host) {

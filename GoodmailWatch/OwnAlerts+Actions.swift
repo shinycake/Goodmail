@@ -40,15 +40,22 @@ extension OwnAlerts {
 }
 
 extension WatchAppDelegate {
-    /// Runs `action`, picked on `alert`, with the words of a reply, through the watch's own host. The mailbox the
-    /// app last stored says the accounts and their sources when the app was launched for the action.
+    /// Runs `action`, picked on `alert`, with the words of a reply, through the watch's own host. The restored
+    /// mailbox says the accounts and their sources, also when the app was launched for the action.
     func act(_ action: WristAlertAction, on alert: TappedAlert, text: String?) async {
-        let mailbox = inbox.mailbox.snapshot == nil ? await store.load() : inbox.mailbox
+        let inbox = await restoredInbox()
+        let mailbox = inbox.mailbox
         let target = WristAlertTarget(
             payload: alert.payload, accounts: mailbox.snapshot?.accounts ?? [], sources: mailbox.sources)
         guard let command = action.command(on: target, text: text, sources: mailbox.sources, now: .now) else {
             return
         }
-        await own.perform(command, following: mailbox)
+        do {
+            try await own.perform(command, following: mailbox)
+        } catch {
+            OwnAlerts.log.error("Couldn't run an alert's action on the watch: \(error, privacy: .public)")
+            // A reply that didn't go shows in the app to send again, rather than being lost.
+            inbox.couldntRun(command)
+        }
     }
 }

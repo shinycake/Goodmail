@@ -10,12 +10,18 @@ public actor WristStore {
         file = directory.appending(path: "wrist-mailbox.json")
     }
 
-    /// The stored mailbox; an empty one when there is none yet, or it can't be read, as after a format change.
+    /// The stored mailbox; an empty one when there is none yet, or it can't be read, as after going back to an older
+    /// build. A file it can't read is set aside, where the next save doesn't overwrite it, and the latest one stays.
     public func load() -> WristMailbox {
-        guard let data = try? Data(contentsOf: file),
-            let mailbox = try? JSONDecoder().decode(WristMailbox.self, from: data)
-        else { return WristMailbox() }
-        return mailbox
+        guard let data = try? Data(contentsOf: file) else { return WristMailbox() }
+        do {
+            return try JSONDecoder().decode(WristMailbox.self, from: data)
+        } catch {
+            let aside = file.deletingLastPathComponent().appending(path: "wrist-mailbox.unreadable.json")
+            try? FileManager.default.removeItem(at: aside)
+            try? FileManager.default.moveItem(at: file, to: aside)
+            return WristMailbox()
+        }
     }
 
     public func save(_ mailbox: WristMailbox) throws {

@@ -11,6 +11,12 @@ struct WristThreadView: View {
     let threads: WristThreads
     let inbox: WristInboxModel
 
+    /// What a load depends on: a Try Again, and who serves the conversation.
+    private struct Load: Hashable {
+        let attempt: Int
+        let direct: Bool
+    }
+
     /// Counts Try Again taps: each asks the iPhone again, with its own wait.
     @State private var attempt = 0
     @State private var showsMore = false
@@ -23,7 +29,11 @@ struct WristThreadView: View {
             .task(id: row?.id) {
                 if let row { inbox.open(row) }
             }
-            .task(id: attempt) { await threads.load(id) }
+            // Again once the watch reads the account itself, which it can decide only after an alert has opened
+            // the conversation at launch.
+            .task(id: Load(attempt: attempt, direct: threads.direct.contains(id.accountID))) {
+                await threads.load(id)
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     if row != nil {
