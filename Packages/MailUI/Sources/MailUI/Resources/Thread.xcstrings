@@ -417,6 +417,28 @@
         }
       }
     },
+    "View in Dark Mode" : {
+      "comment" : "Button on a message shown in light mode: shows it in dark mode again",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצגה במצב כהה"
+          }
+        }
+      }
+    },
+    "View in Light Mode" : {
+      "comment" : "Button on an open message in dark mode: shows that one message in light mode",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצגה במצב בהיר"
+          }
+        }
+      }
+    },
     "You" : {
       "comment" : "VoiceOver: the reader, as the sender of a bubble",
       "localizations" : {

@@ -1,7 +1,8 @@
 import MailCore
 import UIKit
 
-/// An open message: a rounded card with its header, then the body in its own web view.
+/// An open message: a rounded card with its header, then the body in its own web view. While the app is dark, a sun
+/// in the header switches the card to light and back (`MessageAppearance`).
 final class MessageCardView: UIView {
     var onToggle: (() -> Void)?
     var onAllowRemoteContent: (() -> Void)?
@@ -16,17 +17,25 @@ final class MessageCardView: UIView {
     /// Called each time the body takes its height, which can come seconds after the card shows.
     var onBodyLayout: (() -> Void)?
 
-    private let header = MessageHeaderView()
+    /// The rounded card itself, which carries the appearance override. The view around it keeps the app's, so it
+    /// knows when the app is dark.
+    private let surface = UIView()
+    let appearanceButton = MinimumTargetButton(configuration: .plain())
+    private let header: MessageHeaderView
+    private var appearance = MessageAppearance.app
     private let remoteNotice = RemoteImagesNotice()
     private let body: MessageWebView
     private let attachments = AttachmentListView()
 
     init(attachmentData: @escaping (Attachment, Message.ID) async throws -> Data) {
         body = MessageWebView(attachmentData: attachmentData)
+        header = MessageHeaderView(accessory: appearanceButton)
         super.init(frame: .zero)
-        backgroundColor = .secondarySystemBackground
-        layer.cornerRadius = 24
-        layer.cornerCurve = .continuous
+        surface.backgroundColor = .secondarySystemBackground
+        surface.layer.cornerRadius = 24
+        surface.layer.cornerCurve = .continuous
+        surface.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(surface)
 
         remoteNotice.onLoad = { [weak self] in self?.onAllowRemoteContent?() }
         remoteNotice.onTrust = { [weak self] in self?.onTrust?($0) }
@@ -37,18 +46,36 @@ final class MessageCardView: UIView {
         stack.axis = .vertical
         stack.spacing = 14
         stack.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(stack)
+        surface.addSubview(stack)
         NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: topAnchor, constant: 16),
-            stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -18),
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            surface.topAnchor.constraint(equalTo: topAnchor),
+            surface.bottomAnchor.constraint(equalTo: bottomAnchor),
+            surface.leadingAnchor.constraint(equalTo: leadingAnchor),
+            surface.trailingAnchor.constraint(equalTo: trailingAnchor),
+            stack.topAnchor.constraint(equalTo: surface.topAnchor, constant: 16),
+            stack.bottomAnchor.constraint(equalTo: surface.bottomAnchor, constant: -18),
+            stack.leadingAnchor.constraint(equalTo: surface.leadingAnchor, constant: 16),
+            stack.trailingAnchor.constraint(equalTo: surface.trailingAnchor, constant: -16),
         ])
         body.onLayout = { [weak self] _, blocked in
             self?.remoteNotice.isHidden = !blocked
             self?.onBodyLayout?()
         }
         remoteNotice.isHidden = true
+
+        var look = UIButton.Configuration.plain()
+        look.contentInsets = .zero
+        look.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(textStyle: .subheadline)
+        look.baseForegroundColor = .secondaryLabel
+        appearanceButton.configuration = look
+        appearanceButton.setContentHuggingPriority(.required, for: .horizontal)
+        appearanceButton.setContentCompressionResistancePriority(.required, for: .horizontal)
+        appearanceButton.addAction(
+            UIAction { [weak self] _ in self?.switchAppearance() }, for: .primaryActionTriggered)
+        registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (card: MessageCardView, _) in
+            card.showAppearance()
+        }
+        showAppearance()
     }
 
     @available(*, unavailable)
@@ -67,6 +94,23 @@ final class MessageCardView: UIView {
 
     func setLoading(_ loading: Bool, for attachment: Attachment) {
         attachments.setLoading(loading, for: attachment)
+    }
+
+    /// The card crossfades to its new appearance; the body's own styles follow its traits without reloading.
+    private func switchAppearance() {
+        appearance = appearance.switched
+        UIView.transition(with: surface, duration: 0.3, options: [.transitionCrossDissolve, .allowUserInteraction]) {
+            self.showAppearance()
+        }
+    }
+
+    private func showAppearance() {
+        surface.overrideUserInterfaceStyle = appearance.style
+        appearanceButton.isHidden = traitCollection.userInterfaceStyle != .dark
+        appearanceButton.configuration?.image = UIImage(systemName: appearance.switchSymbol)
+        appearanceButton.accessibilityLabel = appearance.switchTitle
+        // Shows on iPad with a pointer, and on the Mac.
+        appearanceButton.toolTip = appearance.switchTitle
     }
 }
 
