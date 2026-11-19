@@ -38,7 +38,7 @@ public actor WristOwnHost {
     var health: [AccountID: AccountHealth] = [:]
     /// The catch-up in progress, which a second caller joins.
     private var catchingUp: Task<Void, Never>?
-    /// Whether a check runs now, and when one last worked. Only `run` changes it.
+    /// Whether checks run now, and when one last worked. Only `run` changes it, through `start` and `end`.
     public private(set) var checking = Checking.idle(lastChecked: nil) {
         didSet { publishFreshness() }
     }
@@ -164,8 +164,7 @@ public actor WristOwnHost {
     /// Runs `step` on every served account's engine at once and keeps how each went.
     private func run(_ step: @escaping @Sendable (SyncEngine) async throws -> Void) async {
         let engines = served.mapValues(\.engine)
-        let lastChecked = checking.lastChecked
-        checking = .running(lastChecked: lastChecked)
+        checking.start()
         let outcomes = await withTaskGroup(of: (AccountID, Result<Void, any Error>).self) { group in
             for (id, engine) in engines {
                 group.addTask {
@@ -181,7 +180,7 @@ public actor WristOwnHost {
         }
         // A run cut short says nothing about the accounts.
         guard !Task.isCancelled else {
-            checking = .idle(lastChecked: lastChecked)
+            checking.end(workedAt: nil)
             return
         }
         let date = now()
@@ -189,7 +188,7 @@ public actor WristOwnHost {
             health[id] = (health[id] ?? .healthy).after(outcome, at: date)
         }
         let worked = outcomes.values.contains { if case .success = $0 { true } else { false } }
-        checking = .idle(lastChecked: worked ? date : lastChecked)
+        checking.end(workedAt: worked ? date : nil)
     }
 }
 

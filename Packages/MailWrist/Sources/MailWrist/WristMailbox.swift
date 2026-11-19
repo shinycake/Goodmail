@@ -86,6 +86,29 @@ public struct WristMailbox: Codable, Equatable, Sendable {
         return executors == [.watch] ? .watch : .phone
     }
 
+    /// Takes over `stored`, read at launch, keeping what arrived before it: the iPhone's snapshot and the watch's own
+    /// feed, which are newer, and the changes made since launch, after those stored.
+    public mutating func restore(_ stored: WristMailbox) {
+        var restored = stored
+        if let snapshot {
+            restored.snapshot = snapshot
+            restored.extras = extras
+        }
+        if let own {
+            restored.own = own
+            restored.sources = sources
+        }
+        restored.pending += pending.filter { !stored.pending.contains($0) }
+        restored.undelivered += undelivered.filter { !stored.undelivered.contains($0) }
+        self = restored
+    }
+
+    /// A change the watch ran itself failed: a reply moves to `undelivered`, as one the iPhone couldn't send does.
+    public mutating func couldntRun(_ command: WristCommand) {
+        pending.removeAll { $0.id == command.id }
+        if case .reply = command.kind, !undelivered.contains(command) { undelivered.append(command) }
+    }
+
     public mutating func perform(_ command: WristCommand) {
         pending.append(command)
     }

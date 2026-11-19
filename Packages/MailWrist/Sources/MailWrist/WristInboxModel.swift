@@ -35,6 +35,8 @@ public final class WristInboxModel {
     /// What the list footer says about the mail the watch reads itself; `nil` while it reads none.
     public var freshness: WristFreshness?
     private var reading = Reading.current
+    /// Whether the stored mailbox has been taken over.
+    public private(set) var isRestored = false
     /// The reader's last change, which they can take back for a few seconds.
     public private(set) var undoable: WristCommand?
     /// Each change, in order, for `WristLink` to store and send.
@@ -55,13 +57,18 @@ public final class WristInboxModel {
         return shown.rows.isEmpty ? .caughtUp(shown) : .list(shown)
     }
 
-    /// Takes over a mailbox read from the store at launch, unless the iPhone has already sent a newer one, keeping any
-    /// change made before it loaded.
+    /// Takes over a mailbox read from the store at launch, once: the app's link and an alert or a refresh the system
+    /// launched the app for may each restore it first. What arrived before it loaded stays (`WristMailbox.restore`).
     public func restore(_ stored: WristMailbox) {
-        guard mailbox.snapshot == nil else { return }
-        let made = mailbox.pending
-        mailbox = stored
-        for command in made { mailbox.perform(command) }
+        guard !isRestored else { return }
+        isRestored = true
+        mailbox.restore(stored)
+    }
+
+    /// A change the watch ran itself, as for an alert's action, failed: a reply shows as not sent.
+    public func couldntRun(_ command: WristCommand) {
+        mailbox.couldntRun(command)
+        continuation.yield(Update(mailbox: mailbox, command: nil))
     }
 
     public func receive(_ reading: WristSnapshot.Reading) {

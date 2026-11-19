@@ -1,5 +1,6 @@
 #if canImport(WatchConnectivity)
     import Foundation
+    import MailCore
     import OSLog
 
     /// The watch's side of the link to the iPhone (ADR-022).
@@ -17,8 +18,10 @@
         ) async {
             inbox.restore(await store.load())
             await channel.activate()
-            async let receiving: Void = receive(from: channel, inbox: inbox, threads: threads, ready: ready)
-            async let requesting: Void = request(threads, from: channel)
+            let held = HeldRequests()
+            async let receiving: Void = receive(
+                from: channel, inbox: inbox, threads: threads, held: held, ready: ready)
+            async let requesting: Void = request(threads, from: channel, held: held)
             for await update in inbox.updates {
                 do {
                     try await store.save(update.mailbox)
@@ -37,14 +40,22 @@
 
         @MainActor
         private static func receive(
-            from channel: WristChannel, inbox: WristInboxModel, threads: WristThreads, ready: @MainActor () -> Void
+            from channel: WristChannel, inbox: WristInboxModel, threads: WristThreads, held: HeldRequests,
+            ready: @MainActor () -> Void
         ) async {
             for await event in channel.events {
                 switch event {
                 case .ready:
+                    // What was made before the session activated, or restored from the store, didn't go: the
+                    // iPhone runs each command once, so sending one again does no harm.
+                    for command in inbox.mailbox.pending where command.executor == .phone {
+                        await channel.send(command)
+                    }
+                    for id in held.take() { await request(id, from: channel, threads: threads, held: held) }
                     ready()
                 case .received(let data):
-                    if let reading = try? WristSnapshot.read(data) { inbox.receive(reading) }
+                    // What this app can't read was made by a newer one.
+                    inbox.receive((try? WristSnapshot.read(data)) ?? .newerVersion)
                 case .thread(let data):
                     if let reply = try? JSONDecoder().decode(WristThreadReply.self, from: data) {
                         threads.receive(reply)
@@ -56,10 +67,36 @@
         }
 
         @MainActor
-        private static func request(_ threads: WristThreads, from channel: WristChannel) async {
-            for await id in threads.requests where await !channel.request(id) {
-                threads.phoneIsAway(id)
+        private static func request(_ threads: WristThreads, from channel: WristChannel, held: HeldRequests) async {
+            for await id in threads.requests { await request(id, from: channel, threads: threads, held: held) }
+        }
+
+        /// Asks the iPhone for a conversation; one asked for before the session activated waits for `ready`, while
+        /// the conversation waits for its answer.
+        @MainActor
+        private static func request(
+            _ id: ThreadSummary.ID, from channel: WristChannel, threads: WristThreads, held: HeldRequests
+        ) async {
+            switch await channel.request(id) {
+            case .sent: break
+            case .notReady: held.hold(id)
+            case .unreachable: threads.phoneIsAway(id)
             }
+        }
+    }
+
+    /// The conversations asked for before the session activated, to ask for again once it is ready.
+    @MainActor
+    private final class HeldRequests {
+        private var ids: [ThreadSummary.ID] = []
+
+        func hold(_ id: ThreadSummary.ID) {
+            if !ids.contains(id) { ids.append(id) }
+        }
+
+        func take() -> [ThreadSummary.ID] {
+            defer { ids = [] }
+            return ids
         }
     }
 #endif

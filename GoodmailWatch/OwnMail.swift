@@ -40,17 +40,23 @@ final class OwnMail {
     }
 
     /// Runs `command` now and returns once it ran, as for an action on an alert, which the system may have launched
-    /// the app for: the host first follows the accounts of the stored `mailbox`, in case the app's run hasn't yet.
-    func perform(_ command: WristCommand, following mailbox: WristMailbox) async {
-        guard let host = await opening.value else { return }
-        do {
-            if let following = Following(mailbox) {
-                try await host.follow(following.accounts, independence: following.independence)
-            }
-            try await host.execute(command)
-        } catch {
-            Self.log.error("Couldn't run an alert's action on the watch: \(error, privacy: .public)")
-        }
+    /// the app for: the host first follows the accounts of the restored `mailbox`, in case the app's run hasn't yet.
+    /// Throws what running it threw; without the watch's own database it can't run, which throws too.
+    func perform(_ command: WristCommand, following mailbox: WristMailbox) async throws {
+        guard let host = await opening.value else { throw Unavailable() }
+        try await Self.follow(mailbox, on: host)
+        try await host.execute(command)
+    }
+
+    /// The watch's own database couldn't open.
+    nonisolated struct Unavailable: Error {}
+
+    /// Has `host` follow the accounts and the switch of `mailbox`, as before work the system launched the app for,
+    /// which can come before the app's run has followed the iPhone's snapshot. Nothing to follow before the iPhone
+    /// has sent one.
+    static func follow(_ mailbox: WristMailbox, on host: WristOwnHost) async throws {
+        guard let following = Following(mailbox) else { return }
+        try await host.follow(following.accounts, independence: following.independence)
     }
 
     /// Asks for `chore`, done after the ones asked before it.

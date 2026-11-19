@@ -32,4 +32,18 @@ struct WristStoreTests {
         try Data("not json".utf8).write(to: directory.appending(path: "wrist-mailbox.json"))
         #expect(await WristStore(directory: directory).load() == WristMailbox())
     }
+
+    /// What this build can't read, as after going back to an older build, is set aside rather than overwritten by
+    /// the next save, so the build that wrote it can still read it.
+    @Test func aFileItCantReadIsKeptAside() async throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let unreadable = Data("not json".utf8)
+        try unreadable.write(to: directory.appending(path: "wrist-mailbox.json"))
+        let store = WristStore(directory: directory)
+
+        _ = await store.load()
+        try await store.save(WristMailbox())
+
+        #expect(try Data(contentsOf: directory.appending(path: "wrist-mailbox.unreadable.json")) == unreadable)
+    }
 }

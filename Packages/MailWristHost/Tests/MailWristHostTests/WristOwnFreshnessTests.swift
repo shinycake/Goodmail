@@ -63,7 +63,7 @@ struct WristOwnFreshnessTests {
         async let refresh: Void = host.catchUp()
         while provider.changeRequests == before { await Task.yield() }
 
-        #expect(await host.checking == .running(lastChecked: Self.now))
+        #expect(await host.checking == .running(runs: 1, lastChecked: Self.now))
         #expect(await host.freshness() == .checking(lastChecked: Self.now))
         open.finish()
         await refresh
@@ -90,5 +90,17 @@ struct WristOwnFreshnessTests {
 
         #expect(await updates.next() == .some(.checking(lastChecked: nil)))
         #expect(await updates.next() == .some(.current(checkedAt: Self.now)))
+    }
+
+    /// A check at launch and a background catch-up can overlap: the footer says checking until both are done.
+    @Test func overlappingChecksRunUntilTheLastEnds() {
+        let earlier = Self.now.addingTimeInterval(-60)
+        var checking = WristOwnHost.Checking.idle(lastChecked: earlier)
+        checking.start()
+        checking.start()
+        checking.end(workedAt: Self.now)
+        #expect(checking == .running(runs: 1, lastChecked: Self.now))
+        checking.end(workedAt: nil)
+        #expect(checking == .idle(lastChecked: Self.now), "A check that failed after one worked keeps the later date")
     }
 }
