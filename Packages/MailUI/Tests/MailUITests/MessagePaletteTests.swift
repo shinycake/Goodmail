@@ -10,9 +10,9 @@ struct MessagePaletteTests {
         (MessageBody(html: #"<div style="color: rgb(0, 0, 0)">Sent from Goodmail</div>"#), .adaptive),
         (MessageBody(html: #"<div style="background-color: #FFFFFF; color: #333">Hi</div>"#), .adaptive),
         (MessageBody(html: #"<table bgcolor="white"><tr><td>Hi</td></tr></table>"#), .adaptive),
-        (MessageBody(html: ##"<table bgcolor="#f4f4f4"><tr><td>Sale</td></tr></table>"##), .lightSheet),
-        (MessageBody(html: #"<td style="background:#1a73e8;color:#fff">Open</td>"#), .lightSheet),
-        (MessageBody(html: #"<div style="background-image: url(cid:hero)">Hi</div>"#), .lightSheet),
+        (MessageBody(html: ##"<table bgcolor="#f4f4f4"><tr><td>Sale</td></tr></table>"##), .painted),
+        (MessageBody(html: #"<td style="background:#1a73e8;color:#fff">Open</td>"#), .painted),
+        (MessageBody(html: #"<div style="background-image: url(cid:hero)">Hi</div>"#), .painted),
         (
             MessageBody(
                 html:
@@ -79,7 +79,7 @@ struct MessageContrastTests {
         #expect(marks["white"]?.keys.sorted() == ["sheet"])
     }
 
-    @Test(arguments: [MessagePalette.sendersOwn, .lightSheet])
+    @Test(arguments: [MessagePalette.sendersOwn, .painted])
     func otherPalettesKeepTheSendersColors(palette: MessagePalette) async throws {
         let body = MessageBody(html: #"<div id="black" style="color: #000">Hi</div>"#)
         let marks = try await marks(in: body, palette: palette)

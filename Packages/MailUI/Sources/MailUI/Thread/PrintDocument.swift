@@ -4,13 +4,13 @@ import MailCore
 /// One message as a printed page shows it: the conversation's subject over the first message, then who wrote to
 /// whom and when, then the body as the reader shows it. Pure, so what goes on paper is testable.
 nonisolated enum PrintDocument {
-    /// The body's document (`MessageDocument`), with the message's headers leading its `<body>` and paper styles.
-    /// Paper is a light sheet whatever the screen's appearance, so every body keeps the colors its sender set.
+    /// The body's document (`MessageDocument`) in the reader's palette, with the message's headers leading its
+    /// `<body>` and paper styles. Its colors follow the appearance its web view is given, as the card's do.
     static func html(
         for message: Message, subject: String?, dateText: String, allowsRemoteContent: Bool
     ) -> String {
         let document = MessageDocument.html(
-            for: message.body, palette: .lightSheet, allowsRemoteContent: allowsRemoteContent)
+            for: message.body, palette: MessagePalette.of(message.body), allowsRemoteContent: allowsRemoteContent)
         let withStyle = MessageDocument.inject(head: paperStyle, into: document)
         return inject(body: header(for: message, subject: subject, dateText: dateText), into: withStyle)
     }
@@ -50,12 +50,13 @@ nonisolated enum PrintDocument {
         return html + document
     }
 
-    /// Paper is white: dark mode's colors stay on screen.
+    /// The page is the sheet (`ConversationPDF.sheet`), and the headers read on it in either appearance. A palette that paints its own page
+    /// comes later in the head and wins.
     private static let paperStyle = """
         <style>\
-        :root { color-scheme: light only; }\
-        header.goodmail-print { font: 12px -apple-system; color: #000; margin-bottom: 16px; padding-bottom: 8px; \
-        border-bottom: 1px solid #ccc; }\
+        :root { color-scheme: light dark; background-color: light-dark(#fff, rgb(28, 28, 30)); }\
+        header.goodmail-print { font: 12px -apple-system; color: light-dark(#000, #fff); margin-bottom: 16px; \
+        padding-bottom: 8px; border-bottom: 1px solid light-dark(#ccc, #48484a); }\
         header.goodmail-print h1 { font: bold 20px ui-serif, "New York", serif; margin: 0 0 8px; }\
         header.goodmail-print div { margin: 2px 0; }\
         </style>

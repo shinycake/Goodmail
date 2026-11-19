@@ -8,16 +8,18 @@ nonisolated enum MessagePalette: String, CaseIterable, Sendable {
     /// appearance, and any color the sender gave text that is too faint on the card is lightened or darkened, keeping
     /// its hue, in that appearance.
     case adaptive
-    /// The sender styled a dark appearance themselves, with `prefers-color-scheme` or `color-scheme`. Theirs decides.
+    /// The sender styled a dark appearance themselves, with `prefers-color-scheme` or `color-scheme`. Theirs decides,
+    /// and the script's dark pass catches what it missed, such as a white panel their dark rules never reached.
     case sendersOwn
-    /// The sender painted backgrounds for a light page, as newsletters do. The body keeps every color it set and sits
-    /// on a white sheet in both appearances, since recoloring its text would break it against its own backgrounds.
-    case lightSheet
+    /// The sender painted backgrounds for a light page, as newsletters do. In light it is a white sheet with every
+    /// color the sender set. In dark the script's dark pass turns it over as Gmail does: light backgrounds darken,
+    /// text that would then be too faint lightens, and the sender's dark brand colors stay.
+    case painted
 
     static func of(_ body: MessageBody) -> MessagePalette {
         guard let html = body.html, !html.isEmpty else { return .adaptive }
         if html.range(of: darkSupport, options: [.regularExpression, .caseInsensitive]) != nil { return .sendersOwn }
-        return paintedBackgrounds(in: html).contains { !isBlank($0) } ? .lightSheet : .adaptive
+        return paintedBackgrounds(in: html).contains { !isBlank($0) } ? .painted : .adaptive
     }
 
     /// The colors and images the markup paints behind content: `bgcolor` and `background` attributes, and the
@@ -70,9 +72,25 @@ nonisolated enum MessagePalette: String, CaseIterable, Sendable {
             </style>
             """
         case .sendersOwn:
-            "<style>:root { color-scheme: light dark; }</style>"
-        case .lightSheet:
-            "<style>:root { color-scheme: light; background-color: #fff; } body { padding: 12px; }</style>"
+            "<style>:root { color-scheme: light dark; }</style>\(Self.darkPassStyle)"
+        case .painted:
+            """
+            <style>:root { color-scheme: light dark; background-color: light-dark(#fff, \(MessageDarkPass.sheet)); }\
+            body { padding: 12px; }</style>\(Self.darkPassStyle)
+            """
         }
     }
+
+    /// Applies the marks the script's dark pass sets (`MessageDarkPass`), in dark appearance only, so the sun button
+    /// shows the sender's own colors again without a reload.
+    private static let darkPassStyle = """
+        <style>@media (prefers-color-scheme: dark) {\
+        [data-goodmail-dark-paper] { background-color: var(--goodmail-dark-paper) !important; }\
+        [data-goodmail-dark-ink] { color: var(--goodmail-dark-ink) !important; }\
+        [data-goodmail-dark-border] { border-top-color: var(--goodmail-dark-border-top) !important; \
+        border-right-color: var(--goodmail-dark-border-right) !important; \
+        border-bottom-color: var(--goodmail-dark-border-bottom) !important; \
+        border-left-color: var(--goodmail-dark-border-left) !important; }\
+        }</style>
+        """
 }

@@ -10,7 +10,8 @@ final class PreparedWebView {
     let webView: WKWebView
     let cidHandler = CIDSchemeHandler()
     let messageHandler = MessageHandler()
-    private static let world = WKContentWorld.world(name: "goodmail")
+    /// Where our script runs, apart from the page.
+    static let world = WKContentWorld.world(name: "goodmail")
 
     init() {
         let configuration = WKWebViewConfiguration()
@@ -22,7 +23,8 @@ final class PreparedWebView {
             localized: "Show Quoted Text", table: "Thread", bundle: .module, comment: "Accessibility label of the fold")
         configuration.userContentController.addUserScript(
             WKUserScript(
-                source: MessageScript.source(foldLabel: label), injectionTime: .atDocumentEnd, forMainFrameOnly: true,
+                source: MessageScript.source(for: .reader(foldLabel: label)), injectionTime: .atDocumentEnd,
+                forMainFrameOnly: true,
                 in: Self.world))
         configuration.userContentController.add(
             messageHandler, contentWorld: Self.world, name: MessageScript.handlerName)

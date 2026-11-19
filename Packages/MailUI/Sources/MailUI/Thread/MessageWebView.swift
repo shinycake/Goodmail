@@ -85,8 +85,8 @@ final class MessageWebView: UIView {
             let rules = webView.configuration.userContentController
             rules.removeAllContentRuleLists()
             if let blocker { rules.add(blocker) }
-            // A light sheet is a page of its own on the card, so it gets the card's rounded corners.
-            webView.layer.cornerRadius = palette == .lightSheet ? 12 : 0
+            // A painted body is a sheet of its own on the card, so it gets the card's rounded corners.
+            webView.layer.cornerRadius = palette == .painted ? 12 : 0
             navigation = webView.loadHTMLString(html, baseURL: nil)
         }
     }

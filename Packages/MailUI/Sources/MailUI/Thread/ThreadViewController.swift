@@ -390,11 +390,19 @@ public final class ThreadViewController: UIViewController {
         viewModel.thread.subject.isEmpty ? ThreadRowMetrics.noSubject : viewModel.thread.subject
     }
 
-    /// The conversation as it is now, for Share and Print.
+    /// The conversation as it is now, for Share and Print. Each message keeps the appearance it shows in: its card's,
+    /// or the app's for one without a card and in the chat layout, whose bubbles follow the app.
     private var exportedConversation: ConversationExporter.Conversation {
-        ConversationExporter.Conversation(
+        let shown: [Message.ID: UIUserInterfaceStyle] =
+            switch viewModel.layout {
+            case .classic: cards.mapValues(\.shownStyle)
+            case .chat: [:]
+            }
+        let app: UIUserInterfaceStyle = traitCollection.userInterfaceStyle == .dark ? .dark : .light
+        return ConversationExporter.Conversation(
             subject: displaySubject,
-            messages: viewModel.messages, allowsRemoteContent: viewModel.remoteContentAllowed,
+            messages: viewModel.messages, appearance: { shown[$0] ?? app },
+            allowsRemoteContent: viewModel.remoteContentAllowed,
             attachmentData: viewModel.attachmentData, source: viewModel.source)
     }
 

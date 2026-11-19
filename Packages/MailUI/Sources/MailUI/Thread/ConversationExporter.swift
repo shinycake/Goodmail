@@ -10,10 +10,14 @@ final class ConversationExporter {
         case share(ExportFormat)
     }
 
-    /// What one export reads: the messages, what each may load, where their inline images and raw sources come from.
+    /// What one export reads: the messages, the appearance each shows in as it is shared, what each may load, and
+    /// where their inline images and raw sources come from.
     struct Conversation {
         let subject: String
         let messages: [Message]
+        /// Light or dark, as the reader shows the message at the moment of sharing, sun button included. The PDF and
+        /// print follow it; text, `.eml` and `.mbox` carry no colors of their own.
+        let appearance: (Message.ID) -> UIUserInterfaceStyle
         let allowsRemoteContent: Set<Message.ID>
         let attachmentData: (Attachment, Message.ID) async throws -> Data
         let source: (Message.ID) async throws -> Data
@@ -107,7 +111,7 @@ final class ConversationExporter {
 
     private static func pdf(of conversation: Conversation) async throws -> Data {
         try await ConversationPDF.data(
-            for: conversation.messages, subject: conversation.subject,
+            for: conversation.messages, subject: conversation.subject, appearance: conversation.appearance,
             allowsRemoteContent: conversation.allowsRemoteContent, attachmentData: conversation.attachmentData)
     }
 

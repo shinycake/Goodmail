@@ -11,13 +11,17 @@ struct MessageScriptPage {
     let reportedHeight: Double
 
     /// Returns once the script has reported, which it does after every pass over the page. The view starts as tall as
-    /// `height`; the reader's starts 1 point tall and grows to what the script reports.
-    static func load(_ body: MessageBody, palette: MessagePalette, height: Double = 600) async -> MessageScriptPage {
+    /// `height`; the reader's starts 1 point tall and grows to what the script reports. It shows in `style`.
+    static func load(
+        _ body: MessageBody, palette: MessagePalette, height: Double = 600, style: UIUserInterfaceStyle = .light
+    ) async -> MessageScriptPage {
         let view = WKWebView(frame: CGRect(x: 0, y: 0, width: 360, height: height))
+        view.overrideUserInterfaceStyle = style
         let contents = view.configuration.userContentController
         contents.addUserScript(
             WKUserScript(
-                source: MessageScript.source(foldLabel: "Show Quoted Text"), injectionTime: .atDocumentEnd,
+                source: MessageScript.source(for: .reader(foldLabel: "Show Quoted Text")),
+                injectionTime: .atDocumentEnd,
                 forMainFrameOnly: true))
         let reports = Reports()
         contents.add(reports, name: MessageScript.handlerName)
