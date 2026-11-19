@@ -4,13 +4,17 @@ import Foundation
     import CoreGraphics
 #endif
 
-/// How each kind moves: everything falls with the world, and bad guys and lures fall faster than it.
+/// How each kind moves: everything falls with the world, and most bad guys and every hazard fall faster than it.
 extension PlaneGameThing {
-    /// Moves it on by `dt` with the world falling at `speed`, on `field`, keeping its x inside the lanes. A lure is
-    /// the one thing that isn't kept in: it spreads until it is past a side edge.
-    mutating func move(by dt: TimeInterval, speed: CGFloat, towardX planeX: CGFloat, on field: PlaneGameField) {
+    /// Moves it on by `dt` with the world falling at `speed`, on `field`, keeping its x inside the lanes. Bad guys'
+    /// own speeds are `hurry` times as fast. Hazards are the things that aren't kept in: they slide on until they are
+    /// past a side edge.
+    mutating func move(
+        by dt: TimeInterval, speed: CGFloat, hurry: CGFloat, towardX planeX: CGFloat, on field: PlaneGameField
+    ) {
         age += dt
-        position.y += (speed + kind.extraSpeed * field.pace) * dt
+        let hurry: CGFloat = if case .badGuy = kind.role { hurry } else { 1 }
+        position.y += (speed + kind.extraSpeed * hurry * field.pace) * dt
         switch kind {
         case .stamp:
             turn += PlaneGameRules.stampSpin * dt
@@ -19,16 +23,16 @@ extension PlaneGameThing {
         case .spam:
             position.x = lane + PlaneGameRules.spamWeave * swingPhase(PlaneGameRules.spamWeavePeriod)
         case .phish:
-            let reach = PlaneGameRules.phishDrift * dt
+            let reach = PlaneGameRules.phishDrift * hurry * dt
             position.x += min(max(planeX - position.x, -reach), reach)
         case .star:
             turn += PlaneGameRules.starSpin * dt
-        case .lure:
+        case .lure, .reply:
             position.x += drift * dt
-        case .heart, .spread, .rapid, .shield, .sweep:
+        case .heart, .spread, .rapid, .shield, .sweep, .bulk:
             break
         }
-        if kind != .lure { position.x = field.lanes.clamping(position.x) }
+        if kind.role != .hazard { position.x = field.lanes.clamping(position.x) }
     }
 
     private func swingPhase(_ period: TimeInterval) -> CGFloat {
@@ -43,7 +47,8 @@ extension PlaneGameThing.Kind {
         case .spam: PlaneGameRules.spamExtraSpeed
         case .phish: PlaneGameRules.phishExtraSpeed
         case .lure: PlaneGameRules.lureExtraSpeed
-        case .stamp, .postmark, .star, .heart, .spread, .rapid, .shield, .sweep: 0
+        case .reply: PlaneGameRules.replyExtraSpeed
+        case .stamp, .postmark, .star, .heart, .spread, .rapid, .shield, .sweep, .bulk: 0
         }
     }
 
@@ -52,7 +57,7 @@ extension PlaneGameThing.Kind {
         switch self {
         case .postmark: PlaneGameRules.postmarkSway / 2
         case .spam: PlaneGameRules.spamWeave
-        case .stamp, .phish, .star, .heart, .spread, .rapid, .shield, .sweep, .lure: 0
+        case .stamp, .phish, .star, .heart, .spread, .rapid, .shield, .sweep, .lure, .reply, .bulk: 0
         }
     }
 }

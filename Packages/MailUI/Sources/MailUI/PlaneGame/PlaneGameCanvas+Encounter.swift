@@ -3,16 +3,25 @@ import SwiftUI
 
 /// The boss and the power-ups on the plane, drawn into the game's canvas.
 extension PlaneGameCanvas {
-    /// The boss, on paper, or washed pink for the instant after a shot strikes it.
+    /// The boss, every body of it, on paper, or washed pink for the instant after a shot strikes it, with Out of
+    /// Office's sign as a dotted ring and a later tier's anger marks.
     func drawBoss(in context: inout GraphicsContext, ink: GraphicsContext.Shading) {
         guard let boss = frame.boss, boss.opacity > 0 else { return }
         let art = PlaneGameArt.boss(boss.kind)
+        let outline = PlaneGameArt.body(boss.kind)
         let size = PlaneGameArt.size(of: boss.kind)
-        let placed = CGAffineTransform.identity.translatedBy(boss.position).scaledBy(x: size, y: size)
         let body = boss.isFlashing ? DoodlePalette.pink.opacity(0.35) : Color(uiColor: .systemBackground)
+        let anger = PlaneGameArt.anger(marks: boss.tier)
         context.opacity = frame.play * boss.opacity
-        context.fill(art.line.applying(placed), with: .color(body))
-        context.stroke(art.line.applying(placed), with: ink, style: DoodleField.line)
+        for position in [boss.position] + boss.copies {
+            let placed = CGAffineTransform.identity.translatedBy(position).scaledBy(x: size, y: size)
+            context.fill(outline.applying(placed), with: .color(body))
+            context.stroke(art.line.applying(placed), with: ink, style: DoodleField.line)
+            context.stroke(anger.applying(placed), with: ink, style: DoodleField.line)
+            if boss.isShielded {
+                context.stroke(PlaneGameArt.shieldRing.applying(placed), with: ink, style: DoodleField.dots)
+            }
+        }
         context.opacity = frame.play
     }
 

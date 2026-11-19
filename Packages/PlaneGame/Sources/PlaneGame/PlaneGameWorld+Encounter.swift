@@ -12,6 +12,15 @@ enum Encounter: Equatable, Sendable {
     /// Arrivals have stopped and the field is emptying before boss `number` comes on.
     case clearing(number: Int, elapsed: TimeInterval)
     case boss(PlaneGameBoss)
+
+    /// The round being played: the number of the boss that ends it.
+    var round: Int {
+        switch self {
+        case .waves(_, let next): next
+        case .clearing(let number, _): number
+        case .boss(let boss): boss.number
+        }
+    }
 }
 
 /// The encounter over time. `stepEncounter(by:)` is the one place it changes from one case to the next.
@@ -22,21 +31,21 @@ extension PlaneGameWorld {
     }
 
     /// Moves the encounter on by `dt` and puts on the field whatever it sends: ordinary arrivals, a boss's attacks,
-    /// or what a beaten boss leaves.
+    /// or what a beaten boss leaves. Beating a boss starts the next round.
     mutating func stepEncounter(by dt: TimeInterval) {
         switch encounter {
         case .waves(let played, let next):
-            let wait = next == 1 ? PlaneGameRules.firstBossAfter : PlaneGameRules.nextBossAfter
             // A plane on its way down meets no boss.
-            guard played + dt < wait || plane.isDown else {
+            guard played + dt < PlaneGameRules.wavesBefore(boss: next) || plane.isDown else {
                 encounter = .clearing(number: next, elapsed: 0)
                 return
             }
             encounter = .waves(played: played + dt, next: next)
             let openings = PlaneGameSpawner.Openings(
-                livesMissing: lives < PlaneGameRules.lives, powerUpInPlay: things.contains { $0.kind.isPowerUp })
+                livesMissing: lives < PlaneGameRules.lives, powerUpInPlay: things.contains { $0.kind.isPowerUp },
+                round: next)
             for arrival in spawner.arrivals(at: elapsed, in: field, openings: openings, using: &generator) {
-                add(arrival.kind, at: arrival.position)
+                send(arrival.kind, at: arrival.position)
             }
         case .clearing(let number, let elapsed):
             let now = elapsed + dt
@@ -46,18 +55,36 @@ extension PlaneGameWorld {
                 isClear || now >= PlaneGameRules.clearingAtMost
                 ? .boss(PlaneGameBoss(number: number, on: field)) : .clearing(number: number, elapsed: now)
         case .boss(var boss):
-            let sent = boss.advance(by: dt, towardX: plane.position.x, on: field, attacking: !plane.isDown)
+            let bodies = boss.bodies.count
+            let sent = boss.advance(
+                by: dt, towardX: plane.position.x, on: field, scroll: speed, attacking: !plane.isDown)
             for thing in sent {
-                add(thing.kind, at: thing.position, drift: thing.drift)
+                send(thing.kind, at: thing.position, drift: thing.drift)
+            }
+            // A Mailing List that clones itself re-forms: every body pops where it now is.
+            if boss.bodies.count != bodies {
+                for body in boss.bodies {
+                    burst(.pop(points: 0), at: body)
+                }
             }
             guard boss.isGone else {
                 encounter = .boss(boss)
                 return
             }
             leaveDrops(of: boss)
-            spawner.resume(at: elapsed, on: field)
+            spawner.resume(at: elapsed, on: field, round: boss.number + 1)
             encounter = .waves(played: 0, next: boss.number + 1)
         }
+    }
+
+    /// A shot reaches a fighting boss at `point`: it strikes it, or Out of Office's sign stops it, taking no hit and
+    /// sending it straight back as a reply if it was fired after the sign went up.
+    mutating func shotReachesBoss(at point: CGPoint) -> [PlaneGameEvent] {
+        guard let boss, boss.isShielded else { return strikeBoss(1, at: point) }
+        burst(.tick, at: point)
+        let firedAgo = (field.row - PlaneGameRules.planeRadius - point.y) / PlaneGameRules.shotSpeed
+        if boss.bounces(shotFiredAgo: TimeInterval(firedAgo)) { send(.reply, at: point) }
+        return []
     }
 
     /// Takes `count` hits off a fighting boss, struck at `point`. The last one beats it: its points are scored and

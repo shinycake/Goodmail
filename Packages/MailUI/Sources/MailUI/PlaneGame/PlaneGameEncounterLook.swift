@@ -36,6 +36,12 @@ nonisolated struct PlaneGameKit: Equatable, Sendable {
 nonisolated struct PlaneGameBossSprite: Equatable, Sendable {
     let kind: PlaneGameBoss.Kind
     let position: CGPoint
+    /// A Mailing List's other bodies, shaken along with it.
+    let copies: [CGPoint]
+    /// Out of Office's sign is up.
+    let isShielded: Bool
+    /// How many times the roster has come round before it, which its anger marks show.
+    let tier: Int
     let opacity: Double
     /// A shot struck it just now.
     let isFlashing: Bool
@@ -66,9 +72,12 @@ nonisolated struct PlaneGameBossSprite: Equatable, Sendable {
     /// last third; with Reduce Motion on it holds still, doesn't flash, and its points don't rise.
     init(boss: PlaneGameBoss, sinceStruck: TimeInterval?, reduceMotion: Bool) {
         kind = boss.kind
+        tier = boss.tier
+        isShielded = boss.isShielded
         isFlashing = !reduceMotion && sinceStruck.map { $0 < PlaneGameBurst.flash } == true
         guard case .falling(let elapsed) = boss.status else {
             position = boss.position
+            copies = boss.copies
             opacity = 1
             bursts = []
             points = nil
@@ -78,6 +87,7 @@ nonisolated struct PlaneGameBossSprite: Equatable, Sendable {
         let calming = 1 - PlaneGameEasing.ramp(elapsed, from: 0, to: fall)
         let shake = reduceMotion ? 0 : 4 * CGFloat(sin(elapsed * 70) * calming)
         position = CGPoint(x: boss.position.x + shake, y: boss.position.y)
+        copies = boss.copies.map { CGPoint(x: $0.x + shake, y: $0.y) }
         opacity = 1 - PlaneGameEasing.ramp(elapsed, from: fall * 2 / 3, to: fall)
         bursts = zip(Self.burstTimes, Self.burstPlaces).compactMap { start, place in
             let progress = (elapsed - start) / Self.burstLength
@@ -107,8 +117,11 @@ nonisolated struct PlaneGameBossLine: Equatable, Sendable {
     /// The longest the line is.
     static let width: CGFloat = 160
 
-    /// The line for `boss`: it draws itself in as the boss slides in, shortens with each hit, and fades as it
-    /// falls. With Reduce Motion on it is simply there.
+    /// How faint the line is while Out of Office's sign is up and shots don't count.
+    static let shieldedOpacity = 0.45
+
+    /// The line for `boss`: it draws itself in as the boss slides in, shortens with each hit, dims while its sign is
+    /// up, and fades as it falls. With Reduce Motion on it is simply there.
     init(boss: PlaneGameBoss, reduceMotion: Bool) {
         kind = boss.kind
         hitsLeft = boss.hitsLeft
@@ -119,7 +132,7 @@ nonisolated struct PlaneGameBossLine: Equatable, Sendable {
             opacity = 1
         case .fighting:
             drawn = 1
-            opacity = 1
+            opacity = boss.isShielded ? Self.shieldedOpacity : 1
         case .falling(let elapsed):
             drawn = 1
             opacity = 1 - PlaneGameEasing.ramp(elapsed, from: 0, to: PlaneGameRules.bossFall / 2)

@@ -14,6 +14,8 @@ nonisolated enum PlaneGameArt {
         case .heart: heart
         case .spread, .rapid, .shield, .sweep: powerUp(kind)
         case .lure: lure
+        case .reply: reply
+        case .bulk: bulk
         }
     }
 
@@ -27,7 +29,8 @@ nonisolated enum PlaneGameArt {
         case .star: .star
         case .heart: .heart
         case .spread, .rapid, .shield, .sweep: .ring
-        case .lure: .at
+        case .lure, .reply: .at
+        case .bulk: .envelope
         }
     }
 
@@ -41,6 +44,8 @@ nonisolated enum PlaneGameArt {
         case .star, .heart: 24
         case .spread, .rapid, .shield, .sweep: 30
         case .lure: 16
+        case .reply: 18
+        case .bulk: 46
         }
     }
 
@@ -102,7 +107,7 @@ nonisolated enum PlaneGameArt {
 
     /// The envelope frowning, with dot eyes under slanted brows. Drawn below the flap, where the envelope is plain,
     /// and bold enough to read at 38 points.
-    private static let spam: DoodleArt = {
+    static let spam: DoodleArt = {
         var art = shape(of: .spam).art
         art.line.addPath(brows(inner: CGPoint(x: 0.08, y: 0.15), outer: CGPoint(x: 0.30, y: 0.06)))
         for side in [-1.0, 1.0] {
@@ -119,7 +124,7 @@ nonisolated enum PlaneGameArt {
     }()
 
     /// Two brows slanting down toward the middle, from `outer` to `inner` on the right and mirrored on the left.
-    private static func brows(inner: CGPoint, outer: CGPoint) -> Path {
+    static func brows(inner: CGPoint, outer: CGPoint) -> Path {
         var path = Path()
         for side in [-1.0, 1.0] {
             path.move(to: CGPoint(x: side * outer.x, y: outer.y))

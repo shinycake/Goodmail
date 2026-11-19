@@ -52,13 +52,25 @@ public struct PlaneGameWorld: Equatable, Sendable {
             status: .launching(path, elapsed: -setOff))
     }
 
-    /// Points a second the world is falling now, on the screen.
+    /// Points a second the world is falling now, on the screen: faster over the first two minutes, and faster again
+    /// each round.
     public var speed: CGFloat {
         guard elapsed > setOff else { return 0 }
         let hardening = min(elapsed / PlaneGameRules.hardeningTime, 1)
         let cruising =
             PlaneGameRules.cruisingSpeed + (PlaneGameRules.topSpeed - PlaneGameRules.cruisingSpeed) * hardening
-        return cruising * field.pace * FlightPath.smoothstep((elapsed - setOff) / PlaneGameRules.rampTime)
+        return cruising * heat.scroll * field.pace
+            * FlightPath.smoothstep((elapsed - setOff) / PlaneGameRules.rampTime)
+    }
+
+    /// The round being played: the number of the boss that ends it.
+    public var round: Int {
+        encounter.round
+    }
+
+    /// How hard this round plays.
+    var heat: PlaneGameHeat {
+        PlaneGameHeat(round: round)
     }
 
     /// The plane has fallen off the field.
@@ -108,8 +120,15 @@ public struct PlaneGameWorld: Equatable, Sendable {
         }
     }
 
-    /// Puts a thing of `kind` at `position`, sliding sideways at `drift`. Arrivals come through here, and tests place
-    /// things with it.
+    /// Puts a thing of `kind` at `position`, sliding sideways at `drift`, unless the field already holds all it can.
+    /// Arrivals, what a boss sends and the replies Out of Office sends back come through here.
+    mutating func send(_ kind: PlaneGameThing.Kind, at position: CGPoint, drift: CGFloat = 0) {
+        guard things.count < PlaneGameRules.fieldHolds else { return }
+        add(kind, at: position, drift: drift)
+    }
+
+    /// Puts a thing of `kind` at `position`, sliding sideways at `drift`, however full the field is. A beaten boss's
+    /// drops come through here, and tests place things with it.
     mutating func add(_ kind: PlaneGameThing.Kind, at position: CGPoint, drift: CGFloat = 0) {
         things.append(PlaneGameThing(id: takeID(), kind: kind, position: position, drift: drift))
     }

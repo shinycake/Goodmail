@@ -52,13 +52,13 @@ struct PlaneGameEncounterLookTests {
         }
         #expect(drawn.first == 0)
         #expect(zip(drawn, drawn.dropFirst()).allSatisfy { $0 <= $1 })
-        #expect(PlaneGameBossLine(boss: boss(.fighting(sinceAttack: 0)), reduceMotion: false).drawn == 1)
+        #expect(PlaneGameBossLine(boss: boss(.fighting(sinceAttack: 0, attacks: 0)), reduceMotion: false).drawn == 1)
         #expect(PlaneGameBossLine(boss: boss(.arriving(elapsed: 0)), reduceMotion: true).drawn == 1)
     }
 
     @Test func theLineShortensWithEachHit() {
         let lefts = (0...20).reversed().map {
-            PlaneGameBossLine(boss: boss(.fighting(sinceAttack: 0), hitsLeft: $0), reduceMotion: false).left
+            PlaneGameBossLine(boss: boss(.fighting(sinceAttack: 0, attacks: 0), hitsLeft: $0), reduceMotion: false).left
         }
         #expect(lefts.first == 1)
         #expect(lefts.last == 0)
@@ -74,7 +74,7 @@ struct PlaneGameEncounterLookTests {
     // MARK: The boss
 
     @Test func aStruckBossFlashesBrieflyAndNeverWithReduceMotion() {
-        let fighting = boss(.fighting(sinceAttack: 0))
+        let fighting = boss(.fighting(sinceAttack: 0, attacks: 0))
         #expect(PlaneGameBossSprite(boss: fighting, sinceStruck: 0.02, reduceMotion: false).isFlashing)
         #expect(!PlaneGameBossSprite(boss: fighting, sinceStruck: 0.1, reduceMotion: false).isFlashing)
         #expect(!PlaneGameBossSprite(boss: fighting, sinceStruck: nil, reduceMotion: false).isFlashing)
@@ -85,7 +85,7 @@ struct PlaneGameEncounterLookTests {
         let frames = stride(from: 0, to: PlaneGameRules.bossFall, by: 1.0 / 60).map {
             PlaneGameBossSprite(boss: boss(.falling(elapsed: $0), hitsLeft: 0), sinceStruck: nil, reduceMotion: false)
         }
-        let rest = boss(.fighting(sinceAttack: 0)).position
+        let rest = boss(.fighting(sinceAttack: 0, attacks: 0)).position
         #expect(frames.contains { $0.position.x != rest.x })
         #expect(Set(frames.flatMap(\.bursts).map(\.position.x)).count == 3)
         let first = try #require(frames.first?.points)
@@ -99,7 +99,7 @@ struct PlaneGameEncounterLookTests {
         let frames = stride(from: 0, to: PlaneGameRules.bossFall, by: 1.0 / 60).map {
             PlaneGameBossSprite(boss: boss(.falling(elapsed: $0), hitsLeft: 0), sinceStruck: nil, reduceMotion: true)
         }
-        let rest = boss(.fighting(sinceAttack: 0)).position
+        let rest = boss(.fighting(sinceAttack: 0, attacks: 0)).position
         #expect(frames.allSatisfy { $0.position == rest })
         #expect(frames.allSatisfy { $0.points?.position == rest })
     }

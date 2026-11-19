@@ -22,23 +22,10 @@ struct PlaneGameBossMeter: View {
         .opacity(line.opacity)
         .padding(.top, 2)
         .accessibilityElement()
-        .accessibilityLabel(name)
+        .accessibilityLabel(PlaneGameBossName.of(line.kind))
         .accessibilityValue(
             Text(
                 "\(line.hitsLeft) hits left", tableName: "PlaneGame", bundle: .module,
                 comment: "How many hits the boss in the paper plane game can still take, read by VoiceOver"))
-    }
-
-    private var name: Text {
-        switch line.kind {
-        case .junk:
-            Text(
-                "Junk Mail", tableName: "PlaneGame", bundle: .module,
-                comment: "A boss in the paper plane game: a spam envelope wearing a crown")
-        case .phisher:
-            Text(
-                "The Phisher", tableName: "PlaneGame", bundle: .module,
-                comment: "A boss in the paper plane game: an at sign that casts hooks")
-        }
     }
 }

@@ -30,8 +30,9 @@ extension PlaneGameWorld {
     }
 
     private mutating func moveThings(by dt: TimeInterval, speed: CGFloat) {
+        let hurry = heat.hurry
         for index in things.indices {
-            things[index].move(by: dt, speed: speed, towardX: plane.position.x, on: field)
+            things[index].move(by: dt, speed: speed, hurry: hurry, towardX: plane.position.x, on: field)
         }
         let across = -PlaneGameRules.leaveBeyond...field.size.width + PlaneGameRules.leaveBeyond
         things.removeAll {
@@ -47,7 +48,7 @@ extension PlaneGameWorld {
     }
 
     /// Shots stop on the first obstacle, bad guy or fighting boss they touch, and pass over pickups and through
-    /// lures.
+    /// hazards. One that reaches Out of Office's sign comes straight back as a reply.
     private mutating func collideShots() -> [PlaneGameEvent] {
         var events: [PlaneGameEvent] = []
         var flying: [PlaneGameShot] = []
@@ -58,7 +59,7 @@ extension PlaneGameWorld {
                 })
             else {
                 if let boss, boss.canBeHit, boss.touches(shot.position, within: PlaneGameRules.shotRadius) {
-                    events += strikeBoss(1, at: shot.position)
+                    events += shotReachesBoss(at: shot.position)
                 } else {
                     flying.append(shot)
                 }
@@ -81,8 +82,8 @@ extension PlaneGameWorld {
         return events
     }
 
-    /// The plane catches pickups while it is in play, and loses a life to the first obstacle, bad guy or lure it
-    /// touches while it can be hit. A bad guy or lure that hits it is destroyed; an obstacle stays.
+    /// The plane catches pickups while it is in play, and loses a life to the first obstacle, bad guy or hazard it
+    /// touches while it can be hit. A bad guy or hazard that hits it is destroyed; an obstacle stays.
     private mutating func collidePlane() -> [PlaneGameEvent] {
         guard plane.isInPlay else { return [] }
         var events: [PlaneGameEvent] = []

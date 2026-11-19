@@ -169,26 +169,49 @@ struct BossTests {
     }
 
     @Test(arguments: [
-        (1, 20, PlaneGameBoss.Kind.junk), (2, 28, .phisher), (3, 36, .junk), (4, 44, .phisher), (9, 44, .junk),
+        (1, 20, PlaneGameBoss.Kind.junk), (2, 28, .phisher), (3, 35, .storm), (4, 40, .outOfOffice),
+        (5, 45, .mailingList), (6, 49, .overload), (7, 53, .junk), (13, 68, .junk), (100, 100, .outOfOffice),
     ])
-    func bossesTakeTurnsWithEightMoreHitsEachUpToFortyFour(number: Int, hits: Int, kind: PlaneGameBoss.Kind) {
+    func bossesComeInRosterOrderWithMoreHitsEachTime(number: Int, hits: Int, kind: PlaneGameBoss.Kind) {
         let boss = PlaneGameBoss(number: number, on: phoneField)
         #expect(boss.hits == hits)
         #expect(boss.kind == kind)
         #expect(boss.points == 250 * number)
     }
 
-    @Test(arguments: windowFields)
-    func aResizeKeepsTheBossInsideTheLanesAndUnderTheCeiling(field: PlaneGameField) throws {
+    @Test func hitsKeepRisingAndNeverPassTheirMost() {
+        let hits = (1...10_000).map { PlaneGameBoss(number: $0, on: phoneField).hits }
+        #expect(zip(hits, hits.dropFirst()).allSatisfy { $0 <= $1 })
+        #expect(hits.allSatisfy { $0 <= PlaneGameRules.bossFirstHits + PlaneGameRules.bossHitsGrowth })
+    }
+
+    @Test(arguments: 1...12)
+    func everyBossSlidesInFightsFallsAndLeavesItsDrops(number: Int) throws {
+        var world = PlaneGameWorld.flying()
+        world.meetBoss(number)
+        let boss = try #require(world.boss)
+        #expect(boss.canBeHit)
+        #expect(boss.position.y == phoneField.ceiling + boss.radius)
+        #expect(world.round == number)
+        world.things.removeAll()
+        world.beatBoss()
+        world.run(for: PlaneGameRules.bossFall + frame)
+        #expect(world.boss == nil)
+        #expect(world.things.count == 2)
+        #expect(world.round == number + 1)
+    }
+
+    @Test(arguments: windowFields, 1...6)
+    func aResizeKeepsTheBossInsideTheLanesAndUnderTheCeiling(field: PlaneGameField, number: Int) throws {
         for settled in [false, true] {
             var world = PlaneGameWorld.flying()
-            world.meetBoss()
+            world.meetBoss(number)
             if !settled { world.changeBoss { $0.status = .arriving(elapsed: 0.7) } }
             world.resize(to: field)
             for _ in 0..<300 {
                 let boss = try #require(world.boss)
-                #expect(field.lanes(inset: boss.radius).contains(boss.position.x))
-                #expect(boss.position.y <= field.ceiling + boss.radius)
+                #expect(boss.bodies.allSatisfy { field.lanes(inset: boss.radius).contains($0.x) })
+                #expect(boss.bodies.allSatisfy { $0.y <= field.ceiling + boss.radius })
                 world.advance(by: frame, input: PlaneGameInput(slide: 3))
             }
             let boss = try #require(world.boss)

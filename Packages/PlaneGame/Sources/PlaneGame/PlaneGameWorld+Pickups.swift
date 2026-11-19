@@ -27,7 +27,7 @@ extension PlaneGameWorld {
             if let boss {
                 return [.powered(.sweep)] + strikeBoss(PlaneGameRules.sweepBossHits, at: boss.position)
             }
-        case .stamp, .postmark, .spam, .phish, .lure:
+        case .stamp, .postmark, .spam, .phish, .lure, .reply, .bulk:
             return []
         }
         return [pickup.kind.isPowerUp ? .powered(pickup.kind) : .caught(pickup.kind)]

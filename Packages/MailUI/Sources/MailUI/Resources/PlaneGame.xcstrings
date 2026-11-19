@@ -128,6 +128,17 @@
         }
       }
     },
+    "Inbox Overload" : {
+      "comment" : "A boss in the paper plane game: an overflowing inbox tray",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצפת דואר נכנס"
+          }
+        }
+      }
+    },
     "Junk Mail" : {
       "comment" : "A boss in the paper plane game: a spam envelope wearing a crown",
       "localizations" : {
@@ -194,6 +205,17 @@
         }
       }
     },
+    "Out of Office" : {
+      "comment" : "A boss in the paper plane game: an envelope that sends your shots back while its sign is up",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחוץ למשרד"
+          }
+        }
+      }
+    },
     "Pause" : {
       "comment" : "Pauses the paper plane game",
       "localizations" : {
@@ -223,6 +245,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "משחק חדש"
+          }
+        }
+      }
+    },
+    "Reply-All Storm" : {
+      "comment" : "A boss in the paper plane game: an envelope that fires volleys of replies",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סופת השב לכולם"
           }
         }
       }
@@ -260,6 +293,28 @@
         }
       }
     },
+    "Round %lld" : {
+      "comment" : "The round of the paper plane game being played",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שלב %lld"
+          }
+        }
+      }
+    },
+    "Round %lld, %@" : {
+      "comment" : "Read by VoiceOver as a boss arrives in the paper plane game: the round and the boss's name",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שלב %1$lld, %2$@"
+          }
+        }
+      }
+    },
     "Score" : {
       "comment" : "The game's score",
       "localizations" : {
@@ -267,6 +322,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ניקוד"
+          }
+        }
+      }
+    },
+    "The Mailing List" : {
+      "comment" : "A boss in the paper plane game: an envelope that clones itself",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "רשימת התפוצה"
           }
         }
       }

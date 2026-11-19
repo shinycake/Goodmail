@@ -1,22 +1,42 @@
 import PlaneGame
 import SwiftUI
 
-/// How the bosses look: the bad guys' own frowning doodles, grown big, Junk Mail with a crown and the Phisher with
-/// a line and hook.
+/// How the bosses look: the bad guys' own frowning doodles, grown big, each with its own mark: Junk Mail a crown, the
+/// Phisher a line and hook. The later bosses are in `PlaneGameArt+Roster.swift`.
 nonisolated extension PlaneGameArt {
     /// A boss's line drawing, one unit across.
     static func boss(_ kind: PlaneGameBoss.Kind) -> DoodleArt {
         switch kind {
         case .junk: junkMail
         case .phisher: phisher
+        case .storm: storm
+        case .outOfOffice: outOfOffice
+        case .mailingList: mailingList
+        case .overload: overload
         }
     }
+
+    /// What of a boss is filled, under its line: its outline alone, so the marks drawn over it, which are open
+    /// lines, never fill as shapes when it flashes.
+    static func body(_ kind: PlaneGameBoss.Kind) -> Path {
+        switch kind {
+        case .junk, .storm, .outOfOffice, .mailingList: envelopeBody
+        case .phisher: atBody
+        case .overload: overload.line
+        }
+    }
+
+    private static let envelopeBody = DoodleShape.envelope.art.line
+    private static let atBody = DoodleShape.at.art.line
 
     /// How many points across a boss is drawn.
     static func size(of kind: PlaneGameBoss.Kind) -> CGFloat {
         switch kind {
         case .junk: 96
         case .phisher: 88
+        case .storm, .outOfOffice: 92
+        case .mailingList: 76
+        case .overload: 120
         }
     }
 

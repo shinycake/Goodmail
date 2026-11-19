@@ -25,6 +25,8 @@ struct PlaneGameSpawner: Equatable, Sendable {
     struct Openings: Equatable, Sendable {
         var livesMissing: Bool
         var powerUpInPlay: Bool
+        /// The round being played, which opens the formations.
+        var round = 1
     }
 
     /// The shapes an arrival can take, picked at random by weight from those open at the time.
@@ -34,6 +36,9 @@ struct PlaneGameSpawner: Equatable, Sendable {
         case spamRow
         /// One of the four power-ups, picked evenly.
         case powerUp
+        /// Formations of later rounds, in `PlaneGameSpawner+Formations.swift`. They come after the rest so a round 1
+        /// game draws what it always did.
+        case spamVee, stampGate, phishPair, bulk
 
         var weight: Double {
             switch self {
@@ -45,6 +50,10 @@ struct PlaneGameSpawner: Equatable, Sendable {
             case .star: PlaneGameRules.starWeight
             case .heart: PlaneGameRules.heartWeight
             case .powerUp: PlaneGameRules.powerUpWeight
+            case .spamVee: PlaneGameRules.veeWeight
+            case .stampGate: PlaneGameRules.gateWeight
+            case .phishPair: PlaneGameRules.phishPairWeight
+            case .bulk: PlaneGameRules.bulkWeight
             }
         }
     }
@@ -53,10 +62,12 @@ struct PlaneGameSpawner: Equatable, Sendable {
     /// The soonest the next power-up may arrive, in seconds played.
     private(set) var nextPowerUp = PlaneGameRules.powerUpsFrom
 
-    /// The time between arrivals `elapsed` seconds into the game, on a field whose breadth is 1.
-    static func interval(at elapsed: TimeInterval) -> TimeInterval {
+    /// The time between arrivals `elapsed` seconds into the game in `round`, on a field whose breadth is 1.
+    static func interval(at elapsed: TimeInterval, round: Int = 1) -> TimeInterval {
         let hardening = min(max(elapsed / PlaneGameRules.hardeningTime, 0), 1)
-        return PlaneGameRules.firstInterval + (PlaneGameRules.lastInterval - PlaneGameRules.firstInterval) * hardening
+        let interval =
+            PlaneGameRules.firstInterval + (PlaneGameRules.lastInterval - PlaneGameRules.firstInterval) * hardening
+        return interval / PlaneGameHeat(round: round).arrivals
     }
 
     /// Everything due by `elapsed`, placed just above the top edge of `field`.
@@ -73,15 +84,16 @@ struct PlaneGameSpawner: Equatable, Sendable {
                 openings.powerUpInPlay = true
             }
             arrivals += Self.place(pattern, in: field, using: &generator)
-            state = .waiting(due: due + Self.interval(at: due) / Double(field.breadth))
+            state = .waiting(due: due + Self.interval(at: due, round: openings.round) / Double(field.breadth))
         }
         return arrivals
     }
 
-    /// Ordinary play carries on at `elapsed` after a boss: the next arrival is an interval away on `field`.
-    mutating func resume(at elapsed: TimeInterval, on field: PlaneGameField) {
+    /// Ordinary play carries on at `elapsed` after a boss, in `round`: the next arrival is an interval away on
+    /// `field`.
+    mutating func resume(at elapsed: TimeInterval, on field: PlaneGameField, round: Int) {
         guard case .waiting = state else { return }
-        state = .waiting(due: elapsed + Self.interval(at: elapsed) / Double(field.breadth))
+        state = .waiting(due: elapsed + Self.interval(at: elapsed, round: round) / Double(field.breadth))
     }
 
     /// Stops arrivals for good.
@@ -107,6 +119,10 @@ struct PlaneGameSpawner: Equatable, Sendable {
         case .phish: elapsed >= PlaneGameRules.phishFrom
         case .heart: openings.livesMissing
         case .powerUp: !openings.powerUpInPlay && elapsed >= nextPowerUp
+        case .spamVee: openings.round >= PlaneGameRules.veesFromRound
+        case .stampGate: openings.round >= PlaneGameRules.gatesFromRound
+        case .phishPair: openings.round >= PlaneGameRules.phishPairsFromRound
+        case .bulk: openings.round >= PlaneGameRules.bulkFromRound
         }
     }
 
@@ -122,6 +138,10 @@ struct PlaneGameSpawner: Equatable, Sendable {
         case .heart: one(.heart, in: field, using: &generator)
         case .powerUp: one(randomPowerUp(using: &generator), in: field, using: &generator)
         case .spamRow: spamRow(in: field, using: &generator)
+        case .spamVee: spamVee(in: field, using: &generator)
+        case .stampGate: stampGate(in: field, using: &generator)
+        case .phishPair: phishPair(in: field, using: &generator)
+        case .bulk: one(.bulk, in: field, using: &generator)
         }
     }
 
@@ -152,7 +172,7 @@ struct PlaneGameSpawner: Equatable, Sendable {
     }
 
     /// An x for `kind` to arrive at, far enough inside the lanes that it, its swing and `extra` stay inside.
-    private static func randomLane(
+    static func randomLane(
         for kind: PlaneGameThing.Kind, extra: CGFloat, in field: PlaneGameField, using generator: inout SeededGenerator
     ) -> CGFloat {
         CGFloat.random(in: field.lanes(inset: kind.radius + kind.swing + extra), using: &generator)

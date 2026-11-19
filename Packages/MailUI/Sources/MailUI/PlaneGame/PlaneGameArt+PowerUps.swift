@@ -74,7 +74,7 @@ nonisolated extension PlaneGameArt {
                 path.move(to: CGPoint(x: direction.x * 0.1, y: direction.y * 0.1))
                 path.addLine(to: CGPoint(x: direction.x * 0.27, y: direction.y * 0.27))
             }
-        case .stamp, .postmark, .spam, .phish, .star, .heart, .lure:
+        case .stamp, .postmark, .spam, .phish, .star, .heart, .lure, .reply, .bulk:
             break
         }
         return path

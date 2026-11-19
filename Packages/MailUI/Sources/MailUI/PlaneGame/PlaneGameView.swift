@@ -29,6 +29,16 @@ struct PlaneGameView: View {
                     .opacity(model.hint)
                     .position(model.hintCenter)
                     .accessibilityHidden(model.hint == 0)
+                if let boss = model.world.boss,
+                    case let beat = PlaneGameBossTitleBeat(age: boss.age, reduceMotion: model.reduceMotion),
+                    beat.opacity > 0
+                {
+                    let field = model.world.field
+                    PlaneGameBossTitle(
+                        kind: boss.kind, round: model.world.round,
+                        center: PlaneGameBossTitle.center(for: boss, on: field),
+                        width: field.lanes.upperBound - field.lanes.lowerBound, beat: beat)
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .ignoresSafeArea()
@@ -39,6 +49,9 @@ struct PlaneGameView: View {
                     leave: model.askToLeave)
                 if let boss = model.world.boss {
                     PlaneGameBossMeter(line: PlaneGameBossLine(boss: boss, reduceMotion: model.reduceMotion))
+                } else {
+                    PlaneGameRoundLabel(round: model.world.round)
+                        .padding(.top, 2)
                 }
                 Spacer()
             }
@@ -94,6 +107,16 @@ struct PlaneGameView: View {
         .sensoryFeedback(.success, trigger: model.bossesDown)
         // A tick as each number of the countdown shows.
         .sensoryFeedback(.impact(weight: .light), trigger: model.phase.countdown) { _, count in count != nil }
+        // A boss's title is drawn over the field, so VoiceOver hears it.
+        .onChange(of: model.world.boss?.number) { before, number in
+            guard before == nil, let number, let boss = model.world.boss else { return }
+            SystemAccessibility.announce(
+                String(
+                    localized: "Round \(number), \(PlaneGameBossName.of(boss.kind))", table: "PlaneGame",
+                    bundle: .module,
+                    comment:
+                        "Read by VoiceOver as a boss arrives in the paper plane game: the round and the boss's name"))
+        }
         // VoiceOver's focus stays where the pause card was, so the countdown is said as it starts.
         .onChange(of: model.phase.countdown) { before, count in
             guard before == nil, let count else { return }

@@ -14,6 +14,10 @@ public struct PlaneGameThing: Equatable, Sendable, Identifiable {
         case spread, rapid, shield, sweep
         /// What the Phisher casts.
         case lure
+        /// What the Reply-All Storm fires, and the shots Out of Office sends back.
+        case reply
+        /// Bulk Mail, a heavy envelope that shelters what is behind it.
+        case bulk
 
         /// The four power-ups.
         public static let powerUps: [Kind] = [.spread, .rapid, .shield, .sweep]
@@ -62,8 +66,9 @@ extension PlaneGameThing.Kind {
         case .stamp, .postmark: .obstacle
         case .spam: .badGuy(hits: 1, points: 10)
         case .phish: .badGuy(hits: 2, points: 25)
+        case .bulk: .badGuy(hits: 4, points: 40)
         case .star, .heart, .spread, .rapid, .shield, .sweep: .pickup
-        case .lure: .hazard
+        case .lure, .reply: .hazard
         }
     }
 
@@ -80,7 +85,8 @@ extension PlaneGameThing.Kind {
         case .phish: 15
         case .star, .heart: 16
         case .spread, .rapid, .shield, .sweep: 15
-        case .lure: 7
+        case .lure, .reply: 7
+        case .bulk: 20
         }
     }
 }

@@ -60,6 +60,27 @@ extension PlaneGameWorld {
         encounter = .boss(boss)
     }
 
+    /// Beats the boss on the field at once, as its last hit would, whatever sign it has up.
+    mutating func beatBoss() {
+        changeBoss { $0.hitsLeft = 1 }
+        guard let boss else { return }
+        _ = strikeBoss(1, at: boss.position)
+    }
+
+    /// What arrives over `seconds` from now: things the world didn't hold before.
+    mutating func newThings(over seconds: TimeInterval, input: PlaneGameInput = PlaneGameInput()) -> [PlaneGameThing] {
+        let firstNew = nextID
+        run(for: seconds, input: input)
+        return things.filter { $0.id >= firstNew }
+    }
+
+    /// Steps frame by frame until the boss has made `attacks` attacks.
+    mutating func runUntilBossAttacks(_ attacks: Int) {
+        while case .fighting(_, let made) = boss?.status, made < attacks {
+            advance(by: frame, input: PlaneGameInput())
+        }
+    }
+
     /// Puts a shot just under the boss, to strike it on the next step.
     mutating func shootBoss() {
         guard let boss else { return }
