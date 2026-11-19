@@ -84,13 +84,13 @@ public struct DraftShelf<Composer> {
         state = .minimized
     }
 
-    /// The draft `id` was sent, saved away or deleted, so it is no longer in progress.
+    /// The draft `id` was sent, saved away or deleted, so it is no longer in progress. The others laid out to pick
+    /// from stay laid out, down to the last one.
     public mutating func finish(_ id: Draft.ID) {
         entries.removeAll { $0.id == id }
         if entries.isEmpty {
             state = .empty
-        } else if state == .writing(id) || (state == .choosing && entries.count == 1) {
-            // A single draft left needs no picking, so it goes back to the pill.
+        } else if state == .writing(id) {
             state = .minimized
         }
     }

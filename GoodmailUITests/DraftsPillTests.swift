@@ -61,6 +61,67 @@ final class DraftsPillTests: XCTestCase {
         app.buttons["Budget"].firstMatch.tap()
         XCTAssertTrue(subject.waitForExistence(timeout: 5))
         XCTAssertEqual(subject.value as? String, "Budget")
+        XCTAssertEqual(cards.count, 0, "the others went back into the pill")
+        minimize(app)
+        XCTAssertTrue(pill.waitForExistence(timeout: 5))
+        XCTAssertEqual(pill.label, "2 Drafts")
+    }
+
+    @MainActor
+    func testThePickerFoldsBackIntoThePill() {
+        let app = launch()
+        let pill = writeTwo(in: app)
+        pill.tap()
+        let cards = app.otherElements.matching(identifier: "drafts.card")
+        XCTAssertTrue(cards.firstMatch.waitForExistence(timeout: 5))
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15)).tap()
+        XCTAssertTrue(pill.waitForExistence(timeout: 5))
+        XCTAssertFalse(cards.firstMatch.exists, "the cards went back")
+        XCTAssertEqual(pill.label, "2 Drafts")
+    }
+
+    @MainActor
+    func testClosingOneLaidOutDraftLeavesTheOther() {
+        let app = launch()
+        let pill = writeTwo(in: app)
+        pill.tap()
+        let cards = app.otherElements.matching(identifier: "drafts.card")
+        XCTAssertTrue(cards.firstMatch.waitForExistence(timeout: 5))
+        app.buttons["Close Budget"].tap()
+        let delete = app.buttons["Delete Draft"]
+        XCTAssertTrue(delete.waitForExistence(timeout: 5), "it asks what to do with that one")
+        delete.tap()
+        XCTAssertTrue(app.buttons["Lunch"].waitForExistence(timeout: 5))
+        XCTAssertEqual(cards.count, 1, "only Budget went")
+        app.buttons["Lunch"].firstMatch.tap()
+        XCTAssertEqual(app.textFields["compose.subject"].value as? String, "Lunch")
+    }
+
+    @MainActor
+    func testDismissAllFromThePillsMenu() {
+        let app = launch()
+        let pill = writeTwo(in: app)
+        pill.press(forDuration: 1)
+        let dismissAll = app.buttons["Dismiss All"]
+        XCTAssertTrue(dismissAll.waitForExistence(timeout: 5), "a long press offers it")
+        dismissAll.tap()
+        let delete = app.buttons["Delete 2 Drafts"]
+        XCTAssertTrue(delete.waitForExistence(timeout: 5), "it asks once, for both")
+        delete.tap()
+        XCTAssertFalse(pill.waitForExistence(timeout: 2), "nothing waits")
+    }
+
+    /// Writes Lunch then Budget, minimizing both, and returns the pill holding them.
+    @MainActor
+    private func writeTwo(in app: XCUIApplication) -> XCUIElement {
+        write("Lunch", in: app)
+        minimize(app)
+        write("Budget", in: app)
+        minimize(app)
+        let pill = app.toolbars.buttons["drafts.pill"]
+        XCTAssertTrue(pill.waitForExistence(timeout: 5))
+        XCTAssertEqual(pill.label, "2 Drafts")
+        return pill
     }
 
     @MainActor

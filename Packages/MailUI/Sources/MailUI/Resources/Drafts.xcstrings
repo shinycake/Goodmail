@@ -70,6 +70,64 @@
         }
       }
     },
+    "Delete %lld Drafts" : {
+      "comment" : "Discards the minimized messages; the argument is how many",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Delete Draft"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Delete %lld Drafts"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "מחק טיוטה"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "מחק %lld טיוטות"
+                }
+              },
+              "two" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "מחק שתי טיוטות"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Dismiss All" : {
+      "comment" : "In the drafts pill's menu: asks whether to delete or save every minimized message",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סגור הכול"
+          }
+        }
+      }
+    },
     "Message minimized" : {
       "comment" : "VoiceOver announcement after the composer shrinks into the drafts pill",
       "localizations" : {
@@ -110,6 +168,53 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "שם את ההודעה בצד כדי לחזור אליה."
+          }
+        }
+      }
+    },
+    "Save %lld Drafts" : {
+      "comment" : "Keeps the minimized messages in Drafts; the argument is how many",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Save Draft"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Save %lld Drafts"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "שמור טיוטה"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "שמור %lld טיוטות"
+                }
+              },
+              "two" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "שמור שתי טיוטות"
+                }
+              }
+            }
           }
         }
       }

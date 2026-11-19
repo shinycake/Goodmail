@@ -1,7 +1,7 @@
 import CoreGraphics
 
 /// The geometry of the composer's card around the drafts pill: whether a pill's frame can be aimed at, where a card
-/// goes when no pill is on show, and the dot it grows out of or drains into.
+/// goes when no pill is on show.
 nonisolated enum DraftsPillPlacement {
     /// The chip's size by the corner, where there is no pill to measure: about the pill's.
     static let chipSize = CGSize(width: 76, height: 44)
@@ -9,7 +9,6 @@ nonisolated enum DraftsPillPlacement {
     static let cornerInset: CGFloat = 16
     /// How far below the screen the corner chip lies, so none of it shows.
     static let cornerDrop: CGFloat = 24
-    static let dotSize: CGFloat = 6
 
     /// Whether `frame`, a pill's in `bounds`, is where the toolbar placed it: not empty and in the lower half. A
     /// pill laid out before its toolbar, or in a bar down the side, fails.
@@ -41,10 +40,5 @@ nonisolated enum DraftsPillPlacement {
         container.width > button.width + tolerance && container.height > button.height + tolerance
             && container.insetBy(dx: -tolerance, dy: -tolerance).contains(button)
             && button.insetBy(dx: -glassMargin, dy: -glassMargin).contains(container)
-    }
-
-    /// The dot centred on `point`, the pill's icon, that a card drains into or grows out of.
-    static func dot(at point: CGPoint) -> CGRect {
-        CGRect(x: point.x - dotSize / 2, y: point.y - dotSize / 2, width: dotSize, height: dotSize)
     }
 }

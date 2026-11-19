@@ -1,24 +1,28 @@
 import MailCore
 import UIKit
 
-/// Moves the composer's card between the screen, the drafts pill and away, one leg at a time. The card is the live
-/// composer, scaled inside a shrinking shape: minimizing shrinks it onto the pill's place as an opaque chip, the pill
-/// changes under it, and the chip drains into the pill's icon, uncovering the glass. Opening is the same backward.
-/// A drag on the card scrubs the leg under the finger; letting go, or a tap, hands it to a spring.
+/// Moves the composer's card between the screen, the drafts pill and away, in one motion each way. The card is the
+/// live composer, scaled inside a shrinking shape. Minimizing shrinks it toward the pill and thins it out over the
+/// last stretch, so the real pill underneath shows through; the pill already counts the message, having changed
+/// under the open card as it set off. Opening is the same backward, out of the pill or out of a laid-out draft's
+/// card. A drag on the card scrubs the motion under the finger; letting go, or a tap, hands it to a spring.
 final class ComposerStage: NSObject {
     /// Where a card leaving the screen goes.
     enum Destination {
-        /// Into the drafts pill, or out by its corner of the screen when no pill is on show. `docked` runs once, when
-        /// the pill may show the message: it marks it minimized and must not call back into the stage.
+        /// Into the drafts pill, or out by its corner of the screen when no pill is on show. `docked` runs once, as
+        /// the card lands: it marks the message minimized and must not call back into the stage.
         case dock(docked: () -> Void)
         /// Off the bottom of the screen: sent, saved away or discarded.
         case away
     }
 
-    /// Where a card coming onto the screen starts.
+    /// Where a card coming onto the screen starts. `undocked` runs once, as the card lands open, so the pill lets the
+    /// message go under it; same rule as `docked`.
     enum Origin {
-        /// Out of the drafts pill. `undocked` runs once, when the pill may let the message go; same rule as `docked`.
+        /// Out of the drafts pill, or its corner when no pill is on show.
         case dock(undocked: () -> Void)
+        /// Out of a laid-out draft's card at `frame`, in the shelf's view, with corners of `cornerRadius`.
+        case card(CGRect, cornerRadius: CGFloat, undocked: () -> Void)
         /// Below the screen, for a new message.
         case below
     }
@@ -49,7 +53,7 @@ final class ComposerStage: NSObject {
         case idle
         /// The composer fills the card, at rest.
         case open(ComposeViewController)
-        /// The card on one leg of its way, under the finger or settling.
+        /// The card on its way, under the finger or settling.
         case moving(Move)
     }
 
@@ -60,19 +64,15 @@ final class ComposerStage: NSObject {
     }
 
     private enum Leg {
-        /// A dot grows out of the pill's icon until the card covers the pill. Then the pill lets the message go.
-        case lifting(PillSpot, undocked: () -> Void)
-        /// Onto the screen, from the pill, the corner or below.
-        case opening
+        /// Onto the screen. `arrived` runs as it lands.
+        case opening(arrived: () -> Void)
         /// Off the screen to `landing`.
         case leaving(Landing, landed: (Bool) -> Void)
-        /// Into the pill's icon, once the pill shows the message.
-        case draining(PillSpot)
     }
 
     /// Where a leaving card comes to rest.
     private enum Landing {
-        /// Over the pill, as the chip.
+        /// Onto the pill, thinning out over it. The pill already counts the message.
         case pill(PillSpot, docked: () -> Void)
         /// Off the screen at `frame`, minimized: by the pill's corner, or straight down with Reduce Motion.
         case offscreen(CGRect, docked: () -> Void)
@@ -87,23 +87,16 @@ final class ComposerStage: NSObject {
         }
     }
 
-    /// How long each leg takes. Every one is critically damped, so the card never overshoots the pill and uncovers
-    /// it early.
+    /// How long each motion takes. Every one is critically damped, so the card never overshoots the pill.
     private enum Timing {
         /// Below to open, and away.
         static let slide: TimeInterval = 0.5
-        /// Open to the chip or the corner.
-        static let shrink: TimeInterval = 0.42
-        /// The chip into the icon.
-        static let drain: TimeInterval = 0.2
-        /// The icon out to the chip.
-        static let lift: TimeInterval = 0.14
-        /// The chip or the corner to open.
-        static let grow: TimeInterval = 0.46
+        /// Open to the pill, its corner or a laid-out card, and back.
+        static let pill: TimeInterval = 0.5
     }
 
-    /// The radius of the dot at the pill's icon.
-    private static let dotRadius: CGFloat = 3
+    /// The share of the way nearest the pill, or a laid-out card, over which the card thins out or comes up.
+    private static let fadeShare = 0.38
 
     private unowned let shelf: UIViewController
     private let dock: DraftsDock
@@ -132,6 +125,12 @@ final class ComposerStage: NSObject {
         shelf.view.addSubview(card)
     }
 
+    /// Puts `view` over the mail screens, under the dimming and the card: the place of the drafts laid out to pick
+    /// from, so a picked one's card can grow over them.
+    func place(_ view: UIView) {
+        shelf.view.insertSubview(view, belowSubview: dimming)
+    }
+
     /// Keeps an open card filling the screen as the window changes size.
     func layout() {
         guard case .open(let composer) = motion, let navigation = composer.navigationController else { return }
@@ -157,22 +156,12 @@ final class ComposerStage: NSObject {
         dimming.alpha = 0
         switch origin {
         case .below:
-            start(at: below, cornerRadius: ComposerCardView.openCornerRadius)
-            begin(opening(composer, duration: Timing.slide), following: nil)
+            begin(opening(composer, from: rising, arrived: {}), following: nil)
         case .dock(let undocked):
-            if SystemAccessibility.reducesMotion {
-                undocked()
-                start(at: below, cornerRadius: ComposerCardView.openCornerRadius)
-                begin(opening(composer, duration: Timing.slide), following: nil)
-            } else if let spot = dock.shownPill?.spot(in: shelf.view, showing: dock.count) {
-                card.cornerCurve = .circular
-                card.fit(DraftsPillPlacement.dot(at: spot.icon), cornerRadius: Self.dotRadius)
-                begin(lifting(composer, out: spot, undocked: undocked), following: nil)
-            } else {
-                undocked()
-                start(at: corner, cornerRadius: DraftsPillPlacement.chipSize.height / 2)
-                begin(opening(composer, duration: Timing.grow), following: nil)
-            }
+            begin(opening(composer, from: outOfDock, arrived: undocked), following: nil)
+        case .card(let frame, let radius, let undocked):
+            let start = SystemAccessibility.reducesMotion ? rising : .clear(frame, cornerRadius: radius)
+            begin(opening(composer, from: start, arrived: undocked), following: nil)
         }
     }
 
@@ -187,21 +176,18 @@ final class ComposerStage: NSObject {
         begin(leaving(composer, Leaving(destination: destination, landed: landed)), following: nil)
     }
 
-    /// Finishes the message's motion under way at once, every leg of it at its end: a minimize ends minimized, an
-    /// open ends open. A message that a landing opens moves on its own.
+    /// Finishes the message's motion under way at once, at its end: a minimize ends minimized, an open ends open. A
+    /// message that its landing opens moves on its own.
     func settleNow() {
-        guard case .moving(let first) = motion else { return }
-        while case .moving(let move) = motion, move.composer === first.composer {
-            move.animation.finishNow()
-            // Each leg lands as it finishes; one that didn't would otherwise be finished forever.
-            if case .moving(let next) = motion, next.animation === move.animation { return }
-        }
+        guard case .moving(let move) = motion else { return }
+        move.animation.finishNow()
     }
 
     /// Finishes everything under way at once, a message that a landing opens too, as before the window changes size.
     func settleEverything() {
         while case .moving(let move) = motion {
-            settleNow()
+            move.animation.finishNow()
+            // Each motion lands as it finishes; one that didn't would otherwise be finished forever.
             if case .moving(let next) = motion, next.animation === move.animation { return }
         }
     }
@@ -212,78 +198,110 @@ final class ComposerStage: NSObject {
         guard let leftover = composer else { return }
         assertionFailure("A message opened while another was still on the stage")
         if case .moving(let move) = motion {
-            // Idle first, so the leg lands on nothing.
+            // Idle first, so the motion lands on nothing.
             motion = .idle
             move.animation.finishNow()
+            // The pill counted a card that will never land in it.
+            if case .leaving(.pill, _) = move.leg { dock.turnAway() }
         }
         clear(leftover)
     }
 
-    /// Poses the card at a start that keeps its corners continuous, as an open card's are.
-    private func start(at frame: CGRect, cornerRadius: CGFloat) {
-        card.cornerCurve = .continuous
-        card.fit(frame, cornerRadius: cornerRadius)
+    /// Where an opening card starts.
+    private enum Start {
+        /// Opaque at `frame`, below the screen or by the pill's corner, taking `duration` to open.
+        case solid(CGRect, cornerRadius: CGFloat, duration: TimeInterval)
+        /// Clear at `frame`, on the pill or a laid-out card, coming up as it grows.
+        case clear(CGRect, cornerRadius: CGFloat)
     }
 
-    private func lifting(_ composer: ComposeViewController, out spot: PillSpot, undocked: @escaping () -> Void)
+    /// Below the screen, sliding up.
+    private var rising: Start {
+        .solid(below, cornerRadius: ComposerCardView.openCornerRadius, duration: Timing.slide)
+    }
+
+    /// Where a card opening out of the pill starts: below with Reduce Motion, on the pill on show, or by its corner.
+    private var outOfDock: Start {
+        if SystemAccessibility.reducesMotion { return rising }
+        if let spot = dock.spot(in: shelf.view) { return .clear(spot.frame, cornerRadius: spot.frame.height / 2) }
+        return .solid(corner, cornerRadius: corner.height / 2, duration: Timing.pill)
+    }
+
+    private func opening(_ composer: ComposeViewController, from start: Start, arrived: @escaping () -> Void)
         -> Move
     {
-        Move(
-            composer: composer, leg: .lifting(spot, undocked: undocked),
-            animation: animation(distance: 0, heading: .up, duration: Timing.lift) {
-                self.card.fit(spot.frame, cornerRadius: spot.frame.height / 2)
-            })
-    }
-
-    private func opening(_ composer: ComposeViewController, duration: TimeInterval) -> Move {
         let open = openFrame
-        return Move(
-            composer: composer, leg: .opening,
-            animation: animation(distance: 0, heading: .up, duration: duration) {
-                self.card.fit(open, cornerRadius: ComposerCardView.openCornerRadius)
-                self.dimming.alpha = 1
-            })
+        let grow = {
+            self.card.fit(open, cornerRadius: ComposerCardView.openCornerRadius)
+            self.dimming.alpha = 1
+        }
+        let animation: ScrubbedAnimation
+        switch start {
+        case .solid(let frame, let radius, let duration):
+            card.fit(frame, cornerRadius: radius)
+            animation = self.animation(distance: 0, heading: .up, duration: duration, animations: grow)
+        case .clear(let frame, let radius):
+            card.fit(frame, cornerRadius: radius)
+            card.alpha = 0
+            // Keyframes start from what was last committed to the screen: the hidden card wherever it last landed,
+            // not this pose. Committing the pose first makes it the start.
+            CATransaction.flush()
+            animation = keyframes(distance: 0, heading: .up) {
+                UIView.addKeyframe(withRelativeStartTime: 0, relativeDuration: 1, animations: grow)
+                UIView.addKeyframe(withRelativeStartTime: 0, relativeDuration: Self.fadeShare) { self.card.alpha = 1 }
+            }
+        }
+        return Move(composer: composer, leg: .opening(arrived: arrived), animation: animation)
     }
 
     /// The open card on its way to where `leaving` sends it. A card that keeps its size slides; one that shrinks
-    /// turns into a capsule as it goes.
+    /// turns into a capsule as it goes, and one headed for the pill thins out over it.
     private func leaving(_ composer: ComposeViewController, _ leaving: Leaving) -> Move {
         let landing = landing(for: leaving.destination)
         let target = landing.frame
+        let distance = target.minY - card.frame.minY
         let slides = target.size == card.frame.size
-        if case .pill = landing { card.cornerCurve = .circular }
-        let radius = slides ? ComposerCardView.openCornerRadius : target.height / 2
-        return Move(
-            composer: composer, leg: .leaving(landing, landed: leaving.landed),
-            animation: animation(
-                distance: target.minY - card.frame.minY, heading: .down,
-                duration: slides ? Timing.slide : Timing.shrink
-            ) {
-                self.card.fit(target, cornerRadius: radius)
-                self.dimming.alpha = 0
-            })
+        let shrink = {
+            self.card.fit(target, cornerRadius: slides ? ComposerCardView.openCornerRadius : target.height / 2)
+            self.dimming.alpha = 0
+        }
+        let animation =
+            if case .pill = landing {
+                keyframes(distance: distance, heading: .down) {
+                    UIView.addKeyframe(withRelativeStartTime: 0, relativeDuration: 1, animations: shrink)
+                    UIView.addKeyframe(withRelativeStartTime: 1 - Self.fadeShare, relativeDuration: Self.fadeShare) {
+                        self.card.alpha = 0
+                    }
+                }
+            } else {
+                self.animation(
+                    distance: distance, heading: .down, duration: slides ? Timing.slide : Timing.pill,
+                    animations: shrink)
+            }
+        return Move(composer: composer, leg: .leaving(landing, landed: leaving.landed), animation: animation)
     }
 
-    private func draining(_ composer: ComposeViewController, into spot: PillSpot) -> Move {
-        Move(
-            composer: composer, leg: .draining(spot),
-            animation: animation(distance: 0, heading: .down, duration: Timing.drain) {
-                self.card.fit(DraftsPillPlacement.dot(at: spot.icon), cornerRadius: Self.dotRadius)
-            })
-    }
-
-    /// Where a card leaving for `destination` comes to rest, measured as it sets off.
+    /// Where a card leaving for `destination` comes to rest, measured as it sets off. Heading for the pill starts its
+    /// reception: the pill counts the message now, under the open card, so it is already right when the card thins
+    /// out over it. `land` is where the reception ends, or `clearLeftover` when the card is taken off.
     private func landing(for destination: Destination) -> Landing {
         switch destination {
         case .away:
             return .away(below)
         case .dock(let docked):
             if SystemAccessibility.reducesMotion { return .offscreen(below, docked: docked) }
-            // The message leaving isn't counted until it's docked.
-            if let spot = dock.shownPill?.spot(in: shelf.view, showing: dock.count + 1) {
-                return .pill(spot, docked: docked)
-            }
-            return .offscreen(corner, docked: docked)
+            guard let spot = dock.receive(in: shelf.view) else { return .offscreen(corner, docked: docked) }
+            return .pill(spot, docked: docked)
+        }
+    }
+
+    /// One animation whose shape and opacity are keyframes of it, so they share one curve whatever the finger or the
+    /// spring does.
+    private func keyframes(distance: CGFloat, heading: ScrubbedAnimation.Heading, keyframes: @escaping () -> Void)
+        -> ScrubbedAnimation
+    {
+        animation(distance: distance, heading: heading, duration: Timing.pill) {
+            UIView.animateKeyframes(withDuration: 0, delay: 0, options: [.calculationModeLinear], animations: keyframes)
         }
     }
 
@@ -302,52 +320,43 @@ final class ComposerStage: NSObject {
         move.animation.run(following: pan)
     }
 
-    /// A leg came to rest at its end, or back where it started: the one place a leg ends and the next begins.
+    /// The card came to rest at its end, or back where it started: the one place a motion ends.
     private func land(arrived: Bool) {
         guard case .moving(let move) = motion else { return }
         let composer = move.composer
         switch move.leg {
-        case .lifting(_, let undocked):
-            // The pill hides, or counts one fewer, under the chip. The chip's corners turn continuous while it is
-            // still the pill's size, as an open card's are, so they don't change as it comes to rest.
-            undocked()
-            card.cornerCurve = .continuous
-            begin(opening(composer, duration: Timing.grow), following: nil)
-        case .opening:
-            // Nothing follows a finger onto the screen, so an opening always arrives.
-            assert(arrived, "An opening came back")
+        case .opening(let arrived):
+            // Nothing follows a finger onto the screen, so an opening always arrives. The pill lets the message go
+            // under the open card.
             rest(composer)
+            arrived()
             composer.didOpen()
         case .leaving(let landing, let landed):
             guard arrived else {
+                // Back at full size, over the pill, which stops counting the message.
+                if case .pill = landing { dock.turnAway() }
                 rest(composer)
                 return landed(false)
             }
+            clear(composer)
             switch landing {
             case .pill(let spot, let docked):
-                // The pill shows the message, under the chip, which then lies exactly on it.
-                docked()
-                let spot = spot.pill.spot(in: shelf.view, showing: dock.count) ?? spot
-                UIView.performWithoutAnimation { card.fit(spot.frame, cornerRadius: spot.frame.height / 2) }
-                begin(draining(composer, into: spot), following: nil)
+                dock.land(docked)
+                spot.pill.bounce()
             case .offscreen(_, let docked):
-                clear(composer)
                 docked()
             case .away:
-                clear(composer)
+                break
             }
-            // May open another message, which settles the drain at once.
+            // May open another message.
             landed(true)
-        case .draining(let spot):
-            clear(composer)
-            spot.pill.bounce()
         }
     }
 
     /// The composer fills the card, at rest.
     private func rest(_ composer: ComposeViewController) {
         motion = .open(composer)
-        card.cornerCurve = .continuous
+        card.alpha = 1
         dimming.alpha = 1
         layout()
     }
@@ -356,6 +365,7 @@ final class ComposerStage: NSObject {
     private func clear(_ composer: ComposeViewController) {
         motion = .idle
         card.isHidden = true
+        card.alpha = 1
         dimming.isHidden = true
         guard let navigation = composer.navigationController else { return }
         navigation.willMove(toParent: nil)
@@ -391,7 +401,7 @@ final class ComposerStage: NSObject {
     }
 
     /// Where a minimized card goes, or a reopened one comes from, when no pill is on show.
-    private var corner: CGRect {
+    var corner: CGRect {
         DraftsPillPlacement.corner(
             lane: shelf.view.foldLane, bounds: shelf.view.bounds,
             rightToLeft: shelf.view.effectiveUserInterfaceLayoutDirection == .rightToLeft)
