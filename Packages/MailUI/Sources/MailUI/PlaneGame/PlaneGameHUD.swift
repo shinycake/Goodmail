@@ -12,9 +12,8 @@ struct PlaneGameHUD: View {
     /// Whether the pause sign shows: only while the game is in play or counting down to it, where it does something.
     let canPause: Bool
     let pause: () -> Void
-    /// The new mail was tapped: the game asks before it leaves for it.
-    let leaveForMail: () -> Void
-    let exit: () -> Void
+    /// The cross or the new mail was tapped: the game asks before it leaves.
+    let leave: () -> Void
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
@@ -33,7 +32,7 @@ struct PlaneGameHUD: View {
             }
             .accessibilityHidden(true)
             Spacer()
-            PlaneGameMailBadge(count: mailWaiting, arrivals: mailArrivals, leave: leaveForMail)
+            PlaneGameMailBadge(count: mailWaiting, arrivals: mailArrivals, leave: leave)
             Button(action: pause) {
                 PauseBars()
                     .stroke(washed[PlaneGameArt.pink], style: DoodleField.line)
@@ -50,7 +49,7 @@ struct PlaneGameHUD: View {
             .disabled(!canPause)
             .accessibilityHidden(!canPause)
             .animation(.easeOut(duration: 0.2), value: canPause)
-            Button(action: exit) {
+            Button(action: leave) {
                 DoodleOutline(shape: .cross)
                     .stroke(washed[PlaneGameArt.pink], style: DoodleField.line)
                     .frame(width: 14, height: 14)

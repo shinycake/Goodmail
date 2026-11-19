@@ -140,7 +140,7 @@
       }
     },
     "Keep Playing" : {
-      "comment" : "Stays in the paper plane game instead of leaving for the new mail",
+      "comment" : "Stays in the paper plane game instead of leaving it",
       "localizations" : {
         "he" : {
           "stringUnit" : {
@@ -151,7 +151,7 @@
       }
     },
     "Leave" : {
-      "comment" : "Leaves the paper plane game for the new mail",
+      "comment" : "Leaves a paper plane game in play",
       "localizations" : {
         "he" : {
           "stringUnit" : {
@@ -162,7 +162,7 @@
       }
     },
     "Leave the Game?" : {
-      "comment" : "Asked when the new mail is tapped during the paper plane game",
+      "comment" : "Asked before leaving a paper plane game in play",
       "localizations" : {
         "he" : {
           "stringUnit" : {
@@ -283,7 +283,7 @@
       }
     },
     "You'll lose your progress in this game." : {
-      "comment" : "Why the paper plane game asks before leaving for the new mail",
+      "comment" : "Why the paper plane game asks before leaving it",
       "localizations" : {
         "he" : {
           "stringUnit" : {

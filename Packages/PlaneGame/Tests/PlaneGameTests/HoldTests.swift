@@ -2,7 +2,7 @@ import Foundation
 import PlaneGame
 import Testing
 
-/// A paused game's hold: the pause card, the question before leaving for new mail, and the countdown to carry on.
+/// A paused game's hold: the pause card, the question before leaving, and the countdown to carry on.
 struct HoldTests {
     @Test func resumingFromTheCardCountsDownThreeSeconds() {
         #expect(PlaneGameHold.card.resumed == .countingDown(left: 3))

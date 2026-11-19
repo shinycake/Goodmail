@@ -3,7 +3,7 @@ import SwiftUI
 
 /// The game screen: paper over the window, the canvas, the envelopes while they fold, the scene's paper planes
 /// fading with the paper, the HUD, and the card over a paused game or a game over, the countdown before a paused game
-/// carries on and the question before leaving it for new mail. A drag anywhere steers and fires. It fills the window,
+/// carries on and the question before leaving it. A drag anywhere steers and fires. It fills the window,
 /// so its coordinates are the window's.
 struct PlaneGameView: View {
     let model: PlaneGameModel
@@ -36,7 +36,7 @@ struct PlaneGameView: View {
                 PlaneGameHUD(
                     lives: model.world.lives, score: model.world.score, mailWaiting: model.mailWaiting,
                     mailArrivals: model.mailArrivals, canPause: model.canPause, pause: model.pause,
-                    leaveForMail: model.leaveForMail, exit: model.exit)
+                    leave: model.askToLeave)
                 if let boss = model.world.boss {
                     PlaneGameBossMeter(line: PlaneGameBossLine(boss: boss, reduceMotion: model.reduceMotion))
                 }
@@ -61,7 +61,7 @@ struct PlaneGameView: View {
         .alert(
             Text(
                 "Leave the Game?", tableName: "PlaneGame", bundle: .module,
-                comment: "Asked when the new mail is tapped during the paper plane game"),
+                comment: "Asked before leaving a paper plane game in play"),
             isPresented: Binding(
                 get: { model.phase.isAskingToLeave },
                 // Dismissed without an answer, as it is when the window closes, counts as staying.
@@ -70,17 +70,17 @@ struct PlaneGameView: View {
             Button(role: .destructive, action: model.exit) {
                 Text(
                     "Leave", tableName: "PlaneGame", bundle: .module,
-                    comment: "Leaves the paper plane game for the new mail")
+                    comment: "Leaves a paper plane game in play")
             }
             Button(role: .cancel, action: model.stay) {
                 Text(
                     "Keep Playing", tableName: "PlaneGame", bundle: .module,
-                    comment: "Stays in the paper plane game instead of leaving for the new mail")
+                    comment: "Stays in the paper plane game instead of leaving it")
             }
         } message: {
             Text(
                 "You'll lose your progress in this game.", tableName: "PlaneGame", bundle: .module,
-                comment: "Why the paper plane game asks before leaving for the new mail")
+                comment: "Why the paper plane game asks before leaving it")
         }
         .contentShape(.rect)
         .gesture(
@@ -146,7 +146,7 @@ extension PlaneGamePhase {
         }
     }
 
-    /// Whether the game asks before leaving for the new mail.
+    /// Whether the game asks before it leaves.
     fileprivate var isAskingToLeave: Bool {
         if case .paused(_, .askingToLeave) = self { true } else { false }
     }

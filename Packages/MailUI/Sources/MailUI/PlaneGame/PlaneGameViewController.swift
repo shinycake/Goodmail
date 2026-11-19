@@ -144,11 +144,11 @@ final class PlaneGameViewController: UIViewController {
     }
 
     @objc private func askToLeave() {
-        model.exit()
+        model.askToLeave()
     }
 
     override func accessibilityPerformEscape() -> Bool {
-        model.exit()
+        model.askToLeave()
         return true
     }
 
