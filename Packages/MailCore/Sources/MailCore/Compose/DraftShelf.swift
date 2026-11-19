@@ -18,7 +18,7 @@ public struct DraftShelf<Composer> {
         case writing(Draft.ID)
         /// Every draft waits at the bottom of the screen.
         case minimized
-        /// The drafts are laid out to pick one, after swiping up on several.
+        /// The drafts are laid out to pick one, after tapping the pill holding several.
         case choosing
     }
 
@@ -27,6 +27,11 @@ public struct DraftShelf<Composer> {
     public private(set) var state: State = .empty
 
     public init() {}
+
+    /// How many drafts wait minimized: all of them but the one being written.
+    public var minimizedCount: Int {
+        if case .writing = state { entries.count - 1 } else { entries.count }
+    }
 
     /// The draft filling the screen, if one is.
     public var writing: Entry? {
@@ -43,7 +48,7 @@ public struct DraftShelf<Composer> {
         choose(draft.id)
     }
 
-    /// Puts `draft` back in the bar behind the others, as when the app opens again with it minimized. A draft already in
+    /// Puts `draft` back in the pill behind the others, as when the app opens again with it minimized. A draft already in
     /// progress stays as it is.
     public mutating func shelve(_ draft: Draft, in composer: Composer) {
         guard !entries.contains(where: { $0.id == draft.id }) else { return }
@@ -60,7 +65,7 @@ public struct DraftShelf<Composer> {
         state = .minimized
     }
 
-    /// Swiping up on the minimized drafts: a lone draft opens, several are laid out to pick from.
+    /// Tapping the pill of minimized drafts: a lone draft opens, several are laid out to pick from.
     public mutating func reopen() {
         guard state == .minimized, let first = entries.first else { return }
         if entries.count == 1 { choose(first.id) } else { state = .choosing }
@@ -85,7 +90,7 @@ public struct DraftShelf<Composer> {
         if entries.isEmpty {
             state = .empty
         } else if state == .writing(id) || (state == .choosing && entries.count == 1) {
-            // A single draft left needs no picking, so it goes back to the bar.
+            // A single draft left needs no picking, so it goes back to the pill.
             state = .minimized
         }
     }

@@ -1,15 +1,15 @@
 import UIKit
 
-/// Where a lone floating element, such as the undo toast, the box threads are put away into, or the bar of
-/// minimized messages, sits across the screen.
+/// Where a lone floating element, such as the undo toast, the box threads are put away into, or the composer's
+/// card, sits across the screen.
 ///
 /// iPhone Duo held partly folded like a book has a fold down the middle of its inner display. Text there is hard to
 /// read and a button there is hard to tap, so Apple's guidance moves elements off it, the way the system moves its
 /// alerts and sheets. A fold running top to bottom splits the area in two, and the element takes the wider region.
 /// When the two are even, it takes the right one, where the element stays as the device closes toward its outer
 /// display. Right means the physical right, as with the bar of controls on the device's side, so Hebrew keeps it
-/// too. A fold running side to side, as when the device stands like a laptop, leaves the full width: the toast and
-/// the bar already sit low, in the lower region meant for touch.
+/// too. A fold running side to side, as when the device stands like a laptop, leaves the full width: the toast
+/// already sits low, in the lower region meant for touch.
 nonisolated enum FoldLane {
     /// The part of `area` to the side of the first fold in `folds` that runs top to bottom through it, or all of
     /// `area` when none does. The side is chosen from the two regions the fold leaves across `screen`, the whole of

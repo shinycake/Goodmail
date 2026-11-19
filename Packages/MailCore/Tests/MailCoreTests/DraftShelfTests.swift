@@ -177,4 +177,39 @@ struct DraftShelfTests {
         #expect(shelf.state == .minimized)
         #expect(shelf.entries.map(\.composer) == ["Lunch"])
     }
+
+    // MARK: How many wait minimized
+
+    @Test func anEmptyShelfHasNoneMinimized() {
+        #expect(DraftShelf<String>().minimizedCount == 0)
+    }
+
+    @Test func theOneBeingWrittenIsNotMinimized() {
+        var shelf = DraftShelf<String>()
+        shelf.open(draft("Lunch"), in: "Lunch")
+        #expect(shelf.minimizedCount == 0)
+    }
+
+    @Test func writingOneWithTwoMinimizedCountsTheTwo() {
+        var shelf = shelved([draft("Lunch"), draft("Budget")])
+        shelf.open(draft("Trip"), in: "Trip")
+        #expect(shelf.minimizedCount == 2)
+    }
+
+    @Test func allMinimizedCountsThemAll() {
+        #expect(shelved([draft("Lunch"), draft("Budget"), draft("Trip")]).minimizedCount == 3)
+    }
+
+    @Test func choosingCountsThemAll() {
+        var shelf = shelved([draft("Lunch"), draft("Budget")])
+        shelf.reopen()
+        #expect(shelf.state == .choosing)
+        #expect(shelf.minimizedCount == 2)
+    }
+
+    @Test func finishingADraftDropsTheCount() {
+        var shelf = shelved([draft("Lunch"), draft("Budget")])
+        shelf.finish(shelf.entries[0].id)
+        #expect(shelf.minimizedCount == 1)
+    }
 }

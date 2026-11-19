@@ -552,7 +552,7 @@ public final class ComposeViewController: UIViewController {
         host?.composerDidClose(self)
     }
 
-    /// The draft as written so far, for the minimized bar and the picker; as it opened before the editor loads.
+    /// The draft as written so far, for the drafts shelf and the picker; as it opened before the editor loads.
     public var written: Draft { isViewLoaded ? viewModel.finished(body: body) : viewModel.draft }
 
     /// How a message dragged down leaves: one with something in it is minimized, one without is discarded.
@@ -576,7 +576,7 @@ public final class ComposeViewController: UIViewController {
         field?.becomeFirstResponder()
     }
 
-    /// The card reached the bar.
+    /// The card reached the drafts pill, or left by its corner.
     func didMinimize() {
         guard case .leaving(let field) = showing else { return }
         showing = .minimized(field)

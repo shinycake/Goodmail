@@ -19,8 +19,8 @@ public final class MailboxViewController: UIViewController {
     /// A search asked for before the list was in a window, as from a Home Screen quick action at launch, which begins
     /// once the list appears (`beginSearch`). `nil` once begun.
     var searchToBegin: SearchQuery?
-    /// Search, while browsing. Selecting takes it away: its button would otherwise move up to the navigation bar and
-    /// stay there beside the toolbar's once selecting ends.
+    /// Search, while browsing: a button in the navigation bar just inside Select, which opens the field there.
+    /// Selecting takes it away, so the bar holds Select All, the title and Done.
     private(set) var search: UISearchController?
     let display: RowDisplay
     /// What an empty list shows.
@@ -58,20 +58,27 @@ public final class MailboxViewController: UIViewController {
         case inboxZero(pointing: InboxZeroPointer?)
     }
     private var browsingToolbarItems: [UIBarButtonItem] = []
-    /// The buttons at the ends of the browsing toolbar: Search, when there is search, and Compose.
+    /// The buttons at the ends of the browsing toolbar: the drafts pill, when the window has one, and Compose.
     private var browsingEnds: [UIBarButtonItem] = []
+    /// Tells the drafts pill how many messages are minimized; `nil` for a list with no pill, as search's results.
+    private let draftsDock: DraftsDock?
+    /// The leading end of the browsing toolbar, while messages are minimized.
+    private(set) var draftsPill: DraftsPillItem?
     private lazy var problemsItem = AccountProblemsItem { [weak self] notices in self?.explain(notices) }
     /// The Inbox's category menu, when the list is split into categories.
     private let categoryButton: UIButton?
     private let categoryItem: UIBarButtonItem?
 
-    /// `searchResults`, when given, adds search to the toolbar. `empty` is what an empty list shows: by default the
-    /// mailbox's symbol and "No Mail". `display` is how its rows look.
+    /// `searchResults`, when given, adds search to the navigation bar. `empty` is what an empty list shows: by
+    /// default the mailbox's symbol and "No Mail". `display` is how its rows look. `draftsDock`, when given, puts the
+    /// window's drafts pill at the toolbar's leading end.
     public init(
         viewModel: MailboxViewModel, searchResults: SearchResultsController? = nil,
-        empty: UIContentUnavailableConfiguration? = nil, display: RowDisplay = Preferences.rowDisplay
+        empty: UIContentUnavailableConfiguration? = nil, display: RowDisplay = Preferences.rowDisplay,
+        draftsDock: DraftsDock? = nil
     ) {
         self.viewModel = viewModel
+        self.draftsDock = draftsDock
         self.display = display
         self.searchResults = searchResults
         self.empty = empty ?? Self.noMail(in: viewModel.mailbox)
@@ -84,7 +91,6 @@ public final class MailboxViewController: UIViewController {
         navigationItem.largeTitleDisplayMode = .always
         // The sidebar button stands in for the back button (`browsingLeadingItems`); a root list has neither.
         navigationItem.hidesBackButton = true
-        if viewModel.actions != nil { navigationItem.rightBarButtonItem = selectItem() }
     }
 
     @available(*, unavailable)
@@ -119,17 +125,19 @@ public final class MailboxViewController: UIViewController {
         configureDataSource()
         configureSwipes()
         configureWindowDrag()
-        let search = searchItem()
+        installSearch()
+        navigationItem.rightBarButtonItems = browsingTrailingItems
         let compose = UIBarButtonItem(
             title: String(localized: "New Message", table: "Mailbox", bundle: .module, comment: "Composer title"),
             image: UIImage(systemName: "square.and.pencil"),
             primaryAction: UIAction { [weak self] _ in self?.viewModel.compose() })
         // New Message is the last to go into More when the toolbar runs short, as in a bar down iPhone Duo's side.
         compose.visibilityPriority = .high
+        draftsPill = draftsDock?.makePill(for: self)
         browsingToolbarItems = [
-            search ?? .flexibleSpace(), .flexibleSpace(), problemsItem.item, .flexibleSpace(), compose,
+            draftsPill?.item ?? .flexibleSpace(), .flexibleSpace(), problemsItem.item, .flexibleSpace(), compose,
         ]
-        browsingEnds = [search, compose].compactMap(\.self)
+        browsingEnds = [draftsPill?.item, compose].compactMap(\.self)
         toolbarItems = browsingToolbarItems
 
         observation = Task { [viewModel] in await viewModel.observe() }
@@ -167,9 +175,9 @@ public final class MailboxViewController: UIViewController {
         lendInboxZero()
     }
 
-    /// Search as a glass button in the toolbar that expands into the field, or none when there is no search.
-    private func searchItem() -> UIBarButtonItem? {
-        guard let searchResults else { return nil }
+    /// Search as a glass button in the navigation bar that expands into the field there, when there is search.
+    private func installSearch() {
+        guard let searchResults else { return }
         let search = UISearchController(searchResultsController: searchResults)
         search.searchResultsUpdater = searchResults
         search.delegate = self
@@ -178,21 +186,18 @@ public final class MailboxViewController: UIViewController {
         self.search = search
         navigationItem.searchController = search
         navigationItem.preferredSearchBarPlacement = .integratedButton
+        // In the navigation bar on every device, beside Select. The toolbar's leading end is the drafts pill's. Set
+        // once, before the first layout, so rotating or collapsing can't move the button between bars.
+        navigationItem.searchBarPlacementAllowsToolbarIntegration = false
         definesPresentationContext = true
-        return navigationItem.searchBarPlacementBarButtonItem
     }
 
-    /// Search goes in the toolbar only while the list fills the window. Beside the thread, as on a large iPhone held
-    /// sideways, the split view lays the toolbar out in a bar across the whole window, where the search field it
-    /// makes runs past the list's column, so search sits in the navigation bar there, as it does on iPad. The
-    /// column's own size class is compact either way, so it's the split view collapsing that tells; turning the
-    /// device lays the list out again.
-    public override func viewWillLayoutSubviews() {
-        super.viewWillLayoutSubviews()
-        let fillsWindow = splitViewController?.isCollapsed ?? true
-        if navigationItem.searchBarPlacementAllowsToolbarIntegration != fillsWindow {
-            navigationItem.searchBarPlacementAllowsToolbarIntegration = fillsWindow
-        }
+    /// The trailing items while browsing: Select at the corner, Search just inside it.
+    private var browsingTrailingItems: [UIBarButtonItem] {
+        var items: [UIBarButtonItem] = []
+        if viewModel.actions != nil { items.append(selectItem()) }
+        if search != nil { items.append(navigationItem.searchBarPlacementBarButtonItem) }
+        return items
     }
 
     /// Called by UIKit whenever an observed view-model property changes.
@@ -574,13 +579,16 @@ extension MailboxViewController {
         super.setEditing(editing, animated: animated)
         swipes.close(animated: animated)
         collectionView.isEditing = editing
+        // The search controller first: its button in the trailing items is ignored while there is none.
         navigationItem.searchController = editing ? nil : search
-        navigationItem.rightBarButtonItem =
+        navigationItem.rightBarButtonItems =
             editing
-            ? UIBarButtonItem(
-                systemItem: .done,
-                primaryAction: UIAction { [weak self] _ in self?.setEditing(false, animated: true) })
-            : selectItem()
+            ? [
+                UIBarButtonItem(
+                    systemItem: .done,
+                    primaryAction: UIAction { [weak self] _ in self?.setEditing(false, animated: true) })
+            ]
+            : browsingTrailingItems
         if editing {
             updateSelectionChrome()
         } else {
@@ -710,11 +718,11 @@ extension MailboxViewController {
 // MARK: - The undo toast
 
 extension MailboxViewController: UndoToastLane {
-    /// Browsing, the toolbar holds Search and Compose at its ends, and the account status between them when an
-    /// account has a problem. Selecting fills it with actions.
+    /// Browsing, the toolbar holds the drafts pill, while it shows, and Compose at its ends, and the account status
+    /// between them when an account has a problem. Selecting fills it with actions.
     var toolbarEnds: [UIBarButtonItem] {
         guard !isEditing, problemsItem.item.isHidden else { return [] }
-        return browsingEnds
+        return browsingEnds.filter { !$0.isHidden }
     }
 }
 

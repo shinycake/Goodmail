@@ -1,37 +1,68 @@
 import UIKit
 
-/// The card the composer is written in, over the mail screens. Its grabber shows it can be pulled down to the bar,
-/// which the card shrinks into as it goes.
+/// The card the composer is written in, over the mail screens. Its grabber shows it can be pulled down into the
+/// drafts pill. As it goes, the card's shape shrinks and the composer inside is scaled to its width, never squeezed,
+/// so what shows is always the top of the live composer; nothing on it changes opacity.
+///
+/// The card is one surface colour, resolved at the elevated level as a sheet's is, so the grabber's strip and the
+/// composer below it match.
 final class ComposerCardView: UIView {
     /// The corner radius while the card fills the screen.
     static let openCornerRadius: CGFloat = 38
     /// How far the composer starts below the card's top, leaving the grabber its room.
     static let grabberRoom: CGFloat = 12
-    /// What the composer's content sits in, so it can fade without the card and grabber.
-    let content = UIView()
+    /// How far the open card reaches below the screen, so its bottom corners are rounded off screen and all four
+    /// can stay round as it shrinks.
+    static let overhang = openCornerRadius
+
+    /// Casts the shadow. A view of its own with no sublayers, so typing in the composer never makes Core Animation
+    /// draw the shadow again.
+    private let backing = UIView()
+    /// The card's shape, which clips the scaled composer.
+    private let clip = UIView()
+    /// The composer and the grabber at the size they have open, scaled to the card's width.
+    private let cover = UIView()
     private let grabber = Grabber()
-    /// Moves the message to the bar: the grabber's VoiceOver action.
+    /// The size the composer has with the card open.
+    private var openSize = CGSize.zero
+
+    /// Moves the message to the pill: the grabber's VoiceOver action.
     var onMinimize: (() -> Void)? {
         get { grabber.onMinimize }
         set { grabber.onMinimize = newValue }
     }
 
+    /// How the corners curve. Not animatable: set before a motion starts.
+    var cornerCurve: CALayerCornerCurve {
+        get { clip.layer.cornerCurve }
+        set {
+            backing.layer.cornerCurve = newValue
+            clip.layer.cornerCurve = newValue
+        }
+    }
+
     override init(frame: CGRect) {
         super.init(frame: frame)
-        backgroundColor = .shelfCard
-        layer.cornerCurve = .continuous
-        layer.cornerRadius = Self.openCornerRadius
-        layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
-        clipsToBounds = true
+        // As a sheet is: lifted off the screen behind it. The composer inherits it through the views.
+        traitOverrides.userInterfaceLevel = .elevated
         // VoiceOver stays in the message while it's open, as it would in a sheet.
         accessibilityViewIsModal = true
-        content.frame = bounds
-        addSubview(content)
+        backing.backgroundColor = .systemBackground
+        backing.layer.shadowColor = UIColor.black.cgColor
+        backing.layer.shadowOpacity = 0.16
+        backing.layer.shadowRadius = 20
+        backing.layer.shadowOffset = CGSize(width: 0, height: 8)
+        clip.clipsToBounds = true
+        cover.backgroundColor = .systemBackground
+        cornerCurve = .continuous
+        addSubview(backing)
+        addSubview(clip)
+        clip.addSubview(cover)
         grabber.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(grabber)
+        cover.addSubview(grabber)
         NSLayoutConstraint.activate([
-            grabber.topAnchor.constraint(equalTo: topAnchor),
-            grabber.centerXAnchor.constraint(equalTo: centerXAnchor),
+            grabber.topAnchor.constraint(equalTo: cover.topAnchor),
+            grabber.centerXAnchor.constraint(equalTo: cover.centerXAnchor),
             grabber.widthAnchor.constraint(equalToConstant: Grabber.size.width),
             grabber.heightAnchor.constraint(equalToConstant: Grabber.size.height),
         ])
@@ -40,16 +71,38 @@ final class ComposerCardView: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("Programmatic UI only") }
 
-    /// The composer's view, kept at the size it has open: as the card shrinks into the bar it clips the composer
-    /// rather than squeezing it.
+    /// Holds the composer's view at the size it has open, `openSize` being the open card's: as the card shrinks it
+    /// is scaled with it rather than squeezed.
     func hold(_ composerView: UIView, openSize: CGSize) {
+        self.openSize = openSize
+        cover.bounds = CGRect(origin: .zero, size: openSize)
+        composerView.autoresizingMask = []
         composerView.frame = CGRect(
-            x: (bounds.width - openSize.width) / 2, y: Self.grabberRoom, width: openSize.width,
-            height: openSize.height - Self.grabberRoom)
-        composerView.autoresizingMask = [.flexibleLeftMargin, .flexibleRightMargin, .flexibleBottomMargin]
-        content.frame = bounds
-        content.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        content.addSubview(composerView)
+            x: 0, y: Self.grabberRoom, width: openSize.width,
+            height: openSize.height - Self.overhang - Self.grabberRoom)
+        if composerView.superview !== cover { cover.insertSubview(composerView, belowSubview: grabber) }
+        fit(frame, cornerRadius: clip.layer.cornerRadius)
+    }
+
+    /// Puts the card at `frame`, the composer scaled to its width and never above its open size, its top on the
+    /// card's top. Every change here is linear in an animator's progress, so it is animatable.
+    func fit(_ frame: CGRect, cornerRadius: CGFloat) {
+        self.frame = frame
+        let bounds = CGRect(origin: .zero, size: frame.size)
+        backing.frame = bounds
+        clip.frame = bounds
+        backing.layer.cornerRadius = cornerRadius
+        clip.layer.cornerRadius = cornerRadius
+        let scale = openSize.width > 0 ? min(frame.width / openSize.width, 1) : 1
+        cover.transform = CGAffineTransform(scaleX: scale, y: scale)
+        cover.center = CGPoint(x: frame.width / 2, y: openSize.height * scale / 2)
+    }
+
+    /// Fits the card at `frame` by way of a frame one point narrower, so the composer's layout is solved again
+    /// rather than kept from where an animator left it.
+    func refit(_ frame: CGRect, cornerRadius: CGFloat) {
+        fit(frame.insetBy(dx: 1, dy: 0), cornerRadius: cornerRadius)
+        fit(frame, cornerRadius: cornerRadius)
     }
 }
 
@@ -58,6 +111,8 @@ final class ComposerCardView: UIView {
 private final class Grabber: UIView {
     /// Room enough for VoiceOver to land on, with the capsule at its top.
     static let size = CGSize(width: 88, height: 44)
+    private static let capsuleTop: CGFloat = 6
+    private static let capsuleSize = CGSize(width: 36, height: 5)
     var onMinimize: (() -> Void)?
 
     override init(frame: CGRect) {
@@ -65,14 +120,14 @@ private final class Grabber: UIView {
         isUserInteractionEnabled = false
         let capsule = UIView()
         capsule.backgroundColor = .tertiaryLabel
-        capsule.layer.cornerRadius = MinimizedDraftsBar.grabberSize.height / 2
+        capsule.layer.cornerRadius = Self.capsuleSize.height / 2
         capsule.translatesAutoresizingMaskIntoConstraints = false
         addSubview(capsule)
         NSLayoutConstraint.activate([
-            capsule.topAnchor.constraint(equalTo: topAnchor, constant: MinimizedDraftsBar.grabberTop),
+            capsule.topAnchor.constraint(equalTo: topAnchor, constant: Self.capsuleTop),
             capsule.centerXAnchor.constraint(equalTo: centerXAnchor),
-            capsule.widthAnchor.constraint(equalToConstant: MinimizedDraftsBar.grabberSize.width),
-            capsule.heightAnchor.constraint(equalToConstant: MinimizedDraftsBar.grabberSize.height),
+            capsule.widthAnchor.constraint(equalToConstant: Self.capsuleSize.width),
+            capsule.heightAnchor.constraint(equalToConstant: Self.capsuleSize.height),
         ])
         isAccessibilityElement = true
         accessibilityTraits = .button

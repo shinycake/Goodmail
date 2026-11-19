@@ -2,12 +2,48 @@
   "sourceLanguage" : "en",
   "strings" : {
     "%lld Drafts" : {
-      "comment" : "The bar holding several minimized messages",
+      "comment" : "VoiceOver label of the drafts pill: how many messages are minimized",
       "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Draft"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Drafts"
+                }
+              }
+            }
+          }
+        },
         "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld טיוטות"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "טיוטה אחת"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld טיוטות"
+                }
+              },
+              "two" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "שתי טיוטות"
+                }
+              }
+            }
           }
         }
       }
@@ -45,6 +81,17 @@
         }
       }
     },
+    "Message minimized" : {
+      "comment" : "VoiceOver announcement after the composer shrinks into the drafts pill",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ההודעה מוזערה"
+          }
+        }
+      }
+    },
     "Minimize" : {
       "comment" : "VoiceOver: the grabber at the top of the composer, which moves the message down to the bar",
       "localizations" : {
@@ -57,7 +104,7 @@
       }
     },
     "Opens the message." : {
-      "comment" : "VoiceOver hint of the bar holding one minimized message",
+      "comment" : "VoiceOver hint of the drafts pill holding one message, and of a laid-out draft",
       "localizations" : {
         "he" : {
           "stringUnit" : {
@@ -68,7 +115,7 @@
       }
     },
     "Shows the drafts to pick one." : {
-      "comment" : "VoiceOver hint of the bar holding several minimized messages",
+      "comment" : "VoiceOver hint of the drafts pill holding several messages",
       "localizations" : {
         "he" : {
           "stringUnit" : {

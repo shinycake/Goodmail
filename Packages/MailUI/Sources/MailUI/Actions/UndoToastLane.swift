@@ -1,7 +1,7 @@
 import UIKit
 
 /// A screen whose bottom toolbar can carry the undo toast in its middle, on one line with the buttons at its ends,
-/// as the mailbox list's does between Search and Compose.
+/// as the mailbox list's does between the drafts pill and Compose.
 protocol UndoToastLane: UIViewController {
     /// The toolbar's buttons that flank an empty middle, or none while something fills it.
     var toolbarEnds: [UIBarButtonItem] { get }

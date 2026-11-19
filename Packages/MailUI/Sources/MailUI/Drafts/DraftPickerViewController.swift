@@ -67,7 +67,7 @@ final class DraftPickerViewController: UIViewController {
             cards.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -16),
             cards.leadingAnchor.constraint(equalTo: readable.leadingAnchor),
             cards.trailingAnchor.constraint(equalTo: readable.trailingAnchor),
-            // Few cards sit at the bottom, near the bar they came from.
+            // Few cards sit at the bottom, near the pill they came from.
             cards.heightAnchor.constraint(
                 greaterThanOrEqualTo: scrollView.frameLayoutGuide.heightAnchor, constant: -32),
             newMessage.centerXAnchor.constraint(equalTo: view.centerXAnchor),
@@ -86,22 +86,6 @@ final class DraftPickerViewController: UIViewController {
     }
 
     private var hasScrolled = false
-
-    /// How far below their place the cards start as they come up under the finger.
-    static let rise: CGFloat = 160
-
-    /// Before coming up under the finger: not yet showing, the cards lowered toward the bar they come from.
-    func prepareToRise() {
-        loadViewIfNeeded()
-        view.alpha = 0
-        cards.transform = CGAffineTransform(translationX: 0, y: Self.rise)
-    }
-
-    /// Up in place: what the finger's drag animates toward.
-    func rise() {
-        view.alpha = 1
-        cards.transform = .identity
-    }
 
     /// Lays out `drafts`, the last one written first, which goes in front at the bottom.
     func show(_ drafts: [Draft]) {
@@ -146,7 +130,7 @@ private final class DraftCard: UIView {
 
     init(draft: Draft) {
         super.init(frame: .zero)
-        backgroundColor = .shelfCard
+        backgroundColor = .draftCard
         layer.cornerRadius = 28
         layer.cornerCurve = .continuous
         layer.shadowColor = UIColor.black.cgColor
@@ -209,7 +193,7 @@ private final class DraftCard: UIView {
         title.accessibilityTraits = [.button, .header]
         title.accessibilityHint = String(
             localized: "Opens the message.", table: "Drafts", bundle: .module,
-            comment: "VoiceOver hint of the bar holding one minimized message")
+            comment: "VoiceOver hint of the drafts pill holding one message, and of a laid-out draft")
         accessibilityIdentifier = "drafts.card"
     }
 
@@ -230,5 +214,12 @@ private final class DraftCard: UIView {
 
     @objc private func open() {
         onOpen?()
+    }
+}
+
+extension UIColor {
+    /// A laid-out draft: lifted off the dimmed mail screens in both themes.
+    fileprivate static let draftCard = UIColor { traits in
+        traits.userInterfaceStyle == .dark ? .tertiarySystemBackground : .systemBackground
     }
 }
