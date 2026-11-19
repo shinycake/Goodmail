@@ -9,7 +9,7 @@ struct MorphSpanTests {
 
     @Test(
         "Mirrored twice, every piece of the minimize is back where it was",
-        arguments: [MinimizeMorph.shrink, MinimizeMorph.curtain, MinimizeMorph.composer])
+        arguments: [MinimizeMorph.travel, MinimizeMorph.curtain, MinimizeMorph.composer])
     func mirrorsBack(span: MorphSpan) {
         #expect(span.mirrored.mirrored == span)
         #expect(span.mirrored.start + span.mirrored.length <= 1)

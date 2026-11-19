@@ -159,7 +159,7 @@ final class ComposerStage: NSObject {
             pose(minimized: start)
             if !stays { bar.alpha = 0 }
             animation = self.animation(distance: start.minY - open.minY, heading: .up, handOff: handOff) {
-                self.keyframe(MinimizeMorph.shrink.mirrored) {
+                self.keyframe(MinimizeMorph.travel.mirrored) {
                     self.card.fit(open, cornerRadius: ComposerCardView.openCornerRadius)
                     self.backdrop.dimming = 1
                 }
@@ -171,7 +171,7 @@ final class ComposerStage: NSObject {
             let start = open.offsetBy(dx: 0, dy: shelf.view.bounds.height - open.minY)
             pose(sliding: start)
             animation = self.animation(distance: start.minY - open.minY, heading: .up, handOff: handOff) {
-                self.keyframe(MinimizeMorph.shrink) { self.poseOpen(open) }
+                self.keyframe(MinimizeMorph.travel) { self.poseOpen(open) }
             }
         }
         begin(
@@ -196,7 +196,7 @@ final class ComposerStage: NSObject {
             card.face.show(drafts)
             let end = barFrame
             animation = self.animation(distance: end.minY - from.minY, heading: .down, handOff: handOff) {
-                self.keyframe(MinimizeMorph.shrink) {
+                self.keyframe(MinimizeMorph.travel) {
                     self.card.fit(end, cornerRadius: MinimizedDraftsBar.cornerRadius)
                     self.backdrop.dimming = 0
                 }
@@ -207,7 +207,7 @@ final class ComposerStage: NSObject {
             handOff = .none
             let end = from.offsetBy(dx: 0, dy: shelf.view.bounds.height - from.minY)
             animation = self.animation(distance: end.minY - from.minY, heading: .down, handOff: handOff) {
-                self.keyframe(MinimizeMorph.shrink) { self.pose(sliding: end) }
+                self.keyframe(MinimizeMorph.travel) { self.pose(sliding: end) }
             }
         }
         return Move(

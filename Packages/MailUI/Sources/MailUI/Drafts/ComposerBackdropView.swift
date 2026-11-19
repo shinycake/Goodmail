@@ -9,7 +9,7 @@ final class ComposerBackdropView: UIView {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        isUserInteractionEnabled = false
+        // Like a sheet's dimming, it takes the touches that miss the card, so the dimmed screens stay still behind it.
         // The screens' own background, which the scrim then dims as it does the rest.
         curtain.backgroundColor = .systemBackground
         scrim.backgroundColor = UIColor.black.withAlphaComponent(0.3)

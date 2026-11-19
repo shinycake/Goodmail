@@ -20,8 +20,9 @@ public struct MorphSpan: Equatable, Sendable {
 /// the whole way, its grabber landing on the bar's, the screen behind it brightening along with it; the curtain over
 /// the status bar goes first; the composer gives way to what the bar says only once the card is nearly there.
 public enum MinimizeMorph {
-    /// The card's frame, corners and scale, and the dimming behind it.
-    public static let shrink = MorphSpan(start: 0, length: 1)
+    /// The card's travel: its frame, corners and scale, and the dimming behind it. A card sliding in from below or
+    /// off the bottom travels over the same span.
+    public static let travel = MorphSpan(start: 0, length: 1)
     /// The cover over the top of the screen while the card is open.
     public static let curtain = MorphSpan(start: 0, length: 0.2)
     /// The composer itself, showing the minimized message's title under it as it goes.
