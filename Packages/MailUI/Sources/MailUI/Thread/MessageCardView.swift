@@ -92,6 +92,11 @@ final class MessageCardView: UIView {
         attachments.show(AttachmentListView.listed(in: message))
     }
 
+    /// Light or dark, as the card shows now: the app's appearance, or light while the sun button holds it there.
+    var shownStyle: UIUserInterfaceStyle {
+        surface.traitCollection.userInterfaceStyle == .dark ? .dark : .light
+    }
+
     func setLoading(_ loading: Bool, for attachment: Attachment) {
         attachments.setLoading(loading, for: attachment)
     }

@@ -4,9 +4,11 @@ import WebKit
 
 /// A conversation as a paged PDF, for printing or sharing: each message laid out by its own off-screen web view
 /// (so one sender's styles never reach another's), with the same rules as the reader: no email JavaScript, and no
-/// remote loads unless the reader allowed them for that message (ADR-003). Each web view renders its message as one
-/// tall PDF page (`WKWebView.pdf`), which is cut into paper-sized pages. WebKit's print formatter isn't used: in the
-/// app it waits on the web process of a view that isn't in a window, holding the main thread forever.
+/// remote loads unless the reader allowed them for that message (ADR-003). Each message comes out in the appearance
+/// it shows in on screen, light or dark, with the reader's palette and script, so the PDF looks like its card. Each
+/// web view renders its message as one tall PDF page (`WKWebView.pdf`), which is cut into paper-sized pages.
+/// WebKit's print formatter isn't used: in the app it waits on the web process of a view that isn't in a window,
+/// holding the main thread forever.
 @MainActor
 enum ConversationPDF {
     enum Failure: Error {
@@ -21,41 +23,53 @@ enum ConversationPDF {
         return isLetter ? CGRect(x: 0, y: 0, width: 612, height: 792) : CGRect(x: 0, y: 0, width: 595, height: 842)
     }
 
+    /// The sheet a message prints on, around its page: white in light, the reader's dark card in dark. A painted body's
+    /// own page is a shade lighter in dark, as its sheet is on the card.
+    static func sheet(_ appearance: ForcedAppearance) -> UIColor {
+        appearance == .dark ? UIColor(red: 28 / 255, green: 28 / 255, blue: 30 / 255, alpha: 1) : .white
+    }
+
     static func data(
         for messages: [Message],
         subject: String,
+        appearance: (Message.ID) -> UIUserInterfaceStyle,
         allowsRemoteContent: Set<Message.ID>,
         attachmentData: @escaping (Attachment, Message.ID) async throws -> Data
     ) async throws -> Data {
         let paper = paper
         let printable = paper.insetBy(dx: 36, dy: 36)
         // One tall page per message, kept with its document: a CGPDFPage doesn't keep the document it came from.
-        var rendered: [(document: CGPDFDocument, page: CGPDFPage)] = []
+        var rendered: [(document: CGPDFDocument, page: CGPDFPage, sheet: UIColor)] = []
         for (index, message) in messages.enumerated() {
             try Task.checkCancellation()
             let allows = allowsRemoteContent.contains(message.id)
+            let forced: ForcedAppearance = appearance(message.id) == .dark ? .dark : .light
             let html = PrintDocument.html(
                 for: message, subject: index == 0 ? subject : nil,
-                dateText: message.date.formatted(date: .long, time: .shortened), allowsRemoteContent: allows)
+                dateText: message.date.formatted(date: .long, time: .shortened), appearance: forced,
+                allowsRemoteContent: allows)
             let view = try await loadedView(
-                html, message: message, width: printable.width, allowsRemoteContent: allows,
+                html, message: message, appearance: forced, width: printable.width, allowsRemoteContent: allows,
                 attachmentData: attachmentData)
             let pdf = try await view.pdf(configuration: WKPDFConfiguration())
             // WebKit returned a PDF, so it parses; if it ever doesn't, the export fails rather than drop a message.
             guard let document = CGDataProvider(data: pdf as CFData).flatMap(CGPDFDocument.init),
                 let page = document.page(at: 1)
             else { throw Failure.unreadableMessagePDF }
-            rendered.append((document, page))
+            rendered.append((document, page, sheet(forced)))
         }
         return UIGraphicsPDFRenderer(bounds: paper).pdfData { context in
             for message in rendered {
-                draw(message.page, onto: context, printable: printable)
+                draw(message.page, onto: context, sheet: message.sheet, printable: printable)
             }
         }
     }
 
-    /// Cuts one tall page into as many paper pages as it fills, each showing the next slice in the printable area.
-    private static func draw(_ page: CGPDFPage, onto context: UIGraphicsPDFRendererContext, printable: CGRect) {
+    /// Cuts one tall page into as many paper pages as it fills, each showing the next slice in the printable area on
+    /// `sheet`, so a dark message's margins are dark too.
+    private static func draw(
+        _ page: CGPDFPage, onto context: UIGraphicsPDFRendererContext, sheet: UIColor, printable: CGRect
+    ) {
         let box = page.getBoxRect(.mediaBox)
         guard box.width > 0, box.height > 0 else { return }
         let scale = printable.width / box.width
@@ -64,6 +78,8 @@ enum ConversationPDF {
         repeat {
             context.beginPage()
             let cg = context.cgContext
+            sheet.setFill()
+            context.fill(context.format.bounds)
             cg.saveGState()
             cg.clip(to: printable)
             // PDF space runs up from the bottom; the page's top goes `offset` above the printable area's top.
@@ -76,9 +92,10 @@ enum ConversationPDF {
         } while offset < height
     }
 
-    /// A web view off screen with `html` loaded, its `cid:` images included.
+    /// A web view off screen with `html` loaded, its `cid:` images included and our script, answered for
+    /// `appearance`, run over it.
     private static func loadedView(
-        _ html: String, message: Message, width: CGFloat, allowsRemoteContent: Bool,
+        _ html: String, message: Message, appearance: ForcedAppearance, width: CGFloat, allowsRemoteContent: Bool,
         attachmentData: @escaping (Attachment, Message.ID) async throws -> Data
     ) async throws -> WKWebView {
         let cid = CIDSchemeHandler()
@@ -88,6 +105,11 @@ enum ConversationPDF {
         configuration.websiteDataStore = MessageWebViewPool.dataStore
         configuration.defaultWebpagePreferences.allowsContentJavaScript = false
         configuration.setURLSchemeHandler(cid, forURLScheme: "cid")
+        configuration.userContentController.addUserScript(
+            WKUserScript(
+                source: appearance.apply(to: MessageScript.source(for: .paper)), injectionTime: .atDocumentEnd,
+                forMainFrameOnly: true,
+                in: PreparedWebView.world))
         // A rule list that fails to compile is left out: the document's content security policy still blocks
         // remote loads, so the block fails closed, as in the reader.
         if !allowsRemoteContent, let blocker = await RemoteContentBlocker.shared.ruleList() {

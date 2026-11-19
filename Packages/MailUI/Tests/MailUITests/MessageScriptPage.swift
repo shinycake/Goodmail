@@ -11,18 +11,24 @@ struct MessageScriptPage {
     let reportedHeight: Double
 
     /// Returns once the script has reported, which it does after every pass over the page. The view starts as tall as
-    /// `height`; the reader's starts 1 point tall and grows to what the script reports.
-    static func load(_ body: MessageBody, palette: MessagePalette, height: Double = 600) async -> MessageScriptPage {
+    /// `height`; the reader's starts 1 point tall and grows to what the script reports. A view out of a window
+    /// follows the system's appearance, so a test that needs one forces it in the page, as the PDF does.
+    static func load(
+        _ body: MessageBody, palette: MessagePalette, height: Double = 600, appearance: ForcedAppearance? = nil
+    ) async -> MessageScriptPage {
+        let forced = { (text: String) in appearance.map { $0.apply(to: text) } ?? text }
         let view = WKWebView(frame: CGRect(x: 0, y: 0, width: 360, height: height))
         let contents = view.configuration.userContentController
         contents.addUserScript(
             WKUserScript(
-                source: MessageScript.source(foldLabel: "Show Quoted Text"), injectionTime: .atDocumentEnd,
+                source: forced(MessageScript.source(for: .reader(foldLabel: "Show Quoted Text"))),
+                injectionTime: .atDocumentEnd,
                 forMainFrameOnly: true))
         let reports = Reports()
         contents.add(reports, name: MessageScript.handlerName)
+        let document = MessageDocument.html(for: body, palette: palette, allowsRemoteContent: false)
         view.loadHTMLString(
-            MessageDocument.html(for: body, palette: palette, allowsRemoteContent: false), baseURL: nil)
+            forced(MessageDocument.inject(head: appearance?.rootStyle ?? "", into: document)), baseURL: nil)
         return MessageScriptPage(view: view, reportedHeight: await reports.first())
     }
 }
