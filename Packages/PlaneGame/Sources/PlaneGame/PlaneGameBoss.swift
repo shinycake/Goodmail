@@ -80,6 +80,19 @@ public struct PlaneGameBoss: Equatable, Sendable {
         }
     }
 
+    /// How far above its middle it is drawn, marks of an angrier tier included. It hovers this far under the ceiling,
+    /// so none of it ever covers the score.
+    public var headroom: CGFloat {
+        switch kind {
+        case .junk: 64
+        case .phisher: 60
+        case .storm: 62
+        case .outOfOffice: 63
+        case .mailingList: 52
+        case .overload: 88
+        }
+    }
+
     /// Where its bodies are: just the one, but for a Mailing List that has cloned itself.
     public var bodies: [CGPoint] {
         [position] + copies

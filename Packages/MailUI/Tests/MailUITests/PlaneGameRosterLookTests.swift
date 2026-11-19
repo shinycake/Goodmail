@@ -22,6 +22,15 @@ struct PlaneGameRosterLookTests {
         #expect(Set(kinds.map(PlaneGameBossName.of)).count == kinds.count)
     }
 
+    @Test func everyBossHoversWithAllOfItsDrawingUnderTheCeiling() {
+        for (number, kind) in zip(1..., PlaneGameBoss.Kind.allCases) {
+            let boss = PlaneGameBoss(number: number, on: field)
+            let size = PlaneGameArt.size(of: kind)
+            let art = PlaneGameArt.boss(kind).line.boundingRect.union(PlaneGameArt.anger(marks: 3).boundingRect)
+            #expect(-art.minY * size <= boss.headroom, "\(kind)")
+        }
+    }
+
     @Test func aBeatenMailingListShakesEveryBodyAlike() throws {
         var boss = PlaneGameBoss(number: 5, on: field)
         boss.copies = [CGPoint(x: 100, y: boss.position.y), CGPoint(x: 300, y: boss.position.y)]

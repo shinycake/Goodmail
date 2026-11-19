@@ -42,10 +42,10 @@ extension PlaneGameBoss {
         return sent
     }
 
-    /// Puts it where its status says on `field`: sliding down to hover under the ceiling, then there, inside the
-    /// lanes by its radius, every body of it. A resize comes through here too.
+    /// Puts it where its status says on `field`: sliding down to hover with all of it under the ceiling, then there,
+    /// inside the lanes by its radius, every body of it. A resize comes through here too.
     mutating func place(on field: PlaneGameField) {
-        let hover = field.ceiling + radius
+        let hover = field.ceiling + headroom
         let lanes = field.lanes(inset: radius)
         switch status {
         case .arriving(let elapsed):

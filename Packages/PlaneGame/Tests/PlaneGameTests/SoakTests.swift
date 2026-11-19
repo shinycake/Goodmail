@@ -115,7 +115,7 @@ struct SoakTests {
         #expect(world.things.allSatisfy { $0.kind.role == .hazard || field.lanes.contains($0.position.x) })
         if let boss = world.boss {
             #expect(boss.bodies.allSatisfy { field.lanes(inset: boss.radius).contains($0.x) })
-            #expect(boss.bodies.allSatisfy { $0.y <= field.ceiling + boss.radius })
+            #expect(boss.bodies.allSatisfy { $0.y <= field.ceiling + boss.headroom })
             #expect(boss.bodies.allSatisfy { $0.x.isFinite && $0.y.isFinite })
         }
     }

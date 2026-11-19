@@ -82,7 +82,7 @@ struct BossTests {
                 #expect(!world.bursts.contains { $0.kind == .struck })
             }
         }
-        #expect(boss.position.y == phoneField.ceiling + boss.radius)
+        #expect(boss.position.y == phoneField.ceiling + boss.headroom)
     }
 
     @Test func eachHitShortensItAndTheLastStartsItsFall() throws {
@@ -191,7 +191,7 @@ struct BossTests {
         world.meetBoss(number)
         let boss = try #require(world.boss)
         #expect(boss.canBeHit)
-        #expect(boss.position.y == phoneField.ceiling + boss.radius)
+        #expect(boss.position.y == phoneField.ceiling + boss.headroom)
         #expect(world.round == number)
         world.things.removeAll()
         world.beatBoss()
@@ -211,11 +211,11 @@ struct BossTests {
             for _ in 0..<300 {
                 let boss = try #require(world.boss)
                 #expect(boss.bodies.allSatisfy { field.lanes(inset: boss.radius).contains($0.x) })
-                #expect(boss.bodies.allSatisfy { $0.y <= field.ceiling + boss.radius })
+                #expect(boss.bodies.allSatisfy { $0.y <= field.ceiling + boss.headroom })
                 world.advance(by: frame, input: PlaneGameInput(slide: 3))
             }
             let boss = try #require(world.boss)
-            #expect(boss.position.y == field.ceiling + boss.radius)
+            #expect(boss.position.y == field.ceiling + boss.headroom)
         }
     }
 }

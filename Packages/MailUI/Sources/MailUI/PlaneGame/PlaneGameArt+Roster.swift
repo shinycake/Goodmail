@@ -84,8 +84,8 @@ nonisolated extension PlaneGameArt {
             let angle = degrees * .pi / 180
             for side in [-1.0, 1.0] {
                 let direction = CGPoint(x: side * cos(angle), y: sin(angle))
-                path.move(to: CGPoint(x: direction.x * 0.58, y: direction.y * 0.58))
-                path.addLine(to: CGPoint(x: direction.x * 0.7, y: direction.y * 0.7))
+                path.move(to: CGPoint(x: direction.x * 0.54, y: direction.y * 0.54))
+                path.addLine(to: CGPoint(x: direction.x * 0.66, y: direction.y * 0.66))
             }
         }
         return path

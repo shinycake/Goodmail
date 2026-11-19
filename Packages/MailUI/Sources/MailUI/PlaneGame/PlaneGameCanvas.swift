@@ -15,7 +15,7 @@ struct PlaneGameCanvas: View {
             drawBackdrop(in: &context, inks: washed)
             context.opacity = frame.play
             drawThings(in: &context, inks: inks)
-            drawBoss(in: &context, ink: inks[PlaneGameArt.pink])
+            drawBoss(in: context, ink: inks[PlaneGameArt.pink])
             drawShots(in: &context, ink: inks[PlaneGameArt.purple])
             drawBursts(in: &context, inks: inks)
             drawBossFalling(in: &context, ink: inks[PlaneGameArt.pink])

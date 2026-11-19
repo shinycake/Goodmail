@@ -49,7 +49,7 @@ struct PlaneGameBossTitle: View {
     /// Where it sits for `boss` on `field`: a little under halfway down, and well clear of the bottom of the boss's
     /// drawing, whatever hangs from it.
     static func center(for boss: PlaneGameBoss, on field: PlaneGameField) -> CGPoint {
-        let artBottom = field.ceiling + boss.radius + 0.75 * PlaneGameArt.size(of: boss.kind)
+        let artBottom = field.ceiling + boss.headroom + 0.75 * PlaneGameArt.size(of: boss.kind)
         return CGPoint(
             x: field.startingPlace.x, y: max(field.ceiling + 0.45 * (field.row - field.ceiling), artBottom + 48))
     }
