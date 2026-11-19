@@ -65,44 +65,47 @@ final class WristHost {
 
     /// Runs the watch's commands, answers its requests for conversations, and gives a watch that was just paired, or
     /// whose app was just installed, what couldn't be sent before. A conversation can take a fetch, so each is
-    /// answered beside the commands rather than ahead of them.
+    /// answered beside the commands; the commands run one at a time, in order, in their own task, since a reply sends
+    /// mail and would otherwise hold up the requests behind it until the watch stops waiting.
     @concurrent private static func follow(
         _ channel: WristChannel, into server: WristServer,
         answer: @escaping @Sendable (ThreadSummary.ID) async -> WristThreadReply?,
         pairWatch: @escaping @Sendable (String?) async -> Void,
         offerChoices: @escaping @Sendable (Bool) async -> Void
     ) async {
+        let (commands, commandsIn) = AsyncStream.makeStream(of: Data.self)
         await withDiscardingTaskGroup { group in
+            group.addTask { await run(commands, into: server) }
             for await event in channel.events {
-                if case .threadRequest(let data) = event {
+                switch event {
+                case .threadRequest(let data):
                     guard let id = try? JSONDecoder().decode(ThreadSummary.ID.self, from: data) else { continue }
                     group.addTask {
                         if let reply = await answer(id) { await channel.answer(reply) }
                     }
-                } else if case .watchPushToken(let token) = event {
+                case .watchPushToken(let token):
                     await pairWatch(token)
-                } else if case .ready = event {
+                case .ready:
                     await channel.sendUnsent()
                     await offerChoices(channel.hasWatchApp)
-                } else {
-                    await handle(event, from: channel, into: server)
+                case .command(let data):
+                    commandsIn.yield(data)
+                case .received, .thread:
+                    break
                 }
             }
+            commandsIn.finish()
         }
     }
 
-    @concurrent private static func handle(
-        _ event: WristSessionEvent, from channel: WristChannel, into server: WristServer
-    ) async {
-        switch event {
-        case .command(let data):
+    /// Runs each command the watch sent, in the order they arrived.
+    @concurrent private static func run(_ commands: AsyncStream<Data>, into server: WristServer) async {
+        for await data in commands {
             do {
                 try await server.received(JSONDecoder().decode(WristCommand.self, from: data))
             } catch {
                 log.error("Couldn't make a change from the watch: \(error, privacy: .public)")
             }
-        case .ready, .received, .threadRequest, .thread, .watchPushToken:
-            break
         }
     }
 
