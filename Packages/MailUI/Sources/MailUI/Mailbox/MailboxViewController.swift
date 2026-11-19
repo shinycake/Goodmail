@@ -12,10 +12,13 @@ public final class MailboxViewController: UIViewController {
     private var swipes: SwipeActionsController!
     /// Drags a row out into a new window, where the device has windows. The list's drag delegate, which it doesn't keep.
     private var windowDrag: ThreadWindowDrag?
-    private let searchResults: SearchResultsController?
+    let searchResults: SearchResultsController?
     /// The thread open beside a list built after it opened, as when the window widens back into columns, which the
     /// list marks as selected once its row arrives (`markOpenThread`). `nil` once marked.
     public var threadToMark: ThreadSummary.ID?
+    /// A search asked for before the list was in a window, as from a Home Screen quick action at launch, which begins
+    /// once the list appears (`beginSearch`). `nil` once begun.
+    var searchToBegin: SearchQuery?
     /// Search, while browsing. Selecting takes it away: its button would otherwise move up to the navigation bar and
     /// stay there beside the toolbar's once selecting ends.
     private(set) var search: UISearchController?
@@ -152,6 +155,11 @@ public final class MailboxViewController: UIViewController {
     public override func viewIsAppearing(_ animated: Bool) {
         super.viewIsAppearing(animated)
         lendInboxZero()
+    }
+
+    public override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        if let searchToBegin { beginSearch(searchToBegin) }
     }
 
     public override func viewDidDisappear(_ animated: Bool) {

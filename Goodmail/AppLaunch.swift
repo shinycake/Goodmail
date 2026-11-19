@@ -86,6 +86,7 @@ struct AppServices {
     let snoozeAlarms: SnoozeAlarms
     let wrist: WristHost
     let routes: IntentRoutes
+    let quickActions: QuickActionMenu
 
     static func open(routes: IntentRoutes) async throws -> AppServices {
         let model = try await openModel()
@@ -103,7 +104,7 @@ struct AppServices {
         return AppServices(
             model: model, syncScheduler: SyncScheduler(model: model),
             push: PushCoordinator(model: model, routes: routes), snoozeAlarms: SnoozeAlarms(model: model),
-            wrist: WristHost(model: model), routes: routes)
+            wrist: WristHost(model: model), routes: routes, quickActions: QuickActionMenu(model: model))
     }
 
     #if canImport(MailIntents)

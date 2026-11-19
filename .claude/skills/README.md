@@ -1,6 +1,6 @@
 # Vendored agent skills
 
-These skills are checked into the repository so that every Claude session loads them: cloud threads, the Mac, and the review in `.github/workflows/review.yml`. Claude Code picks up any `SKILL.md` under `.claude/skills/` on its own; no plugin install is needed.
+These skills are checked into the repository so that every Claude session loads them: cloud threads and the Mac. Claude Code picks up any `SKILL.md` under `.claude/skills/` on its own; no plugin install is needed.
 
 | Skill | Use it for | Source | Commit |
 |---|---|---|---|

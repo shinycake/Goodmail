@@ -1,17 +1,71 @@
-# The Linux scripts/check on main after merges, to catch what two PRs that were each green break together. Pull
-# requests run the same check inside review.yml, where it gates the merge (ADR-016).
+# The Linux scripts/check (docs/setup/cloud-builds.md) on main after each push: lint, every package and its tests
+# compiled for iOS, the app and extension targets type-checked, and the Linux-testable packages' tests. Work lands by
+# pushing straight to main (ADR-028), whose pre-push hook runs the same check, so this run catches a push that skipped
+# the hook. It needs the private goodmail-sdk repository, read with the GOODMAIL_SDK_DEPLOY_KEY secret. Until that
+# secret exists, it runs only the lint and the line cap (scripts/check --lint).
 name: check
 
 on:
   push:
     branches: [main]
 
+# A newer push cancels the run of the older one: only the newest main needs a verdict.
+concurrency:
+  group: check-main
+  cancel-in-progress: true
+
 permissions: {}
 
 jobs:
   check:
-    uses: ./.github/workflows/linux-check.yml
+    runs-on: ubuntu-latest
+    # The image's Swift is the one Xcode ships with, so setup doesn't download its own.
+    container: swift:6.4.2-noble
+    timeout-minutes: 45
     permissions:
       contents: read
-    secrets:
-      GOODMAIL_SDK_DEPLOY_KEY: ${{ secrets.GOODMAIL_SDK_DEPLOY_KEY }}
+    # The image's default shell is sh; scripts and these steps expect bash.
+    defaults:
+      run:
+        shell: bash
+    env:
+      # Actions sets HOME to /github/home, but xtool installs the SDK in the passwd home (/root), so align the two.
+      HOME: /root
+      HAS_SDK_KEY: ${{ secrets.GOODMAIL_SDK_DEPLOY_KEY != '' }}
+    steps:
+      # goodmail-sdk goes next to this repository, as in a cloud session.
+      - uses: actions/checkout@v4
+        with:
+          path: goodmail
+      - name: Trust the checkout
+        working-directory: goodmail
+        run: git config --global --add safe.directory "$PWD"
+
+      - if: env.HAS_SDK_KEY == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: shinycake/goodmail-sdk
+          ssh-key: ${{ secrets.GOODMAIL_SDK_DEPLOY_KEY }}
+          path: goodmail-sdk
+
+      # scripts/cloud/setup builds the Darwin SDK from goodmail-sdk on every run.
+      - if: env.HAS_SDK_KEY == 'true'
+        name: Toolchain (scripts/cloud/setup)
+        working-directory: goodmail
+        run: |
+          apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q curl python3
+          # setup looks for its Swift under /opt/swift; point it at the image's.
+          mkdir -p /opt/swift && ln -sfn /usr /opt/swift/usr
+          scripts/cloud/setup
+
+      - name: scripts/check
+        if: env.HAS_SDK_KEY == 'true'
+        working-directory: goodmail
+        run: scripts/check
+
+      - name: scripts/check --lint (no GOODMAIL_SDK_DEPLOY_KEY secret yet, so no iOS compile or tests)
+        if: env.HAS_SDK_KEY != 'true'
+        working-directory: goodmail
+        run: |
+          echo "::warning::GOODMAIL_SDK_DEPLOY_KEY isn't set, so this ran only the lint. See docs/setup/cloud-builds.md."
+          scripts/check --lint

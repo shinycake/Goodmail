@@ -3,7 +3,8 @@ import UIKit
 
 /// The top of an open message, as Apple Mail shows it: who wrote and when, the sender's real address under the
 /// name, where replies go when that's someone else, and who it went to. Details opens every recipient's address;
-/// Hide folds them again. Tapping anywhere else folds the message.
+/// Hide folds them again. Tapping anywhere else folds the message. An accessory, such as the card's appearance
+/// switch, sits at the top trailing corner, beside the date.
 final class MessageHeaderView: UIView {
     /// How much of the recipients shows.
     enum Detail {
@@ -28,14 +29,14 @@ final class MessageHeaderView: UIView {
     private let identity: UIStackView
     private let recipientRow: UIStackView
 
-    override init(frame: CGRect) {
+    init(accessory: UIView) {
         let top = UIStackView(arrangedSubviews: [sender, date])
         top.spacing = 8
         top.stacksVerticallyAtAccessibilitySizes()
         identity = UIStackView(arrangedSubviews: [top, address, replyTo])
         let recipients = UIStackView(arrangedSubviews: [names, fields])
         recipientRow = UIStackView(arrangedSubviews: [recipients, toggle])
-        super.init(frame: frame)
+        super.init(frame: .zero)
         sender.font = .preferredFont(forTextStyle: .headline)
         sender.adjustsFontForContentSizeCategory = true
         date.font = .preferredFont(forTextStyle: .subheadline)
@@ -86,7 +87,8 @@ final class MessageHeaderView: UIView {
         let column = UIStackView(arrangedSubviews: [identity, recipientRow])
         column.axis = .vertical
         column.spacing = 4
-        let row = UIStackView(arrangedSubviews: [avatar, column])
+        // Beside the column, not in its identity line, which VoiceOver reads as one button that would hide it.
+        let row = UIStackView(arrangedSubviews: [avatar, column, accessory])
         row.spacing = 12
         row.alignment = .top
         row.translatesAutoresizingMaskIntoConstraints = false
@@ -97,7 +99,7 @@ final class MessageHeaderView: UIView {
             row.leadingAnchor.constraint(equalTo: leadingAnchor),
             row.trailingAnchor.constraint(equalTo: trailingAnchor),
         ])
-        // The Details button keeps its own taps; a tap anywhere else folds the message.
+        // The Details button and the accessory keep their own taps; a tap anywhere else folds the message.
         addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(fold)))
         // The names line's attributed text carries its font, which doesn't scale on its own.
         registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (view: MessageHeaderView, _) in

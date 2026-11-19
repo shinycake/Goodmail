@@ -188,4 +188,36 @@ struct WristInboxModelTests {
         current.restore(stored)
         #expect(current.state == .caughtUp(fresh), "What the iPhone sent is newer than the store")
     }
+
+    /// The app and an alert launched for can both restore the store; the changes stored are laid over once.
+    @Test func restoringTwiceKeepsEachStoredChangeOnce() {
+        let archive = WristCommand(threads: [row.id], kind: .archive, madeAt: .now)
+        let stored = WristMailbox(snapshot: snapshot(accounts: [account], rows: [row]), pending: [archive])
+        let model = WristInboxModel()
+        model.restore(stored)
+        model.restore(stored)
+        #expect(model.mailbox.pending == [archive])
+    }
+
+    /// Changes the iPhone hadn't confirmed before a relaunch still go to it, even when its snapshot beat the store.
+    @Test func theStoredChangesSurviveASnapshotThatArrivedFirst() {
+        let archive = WristCommand(threads: [row.id], kind: .archive, madeAt: .now)
+        let stored = WristMailbox(snapshot: snapshot(accounts: [account], rows: [row]), pending: [archive])
+        let fresh = snapshot(accounts: [account], rows: [])
+        let model = WristInboxModel()
+        model.receive(.snapshot(fresh))
+        model.restore(stored)
+        #expect(model.mailbox.snapshot == fresh, "What the iPhone sent is newer than the store")
+        #expect(model.mailbox.pending == [archive])
+    }
+
+    /// A reply from an alert that the watch couldn't send shows as not sent, like one the iPhone couldn't.
+    @Test func aReplyThatCouldntRunIsUndelivered() {
+        let model = WristInboxModel()
+        let reply = WristCommand(threads: [row.id], kind: .reply("Thanks!"), madeAt: .now, executor: .watch)
+        let archive = WristCommand(threads: [row.id], kind: .archive, madeAt: .now, executor: .watch)
+        model.couldntRun(reply)
+        model.couldntRun(archive)
+        #expect(model.undelivered == [reply])
+    }
 }

@@ -128,10 +128,10 @@ The owner decided these on 2026-10-20 after talking through the options. Each en
 
 ## ADR-013: Trunk-based workflow with a local gate
 
-- **Branching:** short-lived branches, one vertical slice per PR, squash-merged into `main`, linear history.
-- **The gate:** `scripts/check` runs format lint, the line cap, the build and the tests. A tracked pre-push hook (`.githooks`, `core.hooksPath`) runs it. Each PR description includes its output and other evidence (screenshots, recordings).
-- **Merging:** superseded by ADR-016. PRs merge through the review pipeline, not by hand. The owner reviews evidence afterwards, and feedback becomes follow-up PRs.
-- **CI:** GitHub Actions Linux runners run the Linux `scripts/check` (ADR-017) on every PR and on main. Xcode Cloud comes later, only for TestFlight builds.
+- **Branching:** short-lived branches, one vertical slice per commit on `main`, linear history (since ADR-028, pushed straight to main, not merged through PRs).
+- **The gate:** `scripts/check` runs format lint, the line cap, the build and the tests. A tracked pre-push hook (`.githooks`, `core.hooksPath`) runs it.
+- **Merging:** superseded by ADR-016, then by ADR-028: changes are pushed straight to main after a local review. The owner reviews the result afterwards, and feedback becomes follow-up work.
+- **CI:** a GitHub Actions Linux runner runs the Linux `scripts/check` (ADR-017) on main. Xcode Cloud comes later, only for TestFlight builds.
 - **Merge-conflict hygiene:**
   - Code lives in local packages, and the app target uses Xcode synchronized (buildable) folders, so adding files doesn't edit `project.pbxproj`.
   - `swift format`, which ships with the toolchain, auto-formats.
@@ -156,6 +156,7 @@ The owner decided these on 2026-10-20 after talking through the options. Each en
 
 ## ADR-016: Claude review gates every merge
 
+- **Superseded by ADR-028 (2026-11-19):** there are no more PRs, and `review.yml` is deleted.
 - **Decision (owner, 2026-11-12):** every PR is reviewed on GitHub by Claude (`claude-code-action` in `.github/workflows/review.yml`) against [docs/review.md](../review.md). When the review approves and the Linux `scripts/check` is green on the PR merged with the current main, the workflow squash-merges the exact commit it reviewed. If main moved after the check, the merge job checks the PR merged with the new main before merging (2026-11-13), and an approval carries over to pushes that only merge main in, keyed on the `git patch-id` of the PR's own diff. The merge job makes the squash commit itself, authored by the PR author's noreply address, and fast-forwards main to it, which fails if main moved; GitHub's own squash would author it with the account's personal email (2026-11-13).
 - **Why:** a fully autonomous process where review findings are visible on GitHub, with a standard (no implicit state machines, the 1000-line cap, thermo-nuclear code quality) that doesn't depend on which session wrote the code.
 - **How it's enforced:** the workflows are the gate. Since 2026-11-14 the merging is the merge queue's (ADR-020): `review.yml` judges a PR, and `merge-queue.yml` lands it only once both its review and its check passed on that exact head.
@@ -170,13 +171,14 @@ The owner decided these on 2026-10-20 after talking through the options. Each en
 
 ## ADR-018: A WIP limit keeps PRs from piling up
 
+- **Superseded by ADR-028 (2026-11-19)**, except the conflict-hotspot rule at the end, which still holds.
 - **Decision (owner, 2026-11-13):** work flows through a small number of open PRs, and each thread lands its PR before opening the next. On 2026-11-13, 19 approved PRs piled up and bounced each other off main for hours; this rule keeps that from happening again.
 - **Lanes:** a lane is one stream of work: a cloud thread's `claude/project-thread-<id>` branches, or a Mac branch's name up to its first `-` or `/` (`m5-formatting` is lane `m5`). Name a Mac branch by its lane.
 - **The limit:** one ready PR per lane. Until 2026-11-14 a `wip` job in `review.yml` also capped ready PRs at six and turned a PR over the limit back into a draft. GitHub refuses that conversion to the workflow's token, and the merge queue (ADR-020) now serializes merges and rechecks each PR against main itself, so the job is gone and the lane rule is a working rule each thread keeps.
 - **Landing is the job:** the merge queue lands a PR on its own, but a thread whose PR's `merge-queue` status is a failure fixes it (review findings, conflicts, failing checks) before any new work. The next slice can be built on a local branch meanwhile, but isn't pushed as a PR until this one merges.
 - **PR size (owner, 2026-11-18):** don't split work into many small PRs. A feature can land as one bigger PR, as long as the review still reads all of it: keep each PR to one feature, put its own tests and fixtures in it, and split it only where the parts make sense on their own. Fewer PRs also mean fewer trips through the merge queue. The Claude review scales with the diff: it runs on Opus with more turns the bigger the PR is, splits a PR over 1,200 changed lines across subagents, and can't approve until it reports every changed file as read in full. Until 2026-11-18 the aim was about 400 changed lines per PR, with a big feature landing as a stack of slices.
 - **Main moving costs nothing:** the merge queue rechecks an approved PR against a newer main itself (ADR-020), so a thread never pushes just to take in main. Merge main in only when the workflow says the PR conflicts with it or fails on it.
-- **Conflict hotspots:** new code goes in new files. Don't grow a central file that every feature touches (a coordinator, a registry, a shared string table). Give each feature its own file, extension or string table, and split a central file when two open PRs keep conflicting in it.
+- **Conflict hotspots:** new code goes in new files. Don't grow a central file that every feature touches (a coordinator, a registry, a shared string table). Give each feature its own file, extension or string table, and split a central file when two lines of work keep conflicting in it.
 
 ## ADR-019: Gmail asks for the full mail scope, for Delete Forever
 
@@ -187,7 +189,8 @@ The owner decided these on 2026-10-20 after talking through the options. Each en
 
 ## ADR-020: A merge queue workflow lands approved PRs
 
-- **Decision (owner, 2026-11-14):** merging moves out of `review.yml` into `.github/workflows/merge-queue.yml` ([docs/setup/merge-queue.md](../setup/merge-queue.md)). A sweep runs after every review run, every 10 minutes, and after every sweep that changed something. It picks the oldest ready PR that is approved and green, checks it squashed onto the current main if main moved since its check, and fast-forwards main to that squash. It reruns a failed review run up to three attempts, and puts every PR's place in the queue on its `merge-queue` commit status.
+- **Superseded by ADR-028 (2026-11-19):** `merge-queue.yml` and its scripts are deleted.
+- **Decision (owner, 2026-11-14):** merging moves out of `review.yml` into `.github/workflows/merge-queue.yml`. A sweep runs after every review run, every 10 minutes, and after every sweep that changed something. It picks the oldest ready PR that is approved and green, checks it squashed onto the current main if main moved since its check, and fast-forwards main to that squash. It reruns a failed review run up to three attempts, and puts every PR's place in the queue on its `merge-queue` commit status.
 - **Trains (2026-11-18):** a sweep checks every approved PR at once, up to six, squashed onto main one after another, with one `scripts/check`, and lands them in order. Checking each PR on its own cost about 20 minutes per PR, so six approved PRs took two hours to land. If the train fails, the queue checks its first PR alone and lands only that one.
 - **Why:** the merge job ran once, inside the PR's own review run. When main kept moving, a check flaked or a run crashed, the PR sat approved until a Claude thread noticed and pushed or reran it, so threads stayed open for hours just to land their PR. Sweeps start themselves and run one at a time, so a backlog drains with nobody watching.
 - **Kept from ADR-016:** the squash that lands is the tree that was checked, authored by the PR author's noreply address; main only fast-forwards and is never force-pushed; `hold` and `.github/` PRs wait for the owner.
@@ -260,3 +263,11 @@ Amended by ADR-023: Gmail and Outlook accounts are now read on the watch itself.
 - **Why:** the rules are logic, so they belong in a module of their own (ADR-005) and out of MailUI, whose tests run only on the Mac. With Foundation alone the package builds on Linux, so `scripts/check` runs its tests on every push and a cloud session can build it test-first.
 - **Replays:** a world takes a seed, and its random numbers come from a small seeded generator stored in it, so the same seed and inputs always give the same world. Tests rely on this, and so can a bug report.
 - **Bosses:** what the world sends at the plane is one `Encounter` value: ordinary waves, the field clearing, or a boss. `PlaneGameWorld.stepEncounter(by:)` is the only place it moves from one case to the next, and a boss's own status (arriving, fighting, falling) changes only through `PlaneGameBoss`. Ordinary arrivals come only during waves, so nothing else needs to know a boss is on.
+
+## ADR-028: Changes go straight to main
+
+- **Decision (owner, 2026-11-18 and 2026-11-19):** no more pull requests. The session that wrote a change reviews its whole diff against [docs/review.md](../review.md) (deep, with subagents for a big change), fixes what it finds, passes `scripts/check` and pushes to main.
+- **Why:** the PR loop of a Claude review, the merge queue and a check per train made landing slow, and threads sat open waiting on it. Builds, TestFlight uploads and the Mac tests already run on the owner's Mac, so GitHub only needs to run one check.
+- **What's left on GitHub:** `check.yml` runs the Linux `scripts/check` on main after each push, and a newer push cancels an older run. The repository stays public (owner, 2026-11-19), so Actions minutes are free. `review.yml` and `merge-queue.yml` (a sweep every 10 minutes) are gone because they only served PRs.
+- **Commits:** squash each slice into one commit with a subject written for people, since `scripts/public-beta` lists the subjects in each TestFlight build's What to Test notes. Put evidence (screenshots, recordings) in the thread that did the work.
+- **Still true:** main only fast-forwards and is never force-pushed. The pre-push hook runs `scripts/check`. Commits use the owner's noreply address.

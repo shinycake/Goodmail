@@ -11,9 +11,17 @@ struct WristThreadView: View {
     let threads: WristThreads
     let inbox: WristInboxModel
 
+    /// What a load depends on: a Try Again, and who serves the conversation.
+    private struct Load: Hashable {
+        let attempt: Int
+        let direct: Bool
+    }
+
     /// Counts Try Again taps: each asks the iPhone again, with its own wait.
     @State private var attempt = 0
     @State private var showsMore = false
+    /// Set by a snooze in the More sheet, to close the conversation once the sheet is gone.
+    @State private var snoozed = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -23,7 +31,11 @@ struct WristThreadView: View {
             .task(id: row?.id) {
                 if let row { inbox.open(row) }
             }
-            .task(id: attempt) { await threads.load(id) }
+            // Again once the watch reads the account itself, which it can decide only after an alert has opened
+            // the conversation at launch.
+            .task(id: Load(attempt: attempt, direct: threads.direct.contains(id.accountID))) {
+                await threads.load(id)
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     if row != nil {
@@ -39,9 +51,13 @@ struct WristThreadView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showsMore) {
-                if let row { WristMoreSheet(row: row, inbox: inbox) { dismiss() } }
-            }
+            // A snooze takes the conversation away, so it closes too, once the sheet has: two dismissals in one
+            // update can leave it open.
+            .sheet(
+                isPresented: $showsMore, onDismiss: { if snoozed { dismiss() } },
+                content: {
+                    if let row { WristMoreSheet(row: row, inbox: inbox) { snoozed = true } }
+                })
     }
 
     /// The conversation's row as the Inbox shows it now, pinned or not, since the reader may have changed it here;

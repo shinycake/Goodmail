@@ -9,7 +9,7 @@ import WatchKit
 /// registers for remote notifications and hands its token to the iPhone, which registers it with the relay beside its
 /// own; the watch never talks to the relay.
 final class OwnAlerts {
-    private nonisolated static let log = Logger(subsystem: "com.idanbirman.goodmail", category: "own-alerts")
+    nonisolated static let log = Logger(subsystem: "com.idanbirman.goodmail", category: "own-alerts")
 
     /// What reaches the token's way to the iPhone.
     private enum Event {
@@ -62,6 +62,7 @@ final class OwnAlerts {
     /// otherwise.
     static func open(_ alert: TappedAlert, inbox: WristInboxModel, route: WristRoute) {
         if let thread = alert.mirroredThread { return route.open(thread) }
+        // `inbox` is restored, so a tap that launched the app finds the accounts and their sources.
         switch WristAlertTarget(
             payload: alert.payload, accounts: inbox.mailbox.snapshot?.accounts ?? [],
             sources: inbox.mailbox.sources)
@@ -103,26 +104,39 @@ extension WatchAppDelegate {
     }
 }
 
-/// watchOS calls these on its own queue, so they read the alert there and hop to the main actor to act on it.
+/// watchOS calls these on its own queue, so they read the alert there and hop to the main actor to act on it. They
+/// take watchOS's completion handler rather than being `async`: the `async` forms call it wherever their body
+/// finishes, a cooperative thread for these `nonisolated` methods, where UIKit asserts and the app aborts on every
+/// tap of an alert. Each task ends by calling the handler, so watchOS owns it: it waits for the handler, and
+/// nothing else awaits or cancels the task.
 extension WatchAppDelegate: UNUserNotificationCenterDelegate {
     /// An alert that arrives while the app is open shows anyway.
     nonisolated func userNotificationCenter(
-        _ center: UNUserNotificationCenter, willPresent notification: UNNotification
-    ) async -> UNNotificationPresentationOptions {
-        [.banner, .list, .sound]
+        _ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        let done = MainActorCompletion { completionHandler([.banner, .list, .sound]) }
+        Task { @MainActor in done.call() }
     }
 
-    /// A tap opens what the alert is about; an action runs before this returns, so the system doesn't suspend the
-    /// app halfway.
+    /// A tap opens what the alert is about; an action runs before the handler is called, so the system doesn't
+    /// suspend the app halfway.
     nonisolated func userNotificationCenter(
-        _ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse
-    ) async {
+        _ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
         let alert = TappedAlert(response.notification.request.content.userInfo)
-        if let action = WristAlertAction(rawValue: response.actionIdentifier) {
-            let text = (response as? UNTextInputNotificationResponse)?.userText
-            return await act(action, on: alert, text: text)
+        let action = WristAlertAction(rawValue: response.actionIdentifier)
+        let isTap = response.actionIdentifier == UNNotificationDefaultActionIdentifier
+        let text = (response as? UNTextInputNotificationResponse)?.userText
+        let done = MainActorCompletion(completionHandler)
+        Task { @MainActor in
+            if let action {
+                await act(action, on: alert, text: text)
+            } else if isTap {
+                OwnAlerts.open(alert, inbox: await restoredInbox(), route: route)
+            }
+            done.call()
         }
-        guard response.actionIdentifier == UNNotificationDefaultActionIdentifier else { return }
-        await MainActor.run { OwnAlerts.open(alert, inbox: inbox, route: route) }
     }
 }

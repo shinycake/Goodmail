@@ -2,7 +2,7 @@
 
 The plan builds on the [product brief](../product-brief.md), the [architecture decisions](../architecture/decisions.md) and the [design decisions](../design/design-decisions.md).
 
-Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main` on its own (ADR-013). Every slice's PR includes `scripts/check` output, plus screenshots or recordings in **English and Hebrew** for any UI.
+Each milestone is a set of vertical slices: thin, end-to-end, shippable to `main` on its own (ADR-013). Every slice shows its `scripts/check` output in its thread, plus screenshots or recordings in **English and Hebrew** for any UI.
 
 ## Rules that apply to every slice
 

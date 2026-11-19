@@ -2,7 +2,7 @@
 # The local gate (ADR-013): format lint, the line cap (ADR-014), then package tests and the app's launch tests.
 #
 #   scripts/check          everything; the pre-push hook runs this (Linux: lint, iOS compile, some tests)
-#   scripts/check --lint   format and line cap only; the pre-commit hook and Linux CI run this
+#   scripts/check --lint   format and line cap only; the pre-commit hook runs this
 #
 # Tests run on a dedicated "Goodmail Check" simulator, created on first use, so the unsigned test build never
 # replaces the signed dev install (and its Keychain sign-in) on your everyday simulator.

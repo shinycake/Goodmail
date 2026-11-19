@@ -15,6 +15,16 @@ public actor WristServer {
     private var applied: [UUID]
     /// The commands that failed since launch, oldest first; a subset of `applied`.
     private var failed: [UUID] = []
+    /// The commands running now, and how far the Inbox has moved since each started. Not yet in `applied`: a
+    /// running command may still fail, and one the app is stopped in the middle of runs again after a relaunch.
+    private var running: [UUID: Run] = [:]
+
+    private enum Run {
+        /// The Inbox is as it was when the command started.
+        case started
+        /// The Inbox changed since, likely with the command's effect.
+        case inboxChanged
+    }
 
     /// - Parameters:
     ///   - applied: the commands already run, as `remember` last stored them.
@@ -34,6 +44,7 @@ public actor WristServer {
     /// The Inbox changed.
     public func inboxChanged(_ snapshot: WristSnapshot) async {
         latest = snapshot
+        for id in running.keys { running[id] = .inboxChanged }
         await sendLatest()
     }
 
@@ -47,22 +58,33 @@ public actor WristServer {
         await sendLatest()
     }
 
-    /// Runs a command the watch sent, unless it ran already. It throws what running the command threw.
+    /// Runs a command the watch sent, unless it ran already or is running. It throws what running the command threw.
     ///
-    /// A command that ran is confirmed with the next Inbox change, which carries its effect; confirming it sooner,
-    /// with the Inbox from before, would show the swiped row again for a moment. A command that fails changes nothing,
-    /// so it is confirmed at once, and the watch shows the mail as it is.
+    /// A command that ran is confirmed with the first Inbox change since it started, which carries its effect: at
+    /// once when the Inbox changed while it ran, with the next change otherwise. Confirming it with the Inbox from
+    /// before would show the swiped row again for a moment. A command that fails changes nothing, so it is confirmed
+    /// at once, and the watch shows the mail as it is.
     public func received(_ command: WristCommand) async throws {
-        guard !applied.contains(command.id) else { return }
-        applied = Array((applied + [command.id]).suffix(Self.appliedLimit))
-        remember(applied)
+        guard !applied.contains(command.id), running[command.id] == nil else { return }
+        running[command.id] = .started
         do {
             try await execute(command)
+            let run = finish(command)
+            if run == .inboxChanged { await sendLatest() }
         } catch {
+            finish(command)
             failed = Array((failed + [command.id]).suffix(Self.appliedLimit))
             await sendLatest()
             throw error
         }
+    }
+
+    /// Moves `command` from running to applied, and stores that it ran.
+    @discardableResult private func finish(_ command: WristCommand) -> Run? {
+        let run = running.removeValue(forKey: command.id)
+        applied = Array((applied + [command.id]).suffix(Self.appliedLimit))
+        remember(applied)
+        return run
     }
 
     private func sendLatest() async {
