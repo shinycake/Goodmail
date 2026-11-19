@@ -1,6 +1,6 @@
 import XCTest
 
-/// Launches the app in each shipping language and attaches a screenshot as PR evidence.
+/// Launches the app in each shipping language and attaches a screenshot as evidence.
 final class LaunchTests: XCTestCase {
     override func setUp() {
         continueAfterFailure = false

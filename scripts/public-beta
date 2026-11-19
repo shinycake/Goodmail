@@ -23,7 +23,7 @@ latest_build_number() {
 }
 
 # The commits this build adds since the previous build, taken from the testflight/<number> tags that
-# scripts/testflight pushes. Commit subjects are the PR titles, which are written for people.
+# scripts/testflight pushes. Commit subjects are written for people (ADR-028); older ones end in their PR number.
 what_to_test() {
     local build="$1" tag="testflight/$1" previous
     git fetch --quiet origin 'refs/tags/testflight/*:refs/tags/testflight/*' 2>/dev/null || true

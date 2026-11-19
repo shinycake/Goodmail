@@ -23,7 +23,7 @@ Goodmail work on the Mac leaves three things behind, and before `scripts/cleanup
 2. Every build writes under `scripts/build-paths`' `BUILD_ROOT`, on the external drive. `scripts/check`, `scripts/run`
    and `scripts/testflight` already do. Pass `-derivedDataPath "$BUILD_DIR/<name>"` to any `xcodebuild` you run yourself, and
    `--scratch-path` to `swift build` or `swift test`.
-3. When a task ends (its PR merged, or the work dropped), run `scripts/cleanup --done` in its worktree, then remove
+3. When a task ends (its work landed on main, or the work dropped), run `scripts/cleanup --done` in its worktree, then remove
    the worktree. It shuts down and deletes every simulator named for that worktree, deletes the worktree's build
    folder, and runs the sweep.
 

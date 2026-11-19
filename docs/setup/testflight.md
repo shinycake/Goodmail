@@ -40,7 +40,7 @@ No build should reach TestFlight any other way. If one does, from Xcode's Organi
 
 Running it twice for the same build does nothing new, so you can rerun it after any failure. App Store Connect's API sometimes times out, so the script tries the publish three times, a minute or two apart, before it gives up. It names the group by its ID, so a slow group list can't stop it.
 
-The What to Test notes open with one line about the app. Then they list the commit subjects since the previous `testflight/*` tag, which are the titles of the PRs in the build, and end with a short request for feedback. PR titles already go through the humanizer, so the notes are fit for testers to read. A build with no tag, or the first tagged one, gets the opening and closing lines only.
+The What to Test notes open with one line about the app. Then they list the commit subjects since the previous `testflight/*` tag, and end with a short request for feedback. Each slice lands as one commit whose subject goes through the humanizer (ADR-028), so the notes are fit for testers to read. A build with no tag, or the first tagged one, gets the opening and closing lines only.
 
 ## When a review is still pending
 
