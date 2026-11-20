@@ -1,0 +1,294 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Add an account in Goodmail, then share again.": {
+      "comment": "Alert when there is no account to send a shared item from",
+      "extractionState": "manual",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "צריך להוסיף חשבון ב-Goodmail ואז לשתף שוב."
+          }
+        }
+      }
+    },
+    "Cancel": {
+      "comment": "Closes the share sheet while it reads what was shared",
+      "extractionState": "manual",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ביטול"
+          }
+        }
+      }
+    },
+    "Couldn't Open Mail": {
+      "comment": "Alert title when the share sheet can't read Goodmail's mail",
+      "extractionState": "manual",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "לא ניתן לפתוח את הדואר"
+          }
+        }
+      }
+    },
+    "Couldn't Save Draft": {
+      "comment": "Alert title when the server refused a shared draft",
+      "extractionState": "manual",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "לא ניתן לשמור את הטיוטה"
+          }
+        }
+      }
+    },
+    "Couldn't Send": {
+      "comment": "Alert title when a shared message didn't go",
+      "extractionState": "manual",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "לא ניתן לשלוח"
+          }
+        }
+      }
+    },
+    "Goodmail couldn't keep this message. Try again.": {
+      "comment": "Alert when a shared message could be neither sent nor kept for later",
+      "extractionState": "manual",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Goodmail לא הצליח לשמור את ההודעה. כדאי לנסות שוב."
+          }
+        }
+      }
+    },
+    "Goodmail couldn't reach your mail server. It will save this draft the next time it can.": {
+      "comment": "Alert when a shared draft will be saved later",
+      "extractionState": "manual",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Goodmail לא הצליח להתחבר לשרת הדואר. הטיוטה תישמר ברגע שזה יתאפשר."
+          }
+        }
+      }
+    },
+    "Goodmail couldn't reach your mail server. It will send this message the next time it can.": {
+      "comment": "Alert when a shared message will be sent later",
+      "extractionState": "manual",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Goodmail לא הצליח להתחבר לשרת הדואר. ההודעה תישלח ברגע שזה יתאפשר."
+          }
+        }
+      }
+    },
+    "It may have gone anyway. Check your Sent mailbox before you send it again.": {
+      "comment": "Alert when a shared message's send couldn't be confirmed or kept for later",
+      "extractionState": "manual",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ייתכן שההודעה נשלחה בכל זאת. כדאי לבדוק בתיבה „נשלחו” לפני ששולחים אותה שוב."
+          }
+        }
+      }
+    },
+    "Loading": {
+      "comment": "What the share sheet's spinner says to VoiceOver",
+      "extractionState": "manual",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "טוען"
+          }
+        }
+      }
+    },
+    "No Accounts": {
+      "comment": "Alert title when there is no account to send a shared item from",
+      "extractionState": "manual",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "אין חשבונות"
+          }
+        }
+      }
+    },
+    "Not Saved Yet": {
+      "comment": "Alert title when a shared draft will be saved later",
+      "extractionState": "manual",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הטיוטה עוד לא נשמרה"
+          }
+        }
+      }
+    },
+    "Not Sent Yet": {
+      "comment": "Alert title when a shared message will be sent later",
+      "extractionState": "manual",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ההודעה עוד לא נשלחה"
+          }
+        }
+      }
+    },
+    "OK": {
+      "comment": "Dismisses a note about the shared message",
+      "extractionState": "manual",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "אישור"
+          }
+        }
+      }
+    },
+    "Open Goodmail once, then share again.": {
+      "comment": "Alert when the share sheet can't read Goodmail's mail",
+      "extractionState": "manual",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "צריך לפתוח את Goodmail פעם אחת ואז לשתף שוב."
+          }
+        }
+      }
+    },
+    "Saving…": {
+      "comment": "Shown while a shared draft is saved",
+      "extractionState": "manual",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "שומר…"
+          }
+        }
+      }
+    },
+    "Sending Not Confirmed": {
+      "comment": "Alert title when the server didn't answer a send",
+      "extractionState": "manual",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "השליחה לא אושרה"
+          }
+        }
+      }
+    },
+    "Sending…": {
+      "comment": "Shown while a shared message goes",
+      "extractionState": "manual",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "שולח…"
+          }
+        }
+      }
+    },
+    "Sign In to Save": {
+      "comment": "Alert title when a shared draft waits for the account's sign-in",
+      "extractionState": "manual",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "יש להתחבר כדי לשמור"
+          }
+        }
+      }
+    },
+    "Sign In to Send": {
+      "comment": "Alert title when a shared message waits for the account's sign-in",
+      "extractionState": "manual",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "יש להתחבר כדי לשלוח"
+          }
+        }
+      }
+    },
+    "The connection dropped before the server answered. Goodmail will check whether it went, and keep it for you to send again if it didn't.": {
+      "comment": "Alert when the server didn't answer a send from the share sheet",
+      "extractionState": "manual",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "החיבור נותק לפני שהשרת ענה. Goodmail יבדוק אם ההודעה נשלחה, ואם לא, ישמור אותה כדי שתוכלו לשלוח שוב."
+          }
+        }
+      }
+    },
+    "The server refused it. You'll find it in Goodmail, to fix and try again.": {
+      "comment": "Alert when the server refused a shared message or draft",
+      "extractionState": "manual",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "השרת דחה אותה. היא מחכה לכם ב-Goodmail כדי לתקן ולנסות שוב."
+          }
+        }
+      }
+    },
+    "This account isn't signed in on this device. Sign in again in Goodmail and it will save this draft.": {
+      "comment": "Alert when a shared draft waits for the account's sign-in",
+      "extractionState": "manual",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "החשבון הזה לא מחובר במכשיר הזה. אחרי שתתחברו שוב ב‑Goodmail, הטיוטה תישמר."
+          }
+        }
+      }
+    },
+    "This account isn't signed in on this device. Sign in again in Goodmail and it will send this message.": {
+      "comment": "Alert when a shared message waits for the account's sign-in",
+      "extractionState": "manual",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "החשבון הזה לא מחובר במכשיר הזה. אחרי שתתחברו שוב ב‑Goodmail, ההודעה תישלח."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

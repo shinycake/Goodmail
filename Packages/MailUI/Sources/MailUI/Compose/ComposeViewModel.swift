@@ -19,6 +19,8 @@ public final class ComposeViewModel {
     @ObservationIgnored private let saveAction: ((Draft, DraftSave) -> Void)?
     @ObservationIgnored private let deleteAction: (Draft) -> Void
     @ObservationIgnored private let signature: (AccountID) -> String?
+    /// What another app shared, which a new message starts with, between the line being written and the signature.
+    @ObservationIgnored private let shared: String
     @ObservationIgnored private let suggest: (String) async -> [Contact]
     /// A draft that comes back with text, after Undo or a failed send, holds work closing would lose.
     @ObservationIgnored let isRestored: Bool
@@ -41,9 +43,10 @@ public final class ComposeViewModel {
     /// `send` queues the finished draft to go now or later; the composer closes right after. `saveDraft` keeps it in
     /// the provider's Drafts, now or, as autosave does while it is written, after a wait; `deleteDraft` removes the copy
     /// it was opened from or autosave left. `suggest` finds people for what is typed. A new
-    /// draft starts with its account's `signature` below the line being written.
+    /// draft starts with the text another app `shared`, if any, then its account's `signature`, below the line being
+    /// written.
     public init(
-        draft: Draft, accountEmail: String, senders: [Account] = [],
+        draft: Draft, accountEmail: String, senders: [Account] = [], shared: String = "",
         signature: @escaping (AccountID) -> String? = { _ in nil },
         suggest: @escaping (String) async -> [Contact] = { _ in [] }, saveDraft: ((Draft, DraftSave) -> Void)? = nil,
         deleteDraft: @escaping (Draft) -> Void = { _ in }, autosavePause: Duration = .seconds(2),
@@ -54,10 +57,11 @@ public final class ComposeViewModel {
         // A draft opened from the provider's Drafts is safe there until it changes.
         isRestored = !isNew && draft.savedDraft == nil
         var draft = draft
-        if isNew { draft.body = Self.startingBody(signature: signature(draft.accountID)) }
+        if isNew { draft.body = Self.startingBody(shared: shared, signature: signature(draft.accountID)) }
         self.draft = draft
         self.accountEmail = accountEmail
         self.senders = senders
+        self.shared = shared
         self.signature = signature
         recipients = Recipients(to: draft.to, cc: draft.cc, bcc: draft.bcc)
         subject = draft.subject
@@ -85,7 +89,7 @@ public final class ComposeViewModel {
     }
 
     /// Gmail refuses messages over 25 MB, and encoding the files adds a third.
-    static let attachmentLimit = 18_000_000
+    public static let attachmentLimit = 18_000_000
 
     /// Adds the file unless it would take the message past what Gmail accepts. Returns whether it was added.
     @discardableResult
@@ -128,13 +132,14 @@ public final class ComposeViewModel {
         draft.alias = address.alias
         accountEmail = address.account.email
         guard changesAccount, untouched else { return nil }
-        draft.body = Self.startingBody(signature: signature(address.account.id))
+        draft.body = Self.startingBody(shared: shared, signature: signature(address.account.id))
         return draft.body
     }
 
-    private static func startingBody(signature: String?) -> MessageBody {
-        guard let signature, !signature.isEmpty else { return MessageBody(html: "", plain: "") }
-        return MessageBody(html: nil, plain: "\n\n-- \n" + signature)
+    private static func startingBody(shared: String, signature: String?) -> MessageBody {
+        var plain = shared.isEmpty ? "" : "\n\n" + shared
+        if let signature, !signature.isEmpty { plain += "\n\n-- \n" + signature }
+        return plain.isEmpty ? MessageBody(html: "", plain: "") : MessageBody(html: nil, plain: plain)
     }
 
     /// Keeps the message as written in the provider's Drafts.
@@ -176,7 +181,7 @@ public final class ComposeViewModel {
 
     /// The app is leaving the screen: keeps the draft with the provider now, in case it isn't reopened.
     public func keepNow(body: MessageBody) {
-        keep(body: body, wait: .now)
+        keep(body: body, wait: .leaving)
     }
 
     /// Keeps the draft as written, once it differs from how it opened. After a version was kept it is always kept
@@ -246,6 +251,8 @@ public final class ComposeViewModel {
 public enum DraftSave: Sendable {
     /// Now, as when the writer chose Save Draft.
     case now
+    /// Now, without the writer asking, as the app leaves the screen with the message open.
+    case leaving
     /// After a wait, as autosave keeps it while it is written: kept on the device at once, sent on once per wait.
     case asWritten
 }

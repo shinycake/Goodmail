@@ -119,7 +119,7 @@ public final class MailActions {
     /// Keeps `draft` in the provider's Drafts.
     public func saveDraft(_ draft: Draft, _ when: DraftSave = .now) {
         switch when {
-        case .now: run { try await $0.saveDraft(draft) }
+        case .now, .leaving: run { try await $0.saveDraft(draft) }
         case .asWritten: run { try await $0.autosave(draft, after: Self.autosaveWait) }
         }
     }

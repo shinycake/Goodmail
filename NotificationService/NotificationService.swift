@@ -1,10 +1,8 @@
-import GmailProvider
-import IMAPProvider
+import MailClients
 import MailCore
 import MailNotifications
 import MailStore
 import OSLog
-import OutlookProvider
 import Synchronization
 import UserNotifications
 import os
@@ -88,23 +86,7 @@ final class NotificationService: UNNotificationServiceExtension {
         let database = try MailDatabase(url: directory.appending(path: "Mail/mail.sqlite"))
         let pictures = SenderPictureSources(directory: directory.appending(path: "SenderPictures"), database: database)
         let fetch = NewMailFetch(database: database, notify: RuleNotification.post) { account in
-            switch account.service {
-            case .gmail:
-                GmailClient(session: OAuthSession(accountID: account.id, client: .gmail, keychain: Keychain.signIns()))
-            case .outlook:
-                OutlookClient(
-                    session: OAuthSession(accountID: account.id, client: .outlook, keychain: Keychain.signIns()),
-                    index: database)
-            case .icloud:
-                IMAPClient(
-                    accountID: account.id, settings: .icloud(email: account.email),
-                    password: try ICloudSignIn(secrets: Keychain.signIns()).appPassword(for: account.id),
-                    index: database)
-            case .imap:
-                IMAPClient(
-                    accountID: account.id, login: try IMAPSignIn(secrets: Keychain.signIns()).login(for: account.id),
-                    index: database)
-            }
+            try MailClients.client(for: account, index: database)
         }
         return (fetch, pictures)
     }

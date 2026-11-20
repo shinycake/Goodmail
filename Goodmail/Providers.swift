@@ -1,5 +1,6 @@
 import GmailProvider
 import IMAPProvider
+import MailClients
 import MailCore
 import MailStore
 import OutlookProvider
@@ -76,21 +77,6 @@ nonisolated final class Providers: Sendable {
     }
 
     private func make(for account: Account) throws -> any MailProvider {
-        switch account.service {
-        case .gmail:
-            GmailClient(session: OAuthSession(accountID: account.id, client: .gmail, keychain: Keychain.signIns()))
-        case .icloud:
-            IMAPClient(
-                accountID: account.id, settings: .icloud(email: account.email),
-                password: try ICloudSignIn(secrets: Keychain.signIns()).appPassword(for: account.id), index: database)
-        case .outlook:
-            OutlookClient(
-                session: OAuthSession(accountID: account.id, client: .outlook, keychain: Keychain.signIns()),
-                index: database)
-        case .imap:
-            IMAPClient(
-                accountID: account.id, login: try IMAPSignIn(secrets: Keychain.signIns()).login(for: account.id),
-                index: database)
-        }
+        try MailClients.client(for: account, index: database)
     }
 }
