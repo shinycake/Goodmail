@@ -3,7 +3,7 @@ import MailCore
 
 /// Email-safe HTML for formatted text, and reading it back for a reopened draft. Only tags every mail client keeps
 /// (`div`, `ul`, `ol`, `li`, `blockquote`, `b`, `i`, `u`, `s`, `a`, `span`) and inline styles, sizes in `em` of the
-/// reader's own and colors as fixed values: each paragraph is its own block with `dir`, and a list or quote states
+/// reader's own and chosen colors as fixed values, the reader's own as none: each paragraph is its own block with `dir`, and a list or quote states
 /// the direction of its first line, so bullets and the quote bar sit on the side it starts from even where
 /// `dir="auto"` is ignored. A quote's bar is a border on that side, the way Outlook marks its own quotes, since Outlook
 /// for Windows draws no other kind.
@@ -176,13 +176,12 @@ nonisolated extension RichText.Size {
 }
 
 nonisolated extension RichText.TextColor {
-    /// One of the colors this writes, from a `span`'s `color` style or a `font` tag's `color`. Any other color reads
-    /// as none.
+    /// The color of a `span`'s `color` style or a `font` tag's `color`, as a `#rrggbb` value; `nil` for none.
     init?(htmlAttributes attributes: String) {
-        guard let hex = attributes.firstMatch(of: /(?:^|[^-\w])color(?::\s*|=")(#[0-9a-fA-F]{6})/)?.1.lowercased(),
-            let color = Self.allCases.first(where: { $0.hex == hex })
+        guard let hex = attributes.firstMatch(of: /(?:^|[^-\w])color(?::\s*|=")(#[0-9a-fA-F]{6})/)?.1,
+            let color = RGBColor(hex: String(hex))
         else { return nil }
-        self = color
+        self.init(color)
     }
 }
 

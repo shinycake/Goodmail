@@ -1,4 +1,5 @@
-import UIKit
+import MailCore
+public import UIKit
 
 /// The body's formatting: the controls above the keyboard, the system's Format panel limited to what the message
 /// can carry, and each change applied as one undoable edit.
@@ -18,6 +19,7 @@ extension ComposeViewController {
         ])
         formattingBar.onCommand = { [weak self] command in self?.applyFormatting(command) }
         formattingBar.onLink = { [weak self] in self?.askForLink() }
+        formattingBar.onMoreColors = { [weak self] in self?.pickColor() }
     }
 
     func showFormatting() {
@@ -48,23 +50,27 @@ extension ComposeViewController {
         typedRange = NSRange(location: range.location, length: (text as NSString).length)
     }
 
-    /// UIKit takes a moved caret's typing attributes from the character before it, without the quote it carries.
-    /// Puts back the layout of the caret's line, so the controls, Return and the next keystroke all see it.
+    /// UIKit takes a moved caret's typing attributes from the character before it, without the quote, size and
+    /// color it carries. Puts back the layout of the caret's line and the size and color of the text it continues,
+    /// so the controls, Return and the next keystroke all see them.
     func repairTypingLayout() {
         guard bodyView.selectedRange.length == 0 else { return }
-        bodyView.typingAttributes = FormattingCommand.typingLayout(
+        let typing = FormattingCommand.typingLayout(
             in: bodyView.textStorage, at: bodyView.selectedRange, typingAttributes: bodyView.typingAttributes)
+        bodyView.typingAttributes = RichText.typingRun(
+            in: bodyView.textStorage, at: bodyView.selectedRange.location, typingAttributes: typing)
     }
 
-    /// Lays out the paragraphs the last edit touched as one each, reading the way their text now does, and redraws
-    /// the quote bars, which typing can move without changing the body's height. Text still being composed, such as
-    /// a word in a Japanese keyboard, settles once it is chosen.
+    /// Lays out the paragraphs the last edit touched as one each, reading the way their text now does, draws what it
+    /// put in in the colors that are sent, and redraws the quote bars, which typing can move without changing the
+    /// body's height. Text still being composed, such as a word in a Japanese keyboard, settles once it is chosen.
     func settleTypedLayout() {
         bodyView.setNeedsLayout()
         guard bodyView.markedTextRange == nil, let range = typedRange else { return }
         typedRange = nil
         let selection = bodyView.selectedRange
         bodyView.textStorage.settleLayout(around: range, font: bodyFont)
+        bodyView.textStorage.settleColors(in: range)
         bodyView.selectedRange = selection
     }
 
@@ -123,5 +129,36 @@ extension ComposeViewController {
         alert.addAction(done)
         alert.preferredAction = done
         present(alert, animated: true)
+    }
+
+    /// Opens the system's color picker on the selection's color, half height so the text it colors stays in view.
+    private func pickColor() {
+        let picker = UIColorPickerViewController()
+        picker.title = String(
+            localized: "Text Color", table: "Formatting", bundle: .module, comment: "Formatting: the text color menu")
+        picker.supportsAlpha = false
+        if case .ink(let ink) = currentFormatting.color { picker.selectedColor = UIColor(ink.color) }
+        picker.delegate = self
+        picker.sheetPresentationController?.detents = [.medium(), .large()]
+        picker.sheetPresentationController?.prefersGrabberVisible = true
+        present(picker, animated: true)
+    }
+}
+
+extension ComposeViewController: UIColorPickerViewControllerDelegate {
+    /// Colors the selection with each color the writer settles on, not every step of a drag. The picker then shows
+    /// the color as it is sent, which may be a little deeper or lighter than the one picked.
+    public func colorPickerViewController(
+        _ picker: UIColorPickerViewController, didSelect color: UIColor, continuously: Bool
+    ) {
+        guard !continuously else { return }
+        let (red, green, blue, _) = color.rgba
+        let chosen = RichText.TextColor(RGBColor(fractionalRed: Double(red), green: Double(green), blue: Double(blue)))
+        applyFormatting(.color(chosen))
+        picker.selectedColor = chosen.color
+    }
+
+    public func colorPickerViewControllerDidFinish(_ picker: UIColorPickerViewController) {
+        bodyView.becomeFirstResponder()
     }
 }

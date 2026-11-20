@@ -1,11 +1,12 @@
+import MailCore
 import UIKit
 
 nonisolated extension NSAttributedString.Key {
     /// A quoted paragraph's `RichText.QuoteLevel`, by raw value. Lists live in `NSParagraphStyle.textLists`, which
     /// the system's formatting panel also sets; UIKit has no quote of its own.
     static let blockQuote = NSAttributedString.Key("GoodmailBlockQuote")
-    /// A run's `RichText.Size` and `RichText.TextColor`, by raw value, so reading the text back doesn't guess them
-    /// from point sizes and color values. Absent means normal size and the reader's color.
+    /// A run's `RichText.Size` by raw value and `RichText.TextColor` as `#rrggbb`, so reading the text back doesn't
+    /// guess them from point sizes and the label color. Absent means normal size and the reader's color.
     static let textSize = NSAttributedString.Key("GoodmailTextSize")
     /// A paragraph's direction when the writer set one, by raw value. Absent means it follows its first letter. The
     /// paragraph style always states the direction it reads in, since TextKit indents a paragraph left of
@@ -57,7 +58,9 @@ nonisolated extension RichText {
     func attributedString(font: UIFont) -> NSAttributedString {
         let text = NSMutableAttributedString()
         for (index, paragraph) in paragraphs.enumerated() {
-            let lineAttributes = paragraph.layoutAttributes(font: font).merging([.font: font]) { $1 }
+            let lineAttributes = paragraph.layoutAttributes(font: font).merging(Self.plainAttributes(font: font)) {
+                $1
+            }
             for run in paragraph.runs {
                 var attributes = lineAttributes
                 run.size.apply(to: &attributes, font: font)
@@ -71,6 +74,29 @@ nonisolated extension RichText {
             }
         }
         return text
+    }
+
+    /// What a caret at `location` types next: the size and color of the text it continues, the character before it
+    /// or, at the very start, the one after. UIKit carries over that character's font and color but not the
+    /// size and color this text reads back from, so without them typing would draw colored and go out plain.
+    static func typingRun(
+        in text: NSAttributedString, at location: Int, typingAttributes: [NSAttributedString.Key: Any]
+    ) -> [NSAttributedString.Key: Any] {
+        guard let source = [location - 1, location].first(where: { (0..<text.length).contains($0) }) else {
+            return typingAttributes
+        }
+        let continued = text.attributes(at: source)
+        var typing = typingAttributes
+        typing[.textSize] = continued[.textSize]
+        TextColor(continued).apply(to: &typing)
+        return typing
+    }
+
+    /// Unformatted text in `font`, in the label color: text with no color draws black, even in Dark Mode.
+    static func plainAttributes(font: UIFont) -> [NSAttributedString.Key: Any] {
+        var attributes: [NSAttributedString.Key: Any] = [.font: font]
+        TextColor.automatic.apply(to: &attributes)
+        return attributes
     }
 
     private static func link(in attributes: [NSAttributedString.Key: Any]) -> URL? {
@@ -130,7 +156,7 @@ nonisolated extension RichText.QuoteLevel {
     static func indent(font: UIFont) -> CGFloat { (font.pointSize * 0.85).rounded() }
 
     /// The bar of the quote at `depth`, the same color that is sent.
-    static func barColor(depth: Int) -> UIColor { UIColor(hex: barHex(depth: depth)) }
+    static func barColor(depth: Int) -> UIColor { RGBColor(hex: barHex(depth: depth)).map(UIColor.init) ?? .tintColor }
 }
 
 nonisolated extension RichText.Direction {
@@ -177,24 +203,34 @@ nonisolated extension RichText.Size {
 
 nonisolated extension RichText.TextColor {
     init(_ attributes: [NSAttributedString.Key: Any]) {
-        self = (attributes[.textColor] as? String).flatMap(Self.init(rawValue:)) ?? .automatic
+        self = (attributes[.textColor] as? String).flatMap(RGBColor.init(hex:)).map(Self.init) ?? .automatic
     }
 
-    /// How the editor shows it: the same value that is sent, or the label color that follows Dark Mode.
-    var color: UIColor { hex.map(UIColor.init(hex:)) ?? .label }
+    /// How the editor shows it: the same value that is sent, or the label color that follows Dark Mode. Text with no
+    /// color at all draws black, so the reader's own color is the label color here.
+    var color: UIColor {
+        switch self {
+        case .automatic: .label
+        case .ink(let ink): UIColor(ink.color)
+        }
+    }
 
     func apply(to attributes: inout [NSAttributedString.Key: Any]) {
-        attributes[.foregroundColor] = self == .automatic ? nil : color
-        attributes[.textColor] = self == .automatic ? nil : rawValue
+        attributes[.foregroundColor] = color
+        attributes[.textColor] = hex
     }
 }
 
-nonisolated extension UIColor {
-    /// A `#rrggbb` color as the HTML that is sent gives it.
-    fileprivate convenience init(hex: String) {
-        let value = Int(hex.dropFirst(), radix: 16) ?? 0
-        self.init(
-            red: CGFloat((value >> 16) & 0xFF) / 255, green: CGFloat((value >> 8) & 0xFF) / 255,
-            blue: CGFloat(value & 0xFF) / 255, alpha: 1)
+nonisolated extension NSMutableAttributedString {
+    /// Draws each run in `range` in the color it is sent in. Pasted text brings colors of its own that the message
+    /// doesn't carry, often black, which would vanish on a dark page here and still go out in the reader's color.
+    func settleColors(in range: NSRange) {
+        let range = NSIntersectionRange(range, NSRange(location: 0, length: length))
+        forEachRun(in: range) { attributes, run in
+            let color = RichText.TextColor(attributes).color
+            if attributes[.foregroundColor] as? UIColor != color {
+                addAttribute(.foregroundColor, value: color, range: run)
+            }
+        }
     }
 }

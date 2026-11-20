@@ -198,6 +198,8 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
 
     private func configureField() {
         textView.font = Self.fieldFont
+        // Unset, the text draws black, even in Dark Mode.
+        textView.textColor = .label
         textView.adjustsFontForContentSizeCategory = true
         textView.accessibilityIdentifier = "chat.field"
         textView.backgroundColor = .clear

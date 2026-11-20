@@ -89,6 +89,17 @@
         }
       }
     },
+    "More Colors…" : {
+      "comment" : "Text color: opens the color picker for any color",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "צבעים נוספים…"
+          }
+        }
+      }
+    },
     "Normal" : {
       "comment" : "Text size",
       "localizations" : {

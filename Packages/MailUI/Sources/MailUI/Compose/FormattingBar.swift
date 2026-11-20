@@ -8,6 +8,8 @@ final class FormattingBar: UIView {
     /// A control was used. `.link` asks for an address first, so it comes through `onLink`.
     var onCommand: (FormattingCommand) -> Void = { _ in }
     var onLink: () -> Void = {}
+    /// Asks for any color, in the system's color picker.
+    var onMoreColors: () -> Void = {}
     private var styleButtons: [(RichText.Style, UIButton)] = []
     private let sizeButton: UIButton
     private let colorButton: UIButton
@@ -191,19 +193,7 @@ final class FormattingBar: UIView {
                     self?.onCommand(.size(size))
                 }
             })
-        colorButton.menu = UIMenu(
-            title: String(
-                localized: "Text Color", table: "Formatting", bundle: .module,
-                comment: "Formatting: the text color menu"),
-            options: .singleSelection,
-            children: RichText.TextColor.allCases.map { color in
-                UIAction(
-                    title: color.title,
-                    image: UIImage(systemName: "circle.fill")?.withTintColor(
-                        color.color, renderingMode: .alwaysOriginal),
-                    state: formatting?.color == color ? .on : .off
-                ) { [weak self] _ in self?.onCommand(.color(color)) }
-            })
+        colorButton.menu = colorMenu(current: formatting?.color)
         let block = formatting?.block ?? .body
         listButton.isSelected = block == .bulleted || block == .numbered
         listButton.menu = UIMenu(
@@ -257,6 +247,37 @@ final class FormattingBar: UIView {
                 }
             })
     }
+
+    /// The reader's own color, the presets at hand, and any other color from the picker. A color picked there shows
+    /// as chosen under the picker's own item.
+    private func colorMenu(current: RichText.TextColor?) -> UIMenu {
+        func swatch(_ color: UIColor) -> UIImage? {
+            UIImage(systemName: "circle.fill")?.withTintColor(color, renderingMode: .alwaysOriginal)
+        }
+        let choices: [(RichText.TextColor, String)] =
+            [(.automatic, RichText.TextColor.automaticTitle)]
+            + RichText.TextColor.Preset.allCases.map { (RichText.TextColor($0), $0.title) }
+        let presets = choices.map { color, title in
+            UIAction(title: title, image: swatch(color.color), state: current == color ? .on : .off) {
+                [weak self] _ in self?.onCommand(.color(color))
+            }
+        }
+        let isOther = current.map { current in !choices.contains { $0.0 == current } } ?? false
+        let more = UIAction(
+            title: String(
+                localized: "More Colors…", table: "Formatting", bundle: .module,
+                comment: "Text color: opens the color picker for any color"),
+            image: isOther ? current.map { swatch($0.color) } ?? nil : UIImage(systemName: "eyedropper"),
+            state: isOther ? .on : .off
+        ) { [weak self] _ in self?.onMoreColors() }
+        return UIMenu(
+            title: String(
+                localized: "Text Color", table: "Formatting", bundle: .module,
+                comment: "Formatting: the text color menu"),
+            children: [
+                UIMenu(options: .displayInline, children: presets), UIMenu(options: .displayInline, children: [more]),
+            ])
+    }
 }
 
 extension FormattingBar: UIScrollViewDelegate {
@@ -299,12 +320,16 @@ extension RichText.Size {
 }
 
 extension RichText.TextColor {
+    fileprivate static var automaticTitle: String {
+        String(
+            localized: "Default Color", table: "Formatting", bundle: .module,
+            comment: "Text color: the reader's own, black or white")
+    }
+}
+
+extension RichText.TextColor.Preset {
     fileprivate var title: String {
         switch self {
-        case .automatic:
-            String(
-                localized: "Default Color", table: "Formatting", bundle: .module,
-                comment: "Text color: the reader's own, black or white")
         case .red: String(localized: "Red", table: "Formatting", bundle: .module, comment: "Text color")
         case .orange: String(localized: "Orange", table: "Formatting", bundle: .module, comment: "Text color")
         case .green: String(localized: "Green", table: "Formatting", bundle: .module, comment: "Text color")

@@ -1,4 +1,5 @@
 import Foundation
+import MailCore
 
 /// A message body as the writer formatted it: paragraphs, each plain text or a list item, quoted to some depth,
 /// reading in its own direction, made of styled runs. The editor's text and the HTML that is sent both convert to
@@ -127,21 +128,37 @@ nonisolated struct RichText: Equatable {
         }
     }
 
-    /// The reader's own text color, or one of a few strong colors that read on light and dark backgrounds alike,
-    /// since a recipient's client may show either. Each is sent as its fixed value.
-    enum TextColor: String, CaseIterable, Equatable {
-        case automatic, red, orange, green, blue, purple, gray
+    /// The reader's own text color, or one the writer chose. A chosen color is sent as its fixed value, so it is
+    /// first made one that reads on a light page and a dark one alike (`TextInk`), since a recipient's client may
+    /// show either. The reader's own color is sent as no color at all, so each client uses its own.
+    enum TextColor: Hashable {
+        case automatic
+        case ink(TextInk)
+
+        init(_ chosen: RGBColor) { self = .ink(TextInk(chosen)) }
+        init(_ preset: Preset) { self.init(preset.rgb) }
 
         /// The color as sent, `#rrggbb`; `nil` leaves the text the reader's color.
         var hex: String? {
             switch self {
             case .automatic: nil
-            case .red: "#e0352b"
-            case .orange: "#e8790c"
-            case .green: "#2e9e44"
-            case .blue: "#1a73e8"
-            case .purple: "#8e44ad"
-            case .gray: "#8e8e93"
+            case .ink(let ink): ink.color.hex.lowercased()
+            }
+        }
+
+        /// Strong colors offered at hand, beside the full picker.
+        enum Preset: CaseIterable {
+            case red, orange, green, blue, purple, gray
+
+            var rgb: RGBColor {
+                switch self {
+                case .red: RGBColor(red: 0xE0, green: 0x35, blue: 0x2B)
+                case .orange: RGBColor(red: 0xE8, green: 0x79, blue: 0x0C)
+                case .green: RGBColor(red: 0x2E, green: 0x9E, blue: 0x44)
+                case .blue: RGBColor(red: 0x1A, green: 0x73, blue: 0xE8)
+                case .purple: RGBColor(red: 0x8E, green: 0x44, blue: 0xAD)
+                case .gray: RGBColor(red: 0x8E, green: 0x8E, blue: 0x93)
+                }
             }
         }
     }

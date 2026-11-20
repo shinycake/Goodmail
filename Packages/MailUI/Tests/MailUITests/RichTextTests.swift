@@ -7,6 +7,7 @@ import UIKit
 
 private typealias Paragraph = RichText.Paragraph
 private typealias Run = RichText.Run
+private typealias TextColor = RichText.TextColor
 
 extension RichText.QuoteLevel {
     fileprivate static let one = Self(rawValue: 1)
@@ -175,8 +176,9 @@ struct RichTextHTMLTests {
     @Test func sizeAndColorGoInOneSpanAndReadBack() {
         let text = RichText([
             Paragraph(runs: [
-                Run(text: "big", styles: [.bold], size: .large, color: .red), Run(text: " small", size: .small),
-                Run(text: " blue", color: .blue),
+                Run(text: "big", styles: [.bold], size: .large, color: TextColor(.red)),
+                Run(text: " small", size: .small),
+                Run(text: " blue", color: TextColor(.blue)),
             ])
         ])
         #expect(
@@ -187,13 +189,28 @@ struct RichTextHTMLTests {
         #expect(RichText(html: text.html) == text)
     }
 
-    @Test func oldFontTagsReadAsTheNearestSizeAndAKnownColor() {
+    @Test func oldFontTagsReadAsTheNearestSizeAndTheirColor() {
         let text = RichText(
-            html: ##"<div><font size="6" color="#2E9E44">huge</font><font color="#123456">x</font></div>"##)
+            html: ##"<div><font size="6" color="#2E9E44">huge</font><font color="#C0FFEE">x</font></div>"##)
+        let mint = TextColor(RGBColor(red: 0xC0, green: 0xFF, blue: 0xEE))
         #expect(
             text.paragraphs == [
-                Paragraph(runs: [Run(text: "huge", size: .huge, color: .green), Run(text: "x")])
+                Paragraph(runs: [Run(text: "huge", size: .huge, color: TextColor(.green)), Run(text: "x", color: mint)])
             ])
+        #expect(mint.hex != "#c0ffee", "too pale to read on white, so it deepens")
+    }
+
+    @Test func anyPickedColorIsSentAsItReadsAndReadsBack() throws {
+        let picked = TextColor(RGBColor(red: 0xFF, green: 0xEE, blue: 0x00))
+        let text = RichText([Paragraph(runs: [Run(text: "note", color: picked)])])
+        let hex = try #require(picked.hex)
+        #expect(text.html == ##"<div dir="auto"><span style="color:\##(hex)">note</span></div>"##)
+        #expect(RichText(html: text.html) == text)
+    }
+
+    @Test func theReadersOwnColorIsSentAsNoColor() {
+        let text = RichText([Paragraph(runs: [Run(text: "hi")])])
+        #expect(!text.html.contains("color"))
     }
 
     @Test func aBackgroundColorIsNotTheTextColor() {
@@ -313,11 +330,12 @@ struct FormattingTests {
         let text = editor(RichText([Paragraph(runs: [Run(text: "one "), Run(text: "two", styles: [.bold])])]))
         let all = NSRange(location: 0, length: 7)
         _ = apply(.size(.huge), to: text, selection: all)
-        _ = apply(.color(.purple), to: text, selection: NSRange(location: 4, length: 3))
+        _ = apply(.color(TextColor(.purple)), to: text, selection: NSRange(location: 4, length: 3))
         #expect(
             RichText(text).paragraphs == [
                 Paragraph(runs: [
-                    Run(text: "one ", size: .huge), Run(text: "two", styles: [.bold], size: .huge, color: .purple),
+                    Run(text: "one ", size: .huge),
+                    Run(text: "two", styles: [.bold], size: .huge, color: TextColor(.purple)),
                 ])
             ])
         #expect(Formatting(text: text, selection: all, typingAttributes: [:]).size == .huge)
@@ -328,6 +346,39 @@ struct FormattingTests {
             RichText(text).paragraphs == [Paragraph(runs: [Run(text: "one "), Run(text: "two", styles: [.bold])])])
         let font = try #require(text.attribute(.font, at: 0) as? UIFont)
         #expect(font.pointSize == 17)
+    }
+
+    @Test func textInTheReadersColorDrawsInTheLabelColorSoItShowsInDarkMode() {
+        let text = editor(RichText([Paragraph(runs: [Run(text: "בדיקה"), Run(text: " red", color: TextColor(.red))])]))
+        #expect(text.attribute(.foregroundColor, at: 0) as? UIColor == .label)
+        let red = UIColor(TextInk(TextColor.Preset.red.rgb).color)
+        #expect(text.attribute(.foregroundColor, at: 6) as? UIColor == red)
+        #expect(RichText.plainAttributes(font: font)[.foregroundColor] as? UIColor == .label)
+    }
+
+    @Test func aMovedCaretTypesInTheSizeAndColorOfTheTextItContinues() {
+        let red = TextColor(.red)
+        let text = editor(
+            RichText([Paragraph(runs: [Run(text: "big red", size: .large, color: red), Run(text: " plain")])]))
+        // What UIKit hands over: the character's font and color, without the keys the text reads back from.
+        let uikit: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: red.color]
+        let typing = RichText.typingRun(in: text, at: 7, typingAttributes: uikit)
+        #expect(TextColor(typing) == red)
+        #expect(RichText.Size(typing) == .large)
+        let after = RichText.typingRun(in: text, at: 13, typingAttributes: typing)
+        #expect(TextColor(after) == .automatic)
+        #expect(RichText.Size(after) == .normal)
+        #expect(after[.foregroundColor] as? UIColor == .label)
+        let start = RichText.typingRun(in: text, at: 0, typingAttributes: [.font: font])
+        #expect(TextColor(start) == red, "at the very start, the text after it")
+    }
+
+    @Test func pastedColorsSettleToTheColorsThatAreSent() {
+        let text = editor(RichText(plain: "hi "))
+        text.append(NSAttributedString(string: "pasted", attributes: [.font: font, .foregroundColor: UIColor.black]))
+        text.settleColors(in: NSRange(location: 3, length: 6))
+        #expect(text.attribute(.foregroundColor, at: 4) as? UIColor == .label)
+        #expect(RichText(text).paragraphs == [Paragraph(runs: [Run(text: "hi pasted")])])
     }
 
     @Test func aSizeAtTheCaretAppliesToWhatIsTypedNext() {

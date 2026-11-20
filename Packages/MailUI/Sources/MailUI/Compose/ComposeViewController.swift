@@ -67,6 +67,8 @@ public final class ComposeViewController: UIViewController {
         subjectField.accessibilityIdentifier = "compose.subject"
 
         bodyView.font = bodyFont
+        // Without a color, what is typed into an empty body draws black, even in Dark Mode.
+        bodyView.typingAttributes = RichText.plainAttributes(font: bodyFont)
         if !(viewModel.draft.body.plain ?? "").isEmpty {
             // A draft reopened after Undo or a failed send, or a new one with a signature.
             show(viewModel.draft.body)
@@ -456,7 +458,7 @@ public final class ComposeViewController: UIViewController {
 
     private func show(_ body: MessageBody) {
         bodyView.attributedText = RichText(body).attributedString(font: bodyFont)
-        bodyView.typingAttributes = [.font: bodyFont]
+        bodyView.typingAttributes = RichText.plainAttributes(font: bodyFont)
     }
 
     /// Called after every change: Send follows whether it can go, and autosave keeps the draft once typing rests.
