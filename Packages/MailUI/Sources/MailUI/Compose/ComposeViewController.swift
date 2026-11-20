@@ -25,7 +25,12 @@ public final class ComposeViewController: UIViewController {
     private let suggestionList = UIStackView()
     /// Looking up the people for the last keystroke; a newer keystroke replaces it.
     private var suggestionLookup: Task<Void, Never>?
-    private let attachmentsView = ComposeAttachmentsView()
+    let attachmentsView = ComposeAttachmentsView()
+    /// Takes in what is dragged in from other apps or pasted: words where the caret is, files attached.
+    /// Asks whether words dropped into the body go in as text or as a quote.
+    lazy var droppedText = DroppedTextChoice(in: bodyView) { [unowned self] in quoteDropped($0) }
+    lazy var intake = ContentIntake(
+        room: { [unowned self] in viewModel.attachmentRoom }, receive: { [unowned self] in receive($0) })
     private let sendItem = UIBarButtonItem()
     private let fromButton = UIButton(configuration: .plain())
     /// Takes files from Photos, Files, the camera and the scanner.
@@ -81,6 +86,7 @@ public final class ComposeViewController: UIViewController {
         bodyView.isScrollEnabled = false
         bodyView.allowsEditingTextAttributes = true
         configureFormatting()
+        acceptDrops()
         bodyView.textContainerInset = UIEdgeInsets(top: 12, left: 0, bottom: 12, right: 0)
         bodyView.textContainer.lineFragmentPadding = 0
         bodyView.delegate = self
@@ -160,21 +166,28 @@ public final class ComposeViewController: UIViewController {
             showing = .shown
             field?.becomeFirstResponder()
             return
-        case .notYet:
+        case .notYet(let then):
             showing = .shown
+            // Replies start in the body; new messages and forwards with who they're for.
+            (viewModel.draft.to.isEmpty ? toField : bodyView as UIResponder).becomeFirstResponder()
+            // A fresh draft starts at the top, above any signature; a restored one where the writer left off.
+            let start = viewModel.isRestored ? bodyView.attributedText.length : 0
+            bodyView.selectedRange = NSRange(location: start, length: 0)
+            for action in then { action() }
         }
-        // Replies start in the body; new messages and forwards with who they're for.
-        (viewModel.draft.to.isEmpty ? toField : bodyView as UIResponder).becomeFirstResponder()
-        // A fresh draft starts at the top, above any signature; a restored one where the writer left off.
-        let start = viewModel.isRestored ? bodyView.attributedText.length : 0
-        bodyView.selectedRange = NSRange(location: start, length: 0)
+    }
+
+    /// Runs `action` once the composer has come to rest on screen, with the caret placed: now, if it already has.
+    public func whenOpen(_ action: @escaping () -> Void) {
+        guard case .notYet(let then) = showing else { return action() }
+        showing = .notYet(then: then + [action])
     }
 
     /// The field last written in, to write in again after minimizing.
     private weak var lastFocused: UIResponder?
 
     /// Where the composer stands on screen, so the cursor is placed the first time and kept after minimizing.
-    private var showing = Showing.notYet {
+    private var showing = Showing.notYet(then: []) {
         didSet { updateScrollBottom() }
     }
 
@@ -200,7 +213,8 @@ public final class ComposeViewController: UIViewController {
     }
 
     private enum Showing {
-        case notYet
+        /// Not yet on screen, with what to do once it is.
+        case notYet(then: [() -> Void])
         case shown
         /// On its way off the screen from writing in that field, if any, and back to it if it stays.
         case leaving(UIResponder?)
@@ -455,7 +469,7 @@ public final class ComposeViewController: UIViewController {
                 comment: "Accessibility label of the open fold")
     }
 
-    private func fieldChanged() {
+    func fieldChanged() {
         viewModel.subject = subjectField.text ?? ""
         updateSendEnabled()
     }
@@ -597,6 +611,7 @@ public final class ComposeViewController: UIViewController {
     /// The message is done with: sent, deleted, saved away or closed unchanged. The host takes it off the screen.
     private func close() {
         picker.finish()
+        intake.cancel()
         host?.composerDidClose(self)
     }
 
@@ -643,6 +658,8 @@ public final class ComposeViewController: UIViewController {
     }
 
     private func prepareToLeave(keeping: Bool) {
+        // What is still being read stays out of a message on its way to the pill: it was kept as it stands.
+        intake.cancel()
         fieldChanged()
         if keeping { viewModel.keepNow(body: body) }
         // Read before editing ends, which leaves no field focused.

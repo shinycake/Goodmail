@@ -783,6 +783,17 @@
         }
       }
     },
+    "Text" : {
+      "comment" : "Keeps text dropped into the message as ordinary text",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "טקסט"
+          }
+        }
+      }
+    },
     "Text Direction" : {
       "comment" : "Formatting: the paragraph direction menu",
       "localizations" : {

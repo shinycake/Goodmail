@@ -96,14 +96,13 @@ public final class ComposeViewModel {
     /// Gmail refuses messages over 25 MB, and encoding the files adds a third.
     public static let attachmentLimit = 18_000_000
 
+    /// How many more bytes of files the message can take.
+    var attachmentRoom: Int { attachments.room }
+
     /// Adds the file unless it would take the message past what Gmail accepts. Returns whether it was added.
     @discardableResult
     public func attach(_ attachment: DraftAttachment) -> Bool {
-        guard attachments.reduce(attachment.size, { $0 + $1.size }) <= Self.attachmentLimit else {
-            return false
-        }
-        attachments.append(attachment)
-        return true
+        attachments.attachIfRoom(attachment)
     }
 
     public func removeAttachment(_ id: DraftAttachment.ID) {

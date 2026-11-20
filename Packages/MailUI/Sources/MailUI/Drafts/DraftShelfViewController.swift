@@ -16,6 +16,15 @@ public final class DraftShelfViewController: UIViewController {
     public var keep: (([Draft]) -> Void)?
     /// Starts a new message from the account, after the picker's New Message button. It comes back through `open`.
     public var newMessage: ((AccountID) -> Void)?
+    /// Starts a new message holding what was dropped on the mail screens while none is being written. It comes back
+    /// through `open`.
+    public var newMessageHolding: ((SharedItems.Loaded) -> Void)?
+    /// Whether there is an account to start a new message from, so a drop with none being written can be taken.
+    public var canStartMessage: () -> Bool = { false }
+    /// Takes what other apps drop on the window that nothing on it took.
+    private lazy var intake = ContentIntake(
+        room: { [unowned self] in dropRoom }, accepts: { [unowned self] in takesDrops },
+        receive: { [unowned self] in dropped($0) })
 
     /// The mail screens, or the welcome screen before there is an account.
     public var content: UIViewController? {
@@ -45,6 +54,7 @@ public final class DraftShelfViewController: UIViewController {
             self, selector: #selector(sceneDidEnterBackground(_:)), name: UIScene.didEnterBackgroundNotification,
             object: nil)
         stage.install()
+        view.addInteraction(intake.makeInteraction())
         stage.planLeaving = { [unowned self] in planLeaving($0) }
     }
 
@@ -88,6 +98,9 @@ public final class DraftShelfViewController: UIViewController {
         ])
         content.didMove(toParent: self)
     }
+
+    /// The message being written, which takes what is dropped beside its card.
+    var writing: ComposeViewController? { shelf.writing?.composer }
 
     /// Writes `composer`'s message, minimizing the one being written. A message already in progress opens in the
     /// composer it has rather than in a second one.

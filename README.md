@@ -94,6 +94,7 @@ Apple Mail has no push for Gmail. Gmail's own app is cluttered. Most other clien
 - **Spotlight** search of your threads, **Handoff**, and window state restoration.
 - **Default mail app**: `mailto:` links open Goodmail's composer.
 - **Share to Goodmail** from any app: a Safari page arrives with its title and link, and photos and files arrive attached. Pick the account to send from and send it right from the share sheet.
+- **Drag and drop** links, text, photos and files in from other apps. Drop them on a message you're writing and the words land right where you let go, with files attached. Drop them anywhere else and a new message starts with them. In a chat, they go into the reply.
 - **App icon badge** per account, and server-side **search** with recent searches, search tokens and Gmail operators.
 - **iPad** with a sidebar and columns, resizable windows and Open in New Window.
 - **Accessibility and localization** built in: Dynamic Type up to the largest sizes, VoiceOver, and English and Hebrew polished end to end.

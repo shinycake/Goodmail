@@ -192,6 +192,8 @@ public final class ThreadViewController: UIViewController {
             self?.viewModel.expandChatReply(text, attachments: attachments)
         }
         composer.onResize = { [weak self] in self?.view.setNeedsLayout() }
+        // What is dropped on a chat goes into its reply, as in Messages; a letter leaves it to a new message.
+        view.addInteraction(composer.intake.makeInteraction())
         composer.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(composer)
         // A bar's region along the bottom keeps the field and its buttons clear of the corner a window on iPad is

@@ -1,5 +1,5 @@
 import MailCore
-import UIKit
+public import UIKit
 
 /// The files added to a message: a glass capsule each, with Remove in its menu.
 final class ComposeAttachmentsView: UIStackView {
@@ -65,6 +65,13 @@ extension ComposeViewController {
 
     /// Explains that a file can't go with the message, since it would take it past what Gmail accepts.
     public func tooLarge() {
+        present(UIAlertController.fileTooLarge(), animated: true)
+    }
+}
+
+extension UIAlertController {
+    /// Says that a file can't go with the message, since it would take it past what Gmail accepts.
+    public static func fileTooLarge() -> UIAlertController {
         let alert = UIAlertController(
             title: String(localized: "File Too Large", table: "Compose", bundle: .module, comment: "Alert title"),
             message: String(
@@ -74,7 +81,7 @@ extension ComposeViewController {
         alert.addAction(
             UIAlertAction(
                 title: String(localized: "OK", table: "Compose", bundle: .module, comment: "Dismiss"), style: .default))
-        present(alert, animated: true)
+        return alert
     }
 }
 

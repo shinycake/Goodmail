@@ -36,6 +36,16 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
     private let expandButton = UIButton(configuration: .plain())
     private let attachmentsView = ComposeAttachmentsView()
     private lazy var picker = AttachmentPicker { [weak self] in self?.attach($0) }
+    /// Takes in what is dragged in from other apps or pasted: words where the caret is, files attached.
+    private(set) lazy var intake = ContentIntake(
+        room: { [unowned self] in attachments.room },
+        accepts: { [unowned self] in !isHidden && !besideMessageBeingWritten },
+        receive: { [unowned self] in receive($0) })
+    /// A message being written on its card over the window, as beside a chat on iPad, takes drops rather than the
+    /// chat's reply.
+    private var besideMessageBeingWritten: Bool {
+        (window?.rootViewController as? DraftShelfViewController)?.writing != nil
+    }
     private lazy var textHeight = textView.heightAnchor.constraint(equalToConstant: 36)
     /// The tray above the attachments and the field; a hidden row takes no room.
     private lazy var column = UIStackView(arrangedSubviews: [actionsGlass, attachmentsView, row])
@@ -152,6 +162,7 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
     func finish() {
         setTray(.folded, animated: false)
         picker.finish()
+        intake.cancel()
     }
 
     // MARK: Tray
@@ -205,6 +216,7 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
         textView.backgroundColor = .clear
         textView.isScrollEnabled = false
         textView.delegate = self
+        intake.accept(in: textView)
         textView.textContainerInset = UIEdgeInsets(top: 7, left: 0, bottom: 7, right: 0)
         textView.accessibilityLabel = String(
             localized: "Message", table: "Thread", bundle: .module,
@@ -347,8 +359,21 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
     }
 
     private func attach(_ attachment: DraftAttachment) {
-        attachments.append(attachment)
+        guard attachments.attachIfRoom(attachment) else { return tooLarge() }
         attachmentsChanged()
+    }
+
+    /// Puts what was dropped on the conversation into the reply: words where the caret is, files while they fit.
+    func receive(_ loaded: SharedItems.Loaded) {
+        if !loaded.content.body.isEmpty { textView.writeDropped(loaded.content.body) }
+        var leftOut = loaded.leftOutFiles
+        for file in loaded.content.files where !attachments.attachIfRoom(file) { leftOut = true }
+        if !loaded.content.files.isEmpty { attachmentsChanged() }
+        if leftOut { tooLarge() }
+    }
+
+    private func tooLarge() {
+        presenter?.present(UIAlertController.fileTooLarge(), animated: true)
     }
 
     private func attachmentsChanged() {

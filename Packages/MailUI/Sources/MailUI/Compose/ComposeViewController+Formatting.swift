@@ -75,7 +75,7 @@ extension ComposeViewController {
     }
 
     /// Puts `text` in place of `range` as one step Undo takes back.
-    private func replace(_ range: NSRange, with text: NSAttributedString, selection: NSRange) {
+    func replace(_ range: NSRange, with text: NSAttributedString, selection: NSRange) {
         let replaced = bodyView.textStorage.attributedSubstring(from: range)
         let selected = bodyView.selectedRange
         let typing = bodyView.typingAttributes
