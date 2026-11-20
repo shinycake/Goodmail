@@ -47,18 +47,24 @@ public final class StorageSettings {
     }
 
     private(set) var phase = Phase.measuring
-    var scope = Preferences.prefetchScope {
-        didSet { Preferences.prefetchScope = scope }
+    var scope: PrefetchScope {
+        didSet { preferences.prefetchScope = scope }
     }
-    var limit = Preferences.cacheLimit {
-        didSet { Preferences.cacheLimit = limit }
+    var limit: Int {
+        didSet { preferences.cacheLimit = limit }
     }
+    /// The sizes this kind of device offers.
+    var limitChoices: [Int] { preferences.window.cacheLimitChoices }
+    @ObservationIgnored private let preferences: StoragePreferences
     @ObservationIgnored private let service: Service
     /// How many removals have started, so a trim to a size that a removal followed doesn't report over it.
     @ObservationIgnored private var removals = 0
 
-    public init(service: Service) {
+    public init(service: Service, preferences: StoragePreferences) {
         self.service = service
+        self.preferences = preferences
+        scope = preferences.prefetchScope
+        limit = preferences.cacheLimit
     }
 
     /// Trims the cache to the size chosen, as a smaller one asks, and measures what it takes then.

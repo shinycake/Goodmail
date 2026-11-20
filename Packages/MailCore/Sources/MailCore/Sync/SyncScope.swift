@@ -1,9 +1,17 @@
 /// How much of an account a sync keeps.
 public enum SyncScope: Equatable, Sendable {
-    /// The offline window (ADR-007): 90 days of Inbox, Sent, Starred and Drafts, 30 of everything else, and the
-    /// address book.
-    case window
+    /// The offline window (ADR-007) the device keeps: its long window of Inbox, Sent, Starred and Drafts, its short
+    /// one of everything else, and the address book.
+    case window(OfflineWindow)
     /// Only the newest `limit` Inbox conversations, for a small device such as the watch (ADR-023). No other mailbox
     /// and no address book.
     case inboxHead(limit: Int)
+
+    /// The windows whose headers the scope keeps. The head of the Inbox looks back as far as a handheld's window.
+    var offlineWindow: OfflineWindow {
+        switch self {
+        case .window(let window): window
+        case .inboxHead: .handheld
+        }
+    }
 }

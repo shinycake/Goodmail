@@ -16,6 +16,7 @@ extension AppModel {
                 },
                 trim: { limit in
                     try await Self.offMain { _ = try database.trimCache(to: limit, attachments: attachments) }
-                }))
+                }),
+            preferences: storage)
     }
 }

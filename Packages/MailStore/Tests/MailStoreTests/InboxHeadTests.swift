@@ -75,7 +75,7 @@ struct InboxHeadTests {
 
     @Test func theWindowStillFetchesEveryPage() async throws {
         seedInbox(300)
-        try await engine(.window).sync()
+        try await engine(.window(.handheld)).sync()
 
         #expect(try storedThreads().count == 300)
         #expect(server.queries.contains { $0.query.label == "SENT" }, "every stage still runs")
@@ -116,7 +116,7 @@ struct InboxHeadTests {
     @Test func pruneKeepsAThreadWithAQueuedReply() async throws {
         server.set("replied", thread("replied", minutesAgo: 1, labels: []))
         server.set("other", thread("other", minutesAgo: 2, labels: []))
-        try await engine(.window).sync()
+        try await engine(.window(.handheld)).sync()
         let reply = Draft(accountID: account.id, threadID: "replied")
         try database.enqueue(OutgoingMessage(draft: reply, purpose: .send, sendAt: Self.now))
 

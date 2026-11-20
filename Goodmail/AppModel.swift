@@ -28,6 +28,9 @@ final class AppModel {
     /// Where opened attachments are kept; they count toward the cache cap with the bodies.
     let attachmentsDirectory = URL.cachesDirectory.appending(path: "Attachments", directoryHint: .isDirectory)
     let outboxes: Outboxes
+    /// What this kind of device keeps offline and may spend on downloaded mail (ADR-007), decided once here: a Mac
+    /// has room a phone doesn't.
+    let storage = StoragePreferences(window: ProcessInfo.processInfo.isMacCatalystApp ? .desktop : .handheld)
     /// How each account's syncs are going, for the mailbox lists to tell the reader of a problem.
     let health = AccountHealthBoard()
     /// Senders' photos and logos for the mail screens.
@@ -91,7 +94,7 @@ final class AppModel {
         self.path = path
         threadFetcher = ThreadFetcher(
             provider: { try providers.provider(for: $0) }, store: database, path: path,
-            scope: { Preferences.prefetchScope })
+            scope: { [storage] in storage.prefetchScope })
         let outboxes = Outboxes { id in
             Outbox(accountID: id, provider: try providers.provider(for: id), store: database)
         }
@@ -377,12 +380,12 @@ final class AppModel {
     /// Evicts the least recently read bodies and attachments when the cache is over its cap (ADR-007). Off the
     /// main thread: it scans the attachments folder.
     private func trimCache() async {
-        await Self.trim(database, attachments: attachmentsDirectory)
+        await Self.trim(database, attachments: attachmentsDirectory, limit: storage.cacheLimit)
     }
 
-    @concurrent private static func trim(_ database: MailDatabase, attachments: URL) async {
+    @concurrent private static func trim(_ database: MailDatabase, attachments: URL, limit: Int) async {
         do {
-            try database.trimCache(to: Preferences.cacheLimit, attachments: attachments)
+            try database.trimCache(to: limit, attachments: attachments)
         } catch {
             Logger(subsystem: "com.idanbirman.goodmail", category: "cache")
                 .error("Couldn't trim the cache: \(error, privacy: .public)")
@@ -473,19 +476,20 @@ final class AppModel {
 
     private func prefetcher(for id: AccountID) throws -> BodyPrefetcher {
         if let prefetcher = prefetchers[id] { return prefetcher }
-        let (database, attachments) = (database, attachmentsDirectory)
+        let (database, attachments, storage) = (database, attachmentsDirectory, storage)
         let prefetcher = BodyPrefetcher(
             accountID: id, provider: try providers.provider(for: id), store: database, path: path,
-            scope: { Preferences.prefetchScope },
-            hasRoom: { database.hasRoomToPrefetch(under: Preferences.cacheLimit) },
-            didFinish: { await Self.trim(database, attachments: attachments) })
+            scope: { storage.prefetchScope },
+            hasRoom: { database.hasRoomToPrefetch(under: storage.cacheLimit) },
+            didFinish: { await Self.trim(database, attachments: attachments, limit: storage.cacheLimit) })
         prefetchers[id] = prefetcher
         return prefetcher
     }
 
     func engine(for id: AccountID) throws -> SyncEngine {
         if let engine = engines[id] { return engine }
-        let engine = SyncEngine(accountID: id, provider: try providers.provider(for: id), store: database)
+        let engine = SyncEngine(
+            accountID: id, provider: try providers.provider(for: id), store: database, scope: .window(storage.window))
         engines[id] = engine
         return engine
     }

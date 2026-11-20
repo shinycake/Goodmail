@@ -26,8 +26,8 @@ struct SyncEngineTests {
     /// Each sync starts a second later, as real ones do, so successive resyncs get distinct generations.
     private let clock = TickingClock(start: Self.now)
 
-    private func engine() -> SyncEngine {
-        SyncEngine(accountID: account.id, provider: server, store: database, now: clock.next)
+    private func engine(_ scope: SyncScope = .window(.handheld)) -> SyncEngine {
+        SyncEngine(accountID: account.id, provider: server, store: database, scope: scope, now: clock.next)
     }
 
     private func thread(_ id: String, daysAgo: Double, labels: Set<String> = ["INBOX"]) -> ThreadSummary {
@@ -78,6 +78,25 @@ struct SyncEngineTests {
             return
         }
         #expect(cursor == (try await server.currentCursor()))
+    }
+
+    @Test func aDesktopKeepsAYearOfInboxAndNinetyDaysOfTheRest() async throws {
+        seed(
+            thread("inbox-200d", daysAgo: 200),
+            thread("inbox-400d", daysAgo: 400),
+            thread("receipt-60d", daysAgo: 60, labels: ["Label_1"]),
+            thread("receipt-120d", daysAgo: 120, labels: ["Label_1"])
+        )
+        try await engine(.window(.desktop)).sync()
+
+        #expect(try allLocal() == ["inbox-200d", "receipt-60d"])
+    }
+
+    @Test func aHandheldDropsWhatADesktopKeeps() async throws {
+        seed(thread("inbox-200d", daysAgo: 200), thread("receipt-60d", daysAgo: 60, labels: ["Label_1"]))
+        try await engine(.window(.handheld)).sync()
+
+        #expect(try allLocal().isEmpty)
     }
 
     @Test func incrementalSyncRefetchesChangedThreadsAndDropsDeletedOnes() async throws {

@@ -46,7 +46,7 @@ struct StorageSettingsView: View {
             Section {
                 usageRows
                 Picker(selection: $model.limit) {
-                    ForEach(Preferences.cacheLimitChoices, id: \.self) { bytes in
+                    ForEach(model.limitChoices, id: \.self) { bytes in
                         Text(Self.size(bytes)).tag(bytes)
                     }
                 } label: {

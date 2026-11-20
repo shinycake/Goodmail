@@ -6,6 +6,8 @@ import Testing
 /// The Storage page: it measures the downloaded mail, trims it to the size chosen, and removes it on request.
 @MainActor
 struct StorageSettingsTests {
+    private static let handheld = StoragePreferences(window: .handheld)
+
     /// Keeps the trims asked for, and measures what is left.
     @MainActor
     final class Cache {
@@ -43,7 +45,7 @@ struct StorageSettingsTests {
 
     @Test func applyingTheLimitTrimsToItAndMeasures() async {
         let cache = Cache()
-        let model = StorageSettings(service: cache.service)
+        let model = StorageSettings(service: cache.service, preferences: Self.handheld)
         #expect(model.phase == .measuring)
         await model.apply()
         #expect(cache.trims == [model.limit])
@@ -52,7 +54,7 @@ struct StorageSettingsTests {
 
     @Test func removingTheDownloadedMailTrimsItAll() async {
         let cache = Cache()
-        let model = StorageSettings(service: cache.service)
+        let model = StorageSettings(service: cache.service, preferences: Self.handheld)
         await model.clear()
         #expect(cache.trims == [0])
         #expect(model.phase == .measured(.init(messages: 0, attachments: 0)))
@@ -60,14 +62,15 @@ struct StorageSettingsTests {
 
     @Test func aMeasureThatFailsSaysSo() async {
         struct Unreadable: Error {}
-        let model = StorageSettings(service: .init(usage: { throw Unreadable() }, trim: { _ in }))
+        let model = StorageSettings(
+            service: .init(usage: { throw Unreadable() }, trim: { _ in }), preferences: Self.handheld)
         await model.apply()
         #expect(model.phase == .failed(.measuring))
     }
 
     @Test func removingTheMailOutlastsFittingASizeStartedBefore() async {
         let cache = SlowCache()
-        let model = StorageSettings(service: cache.service)
+        let model = StorageSettings(service: cache.service, preferences: Self.handheld)
         async let applied: Void = model.apply()
         while cache.fitting == nil { await Task.yield() }
         await model.clear()
@@ -81,7 +84,8 @@ struct StorageSettingsTests {
     @Test func aRemovalThatFailsSaysSo() async {
         struct Locked: Error {}
         let model = StorageSettings(
-            service: .init(usage: { .init(messages: 300, attachments: 50) }, trim: { _ in throw Locked() }))
+            service: .init(usage: { .init(messages: 300, attachments: 50) }, trim: { _ in throw Locked() }),
+            preferences: Self.handheld)
         await model.clear()
         #expect(model.phase == .failed(.removing))
     }

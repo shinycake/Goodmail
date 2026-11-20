@@ -8,11 +8,6 @@ public import Foundation
 ///
 /// Every step converges: replaying a step after a crash refetches and rewrites the same threads.
 public actor SyncEngine {
-    /// Inbox, Sent, Starred and Drafts keep 90 days; everything else 30 (ADR-007).
-    public static let longWindowLabels = ["INBOX", "SENT", "STARRED", "DRAFT"]
-    public static let longWindow: TimeInterval = 90 * 86_400
-    public static let shortWindow: TimeInterval = 30 * 86_400
-
     public nonisolated let accountID: AccountID
     let provider: any MailProvider
     let store: any SyncStore
@@ -33,7 +28,7 @@ public actor SyncEngine {
         accountID: AccountID,
         provider: any MailProvider,
         store: any SyncStore,
-        scope: SyncScope = .window,
+        scope: SyncScope = .window(.handheld),
         now: @escaping @Sendable () -> Date = { .now }
     ) {
         self.accountID = accountID
@@ -89,12 +84,13 @@ public actor SyncEngine {
     }
 
     /// The resync's queries, in order: Inbox first so the list fills quickly. The Inbox alone for its head.
-    static func stages(startedAt: Date, scope: SyncScope = .window) -> [ThreadQuery] {
-        let long = startedAt.addingTimeInterval(-longWindow)
+    static func stages(startedAt: Date, scope: SyncScope = .window(.handheld)) -> [ThreadQuery] {
+        let window = scope.offlineWindow
+        let long = startedAt.addingTimeInterval(-window.longWindow)
         switch scope {
         case .window:
-            return longWindowLabels.map { ThreadQuery(label: $0, since: long) }
-                + [ThreadQuery(since: startedAt.addingTimeInterval(-shortWindow))]
+            return OfflineWindow.longWindowLabels.map { ThreadQuery(label: $0, since: long) }
+                + [ThreadQuery(since: startedAt.addingTimeInterval(-window.shortWindow))]
         case .inboxHead:
             return [ThreadQuery(label: "INBOX", since: long)]
         }
@@ -153,7 +149,7 @@ public actor SyncEngine {
             StoreChanges(
                 accountID: accountID, labels: labelRead == labelReads ? labels : nil,
                 signature: signatureEdits == editsBeforeRead ? sendAs?.signature : nil, aliases: sendAs?.aliases))
-        if scope == .window { try await refreshAddressBookIfOld() }
+        if case .window = scope { try await refreshAddressBookIfOld() }
         switch try store.syncState(for: accountID) {
         case nil:
             try await fillWindow(from: try await startResync())
@@ -229,9 +225,9 @@ public actor SyncEngine {
 
         let sweep = Sweep(
             generation: resync.generation,
-            allMailSince: resync.startedAt.addingTimeInterval(-Self.shortWindow),
-            longWindowSince: resync.startedAt.addingTimeInterval(-Self.longWindow),
-            longWindowLabels: Set(Self.longWindowLabels)
+            allMailSince: resync.startedAt.addingTimeInterval(-scope.offlineWindow.shortWindow),
+            longWindowSince: resync.startedAt.addingTimeInterval(-scope.offlineWindow.longWindow),
+            longWindowLabels: Set(OfflineWindow.longWindowLabels)
         )
         try store.apply(StoreChanges(accountID: accountID, sweep: sweep, state: .current(cursor: resync.cursor)))
         // Catch what changed while the window was filling.
