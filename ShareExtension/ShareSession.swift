@@ -14,6 +14,14 @@ nonisolated struct ShareSession: Sendable {
         case schedule(Date)
     }
 
+    /// How an errand ended.
+    enum Ending: Sendable {
+        /// Sent, saved or kept for the app (`ImmediateDelivery`).
+        case delivered(ImmediateDelivery.Outcome)
+        /// The account's sign-in isn't on this device, so the message waits in the app until the writer signs in.
+        case waitingForSignIn
+    }
+
     enum Failure: Error {
         /// The extension has no App Group, as in an unsigned build.
         case noSharedContainer
@@ -31,27 +39,27 @@ nonisolated struct ShareSession: Sendable {
 
     /// Carries out `errand` for `draft`. A message to send or a draft to save goes now, from here; what can't
     /// finish waits in the shared queue for the app (`ImmediateDelivery`), as does a message whose account has no
-    /// login on this device, which the app then reports as it does for its own sends. Throws
+    /// sign-in on this device, which goes once the writer signs in again in the app. Throws
     /// `ImmediateDelivery.NotKept` when the message couldn't be kept anywhere.
-    @concurrent func run(_ errand: Errand, for draft: Draft) async throws -> ImmediateDelivery.Outcome {
+    @concurrent func run(_ errand: Errand, for draft: Draft) async throws -> Ending {
         let purpose: OutgoingMessage.Purpose
         switch errand {
         case .send: purpose = .send
         case .saveDraft: purpose = .saveDraft
         case .schedule(let date):
             try keep(OutgoingMessage(draft: draft, purpose: .scheduledSend, sendAt: date))
-            return .handedOver(.queued)
+            return .delivered(.handedOver(.queued))
         }
         // The accounts come from this database, so the draft's is always among them.
         let account = accounts.first { $0.id == draft.accountID }
         guard let provider = try? account.map({ try MailClients.client(for: $0, index: database) }) else {
             try keep(OutgoingMessage(draft: draft, purpose: purpose, sendAt: .now))
-            return .handedOver(.queued)
+            return .waitingForSignIn
         }
         let delivery = ImmediateDelivery(
             draft, as: purpose, provider: provider, store: database,
             scratch: FileManager.default.temporaryDirectory.appending(path: "Uploads", directoryHint: .isDirectory))
-        return try await Self.awake(whileRunning: delivery)
+        return .delivered(try await Self.awake(whileRunning: delivery))
     }
 
     private func keep(_ message: OutgoingMessage) throws {

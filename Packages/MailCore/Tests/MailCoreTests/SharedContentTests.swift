@@ -28,6 +28,14 @@ struct SharedContentTests {
         #expect(SharedContent(links: [page, page]).body == "https://example.com/story")
     }
 
+    @Test func aLinkReadsAsItsLettersNotItsPercentCodes() {
+        let hebrew = URL(string: "https://he.wikipedia.org/wiki/%D7%A9%D7%9C%D7%95%D7%9D")!
+        let spaced = URL(string: "https://example.com/a%20b")!
+
+        #expect(SharedContent(links: [hebrew]).body == "https://he.wikipedia.org/wiki/שלום")
+        #expect(SharedContent(links: [spaced]).body == "https://example.com/a%20b", "a space would end the link")
+    }
+
     @Test func onlyAFileStillMakesAMessage() {
         let file = DraftAttachment(filename: "a.pdf", mimeType: "application/pdf", data: Data([1]))
 

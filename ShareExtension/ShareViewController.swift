@@ -125,16 +125,18 @@ final class ShareViewController: UIViewController {
     }
 
     private func finished(
-        _ errand: ShareSession.Errand, with outcome: Result<ImmediateDelivery.Outcome, any Error>,
+        _ errand: ShareSession.Errand, with outcome: Result<ShareSession.Ending, any Error>,
         in session: ShareSession
     ) {
         guard case .working(let window, let progress, _) = stage else { return }
         switch (outcome, errand) {
-        case (.success(.done), _), (.success, .schedule):
+        case (.success(.delivered(.done)), _), (.success, .schedule):
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             finish(sent: true)
-        case (.success(.handedOver(let delivery)), _):
+        case (.success(.delivered(.handedOver(let delivery))), _):
             explain(ShareNotice(errand, leftAs: delivery)) { [weak self] in self?.finish(sent: true) }
+        case (.success(.waitingForSignIn), _):
+            explain(.signedOut(errand)) { [weak self] in self?.finish(sent: true) }
         case (.failure(let error as ImmediateDelivery.NotKept), _) where error.mayHaveGone:
             // Sending it again could send it twice.
             explain(.mayHaveGone) { [weak self] in self?.finish(sent: true) }

@@ -9,6 +9,8 @@ enum ShareNotice {
     case unavailable
     /// Couldn't reach the service; the app sends or saves it later.
     case waiting(ShareSession.Errand)
+    /// The account's sign-in isn't on this device; the app sends or saves it once the writer signs in.
+    case signedOut(ShareSession.Errand)
     /// The upload ended without an answer; the app checks whether it went.
     case unconfirmed
     /// The service refused it; it waits in the app to be fixed.
@@ -37,6 +39,14 @@ enum ShareNotice {
             String(localized: "Not Saved Yet", comment: "Alert title when a shared draft will be saved later")
         case .waiting:
             String(localized: "Not Sent Yet", comment: "Alert title when a shared message will be sent later")
+        case .signedOut(.saveDraft):
+            String(
+                localized: "Sign In to Save", comment: "Alert title when a shared draft waits for the account's sign-in"
+            )
+        case .signedOut:
+            String(
+                localized: "Sign In to Send",
+                comment: "Alert title when a shared message waits for the account's sign-in")
         case .unconfirmed:
             String(localized: "Sending Not Confirmed", comment: "Alert title when the server didn't answer a send")
         case .refused(.saveDraft):
@@ -64,6 +74,16 @@ enum ShareNotice {
             String(
                 localized: "Goodmail couldn't reach your mail server. It will send this message the next time it can.",
                 comment: "Alert when a shared message will be sent later")
+        case .signedOut(.saveDraft):
+            String(
+                localized:
+                    "This account isn't signed in on this device. Sign in again in Goodmail and it will save this draft.",
+                comment: "Alert when a shared draft waits for the account's sign-in")
+        case .signedOut:
+            String(
+                localized:
+                    "This account isn't signed in on this device. Sign in again in Goodmail and it will send this message.",
+                comment: "Alert when a shared message waits for the account's sign-in")
         case .unconfirmed:
             String(
                 localized:

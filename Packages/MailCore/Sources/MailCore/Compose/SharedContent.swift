@@ -26,11 +26,20 @@ public struct SharedContent: Equatable, Sendable {
     public var body: String {
         let texts = texts.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
         var links: [String] = []
-        for link in self.links.map(\.absoluteString)
+        for link in self.links.map(Self.readable)
         where !links.contains(link) && !texts.contains(where: { $0.contains(link) }) {
             links.append(link)
         }
         return (texts + links).joined(separator: "\n\n")
+    }
+
+    /// The link as people read it, with letters such as Hebrew in place of their percent codes, unless decoding it
+    /// would put in a space or a line break, which would end the link where mail apps find it.
+    private static func readable(_ link: URL) -> String {
+        guard let decoded = link.absoluteString.removingPercentEncoding,
+            !decoded.contains(where: \.isWhitespace)
+        else { return link.absoluteString }
+        return decoded
     }
 
     /// Nothing came that a message could carry.

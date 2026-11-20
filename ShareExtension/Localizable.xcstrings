@@ -217,6 +217,30 @@
         }
       }
     },
+    "Sign In to Save": {
+      "comment": "Alert title when a shared draft waits for the account's sign-in",
+      "extractionState": "manual",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "יש להתחבר כדי לשמור"
+          }
+        }
+      }
+    },
+    "Sign In to Send": {
+      "comment": "Alert title when a shared message waits for the account's sign-in",
+      "extractionState": "manual",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "יש להתחבר כדי לשלוח"
+          }
+        }
+      }
+    },
     "The connection dropped before the server answered. Goodmail will check whether it went, and keep it for you to send again if it didn't.": {
       "comment": "Alert when the server didn't answer a send from the share sheet",
       "extractionState": "manual",
@@ -237,6 +261,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "השרת דחה אותה. היא מחכה לכם ב-Goodmail כדי לתקן ולנסות שוב."
+          }
+        }
+      }
+    },
+    "This account isn't signed in on this device. Sign in again in Goodmail and it will save this draft.": {
+      "comment": "Alert when a shared draft waits for the account's sign-in",
+      "extractionState": "manual",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "החשבון הזה לא מחובר במכשיר הזה. אחרי שתתחברו שוב ב‑Goodmail, הטיוטה תישמר."
+          }
+        }
+      }
+    },
+    "This account isn't signed in on this device. Sign in again in Goodmail and it will send this message.": {
+      "comment": "Alert when a shared message waits for the account's sign-in",
+      "extractionState": "manual",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "החשבון הזה לא מחובר במכשיר הזה. אחרי שתתחברו שוב ב‑Goodmail, ההודעה תישלח."
           }
         }
       }
