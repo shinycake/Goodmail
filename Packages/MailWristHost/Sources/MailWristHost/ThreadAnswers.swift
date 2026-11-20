@@ -18,11 +18,16 @@ public struct ThreadAnswers: Sendable {
         self.provider = provider
     }
 
-    /// Fetches a thread's messages with their bodies into the store.
-    @concurrent public func loadMessages(of thread: ThreadSummary.ID) async throws {
+    /// Fetches a thread's messages with their bodies. When the store lists the thread, they're saved and returned as
+    /// it keeps them, with the reader's queued changes. An alert can open a thread before the sync that lists it:
+    /// those come back as fetched, without being kept.
+    @concurrent private func fetchMessages(of thread: ThreadSummary.ID) async throws -> [Message] {
         let fetchedAt = Date.now
         let messages = try await provider(thread.accountID).messages(inThread: thread.threadID)
-        try database.save(messages, inThread: thread, fetchedAt: fetchedAt)
+        guard !messages.isEmpty, try database.saveIfListed(messages, inThread: thread, fetchedAt: fetchedAt) else {
+            return messages
+        }
+        return try await Self.first(database.messages(inThread: thread))
     }
 
     /// A thread's messages, to answer its newest: the cached ones when they reach as far as the thread does,
@@ -33,12 +38,11 @@ public struct ThreadAnswers: Sendable {
         // The store keeps the thread's date to the millisecond and each message's whole, so allow a little.
         if let newest, let last = cached.last?.date, last.timeIntervalSince(newest) > -1 { return cached }
         do {
-            try await loadMessages(of: thread)
+            return try await fetchMessages(of: thread)
         } catch {
             if cached.isEmpty { throw error }
             return cached
         }
-        return try await Self.first(database.messages(inThread: thread))
     }
 
     /// Sends `text` as a reply to the newest message in the thread, signed as the composer signs it, with the
@@ -47,10 +51,7 @@ public struct ThreadAnswers: Sendable {
     @discardableResult
     @concurrent public func reply(to thread: ThreadSummary.ID, with text: String) async throws -> Draft? {
         guard let account = try database.accounts().first(where: { $0.id == thread.accountID }) else { return nil }
-        let fetchedAt = Date.now
-        let messages = try await provider(thread.accountID).messages(inThread: thread.threadID)
-        guard let latest = messages.last else { return nil }
-        try database.save(messages, inThread: thread, fetchedAt: fetchedAt)
+        guard let latest = try await fetchMessages(of: thread).last else { return nil }
         var plain = text
         if let signature = try database.signature(for: account.id), !signature.isEmpty {
             plain += "\n\n-- \n" + signature

@@ -122,6 +122,26 @@ struct WristMailHostTests {
         #expect(provider.fetchCount == 0)
     }
 
+    /// An alert can open a conversation the store hasn't listed yet, as when the watch hasn't synced since it came.
+    @Test func aConversationTheStoreDoesntListYetIsFetched() async throws {
+        let provider = ScriptedProvider(messages: ["t1": [message("t1", minutesAgo: 1)]])
+        let reply = try await host(provider).conversation(id("t1"))
+        guard case .thread(let thread) = reply else {
+            Issue.record("Expected a conversation, got \(reply)")
+            return
+        }
+        #expect(thread.subject == "Subject t1")
+        #expect(provider.fetchCount == 1)
+    }
+
+    @Test func aReplyToAConversationTheStoreDoesntListYetIsQueued() async throws {
+        let provider = ScriptedProvider(messages: ["t1": [message("t1", minutesAgo: 1)]])
+        try await host(provider).execute(WristCommand(threads: [id("t1")], kind: .reply("Yes!"), madeAt: now))
+        var outgoing = database.outgoingMessages(inThread: id("t1")).makeAsyncIterator()
+        let queued = try #require(try await outgoing.next())
+        #expect(queued.count == 1)
+    }
+
     @Test func aConversationOfAnAccountThatsGoneIsGone() async throws {
         let other = ThreadSummary.ID(accountID: AccountID(rawValue: "gone"), threadID: "t1")
         #expect(try await host().conversation(other) == .gone(other))

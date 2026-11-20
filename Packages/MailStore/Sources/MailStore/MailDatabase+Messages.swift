@@ -8,30 +8,49 @@ extension MailDatabase {
     public func save(
         _ messages: [Message], inThread thread: ThreadSummary.ID, fetchedAt: Date = .now, accessedAt: Date = .now
     ) throws {
-        let encoder = JSONEncoder()
         try write { db in
-            try db.execute(
-                sql: "DELETE FROM message WHERE accountID = ? AND threadID = ?",
-                arguments: [thread.accountID.rawValue, thread.threadID]
-            )
-            for message in messages {
-                let content = String(decoding: try encoder.encode(message), as: UTF8.self)
-                let text = message.body.text
-                try db.execute(
-                    sql: """
-                        INSERT INTO message (accountID, id, threadID, date, content, fetchedAt, bodyText, size, accessedAt)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                    arguments: [
-                        thread.accountID.rawValue, message.id.messageID, thread.threadID, message.date,
-                        content, fetchedAt, text, content.utf8.count + text.utf8.count, accessedAt,
-                    ]
-                )
-            }
-            // Fetched before queued actions reached the server: show them as the reader left them.
-            try Self.reapplyPending(
-                account: thread.accountID.rawValue, threadIDs: [thread.threadID], fetchedAt: fetchedAt, in: db)
+            try Self.replace(messages, inThread: thread, fetchedAt: fetchedAt, accessedAt: accessedAt, in: db)
         }
+    }
+
+    /// Like `save`, for messages fetched for a thread the store may not list yet, as when an alert opens one before
+    /// the sync that brings it: they're kept only when it does. Returns whether they were.
+    @discardableResult
+    public func saveIfListed(
+        _ messages: [Message], inThread thread: ThreadSummary.ID, fetchedAt: Date = .now, accessedAt: Date = .now
+    ) throws -> Bool {
+        try write { db in
+            guard try Self.thread(thread, in: db) != nil else { return false }
+            try Self.replace(messages, inThread: thread, fetchedAt: fetchedAt, accessedAt: accessedAt, in: db)
+            return true
+        }
+    }
+
+    private static func replace(
+        _ messages: [Message], inThread thread: ThreadSummary.ID, fetchedAt: Date, accessedAt: Date, in db: Database
+    ) throws {
+        let encoder = JSONEncoder()
+        try db.execute(
+            sql: "DELETE FROM message WHERE accountID = ? AND threadID = ?",
+            arguments: [thread.accountID.rawValue, thread.threadID]
+        )
+        for message in messages {
+            let content = String(decoding: try encoder.encode(message), as: UTF8.self)
+            let text = message.body.text
+            try db.execute(
+                sql: """
+                    INSERT INTO message (accountID, id, threadID, date, content, fetchedAt, bodyText, size, accessedAt)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                arguments: [
+                    thread.accountID.rawValue, message.id.messageID, thread.threadID, message.date,
+                    content, fetchedAt, text, content.utf8.count + text.utf8.count, accessedAt,
+                ]
+            )
+        }
+        // Fetched before queued actions reached the server: show them as the reader left them.
+        try reapplyPending(
+            account: thread.accountID.rawValue, threadIDs: [thread.threadID], fetchedAt: fetchedAt, in: db)
     }
 
     /// Gives the bodies cached before search indexed them their text. Reads first, so an open with nothing to fill,

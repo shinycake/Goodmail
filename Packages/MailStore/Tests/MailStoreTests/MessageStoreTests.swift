@@ -74,4 +74,13 @@ struct MessageStoreTests {
         try database.apply(StoreChanges(accountID: account.id, deletions: ["t1"]))
         #expect(try await stored().isEmpty)
     }
+
+    @Test func messagesOfAThreadTheStoreDoesntListAreNotKept() async throws {
+        let unlisted = ThreadSummary.ID(accountID: account.id, threadID: "t2")
+        var newcomer = message("m9", minutes: 0, html: "hi")
+        newcomer.threadID = "t2"
+        #expect(try database.saveIfListed([newcomer], inThread: unlisted) == false)
+        var iterator = database.messages(inThread: unlisted).makeAsyncIterator()
+        #expect(try await iterator.next(isolation: #isolation)?.isEmpty == true)
+    }
 }
