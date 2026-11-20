@@ -24,7 +24,7 @@ extension OutlookClient {
                         threadID: threadID,
                         mime: mime,
                         date: listing.receivedDateTime ?? .distantPast,
-                        snippet: listing.bodyPreview ?? "",
+                        snippet: SnippetText.words(of: listing.bodyPreview ?? ""),
                         labelIDs: listing.labelIDs(in: directory))
                 }
             }

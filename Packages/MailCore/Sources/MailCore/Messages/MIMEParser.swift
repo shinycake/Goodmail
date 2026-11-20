@@ -149,7 +149,9 @@ private struct MIMEEntity {
         return bytes
     }
 
-    /// RFC 2045 §6.7: `=XX` is a byte, `=` at the end of a line joins it to the next.
+    /// RFC 2045 §6.7: `=XX` is a byte, `=` at the end of a line joins it to the next. An `=` with fewer than two bytes
+    /// after it, at the very end, is cut short, as the start of a message that IMAP fetches for a snippet can be, and
+    /// is left out.
     private static func quotedPrintable(_ bytes: ArraySlice<UInt8>) -> Data {
         var data = Data()
         var index = bytes.startIndex
@@ -168,6 +170,8 @@ private struct MIMEEntity {
             } else if next.count == 2, let value = UInt8(String(decoding: next, as: UTF8.self), radix: 16) {
                 data.append(value)
                 index += 3
+            } else if next.count < 2 {
+                break
             } else {
                 data.append(byte)
                 index += 1

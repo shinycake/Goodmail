@@ -54,7 +54,7 @@ extension ThreadSummary {
         self.init(
             id: id,
             subject: ordered.first { !($0.subject ?? "").isEmpty }?.subject ?? "",
-            snippet: latest.bodyPreview ?? "",
+            snippet: SnippetText.words(of: latest.bodyPreview ?? ""),
             sender: latest.from?.contact ?? Contact(name: nil, address: ""),
             date: latest.receivedDateTime ?? .distantPast,
             isUnread: labels.contains(SystemLabel.unread),

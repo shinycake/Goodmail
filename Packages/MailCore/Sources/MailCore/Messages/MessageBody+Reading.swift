@@ -57,10 +57,10 @@ extension MessageBody {
         return flowed + rest.replacing(/\s+/, with: " ")
     }
 
-    /// `words` without invisible characters, each line trimmed, and blank lines in a row read as one.
+    /// `words` without invisible characters (`InvisibleCharacters`), each line trimmed, and blank lines in a row read as one.
     static func tidied(_ words: StyledText) -> StyledText {
         var lines: [StyledText] = []
-        for line in words.mapRuns(withoutInvisibles).split(separator: "\n") {
+        for line in words.mapRuns(InvisibleCharacters.removed(from:)).split(separator: "\n") {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if trimmed.isEmpty, lines.last?.isEmpty ?? true { continue }
             lines.append(trimmed)
@@ -73,15 +73,6 @@ extension MessageBody {
     /// one's close, leaving the rest of it to show, which is no worse than showing all of it.
     private static func withoutHidden(_ html: String) -> String {
         html.replacing(/(?is)<(div|span|p|td|table)\b[^>]*display\s*:\s*none[^>]*>.*?<\/\1\s*>/, with: "")
-    }
-
-    /// Characters that take no space, which newsletters repeat after the preview line so inboxes show no more of it,
-    /// and the stand-in Apple Mail's plain part writes for each picture. A joiner that builds an emoji stays.
-    private static func withoutInvisibles(_ text: String) -> String {
-        let invisibles: Set<Unicode.Scalar> = [
-            "\u{200B}", "\u{200C}", "\u{FEFF}", "\u{034F}", "\u{00AD}", "\u{FFFC}",
-        ]
-        return String(String.UnicodeScalarView(text.unicodeScalars.filter { !invisibles.contains($0) }))
     }
 
     private static func filled(_ part: String?) -> String? {
@@ -104,14 +95,5 @@ extension MessageBody {
             rest = rest[tag.range.upperBound...]
         }
         return false
-    }
-}
-
-extension HTMLEntities {
-    /// A snippet's words on one line. A provider that makes snippets from a plain part that is really markup, as
-    /// Gmail does, hands over the tags too.
-    public static func words(ofSnippet snippet: String) -> String {
-        guard MessageBody.isMarkup(snippet) else { return snippet }
-        return plainText(fromHTML: snippet).split(whereSeparator: \.isWhitespace).joined(separator: " ")
     }
 }

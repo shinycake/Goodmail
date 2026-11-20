@@ -1,9 +1,9 @@
 import MailCore
 
 extension MessageBody {
-    /// The start of the body's words, on one line, as Gmail's snippets are.
+    /// The start of the body's words, on one line and without preheader filler, as Gmail's snippets are.
     var snippet: String {
-        String(text.split(whereSeparator: \.isWhitespace).joined(separator: " ").prefix(200))
+        String(SnippetText.oneLine(text).prefix(200))
     }
 }
 

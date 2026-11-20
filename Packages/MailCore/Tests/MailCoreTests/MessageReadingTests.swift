@@ -40,8 +40,26 @@ struct MessageReadingTests {
     }
 
     @Test func aSnippetOfMarkupBecomesItsWords() {
-        #expect(HTMLEntities.words(ofSnippet: "<div><b>Lunch?</b></div><div>Dana</div>") == "Lunch? Dana")
-        #expect(HTMLEntities.words(ofSnippet: "I'll be late <3") == "I'll be late <3")
+        #expect(SnippetText.words(of: "<div><b>Lunch?</b></div><div>Dana</div>") == "Lunch? Dana")
+        #expect(SnippetText.words(of: "I'll be late <3") == "I'll be late <3")
+    }
+
+    /// Marketing mail pads its preheader with invisible characters so the preview stops after it.
+    @Test func aSnippetLosesPreheaderFiller() {
+        let filler = String(repeating: "\u{034F} \u{200C}\u{00A0}\u{00AD}\u{200B}\u{FEFF}", count: 40)
+        #expect(SnippetText.words(of: "Our only sale of the year! \(filler)") == "Our only sale of the year!")
+        #expect(
+            SnippetText.words(of: "<p>Sale!</p><p>\(filler)</p><div>Ends Sunday</div>") == "Sale! Ends Sunday")
+    }
+
+    @Test(arguments: [
+        "Family \u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467} trip",  // A joiner inside an emoji
+        "\u{0645}\u{06CC}\u{200C}\u{062E}\u{0648}\u{0627}\u{0647}\u{0645}",  // A non-joiner inside a Persian word
+        "\u{05E9}\u{05DC}\u{05D5}\u{05DD} \u{200F}(2)",  // A right-to-left mark in Hebrew
+        "\u{0915}\u{094D}\u{200D} x",  // A joiner ending a Devanagari half-form
+    ])
+    func aSnippetKeepsCharactersThatDoSomething(text: String) {
+        #expect(SnippetText.words(of: text) == text)
     }
 
     @Test func styledTextKeepsTheWholeBodyWithOneBlankLineBetweenBlocks() {

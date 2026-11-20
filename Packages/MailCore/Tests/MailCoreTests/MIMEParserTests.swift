@@ -69,6 +69,14 @@ struct MIMEParserTests {
         #expect(message.parts[1].data == Data("%PDF-1.4 fake".utf8))
     }
 
+    /// The start of a message that IMAP fetches for a snippet can end inside an escape or a soft line break.
+    @Test(arguments: ["=", "=C", "=\r"])
+    func quotedPrintableCutShortLeavesOutTheCutEscape(tail: String) {
+        let message = MIMEPart(
+            parsing: Data("Content-Transfer-Encoding: quoted-printable\r\n\r\ncaf=C3=A9\(tail)".utf8))
+        #expect(message.data == Data("café".utf8))
+    }
+
     @Test func anEmptyMessageHasNoBodyAndNoAttachments() {
         let (body, attachments) = MIMEPart.empty.content()
         #expect(body == MessageBody())

@@ -27,6 +27,19 @@ struct TextDecodingTests {
         #expect(TextDecoding.string(from: Data([0x63, 0x61, 0x66, 0xE9]), declaredCharset: "x-unknown") == "café")
     }
 
+    /// IMAP fetches only the start of a message for its snippet, which can end partway through a character.
+    @Test(arguments: [nil, "utf-8"], [("\u{200C}", 1), ("\u{200C}", 2), ("\u{1F6EB}", 1), ("\u{1F6EB}", 3)])
+    func utf8CutPartwayThroughACharacterKeepsTheWholeOnes(charset: String?, cut: (last: String, bytes: Int)) {
+        let whole = Data("Sale! \u{034F}\u{00A0}\(cut.last)".utf8)
+        let text = TextDecoding.string(from: whole.dropLast(cut.bytes), declaredCharset: charset)
+        #expect(text == "Sale! \u{034F}\u{00A0}")
+    }
+
+    @Test func latin1EndingInALetterKeepsIt() {
+        // 0xE9 starts a three-byte UTF-8 character, but nothing before it is UTF-8.
+        #expect(TextDecoding.string(from: Data([0x63, 0x61, 0x66, 0xE9]), declaredCharset: "iso-8859-1") == "café")
+    }
+
     @Test func mixedPartsKeepEveryTextBodyAndListTheRest() {
         let root = MIMEPart(
             partID: "",

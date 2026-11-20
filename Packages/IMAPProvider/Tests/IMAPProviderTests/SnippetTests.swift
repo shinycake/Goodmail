@@ -12,18 +12,26 @@ struct SnippetTests {
         + "</style></head><body><p>Goodmail 1.0 (18) for iOS is now available to test.</p></body></html>"
     /// The first bytes of `html`, as many as a header fetch asks for.
     static let cut = String(decoding: html.utf8.prefix(IMAPCommand.snippetBytes), as: UTF8.self)
+    static let htmlFields = "Content-Type: text/html; charset=utf-8\r\n\r\n"
+    /// One run of a marketing mail's preheader filler (U+034F, U+200C, a no-break space) in quoted-printable UTF-8.
+    static let filler = "=CD=8F =E2=80=8C=C2=A0"
 
     /// One message's line of a header FETCH, with an HTML body's start.
-    static func fetchLine(uid: UInt32, text: String) -> String {
-        let fields = "Content-Type: text/html; charset=utf-8\r\n\r\n"
+    static func fetchLine(
+        uid: UInt32, text: String, fields: String = htmlFields
+    ) -> String {
         return
             #"S: * 1 FETCH (UID \#(uid) FLAGS () INTERNALDATE "16-Nov-2026 09:43:00 +0000" ENVELOPE (NIL "Ready" NIL NIL NIL NIL NIL NIL NIL "<m\#(uid)@apple.com>") "#
             + "BODY[HEADER.FIELDS (CONTENT-TYPE)] {\(fields.utf8.count)}\\r\\n\(fields.replacing("\r\n", with: "\\r\\n")) "
             + "BODY[TEXT]<0> {\(text.utf8.count)}\\r\\n\(text))"
     }
 
-    static func header(uid: UInt32, text: String, fetchedTextBytes: Int) throws -> IMAPMessageHeader {
-        let line = fetchLine(uid: uid, text: text).dropFirst(3).replacing("\\r\\n", with: "\r\n") + "\r\n"
+    static func header(
+        uid: UInt32, text: String, fields: String = htmlFields,
+        fetchedTextBytes: Int
+    ) throws -> IMAPMessageHeader {
+        let line =
+            fetchLine(uid: uid, text: text, fields: fields).dropFirst(3).replacing("\\r\\n", with: "\r\n") + "\r\n"
         guard case .data(let values) = try IMAPParser.response(from: Data(line.utf8)) else {
             throw ScriptedTransport.Unexpected(description: "not data: \(line)")
         }
@@ -45,6 +53,19 @@ struct SnippetTests {
     @Test func textPastItsStylesGivesTheFirstWords() throws {
         let header = try Self.header(uid: 40, text: Self.html, fetchedTextBytes: IMAPCommand.longSnippetBytes)
         #expect(header.snippet == .found("Goodmail 1.0 (18) for iOS is now available to test."))
+    }
+
+    /// Preheader filler as Flighty sends it, cut wherever the fetched bytes end: never read as Latin-1, never shown.
+    @Test(arguments: 0..<filler.utf8.count)
+    func preheaderFillerCutAnywhereLeavesTheWords(shortBy: Int) throws {
+        let fields = "Content-Type: multipart/alternative; boundary=\"b\"\r\n\r\n"
+        let part =
+            "--b\r\nContent-Type: text/html; charset=utf-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n"
+            + "<div>Our only sale of the year! " + String(repeating: Self.filler, count: 200)
+        let cut = String(part.prefix(IMAPCommand.snippetBytes - shortBy))
+        let header = try Self.header(
+            uid: 40, text: cut, fields: fields, fetchedTextBytes: IMAPCommand.snippetBytes)
+        #expect(header.snippet == .found("Our only sale of the year!"))
     }
 
     @Test func headersFetchMoreTextForMessagesWhoseStartHoldsNoWords() async throws {

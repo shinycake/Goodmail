@@ -113,13 +113,40 @@ public enum TextDecoding {
     /// (recorded: `windows-1255`, `iso-8859-8-i`), so valid UTF-8 wins. Bytes that aren't valid UTF-8 use the
     /// declared charset, which IMAP will need, and Latin-1 last, which never fails.
     public static func string(from data: Data, declaredCharset: String?) -> String {
-        if let text = String(data: data, encoding: .utf8) { return text }
+        if let text = String(data: data, encoding: .utf8) ?? utf8CutShort(data, declaredCharset: declaredCharset) {
+            return text
+        }
         if let charset = declaredCharset.map(normalized), let encoding = encoding(named: charset),
             let text = String(data: data, encoding: encoding)
         {
             return text
         }
         return String(data: data, encoding: .isoLatin1) ?? ""
+    }
+
+    /// UTF-8 that ends partway through a character, as the start of a message that IMAP fetches for a snippet can,
+    /// without that last character. Read as Latin-1 instead, every character past the first in a mail's invisible
+    /// preheader filler (U+034F, U+200C, no-break spaces) turns into "Í Â â". It counts as UTF-8 only when it says it
+    /// is, or when it has a whole character of more than one byte too, so a Latin-1 "café" keeps its "é". Undeclared
+    /// ASCII cut inside its first other character still reads as Latin-1; IMAP's snippet fetch carries the charset.
+    private static func utf8CutShort(_ data: Data, declaredCharset: String?) -> String? {
+        let bytes = [UInt8](data.suffix(4))
+        // The last byte that starts a character, and how many bytes that character takes.
+        guard let start = bytes.lastIndex(where: { $0 & 0b1100_0000 != 0b1000_0000 }) else { return nil }
+        let length =
+            switch bytes[start] {
+            case 0b1100_0000...0b1101_1111: 2
+            case 0b1110_0000...0b1110_1111: 3
+            case 0b1111_0000...0b1111_0111: 4
+            default: 1
+            }
+        guard bytes.count - start < length else { return nil }
+        let whole = data.prefix(data.count - (bytes.count - start))
+        let saysUTF8 = declaredCharset.map(normalized).map { $0 == "utf-8" || $0 == "utf8" } ?? false
+        guard saysUTF8 || whole.contains(where: { $0 >= 0b1100_0000 }),
+            let text = String(data: whole, encoding: .utf8)
+        else { return nil }
+        return text
     }
 
     /// `iso-8859-8-i` (logical order) and `iso-8859-8-e` share their bytes with `iso-8859-8`.

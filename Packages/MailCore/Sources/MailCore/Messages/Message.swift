@@ -89,7 +89,8 @@ public struct Message: Identifiable, Equatable, Codable, Sendable {
             replyTo: try container.decode([Contact].self, forKey: .replyTo),
             subject: try container.decode(String.self, forKey: .subject),
             date: try container.decode(Date.self, forKey: .date),
-            snippet: try container.decode(String.self, forKey: .snippet),
+            // Cached before snippets lost their preheader filler, as a collapsed card or the chat view shows it.
+            snippet: SnippetText.words(of: try container.decode(String.self, forKey: .snippet)),
             labelIDs: try container.decode(Set<String>.self, forKey: .labelIDs),
             body: try container.decode(MessageBody.self, forKey: .body),
             attachments: try container.decode([Attachment].self, forKey: .attachments),

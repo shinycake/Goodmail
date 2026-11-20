@@ -129,7 +129,7 @@ public struct WristRow: Codable, Equatable, Identifiable, Sendable {
 
     /// The snippet as words, even when the provider made it from markup: the watch never shows HTML.
     init(_ thread: ThreadSummary, pinned: Bool) {
-        let snippet = HTMLEntities.words(ofSnippet: thread.snippet)
+        let snippet = SnippetText.words(of: thread.snippet)
         self.init(
             id: thread.id, sender: thread.sender, subject: thread.subject,
             snippet: String(snippet.prefix(WristSnapshot.snippetLimit)), date: thread.date,

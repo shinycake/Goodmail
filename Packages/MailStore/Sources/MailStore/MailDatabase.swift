@@ -371,6 +371,11 @@ public final class MailDatabase: Sendable {
             // The paired watch's APNs token each subscription was registered with (DeviceToken.watch, ADR-023).
             try db.alter(table: "pushSubscription") { table in table.add(column: "watchToken", .text) }
         }
+        migrator.registerMigration("v33-snippet-filler") { db in
+            // Snippets stored until now could hold a marketing mail's invisible preheader filler, or for IMAP that
+            // filler read as Latin-1.
+            try repairSnippets(db)
+        }
         return migrator
     }
 }
