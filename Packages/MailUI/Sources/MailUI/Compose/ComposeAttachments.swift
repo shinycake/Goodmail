@@ -26,8 +26,9 @@ final class ComposeAttachmentsView: UIStackView {
             configuration.title = attachment.filename
             configuration.subtitle = AttachmentListView.sizeText(attachment.size)
             configuration.titleLineBreakMode = .byTruncatingMiddle
+            configuration.subtitleLineBreakMode = .byTruncatingTail
             configuration.baseForegroundColor = .label
-            let button = UIButton(configuration: configuration)
+            let button = AttachmentChip(configuration: configuration)
             button.menu = UIMenu(children: [
                 UIAction(
                     title: String(
@@ -42,6 +43,15 @@ final class ComposeAttachmentsView: UIStackView {
             addArrangedSubview(button)
         }
         isHidden = attachments.isEmpty
+    }
+}
+
+/// One file's capsule, as wide as its name and size on a line each. A configured button measures its text against
+/// the width it already has, and a new one has none, so on its own it settles a character wide with the name
+/// wrapping letter by letter. The stack still holds it to the fields' width, where the name truncates in the middle.
+private final class AttachmentChip: UIButton {
+    override var intrinsicContentSize: CGSize {
+        sizeThatFits(CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude))
     }
 }
 
