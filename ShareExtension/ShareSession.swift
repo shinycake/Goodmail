@@ -28,13 +28,16 @@ nonisolated struct ShareSession: Sendable {
     }
 
     let database: MailDatabase
+    /// The message as it is written, kept for the app in case the sheet goes away unasked.
+    let drafts: ShareDrafts
     /// The accounts in the order the reader keeps them; the first is where a new message starts.
     let accounts: [Account]
 
     @concurrent static func open() async throws -> ShareSession {
         guard let directory = SharedContainer.directoryURL else { throw Failure.noSharedContainer }
         let database = try MailDatabase(url: directory.appending(path: "Mail/mail.sqlite"))
-        return ShareSession(database: database, accounts: try database.accounts())
+        return ShareSession(
+            database: database, drafts: ShareDrafts(database: database), accounts: try database.accounts())
     }
 
     /// Carries out `errand` for `draft`. A message to send or a draft to save goes now, from here; what can't
@@ -42,6 +45,9 @@ nonisolated struct ShareSession: Sendable {
     /// sign-in on this device, which goes once the writer signs in again in the app. Throws
     /// `ImmediateDelivery.NotKept` when the message couldn't be kept anywhere.
     @concurrent func run(_ errand: Errand, for draft: Draft) async throws -> Ending {
+        // The errand takes the place of the version kept as it was written.
+        await drafts.settle()
+        drafts.take(draft.id)
         let purpose: OutgoingMessage.Purpose
         switch errand {
         case .send: purpose = .send

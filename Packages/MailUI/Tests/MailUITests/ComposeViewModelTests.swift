@@ -125,7 +125,7 @@ struct ComposeViewModelTests {
         #expect(deleted?.savedDraft == draft.savedDraft)
     }
 
-    @Test func autosaveKeepsTheDraftOnceTypingRestsAndOnlyWhenItChanged() async {
+    @Test func autosaveKeepsTheLatestDraftAMomentAfterAnEditAndOnlyWhenItChanged() async {
         var saves: [(Draft, DraftSave)] = []
         let model = ComposeViewModel(
             draft: Draft(accountID: account), accountEmail: "me@example.com",
@@ -137,7 +137,7 @@ struct ComposeViewModelTests {
         model.edited { MessageBody(plain: "H") }
         model.edited { MessageBody(plain: "Hi") }
         await model.settleAutosave()
-        #expect(saves.map(\.0.body.plain) == ["Hi"], "the earlier edit was overtaken")
+        #expect(saves.map(\.0.body.plain) == ["Hi"], "the edit made during the wait is kept with it")
         #expect(saves.map(\.1) == [.asWritten])
 
         model.keepNow(body: MessageBody(plain: "Hi there"))

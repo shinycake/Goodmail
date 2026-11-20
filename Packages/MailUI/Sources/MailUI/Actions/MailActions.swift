@@ -125,7 +125,7 @@ public final class MailActions {
     }
 
     /// How often a draft being written goes on to the provider: it is on the device after each pause in typing.
-    static let autosaveWait: Duration = .seconds(20)
+    public static let autosaveWait: Duration = .seconds(20)
 
     /// Removes the provider's copy of a draft: the one it was opened from, or the one autosave kept.
     public func deleteDraft(_ draft: Draft) {

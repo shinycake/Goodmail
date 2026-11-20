@@ -461,7 +461,7 @@ public final class ComposeViewController: UIViewController {
         bodyView.typingAttributes = RichText.plainAttributes(font: bodyFont)
     }
 
-    /// Called after every change: Send follows whether it can go, and autosave keeps the draft once typing rests.
+    /// Called after every change: Send follows whether it can go, and autosave keeps the draft a moment later.
     func updateSendEnabled() {
         sendItem.isEnabled = viewModel.canSend
         viewModel.edited { [weak self] in self?.body }
@@ -563,6 +563,17 @@ public final class ComposeViewController: UIViewController {
         fieldChanged()
         viewModel.saveDraft(body: body)
         close()
+    }
+
+    /// The writer dismissed the message where it can't be minimized, as by dragging a share sheet down: one with
+    /// something in it is saved to Drafts, one without closes, kept nowhere.
+    public func dismissKeepingDraft() {
+        fieldChanged()
+        guard viewModel.canSaveDraft, viewModel.hasChanges(body: body) else {
+            viewModel.closeUnchanged()
+            return close()
+        }
+        saveDraft()
     }
 
     /// Takes the message off this window, as written so far, for a window of its own to go on with it. Nothing is
