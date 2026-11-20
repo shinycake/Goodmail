@@ -90,7 +90,7 @@ The first run found 79 issues. What changed:
 | Voice Control names | 🔧 | Rows, message cards, headers, letters and attachments were named by their whole spoken label. They now answer to what they show first: "Tap Dana Levi", "Tap invoice.pdf". |
 | Smart Invert | 🔧 | Sender photos, service logos and the transfer QR code keep their colors. |
 | Reduce Motion | 🔧 | A chat reply's arrival and the minimized-drafts bar still bounced; both settle without overshoot now. |
-| Hardware keyboard and Full Keyboard Access | 🔧 | Apple Mail's shortcuts: ⌘N, ⇧⌘N, ⌥⌘F in a list; ⌘R, ⇧⌘R, ⇧⌘F, ⌃⌘A, ⌘⌫, ⇧⌘U, ⇧⌘L in a thread; ⇧⌘D in the composer. Holding ⌘ lists the ones that work on the screen shown. The window offers them (`KeyboardShortcuts`), so they work with nothing focused. |
+| Hardware keyboard and Full Keyboard Access | 🔧 | Apple Mail's shortcuts: ⌘N, ⇧⌘N, ⌥⌘F in a list; ⌘R, ⇧⌘R, ⇧⌘F, ⌃⌘A, ⌘⌫, ⇧⌘U, ⇧⌘L in a thread; ⇧⌘D in the composer. Holding ⌘ lists the ones that work on the screen shown. The window offers them (`CommandRouting`), so they work with nothing focused. |
 | Welcome screen | ✅ | The redesign (#258) swapped the white-on-blue buttons for glass ones. The audit covers the screen again, in English at AX5 and in Hebrew at the default size. The audit reports the glass buttons' labels as low contrast because it measures them against the glass's translucent layers; the screenshots show black on near-white, so that is tolerated for the `addAccount.` buttons. The title stops growing at AX2 so the buttons stay on screen, and the screen scrolls past that. |
 | Navigation bar subtitle in a chat | ✅ | UIKit draws and sizes it; tolerated. |
 | Avatar initials | ✅ | Fixed on purpose inside a fixed circle; tolerated. |

@@ -30,7 +30,7 @@ final class ComposeWindowCoordinator {
         window.traitOverrides.senderPictures = model.senderPictures
         window.rootViewController = UIViewController()
         window.rootViewController?.view.backgroundColor = .systemBackground
-        window.windowAction = { [weak self] in self?.windowAction(for: $0) }
+        window.windowAnswer = { [weak self] in self?.windowAnswer(to: $0) ?? .notHere }
     }
 
     func start() {
@@ -95,8 +95,8 @@ final class ComposeWindowCoordinator {
 
     /// Close Window, from the menu bar or the keyboard, as closing the window from the system's controls does: the
     /// message stays kept, and the next mail window takes it as minimized.
-    private func windowAction(for shortcut: KeyboardShortcut) -> (() -> Void)? {
-        guard shortcut == .closeWindow, case .writing = state else { return nil }
-        return { [weak self] in self?.closeWindow() }
+    private func windowAnswer(to command: MailCommand) -> CommandAnswer {
+        guard command == .closeWindow, case .writing = state else { return .notHere }
+        return .ready(perform: { [weak self] in self?.closeWindow() })
     }
 }

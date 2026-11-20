@@ -1,12 +1,13 @@
+import MailCore
 import Testing
 import UIKit
 
 @testable import MailUI
 
-/// Which screen a shortcut reaches: a presented screen alone, else the thread before its list before the mailboxes.
-@Suite("Keyboard shortcut routing")
+/// Which screen a command reaches: a presented screen alone, else the thread before its list before the mailboxes.
+@Suite("Command routing")
 @MainActor
-struct KeyboardShortcutRoutingTests {
+struct CommandRoutingTests {
     private let mailboxes = StubScreen(answering: [.newMessage])
     private let list = StubScreen(answering: [.newMessage, .getMail, .search])
     private let thread = StubScreen(answering: [.reply, .archive, .newMessage])
@@ -14,9 +15,8 @@ struct KeyboardShortcutRoutingTests {
     @Test("The window offers only what the screens on show answer")
     func offersWhatScreensAnswer() {
         let root = split(folded: false)
-        let offered = Set(KeyboardShortcuts.commands(in: root, action: #selector(UIResponder.copy(_:))).map(\.input))
-        let expected = Set(([.newMessage, .getMail, .search, .reply, .archive] as [KeyboardShortcut]).map(\.input))
-        #expect(offered == expected)
+        let offered = Set(keyCommands(in: root).compactMap { MailCommand($0) })
+        #expect(offered == [.newMessage, .getMail, .search, .reply, .archive])
     }
 
     @Test("Side by side, the thread answers before its list and the mailboxes")
@@ -51,10 +51,7 @@ struct KeyboardShortcutRoutingTests {
         let composer = StubScreen(answering: [.send])
         let root = StubPresenter(presenting: composer)
         root.addChild(split(folded: false))
-        #expect(
-            KeyboardShortcuts.commands(in: root, action: #selector(UIResponder.copy(_:))).map(\.input) == [
-                KeyboardShortcut.send.input
-            ])
+        #expect(keyCommands(in: root).compactMap { MailCommand($0) } == [.send])
         perform(.reply, in: root)
         #expect(thread.performed.isEmpty)
         perform(.send, in: root)
@@ -71,6 +68,41 @@ struct KeyboardShortcutRoutingTests {
         #expect(composer.performed.isEmpty)
     }
 
+    @Test("A screen that has the command but can't do it now stops the search, so the menu dims it")
+    func unavailableStops() {
+        let busy = StubScreen(answering: [], unavailable: [.getMail])
+        let stack = UINavigationController(rootViewController: list)
+        let root = StubSplit(folded: false)
+        root.setViewController(stack, for: .supplementary)
+        root.setViewController(UINavigationController(rootViewController: busy), for: .secondary)
+        guard case .unavailable = CommandRouting.answer(to: .getMail, in: root) else {
+            Issue.record("Get Mail should be dimmed")
+            return
+        }
+        #expect(list.performed.isEmpty)
+    }
+
+    @Test("A command no screen has, and one without keys, offers no key command")
+    func keylessAndUnansweredLeftOut() {
+        let screen = StubScreen(answering: [.pin, .reply])
+        #expect(keyCommands(in: screen).compactMap { MailCommand($0) } == [.reply])
+    }
+
+    @Test("The answer's title names the key command", arguments: [nil, "Reply to Dana"] as [String?])
+    func keyCommandTitle(_ title: String?) {
+        let screen = StubScreen(answering: [.reply], title: title)
+        #expect(keyCommands(in: screen).map(\.title) == [title ?? MailCommand.reply.title])
+    }
+
+    @Test("Every command has a name for the menu bar and the list Command shows", arguments: MailCommand.allCases)
+    func named(_ command: MailCommand) {
+        #expect(!command.title.isEmpty)
+    }
+
+    private func keyCommands(in root: UIViewController) -> [UIKeyCommand] {
+        CommandRouting.keyCommands(action: #selector(UIResponder.copy(_:))) { CommandRouting.answer(to: $0, in: root) }
+    }
+
     private func split(folded: Bool) -> UISplitViewController {
         let split = StubSplit(folded: folded)
         split.setViewController(UINavigationController(rootViewController: mailboxes), for: .primary)
@@ -79,20 +111,27 @@ struct KeyboardShortcutRoutingTests {
         return split
     }
 
-    private func perform(_ shortcut: KeyboardShortcut, in root: UIViewController) {
-        KeyboardShortcuts.action(for: shortcut, in: root)?()
+    private func perform(_ command: MailCommand, in root: UIViewController) {
+        if case .ready(let perform, _, _) = CommandRouting.answer(to: command, in: root) { perform() }
     }
 }
 
-/// A screen that answers `answering` and records what it performed.
-private final class StubScreen: UIViewController, KeyboardShortcutScreen {
-    private let answering: Set<KeyboardShortcut>
+/// A screen that answers `answering`, records what it performed, and has `unavailable` but can't do it now.
+private final class StubScreen: UIViewController, CommandScreen {
+    private let answering: Set<MailCommand>
+    private let unavailable: Set<MailCommand>
     private let dismissing: Bool
-    private(set) var performed: [KeyboardShortcut] = []
+    private let answerTitle: String?
+    private(set) var performed: [MailCommand] = []
 
-    init(answering: Set<KeyboardShortcut>, dismissing: Bool = false) {
+    init(
+        answering: Set<MailCommand>, unavailable: Set<MailCommand> = [], dismissing: Bool = false,
+        title: String? = nil
+    ) {
         self.answering = answering
+        self.unavailable = unavailable
         self.dismissing = dismissing
+        self.answerTitle = title
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -101,9 +140,10 @@ private final class StubScreen: UIViewController, KeyboardShortcutScreen {
 
     override var isBeingDismissed: Bool { dismissing }
 
-    func action(for shortcut: KeyboardShortcut) -> (() -> Void)? {
-        guard answering.contains(shortcut) else { return nil }
-        return { [weak self] in self?.performed.append(shortcut) }
+    func answer(to command: MailCommand) -> CommandAnswer {
+        if unavailable.contains(command) { return .unavailable }
+        guard answering.contains(command) else { return .notHere }
+        return .ready(perform: { [weak self] in self?.performed.append(command) }, title: answerTitle)
     }
 }
 

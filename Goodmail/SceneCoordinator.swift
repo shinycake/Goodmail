@@ -51,7 +51,7 @@ final class SceneCoordinator: NSObject {
         window = ShakeToUndoWindow(windowScene: windowScene, undo: { actions.undoLast() })
         window.traitOverrides.senderPictures = model.senderPictures
         super.init()
-        window.windowAction = { [weak self] in self?.windowAction(for: $0) }
+        window.windowAnswer = { [weak self] in self?.windowAnswer(to: $0) ?? .notHere }
         actions.reopen = { [weak self] draft in self?.handle(.compose(draft)) }
         drafts.newMessage = { [weak self] account in self?.handle(.compose(Draft(accountID: account))) }
         drafts.newMessageHolding = { [weak self] in self?.compose(holding: $0) }

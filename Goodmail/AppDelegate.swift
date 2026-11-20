@@ -61,6 +61,6 @@ extension AppDelegate {
     /// The menu bar. Its commands perform on the window with the keyboard focus (`ShakeToUndoWindow`).
     override func buildMenu(with builder: any UIMenuBuilder) {
         super.buildMenu(with: builder)
-        MailMenus.build(builder, action: #selector(ShakeToUndoWindow.performShortcut(_:)))
+        MailMenus.build(builder, action: #selector(ShakeToUndoWindow.performCommand(_:)))
     }
 }

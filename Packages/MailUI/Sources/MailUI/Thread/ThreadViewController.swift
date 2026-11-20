@@ -50,8 +50,8 @@ public final class ThreadViewController: UIViewController {
     /// The reader's request to leave the list, cancelled if the reader leaves first.
     private var unsubscribing: Task<Void, Never>?
     /// The Share menu: the conversation as files to share, or printed.
-    private lazy var exporter = ConversationExporter(presenter: self)
-    private lazy var shareItem = exporter.shareItem { [weak self] in self?.exportedConversation }
+    lazy var exporter = ConversationExporter(presenter: self)
+    lazy var shareItem = exporter.shareItem { [weak self] in self?.exportedConversation }
 
     public init(
         viewModel: ThreadViewModel, openURL: @escaping (URL) -> Void, unsubscribeOffer: UnsubscribeOffer? = nil
@@ -316,9 +316,7 @@ public final class ThreadViewController: UIViewController {
 
         let other = viewModel.layout.other
         layoutItem.image = UIImage(systemName: other == .chat ? "bubble.left.and.bubble.right" : "doc.plaintext")
-        layoutItem.title = String(
-            localized: "Show as \(other.title)", table: "Thread", bundle: .module,
-            comment: "Switches one conversation's layout; the argument is Classic or Chat")
+        layoutItem.title = other.showTitle
         stack.spacing = viewModel.layout == .chat ? 10 : 12
         applyLayout(viewModel.layout)
 
@@ -396,7 +394,7 @@ public final class ThreadViewController: UIViewController {
 
     /// The conversation as it is now, for Share and Print. Each message keeps the appearance it shows in: its card's,
     /// or the app's for one without a card and in the chat layout, whose bubbles follow the app.
-    private var exportedConversation: ConversationExporter.Conversation {
+    var exportedConversation: ConversationExporter.Conversation {
         let shown: [Message.ID: UIUserInterfaceStyle] =
             switch viewModel.layout {
             case .classic: cards.mapValues(\.shownStyle)

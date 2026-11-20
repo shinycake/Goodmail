@@ -524,7 +524,7 @@ public final class ComposeViewController: UIViewController {
         ]
     }
 
-    private func pickSendTime() {
+    func pickSendTime() {
         LaterPickerViewController.present(
             from: self,
             title: String(

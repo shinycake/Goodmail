@@ -1,8 +1,19 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Add Link…" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הוספת קישור…"
+          }
+        }
+      }
+    },
     "Archive" : {
-      "comment" : "Keyboard command",
+      "comment" : "Menu bar command",
       "localizations" : {
         "he" : {
           "stringUnit" : {
@@ -12,8 +23,71 @@
         }
       }
     },
+    "Archive %lld Conversations" : {
+      "comment" : "Menu bar command for several picked conversations",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Archive %lld Conversation"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Archive %lld Conversations"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "העברת שיחה %lld לארכיון"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "העברת %lld שיחות לארכיון"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Attach Files…" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "צירוף קבצים…"
+          }
+        }
+      }
+    },
+    "Bulleted List" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "רשימת תבליטים"
+          }
+        }
+      }
+    },
     "Close Window" : {
-      "comment" : "Keyboard command",
+      "comment" : "Menu bar command",
       "localizations" : {
         "he" : {
           "stringUnit" : {
@@ -23,8 +97,85 @@
         }
       }
     },
+    "Decrease Quote Level" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הקטנת רמת הציטוט"
+          }
+        }
+      }
+    },
+    "Edit" : {
+      "comment" : "Menu bar menu",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עריכה"
+          }
+        }
+      }
+    },
+    "Edit as New" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עריכה כהודעה חדשה"
+          }
+        }
+      }
+    },
+    "Erase Trash…" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ריקון האשפה…"
+          }
+        }
+      }
+    },
+    "Export as PDF…" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ייצוא כ-PDF…"
+          }
+        }
+      }
+    },
+    "File" : {
+      "comment" : "Menu bar menu",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קובץ"
+          }
+        }
+      }
+    },
+    "Format" : {
+      "comment" : "Menu bar menu",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עיצוב"
+          }
+        }
+      }
+    },
     "Forward" : {
-      "comment" : "Keyboard command",
+      "comment" : "Menu bar command",
       "localizations" : {
         "he" : {
           "stringUnit" : {
@@ -34,13 +185,57 @@
         }
       }
     },
+    "Forward as Attachment" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה כקובץ מצורף"
+          }
+        }
+      }
+    },
     "Get New Mail" : {
-      "comment" : "Keyboard command",
+      "comment" : "Menu bar command",
       "localizations" : {
         "he" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "בדיקת דואר חדש"
+          }
+        }
+      }
+    },
+    "Goodmail" : {
+      "comment" : "Menu bar menu",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Goodmail"
+          }
+        }
+      }
+    },
+    "Increase Quote Level" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הגדלת רמת הציטוט"
+          }
+        }
+      }
+    },
+    "Label…" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תווית…"
           }
         }
       }
@@ -56,8 +251,90 @@
         }
       }
     },
+    "Mark %lld Conversations as Read" : {
+      "comment" : "Menu bar command for several picked conversations",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Mark %lld Conversation as Read"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Mark %lld Conversations as Read"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "סימון שיחה %lld כנקראה"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "סימון %lld שיחות כנקראו"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Mark %lld Conversations as Unread" : {
+      "comment" : "Menu bar command for several picked conversations",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Mark %lld Conversation as Unread"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Mark %lld Conversations as Unread"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "סימון שיחה %lld כלא נקראה"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "סימון %lld שיחות כלא נקראו"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "Mark as Unread" : {
-      "comment" : "Keyboard command",
+      "comment" : "Menu bar command",
       "localizations" : {
         "he" : {
           "stringUnit" : {
@@ -78,8 +355,49 @@
         }
       }
     },
+    "Move %lld Conversations to Trash" : {
+      "comment" : "Menu bar command for several picked conversations",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Move %lld Conversation to Trash"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Move %lld Conversations to Trash"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "העברת שיחה %lld לאשפה"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "העברת %lld שיחות לאשפה"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "Move to Trash" : {
-      "comment" : "Keyboard command",
+      "comment" : "Menu bar command",
       "localizations" : {
         "he" : {
           "stringUnit" : {
@@ -89,8 +407,30 @@
         }
       }
     },
+    "Move to…" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה אל…"
+          }
+        }
+      }
+    },
+    "Mute" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השתקה"
+          }
+        }
+      }
+    },
     "New Message" : {
-      "comment" : "Keyboard command",
+      "comment" : "Menu bar command",
       "localizations" : {
         "he" : {
           "stringUnit" : {
@@ -100,41 +440,85 @@
         }
       }
     },
-    "New Window" : {
-      "comment" : "Keyboard command",
+    "New Viewer Window" : {
+      "comment" : "Menu bar command",
       "localizations" : {
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "חלון חדש"
+            "value" : "חלון קריאה חדש"
           }
         }
       }
     },
-    "Next Message" : {
-      "comment" : "Keyboard command",
+    "Next Conversation" : {
+      "comment" : "Menu bar command",
       "localizations" : {
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ההודעה הבאה"
+            "value" : "השיחה הבאה"
           }
         }
       }
     },
-    "Previous Message" : {
-      "comment" : "Keyboard command",
+    "Numbered List" : {
+      "comment" : "Menu bar command",
       "localizations" : {
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ההודעה הקודמת"
+            "value" : "רשימה ממוספרת"
+          }
+        }
+      }
+    },
+    "Open in New Window" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פתיחה בחלון חדש"
+          }
+        }
+      }
+    },
+    "Pin" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצמדה"
+          }
+        }
+      }
+    },
+    "Previous Conversation" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השיחה הקודמת"
+          }
+        }
+      }
+    },
+    "Print…" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הדפסה…"
           }
         }
       }
     },
     "Reply" : {
-      "comment" : "Keyboard command",
+      "comment" : "Menu bar command",
       "localizations" : {
         "he" : {
           "stringUnit" : {
@@ -145,7 +529,7 @@
       }
     },
     "Reply All" : {
-      "comment" : "Keyboard command",
+      "comment" : "Menu bar command",
       "localizations" : {
         "he" : {
           "stringUnit" : {
@@ -155,8 +539,19 @@
         }
       }
     },
+    "Report Spam" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דיווח כספאם"
+          }
+        }
+      }
+    },
     "Search Mail" : {
-      "comment" : "Keyboard command",
+      "comment" : "Menu bar command",
       "localizations" : {
         "he" : {
           "stringUnit" : {
@@ -167,7 +562,7 @@
       }
     },
     "Send" : {
-      "comment" : "Keyboard command",
+      "comment" : "Menu bar command",
       "localizations" : {
         "he" : {
           "stringUnit" : {
@@ -177,8 +572,19 @@
         }
       }
     },
+    "Send Later…" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שליחה מאוחר יותר…"
+          }
+        }
+      }
+    },
     "Settings…" : {
-      "comment" : "Keyboard command",
+      "comment" : "Menu bar command",
       "localizations" : {
         "he" : {
           "stringUnit" : {
@@ -188,13 +594,68 @@
         }
       }
     },
-    "Star or Unstar" : {
-      "comment" : "Keyboard command",
+    "Show Cc and Bcc" : {
+      "comment" : "Menu bar command",
       "localizations" : {
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "סימון בכוכב או הסרתו"
+            "value" : "הצגת עותק ועותק מוסתר"
+          }
+        }
+      }
+    },
+    "Show as Chat" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצגה כצ׳אט"
+          }
+        }
+      }
+    },
+    "Snooze…" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נודניק…"
+          }
+        }
+      }
+    },
+    "Star" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סימון בכוכב"
+          }
+        }
+      }
+    },
+    "Strikethrough" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קו חוצה"
+          }
+        }
+      }
+    },
+    "View" : {
+      "comment" : "Menu bar menu",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תצוגה"
           }
         }
       }

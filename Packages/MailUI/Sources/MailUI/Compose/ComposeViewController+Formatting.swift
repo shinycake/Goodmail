@@ -28,7 +28,7 @@ extension ComposeViewController {
         formattingBar.show(currentFormatting)
     }
 
-    private var currentFormatting: Formatting {
+    var currentFormatting: Formatting {
         Formatting(
             text: bodyView.textStorage, selection: bodyView.selectedRange,
             typingAttributes: bodyView.typingAttributes)
@@ -93,7 +93,7 @@ extension ComposeViewController {
     }
 
     /// Asks for the address to link the selection to, starting from the link it already has.
-    private func askForLink() {
+    func askForLink() {
         let current = currentFormatting.link
         let alert = UIAlertController(
             title: String(
