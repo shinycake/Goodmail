@@ -117,4 +117,51 @@ struct WindowStateTests {
             WindowState(list: .scheduled).opening(thread, in: .inbox).list
                 == .mailbox(.inbox, thread: thread))
     }
+
+    @Test func aThreadCanOpenInAWindowOfItsOwnWithTheReaderAlone() {
+        let thread = ThreadSummary.ID(accountID: work, threadID: "t1")
+        let opened = WindowState(list: .mailbox(.starred, thread: nil)).opening(thread, in: .starred, as: .message)
+        #expect(opened.layout == .message)
+        #expect(opened.openThread?.id == thread)
+        #expect(WindowState().opening(thread, in: .inbox).layout == .viewer, "a new window is a viewer unless asked")
+    }
+
+    @Test func aMessageWindowSurvivesBeingSaved() throws {
+        let thread = ThreadSummary.ID(accountID: work, threadID: "t1")
+        let message = WindowState().opening(thread, in: .inbox, as: .message)
+        #expect(try WindowState(saved: message.saved()) == message)
+    }
+
+    @Test func aStateSavedBeforeLayoutsReadsAsAViewer() throws {
+        let thread = ThreadSummary.ID(accountID: work, threadID: "t1")
+        var json = try #require(
+            JSONSerialization.jsonObject(with: WindowState(list: .mailbox(.inbox, thread: thread)).saved())
+                as? [String: Any])
+        json["layout"] = nil
+        let state = try WindowState(saved: JSONSerialization.data(withJSONObject: json))
+        #expect(state.layout == .viewer)
+        #expect(state.openThread?.id == thread)
+    }
+
+    /// A message window shows its thread and nothing else, so without one it can only be a viewer.
+    @Test func aMessageWindowWithoutItsThreadIsAViewer() throws {
+        let thread = ThreadSummary.ID(accountID: home, threadID: "t1")
+        var closed = WindowState().opening(thread, in: .inbox, as: .message)
+        closed.setThread(nil)
+        #expect(closed.layout == .viewer)
+
+        let gone = WindowState().opening(thread, in: .inbox, as: .message).keeping([work])
+        #expect(gone.layout == .viewer)
+        #expect(gone.openThread == nil)
+
+        #expect(WindowState().laidOut(as: .message).layout == .viewer)
+        #expect(
+            WindowState(list: .scheduled).opening(thread, in: .inbox, as: .message).laidOut(as: .viewer).layout
+                == .viewer)
+
+        var saved = try #require(
+            JSONSerialization.jsonObject(with: WindowState().saved()) as? [String: Any])
+        saved["layout"] = "message"
+        #expect(try WindowState(saved: JSONSerialization.data(withJSONObject: saved)).layout == .viewer)
+    }
 }

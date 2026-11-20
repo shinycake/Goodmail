@@ -16,15 +16,12 @@ final class IntentRoutes {
     }
 
     /// The thread open in the frontmost window, or `nil` when none is.
-    var openThread: ThreadSummary.ID? { frontmost?.openThread }
+    var openThread: ThreadSummary.ID? { MailWindows.frontFirst.first?.openThread }
 
-    /// The coordinator of the frontmost window: the one with the keyboard focus, as several windows can be in front
-    /// side by side on iPad, then any in front, then any at all.
+    /// The coordinator of the frontmost mail window (`MailWindows.frontFirst`). A window that shows one conversation
+    /// alone can't go to another thread or mailbox, so one with the mail screens goes first.
     private var frontmost: SceneCoordinator? {
-        let scenes = Array(UIApplication.shared.connectedScenes)
-        let focused = scenes.filter { ($0 as? UIWindowScene)?.keyWindow?.isKeyWindow == true }
-        let inFront = scenes.filter { $0.activationState == .foregroundActive }
-        return (focused + inFront + scenes).lazy.compactMap({ ($0.delegate as? SceneDelegate)?.coordinator }).first
+        MailWindows.frontViewer ?? MailWindows.frontFirst.first
     }
 
     /// The route waiting for the window that just connected, which it takes.

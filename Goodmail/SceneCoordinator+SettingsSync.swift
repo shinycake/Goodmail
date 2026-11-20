@@ -16,7 +16,7 @@ extension SceneCoordinator {
     }
 
     private func followSyncedSettings(_ changed: Set<String>) {
-        guard changed.contains(Preferences.syncedGroup), case .mailbox(_, _, .none) = screen else { return }
+        guard changed.contains(Preferences.syncedGroup), uncoveredMail != nil else { return }
         showMailboxKeepingPlace()
     }
 }

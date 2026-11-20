@@ -1,11 +1,11 @@
 import MailCore
 import MailUI
 import UIKit
-import UserNotifications
 
 /// Settings over the mail screens. While it's up the screens under it stay as they are, so nothing under the sheet
 /// can take it down or move the reader; closing it rebuilds them once, where the reader was, if anything they show
-/// changed.
+/// changed. Where Settings has a window of its own, the mail windows follow once that window closes
+/// (`SettingsWindowCoordinator`).
 extension SceneCoordinator {
     /// Accounts and preferences, open at `page`, over the mail screens with nothing else over them. Asking again while
     /// it's up does nothing.
@@ -14,37 +14,10 @@ extension SceneCoordinator {
         guard case .mailbox(let split, let accounts, .none) = screen, let presenter = topViewController(),
             presenter.viewIfLoaded?.window != nil
         else { return }
-        let model = model
         let before = Appearance(model)
-        let viewModel = SettingsViewModel(
-            accounts: { model.accounts },
-            signIn: { [weak self] in try await self?.signIn(to: $0) ?? false },
-            remove: {
-                try await model.removeAccount($0, $1)
-                // An account removed from this device alone joins the other devices' accounts it could add.
-                try await model.followSharedAccounts()
-            },
-            update: { try await model.update($0) },
-            reorder: { try await model.reorderAccounts($0) },
-            signatures: Signatures(
-                read: { try await model.signature(for: $0) }, store: { try await model.setSignature($0, for: $1) }),
-            closed: { [weak self] in self?.settingsClosed(changed: Appearance(model) != before) })
-        viewModel.rules = model.rulesService()
-        viewModel.storage = model.storageSettings()
-        viewModel.autoReply = { model.autoReplyService(for: $0) }
-        viewModel.serverSettings = { model.serverSettingsService(for: $0) }
-        viewModel.sharing = model.sharingChoices()
-        viewModel.transfer = transferActions
-        if model.pushRegistrar != nil {
-            viewModel.notifications = NotificationChoices(
-                read: { await model.notificationLevels() },
-                store: { await model.setNotificationLevel($0, for: $1) },
-                turnedOff: {
-                    await UNUserNotificationCenter.current().notificationSettings().authorizationStatus == .denied
-                })
-        }
-        viewModel.badges = model.badgeChoices()
-        viewModel.watch = model.watchChoices
+        let viewModel = model.settingsViewModel(
+            signIn: accountSignIn, transfer: transferActions,
+            closed: { [weak self, model] in self?.settingsClosed(changed: Appearance(model) != before) })
         enter(.mailbox(split, accounts: accounts, cover: .settings(page)))
         presenter.present(SettingsScreen.make(model: viewModel, at: page), animated: true)
     }
@@ -55,6 +28,17 @@ extension SceneCoordinator {
         guard case .mailbox(let split, let accounts, .settings) = screen else { return }
         enter(.mailbox(split, accounts: accounts, cover: .none))
         model.shareSettingsNow()
+        followSettings(changed: changed, builtFor: accounts)
+    }
+
+    /// The Settings window closed: the mail screens follow what changed while it was up, as they do when the sheet
+    /// closes. Under the other devices' offer they stay as they are, as they do for a change another device makes.
+    func settingsWindowClosed(changed: Bool) {
+        guard let accounts = uncoveredMail else { return }
+        followSettings(changed: changed, builtFor: accounts)
+    }
+
+    private func followSettings(changed: Bool, builtFor accounts: [AccountID]) {
         if model.accounts.isEmpty {
             showWelcome()
         } else if changed || accounts != model.accounts.map(\.id) {
@@ -65,7 +49,7 @@ extension SceneCoordinator {
 }
 
 /// What the mail screens are built from that Settings can change.
-private struct Appearance: Equatable {
+struct Appearance: Equatable {
     let accounts: [Account]
     let unsortedInboxAccounts: Set<AccountID>
     let rowDisplay: RowDisplay

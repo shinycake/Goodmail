@@ -251,7 +251,7 @@ public final class SettingsViewModel {
     }
 
     /// Runs `closed` once the changes made so far are stored, so it sees them.
-    func didClose() {
+    public func didClose() {
         changes.run { [closed] in closed() }
     }
 

@@ -38,6 +38,7 @@
 		<string>INSendMessageIntent</string>
 		<string>com.idanbirman.goodmail.window</string>
 		<string>com.idanbirman.goodmail.compose</string>
+		<string>com.idanbirman.goodmail.settings</string>
 	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>

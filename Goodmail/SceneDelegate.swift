@@ -11,8 +11,28 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         case running(SceneCoordinator)
         /// A window that holds one message being written.
         case composing(ComposeWindowCoordinator)
+        /// The one Settings window, where Settings has a window of its own.
+        case settings(SettingsWindowCoordinator)
         /// The database couldn't open; the window says so.
         case unavailable
+    }
+
+    /// What a window holds, from the activity it opens or is restored with.
+    private enum Kind {
+        /// The mail screens, or one conversation, showing what the window last showed, if it was saved.
+        case mail(restoring: WindowState?)
+        case compose(ComposeWindow)
+        case settings
+
+        init(_ activities: [NSUserActivity]) {
+            if let composing = activities.lazy.compactMap(ComposeWindow.init).first {
+                self = .compose(composing)
+            } else if activities.contains(where: SettingsWindow.opens) {
+                self = .settings
+            } else {
+                self = .mail(restoring: activities.lazy.compactMap(WindowState.init).first)
+            }
+        }
     }
 
     /// What the window was asked to open as it came up or while the database was opening.
@@ -35,15 +55,12 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Unsafe because `delegate` is unowned. Safe: UIKit keeps the app delegate for the life of the process.
         let launch = (unsafe UIApplication.shared.delegate as! AppDelegate).launch
         // A handoff from another device wins over what this window showed when it was last saved.
-        let activities = connectionOptions.userActivities + [session.stateRestorationActivity].compactMap(\.self)
-        let restoring = activities.lazy.compactMap(WindowState.init).first
-        let composing = activities.lazy.compactMap(ComposeWindow.init).first
+        let kind = Kind(connectionOptions.userActivities + [session.stateRestorationActivity].compactMap(\.self))
         let arrival =
             connectionOptions.urlContexts.first.map { Arrival.link($0.url) }
             ?? connectionOptions.shortcutItem?.quickAction.map(Arrival.quickAction)
         if let services = launch.running {
-            if let composing { return compose(composing, in: windowScene, with: services) }
-            return connect(windowScene, to: services, restoring: restoring, arrival: arrival)
+            return fill(windowScene, with: kind, services: services, arrival: arrival)
         }
         show(LaunchViewController(), in: windowScene)
         state = .opening(
@@ -51,14 +68,22 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 do {
                     let services = try await launch.services()
                     guard case .opening(_, let arrival) = state else { return }
-                    if let composing { return compose(composing, in: windowScene, with: services) }
-                    connect(windowScene, to: services, restoring: restoring, arrival: arrival)
+                    fill(windowScene, with: kind, services: services, arrival: arrival)
                 } catch {
                     show(LaunchViewController(failure: error), in: windowScene)
                     state = .unavailable
                 }
             },
             arrival: arrival)
+    }
+
+    /// Fills the window with what it holds, once the database is open.
+    private func fill(_ windowScene: UIWindowScene, with kind: Kind, services: AppServices, arrival: Arrival?) {
+        switch kind {
+        case .mail(let restoring): connect(windowScene, to: services, restoring: restoring, arrival: arrival)
+        case .compose(let shown): compose(shown, in: windowScene, with: services)
+        case .settings: showSettings(in: windowScene, with: services)
+        }
     }
 
     private func connect(
@@ -91,13 +116,23 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window = coordinator.window
     }
 
+    /// Fills the window with Settings.
+    private func showSettings(in windowScene: UIWindowScene, with services: AppServices) {
+        let coordinator = SettingsWindowCoordinator(windowScene: windowScene, model: services.model)
+        state = .settings(coordinator)
+        coordinator.start()
+        coordinator.window.makeKeyAndVisible()
+        window?.isHidden = true
+        window = coordinator.window
+    }
+
     /// A `mailto:` link or transfer code opened while the window is up, or while the database is still opening.
     func scene(_ scene: UIScene, openURLContexts contexts: Set<UIOpenURLContext>) {
         guard let link = contexts.first?.url else { return }
         switch state {
         case .running(let coordinator): coordinator.open(link)
         case .opening(let task, _): state = .opening(task, arrival: .link(link))
-        case .notConnected, .unavailable, .composing: break
+        case .notConnected, .unavailable, .composing, .settings: break
         }
     }
 
@@ -110,7 +145,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         switch state {
         case .running(let coordinator): coordinator.perform(action)
         case .opening(let task, _): state = .opening(task, arrival: .quickAction(action))
-        case .notConnected, .unavailable, .composing: return false
+        case .notConnected, .unavailable, .composing, .settings: return false
         }
         return true
     }
@@ -135,11 +170,18 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         return coordinator
     }
 
+    /// Whether the window holds Settings, so asking for Settings again brings it forward.
+    var holdsSettings: Bool {
+        guard case .settings = state else { return false }
+        return true
+    }
+
     /// Saved with the scene when the system puts the window away, and handed back to `willConnectTo` with it.
     func stateRestorationActivity(for scene: UIScene) -> NSUserActivity? {
         switch state {
         case .running(let coordinator): coordinator.activity
         case .composing(let coordinator): coordinator.activity
+        case .settings(let coordinator): coordinator.activity
         case .notConnected, .opening, .unavailable: nil
         }
     }
@@ -149,6 +191,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         switch state {
         case .running(let coordinator): coordinator.close()
         case .composing(let coordinator): coordinator.close()
+        case .settings(let coordinator): coordinator.close()
         case .notConnected, .opening, .unavailable: break
         }
     }

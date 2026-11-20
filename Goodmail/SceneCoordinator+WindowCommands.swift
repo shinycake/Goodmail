@@ -4,23 +4,28 @@ import UIKit
 
 extension SceneCoordinator {
     /// What the window does for a menu bar command or shortcut that no screen has: New Window and Close Window where
-    /// the device has windows, and Settings over the mail screens.
+    /// the device has windows, and Settings, over the mail screens or in its own window.
     func windowAnswer(to command: MailCommand) -> CommandAnswer {
         switch command {
         case .newWindow:
-            guard UIApplication.shared.supportsMultipleScenes, split != nil else { return .unavailable }
+            guard UIApplication.shared.supportsMultipleScenes, showsMail else { return .unavailable }
             return .ready(perform: { [weak self] in self?.openWindow(showing: WindowState()) {} })
         case .closeWindow:
-            guard UIApplication.shared.supportsMultipleScenes, let session = window.windowScene?.session else {
-                return .unavailable
-            }
-            return .ready(perform: { UIApplication.shared.requestSceneSessionDestruction(session, options: nil) })
+            guard UIApplication.shared.supportsMultipleScenes, window.windowScene != nil else { return .unavailable }
+            return .ready(perform: { [weak self] in self?.closeWindow() })
         case .settings:
-            guard case .mailbox(_, _, .none) = screen else { return .unavailable }
+            // Over the mail screens with nothing else over them, or from a conversation in a window of its own.
+            guard uncoveredMail != nil else { return .unavailable }
             return .ready(perform: { [weak self] in self?.handle(.settings(.main)) })
         default:
             return .notHere
         }
+    }
+
+    /// Closes the window, as its close button does.
+    func closeWindow() {
+        guard let session = window.windowScene?.session else { return }
+        UIApplication.shared.requestSceneSessionDestruction(session, options: nil)
     }
 
     /// Opens a new window showing `state`, beside this one, or calls `failed` when the system can't open one.
@@ -44,9 +49,9 @@ extension SceneCoordinator {
 }
 
 extension SceneCoordinator {
-    /// Moves `draft`, just taken off this window, into a window of its own, or back here when the system can't open
-    /// one. It travels with the minimized messages, under the new window's name, held for that window so no other
-    /// takes it first.
+    /// Moves `draft` into a window of its own, or into this window's composer when the system can't open one: a
+    /// message just taken off this window, or, where every message has a window, any new one. It travels with the
+    /// minimized messages, under the new window's name, held for that window so no other takes it first.
     func openComposeWindow(for draft: Draft) {
         let window = ComposeWindow(for: draft.id)
         let minimized = model.minimizedDrafts
@@ -55,7 +60,7 @@ extension SceneCoordinator {
         openWindow(for: window.activity) { [weak self] in
             minimized.keep([], for: window.key)
             minimized.close(window.key)
-            self?.handle(.compose(draft))
+            self?.composeHere(draft)
         }
     }
 }

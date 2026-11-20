@@ -15,7 +15,8 @@ final class SceneCoordinator: NSObject {
     /// The window this coordinator fills, which undoes the last mail action when shaken.
     let window: ShakeToUndoWindow
     let model: AppModel
-    private let actions: MailActions
+    /// The window's actions, whose last one its undo toast offers to take back.
+    let actions: MailActions
     private var failures: Task<Void, Never>?
     /// The launch check for a Gmail sign-in that can't delete forever, or signing an account in again.
     private var signingInAgain: Task<Void, Never>?
@@ -45,11 +46,12 @@ final class SceneCoordinator: NSObject {
     /// `restoring` is what the window showed when the system last saved it, or what another device handed off.
     init(windowScene: UIWindowScene, model: AppModel, restoring: WindowState?) {
         self.model = model
-        shown = restoring?.keeping(model.accounts.map(\.id)) ?? WindowState()
         let actions = MailActions(commands: model.commands)
         self.actions = actions
-        window = ShakeToUndoWindow(windowScene: windowScene, undo: { actions.undoLast() })
+        let window = ShakeToUndoWindow(windowScene: windowScene, undo: { actions.undoLast() })
+        self.window = window
         window.traitOverrides.senderPictures = model.senderPictures
+        shown = window.interactionStyle.laying(out: restoring?.keeping(model.accounts.map(\.id)) ?? WindowState())
         super.init()
         window.windowAnswer = { [weak self] in self?.windowAnswer(to: $0) ?? .notHere }
         actions.reopen = { [weak self] draft in self?.handle(.compose(draft)) }
@@ -80,10 +82,7 @@ final class SceneCoordinator: NSObject {
         } else {
             showMailbox(shown)
             checkGmailSignIns()
-            model.minimizedDrafts.claim(for: windowID) { [weak self] minimized in
-                guard let self else { return }
-                drafts.restore(minimized.compactMap { self.composer(for: $0) })
-            }
+            claimMinimizedDrafts()
         }
         failures = Task { [weak self, database = model.database] in
             do {
@@ -127,7 +126,22 @@ final class SceneCoordinator: NSObject {
     private func signInAgain(_ id: AccountID) {
         guard let account = model.accounts.first(where: { $0.id == id }) else { return }
         signingInAgain?.cancel()
-        signingInAgain = Task { [weak self] in await self?.signIn(againTo: account) }
+        signingInAgain = Task { [accountSignIn] in await accountSignIn.signIn(againTo: account) }
+    }
+
+    /// Brings the messages minimized in windows that are gone back to the drafts pill. Where every message has a
+    /// window there is no pill: a window's message is read back by that window when the system restores it, and
+    /// autosave has it in Drafts.
+    private func claimMinimizedDrafts() {
+        switch window.interactionStyle.composePlacement {
+        case .sheet:
+            model.minimizedDrafts.claim(for: windowID) { [weak self] minimized in
+                guard let self else { return }
+                drafts.restore(minimized.compactMap { self.composer(for: $0) })
+            }
+        case .ownWindow:
+            break
+        }
     }
 
     /// The mail screens, while the window shows them.
@@ -142,7 +156,7 @@ final class SceneCoordinator: NSObject {
         screen = next
         switch next {
         case .starting: break
-        case .welcome(let content), .offer(let content): show(content)
+        case .welcome(let content), .offer(let content), .message(let content, _): show(content)
         case .mailbox(let split, _, _):
             if case .mailbox(let shown, _, _) = before, shown === split { return }
             show(split)
@@ -163,70 +177,41 @@ final class SceneCoordinator: NSObject {
     }
 
     func topViewController() -> UIViewController? {
-        var top = window.rootViewController
-        while let presented = top?.presentedViewController { top = presented }
-        return top
+        window.topViewController
     }
 
-    /// Signs in to `service` and adds its account, for the service chooser on the welcome screen and in Settings.
-    /// Returns `false` if the reader cancelled. A service whose sign-in is a web page goes through `AppModel`; one that
-    /// needs its own form presents it here, over the chooser.
-    func signIn(to service: MailService) async throws -> Bool {
-        switch service {
-        case .gmail: try await model.addGmailAccount(using: web)
-        case .icloud: await signInToICloud()
-        case .outlook: try await model.addOutlookAccount(using: web)
-        case .imap: await signInToOtherAccount()
-        }
-    }
-
-    /// The web sign-in, over this window.
-    var web: WebAuthentication { WebAuthentication(window: window) }
-
-    /// Presents the iCloud form over the chooser, and returns whether it added the account.
-    /// `email` fills the address in, as when iCloud stopped accepting an account's password.
-    func signInToICloud(email: String = "") async -> Bool {
-        await presentSignIn { [model] finished in
-            ICloudSignInScreen.make(
-                email: email,
-                signIn: { email, appPassword in
-                    do {
-                        try await model.addICloudAccount(email: email, appPassword: appPassword)
-                    } catch ICloudSignIn.Failure.wrongPassword {
-                        throw ICloudSignInFailure.wrongPassword
-                    }
-                },
-                finished: finished)
-        }
-    }
-
-    /// Presents a sign-in form `screen` makes over the chooser, and returns what the form finished with: whether it
-    /// added the account. The form calls `finished` once.
-    func presentSignIn(_ screen: (_ finished: @escaping (Bool) -> Void) -> UIViewController) async -> Bool {
-        await withCheckedContinuation { continuation in
-            weak var presented: UIViewController?
-            let form = screen { added in
-                presented?.dismiss(animated: true)
-                continuation.resume(returning: added)
-            }
-            presented = form
-            guard let top = topViewController() else { return continuation.resume(returning: false) }
-            top.present(form, animated: true)
-        }
-    }
+    /// Signing in over this window, for the service chooser on the welcome screen and in Settings.
+    var accountSignIn: AccountSignIn { AccountSignIn(model: model, window: window) }
 
     func showWelcome() {
-        let adder = AccountAdder { [weak self] in try await self?.signIn(to: $0) ?? false }
+        let adder = AccountAdder { [accountSignIn] in try await accountSignIn.signIn(to: $0) }
         adder.onAdded = { [weak self] in self?.showMailbox() }
         enter(.welcome(WelcomeScreen.make(adder: adder, receiveTransfer: transferActions?.receive)))
     }
 
     /// `state`, the Inbox unless a restored window says otherwise, with the mailboxes beside it in a wide window or
-    /// behind it in a narrow one.
+    /// behind it in a narrow one; or its thread alone, in a message window.
     func showMailbox(_ state: WindowState = WindowState()) {
         shown = state
-        // A restored or handed-off thread may be gone from this device, or not on it yet.
+        // A restored or handed-off thread may be gone from this device, or not on it yet. A message window without it
+        // shows the viewer.
         if let thread = shown.openThread?.id, (try? model.database.thread(thread)) == nil { shown.setThread(nil) }
+        switch shown.layout {
+        case .viewer: showViewer()
+        case .message: showMessage()
+        }
+    }
+
+    /// The thread `shown` opens, alone. One whose account is gone leaves the viewer in its place.
+    private func showMessage() {
+        guard let open = shown.openThread, let reader = reader(for: open.id, in: open.mailbox) else {
+            shown = shown.laidOut(as: .viewer)
+            return showViewer()
+        }
+        enter(.message(UINavigationController(rootViewController: reader), accounts: model.accounts.map(\.id)))
+    }
+
+    private func showViewer() {
         let split = MailSplitViewController(actions: actions)
         split.delegate = self
         // The sheet over the old screens stays up over the rebuilt ones.
@@ -345,8 +330,10 @@ final class SceneCoordinator: NSObject {
         return reader
     }
 
-    /// Leaves the open thread, after an action that takes it out of the mailbox.
+    /// Leaves the open thread, after an action that takes it out of the mailbox. A message window has nothing else to
+    /// show, so it closes.
     private func closeThread() {
+        if case .message = screen { return closeWindow() }
         guard let split else { return }
         shown.setThread(nil)
         if split.isCollapsed {
@@ -439,8 +426,8 @@ final class SceneCoordinator: NSObject {
             }
         case .newWindow(let id, let mailbox):
             // iPhone Duo opens new windows only on its inner display, so closed, the thread opens here instead.
-            openWindow(showing: shown.opening(id, in: mailbox)) { [weak self] in self?.handle(.thread(id, in: mailbox))
-            }
+            let opened = shown.opening(id, in: mailbox, as: window.interactionStyle.threadWindowLayout)
+            openWindow(showing: opened) { [weak self] in self?.handle(.thread(id, in: mailbox)) }
         case .changeLabels(let ids):
             let threads = ids.compactMap { try? model.database.thread($0) }
             guard let account = threads.first?.id.accountID,
@@ -467,7 +454,10 @@ final class SceneCoordinator: NSObject {
             navigation.sheetPresentationController?.detents = [.medium(), .large()]
             presenter.present(navigation, animated: true)
         case .settings(let page):
-            showSettings(at: page)
+            switch window.interactionStyle.settingsPlacement {
+            case .cover: showSettings(at: page)
+            case .ownWindow: SettingsWindowCoordinator.open(from: window.windowScene)
+            }
         case .signInAgain(let id):
             signInAgain(id)
         case .answer(let id, let answer):
@@ -499,9 +489,17 @@ final class SceneCoordinator: NSObject {
         case .search(let query):
             drafts.uncover { [weak self] in self?.search(for: query) }
         case .compose(let draft):
-            guard let composer = composer(for: draft) else { return }
-            drafts.open(composer)
+            switch window.interactionStyle.composePlacement {
+            case .sheet: composeHere(draft)
+            case .ownWindow: openComposeWindow(for: draft)
+            }
         }
+    }
+
+    /// Opens `draft` in this window's composer, over the mail screens.
+    func composeHere(_ draft: Draft) {
+        guard let composer = composer(for: draft) else { return }
+        drafts.open(composer)
     }
 
     /// A composer for `draft` in this window, which can move into a window of its own, or `nil` once its account is
@@ -591,14 +589,22 @@ extension SceneCoordinator {
     /// What the window shows, for the system to save with the scene and restore with it, and to offer to the
     /// reader's other devices.
     var activity: NSUserActivity? {
-        split == nil ? nil : shown.activity
+        showsMail ? shown.activity : nil
+    }
+
+    /// Whether the window shows mail: the mail screens, or one conversation.
+    var showsMail: Bool {
+        switch screen {
+        case .mailbox, .message: true
+        case .starting, .welcome, .offer: false
+        }
     }
 
     /// Makes the window's activity current, so Handoff offers what it shows now, and names the window after it.
     private func publishActivity() {
         window.windowScene?.userActivity = activity
         window.windowScene?.userActivity?.becomeCurrent()
-        window.windowScene?.title = split == nil ? nil : title(of: shown)
+        window.windowScene?.title = showsMail ? title(of: shown) : nil
     }
 
     /// Rebuilds the mail screens for the accounts here now, keeping what they show where it's still here, down to a
@@ -607,9 +613,9 @@ extension SceneCoordinator {
         showMailbox(shown.keeping(model.accounts.map(\.id)))
     }
 
-    /// Shows what another device handed off, in this window.
+    /// Shows what another device handed off, in this window, laid out as this window is: a viewer stays a viewer.
     func showHandedOff(_ state: WindowState) {
         guard !model.accounts.isEmpty else { return }
-        showMailbox(state.keeping(model.accounts.map(\.id)))
+        showMailbox(state.keeping(model.accounts.map(\.id)).laidOut(as: shown.layout))
     }
 }

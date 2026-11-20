@@ -5,9 +5,10 @@ import OSLog
 
 /// Signing an account in again after its service turned the stored sign-in down. The new sign-in keeps the account
 /// and its mail, and its first sync clears the problem from the mailbox lists.
-extension SceneCoordinator {
+extension AccountSignIn {
     /// Each service's own way back in: the web sign-in, starting at the account's address, or its password again.
     func signIn(againTo account: Account) async {
+        guard let web else { return }
         do {
             switch account.service {
             case .gmail: _ = try await model.addGmailAccount(using: web, loginHint: account.email)

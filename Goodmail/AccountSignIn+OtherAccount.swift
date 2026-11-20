@@ -3,7 +3,7 @@ import MailCore
 import MailUI
 
 /// Signing in to an account on any IMAP and SMTP server.
-extension SceneCoordinator {
+extension AccountSignIn {
     /// Presents the other account form over the chooser, and returns whether it added the account.
     func signInToOtherAccount() async -> Bool {
         await presentSignIn { [model] finished in

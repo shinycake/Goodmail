@@ -1,8 +1,9 @@
 public import Foundation
 
-/// What one window shows: the list beside the mailboxes, the thread open from it, and the Inbox's category. The
-/// scene coordinator keeps it in step as the reader moves, rebuilds either arrangement from it when the window
-/// changes width, and saves it so the system can restore the window or hand it off to another device.
+/// What one window shows: the list beside the mailboxes, the thread open from it, the Inbox's category, and whether
+/// the window is the whole viewer or that one thread alone. The scene coordinator keeps it in step as the reader
+/// moves, rebuilds either arrangement from it when the window changes width, and saves it so the system can restore
+/// the window or hand it off to another device.
 public struct WindowState: Equatable, Codable, Sendable {
     /// The list beside the mailboxes, and the thread open from it.
     public enum List: Equatable, Codable, Sendable {
@@ -24,6 +25,18 @@ public struct WindowState: Equatable, Codable, Sendable {
     public var category: InboxCategory
     /// How far a narrow window's one stack goes. Not saved: a restored or handed-off window opens on its list.
     public var depth = Depth.list
+    /// What the window lays out. A message window always has its thread open: the methods that close the thread, or
+    /// read a state without one, make it a viewer.
+    public private(set) var layout = Layout.viewer
+
+    /// What a window lays out around what it shows.
+    public enum Layout: String, Equatable, Codable, Sendable {
+        /// The mailboxes, the list and the open thread, as many of them as the window's width holds.
+        case viewer
+        /// The open thread alone, as a conversation opened in a window of its own on the Mac. Its list is kept for
+        /// moving the thread from it and for titles, and isn't shown.
+        case message
+    }
 
     /// How far a narrow window's one stack goes. A wide window shows the mailboxes and the list side by side.
     public enum Depth: Equatable, Sendable {
@@ -34,7 +47,7 @@ public struct WindowState: Equatable, Codable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case list, category
+        case list, category, layout
     }
 
     public init(
@@ -43,6 +56,15 @@ public struct WindowState: Equatable, Codable, Sendable {
         self.list = list
         self.category = category
         self.depth = depth
+    }
+
+    /// Reads a saved state. One saved before windows had layouts is a viewer.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            list: try container.decode(List.self, forKey: .list),
+            category: try container.decode(InboxCategory.self, forKey: .category))
+        self = laidOut(as: try container.decodeIfPresent(Layout.self, forKey: .layout) ?? .viewer)
     }
 
     /// Reads a state `saved()` wrote. Throws for anything else, such as data from a later build.
@@ -64,8 +86,9 @@ public struct WindowState: Equatable, Codable, Sendable {
 
     /// Opens `thread` from the shown list, or `nil` closes it. Scheduled holds messages, not threads. A thread opens
     /// over the list, so a narrow window is no longer back at the mailboxes.
+    /// Closing the thread makes a message window a viewer.
     public mutating func setThread(_ thread: ThreadSummary.ID?) {
-        if thread != nil { depth = .list }
+        if thread == nil { layout = .viewer } else { depth = .list }
         switch list {
         case .mailbox(let mailbox, _): list = .mailbox(mailbox, thread: thread)
         case .snoozed: list = .snoozed(thread: thread)
@@ -75,11 +98,19 @@ public struct WindowState: Equatable, Codable, Sendable {
 
     /// A new window that opens `thread`, read in `mailbox`. It keeps this window's list when that is where the thread
     /// was read; a thread found elsewhere, such as in search, opens over its own mailbox.
-    public func opening(_ thread: ThreadSummary.ID, in mailbox: Mailbox) -> WindowState {
+    /// `layout` says whether the new window is the whole viewer or the thread alone.
+    public func opening(_ thread: ThreadSummary.ID, in mailbox: Mailbox, as layout: Layout = .viewer) -> WindowState {
         var opened = self
         if readingMailbox != mailbox { opened.list = .mailbox(mailbox, thread: nil) }
         opened.setThread(thread)
-        return opened
+        return opened.laidOut(as: layout)
+    }
+
+    /// This state laid out as `layout`, or as a viewer when it asks for a message window with no thread open.
+    public func laidOut(as layout: Layout) -> WindowState {
+        var laidOut = self
+        laidOut.layout = openThread == nil ? .viewer : layout
+        return laidOut
     }
 
     /// The mailbox a thread opened from the shown list is read in. Scheduled holds messages, not threads.
@@ -100,6 +131,6 @@ public struct WindowState: Equatable, Codable, Sendable {
         } else if let thread = openThread?.id, !accounts.contains(thread.accountID) {
             kept.setThread(nil)
         }
-        return kept
+        return kept.laidOut(as: kept.layout)
     }
 }

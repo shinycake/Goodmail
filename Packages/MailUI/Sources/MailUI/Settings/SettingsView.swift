@@ -6,6 +6,7 @@ struct SettingsView: View {
     @Bindable var model: SettingsViewModel
     @State private var removing: Account?
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.settingsPlacement) private var placement
 
     var body: some View {
         Form {
@@ -167,8 +168,11 @@ struct SettingsView: View {
             if model.accounts.count > 1 {
                 ToolbarItem(placement: .topBarLeading) { EditButton() }
             }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button(role: .close) { dismiss() }
+            // A window of its own closes from its title bar.
+            if placement == .cover {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(role: .close) { dismiss() }
+                }
             }
         }
         .removeAccountConfirmation($removing, model: model)
@@ -224,19 +228,33 @@ extension SettingsView {
 
 /// The settings screen, for UIKit to present.
 public enum SettingsScreen {
-    public static func make(model: SettingsViewModel, at page: SettingsPage = .main) -> UIViewController {
-        Controller(model: model, page: page)
+    /// Settings, open at `page`, as a cover over the mail screens or filling the Settings window. A cover tells `model`
+    /// it closed once it is dismissed; the Settings window tells it as the window closes.
+    public static func make(
+        model: SettingsViewModel, at page: SettingsPage = .main, placement: SettingsPlacement = .cover
+    ) -> UIViewController {
+        switch placement {
+        case .cover: Controller(model: model, page: page)
+        case .ownWindow: UIHostingController(rootView: Root(model: model, page: page, placement: placement))
+        }
+    }
+
+    /// What the system calls the Settings window.
+    public static var title: String {
+        String(localized: "Settings", table: "Settings", bundle: .module, comment: "Title of the settings screen")
     }
 
     private struct Root: View {
         let model: SettingsViewModel
+        let placement: SettingsPlacement
         /// The pages pushed over the first screen. Seeded once from the page Settings opens at; the reader moves on
         /// from there. Untyped, because the screens push more than pages: an account row pushes its `AccountID`, and a
         /// path typed to `SettingsPage` silently drops that push.
         @State private var path: NavigationPath
 
-        init(model: SettingsViewModel, page: SettingsPage) {
+        init(model: SettingsViewModel, page: SettingsPage, placement: SettingsPlacement) {
             self.model = model
+            self.placement = placement
             _path = State(initialValue: NavigationPath(page == .main ? [] : [page]))
         }
 
@@ -250,6 +268,7 @@ public enum SettingsScreen {
                         }
                     }
             }
+            .environment(\.settingsPlacement, placement)
         }
     }
 
@@ -261,7 +280,7 @@ public enum SettingsScreen {
 
         init(model: SettingsViewModel, page: SettingsPage) {
             self.model = model
-            super.init(rootView: Root(model: model, page: page))
+            super.init(rootView: Root(model: model, page: page, placement: .cover))
             // A page sheet, so Settings gets most of a large iPad's height rather than a small form in the middle.
             modalPresentationStyle = .pageSheet
         }
@@ -274,4 +293,9 @@ public enum SettingsScreen {
             if isBeingDismissed { model.didClose() }
         }
     }
+}
+
+extension EnvironmentValues {
+    /// Where Settings shows, which decides whether its first screen has a Close button.
+    @Entry var settingsPlacement = SettingsPlacement.cover
 }

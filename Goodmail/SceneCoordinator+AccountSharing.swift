@@ -24,7 +24,7 @@ extension SceneCoordinator {
         case .mailbox(_, _, .settings):
             // Closing Settings follows whatever changed meanwhile, and makes the offer.
             return
-        case .mailbox(_, let accounts, _):
+        case .mailbox(_, let accounts, _), .message(_, let accounts):
             if model.accounts.isEmpty {
                 showWelcome()
             } else if accounts != model.accounts.map(\.id) {
@@ -57,7 +57,7 @@ extension SceneCoordinator {
             offer.onFinished = { [weak self] in self?.offerAnswered() }
             enter(.mailbox(split, accounts: accounts, cover: .offer(sheet)))
             topViewController()?.present(sheet, animated: true)
-        case .offer, .mailbox:
+        case .offer, .mailbox, .message:
             return
         }
     }

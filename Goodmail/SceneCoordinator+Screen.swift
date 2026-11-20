@@ -15,6 +15,18 @@ extension SceneCoordinator {
         /// The mail screens, built for `accounts` so a change another device made rebuilds them, and the sheet over
         /// them that the coordinator answers for.
         case mailbox(MailSplitViewController, accounts: [AccountID], cover: Cover)
+        /// One conversation alone, in a window of its own (`WindowState.Layout.message`): the reader, built for
+        /// `accounts` like the mail screens.
+        case message(UIViewController, accounts: [AccountID])
+    }
+
+    /// The accounts the mail on show is built for, while nothing covers it: what may rebuild it, or open Settings over
+    /// or beside it. `nil` while the window shows no mail, or something covers it.
+    var uncoveredMail: [AccountID]? {
+        switch screen {
+        case .mailbox(_, let accounts, .none), .message(_, let accounts): accounts
+        case .starting, .welcome, .offer, .mailbox: nil
+        }
     }
 
     /// The sheet over the mail screens that decides what may happen under it.
