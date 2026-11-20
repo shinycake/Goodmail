@@ -26,7 +26,7 @@ nonisolated enum SwipeState<Row: Identifiable> {
 
     /// How a drag ended.
     enum End {
-        /// Far enough to fire `row`'s edge-most action.
+        /// Far or fast enough to fire `row`'s edge-most action.
         case fired(Row)
         /// Past halfway: the buttons settle open `width` points in.
         case opened(Row, width: CGFloat)
@@ -66,14 +66,17 @@ nonisolated enum SwipeState<Row: Identifiable> {
 
     /// The drag lets go after moving `dx`, at horizontal `velocity`, with buttons laid out by `layout`.
     mutating func end(afterMoving dx: CGFloat, velocity: CGFloat, layout: SwipeLayout, cancelled: Bool) -> End? {
-        guard case .dragging(let row, let side, _) = self, let distance = distance(afterMoving: dx) else { return nil }
-        if !cancelled, layout.reveal(at: distance).isFullSwipe {
+        guard case .dragging(let row, let side, let start) = self, let distance = distance(afterMoving: dx) else {
+            return nil
+        }
+        let speed = side.towardEdge * velocity
+        if !cancelled, layout.firesOnRelease(at: distance, travelled: distance - start, speed: speed) {
             self = .idle
             return .fired(row)
         }
-        if !cancelled, distance + side.towardEdge * velocity * 0.15 > layout.revealWidth / 2 {
-            self = .open(row, side, width: layout.revealWidth)
-            return .opened(row, width: layout.revealWidth)
+        if !cancelled, distance + speed * 0.15 > layout.revealDistance / 2 {
+            self = .open(row, side, width: layout.revealDistance)
+            return .opened(row, width: layout.revealDistance)
         }
         self = .idle
         return .closed(row)

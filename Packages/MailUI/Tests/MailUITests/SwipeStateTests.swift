@@ -23,7 +23,7 @@ struct SwipeStateTests {
         var state = SwipeState<Row>.idle
         _ = state.begin(on: id, heading: side.towardEdge, reveal: reveal(id))
         _ = state.end(
-            afterMoving: side.towardEdge * layout.revealWidth, velocity: 0, layout: layout, cancelled: false)
+            afterMoving: side.towardEdge * layout.revealDistance, velocity: 0, layout: layout, cancelled: false)
         return state
     }
 
@@ -43,7 +43,7 @@ struct SwipeStateTests {
 
     @Test(arguments: [SwipeSide.left, .right])
     func releasingPastHalfwayOpensTheButtons(side: SwipeSide) {
-        #expect(opened("a", on: side) == .open(Row(id: "a", side: side), side, width: layout.revealWidth))
+        #expect(opened("a", on: side) == .open(Row(id: "a", side: side), side, width: layout.revealDistance))
     }
 
     @Test func releasingShortOfHalfwayCloses() {
@@ -57,7 +57,7 @@ struct SwipeStateTests {
         var state = SwipeState<Row>.idle
         _ = state.begin(on: "a", heading: -5, reveal: reveal("a"))
         let end = state.end(afterMoving: -20, velocity: -800, layout: layout, cancelled: false)
-        #expect(end == .opened(a, width: layout.revealWidth))
+        #expect(end == .opened(a, width: layout.revealDistance))
     }
 
     @Test func swipingFarEnoughFiresTheEdgeMostAction() {
@@ -65,6 +65,23 @@ struct SwipeStateTests {
         _ = state.begin(on: "a", heading: -5, reveal: reveal("a"))
         #expect(state.end(afterMoving: -350, velocity: 0, layout: layout, cancelled: false) == .fired(a))
         #expect(state == .idle)
+    }
+
+    @Test(arguments: [SwipeSide.left, .right])
+    func aFastFlickFiresShortOfTheFullSwipePoint(side: SwipeSide) {
+        var state = SwipeState<Row>.idle
+        _ = state.begin(on: "a", heading: side.towardEdge, reveal: reveal("a"))
+        let end = state.end(
+            afterMoving: side.towardEdge * layout.revealDistance, velocity: side.towardEdge * 1500, layout: layout,
+            cancelled: false)
+        #expect(end == .fired(Row(id: "a", side: side)))
+    }
+
+    @Test func aQuickNudgeOnOpenButtonsDoesNotFire() {
+        var state = opened("a", on: .right)
+        _ = state.begin(on: "a", heading: -5, reveal: reveal("a"))
+        let end = state.end(afterMoving: -10, velocity: -3000, layout: layout, cancelled: false)
+        #expect(end == .opened(a, width: layout.revealDistance))
     }
 
     @Test func aCancelledDragClosesHoweverFarItWent() {
@@ -84,7 +101,7 @@ struct SwipeStateTests {
         #expect(replaced == nil && revealed.isEmpty)
         #expect(state.row == Row(id: "a", side: side))
         // The buttons follow the finger back, and pulling past closed doesn't cross over.
-        #expect(state.distance(afterMoving: -side.towardEdge * 30) == layout.revealWidth - 30)
+        #expect(state.distance(afterMoving: -side.towardEdge * 30) == layout.revealDistance - 30)
         #expect(state.distance(afterMoving: -side.towardEdge * 400) == 0)
         let end = state.end(afterMoving: -side.towardEdge * 400, velocity: 0, layout: layout, cancelled: false)
         #expect(end == .closed(Row(id: "a", side: side)))
@@ -101,7 +118,7 @@ struct SwipeStateTests {
     @Test func draggingTheOpenRowFurtherCarriesOnFromOpen() {
         var state = opened("a", on: .right)
         _ = state.begin(on: "a", heading: -5, reveal: reveal("a"))
-        #expect(state.distance(afterMoving: -40) == layout.revealWidth + 40)
+        #expect(state.distance(afterMoving: -40) == layout.revealDistance + 40)
     }
 
     @Test func draggingAnotherRowTakesOverFromTheOpenOne() {

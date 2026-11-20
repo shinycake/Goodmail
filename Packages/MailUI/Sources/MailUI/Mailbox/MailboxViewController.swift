@@ -150,6 +150,15 @@ public final class MailboxViewController: UIViewController {
         placeInboxZero()
     }
 
+    /// Open swipe buttons are laid out for the row's old width, which also sets how far a full swipe goes; a new
+    /// width closes them rather than leaving them half shown or one short drag from firing.
+    public override func viewWillTransition(
+        to size: CGSize, with coordinator: any UIViewControllerTransitionCoordinator
+    ) {
+        super.viewWillTransition(to: size, with: coordinator)
+        if size.width != view.bounds.width { swipes.close(animated: false) }
+    }
+
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         for indexPath in collectionView.indexPathsForSelectedItems ?? [] {

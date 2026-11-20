@@ -103,6 +103,8 @@ final class SwipeActionsController: NSObject {
             switch state.end(afterMoving: dx, velocity: velocity, layout: layout, cancelled: pan.state != .ended) {
             case .fired(let row):
                 guard let action = row.overlay.actions.first, let button = row.overlay.buttons.first else { break }
+                // A flick fires short of the full-swipe point, without the tap a full swipe gave on the way.
+                if !row.overlay.reveal.isFullSwipe { row.feedback.impactOccurred() }
                 fire(action, from: button, on: row)
             case .opened(let row, let width):
                 row.overlay.settle(at: .tracking(width), duration: 0.35, bounce: 0.15)
@@ -255,8 +257,17 @@ nonisolated struct SwipeLayout {
     static let inset: CGFloat = 16
     /// The gap a full swipe's grown button leaves above and below it.
     static let verticalInset: CGFloat = 8
-    /// How far past the revealed buttons a swipe must travel, as a share of the row's width, to fire the first.
-    static let fullSwipeFraction: CGFloat = 0.55
+    /// The most of the row's width the finger travels to show every button. Wider stacks slide in faster than the
+    /// finger, so a three-button side asks no longer a swipe than a two-button one.
+    static let revealDistanceFraction: CGFloat = 0.35
+    /// How much further than that the finger travels before letting go fires the edge-most action, so a swipe that
+    /// only means to show the buttons has room to stop.
+    static let fullSwipeMargin: CGFloat = 40
+    /// A full swipe never takes less than this share of the row's width, however few buttons there are.
+    static let minimumFullSwipeFraction: CGFloat = 0.45
+    /// A fresh swipe that has shown every button and lets go heading for the edge at least this fast, in points a
+    /// second, fires as if it had gone all the way.
+    static let flickSpeed: CGFloat = 1200
 
     /// The buttons' size: as large as preferred, as long as they fit inside the row's height and leave room to swipe
     /// past them.
@@ -266,13 +277,30 @@ nonisolated struct SwipeLayout {
         return max(Self.minimumDiameter, min(preferredDiameter, Self.maximumDiameter, widthRoom, heightRoom))
     }
 
-    /// The swipe distance at which every button is fully shown.
+    /// How far in from the edge the buttons reach once every one is fully shown.
     var revealWidth: CGFloat {
         Self.inset + CGFloat(count) * (diameter + Self.spacing)
     }
 
+    /// How far the finger travels to show every button in its resting place.
+    var revealDistance: CGFloat {
+        min(revealWidth, rowWidth * Self.revealDistanceFraction)
+    }
+
+    /// How far the finger travels before letting go fires the edge-most action.
+    var fullSwipeDistance: CGFloat {
+        max(revealDistance + Self.fullSwipeMargin, rowWidth * Self.minimumFullSwipeFraction)
+    }
+
     func reveal(at distance: CGFloat) -> SwipeReveal {
-        distance > max(revealWidth + 40, rowWidth * Self.fullSwipeFraction) ? .fullSwipe(distance) : .tracking(distance)
+        distance > fullSwipeDistance ? .fullSwipe(distance) : .tracking(distance)
+    }
+
+    /// Whether letting go `distance` in, `travelled` of it in this drag, heading for the edge at `speed` points a
+    /// second, fires the edge-most action: past the full-swipe point, or a flick that showed every button itself.
+    /// Picking up open buttons doesn't count toward a flick, so a quick nudge on them never fires.
+    func firesOnRelease(at distance: CGFloat, travelled: CGFloat, speed: CGFloat) -> Bool {
+        reveal(at: distance).isFullSwipe || (speed >= Self.flickSpeed && travelled >= revealDistance)
     }
 
     /// Where button `index` rests once fully shown, from the edge to its outer side.
@@ -299,7 +327,7 @@ nonisolated struct SwipeLayout {
             let rest = restingOffset(index)
             switch reveal {
             case .tracking(let distance):
-                let progress = min(1, max(0, distance / revealWidth))
+                let progress = min(1, max(0, distance / revealDistance))
                 let offset = -diameter + (rest + diameter) * progress
                 return SwipePlacement(
                     offset: offset, width: diameter, height: diameter, isVisible: offset > -diameter)
@@ -307,7 +335,9 @@ nonisolated struct SwipeLayout {
                 guard index == 0 else {
                     return SwipePlacement(offset: rest, width: diameter, height: diameter, isVisible: false)
                 }
-                let width = min(max(diameter, distance - Self.inset - Self.spacing), rowWidth - 2 * Self.inset)
+                // Never narrower than the stack it takes over from, so committing reads as growing.
+                let reach = max(diameter, distance - Self.inset - Self.spacing, revealWidth - Self.inset - Self.spacing)
+                let width = min(reach, rowWidth - 2 * Self.inset)
                 let height = max(diameter, rowHeight - 2 * Self.verticalInset)
                 return SwipePlacement(offset: Self.inset, width: width, height: height, isVisible: true)
             }
