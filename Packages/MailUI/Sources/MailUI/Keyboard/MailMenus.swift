@@ -5,9 +5,10 @@ public import UIKit
 /// `action` on the window, which enables only what the screens on show answer (`KeyboardShortcuts`).
 @MainActor
 public enum MailMenus {
-    /// Whether the menu bar carries the commands, as on iPad. Elsewhere the window offers them as key commands of its
-    /// own, so a keyboard reaches them on iPhone too.
-    public static var inMenuBar: Bool { UIDevice.current.userInterfaceIdiom == .pad }
+    /// Whether the menu bar carries the commands, as on iPad and the Mac. Elsewhere the window offers them as key
+    /// commands of its own, so a keyboard reaches them on iPhone too. A fact about the device, so it reads the idiom
+    /// through `InteractionStyle.showsMenuBar`.
+    public static var inMenuBar: Bool { InteractionStyle.showsMenuBar(idiom: UIDevice.current.userInterfaceIdiom) }
 
     public static func build(_ builder: any UIMenuBuilder, action: Selector) {
         guard builder.system == .main, inMenuBar else { return }

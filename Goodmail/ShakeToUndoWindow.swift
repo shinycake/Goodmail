@@ -17,6 +17,9 @@ final class ShakeToUndoWindow: UIWindow {
     init(windowScene: UIWindowScene, undo: @escaping () -> Void) {
         self.undo = undo
         super.init(windowScene: windowScene)
+        // The one place a window's interaction style is decided, at the app's edge: Mac windows are driven by pointer
+        // and keyboard, all others by touch. Screens read it from their trait collection.
+        traitOverrides.interactionStyle = InteractionStyle(idiom: windowScene.traitCollection.userInterfaceIdiom)
     }
 
     @available(*, unavailable)
