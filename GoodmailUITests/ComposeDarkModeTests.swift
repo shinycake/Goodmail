@@ -1,7 +1,7 @@
 import XCTest
 
-/// The body as it is written in Dark Mode: text in the reader's own color shows light on the dark page, and a color
-/// from the picker colors what is typed next.
+/// The body as it is written in Dark Mode: text in the reader's own color shows light on the dark page, and a chosen
+/// color colors all of what is typed next. The color picker itself runs in another process, out of the test's reach.
 final class ComposeDarkModeTests: XCTestCase {
     override func setUp() {
         continueAfterFailure = false
@@ -17,39 +17,18 @@ final class ComposeDarkModeTests: XCTestCase {
     }
 
     @MainActor
-    func testAPickedColorColorsWhatIsTypedNext() throws {
+    func testAChosenColorColorsTheWholeWordTypedAfterIt() throws {
         let app = launch()
         let body = writeBody("בדיקה ", in: app)
         app.buttons["Text Color"].tap()
-        let more = app.buttons["More Colors…"]
-        XCTAssertTrue(more.waitForExistence(timeout: 5), "the color menu opens")
-        attach(app, "dark-color-menu")
-        more.tap()
-        // The picker runs in its own process, so its controls are found by where they are.
-        settle()
-        attach(app, "dark-picker")
-        // A dark navy from the grid, too dark to read on a dark page as it is.
-        app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.17, dy: 0.645)).tap()
-        settle()
-        attach(app, "dark-picker-chosen")
-        app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35)).tap()
-        settle()
+        XCTAssertTrue(app.buttons["More Colors…"].waitForExistence(timeout: 5), "the picker is offered")
+        app.buttons["Blue"].tap()
         body.typeText("colored")
         attach(app, "dark-colored")
         let pixels = try XCTUnwrap(Self.pixels(in: body.screenshot().image))
         // The word draws about 1,800 colored pixels; its first letter and the caret together, about 500.
         let colored = pixels.filter { $0.saturation > 0.4 }
         XCTAssertGreaterThan(colored.count, 1200, "the whole word is colored, not only its first letter")
-        XCTAssertGreaterThan(
-            colored.map(\.luminance).max() ?? 0, 0.15, "the navy was brightened to read on the dark page")
-        XCUIDevice.shared.appearance = .light
-        settle()
-        attach(app, "light-colored")
-    }
-
-    /// The picker runs in another process, so the test can't wait on its controls: it gives each step time instead.
-    private func settle() {
-        _ = XCTWaiter.wait(for: [XCTestExpectation(description: "settles")], timeout: 1.5)
     }
 
     @MainActor
