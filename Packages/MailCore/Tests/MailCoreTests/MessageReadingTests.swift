@@ -62,4 +62,16 @@ struct MessageReadingTests {
             + "<span style='DISPLAY:NONE'>\u{034F} \u{00AD}</span><p>\u{200C} \u{200C}</p><p>Hello 👨‍👩‍👧</p>"
         #expect(MessageBody(html: html).styledText.plain == "Hello 👨‍👩‍👧")
     }
+
+    @Test func styledTextReadsTheHTMLsLineBreaksFromItsTagsAlone() {
+        let html = "<p>A paragraph Outlook\r\n  wraps in its source.</p>\n<p><pre>Kept\non two lines</pre></p>"
+        #expect(
+            MessageBody(html: html, plain: "A paragraph").styledText.plain
+                == "A paragraph Outlook wraps in its source.\nKept\non two lines")
+    }
+
+    @Test func styledTextFallsBackToThePlainPartWhenTheHTMLHoldsNoWords() {
+        #expect(
+            MessageBody(html: "<img src=\"cid:card\">", plain: "Happy birthday!").styledText.plain == "Happy birthday!")
+    }
 }

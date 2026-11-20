@@ -11,6 +11,9 @@ public struct ReplyText: Equatable, Sendable {
     }
 
     public let segments: [Segment]
+    /// Whether the message forwards another: a forward's header comes before anything it answers, quoted or not, as
+    /// Apple Mail quotes the whole message it forwards.
+    public let forwards: Bool
 
     /// Reads the part `MessageBody.reading` picks. HTML is read with its blockquotes turned into `>` lines, so both
     /// take the same path.
@@ -21,7 +24,9 @@ public struct ReplyText: Equatable, Sendable {
             case .html(let html): Self.quotedText(fromHTML: html)
             case .empty: StyledText()
             }
-        segments = Self.segments(of: text)
+        let lines = Self.classify(text)
+        segments = Self.segments(of: lines)
+        forwards = Self.forwards(lines)
     }
 
     /// The new words alone, as a notification or a bubble's accessibility label reads them.
@@ -43,12 +48,18 @@ public struct ReplyText: Equatable, Sendable {
         case signature
         /// A header or rule after which everything is the earlier message: "-----Original Message-----", a
         /// forwarded message, Outlook's "From: … Sent: …".
-        case history
+        case history(String)
     }
 
     static func segments(of text: StyledText) -> [Segment] {
-        var lines = classify(text)
-        if let history = lines.firstIndex(of: .history) { lines.removeSubrange(history...) }
+        segments(of: classify(text))
+    }
+
+    private static func segments(of classified: [Line]) -> [Segment] {
+        var lines = classified.filter { $0 != .attribution }
+        if let history = lines.firstIndex(where: { if case .history = $0 { true } else { false } }) {
+            lines.removeSubrange(history...)
+        }
         lines = dropSignatures(lines)
         lines = dropTrailingQuotes(lines)
         return group(lines)
@@ -68,9 +79,9 @@ public struct ReplyText: Equatable, Sendable {
             if historyMarkers.contains(where: { line.contains($0) })
                 || line.count >= 8 && line.allSatisfy({ $0 == "_" })
             {
-                return .history
+                return .history(line)
             }
-            if isHeaderBlock(at: index, in: raw) { return .history }
+            if isHeaderBlock(at: index, in: raw) { return .history(line) }
             return .words(rich[index].trimmingCharacters(in: .whitespaces))
         }
         // An attribution is a line ending in a colon that names a date or an address, right above a quote.
@@ -85,7 +96,21 @@ public struct ReplyText: Equatable, Sendable {
                 lines[index - 1] = .attribution
             }
         }
-        return lines.filter { $0 != .attribution }
+        return lines
+    }
+
+    /// A forward's header opens the first earlier message the body holds, quoted or not. Anything else there, such as
+    /// an attribution, "-----Original Message-----" or "On … wrote:" in a quote, makes it a reply, whatever it quotes.
+    private static func forwards(_ lines: [Line]) -> Bool {
+        for line in lines {
+            switch line {
+            case .attribution: return false
+            case .quote(let text) where text.isEmpty: continue
+            case .quote(let text), .history(let text): return forwardMarkers.contains(where: text.contains)
+            case .words, .blank, .signature: continue
+            }
+        }
+        return false
     }
 
     /// "From:" with a "Sent:" or "Date:" in the lines just below: the header Outlook writes above the message it
@@ -199,10 +224,14 @@ public struct ReplyText: Equatable, Sendable {
         "Sent from Outlook for iOS", "Sent from Mail for Windows", "נשלח מה-iPhone שלי", "נשלח מה-iPad שלי",
         "נשלח מ-iPhone שלי",
     ]
-    private static let historyMarkers = [
-        "-----Original Message-----", "---------- Forwarded message", "Begin forwarded message:",
-        "-------- Original Message --------", "---------- הודעה שהועברה", "-----הודעה מקורית-----",
+    /// The lines clients put above a message they forward, in English and Hebrew.
+    private static let forwardMarkers = [
+        "---------- Forwarded message", "Begin forwarded message:", "---------- הודעה שהועברה",
     ]
+    private static let historyMarkers =
+        forwardMarkers + [
+            "-----Original Message-----", "-------- Original Message --------", "-----הודעה מקורית-----",
+        ]
     private static let fromPrefixes = ["From:", "מאת:"]
     private static let datePrefixes = ["Sent:", "Date:", "נשלח:", "תאריך:"]
 }

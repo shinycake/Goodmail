@@ -127,6 +127,40 @@ struct ChatTranscriptTests {
         #expect(!preview.isEmpty)
     }
 
+    /// Apple Mail quotes the whole message it forwards, and its plain part breaks the quote around each picture.
+    @Test func aForwardQuotedWholeIsALetter() {
+        let chat = transcript([message("1", from: dana, minutes: 0, body: AppleMailForward.body)])
+        guard case .letter = runs(chat).first?.bubbles.first?.content else {
+            Issue.record("Expected a letter")
+            return
+        }
+    }
+
+    @Test func aReplyToAForwardIsABubble() {
+        let reply = MessageBody(
+            plain: "Looks good.\n\nOn Monday, Dana <dana@example.com> wrote:\n\n> Begin forwarded message:\n> The plan")
+        let chat = transcript([message("1", from: dana, minutes: 0, body: reply)])
+        #expect(runs(chat).first?.bubbles.map(\.content) == [.words([.text("Looks good.")], replyingTo: nil)])
+    }
+
+    @Test(arguments: [
+        "Thanks\n\n________________________________\nFrom: Dana <dana@example.com>\nSent: Monday\n\nFYI\n\n---------- Forwarded message ---------\nThe plan",
+        "Thanks\n\n> On Nov 19, 2026, at 10:00, Dana <dana@example.com> wrote:\n>\n> Begin forwarded message:\n> The plan",
+    ])
+    func aReplyQuotingAForwardBelowItsOwnHeaderIsABubble(_ plain: String) {
+        let chat = transcript([message("1", from: dana, minutes: 0, body: MessageBody(plain: plain))])
+        #expect(runs(chat).first?.bubbles.map(\.content) == [.words([.text("Thanks")], replyingTo: nil)])
+    }
+
+    @Test func aForwardWithANoteIsALetter() {
+        let body = MessageBody(plain: "FYI\n\n---------- Forwarded message ---------\nFrom: Avi\n\nThe plan")
+        let chat = transcript([message("1", from: dana, minutes: 0, body: body)])
+        guard case .letter = runs(chat).first?.bubbles.first?.content else {
+            Issue.record("Expected a letter")
+            return
+        }
+    }
+
     @Test func aConversationWithMoreThanOneOtherPersonIsAGroup() {
         let pair = transcript([message("1", from: dana, minutes: 0), message("2", from: me, minutes: 1)])
         let group = transcript([message("1", from: dana, to: [me, avi], minutes: 0)])
@@ -164,6 +198,17 @@ struct ChatTranscriptLetterWordsTests {
                 == "Order 1234\nTotal $20")
     }
 
+    @Test func aForwardQuotedWholeShowsEveryWordOfItsHTML() {
+        let words = ChatTranscript.letterWords(of: message(AppleMailForward.body, answering: false))
+        #expect(words.plain.contains("Begin forwarded message:"))
+        #expect(words.plain.contains("1. Transparent logo"))
+        #expect(words.plain.contains("2. Navy text with a blue link."))
+        #expect(words.plain.contains("7. An opaque photo."))
+        #expect(!words.plain.split(separator: "\n").contains { $0.hasPrefix(">") })
+        #expect(!words.plain.contains("\u{FFFC}"))
+        #expect(words.runs.contains { $0.link == URL(string: "https://example.com/") })
+    }
+
     @Test func aForwardKeepsTheMessageItForwards() {
         let note = String(repeating: "Have a look. ", count: 100)
         let body = MessageBody(
@@ -171,4 +216,31 @@ struct ChatTranscriptLetterWordsTests {
                 + "\n\n---------- Forwarded message ---------\nFrom: Avi <avi@example.com>\n\nThe plan for Sunday")
         #expect(ChatTranscript.letterWords(of: message(body, answering: true)).plain.contains("The plan for Sunday"))
     }
+}
+
+/// A forward as Apple Mail sends it, cut down: the plain part quotes it all with `>`, except where a picture broke the
+/// quote, and the HTML holds it in a blockquote.
+enum AppleMailForward {
+    static let body = MessageBody(
+        html: """
+            <html><body><br><div><br><blockquote type="cite"><div>Begin forwarded message:</div><br>\
+            <div><b>From: </b>Dana &lt;dana@example.com&gt;</div><br><div><table><tr><td>\
+            <img alt="logo.png" src="cid:logo"><br>1. Transparent logo</td></tr>\
+            <tr><td>2. Navy text with <a href="https://example.com/">a blue link</a>.</td></tr>\
+            <tr><td><img alt="photo.png" src="cid:photo">7. An opaque photo.</td></tr>\
+            </table></div></blockquote></div><br></body></html>
+            """,
+        plain: """
+
+
+            > Begin forwarded message:
+            >
+            > From: Dana <dana@example.com>
+            >
+            \u{FFFC}
+            > 1. Transparent logo
+            > 2. Navy text with a blue link <https://example.com/>.
+            \u{FFFC}7. An opaque photo.
+
+            """)
 }

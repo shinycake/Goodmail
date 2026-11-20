@@ -33,17 +33,28 @@ extension MessageBody {
     }
 
     /// The whole body as words, with the bold, italics and links it gives them, for a screen that can't show HTML,
-    /// as the watch's. What a newsletter hides is left out: an element styled `display: none`, such as the preview
-    /// line written for inboxes, and the invisible characters that pad it. Blank lines in a row read as one, since a
-    /// laid-out message spaces its blocks with many.
+    /// as the watch's. The HTML is read first when there is one: it carries those styles, and the message as written,
+    /// where a plain part can quote a whole forward with `>` and break it around each picture. What a newsletter hides
+    /// is left out: an element styled `display: none`, such as the preview line written for inboxes, and the invisible
+    /// characters that pad it. Blank lines in a row read as one, since a laid-out message spaces its blocks with many.
     public var styledText: StyledText {
-        let words: StyledText =
-            switch reading {
-            case .plain(let plain): StyledText.linking(plain.replacingOccurrences(of: "\r\n", with: "\n"))
-            case .html(let html): HTMLEntities.styledText(fromHTML: Self.withoutHidden(html))
-            case .empty: StyledText()
-            }
-        return Self.tidied(words)
+        let html = markup.map { Self.tidied(HTMLEntities.styledText(fromHTML: Self.flowing(Self.withoutHidden($0)))) }
+        if let html, !html.isEmpty { return html }
+        guard let plain = Self.filled(plain), !Self.isMarkup(plain) else { return StyledText() }
+        return Self.tidied(StyledText.linking(plain.replacingOccurrences(of: "\r\n", with: "\n")))
+    }
+
+    /// The HTML with each run of white space in its source read as one space, as a browser reads it: only its tags
+    /// break lines. A `<pre>` keeps its own.
+    static func flowing(_ html: String) -> String {
+        var flowed = ""
+        var rest = html[...]
+        while let pre = rest.firstMatch(of: /(?is)<pre\b.*?<\/pre\s*>/) {
+            flowed += rest[..<pre.range.lowerBound].replacing(/\s+/, with: " ")
+            flowed += pre.output
+            rest = rest[pre.range.upperBound...]
+        }
+        return flowed + rest.replacing(/\s+/, with: " ")
     }
 
     /// `words` without invisible characters, each line trimmed, and blank lines in a row read as one.
@@ -64,10 +75,12 @@ extension MessageBody {
         html.replacing(/(?is)<(div|span|p|td|table)\b[^>]*display\s*:\s*none[^>]*>.*?<\/\1\s*>/, with: "")
     }
 
-    /// Characters that take no space, which newsletters repeat after the preview line so inboxes show no more of it.
-    /// A joiner that builds an emoji stays.
+    /// Characters that take no space, which newsletters repeat after the preview line so inboxes show no more of it,
+    /// and the stand-in Apple Mail's plain part writes for each picture. A joiner that builds an emoji stays.
     private static func withoutInvisibles(_ text: String) -> String {
-        let invisibles: Set<Unicode.Scalar> = ["\u{200B}", "\u{200C}", "\u{FEFF}", "\u{034F}", "\u{00AD}"]
+        let invisibles: Set<Unicode.Scalar> = [
+            "\u{200B}", "\u{200C}", "\u{FEFF}", "\u{034F}", "\u{00AD}", "\u{FFFC}",
+        ]
         return String(String.UnicodeScalarView(text.unicodeScalars.filter { !invisibles.contains($0) }))
     }
 

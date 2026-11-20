@@ -177,7 +177,7 @@ public struct ChatTranscript: Equatable, Sendable {
         }
         let reply = ReplyText(body: message.body)
         let words: Content?
-        if isLaidOut(message.body) || reply.text.count > longestBubble {
+        if isLaidOut(message.body) || reply.text.count > longestBubble || reply.forwards {
             words = .letter(subject: message.subject, preview: reply.text.isEmpty ? message.snippet : reply.text)
         } else if !reply.segments.isEmpty {
             words = .words(reply.segments, replyingTo: quote)
