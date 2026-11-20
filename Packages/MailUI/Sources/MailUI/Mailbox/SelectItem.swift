@@ -18,8 +18,23 @@ final class SelectItem {
     }
 
     /// Shows the button for a list of `rows` rows. Only a change touches the button, as it lays the bar out again.
-    func show(rows: Int) {
+    /// With `bar` on screen, the button morphs in and out of the glass it shares with Search: the change and the bar's
+    /// new layout go in one spring, so the capsule shrinks into Search's circle (and grows back out of it) rather than
+    /// jumping.
+    func show(rows: Int, in bar: UINavigationBar? = nil) {
         let hidden = rows == 0
-        if hidden != item.isHidden { item.isHidden = hidden }
+        guard hidden != item.isHidden else { return }
+        guard let bar, bar.window != nil else {
+            item.isHidden = hidden
+            return
+        }
+        bar.layoutIfNeeded()
+        UIView.animate(springDuration: Self.morph, bounce: 0.15) { [item] in
+            item.isHidden = hidden
+            bar.layoutIfNeeded()
+        }
     }
+
+    /// How long the morph's spring runs.
+    static let morph: TimeInterval = 0.45
 }

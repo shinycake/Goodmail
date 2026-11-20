@@ -238,7 +238,9 @@ public final class MailboxViewController: UIViewController {
     /// rows on screen, not the model's, so nothing shows while rows are still going into a box or breaking up. Select
     /// goes with the last row and comes back with the first.
     private func updateEmptyState() {
-        select.show(rows: dataSource.snapshot().numberOfItems)
+        // Only a bar showing this list morphs: under a pushed thread, laying the bar out would animate the reader's.
+        let bar = navigationController.flatMap { $0.topViewController === self ? $0.navigationBar : nil }
+        select.show(rows: dataSource.snapshot().numberOfItems, in: bar)
         let state: EmptyState? =
             !viewModel.hasLoaded || dataSource.snapshot().numberOfItems > 0
             ? nil
