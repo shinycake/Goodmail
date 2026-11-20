@@ -24,9 +24,14 @@ import UIKit
     }
 
     @Test func `a window's trait is touch until the app sets it`() {
-        let view = UIView()
-        #expect(view.traitCollection.interactionStyle == .touch)
-        view.traitOverrides.interactionStyle = .desktop
-        #expect(view.traitCollection.interactionStyle == .desktop)
+        let window = UIView()
+        let screen = UIView()
+        window.addSubview(screen)
+        #expect(screen.traitCollection.interactionStyle == .touch)
+        window.traitOverrides.interactionStyle = .desktop
+        // An override reaches the trait collections at the next trait update, which UIKit makes when views are shown.
+        window.updateTraitsIfNeeded()
+        screen.updateTraitsIfNeeded()
+        #expect(screen.traitCollection.interactionStyle == .desktop)
     }
 }

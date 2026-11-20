@@ -33,12 +33,16 @@ struct StoragePreferencesTests {
         #expect(StoragePreferences(window: .desktop).cacheLimit == 50_000_000_000)
     }
 
+    /// A list family has no keys of its own to leave out, since it shares the items of one list, so what matters is
+    /// that no family reads these two keys, whatever it says it covers.
     @Test func theChoicesStayOnTheDevice() throws {
-        let keys = try Preferences.syncedSettings.flatMap { family -> [String] in
-            let scope = try family.local().scope
-            return ["cacheLimit", "prefetchScope"].filter { scope.covers($0) }
+        let choices = [StoragePreferences.cacheLimitKey, StoragePreferences.prefetchScopeKey]
+        UserDefaults.standard.set(5_000_000_000, forKey: StoragePreferences.cacheLimitKey)
+        UserDefaults.standard.set("wifiOnly", forKey: StoragePreferences.prefetchScopeKey)
+        let shared = try Preferences.syncedSettings.flatMap { family in
+            try family.local().values.keys.filter(choices.contains)
         }
-        #expect(keys.isEmpty)
+        #expect(shared.isEmpty)
     }
 
     @Test func settingsPageOffersThisDevicesChoices() {
