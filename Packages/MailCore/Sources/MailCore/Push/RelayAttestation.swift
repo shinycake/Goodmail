@@ -25,8 +25,13 @@ public protocol AttestationDevice: Sendable {
     func generateKey() async throws -> String
     /// Apple's attestation that the key belongs to this app on a genuine device, binding `clientDataHash`.
     func attestKey(_ keyID: String, clientDataHash: Data) async throws -> Data
-    /// The key's signature over `clientDataHash`.
+    /// The key's signature over `clientDataHash`. Throws `AttestationKeyLost` when the device no longer has the key.
     func generateAssertion(_ keyID: String, clientDataHash: Data) async throws -> Data
+}
+
+/// The device no longer has the key, as after a reinstall, so it can never sign with it again.
+public struct AttestationKeyLost: Error {
+    public init() {}
 }
 
 /// Attests one App Attest key per install with the relay, then signs each request with it.
@@ -55,6 +60,9 @@ public actor RelayAttestation: RelaySigner {
     private let http: any HTTPClient
     private let now: @Sendable () -> Date
     private var state = KeyState.unread
+    /// The latest assertion, which the next one waits for. App Attest fails a key's assertions that overlap: on a Mac,
+    /// all but the first of the requests a launch sends at once.
+    private var lastAssertion: Task<Data, any Error>?
 
     public init(
         baseURL: URL, device: any AttestationDevice, store: any SecretStore, http: any HTTPClient = URLSession.shared,
@@ -74,10 +82,10 @@ public actor RelayAttestation: RelaySigner {
             let time = String(Int64((now().timeIntervalSince1970 * 1000).rounded(.down)))
             let assertion: Data
             do {
-                assertion = try await device.generateAssertion(
+                assertion = try await self.assertion(
                     keyID, clientDataHash: Self.clientDataHash(method: method, path: path, time: time, body: body))
-            } catch {
-                // The Secure Enclave lost the key, as after a reinstall: start over on the next request.
+            } catch let error as AttestationKeyLost {
+                // As after a reinstall: start over on the next request. Any other failure keeps the key.
                 discardKey()
                 throw error
             }
@@ -88,6 +96,18 @@ public actor RelayAttestation: RelaySigner {
             // Unsigned, the relay decides; a later request attests again.
             return [:]
         }
+    }
+
+    /// Signs with `keyID` once the assertion before it is done.
+    private func assertion(_ keyID: String, clientDataHash: Data) async throws -> Data {
+        let previous = lastAssertion
+        // Owned by `lastAssertion` and awaited by this call; the next assertion waits for it to finish.
+        let task = Task { @concurrent [device] in
+            _ = await previous?.result
+            return try await device.generateAssertion(keyID, clientDataHash: clientDataHash)
+        }
+        lastAssertion = task
+        return try await task.value
     }
 
     public func discardKey() {
