@@ -85,10 +85,11 @@ enum SharedItems {
         }
     }
 
-    /// The script's results, from the property list Safari hands over.
+    /// The script's results. Safari hands over its dictionary keyed-archived, not as a plain property list.
     nonisolated private static func pageResults(in data: Data) -> Piece? {
-        // Unsafe only for the format out-pointer, which is nil: nothing is written through it.
-        let item = try? unsafe PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+        let item =
+            try? NSKeyedUnarchiver.unarchivedObject(
+                ofClasses: [NSDictionary.self, NSString.self], from: data) as? [String: Any]
         guard let results = item?[NSExtensionJavaScriptPreprocessingResultsKey] as? [String: String] else {
             return nil
         }
