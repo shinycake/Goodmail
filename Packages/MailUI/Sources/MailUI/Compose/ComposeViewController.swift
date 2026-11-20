@@ -565,6 +565,11 @@ public final class ComposeViewController: UIViewController {
         close()
     }
 
+    /// The host took the message back after its send or save failed: writing goes on, kept as it is written.
+    public func resumeAfterFailure() {
+        viewModel.resumeKeeping()
+    }
+
     /// The writer dismissed the message where it can't be minimized, as by dragging a share sheet down: one with
     /// something in it is saved to Drafts, one without closes, kept nowhere.
     public func dismissKeepingDraft() {

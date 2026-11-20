@@ -148,6 +148,39 @@ struct ComposeViewModelTests {
         #expect(saves.count == 2, "nothing is kept once it closes")
     }
 
+    @Test func typingThatNeverRestsIsStillKept() async throws {
+        var saves: [String?] = []
+        let model = ComposeViewModel(
+            draft: Draft(accountID: account), accountEmail: "me@example.com",
+            saveDraft: { draft, _ in saves.append(draft.body.plain) }, autosavePause: .milliseconds(100),
+            send: { _, _ in })
+        var typed = ""
+        for letter in "Hello there" {
+            typed.append(letter)
+            let now = typed
+            model.edited { MessageBody(plain: now) }
+            try await Task.sleep(for: .milliseconds(30))
+        }
+        #expect(!saves.isEmpty, "kept while the typing went on, not once it stopped")
+    }
+
+    @Test func aMessageBackAfterAFailedSendIsKeptAgain() async {
+        var saves: [String?] = []
+        let model = ComposeViewModel(
+            draft: Draft(accountID: account, to: [Contact(name: "", address: "a@example.com")]),
+            accountEmail: "me@example.com", saveDraft: { draft, _ in saves.append(draft.body.plain) },
+            autosavePause: .zero, send: { _, _ in })
+        model.send(body: MessageBody(plain: "Hi"))
+        model.edited { MessageBody(plain: "Hi again") }
+        await model.settleAutosave()
+        #expect(saves.isEmpty, "nothing is kept once it went")
+
+        model.resumeKeeping()
+        model.edited { MessageBody(plain: "Hi again") }
+        await model.settleAutosave()
+        #expect(saves == ["Hi again"])
+    }
+
     @Test func closingUnchangedAfterAnAutosaveUndoesIt() async {
         var saved: [Draft] = []
         var deleted: [Draft] = []

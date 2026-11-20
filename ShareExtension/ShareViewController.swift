@@ -6,7 +6,7 @@ import UIKit
 /// The Share extension's sheet: Goodmail's own composer, holding what the other app shared, sending from any
 /// account. A message goes at once from here while the sheet shows it going; whatever can't finish waits in the
 /// app's queue, and the sheet says so before it closes (`ShareSession`). As it is written, the message is kept for the
-/// app as a draft (`ShareDrafts`), so the sheet going away unasked loses nothing.
+/// app as a draft (`DraftKeeper`), so the sheet going away unasked loses nothing.
 final class ShareViewController: UIViewController, UIAdaptivePresentationControllerDelegate {
     private enum Stage {
         /// Not on the screen yet.
@@ -106,12 +106,11 @@ final class ShareViewController: UIViewController, UIAdaptivePresentationControl
                     switch save {
                     case .now: self?.start(.saveDraft, for: draft)
                     case .asWritten:
-                        session.drafts.keep(
-                            draft, by: .now.addingTimeInterval(Double(MailActions.autosaveWait.components.seconds)))
-                    case .leaving: session.drafts.keep(draft, by: .now)
+                        session.drafts.keep(.written(draft, by: OutgoingMessage.autosave(draft, at: .now).sendAt))
+                    case .leaving: session.drafts.keep(.written(draft, by: .now))
                     }
                 },
-                deleteDraft: { session.drafts.discard($0) },
+                deleteDraft: { session.drafts.keep(.deleted($0)) },
                 send: { [weak self] draft, time in
                     switch time {
                     case .now: self?.start(.send, for: draft)
@@ -153,6 +152,7 @@ final class ShareViewController: UIViewController, UIAdaptivePresentationControl
             // Kept nowhere, and not gone: the writer is back in the message, to try again.
             progress.removeFromSuperview()
             stage = .writing(session, window)
+            window.composer?.resumeAfterFailure()
             explain(.notKept)
         }
     }

@@ -169,7 +169,9 @@ public final class ComposeViewModel {
         case .untouched: hasKept = false
         case .kept: hasKept = true
         }
-        let pause = autosavePause
+        // A draft is written whole, files and all, so one carrying large files is kept less often.
+        let large = attachments.reduce(0) { $0 + $1.size } > Self.largeAttachments
+        let pause = large ? autosavePause * 5 : autosavePause
         let task = Task { [weak self] in
             try? await Task.sleep(for: pause)
             guard !Task.isCancelled else { return }
@@ -186,6 +188,16 @@ public final class ComposeViewModel {
             return
         }
         keep(body: body, wait: .asWritten)
+    }
+
+    /// Files past this many bytes in all make autosave wait longer between versions.
+    static let largeAttachments = 1_000_000
+
+    /// The message came back to be written after its send or save failed, with nothing sent or saved: what is
+    /// written from here is kept again, and closing settles it as one that was kept.
+    public func resumeKeeping() {
+        guard case .closed = autosave else { return }
+        autosave = .kept
     }
 
     /// Waits for an edit waiting to be kept.

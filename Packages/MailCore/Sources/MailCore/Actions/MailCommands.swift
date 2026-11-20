@@ -81,9 +81,9 @@ public actor MailCommands {
     /// Keeps `draft` on the device now, and with the provider once `wait` passes since the first of the saves
     /// still waiting: what autosave calls as the writer types.
     public func autosave(_ draft: Draft, after wait: Duration) throws {
-        let date = now().addingTimeInterval(Double(wait.components.seconds))
-        try store.enqueueSave(OutgoingMessage(draft: draft, purpose: .saveDraft, sendAt: date))
-        deliver(draft.accountID, date)
+        let message = OutgoingMessage.autosave(draft, after: wait, at: now())
+        try store.enqueueSave(message)
+        deliver(draft.accountID, message.sendAt)
     }
 
     /// Removes the provider's copy of a draft: the one it was opened from, or the one autosave left. It takes the
