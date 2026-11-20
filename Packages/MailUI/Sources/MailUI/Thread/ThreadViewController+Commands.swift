@@ -39,6 +39,8 @@ extension ThreadViewController: CommandScreen {
             return .ready(perform: { model.switchLayout() }, title: model.layout.other.showTitle)
         case .print: return export(to: .print)
         case .exportPDF: return export(to: .share(.pdf))
+        case .findInConversation, .findNext, .findPrevious, .zoomIn, .zoomOut, .actualSize, .quickLook:
+            return readerAnswer(to: command)
         default: return .notHere
         }
     }

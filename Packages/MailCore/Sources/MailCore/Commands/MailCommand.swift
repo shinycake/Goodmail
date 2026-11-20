@@ -8,15 +8,23 @@ public enum MailCommand: String, CaseIterable, Sendable {
     case newMessage
     case newWindow
     case openInNewWindow
+    /// Quick Look for the attachment that is selected.
+    case quickLook
     case exportPDF
     case print
     case closeWindow
 
     case search
+    case findInConversation
+    case findNext
+    case findPrevious
     case attachFiles
     case addLink
 
     case switchLayout
+    case zoomIn
+    case zoomOut
+    case actualSize
     case showPrimary
     case showPromotions
     case showSocial
@@ -61,11 +69,13 @@ public enum MailCommand: String, CaseIterable, Sendable {
         switch self {
         case .settings: .settings
         case .newMessage, .newWindow, .openInNewWindow: .fileNew
+        case .quickLook: .fileAttachment
         case .exportPDF, .print: .fileExport
         case .closeWindow: .fileClose
-        case .search: .editFind
+        case .search, .findInConversation, .findNext, .findPrevious: .editFind
         case .attachFiles, .addLink: .editInsert
         case .switchLayout: .viewLayout
+        case .zoomIn, .zoomOut, .actualSize: .viewZoom
         case .showPrimary, .showPromotions, .showSocial, .showUpdates, .showForums: .viewCategories
         case .showCopyFields: .viewComposer
         case .getMail: .mailboxFetch
@@ -88,13 +98,23 @@ public enum MailCommand: String, CaseIterable, Sendable {
         case .newMessage: .own(KeyChord(.command, "n"))
         case .newWindow: .system(.newWindow)
         case .openInNewWindow: .own(KeyChord(.command, "o"))
+        // The Finder's key for Quick Look.
+        case .quickLook: .own(KeyChord(.command, "y"))
         case .print: .system(.print)
         case .closeWindow: .system(.close)
         case .search: .system(.findAndReplace)
+        // Find, Find Next and Find Previous have Apple's keys, on the system's own items.
+        case .findInConversation: .system(.find)
+        case .findNext: .system(.findNext)
+        case .findPrevious: .system(.findPrevious)
         case .attachFiles: .own(KeyChord([.command, .shift], "a"))
         case .addLink: .own(KeyChord(.command, "k"))
         // Goodmail's own: Mail has no chat layout.
         case .switchLayout: .own(KeyChord([.command, .shift], "k"))
+        // Zoom In and Out ride on Format > Font's Bigger and Smaller, which hold ⌘+ and ⌘−; the reader answers them.
+        case .zoomIn: .system(.biggerText)
+        case .zoomOut: .system(.smallerText)
+        case .actualSize: .own(KeyChord(.command, "0"))
         case .showCopyFields: .own(KeyChord([.command, .option], "b"))
         case .getMail: .own(KeyChord([.command, .shift], "n"))
         case .eraseTrash: .own(KeyChord([.command, .shift], .delete))
@@ -128,7 +148,8 @@ public enum MailCommand: String, CaseIterable, Sendable {
         case .newMessage, .getMail, .search, .print, .attachFiles, .switchLayout, .send, .reply, .replyAll, .forward,
             .archive, .trash, .reportSpam, .move, .changeLabels, .snooze, .markRead, .star, .pin, .mute:
             true
-        case .settings, .newWindow, .openInNewWindow, .exportPDF, .closeWindow, .addLink, .showPrimary,
+        case .settings, .newWindow, .openInNewWindow, .quickLook, .findInConversation, .findNext, .findPrevious,
+            .zoomIn, .zoomOut, .actualSize, .exportPDF, .closeWindow, .addLink, .showPrimary,
             .showPromotions, .showSocial, .showUpdates, .showForums, .showCopyFields, .eraseTrash, .sendLater,
             .forwardAsAttachment, .editAsNew, .previousThread, .nextThread, .strikethrough, .bulletedList,
             .numberedList, .increaseQuoteLevel, .decreaseQuoteLevel:

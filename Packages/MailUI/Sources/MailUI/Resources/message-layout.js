@@ -35,5 +35,7 @@ if (READER) {
   for (const el of [document.body, ...document.body.children]) resizes.observe(el);
   document.addEventListener('toggle', report, true);
   document.addEventListener('load', report, true);
+  // The view's width changes with the window and with the reader's zoom, and a wide layout fits the new width.
+  window.addEventListener('resize', () => { fit(); report(); });
   report();
 }

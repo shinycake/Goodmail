@@ -16,12 +16,15 @@ public enum MenuPlace: CaseIterable, Sendable {
     case settings
     /// New Message, New Viewer Window, Open in New Window.
     case fileNew
+    /// Quick Look for the selected attachment.
+    case fileAttachment
     case fileExport
     case fileClose
     case editFind
     /// Attach Files and Add Link, while writing.
     case editInsert
     case viewLayout
+    case viewZoom
     case viewCategories
     case viewComposer
     case mailboxFetch
@@ -39,9 +42,9 @@ public enum MenuPlace: CaseIterable, Sendable {
     public var menu: MenuBarMenu {
         switch self {
         case .settings: .application
-        case .fileNew, .fileExport, .fileClose: .file
+        case .fileNew, .fileAttachment, .fileExport, .fileClose: .file
         case .editFind, .editInsert: .edit
-        case .viewLayout, .viewCategories, .viewComposer: .view
+        case .viewLayout, .viewZoom, .viewCategories, .viewComposer: .view
         case .mailboxFetch, .mailboxErase: .mailbox
         case .messageSend, .messageAnswer, .messageAway, .messageOrganize, .messageMark, .messageNavigate: .message
         case .formatStyle, .formatLists, .formatQuote: .format

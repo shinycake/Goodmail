@@ -77,6 +77,29 @@ final class ShakeToUndoWindow: UIWindow {
         performSystemItem(.print)
     }
 
+    /// Find, Find Next and Find Previous search the open conversation; ⌘F and ⌘G are Apple's keys for them.
+    override func find(_ sender: Any?) {
+        performSystemItem(.find)
+    }
+
+    override func findNext(_ sender: Any?) {
+        performSystemItem(.findNext)
+    }
+
+    override func findPrevious(_ sender: Any?) {
+        performSystemItem(.findPrevious)
+    }
+
+    /// Format > Font > Bigger and Smaller zoom the reader while no text view has the keyboard and takes them as its
+    /// font size.
+    override func increaseSize(_ sender: Any?) {
+        performSystemItem(.biggerText)
+    }
+
+    override func decreaseSize(_ sender: Any?) {
+        performSystemItem(.smallerText)
+    }
+
     @objc func performCommand(_ command: UICommand) {
         MailCommand(command).flatMap(perform(for:))?()
     }

@@ -1,6 +1,17 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Actual Size" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "גודל מקורי"
+          }
+        }
+      }
+    },
     "Add Link…" : {
       "comment" : "Menu bar command",
       "localizations" : {
@@ -159,6 +170,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "קובץ"
+          }
+        }
+      }
+    },
+    "Find Next" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חיפוש הבא"
+          }
+        }
+      }
+    },
+    "Find Previous" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חיפוש קודם"
+          }
+        }
+      }
+    },
+    "Find in Conversation" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חיפוש בשיחה"
           }
         }
       }
@@ -517,6 +561,17 @@
         }
       }
     },
+    "Quick Look Attachment" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תצוגה מהירה של הקובץ המצורף"
+          }
+        }
+      }
+    },
     "Reply" : {
       "comment" : "Menu bar command",
       "localizations" : {
@@ -656,6 +711,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "תצוגה"
+          }
+        }
+      }
+    },
+    "Zoom In" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הגדלה"
+          }
+        }
+      }
+    },
+    "Zoom Out" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הקטנה"
           }
         }
       }

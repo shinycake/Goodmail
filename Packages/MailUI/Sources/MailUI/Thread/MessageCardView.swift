@@ -11,8 +11,15 @@ final class MessageCardView: UIView {
     var onOpenAttachment: ((Attachment) -> Void)? {
         didSet { attachments.onOpen = onOpenAttachment }
     }
+    var onSaveAttachment: ((Attachment) -> Void)? {
+        didSet { attachments.onSave = onSaveAttachment }
+    }
     var openURL: ((URL) -> Void)? {
         didSet { body.openURL = openURL }
+    }
+    /// The link the pointer is over in the body, or `nil` once it leaves (a desktop window).
+    var onHoverLink: ((URL?) -> Void)? {
+        didSet { body.onHoverLink = onHoverLink }
     }
     /// Called each time the body takes its height, which can come seconds after the card shows.
     var onBodyLayout: (() -> Void)?
@@ -95,6 +102,21 @@ final class MessageCardView: UIView {
     /// Light or dark, as the card shows now: the app's appearance, or light while the sun button holds it there.
     var shownStyle: UIUserInterfaceStyle {
         surface.traitCollection.userInterfaceStyle == .dark ? .dark : .light
+    }
+
+    /// The attachment the reader selected with a click, and what opens it in Quick Look.
+    var selectedAttachment: (attachment: Attachment, preview: () -> Void)? {
+        attachments.selectedChip.map { chip in (chip.attachment, { chip.quickLook() }) }
+    }
+
+    /// The next match of `query` in the body, as a box in this card's coordinates.
+    func findMatch(_ query: String, backwards: Bool) async -> CGRect? {
+        guard let box = await body.findMatch(query, backwards: backwards) else { return nil }
+        return body.convert(box, to: self)
+    }
+
+    func clearMatch() async {
+        await body.clearMatch()
     }
 
     func setLoading(_ loading: Bool, for attachment: Attachment) {

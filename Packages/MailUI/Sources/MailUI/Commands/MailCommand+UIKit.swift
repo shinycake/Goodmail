@@ -51,6 +51,8 @@ extension SystemMenuItem {
         case .print: .print
         case .newWindow: .newItem
         case .close: .close
+        case .find, .findNext, .findPrevious: .find
+        case .biggerText, .smallerText: .font
         }
     }
 
@@ -60,13 +62,18 @@ extension SystemMenuItem {
         switch self {
         case .findAndReplace: #selector(UIResponder.findAndReplace(_:))
         case .print: #selector(UIResponder.printContent(_:))
+        case .find: #selector(UIResponder.find(_:))
+        case .findNext: #selector(UIResponder.findNext(_:))
+        case .findPrevious: #selector(UIResponder.findPrevious(_:))
+        case .biggerText: #selector(UIResponder.increaseSize(_:))
+        case .smallerText: #selector(UIResponder.decreaseSize(_:))
         case .newWindow, .close: nil
         }
     }
 
     /// Whether the command's own item, without keys, sits in its place too: the system's item says Find and Replace,
-    /// not Search Mail. The others say what the command does.
-    public var keepsCommandItem: Bool { self == .findAndReplace }
+    /// not Search Mail, and Bigger and Smaller, not Zoom In and Zoom Out. The others say what the command does.
+    public var keepsCommandItem: Bool { [.findAndReplace, .biggerText, .smallerText].contains(self) }
 
     /// The item whose action is `action`.
     public init?(action: Selector) {

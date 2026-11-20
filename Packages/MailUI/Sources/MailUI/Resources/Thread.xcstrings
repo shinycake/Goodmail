@@ -136,6 +136,17 @@
         }
       }
     },
+    "Couldn’t Save Attachment" : {
+      "comment" : "Alert title when an attachment can't be copied to Downloads",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן לשמור את הקובץ המצורף"
+          }
+        }
+      }
+    },
     "Details" : {
       "comment" : "Shows every address a message went to",
       "localizations" : {
@@ -143,6 +154,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "פרטים"
+          }
+        }
+      }
+    },
+    "Done" : {
+      "comment" : "Closes the find bar",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סיום"
           }
         }
       }
@@ -165,6 +187,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ערוך טיוטה"
+          }
+        }
+      }
+    },
+    "Find in Conversation" : {
+      "comment" : "Placeholder of the find bar's field",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חיפוש בשיחה"
           }
         }
       }
@@ -246,6 +279,17 @@
         }
       }
     },
+    "Next Match" : {
+      "comment" : "Find bar button, with its key ⌘G in the tooltip",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "התוצאה הבאה"
+          }
+        }
+      }
+    },
     "No Message Selected" : {
       "comment" : "Shown beside the message list when no conversation is open.",
       "localizations" : {
@@ -259,6 +303,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "לא נבחרה הודעה"
+          }
+        }
+      }
+    },
+    "Not Found" : {
+      "comment" : "Find bar: the words aren't in any open letter",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא נמצא"
           }
         }
       }
@@ -307,6 +362,28 @@
         }
       }
     },
+    "Previous Match" : {
+      "comment" : "Find bar button, with its key ⇧⌘G in the tooltip",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "התוצאה הקודמת"
+          }
+        }
+      }
+    },
+    "Quick Look" : {
+      "comment" : "Context menu of an attachment: previews it",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תצוגה מהירה"
+          }
+        }
+      }
+    },
     "Quote: %@" : {
       "comment" : "VoiceOver: lines a message answers inline",
       "localizations" : {
@@ -347,6 +424,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "בתגובה ל%1$@: %2$@"
+          }
+        }
+      }
+    },
+    "Save to Downloads" : {
+      "comment" : "Context menu of an attachment: copies it to the Downloads folder",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שמירה בהורדות"
+          }
+        }
+      }
+    },
+    "Saved “%@” to Downloads" : {
+      "comment" : "Pill at the bottom of the reader; the argument is the attachment's file name",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‏“%@” נשמר בהורדות"
           }
         }
       }

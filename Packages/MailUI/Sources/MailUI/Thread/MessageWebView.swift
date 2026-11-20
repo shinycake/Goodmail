@@ -13,6 +13,8 @@ final class MessageWebView: UIView {
     /// Reports the body's height, and whether it holds remote content that is being blocked.
     var onLayout: ((_ height: CGFloat, _ hasBlockedRemoteContent: Bool) -> Void)?
     var openURL: ((URL) -> Void)?
+    /// The link the pointer is over, or `nil` once it leaves. Only a desktop window reports it.
+    var onHoverLink: ((URL?) -> Void)?
 
     private let webView: WKWebView
     /// The message's new words, shown at once while the web view starts, which can take seconds; the first height
@@ -21,6 +23,9 @@ final class MessageWebView: UIView {
     private let messageHandler: MessageHandler
     private let cidHandler: CIDSchemeHandler
     private var heightConstraint: NSLayoutConstraint!
+    /// The body's height as the page measures it, before the reader's zoom scales it into points.
+    private var contentHeight: CGFloat = 1
+    private var appliedZoom = ReaderZoom.standard
     private var content: Content?
     /// Applies the latest `show`. A newer one cancels it, so a slow first rule compile can't load stale content.
     private var loading: Task<Void, Never>?
@@ -104,13 +109,64 @@ final class MessageWebView: UIView {
     /// The words that show while the body loads, or nil once it has its height.
     var previewText: String? { preview.isHidden ? nil : preview.text }
 
-    /// Takes what the script reports: the body's height, and whether it blocked remote content.
+    /// Takes what the script reports: the body's height, whether it blocked remote content, or a link under the pointer.
     func handle(_ body: Any) {
-        guard let body = body as? [String: Any], let height = body["height"] as? Double else { return }
-        heightConstraint.constant = max(1, height)
-        preview.isHidden = true
-        let hasRemote = body["hasRemote"] as? Bool ?? false
-        onLayout?(heightConstraint.constant, hasRemote && content?.allowsRemoteContent == false)
+        switch MessageReport(body) {
+        case .layout(let height, let hasRemote):
+            contentHeight = height
+            sizeToContent()
+            preview.isHidden = true
+            onLayout?(heightConstraint.constant, hasRemote && content?.allowsRemoteContent == false)
+        case .hover(let link):
+            // A touch window's tap on a link would report a hover that never ends.
+            if traitCollection.interactionStyle == .desktop { onHoverLink?(link) }
+        case nil:
+            break
+        }
+    }
+
+    /// The reader's zoom is a setting of this device that every message view follows (`ReaderZoomModel`).
+    override func updateProperties() {
+        super.updateProperties()
+        let zoom = ReaderZoomModel.shared.zoom
+        guard zoom != appliedZoom else { return }
+        appliedZoom = zoom
+        webView.pageZoom = zoom.factor
+        sizeToContent()
+    }
+
+    /// The page lays out in its own units, which the zoom scales into points; the page reports again once the new
+    /// width has reflowed it.
+    private func sizeToContent() {
+        heightConstraint.constant = max(1, contentHeight * appliedZoom.factor)
+    }
+
+    /// Finds the next match of `query` in this message and returns its box in this view's coordinates, or `nil` when
+    /// it has none from the current match on. A match the page can't place is given the message's top.
+    func findMatch(_ query: String, backwards: Bool) async -> CGRect? {
+        let configuration = WKFindConfiguration()
+        configuration.backwards = backwards
+        configuration.caseSensitive = false
+        // Wrapping is the find bar's call: it tries the other messages first (`FindOrder`).
+        configuration.wraps = false
+        guard let result = try? await webView.find(query, configuration: configuration), result.matchFound else {
+            return nil
+        }
+        let box = try? await webView.evaluateJavaScript(
+            "window.goodmailFind.matchBox()", contentWorld: PreparedWebView.world)
+        guard let numbers = box as? [Double], numbers.count == 4 else {
+            return CGRect(x: 0, y: 0, width: bounds.width, height: 1)
+        }
+        let scale = webView.pageZoom
+        let inWebView = CGRect(
+            x: numbers[0] * scale, y: numbers[1] * scale, width: numbers[2] * scale, height: numbers[3] * scale)
+        return webView.convert(inWebView, to: self)
+    }
+
+    /// Forgets the match this message shows.
+    func clearMatch() async {
+        _ = try? await webView.evaluateJavaScript(
+            "window.goodmailFind.clear()", contentWorld: PreparedWebView.world)
     }
 }
 

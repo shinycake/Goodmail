@@ -57,6 +57,16 @@ struct MailCommandTests {
         }
     }
 
+    @Test("The reader's Find and Zoom keep Apple's keys, and Search Mail keeps its own")
+    func readerKeys() {
+        #expect(MailCommand.findInConversation.keys.chord == KeyChord(.command, "f"))
+        #expect(MailCommand.findNext.keys.chord == KeyChord(.command, "g"))
+        #expect(MailCommand.findPrevious.keys.chord == KeyChord([.command, .shift], "g"))
+        #expect(MailCommand.quickLook.keys.chord == KeyChord(.command, "y"))
+        #expect(MailCommand.actualSize.keys.chord == KeyChord(.command, "0"))
+        #expect(MailCommand.search.keys.chord == KeyChord([.command, .option], "f"))
+    }
+
     @Test("Each answer and category command names what it does")
     func answersAndCategories() {
         #expect(MailCommand.allCases.compactMap(\.answer) == Answer.allCommandOrder)

@@ -85,6 +85,16 @@ public enum SystemMenuItem: CaseIterable, Sendable {
     case newWindow
     /// File > Close, which closes the window by itself.
     case close
+    /// Edit > Find > Find, which holds ⌘F.
+    case find
+    /// Edit > Find > Find Next.
+    case findNext
+    /// Edit > Find > Find Previous.
+    case findPrevious
+    /// Format > Font > Bigger, which the reader answers by zooming in.
+    case biggerText
+    /// Format > Font > Smaller.
+    case smallerText
 
     public var keys: KeyChord {
         switch self {
@@ -92,6 +102,13 @@ public enum SystemMenuItem: CaseIterable, Sendable {
         case .print: KeyChord(.command, "p")
         case .newWindow: KeyChord([.command, .option], "n")
         case .close: KeyChord(.command, "w")
+        case .find: KeyChord(.command, "f")
+        case .findNext: KeyChord(.command, "g")
+        case .findPrevious: KeyChord([.command, .shift], "g")
+        // ⌘= and not ⌘+, which is typed with Shift and so reaches a key command as another chord; the menu bar's own
+        // item answers to both.
+        case .biggerText: KeyChord(.command, "=")
+        case .smallerText: KeyChord(.command, "-")
         }
     }
 }

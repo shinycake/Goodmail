@@ -14,6 +14,8 @@ extension MailCommand {
             String(localized: "New Viewer Window", table: "Keyboard", bundle: .module, comment: "Menu bar command")
         case .openInNewWindow:
             String(localized: "Open in New Window", table: "Keyboard", bundle: .module, comment: "Menu bar command")
+        case .quickLook:
+            String(localized: "Quick Look Attachment", table: "Keyboard", bundle: .module, comment: "Menu bar command")
         case .exportPDF:
             String(localized: "Export as PDF…", table: "Keyboard", bundle: .module, comment: "Menu bar command")
         case .print:
@@ -22,12 +24,24 @@ extension MailCommand {
             String(localized: "Close Window", table: "Keyboard", bundle: .module, comment: "Menu bar command")
         case .search:
             String(localized: "Search Mail", table: "Keyboard", bundle: .module, comment: "Menu bar command")
+        case .findInConversation:
+            String(localized: "Find in Conversation", table: "Keyboard", bundle: .module, comment: "Menu bar command")
+        case .findNext:
+            String(localized: "Find Next", table: "Keyboard", bundle: .module, comment: "Menu bar command")
+        case .findPrevious:
+            String(localized: "Find Previous", table: "Keyboard", bundle: .module, comment: "Menu bar command")
         case .attachFiles:
             String(localized: "Attach Files…", table: "Keyboard", bundle: .module, comment: "Menu bar command")
         case .addLink:
             String(localized: "Add Link…", table: "Keyboard", bundle: .module, comment: "Menu bar command")
         case .switchLayout:
             String(localized: "Show as Chat", table: "Keyboard", bundle: .module, comment: "Menu bar command")
+        case .zoomIn:
+            String(localized: "Zoom In", table: "Keyboard", bundle: .module, comment: "Menu bar command")
+        case .zoomOut:
+            String(localized: "Zoom Out", table: "Keyboard", bundle: .module, comment: "Menu bar command")
+        case .actualSize:
+            String(localized: "Actual Size", table: "Keyboard", bundle: .module, comment: "Menu bar command")
         case .showPrimary: InboxCategory.primary.title
         case .showPromotions: InboxCategory.promotions.title
         case .showSocial: InboxCategory.social.title

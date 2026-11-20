@@ -20,7 +20,7 @@ nonisolated enum MessageScript {
 
     /// The parts after `shared`, in the order they run. The order matters for what each leaves in the page: the fold
     /// comes before contrast, which skips our fold control, and layout comes last, since it measures the finished page.
-    private static let parts = ["direction", "fold", "fonts", "contrast", "dark", "layout"]
+    private static let parts = ["direction", "fold", "fonts", "contrast", "dark", "links", "find", "layout"]
 
     /// The script after its header, read from the bundle once. A part missing from the bundle is a broken build, so it
     /// stops the app rather than show mail without its script.

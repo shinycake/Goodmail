@@ -15,8 +15,8 @@ public final class ThreadViewController: UIViewController {
             localized: "Edit Draft", table: "Thread", bundle: .module, comment: "Opens a saved draft to finish it"),
         image: UIImage(systemName: "square.and.pencil"),
         primaryAction: UIAction { [weak self] _ in self?.viewModel.editDraft() })
-    private let scrollView = UIScrollView()
-    private let stack = UIStackView()
+    let scrollView = UIScrollView()
+    let stack = UIStackView()
     private let subject = UILabel()
     private let metadata = UILabel()
     private var cards: [Message.ID: MessageCardView] = [:]
@@ -49,6 +49,11 @@ public final class ThreadViewController: UIViewController {
     private lazy var unsubscribeBanner = UnsubscribeBanner()
     /// The reader's request to leave the list, cancelled if the reader leaves first.
     private var unsubscribing: Task<Void, Never>?
+    /// The glass pill that shows a hovered link's address, and the find bar under the top bar (desktop windows).
+    let readerPill = ReaderPill()
+    let findBar = ConversationFindBar()
+    let find = ConversationFind()
+    let downloads = DownloadsSaver()
     /// The Share menu: the conversation as files to share, or printed.
     lazy var exporter = ConversationExporter(presenter: self)
     lazy var shareItem = exporter.shareItem { [weak self] in self?.exportedConversation }
@@ -124,6 +129,7 @@ public final class ThreadViewController: UIViewController {
             stack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -24),
         ])
 
+        installReaderOverlays()
         subject.setSubjectText(displaySubject)
         observation = Task { [viewModel] in await viewModel.observe() }
     }
@@ -212,6 +218,8 @@ public final class ThreadViewController: UIViewController {
     /// toolbar's place; letters keep the large subject header and the toolbar.
     private func applyLayout(_ layout: ConversationLayout) {
         let chat = layout == .chat
+        // The chat's bubbles aren't letters the find bar searches.
+        if chat { find.close() }
         NSLayoutConstraint.deactivate(chat ? readableWidth : chatWidth)
         NSLayoutConstraint.activate(chat ? chatWidth : readableWidth)
         stack.arrangedSubviews.first?.isHidden = chat
@@ -447,6 +455,7 @@ public final class ThreadViewController: UIViewController {
         let id = reply.letterID
         let view = PendingLetterView(attachmentData: viewModel.attachmentData)
         view.card.openURL = openURL
+        wireDesktop(view.card, message: id)
         view.card.onBodyLayout = { [weak self, replyID = reply.id] in self?.letterLaidOut(replyID) }
         view.card.onOpenAttachment = { [weak self, weak view] attachment in
             self?.open(attachment, in: id) { view?.card.setLoading($0, for: attachment) }
@@ -517,6 +526,7 @@ public final class ThreadViewController: UIViewController {
         card.onAllowRemoteContent = { [weak self] in self?.viewModel.allowRemoteContent(in: id) }
         card.onTrust = { [weak self] in self?.viewModel.alwaysAllowRemoteContent(by: $0) }
         card.openURL = openURL
+        wireDesktop(card, message: id)
         card.onOpenAttachment = { [weak self, weak card] attachment in
             self?.open(attachment, in: id) { card?.setLoading($0, for: attachment) }
         }

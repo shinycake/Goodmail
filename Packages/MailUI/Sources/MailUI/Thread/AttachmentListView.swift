@@ -5,8 +5,13 @@ import UniformTypeIdentifiers
 /// A message's files, one glass capsule each: an icon for the kind of file, its name and its size.
 final class AttachmentListView: UIStackView {
     var onOpen: ((Attachment) -> Void)?
+    /// Save to Downloads, on a desktop window's context menu.
+    var onSave: ((Attachment) -> Void)?
     private var attachments: [Attachment] = []
-    private var buttons: [String: UIButton] = [:]
+    private var buttons: [String: ReaderAttachmentChip] = [:]
+
+    /// The chip the reader selected on a desktop window, which has the keyboard.
+    var selectedChip: ReaderAttachmentChip? { buttons.values.first(where: \.isFirstResponder) }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -29,8 +34,9 @@ final class AttachmentListView: UIStackView {
         for view in arrangedSubviews { view.removeFromSuperview() }
         buttons = [:]
         for attachment in attachments {
-            let button = UIButton(configuration: Self.configuration(for: attachment))
-            button.addAction(UIAction { [weak self] _ in self?.onOpen?(attachment) }, for: .primaryActionTriggered)
+            let button = ReaderAttachmentChip(attachment: attachment)
+            button.onOpen = { [weak self] in self?.onOpen?(attachment) }
+            button.onSave = { [weak self] in self?.onSave?(attachment) }
             button.accessibilityLabel = "\(attachment.filename), \(Self.sizeText(attachment.size))"
             button.accessibilityUserInputLabels = [attachment.filename]
             buttons[attachment.id] = button
