@@ -25,7 +25,10 @@ public final class ComposeViewController: UIViewController {
     private let suggestionList = UIStackView()
     /// Looking up the people for the last keystroke; a newer keystroke replaces it.
     private var suggestionLookup: Task<Void, Never>?
-    private let attachmentsView = ComposeAttachmentsView()
+    let attachmentsView = ComposeAttachmentsView()
+    /// Takes in what is dragged in from other apps or pasted: words where the caret is, files attached.
+    lazy var intake = ContentIntake(
+        room: { [unowned self] in viewModel.attachmentRoom }, receive: { [unowned self] in receive($0) })
     private let sendItem = UIBarButtonItem()
     private let fromButton = UIButton(configuration: .plain())
     /// Takes files from Photos, Files, the camera and the scanner.
@@ -77,6 +80,7 @@ public final class ComposeViewController: UIViewController {
         bodyView.isScrollEnabled = false
         bodyView.allowsEditingTextAttributes = true
         configureFormatting()
+        acceptDrops()
         bodyView.textContainerInset = UIEdgeInsets(top: 12, left: 0, bottom: 12, right: 0)
         bodyView.textContainer.lineFragmentPadding = 0
         bodyView.delegate = self
@@ -451,7 +455,7 @@ public final class ComposeViewController: UIViewController {
                 comment: "Accessibility label of the open fold")
     }
 
-    private func fieldChanged() {
+    func fieldChanged() {
         viewModel.subject = subjectField.text ?? ""
         updateSendEnabled()
     }

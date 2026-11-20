@@ -36,6 +36,10 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
     private let expandButton = UIButton(configuration: .plain())
     private let attachmentsView = ComposeAttachmentsView()
     private lazy var picker = AttachmentPicker { [weak self] in self?.attach($0) }
+    /// Takes in what is dragged in from other apps or pasted: words where the caret is, files attached.
+    private(set) lazy var intake = ContentIntake(
+        room: { [unowned self] in ComposeViewModel.attachmentLimit - attachments.reduce(0) { $0 + $1.size } },
+        accepts: { [unowned self] in !isHidden }, receive: { [unowned self] in receive($0) })
     private lazy var textHeight = textView.heightAnchor.constraint(equalToConstant: 36)
     /// The tray above the attachments and the field; a hidden row takes no room.
     private lazy var column = UIStackView(arrangedSubviews: [actionsGlass, attachmentsView, row])
@@ -205,6 +209,7 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
         textView.backgroundColor = .clear
         textView.isScrollEnabled = false
         textView.delegate = self
+        intake.accept(in: textView)
         textView.textContainerInset = UIEdgeInsets(top: 7, left: 0, bottom: 7, right: 0)
         textView.accessibilityLabel = String(
             localized: "Message", table: "Thread", bundle: .module,
@@ -349,6 +354,24 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
     private func attach(_ attachment: DraftAttachment) {
         attachments.append(attachment)
         attachmentsChanged()
+    }
+
+    /// Puts what was dropped on the conversation into the reply: words where the caret is, files while they fit.
+    func receive(_ loaded: SharedItems.Loaded) {
+        let text = loaded.content.body
+        if !text.isEmpty { textView.insertText(text) }
+        var room = ComposeViewModel.attachmentLimit - attachments.reduce(0) { $0 + $1.size }
+        var leftOut = loaded.leftOutFiles
+        for file in loaded.content.files {
+            guard file.size <= room else {
+                leftOut = true
+                continue
+            }
+            room -= file.size
+            attachments.append(file)
+        }
+        if !loaded.content.files.isEmpty { attachmentsChanged() }
+        if leftOut { presenter?.present(UIAlertController.fileTooLarge(), animated: true) }
     }
 
     private func attachmentsChanged() {

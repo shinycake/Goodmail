@@ -30,12 +30,12 @@ final class SceneCoordinator: NSObject {
     /// The screen receiving accounts from another device, so a code the Camera app opens while it's up goes to it.
     var receivingTransfer: ReceivingTransfer?
     /// The window's root, which holds the mail screens and the messages minimized below them.
-    private let drafts = DraftShelfViewController()
+    let drafts = DraftShelfViewController()
     /// Names this window's minimized messages in the database. Fresh each launch, so the next one finds them unclaimed.
     private let windowID = UUID().uuidString
     /// What the mail screens show, kept so either arrangement can be rebuilt when the window changes width, and
     /// saved for the system to restore the window or hand it off (`activity`).
-    private var shown: WindowState {
+    private(set) var shown: WindowState {
         didSet { if shown != oldValue { publishActivity() } }
     }
 
@@ -54,6 +54,7 @@ final class SceneCoordinator: NSObject {
         window.windowAction = { [weak self] in self?.windowAction(for: $0) }
         actions.reopen = { [weak self] draft in self?.handle(.compose(draft)) }
         drafts.newMessage = { [weak self] account in self?.handle(.compose(Draft(accountID: account))) }
+        drafts.newMessageHolding = { [weak self] in self?.compose(holding: $0) }
         drafts.keep = { [minimized = model.minimizedDrafts, window = windowID] in minimized.keep($0, for: window) }
     }
 
@@ -494,8 +495,8 @@ final class SceneCoordinator: NSObject {
 
     /// A composer for `draft` in this window, which can move into a window of its own, or `nil` once its account is
     /// gone.
-    private func composer(for draft: Draft) -> ComposeViewController? {
-        let composer = model.composer(for: draft, actions: actions)
+    func composer(for draft: Draft, shared: String = "") -> ComposeViewController? {
+        let composer = model.composer(for: draft, shared: shared, actions: actions)
         composer?.openInOwnWindow = { [weak self] in self?.openComposeWindow(for: $0) }
         return composer
     }

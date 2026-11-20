@@ -1,29 +1,43 @@
-import Foundation
-import MailCore
+public import Foundation
+public import MailCore
 import UniformTypeIdentifiers
 
-/// Reads what another app shared into a `SharedContent`. The item providers belong to the main actor, but each one
-/// loads and hands over its file on a queue of its own, so no file is read on the main actor. A page from Safari comes with its title
-/// (ShareScript.js), a link or text as itself, and anything else as a file. Files are read only while the message
-/// stays within what Gmail accepts (`limit`), so a long video is never loaded into the extension's small memory.
-enum SharedItems {
+/// Reads what another app shared, dropped or pasted into a `SharedContent`. The item providers belong to the main
+/// actor, but each one loads and hands over its file on a queue of its own, so no file is read on the main actor. A
+/// page from Safari's share sheet comes with its title (ShareScript.js), a link or text as itself, and anything else
+/// as a file. Files are read only while the message stays within what Gmail accepts (`limit`), so a long video is
+/// never loaded into the Share extension's small memory.
+public enum SharedItems {
     /// What came, and whether some file was left out for its size.
-    struct Loaded {
-        var content: SharedContent
-        var leftOutFiles: Bool
+    public struct Loaded: Sendable {
+        public var content: SharedContent
+        public var leftOutFiles: Bool
     }
 
-    /// The parts of the extension's items.
-    struct Request {
-        var title: String?
-        var texts: [String]
-        var providers: [NSItemProvider]
+    /// What to read: the title and texts that came beside the items, as a share sheet's do, and the items.
+    public struct Request {
+        public var title: String?
+        public var texts: [String]
+        public var providers: [NSItemProvider]
 
-        init(_ items: [NSExtensionItem]) {
-            title = items.lazy.compactMap { $0.attributedTitle?.string }.first { !$0.isEmpty }
-            texts = items.compactMap { $0.attributedContentText?.string }
-            providers = items.flatMap { $0.attachments ?? [] }
+        public init(title: String? = nil, texts: [String] = [], providers: [NSItemProvider]) {
+            self.title = title
+            self.texts = texts
+            self.providers = providers
         }
+    }
+
+    /// Whether the provider holds words to write in the message, a link or text the app wrote, rather than a file to
+    /// attach. The same order as `piece(of:room:)` reads it in.
+    static func holdsWords(_ provider: NSItemProvider) -> Bool {
+        let types = provider.registeredContentTypes
+        return types.contains(where: isLink)
+            || (provider.suggestedName == nil && types.contains { $0.conforms(to: .plainText) })
+    }
+
+    /// A web address, not a file's.
+    private static func isLink(_ type: UTType) -> Bool {
+        type.conforms(to: .url) && !type.conforms(to: .fileURL)
     }
 
     private enum Piece: Sendable {
@@ -35,7 +49,7 @@ enum SharedItems {
         case tooLarge
     }
 
-    static func load(_ request: Request, limit: Int) async -> Loaded {
+    public static func load(_ request: Request, limit: Int) async -> Loaded {
         var content = SharedContent(title: request.title)
         var texts = request.texts
         var leftOut = false
@@ -63,7 +77,7 @@ enum SharedItems {
     private static func piece(of provider: NSItemProvider, room: Int) async -> Piece? {
         let types = provider.registeredContentTypes
         if types.contains(.propertyList), let page = await page(from: provider) { return page }
-        if types.contains(where: { $0.conforms(to: .url) && !$0.conforms(to: .fileURL) }),
+        if types.contains(where: isLink),
             let url = await object(URL.self, from: provider)
         {
             return url.isFileURL ? await file(of: provider, types: types, room: room) : .link(url)
