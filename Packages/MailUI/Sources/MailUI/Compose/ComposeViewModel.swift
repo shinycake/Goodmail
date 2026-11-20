@@ -25,7 +25,10 @@ public final class ComposeViewModel {
     /// A draft that comes back with text, after Undo or a failed send, holds work closing would lose.
     @ObservationIgnored let isRestored: Bool
     @ObservationIgnored private var autosave: Autosave = .untouched
-    /// How long typing rests before the draft is kept on the device.
+    /// Runs after each version autosave or leaving the screen keeps, for the composer's host to keep what it holds of
+    /// the message in step.
+    @ObservationIgnored var didKeep: (() -> Void)?
+    /// How long after an edit the draft is kept on the device, so a crash loses at most that much writing.
     @ObservationIgnored private let autosavePause: Duration
 
     /// Where the draft stands with autosave. Only the methods below move it.
@@ -34,8 +37,10 @@ public final class ComposeViewModel {
         case untouched
         /// A version was kept, which closing must settle: the writer's choice, or putting back what was opened.
         case kept
-        /// An edit is waiting for typing to rest, then is kept; `hasKept` says whether an earlier version was.
-        case waiting(Task<Void, Never>, hasKept: Bool)
+        /// An edit is waiting to be kept, as `body` reads the message when the wait ends; `hasKept` says whether an
+        /// earlier version was. Later edits join the wait rather than restart it, so typing that never rests is
+        /// still kept.
+        case waiting(Task<Void, Never>, body: () -> MessageBody?, hasKept: Bool)
         /// The composer is closing; nothing more is kept.
         case closed
     }
@@ -49,7 +54,7 @@ public final class ComposeViewModel {
         draft: Draft, accountEmail: String, senders: [Account] = [], shared: String = "",
         signature: @escaping (AccountID) -> String? = { _ in nil },
         suggest: @escaping (String) async -> [Contact] = { _ in [] }, saveDraft: ((Draft, DraftSave) -> Void)? = nil,
-        deleteDraft: @escaping (Draft) -> Void = { _ in }, autosavePause: Duration = .seconds(2),
+        deleteDraft: @escaping (Draft) -> Void = { _ in }, autosavePause: Duration = .seconds(1),
         send: @escaping (Draft, SendTime) -> Void
     ) {
         self.autosavePause = autosavePause
@@ -154,29 +159,53 @@ public final class ComposeViewModel {
         deleteAction(draft)
     }
 
-    /// Something changed: once typing rests, the draft is kept, if it differs from how it opened. `body` reads it
-    /// as it is then, `nil` once the editor is gone.
+    /// Something changed: the draft is kept a moment later, as `body` reads it then (`nil` once the editor is
+    /// gone), if it differs from how it opened. Edits during the wait are kept with it.
     public func edited(body: @escaping () -> MessageBody?) {
         guard saveAction != nil else { return }
-        let pause = autosavePause
+        let hasKept: Bool
+        switch autosave {
+        case .closed: return
+        case .waiting(let task, _, let kept):
+            autosave = .waiting(task, body: body, hasKept: kept)
+            return
+        case .untouched: hasKept = false
+        case .kept: hasKept = true
+        }
+        // A draft is written whole, files and all, so one carrying large files is kept less often.
+        let large = attachments.reduce(0) { $0 + $1.size } > Self.largeAttachments
+        let pause = large ? autosavePause * 5 : autosavePause
         let task = Task { [weak self] in
             try? await Task.sleep(for: pause)
-            guard !Task.isCancelled, let body = body() else { return }
-            self?.keep(body: body, wait: .asWritten)
+            guard !Task.isCancelled else { return }
+            self?.keepWaitingEdit()
         }
-        switch autosave {
-        case .closed: task.cancel()
-        case .untouched: autosave = .waiting(task, hasKept: false)
-        case .kept: autosave = .waiting(task, hasKept: true)
-        case .waiting(let earlier, let hasKept):
-            earlier.cancel()
-            autosave = .waiting(task, hasKept: hasKept)
+        autosave = .waiting(task, body: body, hasKept: hasKept)
+    }
+
+    /// The wait after an edit ended: the message is kept as it reads now.
+    private func keepWaitingEdit() {
+        guard case .waiting(_, let read, let hasKept) = autosave else { return }
+        guard let body = read() else {
+            autosave = hasKept ? .kept : .untouched
+            return
         }
+        keep(body: body, wait: .asWritten)
+    }
+
+    /// Files past this many bytes in all make autosave wait longer between versions.
+    static let largeAttachments = 1_000_000
+
+    /// The message came back to be written after its send or save failed, with nothing sent or saved: what is
+    /// written from here is kept again, and closing settles it as one that was kept.
+    public func resumeKeeping() {
+        guard case .closed = autosave else { return }
+        autosave = .kept
     }
 
     /// Waits for an edit waiting to be kept.
     func settleAutosave() async {
-        if case .waiting(let task, _) = autosave { await task.value }
+        if case .waiting(let task, _, _) = autosave { await task.value }
     }
 
     /// The app is leaving the screen: keeps the draft with the provider now, in case it isn't reopened.
@@ -193,7 +222,7 @@ public final class ComposeViewModel {
         case .closed: return
         case .untouched: hasKept = false
         case .kept: hasKept = true
-        case .waiting(let task, let kept):
+        case .waiting(let task, _, let kept):
             task.cancel()
             hasKept = kept
         }
@@ -203,6 +232,7 @@ public final class ComposeViewModel {
         }
         saveAction(finished(body: body), wait)
         autosave = .kept
+        didKeep?()
     }
 
     /// Closes without a change. A version autosave kept is undone: the copy it was opened from is put back, or the
@@ -210,7 +240,7 @@ public final class ComposeViewModel {
     public func closeUnchanged() {
         let hasKept =
             switch autosave {
-            case .kept, .waiting(_, hasKept: true): true
+            case .kept, .waiting(_, _, hasKept: true): true
             case .untouched, .waiting, .closed: false
             }
         close()
@@ -219,7 +249,7 @@ public final class ComposeViewModel {
     }
 
     private func close() {
-        if case .waiting(let task, _) = autosave { task.cancel() }
+        if case .waiting(let task, _, _) = autosave { task.cancel() }
         autosave = .closed
     }
 

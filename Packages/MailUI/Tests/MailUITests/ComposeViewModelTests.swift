@@ -125,7 +125,7 @@ struct ComposeViewModelTests {
         #expect(deleted?.savedDraft == draft.savedDraft)
     }
 
-    @Test func autosaveKeepsTheDraftOnceTypingRestsAndOnlyWhenItChanged() async {
+    @Test func autosaveKeepsTheLatestDraftAMomentAfterAnEditAndOnlyWhenItChanged() async {
         var saves: [(Draft, DraftSave)] = []
         let model = ComposeViewModel(
             draft: Draft(accountID: account), accountEmail: "me@example.com",
@@ -137,7 +137,7 @@ struct ComposeViewModelTests {
         model.edited { MessageBody(plain: "H") }
         model.edited { MessageBody(plain: "Hi") }
         await model.settleAutosave()
-        #expect(saves.map(\.0.body.plain) == ["Hi"], "the earlier edit was overtaken")
+        #expect(saves.map(\.0.body.plain) == ["Hi"], "the edit made during the wait is kept with it")
         #expect(saves.map(\.1) == [.asWritten])
 
         model.keepNow(body: MessageBody(plain: "Hi there"))
@@ -146,6 +146,39 @@ struct ComposeViewModelTests {
         model.edited { MessageBody(plain: "after closing") }
         await model.settleAutosave()
         #expect(saves.count == 2, "nothing is kept once it closes")
+    }
+
+    @Test func typingThatNeverRestsIsStillKept() async throws {
+        var saves: [String?] = []
+        let model = ComposeViewModel(
+            draft: Draft(accountID: account), accountEmail: "me@example.com",
+            saveDraft: { draft, _ in saves.append(draft.body.plain) }, autosavePause: .milliseconds(100),
+            send: { _, _ in })
+        var typed = ""
+        for letter in "Hello there" {
+            typed.append(letter)
+            let now = typed
+            model.edited { MessageBody(plain: now) }
+            try await Task.sleep(for: .milliseconds(30))
+        }
+        #expect(!saves.isEmpty, "kept while the typing went on, not once it stopped")
+    }
+
+    @Test func aMessageBackAfterAFailedSendIsKeptAgain() async {
+        var saves: [String?] = []
+        let model = ComposeViewModel(
+            draft: Draft(accountID: account, to: [Contact(name: "", address: "a@example.com")]),
+            accountEmail: "me@example.com", saveDraft: { draft, _ in saves.append(draft.body.plain) },
+            autosavePause: .zero, send: { _, _ in })
+        model.send(body: MessageBody(plain: "Hi"))
+        model.edited { MessageBody(plain: "Hi again") }
+        await model.settleAutosave()
+        #expect(saves.isEmpty, "nothing is kept once it went")
+
+        model.resumeKeeping()
+        model.edited { MessageBody(plain: "Hi again") }
+        await model.settleAutosave()
+        #expect(saves == ["Hi again"])
     }
 
     @Test func closingUnchangedAfterAnAutosaveUndoesIt() async {

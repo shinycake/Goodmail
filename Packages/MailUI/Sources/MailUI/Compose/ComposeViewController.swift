@@ -41,6 +41,10 @@ public final class ComposeViewController: UIViewController {
     public init(viewModel: ComposeViewModel) {
         self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
+        viewModel.didKeep = { [weak self] in
+            guard let self else { return }
+            host?.composerKept(self)
+        }
     }
 
     @available(*, unavailable)
@@ -461,7 +465,7 @@ public final class ComposeViewController: UIViewController {
         bodyView.typingAttributes = RichText.plainAttributes(font: bodyFont)
     }
 
-    /// Called after every change: Send follows whether it can go, and autosave keeps the draft once typing rests.
+    /// Called after every change: Send follows whether it can go, and autosave keeps the draft a moment later.
     func updateSendEnabled() {
         sendItem.isEnabled = viewModel.canSend
         viewModel.edited { [weak self] in self?.body }
@@ -563,6 +567,22 @@ public final class ComposeViewController: UIViewController {
         fieldChanged()
         viewModel.saveDraft(body: body)
         close()
+    }
+
+    /// The host took the message back after its send or save failed: writing goes on, kept as it is written.
+    public func resumeAfterFailure() {
+        viewModel.resumeKeeping()
+    }
+
+    /// The writer dismissed the message where it can't be minimized, as by dragging a share sheet down: one with
+    /// something in it is saved to Drafts, one without closes, kept nowhere.
+    public func dismissKeepingDraft() {
+        fieldChanged()
+        guard viewModel.canSaveDraft, viewModel.hasChanges(body: body) else {
+            viewModel.closeUnchanged()
+            return close()
+        }
+        saveDraft()
     }
 
     /// Takes the message off this window, as written so far, for a window of its own to go on with it. Nothing is
