@@ -30,22 +30,29 @@ extension ComposeViewController {
     }
 
     /// Makes the words dropped at `range` a quote of their own: on lines apart from the text around them, quoted one
-    /// level deeper, with the caret after them to write on.
+    /// level deeper, with the caret after them to write on. The spaces that kept them apart from the words around
+    /// them become those line breaks.
     func quoteDropped(_ range: NSRange) {
         let text = bodyView.textStorage.string as NSString
+        let isSpace = { (index: Int) in text.character(at: index) == 0x20 }
         var words = range
-        // The spaces that kept them apart from the words around them aren't part of the quote.
-        while words.length > 0, text.character(at: words.location) == 0x20 {
+        while words.length > 0, isSpace(words.location) {
             words = NSRange(location: words.location + 1, length: words.length - 1)
         }
-        while words.length > 0, text.character(at: NSMaxRange(words) - 1) == 0x20 { words.length -= 1 }
+        while words.length > 0, isSpace(NSMaxRange(words) - 1) { words.length -= 1 }
         guard words.length > 0 else { return }
-        if NSMaxRange(words) < text.length, !Self.isLineBreak(text.character(at: NSMaxRange(words))) {
-            breakLine(at: NSMaxRange(words))
+        // The spaces on either side, out to the words around them.
+        var after = NSMaxRange(words)
+        while after < text.length, isSpace(after) { after += 1 }
+        var before = words.location
+        while before > 0, isSpace(before - 1) { before -= 1 }
+        // The end first, so the start's place holds.
+        if after < text.length, !Self.isLineBreak(text.character(at: after)) {
+            breakLine(replacing: NSRange(location: NSMaxRange(words), length: after - NSMaxRange(words)))
         }
-        if words.location > 0, !Self.isLineBreak(text.character(at: words.location - 1)) {
-            breakLine(at: words.location)
-            words.location += 1
+        if before > 0, !Self.isLineBreak(text.character(at: before - 1)) {
+            breakLine(replacing: NSRange(location: before, length: words.location - before))
+            words.location = before + 1
         }
         bodyView.selectedRange = words
         applyFormatting(.quote(.increase))
@@ -57,14 +64,14 @@ extension ComposeViewController {
         character == 0x0A || character == 0x2029 || character == 0x2028
     }
 
-    /// Starts a new paragraph at `location`, in the look of the text before it.
-    private func breakLine(at location: Int) {
+    /// Starts a new paragraph in place of `range`, in the look of the text before it.
+    private func breakLine(replacing range: NSRange) {
         let storage = bodyView.textStorage
         let attributes =
             storage.length == 0
-            ? bodyView.typingAttributes : storage.attributes(at: max(location - 1, 0))
+            ? bodyView.typingAttributes : storage.attributes(at: max(range.location - 1, 0))
         replace(
-            NSRange(location: location, length: 0), with: NSAttributedString(string: "\n", attributes: attributes),
-            selection: NSRange(location: location + 1, length: 0))
+            range, with: NSAttributedString(string: "\n", attributes: attributes),
+            selection: NSRange(location: range.location + 1, length: 0))
     }
 }
