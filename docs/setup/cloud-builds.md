@@ -1,6 +1,6 @@
-# iOS builds on Linux cloud workers
+# iOS and Mac builds on Linux cloud workers
 
-Claude cloud sessions run on Linux without Xcode. They compile every package and its tests for iOS (`arm64-apple-ios`) with [xtool](https://github.com/xtool-org/xtool)'s Darwin SDK, so package work can leave the Mac (ADR-017). Linux has no iOS simulator, and xtool doesn't have one either. So cloud sessions run the tests of the packages that also build for Linux, natively: MailCore, GmailProvider, IMAPProvider, OutlookProvider, MailStore and PlaneGame. The Mac's `scripts/check` runs everything, including MailUI's tests and the app's launch tests.
+Claude cloud sessions run on Linux without Xcode. They compile every package and its tests for iOS (`arm64-apple-ios`) with [xtool](https://github.com/xtool-org/xtool)'s Darwin SDK, so package work can leave the Mac (ADR-017). They compile the app's packages for Mac Catalyst too (`arm64-apple-ios27.2-macabi`, ADR-032), so a change that breaks the Mac app fails the check. Linux has no iOS simulator, and xtool doesn't have one either. So cloud sessions run the tests of the packages that also build for Linux, natively: MailCore, GmailProvider, IMAPProvider, OutlookProvider, MailStore and PlaneGame. The Mac's `scripts/check` runs everything, including MailUI's tests and the app's launch tests.
 
 ## In a cloud session
 
@@ -11,7 +11,7 @@ Nothing to do. Setup runs on its own, in two ways:
 
 Setup also enables the tracked git hooks. Its first run in a fresh container takes about two minutes. Later runs find everything installed and return at once. The setup log is at `/tmp/goodmail-cloud-setup.log`. `ensure` clears the variables git sets for hooks, so a setup that a commit's hook starts can't write `goodmail-sdk`'s clone into the commit, and it holds a lock, so checks in parallel worktrees wait for one setup instead of replacing the SDK under each other's builds. In a multi-repository session, run `scripts/check --lint` once before your first commit, so the git hooks are in place before you commit or push.
 
-- `scripts/ios-build [Package …]` compiles packages and their tests for iOS. With no arguments it compiles all of them, then type-checks the Xcode targets that SwiftPM can't build (the app, NotificationService and WidgetsExtension) against those package builds. The type-check uses the project's Debug Swift settings, which are listed in the script, so update them there when the project's settings change. It catches compile errors, but it doesn't link, compile assets or String Catalogs, or check entitlements. Only the Mac's build does those.
+- `scripts/ios-build [Package …]` compiles packages and their tests for iOS, then the same packages, without their tests, for Mac Catalyst. With no arguments it compiles all of them, then type-checks the Xcode targets that SwiftPM can't build (the app, NotificationService, WidgetsExtension and ShareExtension) against those package builds, once for each platform. The type-check uses the project's Debug Swift settings, which are listed in the script, so update them there when the project's settings change. The Catalyst pass uses the macOS SDK from `goodmail-sdk`, with the UIKit frameworks and Swift modules under its `System/iOSSupport`. Its packages build into `.build/catalyst-packages`, apart from the iOS ones. Every package the app links lists `.macCatalyst("27.2")` in its manifest. The watch-only packages don't. Both passes catch compile errors, but they don't link, compile assets or String Catalogs, or check entitlements. Only the Mac's build does those.
 - MailIntents doesn't build on Linux: its entities and intents adopt the `.mail` app schemas through Apple's `@AppEntity(schema:)` and `@AppIntent(schema:)` macros, whose implementation ships only as a macOS compiler plugin. `scripts/ios-build` skips it, and the app's code that uses it sits behind `#if canImport(MailIntents)`, so the app still type-checks. The Mac's `scripts/check` builds and tests it.
 - `scripts/check` on Linux runs the lint, the line cap, `scripts/ios-build`, and `swift test` for MailCore, GmailProvider, IMAPProvider, OutlookProvider, MailStore and PlaneGame. The pre-push hook runs it.
 - `swift test --package-path Packages/MailStore` runs one package's tests natively.
@@ -19,6 +19,12 @@ Setup also enables the tracked git hooks. Its first run in a fresh container tak
 ## In CI
 
 `.github/workflows/check.yml` runs the same `scripts/check` on main after each push, on an Ubuntu runner inside the `swift:6.4.2-noble` image. It checks `goodmail-sdk` out next to this repository with the `GOODMAIL_SDK_DEPLOY_KEY` secret, a read-only deploy key on goodmail-sdk, and builds the Darwin SDK fresh each run. A newer push cancels the run of an older one. Without that secret it runs only `scripts/check --lint` and warns. To create it, on the Mac: `dir=$(mktemp -d) && ssh-keygen -q -t ed25519 -N "" -C goodmail-ci -f "$dir/key" && gh repo deploy-key add "$dir/key.pub" -R shinycake/goodmail-sdk --title "goodmail CI (read-only)" && gh secret set GOODMAIL_SDK_DEPLOY_KEY -R shinycake/goodmail < "$dir/key"; rm -rf "$dir"`. After a Swift update, change the image tag along with `SWIFT_VERSION`.
+
+## Mac Catalyst in the cloud
+
+- Where the iOS SDK has an API that Catalyst lacks, MailUI fences it with `#if targetEnvironment(macCatalyst)` and a one-line reason. The list is in ADR-032. A new fence needs the same reason.
+- A Catalyst build of a package with resources runs SwiftBuild's `ProcessProductPackagingDER` step, which spawns Apple's `derq`. `scripts/cloud/setup` installs `scripts/cloud/derq` as `/usr/bin/derq`: it only creates the file named by `-o`. CI gets it the same way, since the workflow runs setup.
+- `RGBColor` is also a QuickDraw type in the Mac SDK, so MailUI writes `MailCore.RGBColor`.
 
 ## Keeping the logic packages Linux-testable
 
@@ -47,6 +53,7 @@ The watch also syncs Gmail and Outlook itself (ADR-023), so MailCore, MailStore,
 | --- | --- | --- |
 | Swift 6.4.2, matching Xcode 27.2 | The official `swift:6.4.2-noble` Docker image, because cloud workers can't reach download.swift.org. `scripts/cloud/fetch-docker-layer.py` downloads its toolchain layer and checks the digest. It tries Google's mirror of Docker's official images (mirror.gcr.io) first, then Amazon ECR Public, then Docker Hub, three times each, because Docker Hub rate-limits anonymous pulls. | `/opt/swift`, plus `swift` and `swiftc` in `/usr/local/bin` |
 | xtool 1.24.0 | GitHub release AppImage, checked against its pinned SHA-256 and unpacked because containers have no FUSE | `/opt/xtool`, plus `xtool` in `/usr/local/bin` |
+| `derq` stand-in | `scripts/cloud/derq`, for Mac Catalyst resource bundles | `/usr/bin/derq` |
 | Darwin SDK | Built by `xtool sdk build` from the Xcode subset in the private [`shinycake/goodmail-sdk`](https://github.com/shinycake/goodmail-sdk) repository: the checkout next to this one, or a fresh clone | `~/.swiftpm/swift-sdks/darwin.artifactbundle` |
 
 Two adjustments make swift-build work on Linux:

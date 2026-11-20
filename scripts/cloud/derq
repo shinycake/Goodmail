@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Stand-in for Apple's derq on Linux (installed as /usr/bin/derq by scripts/cloud/setup): the build only needs the
+# output file named by -o to exist, and nothing is signed here.
+out=""
+while (($#)); do
+    if [[ "$1" == "-o" ]]; then
+        out="$2"
+        shift
+    fi
+    shift
+done
+[[ -n "$out" ]] && : >"$out"
+exit 0

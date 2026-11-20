@@ -70,10 +70,11 @@ nonisolated struct RichText: Equatable {
 
         /// The bar of the quote at `depth` (1 for the outermost), as sent: a color for each level, as Apple Mail
         /// marks them, that reads on light and dark backgrounds alike.
-        static func barColor(depth: Int) -> RGBColor {
+        static func barColor(depth: Int) -> MailCore.RGBColor {
             let colors = [
-                RGBColor(red: 0x1A, green: 0x73, blue: 0xE8), RGBColor(red: 0x2E, green: 0x9E, blue: 0x44),
-                RGBColor(red: 0xE8, green: 0x79, blue: 0x0C),
+                MailCore.RGBColor(red: 0x1A, green: 0x73, blue: 0xE8),
+                MailCore.RGBColor(red: 0x2E, green: 0x9E, blue: 0x44),
+                MailCore.RGBColor(red: 0xE8, green: 0x79, blue: 0x0C),
             ]
             return colors[(depth - 1) % colors.count]
         }
@@ -138,7 +139,7 @@ nonisolated struct RichText: Equatable {
         case automatic
         case ink(TextInk)
 
-        init(_ chosen: RGBColor) { self = .ink(TextInk(chosen)) }
+        init(_ chosen: MailCore.RGBColor) { self = .ink(TextInk(chosen)) }
         init(_ preset: Preset) { self.init(preset.rgb) }
 
         /// The color as sent, `#rrggbb`; `nil` leaves the text the reader's color.
@@ -156,14 +157,14 @@ nonisolated struct RichText: Equatable {
         enum Preset: CaseIterable {
             case red, orange, green, blue, purple, gray
 
-            var rgb: RGBColor {
+            var rgb: MailCore.RGBColor {
                 switch self {
-                case .red: RGBColor(red: 0xE0, green: 0x35, blue: 0x2B)
-                case .orange: RGBColor(red: 0xE8, green: 0x79, blue: 0x0C)
-                case .green: RGBColor(red: 0x2E, green: 0x9E, blue: 0x44)
-                case .blue: RGBColor(red: 0x1A, green: 0x73, blue: 0xE8)
-                case .purple: RGBColor(red: 0x8E, green: 0x44, blue: 0xAD)
-                case .gray: RGBColor(red: 0x8E, green: 0x8E, blue: 0x93)
+                case .red: MailCore.RGBColor(red: 0xE0, green: 0x35, blue: 0x2B)
+                case .orange: MailCore.RGBColor(red: 0xE8, green: 0x79, blue: 0x0C)
+                case .green: MailCore.RGBColor(red: 0x2E, green: 0x9E, blue: 0x44)
+                case .blue: MailCore.RGBColor(red: 0x1A, green: 0x73, blue: 0xE8)
+                case .purple: MailCore.RGBColor(red: 0x8E, green: 0x44, blue: 0xAD)
+                case .gray: MailCore.RGBColor(red: 0x8E, green: 0x8E, blue: 0x93)
                 }
             }
         }
@@ -197,7 +198,7 @@ nonisolated struct RichText: Equatable {
     }
 }
 
-nonisolated extension RGBColor {
+nonisolated extension MailCore.RGBColor {
     /// `#rrggbb`, as the HTML that is sent writes colors.
     var htmlHex: String { hex.lowercased() }
 }

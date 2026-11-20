@@ -301,6 +301,15 @@ Amended by ADR-023: Gmail and Outlook accounts are now read on the watch itself.
 - **Words keep apart:** dropped words get a space where they would otherwise run into a word beside the caret (`DroppedWords`).
 - **Leaving:** a composer that closes or minimizes, and a chat that's left, cancel what they are still reading (`ContentIntake.cancel()`), and the file copy stops with it.
 
+## ADR-032: The Mac app is the iOS app, built with Mac Catalyst
+
+- **Decision (owner's approval, 2026-11-20):** the Mac app is the iOS app built with Mac Catalyst in the Mac idiom ("Optimize for Mac"), as a second destination of the `Goodmail` target and under the same bundle ID, `com.idanbirman.goodmail`. This amends ADR-004: UIKit stays the way every core surface is built, and now it runs on the Mac too. No code is forked and no second app target exists.
+- **Same bundle ID:** the Mac app keeps the iOS app's App ID, so push topics, App Attest, the OAuth redirects, the Keychain group and the App Group are the ones the relay and the providers already know.
+- **Interaction style:** whether a window is driven by touch or by a pointer and a keyboard is one value, `InteractionStyle` with the cases `.touch` and `.desktop`. It is a custom `UITrait`, set once per window by the scene coordinator: Mac windows get `.desktop`, everything else gets `.touch`, an iPad with a keyboard included. Screens read the trait and never ask which device they run on. Layout still comes from size classes and widths, never from an idiom check.
+- **Compile-time checks only where an API is missing:** `#if targetEnvironment(macCatalyst)` appears where Catalyst lacks an API, each with a one-line reason. Today that is the system Format panel in the composer, VisionKit's code scanner (the Mac can show a transfer code but can't scan one, and the receive screen already has that state),. Differences in behavior are run-time values, such as the interaction style.
+- **Checked on every push:** the packages the app links declare Mac Catalyst, and a Linux cloud session and CI compile them, and type-check the app and its extensions, for `arm64-apple-ios27.2-macabi` as well as for iOS (`scripts/ios-build`, docs/setup/cloud-builds.md). A change that breaks the Mac build fails the check, with no Mac at hand. Only the Mac's build links, signs and runs it.
+- **Rejected:** a separate AppKit app, which would build every screen twice, and a SwiftUI rewrite, which ADR-004 already rules out.
+
 ## ADR-033: Presence says what the app does when the reader looks away
 
 - **Decision (owner, 2026-11-20, for the Mac app):** one value, `AppPresence` (MailCore), says whether anyone is looking at the app and whether the system may stop it. `PresenceTracker` in the app target holds it, is the only code that observes UIKit's lifecycle notifications, and makes every change through the pure `AppPresence.after(_:policy:)`. Sync, the change watches, the database suspension, background refresh and push follow the tracker and never read the lifecycle themselves.

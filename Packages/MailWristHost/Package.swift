@@ -23,7 +23,7 @@ let strictSwift: [SwiftSetting] = [
 
 let package = Package(
     name: "MailWristHost",
-    platforms: [.iOS("27.2"), .watchOS("27.2")],
+    platforms: [.iOS("27.2"), .watchOS("27.2"), .macCatalyst("27.2")],
     products: [.library(name: "MailWristHost", targets: ["MailWristHost"])],
     dependencies: [
         .package(path: "../MailCore"), .package(path: "../MailStore"), .package(path: "../MailWrist"),

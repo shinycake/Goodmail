@@ -20,7 +20,7 @@ let strictSwift: [SwiftSetting] = [
 let package = Package(
     name: "MailUI",
     defaultLocalization: "en",
-    platforms: [.iOS("27.2")],
+    platforms: [.iOS("27.2"), .macCatalyst("27.2")],
     products: [.library(name: "MailUI", targets: ["MailUI"])],
     dependencies: [.package(path: "../MailCore"), .package(path: "../PlaneGame")],
     targets: [

@@ -8,7 +8,7 @@ nonisolated public enum SwipeTint: Hashable, Sendable {
     /// The system red that actions which delete or report wear as standard.
     case red
     /// A color picked with the system color picker.
-    case custom(RGBColor)
+    case custom(MailCore.RGBColor)
 
     /// How the tint is stored: `clear`, `red`, or a picked color's hex string, such as `#3366FF`.
     var rawValue: String {
@@ -25,7 +25,7 @@ nonisolated public enum SwipeTint: Hashable, Sendable {
         case "clear": self = .clear
         case "red": self = .red
         default:
-            guard let color = RGBColor(hex: rawValue) else { return nil }
+            guard let color = MailCore.RGBColor(hex: rawValue) else { return nil }
             self = .custom(color)
         }
     }

@@ -197,8 +197,10 @@ public final class ThreadViewController: UIViewController {
         composer.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(composer)
         // A bar's region along the bottom keeps the field and its buttons clear of the corner a window on iPad is
-        // resized by, as the system's toolbars are.
-        let bar = view.layoutGuide(for: .bar(onEdge: UIRectEdge.bottom))
+        // resized by, as the system's toolbars are. It takes the extent of a standard toolbar: the form without one
+        // is missing from the UIKit that macOS 27.2 ships for iOS apps and Mac Catalyst, so an app that used it
+        // wouldn't launch on a Mac.
+        let bar = view.layoutGuide(for: .bar(onEdge: UIRectEdge.bottom, extent: 44))
         NSLayoutConstraint.activate([
             composer.leadingAnchor.constraint(equalTo: bar.leadingAnchor),
             composer.trailingAnchor.constraint(equalTo: bar.trailingAnchor),

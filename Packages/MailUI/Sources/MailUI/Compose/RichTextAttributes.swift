@@ -211,7 +211,7 @@ nonisolated extension RichText.Size {
 
 nonisolated extension RichText.TextColor {
     init(_ attributes: [NSAttributedString.Key: Any]) {
-        self = (attributes[.textColor] as? String).flatMap(RGBColor.init(hex:)).map(Self.init) ?? .automatic
+        self = (attributes[.textColor] as? String).flatMap(MailCore.RGBColor.init(hex:)).map(Self.init) ?? .automatic
     }
 
     /// How the editor shows it: the same value that is sent, or the label color that follows Dark Mode. Text with no

@@ -9,10 +9,10 @@ nonisolated extension UIColor {
     /// The symbol on a button filled with `shadedFill`: white in dark mode, a deep shade of this color in light mode.
     var shadedSymbol: UIColor { shaded { $0.symbol } }
 
-    private func shaded(_ part: @escaping @Sendable (ButtonShade) -> RGBColor) -> UIColor {
+    private func shaded(_ part: @escaping @Sendable (ButtonShade) -> MailCore.RGBColor) -> UIColor {
         UIColor { [self] traits in
             let (red, green, blue, _) = resolvedColor(with: traits).rgba
-            let picked = RGBColor(fractionalRed: Double(red), green: Double(green), blue: Double(blue))
+            let picked = MailCore.RGBColor(fractionalRed: Double(red), green: Double(green), blue: Double(blue))
             let appearance: Appearance = traits.userInterfaceStyle == .dark ? .dark : .light
             return UIColor(part(ButtonShade(for: picked, in: appearance)))
         }

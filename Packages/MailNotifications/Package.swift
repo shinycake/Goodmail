@@ -21,7 +21,7 @@ let strictSwift: [SwiftSetting] = [
 let package = Package(
     name: "MailNotifications",
     defaultLocalization: "en",
-    platforms: [.iOS("27.2")],
+    platforms: [.iOS("27.2"), .macCatalyst("27.2")],
     products: [.library(name: "MailNotifications", targets: ["MailNotifications"])],
     dependencies: [.package(path: "../MailCore"), .package(path: "../MailStore")],
     targets: [

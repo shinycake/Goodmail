@@ -181,7 +181,7 @@ nonisolated extension RichText.TextColor {
     /// the black of a quoted message, reads as the reader's own, so reopening a draft doesn't recolor it.
     init?(htmlAttributes attributes: String) {
         guard let hex = attributes.firstMatch(of: /(?:^|[^-\w])color(?::\s*|=")(#[0-9a-fA-F]{6})/)?.1,
-            let color = RGBColor(hex: String(hex))
+            let color = MailCore.RGBColor(hex: String(hex))
         else { return nil }
         self = TextInk(exactly: color).map(Self.ink) ?? .automatic
     }

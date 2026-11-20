@@ -95,6 +95,13 @@ with open(path, "wb") as file:
     echo "$stamp" >"$BUNDLE/goodmail-stamp"
 fi
 
+step "derq stand-in"
+# Building a resource bundle for macOS or Mac Catalyst makes SwiftBuild's ProcessProductPackagingDER step run Apple's
+# derq, which has no Linux build. It only has to create the file named by -o, since nothing is signed here.
+if [[ "$(cat /usr/bin/derq 2>/dev/null)" != "$(cat scripts/cloud/derq)" ]]; then
+    install -m 0755 scripts/cloud/derq /usr/bin/derq
+fi
+
 # The pre-commit and pre-push hooks run scripts/check.
 git config core.hooksPath .githooks
 

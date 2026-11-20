@@ -9,14 +9,16 @@ extension ComposeViewController {
     func configureFormatting() {
         bodyView.inputAccessoryView = formattingBar
         // Styles and lists only: the bar's sizes and colors are the ones the HTML that is sent carries; the panel's
-        // fonts and free sizes and colors would be lost.
-        typealias Component = UITextFormattingViewController.Component
-        bodyView.textFormattingConfiguration = UITextFormattingViewController.Configuration(groups: [
-            UITextFormattingViewController.ComponentGroup(components: [
-                Component(componentKey: .fontAttributes, preferredSize: .regular),
-                Component(componentKey: .listStyles, preferredSize: .regular),
+        // fonts and free sizes and colors would be lost. Mac Catalyst has no such panel, so the bar is all it has.
+        #if !targetEnvironment(macCatalyst)
+            typealias Component = UITextFormattingViewController.Component
+            bodyView.textFormattingConfiguration = UITextFormattingViewController.Configuration(groups: [
+                UITextFormattingViewController.ComponentGroup(components: [
+                    Component(componentKey: .fontAttributes, preferredSize: .regular),
+                    Component(componentKey: .listStyles, preferredSize: .regular),
+                ])
             ])
-        ])
+        #endif
         formattingBar.onCommand = { [weak self] command in self?.applyFormatting(command) }
         formattingBar.onLink = { [weak self] in self?.askForLink() }
         formattingBar.onMoreColors = { [weak self] in self?.pickColor() }
@@ -153,7 +155,8 @@ extension ComposeViewController: UIColorPickerViewControllerDelegate {
     ) {
         guard !continuously else { return }
         let (red, green, blue, _) = color.rgba
-        let chosen = RichText.TextColor(RGBColor(fractionalRed: Double(red), green: Double(green), blue: Double(blue)))
+        let chosen = RichText.TextColor(
+            MailCore.RGBColor(fractionalRed: Double(red), green: Double(green), blue: Double(blue)))
         applyFormatting(.color(chosen))
         picker.selectedColor = chosen.color
     }

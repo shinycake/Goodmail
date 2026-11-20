@@ -19,7 +19,7 @@ let strictSwift: [SwiftSetting] = [
 
 let package = Package(
     name: "OutlookProvider",
-    platforms: [.iOS("27.2"), .watchOS("27.2")],
+    platforms: [.iOS("27.2"), .watchOS("27.2"), .macCatalyst("27.2")],
     products: [.library(name: "OutlookProvider", targets: ["OutlookProvider"])],
     dependencies: [.package(path: "../MailCore")],
     targets: [

@@ -21,7 +21,7 @@ let strictSwift: [SwiftSetting] = [
 
 let package = Package(
     name: "PlaneGame",
-    platforms: [.iOS("27.2")],
+    platforms: [.iOS("27.2"), .macCatalyst("27.2")],
     products: [.library(name: "PlaneGame", targets: ["PlaneGame"])],
     targets: [
         .target(name: "PlaneGame", swiftSettings: strictSwift),

@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Compiles packages and their tests for iOS (arm64-apple-ios) on Linux, with the Darwin SDK that scripts/cloud/setup
-# installs (docs/setup/cloud-builds.md), then type-checks the app and its extensions against them. It only compiles:
-# Linux can't run iOS code, so the Mac's scripts/check still runs the tests.
+# installs (docs/setup/cloud-builds.md), then type-checks the app and its extensions against them. It then does the
+# same for Mac Catalyst (arm64-apple-ios-macabi, ADR-032) against the SDK's macOS platform, without the tests. It only
+# compiles: Linux can't run iOS code, so the Mac's scripts/check still runs the tests.
 #
-#   scripts/ios-build                  every package, then the app targets
-#   scripts/ios-build MailCore MailUI  only these packages
+#   scripts/ios-build                  every package, then the app targets, for iOS and for Mac Catalyst
+#   scripts/ios-build MailCore MailUI  only these packages, for both
 set -euo pipefail
 cd "$(dirname "$0")/.."
 scripts/cloud/ensure
@@ -23,9 +24,12 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OB
 # macOS compiler plugin. Linux can't build them; the Mac's scripts/check does, and the app type-checks without them.
 mac_only=(MailIntents)
 
-# Every package builds into one scratch folder, so a module the packages share, such as MailCore or GRDB, compiles
+ios_version=$(grep -oE '"IPHONEOS_DEPLOYMENT_TARGET": "[0-9.]+"' Goodmail.xcodeproj/project.xcproj | grep -oE '[0-9.]+')
+
+# Each platform builds into one scratch folder, so a module the packages share, such as MailCore or GRDB, compiles
 # once rather than once per package that depends on it.
-scratch="$PWD/.build/ios-packages"
+ios_scratch="$PWD/.build/ios-packages"
+catalyst_scratch="$PWD/.build/catalyst-packages"
 
 app_targets=false
 if (($# == 0)); then
@@ -33,37 +37,67 @@ if (($# == 0)); then
     # Every package; a folder without a manifest, such as one a branch switch left behind with only .build, isn't one.
     set -- $(cd Packages && for manifest in */Package.swift; do echo "${manifest%/Package.swift}"; done)
 fi
-for package in "$@"; do
-    if [[ " ${mac_only[*]} " == *" $package "* ]]; then
-        printf '\n▸ %s skipped: Apple ships its App Intents macros for macOS only\n' "$package"
-        continue
-    fi
-    tests=()
-    if [[ -d "Packages/$package/Tests" ]]; then tests=(--build-tests); fi
-    printf '\n▸ %s for iOS\n' "$package"
-    swift build --package-path "Packages/$package" --scratch-path "$scratch" --build-system swiftbuild --triple arm64-apple-ios \
-        --toolset "$bundle/toolset-swb.json" "${tests[@]}"
-done
+
+# build_packages <label> <scratch> <triple> <with tests: true|false> <package>…
+build_packages() {
+    local label="$1" scratch="$2" triple="$3" with_tests="$4"
+    shift 4
+    for package in "$@"; do
+        if [[ " ${mac_only[*]} " == *" $package "* ]]; then
+            printf '\n▸ %s skipped for %s: Apple ships its App Intents macros for macOS only\n' "$package" "$label"
+            continue
+        fi
+        if [[ "$label" == "Mac Catalyst" ]] && ! grep -q "macCatalyst" "Packages/$package/Package.swift"; then
+            printf '\n▸ %s skipped for %s: its manifest does not list the platform\n' "$package" "$label"
+            continue
+        fi
+        local tests=()
+        if $with_tests && [[ -d "Packages/$package/Tests" ]]; then tests=(--build-tests); fi
+        printf '\n▸ %s for %s\n' "$package" "$label"
+        swift build --package-path "Packages/$package" --scratch-path "$scratch" --build-system swiftbuild --triple "$triple" \
+            --toolset "$bundle/toolset-swb.json" "${tests[@]}"
+    done
+}
+
+build_packages iOS "$ios_scratch" arm64-apple-ios true "$@"
+# Mac Catalyst only needs to compile: its sources are the iOS ones, so the tests compiled above already cover them.
+build_packages "Mac Catalyst" "$catalyst_scratch" "arm64-apple-ios$ios_version-macabi" false "$@"
 $app_targets || exit 0
 
 # SwiftPM can't build the Xcode targets, so type-check their sources against the package modules built above, with
 # the strict settings Goodmail.xcodeproj shares with every package (scripts/strict-swift) and the app's MainActor
 # default isolation.
-deployment_target=$(grep -oE '"IPHONEOS_DEPLOYMENT_TARGET": "[0-9.]+"' Goodmail.xcodeproj/project.xcproj | grep -oE '[0-9.]+')
-module_paths=(-I "$scratch/out/Products/Debug-iphoneos")
 read -ra strict_flags <<<"$(scripts/strict-swift --swiftc-flags)"
-grdb_sqlite=$scratch/checkouts/GRDB.swift/Sources/GRDBSQLite/module.modulemap
+
+# typecheck <target> <sources folder> [swiftc flags]: type-checks one target's sources. Bash scopes locals
+# dynamically, so it reads the platform that typecheck_targets sets up.
 typecheck() {
     local target="$1" sources="$2"
     shift 2
-    printf '\n▸ %s target for iOS (type-check)\n' "$target"
-    swiftc -typecheck -target "arm64-apple-ios$deployment_target" \
-        -sdk "$bundle/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk" \
-        -resource-dir "$bundle/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift" \
-        -D DEBUG "${strict_flags[@]}" "${module_paths[@]}" -Xcc -fmodule-map-file="$grdb_sqlite" "$@" "$sources"/*.swift
+    printf '\n▸ %s target for %s (type-check)\n' "$target" "$label"
+    swiftc -typecheck -resource-dir "$bundle/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift" \
+        -D DEBUG "${strict_flags[@]}" "${platform_flags[@]}" -I "$scratch/out/Products/$products" \
+        -Xcc -fmodule-map-file="$scratch/checkouts/GRDB.swift/Sources/GRDBSQLite/module.modulemap" "$@" "$sources"/*.swift
     echo "Type-check complete."
 }
-typecheck Goodmail Goodmail -default-isolation MainActor
-typecheck NotificationService NotificationService
-typecheck WidgetsExtension Widgets
-typecheck ShareExtension ShareExtension -default-isolation MainActor
+
+# typecheck_targets <label> <scratch> <products folder> <swiftc flags that pick the platform…>
+typecheck_targets() {
+    local label="$1" scratch="$2" products="$3"
+    shift 3
+    local platform_flags=("$@")
+    typecheck Goodmail Goodmail -default-isolation MainActor
+    typecheck NotificationService NotificationService
+    typecheck WidgetsExtension Widgets
+    typecheck ShareExtension ShareExtension -default-isolation MainActor
+}
+
+typecheck_targets iOS "$ios_scratch" Debug-iphoneos -target "arm64-apple-ios$ios_version" \
+    -sdk "$bundle/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk"
+
+# Mac Catalyst compiles against the macOS SDK, whose System/iOSSupport holds the UIKit side: its frameworks and the
+# Swift modules that sit beside them.
+macos_sdk="$bundle/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
+typecheck_targets "Mac Catalyst" "$catalyst_scratch" Debug-maccatalyst -target "arm64-apple-ios$ios_version-macabi" \
+    -sdk "$macos_sdk" -F "$macos_sdk/System/iOSSupport/System/Library/Frameworks" \
+    -I "$macos_sdk/System/iOSSupport/usr/lib/swift"

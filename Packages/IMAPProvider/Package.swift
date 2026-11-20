@@ -19,7 +19,7 @@ let strictSwift: [SwiftSetting] = [
 
 let package = Package(
     name: "IMAPProvider",
-    platforms: [.iOS("27.2")],
+    platforms: [.iOS("27.2"), .macCatalyst("27.2")],
     products: [.library(name: "IMAPProvider", targets: ["IMAPProvider"])],
     dependencies: [.package(path: "../MailCore")],
     targets: [

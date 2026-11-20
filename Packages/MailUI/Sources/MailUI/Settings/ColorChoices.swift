@@ -34,7 +34,7 @@ private struct CustomColorPicker: View {
     let choose: (AccountColor) -> Void
     @Environment(\.self) private var environment
 
-    private var picked: RGBColor? {
+    private var picked: MailCore.RGBColor? {
         if case .custom(let color) = selection { color } else { nil }
     }
 
@@ -42,7 +42,7 @@ private struct CustomColorPicker: View {
         ColorPicker(
             selection: Binding(
                 get: { picked.map { Color(uiColor: UIColor($0)) } ?? Color(selection.uiColor) },
-                set: { choose(.custom(RGBColor($0.resolve(in: environment)))) }),
+                set: { choose(.custom(MailCore.RGBColor($0.resolve(in: environment)))) }),
             supportsOpacity: false
         ) {
             Text(
