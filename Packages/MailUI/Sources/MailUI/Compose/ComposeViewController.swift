@@ -41,6 +41,10 @@ public final class ComposeViewController: UIViewController {
     public init(viewModel: ComposeViewModel) {
         self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
+        viewModel.didKeep = { [weak self] in
+            guard let self else { return }
+            host?.composerKept(self)
+        }
     }
 
     @available(*, unavailable)

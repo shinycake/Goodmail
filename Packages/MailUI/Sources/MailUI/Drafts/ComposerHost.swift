@@ -5,6 +5,9 @@ protocol ComposerHost: AnyObject {
     var canMinimize: Bool { get }
     /// The composer asks to move down into the drafts pill, keeping what was written; `next` runs once it's there.
     func minimize(_ composer: ComposeViewController, then next: (() -> Void)?)
+    /// The composer kept its message as written, as autosave does after each edit: what the host keeps of it, to
+    /// bring back after the app is closed or crashes, follows.
+    func composerKept(_ composer: ComposeViewController)
     /// The composer's message was sent, deleted, saved to Drafts or closed unchanged, so it is no longer in progress.
     func composerDidClose(_ composer: ComposeViewController)
 }

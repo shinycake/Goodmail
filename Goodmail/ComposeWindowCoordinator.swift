@@ -39,7 +39,9 @@ final class ComposeWindowCoordinator {
             guard let draft = drafts.first, let composer = model.composer(for: draft, actions: actions) else {
                 return finish()
             }
-            let controller = ComposeWindowController(composer: composer) { [weak self] in self?.finish() }
+            let controller = ComposeWindowController(
+                composer: composer, kept: { [weak self] in self?.keepMessage() },
+                closed: { [weak self] in self?.finish() })
             state = .writing(controller)
             window.windowScene?.title = draft.subject.isEmpty ? composer.title : draft.subject
             window.rootViewController = controller

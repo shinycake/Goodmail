@@ -327,6 +327,10 @@ extension DraftShelfViewController: ComposerHost {
 
     var canMinimize: Bool { true }
 
+    func composerKept(_ composer: ComposeViewController) {
+        keep?(inProgress)
+    }
+
     func composerDidClose(_ composer: ComposeViewController) {
         shelf.finish(composer.viewModel.draft.id)
         shelfChanged()

@@ -25,6 +25,9 @@ public final class ComposeViewModel {
     /// A draft that comes back with text, after Undo or a failed send, holds work closing would lose.
     @ObservationIgnored let isRestored: Bool
     @ObservationIgnored private var autosave: Autosave = .untouched
+    /// Runs after each version autosave or leaving the screen keeps, for the composer's host to keep what it holds of
+    /// the message in step.
+    @ObservationIgnored var didKeep: (() -> Void)?
     /// How long after an edit the draft is kept on the device, so a crash loses at most that much writing.
     @ObservationIgnored private let autosavePause: Duration
 
@@ -229,6 +232,7 @@ public final class ComposeViewModel {
         }
         saveAction(finished(body: body), wait)
         autosave = .kept
+        didKeep?()
     }
 
     /// Closes without a change. A version autosave kept is undone: the copy it was opened from is put back, or the
