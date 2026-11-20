@@ -80,6 +80,20 @@ struct ComposeViewModelTests {
         #expect(model.hasChanges(body: MessageBody(plain: "Hi\n\n-- \nDana\nGoodmail")))
     }
 
+    @Test func sharedTextStartsTheMessageAboveTheSignatureAndFollowsAChangeOfSender() {
+        let personal = Account(id: account, email: "me@example.com", color: .blue, service: .gmail)
+        let work = Account(id: AccountID(rawValue: "w"), email: "me@work.example", color: .orange, service: .gmail)
+        let signatures = [personal.id: "Me", work.id: "Me, at work"]
+        let model = ComposeViewModel(
+            draft: Draft(accountID: personal.id), accountEmail: personal.email, senders: [personal, work],
+            shared: "https://example.com/story", signature: { signatures[$0] }, send: { _, _ in })
+        #expect(model.draft.body.plain == "\n\nhttps://example.com/story\n\n-- \nMe")
+        #expect(!model.hasChanges(body: model.draft.body), "closing what was only shared asks nothing")
+
+        let body = model.changeSender(to: SendingAddress(account: work), body: model.draft.body)
+        #expect(body?.plain == "\n\nhttps://example.com/story\n\n-- \nMe, at work")
+    }
+
     @Test func aRestoredDraftKeepsItsOwnSignature() {
         let body = MessageBody(html: "<div>Hi</div>", plain: "Hi")
         let model = ComposeViewModel(
@@ -127,7 +141,7 @@ struct ComposeViewModelTests {
         #expect(saves.map(\.1) == [.asWritten])
 
         model.keepNow(body: MessageBody(plain: "Hi there"))
-        #expect(saves.last?.1 == .now)
+        #expect(saves.last?.1 == .leaving, "told apart from the writer's own Save Draft")
         model.deleteDraft()
         model.edited { MessageBody(plain: "after closing") }
         await model.settleAutosave()

@@ -53,7 +53,8 @@ extension ComposeViewController {
             image: UIImage(systemName: "paperclip"), menu: UIMenu(children: picker.actions()))
     }
 
-    func tooLarge() {
+    /// Explains that a file can't go with the message, since it would take it past what Gmail accepts.
+    public func tooLarge() {
         let alert = UIAlertController(
             title: String(localized: "File Too Large", table: "Compose", bundle: .module, comment: "Alert title"),
             message: String(

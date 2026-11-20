@@ -1,10 +1,10 @@
-import UIKit
+public import UIKit
 
 /// The accessibility settings the screens follow, and VoiceOver's announcements.
 ///
 /// The only uses of `UIAccessibility`, which the SDK marks unsafe because it also declares pointer-taking C
 /// functions. Reading a setting and posting a notification touch no memory of ours.
-enum SystemAccessibility {
+public enum SystemAccessibility {
     static var reducesMotion: Bool { unsafe UIAccessibility.isReduceMotionEnabled }
 
     /// Whether VoiceOver or Switch Control runs, which move through the screen one element at a time and take
@@ -26,7 +26,7 @@ enum SystemAccessibility {
     }
 
     /// Tells VoiceOver about a change, as `UIAccessibility.post(notification:argument:)` does.
-    static func post(_ notification: UIAccessibility.Notification, argument: Any? = nil) {
+    public static func post(_ notification: UIAccessibility.Notification, argument: Any? = nil) {
         unsafe UIAccessibility.post(notification: notification, argument: argument)
     }
 }

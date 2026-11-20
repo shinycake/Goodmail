@@ -93,6 +93,7 @@ Apple Mail has no push for Gmail. Gmail's own app is cluttered. Most other clien
 - **App Intents and Shortcuts** in English and Hebrew: write a message, open the Inbox or any mailbox, and act on mail from Siri and Shortcuts, with Undo.
 - **Spotlight** search of your threads, **Handoff**, and window state restoration.
 - **Default mail app**: `mailto:` links open Goodmail's composer.
+- **Share to Goodmail** from any app: a Safari page arrives with its title and link, and photos and files arrive attached. Pick the account to send from and send it right from the share sheet.
 - **App icon badge** per account, and server-side **search** with recent searches, search tokens and Gmail operators.
 - **iPad** with a sidebar and columns, resizable windows and Open in New Window.
 - **Accessibility and localization** built in: Dynamic Type up to the largest sizes, VoiceOver, and English and Hebrew polished end to end.
@@ -137,7 +138,7 @@ Claude Code tooling is declared in the repo:
 
 ### Building and the gate
 
-- Open `Goodmail.xcodeproj` (JSON project format). Code lives in local packages under `Packages/`; the app, `NotificationService` and `Widgets` targets are thin.
+- Open `Goodmail.xcodeproj` (JSON project format). Code lives in local packages under `Packages/`; the app, `NotificationService`, `ShareExtension` and `Widgets` targets are thin.
 - `scripts/check` is the gate: swift-format lint, the 1000-line cap, a check that no App Intent text says "Siri" (App Store Connect rejects those uploads), package tests and the app's English/Hebrew launch tests. `scripts/check --lint` runs only the fast part. Its tests run on a separate "Goodmail Check" simulator. On the Mac, install simslim so simulators run lighter, and read [docs/setup/mac-simulators.md](docs/setup/mac-simulators.md) before booting or slimming one. Get a simulator for any other task from `scripts/sim`, and run `scripts/cleanup --done` when the task ends ([docs/setup/mac-disk.md](docs/setup/mac-disk.md)).
 - `scripts/record-fixtures` files the `TestMail` corpus into the signed-in test account and records Gmail's responses as fixtures (ADR-010). `TestMail/generate.py` writes the corpus.
 - `scripts/run` builds the signed Debug app and installs it on the dev simulator, keeping its Gmail sign-in. Arguments pass through to the app, e.g. `scripts/run -AppleLanguages "(he)"`.

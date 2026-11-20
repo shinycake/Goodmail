@@ -1,0 +1,60 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "CFBundleDisplayName": {
+      "comment": "App name on the Home Screen. The brand stays in Latin script.",
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Goodmail"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Goodmail"
+          }
+        }
+      }
+    },
+    "NSCameraUsageDescription": {
+      "comment": "Shown when the share sheet first asks to use the camera, for taking a photo or scanning a document to attach",
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Goodmail uses the camera to take photos and scan documents you attach to a message."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Goodmail משתמש במצלמה לצילום תמונות ולסריקת מסמכים שאתם מצרפים להודעה."
+          }
+        }
+      }
+    },
+    "NSContactsUsageDescription": {
+      "comment": "Why Goodmail asks to read the device's Contacts, shown in the system prompt the first time a recipient is typed.",
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Goodmail suggests people from your Contacts as you type a recipient. Contacts stay on this device."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Goodmail מציע אנשים מאנשי הקשר שלך בזמן שמקלידים נמען. אנשי הקשר נשארים במכשיר."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

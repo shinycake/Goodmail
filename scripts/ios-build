@@ -66,3 +66,4 @@ typecheck() {
 typecheck Goodmail Goodmail -default-isolation MainActor
 typecheck NotificationService NotificationService
 typecheck WidgetsExtension Widgets
+typecheck ShareExtension ShareExtension -default-isolation MainActor

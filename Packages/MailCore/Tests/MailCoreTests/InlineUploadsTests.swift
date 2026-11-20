@@ -1,14 +1,13 @@
 import Foundation
-import MailCore
 import Testing
 
-@testable import MailWristHost
+@testable import MailCore
 
 #if canImport(FoundationNetworking)
     import FoundationNetworking
 #endif
 
-/// A Gmail send from the watch is uploaded while the app waits, and its outcome kept for the sender.
+/// A Gmail send from the watch or the Share extension is uploaded while it waits, and its outcome kept for the sender.
 struct InlineUploadsTests {
     private let file = FileManager.default.temporaryDirectory.appending(path: "InlineUploadsTests-\(UUID().uuidString)")
     private let request = URLRequest(url: URL(string: "https://gmail.example/upload")!)

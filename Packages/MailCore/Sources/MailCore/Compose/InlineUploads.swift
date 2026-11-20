@@ -1,14 +1,14 @@
 public import Foundation
-public import MailCore
 import Synchronization
 
 #if canImport(FoundationNetworking)
     public import FoundationNetworking  // URLSession on Linux
 #endif
 
-/// Uploads a Gmail send while the watch app waits for it: the watch has no background upload session yet, so
-/// `upload` returns only once the service answered or the transfer failed. The outcome is kept for whoever flushed
-/// the sender to hand back to it (`takeOutcomes`), so nothing finishes on its own behind anyone's back.
+/// Uploads a send while its process waits for it, for one that can't hear a background session's outcome later: the
+/// watch app, which has no background upload session yet, and the Share extension, which is gone once its sheet
+/// closes. `upload` returns only once the service answered or the transfer failed. The outcome is kept for whoever
+/// flushed the sender to hand back to it (`takeOutcomes`), so nothing finishes on its own behind anyone's back.
 public final class InlineUploads: UploadTransport {
     private struct State {
         var running: Set<UploadID> = []
@@ -45,7 +45,7 @@ public final class InlineUploads: UploadTransport {
     }
 
     /// The outcomes of `account`'s uploads that finished since the last call, oldest first.
-    func takeOutcomes(of account: AccountID) -> [(UploadID, UploadOutcome)] {
+    public func takeOutcomes(of account: AccountID) -> [(UploadID, UploadOutcome)] {
         state.withLock { state in
             let taken = state.finished.filter { $0.0.accountID == account }
             state.finished.removeAll { $0.0.accountID == account }
