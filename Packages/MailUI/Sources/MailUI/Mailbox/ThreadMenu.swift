@@ -105,28 +105,39 @@ extension ThreadMenu {
             },
             actionProvider: { [weak viewModel, weak presenter] _ in
                 guard let viewModel, let presenter else { return nil }
-                let menuItems = Elements(id: id, viewModel: viewModel, presenter: presenter, perform: perform)
-                return UIMenu(
-                    children: menu.groups.map { group in
-                        let section = UIMenu(options: .displayInline, children: group.items.map(menuItems.element))
-                        if group.layout == .row { section.preferredElementSize = .medium }
-                        return section
-                    })
+                return menu.uiMenu(Elements(ids: [id], viewModel: viewModel, presenter: presenter, perform: perform))
             })
     }
 
-    /// Turns menu items into UIKit's, for one thread.
-    private struct Elements {
-        let id: ThreadSummary.ID
+    /// The menu's sections in UIKit's terms.
+    func uiMenu(_ elements: Elements) -> UIMenu {
+        UIMenu(
+            children: groups.map { group in
+                let section = UIMenu(options: .displayInline, children: group.items.map(elements.element))
+                if group.layout == .row { section.preferredElementSize = .medium }
+                return section
+            })
+    }
+
+    /// Turns menu items into UIKit's, for the threads the menu is for. What only one thread can do, as a reply, is
+    /// dimmed for several.
+    struct Elements {
+        let ids: [ThreadSummary.ID]
         weak var viewModel: MailboxViewModel?
         let presenter: UIViewController
         let perform: (ThreadAction) -> Void
 
+        /// The thread, when the menu is for one.
+        private var one: ThreadSummary.ID? { ids.count == 1 ? ids.first : nil }
+        private var forOneOnly: UIMenuElement.Attributes { one == nil ? .disabled : [] }
+
         func element(for item: Item) -> UIMenuElement {
             switch item {
             case .answer(let answer):
-                return UIAction(title: answer.title, image: UIImage(systemName: answer.symbol)) { [weak viewModel] _ in
-                    viewModel?.answer(id, with: answer)
+                return UIAction(
+                    title: answer.title, image: UIImage(systemName: answer.symbol), attributes: forOneOnly
+                ) { [weak viewModel] _ in
+                    if let one { viewModel?.answer(one, with: answer) }
                 }
             case .perform(let action):
                 return UIAction(
@@ -137,17 +148,19 @@ extension ThreadMenu {
                 return UIAction(
                     title: PinPresentation.title(pin), image: UIImage(systemName: PinPresentation.symbol(pin))
                 ) {
-                    [weak viewModel] _ in viewModel?.pin([id], pin)
+                    [weak viewModel] _ in viewModel?.pin(ids, pin)
                 }
             case .openInNewWindow:
                 return UIAction(
                     title: String(
                         localized: "Open in New Window", table: "Mailbox", bundle: .module,
                         comment: "Context menu item that opens a thread in a window of its own"),
-                    image: UIImage(systemName: "macwindow.badge.plus")
-                ) { [weak viewModel] _ in viewModel?.openInNewWindow(id) }
+                    image: UIImage(systemName: "macwindow.badge.plus"), attributes: forOneOnly
+                ) { [weak viewModel] _ in
+                    if let one { viewModel?.openInNewWindow(one) }
+                }
             case .snooze:
-                let times = UIMenu.snooze(from: presenter) { [weak viewModel] in viewModel?.snooze([id], until: $0) }
+                let times = UIMenu.snooze(from: presenter) { [weak viewModel] in viewModel?.snooze(ids, until: $0) }
                 return UIMenu(
                     title: String(
                         localized: "Snooze", table: "Mailbox", bundle: .module,
@@ -159,14 +172,14 @@ extension ThreadMenu {
                         localized: "Move to…", table: "Mailbox", bundle: .module,
                         comment: "Action: move threads to another mailbox"),
                     image: UIImage(systemName: "folder")
-                ) { [weak viewModel] _ in viewModel?.move([id]) }
+                ) { [weak viewModel] _ in viewModel?.move(ids) }
             case .changeLabels:
                 return UIAction(
                     title: String(
                         localized: "Change Labels", table: "Mailbox", bundle: .module,
                         comment: "Action: add or remove labels"),
                     image: UIImage(systemName: "tag")
-                ) { [weak viewModel] _ in viewModel?.changeLabels(of: [id]) }
+                ) { [weak viewModel] _ in viewModel?.changeLabels(of: ids) }
             }
         }
     }

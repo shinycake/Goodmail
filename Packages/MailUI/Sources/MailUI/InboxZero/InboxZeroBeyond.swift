@@ -8,6 +8,8 @@ import SwiftUI
     var frame = CGRect.zero
     /// The space its doodles spread over, inside its safe area, in the window's coordinates.
     var field = CGRect.zero
+    /// How many conversations the list beside has selected, which the pane counts instead of saying none is.
+    var selectedCount = 0
 }
 
 /// The pane beside the list while no thread is open. Beside an empty Inbox with room for doodles nothing can be
@@ -30,6 +32,8 @@ struct NoThreadView: View {
                 )
                 .environment(\.layoutDirection, .leftToRight)
                 .transition(.opacity)
+            } else if pane.selectedCount > 0 {
+                SelectedCountView(count: pane.selectedCount).transition(.opacity)
             } else if inbox?.isPlaying != true {
                 ContentUnavailableView {
                     Label {

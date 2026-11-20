@@ -1,3 +1,4 @@
+import MailCore
 import UIKit
 
 /// A mailbox's list starts a message, fetches mail and searches from the keyboard.
@@ -31,8 +32,14 @@ extension MailboxViewController: KeyboardShortcutScreen {
             let indexPath = dataSource.indexPath(for: target)
         else { return nil }
         return { [weak self] in
-            self?.collectionView.selectItem(at: indexPath, animated: true, scrollPosition: .centeredVertically)
-            self?.viewModel.open(target)
+            guard let self else { return }
+            guard !picksWithPointer else {
+                collectionView.scrollToItem(at: indexPath, at: .centeredVertically, animated: true)
+                return viewModel.click(target, .plain)
+            }
+            collectionView.selectItem(at: indexPath, animated: true, scrollPosition: .centeredVertically)
+            reportTouchPick()
+            viewModel.open(target)
         }
     }
 }

@@ -31,6 +31,15 @@ nonisolated enum ThreadPlace: Equatable, Sendable {
         }
     }
 
+    /// What takes all of `threads` out of the way in `mailbox`, in the order one thread's actions come.
+    static func awayActions(sharedBy threads: [ThreadSummary], in mailbox: Mailbox) -> [ThreadAction] {
+        guard let first = threads.first else { return [] }
+        return threads.dropFirst().reduce(ThreadPlace(first, in: mailbox).awayActions) { common, thread in
+            let theirs = ThreadPlace(thread, in: mailbox).awayActions
+            return common.filter(theirs.contains)
+        }
+    }
+
     /// Whether Report Spam means anything here: not for what is already in Spam or Trash.
     var canReportSpam: Bool { self == .inbox || self == .elsewhere }
 }

@@ -379,6 +379,7 @@ final class SceneCoordinator: NSObject {
                 navigate: { [weak self] route in self?.handle(route) },
                 readAhead: { model.readAhead($0) },
                 actions: actions,
+                interaction: window.interactionStyle,
                 health: model.health
             ),
             searchResults: results, draftsDock: drafts.dock)
@@ -426,6 +427,15 @@ final class SceneCoordinator: NSObject {
             } else {
                 navigation(for: .secondary)?.setViewControllers([reader], animated: false)
                 split.show(.secondary)
+            }
+        case .selection(let count):
+            // Only beside the list: a narrow window shows the list alone, which shows its own pick.
+            guard let split, !split.isCollapsed, let pane = navigation(for: .secondary) else { return }
+            shown.setThread(nil)
+            if let noThread = pane.topViewController as? NoThreadViewController {
+                noThread.selectedCount = count
+            } else {
+                pane.setViewControllers([NoThreadViewController(selectedCount: count)], animated: false)
             }
         case .newWindow(let id, let mailbox):
             // iPhone Duo opens new windows only on its inner display, so closed, the thread opens here instead.

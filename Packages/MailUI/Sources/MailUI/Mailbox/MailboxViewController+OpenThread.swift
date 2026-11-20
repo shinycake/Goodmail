@@ -7,5 +7,6 @@ extension MailboxViewController {
         guard let thread = threadToMark, !isEditing, let indexPath = dataSource.indexPath(for: thread) else { return }
         threadToMark = nil
         collectionView.selectItem(at: indexPath, animated: false, scrollPosition: .centeredVertically)
+        viewModel.markReading(thread)
     }
 }

@@ -3,6 +3,9 @@
 public enum Route: Hashable, Sendable {
     /// A thread, read from `mailbox`, which a move takes it out of.
     case thread(ThreadSummary.ID, in: Mailbox)
+    /// No thread beside the list, which has `count` of its threads picked with a pointer: none, or several, which the
+    /// pane counts.
+    case selection(count: Int)
     /// A thread in a window of its own, read from `mailbox`, where the device has more than one window.
     case newWindow(ThreadSummary.ID, in: Mailbox)
     /// One mailbox's thread list.

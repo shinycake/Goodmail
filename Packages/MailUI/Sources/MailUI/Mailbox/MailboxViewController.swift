@@ -9,7 +9,9 @@ public final class MailboxViewController: UIViewController {
     private(set) var threadsByID: [ThreadSummary.ID: ThreadSummary] = [:]
     private var sectionTitles = SectionTitles()
     private var observation: Task<Void, Never>?
-    private var swipes: SwipeActionsController!
+    private(set) var swipes: SwipeActionsController!
+    /// Picks rows on clicks, in a desktop window (`configurePointerPicking`).
+    var rowClicks: RowClicks?
     /// Drags a row out into a new window, where the device has windows. The list's drag delegate, which it doesn't keep.
     private var windowDrag: ThreadWindowDrag?
     let searchResults: SearchResultsController?
@@ -126,6 +128,7 @@ public final class MailboxViewController: UIViewController {
         configureDataSource()
         configureSwipes()
         configureWindowDrag()
+        configurePointerPicking()
         installSearch()
         navigationItem.rightBarButtonItems = browsingTrailingItems
         let compose = UIBarButtonItem(
@@ -161,8 +164,12 @@ public final class MailboxViewController: UIViewController {
 
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        for indexPath in collectionView.indexPathsForSelectedItems ?? [] {
-            collectionView.deselectItem(at: indexPath, animated: animated)
+        // Touch leaves the open thread's row as the reader comes back to the list; a desktop window keeps its pick.
+        if !picksWithPointer {
+            for indexPath in collectionView.indexPathsForSelectedItems ?? [] {
+                collectionView.deselectItem(at: indexPath, animated: animated)
+            }
+            reportTouchPick()
         }
         navigationController?.setToolbarHidden(false, animated: animated)
         navigationController?.navigationBar.prefersLargeTitles = true
@@ -178,6 +185,7 @@ public final class MailboxViewController: UIViewController {
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         if let searchToBegin { beginSearch(searchToBegin) }
+        if picksWithPointer { becomeFirstResponder() }
     }
 
     public override func viewDidDisappear(_ animated: Bool) {
@@ -202,17 +210,19 @@ public final class MailboxViewController: UIViewController {
         definesPresentationContext = true
     }
 
-    /// The trailing items while browsing: Select, while there are threads to select. The system places the search button beside it, at the corner. Placed
+    /// The trailing items while browsing: Select, while there are threads to select, on touch; a desktop window picks
+    /// several without a mode. The system places the search button beside it, at the corner. Placed
     /// by hand among these items, the search button's pressed glass outlived its morph into the field and hung under
     /// the field's leading end as a blank capsule until the field took focus.
     private var browsingTrailingItems: [UIBarButtonItem] {
-        viewModel.actions == nil ? [] : [select.item]
+        viewModel.actions == nil || picksWithPointer ? [] : [select.item]
     }
 
     /// Called by UIKit whenever an observed view-model property changes.
     public override func updateProperties() {
         super.updateProperties()
         applySections(viewModel.sections)
+        showPick()
         updateEmptyState()
         if problemsItem.show(viewModel.problems) { toolbarEndsChanged() }
         if let categoryButton, let category = viewModel.category {
@@ -425,7 +435,7 @@ public final class MailboxViewController: UIViewController {
 
 extension MailboxViewController {
     /// Performs `action`, then `done`. Delete Forever asks first, and on Cancel does neither.
-    private func perform(_ action: ThreadAction, on ids: [ThreadSummary.ID], then done: @escaping () -> Void = {}) {
+    func perform(_ action: ThreadAction, on ids: [ThreadSummary.ID], then done: @escaping () -> Void = {}) {
         guard action == .deleteForever else {
             lastRemoval = .now
             viewModel.perform(action, on: ids)
@@ -517,8 +527,8 @@ extension MailboxViewController: UICollectionViewDelegate {
     }
 
     public func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
-        // A tap while actions are open just closes them.
-        !swipes.close()
+        // A tap while actions are open just closes them. A desktop window's clicks pick through the view model.
+        !picksWithPointer && !swipes.close()
     }
 
     /// A row held under the finger is likely to open, so its bodies start downloading before the tap ends.
@@ -528,21 +538,28 @@ extension MailboxViewController: UICollectionViewDelegate {
     }
 
     public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        if isEditing { return updateSelectionChrome() }
+        if isEditing {
+            reportTouchPick()
+            return updateSelectionChrome()
+        }
         guard let id = dataSource.itemIdentifier(for: indexPath) else { return }
         // Search results sit outside the navigation stack, so they never see the reader close to deselect then.
         if navigationController == nil { collectionView.deselectItem(at: indexPath, animated: true) }
+        reportTouchPick()
         viewModel.open(id)
     }
 
     public func collectionView(_ collectionView: UICollectionView, didDeselectItemAt indexPath: IndexPath) {
-        if isEditing { updateSelectionChrome() }
+        guard isEditing else { return }
+        reportTouchPick()
+        updateSelectionChrome()
     }
 
     public func collectionView(
         _ collectionView: UICollectionView, contextMenuConfigurationForItemsAt indexPaths: [IndexPath],
         point: CGPoint
     ) -> UIContextMenuConfiguration? {
+        if picksWithPointer { return pointerMenu(at: point, fallback: indexPaths) }
         guard !isEditing, indexPaths.count == 1, let id = indexPaths.first.flatMap(dataSource.itemIdentifier(for:)),
             let thread = threadsByID[id]
         else { return nil }
@@ -585,6 +602,7 @@ extension MailboxViewController {
         super.setEditing(editing, animated: animated)
         swipes.close(animated: animated)
         collectionView.isEditing = editing
+        reportTouchPick()
         // Selecting has no search; the system takes its button away with the controller.
         navigationItem.searchController = editing ? nil : search
         navigationItem.rightBarButtonItems =
@@ -605,9 +623,8 @@ extension MailboxViewController {
         toolbarEndsChanged()
     }
 
-    var selectedIDs: [ThreadSummary.ID] {
-        (collectionView.indexPathsForSelectedItems ?? []).compactMap(dataSource.itemIdentifier)
-    }
+    /// The picked threads, as the view model holds them.
+    var selectedIDs: [ThreadSummary.ID] { viewModel.selectedIDs }
 
     /// The leading items while browsing: the sidebar button when the mailboxes are behind this list, then the
     /// category menu.
@@ -632,7 +649,7 @@ extension MailboxViewController {
                 : String(
                     localized: "Select All", table: "Mailbox", bundle: .module,
                     comment: "Selects every thread in the list"),
-            primaryAction: UIAction { [weak self] _ in self?.selectAll(!allSelected) })
+            primaryAction: UIAction { [weak self] _ in self?.selectEveryRow(!allSelected) })
 
         // With nothing selected, show what the list as a whole allows, disabled, so the toolbar doesn't jump.
         let threads = (ids.isEmpty ? snapshot.itemIdentifiers : ids).compactMap { threadsByID[$0] }
@@ -687,7 +704,7 @@ extension MailboxViewController {
         setToolbarItems(Array(items.prefix(1)) + organize + [.flexibleSpace()] + items.dropFirst(), animated: false)
     }
 
-    private func selectAll(_ select: Bool) {
+    private func selectEveryRow(_ select: Bool) {
         for item in dataSource.snapshot().itemIdentifiers {
             guard let indexPath = dataSource.indexPath(for: item) else { continue }
             if select {
@@ -696,6 +713,7 @@ extension MailboxViewController {
                 collectionView.deselectItem(at: indexPath, animated: false)
             }
         }
+        reportTouchPick()
         updateSelectionChrome()
     }
 

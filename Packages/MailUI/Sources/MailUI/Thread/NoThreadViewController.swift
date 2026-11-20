@@ -1,10 +1,24 @@
 import SwiftUI
 public import UIKit
 
-/// What the message column shows beside a list while no thread is open: "No Message Selected", or, beside an empty
-/// Inbox, where there is nothing to select, the Inbox Zero scene's doodles carrying on across it.
+/// What the message column shows beside a list while no thread is open: "No Message Selected", how many conversations
+/// are selected in a desktop window, or, beside an empty Inbox, where there is nothing to select, the Inbox Zero scene's
+/// doodles carrying on across it.
 public final class NoThreadViewController: UIViewController {
     private let pane = NoThreadPane()
+    /// How many conversations the list beside has selected: none, or several.
+    public var selectedCount: Int {
+        get { pane.selectedCount }
+        set { pane.selectedCount = newValue }
+    }
+
+    public init(selectedCount: Int = 0) {
+        super.init(nibName: nil, bundle: nil)
+        pane.selectedCount = selectedCount
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("Programmatic UI only") }
     /// The split view this pane last showed in. Kept because by the time the pane has gone it may no longer be a child.
     private weak var split: MailSplitViewController?
 

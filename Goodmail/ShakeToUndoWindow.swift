@@ -13,13 +13,16 @@ final class ShakeToUndoWindow: UIWindow {
     private let undo: () -> Void
     /// What the window itself does for a shortcut no screen answers, as New Window, or `nil` when it does nothing.
     var windowAction: (KeyboardShortcut) -> (() -> Void)? = { _ in nil }
+    /// How the window is driven, which its screens read from their trait collection.
+    let interactionStyle: InteractionStyle
 
     init(windowScene: UIWindowScene, undo: @escaping () -> Void) {
         self.undo = undo
-        super.init(windowScene: windowScene)
         // The one place a window's interaction style is decided, at the app's edge: Mac windows are driven by pointer
         // and keyboard, all others by touch. Screens read it from their trait collection.
-        traitOverrides.interactionStyle = InteractionStyle(idiom: windowScene.traitCollection.userInterfaceIdiom)
+        interactionStyle = InteractionStyle(idiom: windowScene.traitCollection.userInterfaceIdiom)
+        super.init(windowScene: windowScene)
+        traitOverrides.interactionStyle = interactionStyle
     }
 
     @available(*, unavailable)

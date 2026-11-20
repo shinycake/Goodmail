@@ -67,6 +67,10 @@ public final class MailboxViewModel {
         guard case .categorised(_, let selected) = source else { return nil }
         return selected
     }
+    /// What the list has picked. Only `pick` changes it; the ways to pick are in `MailboxViewModel+Selection`.
+    public private(set) var selection = ListSelection.none
+    /// How the list's window is driven, which decides where the pick goes when its rows leave the list.
+    let interaction: InteractionStyle
     /// Unread threads per category, for the menu; categories with none are left out.
     public private(set) var categoryUnreadCounts: [InboxCategory: Int] = [:]
     /// The account new messages come from: the mailbox's own, or the first one in a mailbox spanning accounts.
@@ -104,12 +108,14 @@ public final class MailboxViewModel {
         navigate: @escaping (Route) -> Void = { _ in },
         readAhead: @escaping (ThreadFetcher.Request) -> Void = { _ in },
         actions: MailActions? = nil,
+        interaction: InteractionStyle = .touch,
         health: AccountHealthBoard = AccountHealthBoard(),
         combinedTheme: CombinedTheme = Preferences.combinedTheme,
         now: @escaping () -> Date = Date.init,
         calendar: Calendar = .autoupdatingCurrent
     ) {
         self.actions = actions
+        self.interaction = interaction
         self.mailbox = mailbox
         self.title = title ?? mailbox.listTitle(labels: [], accounts: accounts)
         composingAccount = mailbox.accountID ?? accounts.first?.id
@@ -225,6 +231,7 @@ public final class MailboxViewModel {
         let back = unpinned.compactMap { thread in woken[thread.id].map { (thread, $0) } }
             .sorted { $0.1 > $1.1 }.map(\.0)
         let rest = unpinned.filter { woken[$0.id] == nil }
+        let shown = rows
         let leading = [
             Section(
                 id: .pinned,
@@ -241,6 +248,7 @@ public final class MailboxViewModel {
             + TimeSection.group(rest, by: \.date, now: now, calendar: calendar).map {
                 Section(id: .time($0.section), title: $0.section.title(now: now, calendar: calendar), threads: $0.items)
             }
+        pickAfterRowsChanged(from: shown)
     }
 
     /// Below this many threads, the list fetches older ones without waiting for a scroll.
@@ -274,6 +282,20 @@ public final class MailboxViewModel {
             mayHaveOlder = try await loadOlderAction()
         } catch {
             mayHaveOlder = true
+        }
+    }
+
+    /// The one place `selection` changes. `revealing` is for a pick made with a pointer or keys, which the reader
+    /// follows: it opens the thread being read, or counts several. Touch opens threads itself, as before.
+    func pick(_ new: ListSelection, revealing: Bool) {
+        let old = selection
+        guard new != old else { return }
+        selection = new
+        guard revealing else { return }
+        switch new {
+        case .reading(let id): navigate(.thread(id, in: mailbox))
+        case .several(let ids, _): navigate(.selection(count: ids.count))
+        case .none: navigate(.selection(count: 0))
         }
     }
 
@@ -336,12 +358,9 @@ public final class MailboxViewModel {
     /// The toolbar's actions for the threads of `mailbox` selected in edit mode: their reading state, what takes all
     /// of them out of the way here, then Mute or Unmute when all of them allow it.
     static func bulkActions(for threads: [ThreadSummary], in mailbox: Mailbox) -> [ThreadAction] {
-        guard let first = threads.first else { return [] }
-        let common = threads.dropFirst().reduce(ThreadPlace(first, in: mailbox).awayActions) { common, thread in
-            let theirs = ThreadPlace(thread, in: mailbox).awayActions
-            return common.filter(theirs.contains)
-        }
-        return [.markRead(threads.contains(where: \.isUnread))] + common
+        guard !threads.isEmpty else { return [] }
+        return [.markRead(threads.contains(where: \.isUnread))]
+            + ThreadPlace.awayActions(sharedBy: threads, in: mailbox)
             + [ThreadAction.muting(threads.map(\.labelIDs))].compactMap(\.self)
     }
 
