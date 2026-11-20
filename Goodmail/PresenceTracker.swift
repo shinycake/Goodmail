@@ -32,6 +32,9 @@ final class PresenceTracker {
                 MainActor.assumeIsolated { self?.handle(event) }
             }
         }
+        log.notice(
+            "Policy \(String(describing: self.policy), privacy: .public), launched as \(String(describing: self.presence), privacy: .public)"
+        )
     }
 
     /// Calls `change` with the old and new presence each time it changes, for the life of the process. Read
@@ -44,7 +47,12 @@ final class PresenceTracker {
     private func handle(_ event: PresenceEvent) {
         let old = presence
         let new = old.after(event, policy: policy)
-        guard new != old else { return }
+        guard new != old else {
+            log.debug(
+                "\(String(describing: event), privacy: .public) leaves \(String(describing: old), privacy: .public) as it is"
+            )
+            return
+        }
         presence = new
         let change = "\(event): \(old) to \(new)"
         log.notice("\(change, privacy: .public)")
