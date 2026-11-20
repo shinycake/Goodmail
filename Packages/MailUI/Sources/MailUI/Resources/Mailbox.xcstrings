@@ -270,6 +270,23 @@
         }
       }
     },
+    "Message" : {
+      "comment" : "File name of a dragged email that has no subject",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Message"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הודעה"
+          }
+        }
+      }
+    },
     "Message Not Available" : {
       "comment" : "Alert when a reply or forward can't load the message it answers",
       "localizations" : {

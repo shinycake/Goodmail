@@ -20,6 +20,8 @@ public final class MailboxesViewController: UIViewController {
     private(set) var doodles: MailboxesDoodlesModel?
     private var dataSource: UICollectionViewDiffableDataSource<MailboxesViewModel.Section, MailboxesViewModel.Item>!
     private var observation: Task<Void, Never>?
+    /// Takes dragged conversations onto the rows. The list's drop delegate, which it doesn't keep.
+    private var mailDrop: SidebarDrop?
     /// Each account's label changes, made when first needed.
     private var labelFlows: [AccountID: LabelEditFlow] = [:]
 
@@ -58,6 +60,10 @@ public final class MailboxesViewController: UIViewController {
         collectionView.delegate = self
         view.addSubview(collectionView)
         configureDataSource()
+        let mailDrop = SidebarDrop(
+            viewModel: viewModel, destination: { [weak self] in self?.dataSource.itemIdentifier(for: $0)?.destination })
+        self.mailDrop = mailDrop
+        collectionView.dropDelegate = mailDrop
         if style == .list {
             let doodles = MailboxesDoodlesModel()
             installDoodles(doodles)

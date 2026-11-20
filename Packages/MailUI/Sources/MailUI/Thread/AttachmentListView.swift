@@ -9,6 +9,9 @@ final class AttachmentListView: UIStackView {
     var onSave: ((Attachment) -> Void)?
     private var attachments: [Attachment] = []
     private var buttons: [String: ReaderAttachmentChip] = [:]
+    /// Fetches an attachment's bytes for a drag out of the window.
+    var dragData: ((Attachment, Message.ID) async throws -> Data)?
+    private var drags: [AttachmentDrag] = []
 
     /// The chip the reader selected on a desktop window, which has the keyboard.
     var selectedChip: ReaderAttachmentChip? { buttons.values.first(where: \.isFirstResponder) }
@@ -28,9 +31,10 @@ final class AttachmentListView: UIStackView {
         message.attachments.filter { !$0.isInline || $0.contentID == nil }
     }
 
-    func show(_ attachments: [Attachment]) {
+    func show(_ attachments: [Attachment], in message: Message.ID) {
         guard attachments != self.attachments else { return }
         self.attachments = attachments
+        drags = []
         for view in arrangedSubviews { view.removeFromSuperview() }
         buttons = [:]
         for attachment in attachments {
@@ -39,6 +43,11 @@ final class AttachmentListView: UIStackView {
             button.onSave = { [weak self] in self?.onSave?(attachment) }
             button.accessibilityLabel = "\(attachment.filename), \(Self.sizeText(attachment.size))"
             button.accessibilityUserInputLabels = [attachment.filename]
+            if let dragData {
+                let drag = AttachmentDrag(attachment: attachment, in: message, data: dragData)
+                drags.append(drag)
+                button.addInteraction(UIDragInteraction(delegate: drag))
+            }
             buttons[attachment.id] = button
             addArrangedSubview(button)
         }

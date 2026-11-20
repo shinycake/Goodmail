@@ -53,6 +53,23 @@
         }
       }
     },
+    "%lld labeled %@" : {
+      "comment" : "Toast after giving threads a label; the second value is the label's name",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld labeled %@"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld סומנו בתווית %@"
+          }
+        }
+      }
+    },
     "%lld moved to %@" : {
       "comment" : "Toast after moving threads; the second value is the mailbox or label they went to",
       "localizations" : {

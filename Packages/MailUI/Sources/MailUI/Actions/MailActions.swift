@@ -190,7 +190,7 @@ public final class MailActions {
     }
 
     /// Makes one undoable change, keeps it as the last one, and confirms it with `confirmation` when there is one.
-    private func apply(
+    func apply(
         confirmation: String?, _ change: @escaping (MailCommands) async throws -> MailCommands.Undo
     ) {
         run { [self] commands in

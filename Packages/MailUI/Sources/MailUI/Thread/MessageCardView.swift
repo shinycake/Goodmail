@@ -35,6 +35,7 @@ final class MessageCardView: UIView {
     private let attachments = AttachmentListView()
 
     init(attachmentData: @escaping (Attachment, Message.ID) async throws -> Data) {
+        attachments.dragData = attachmentData
         body = MessageWebView(attachmentData: attachmentData)
         header = MessageHeaderView(accessory: appearanceButton)
         super.init(frame: .zero)
@@ -96,7 +97,7 @@ final class MessageCardView: UIView {
             badge: message.isUnread ? .dot(accountColor) : nil)
         remoteNotice.configure(offers: ImageTrustRule.offers(for: message.from.address))
         body.show(MessageWebView.Content(message: message, allowsRemoteContent: allowsRemoteContent))
-        attachments.show(AttachmentListView.listed(in: message))
+        attachments.show(AttachmentListView.listed(in: message), in: message.id)
     }
 
     /// Light or dark, as the card shows now: the app's appearance, or light while the sun button holds it there.

@@ -58,6 +58,8 @@ public final class MailboxViewModel {
     @ObservationIgnored private let mailboxAccounts: [Account]
     @ObservationIgnored private let health: AccountHealthBoard
     public let actions: MailActions?
+    /// Where a dragged conversation's files come from, in a desktop window; `nil` where none are made.
+    let conversationSources: ConversationSources?
     public let mailbox: Mailbox
     /// Whether this is a Trash, of every account or of one, which Delete Forever can empty.
     var isTrash: Bool { mailbox.labelID == SystemLabel.trash }
@@ -108,6 +110,7 @@ public final class MailboxViewModel {
         navigate: @escaping (Route) -> Void = { _ in },
         readAhead: @escaping (ThreadFetcher.Request) -> Void = { _ in },
         actions: MailActions? = nil,
+        conversationSources: ConversationSources? = nil,
         interaction: InteractionStyle = .touch,
         health: AccountHealthBoard = AccountHealthBoard(),
         combinedTheme: CombinedTheme = Preferences.combinedTheme,
@@ -115,6 +118,7 @@ public final class MailboxViewModel {
         calendar: Calendar = .autoupdatingCurrent
     ) {
         self.actions = actions
+        self.conversationSources = conversationSources
         self.interaction = interaction
         self.mailbox = mailbox
         self.title = title ?? mailbox.listTitle(labels: [], accounts: accounts)

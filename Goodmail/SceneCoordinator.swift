@@ -229,7 +229,7 @@ final class SceneCoordinator: NSObject {
                 accounts: model.accounts,
                 directory: { model.database.mailboxDirectory() },
                 navigate: { [weak self] route in self?.handle(route) },
-                labelEditor: { model.labelEditor(for: $0) }),
+                labelEditor: { model.labelEditor(for: $0) }, actions: actions),
             style: style)
         mailboxes.selected = shown.destination
         return mailboxes
@@ -366,6 +366,9 @@ final class SceneCoordinator: NSObject {
                 navigate: { [weak self] route in self?.handle(route) },
                 readAhead: { model.readAhead($0) },
                 actions: actions,
+                conversationSources: ConversationSources(
+                    messages: { try await model.messagesToAnswer(in: $0).map(\.id) },
+                    source: { try await model.source(of: $0) }),
                 interaction: window.interactionStyle,
                 health: model.health
             ),

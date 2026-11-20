@@ -12,8 +12,8 @@ public final class MailboxViewController: UIViewController {
     private(set) var swipes: SwipeActionsController!
     /// Picks rows on clicks, in a desktop window (`configurePointerPicking`).
     var rowClicks: RowClicks?
-    /// Drags a row out into a new window, where the device has windows. The list's drag delegate, which it doesn't keep.
-    private var windowDrag: ThreadWindowDrag?
+    /// Drags rows onto mailboxes and out of the window. The list's drag delegate, which it doesn't keep.
+    private var drag: ConversationDrag?
     let searchResults: SearchResultsController?
     /// The thread open beside a list built after it opened, as when the window widens back into columns, which the
     /// list marks as selected once its row arrives (`markOpenThread`). `nil` once marked.
@@ -127,7 +127,7 @@ public final class MailboxViewController: UIViewController {
         if let inboxZero { installInboxZero(inboxZero) }
         configureDataSource()
         configureSwipes()
-        configureWindowDrag()
+        configureDrag()
         configurePointerPicking()
         installSearch()
         navigationItem.rightBarButtonItems = browsingTrailingItems
@@ -581,16 +581,20 @@ extension MailboxViewController: UICollectionViewDelegate {
 }
 
 extension MailboxViewController {
-    private func configureWindowDrag() {
-        guard UIApplication.shared.supportsMultipleScenes else { return }
-        let drag = ThreadWindowDrag(
-            thread: { [weak self] indexPath in
-                guard let self, !isEditing else { return nil }
-                return dataSource.itemIdentifier(for: indexPath)
+    private func configureDrag() {
+        guard
+            let carry = ConversationCarry(
+                style: viewModel.interaction, window: { [viewModel] in viewModel.newWindow(for: $0) },
+                sources: viewModel.conversationSources, supportsWindows: UIApplication.shared.supportsMultipleScenes)
+        else { return }
+        let drag = ConversationDrag(
+            threads: { [weak self] indexPath in
+                guard let self, !isEditing, let id = dataSource.itemIdentifier(for: indexPath) else { return [] }
+                let ids = picksWithPointer ? viewModel.menuTargets(for: id) : [id]
+                return ids.compactMap { self.threadsByID[$0] }
             },
-            window: { [viewModel] in viewModel.newWindow(for: $0) },
-            willBegin: { [weak self] in self?.swipes.close() })
-        windowDrag = drag
+            carry: carry, mailbox: viewModel.mailbox, willBegin: { [weak self] in self?.swipes.close() })
+        self.drag = drag
         collectionView.dragDelegate = drag
     }
 }

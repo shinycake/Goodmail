@@ -47,6 +47,15 @@ public enum MailService: String, CaseIterable, Codable, Hashable, Sendable {
         }
     }
 
+    /// Whether a message can wear several labels at once, as Gmail's do, rather than sit in one folder. Only then can
+    /// a conversation be given a label while it stays where it is.
+    public var keepsMailUnderSeveralLabels: Bool {
+        switch self {
+        case .gmail: true
+        case .icloud, .outlook, .imap: false
+        }
+    }
+
     /// What deleting one of the user's labels does to its mail.
     public var labelDeletion: LabelDeletion {
         switch self {

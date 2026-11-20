@@ -177,16 +177,20 @@ extension ContentIntake: UITextDropDelegate {
     func textDroppableView(
         _ textDroppableView: any UIView & UITextDroppable, proposalForDrop drop: any UITextDropRequest
     ) -> UITextDropProposal {
-        let own = drop.dropSession.items.contains { $0.localObject != nil && !SharedItems.holdsWords($0.itemProvider) }
+        let own = drop.dropSession.items.contains {
+            $0.localObject != nil && !($0.localObject is DraggedThread) && !SharedItems.holdsWords($0.itemProvider)
+        }
         return own ? UITextDropProposal(operation: .cancel) : drop.suggestedProposal
     }
 }
 
 extension ContentIntake: UIDropInteractionDelegate {
-    /// Only drops from other apps: this app's own drags, such as text from a message or a thread's row, mean
-    /// something else when let go away from a text.
+    /// Only drops from other apps, and conversations dragged as `.eml` files: this app's other drags, such as text
+    /// from a message or a touch window's row, mean something else when let go away from a text.
     func dropInteraction(_ interaction: UIDropInteraction, canHandle session: any UIDropSession) -> Bool {
-        session.localDragSession == nil && accepts() && !Self.providers(in: session).isEmpty
+        let fromOutside =
+            session.localDragSession == nil || session.items.allSatisfy { $0.localObject is DraggedThread }
+        return fromOutside && accepts() && !Self.providers(in: session).isEmpty
     }
 
     func dropInteraction(_ interaction: UIDropInteraction, sessionDidUpdate session: any UIDropSession)

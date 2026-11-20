@@ -57,7 +57,9 @@ public final class MailboxesViewModel {
 
     @ObservationIgnored private let directoryStream: () -> AsyncThrowingStream<MailboxDirectory, any Error>
     @ObservationIgnored private let navigate: (Route) -> Void
-    @ObservationIgnored private let accounts: [Account]
+    @ObservationIgnored let accounts: [Account]
+    /// Carries out what a drop on a row asks for, as the menus' actions do; `nil` where mail can't be changed.
+    @ObservationIgnored let actions: MailActions?
     /// What changes an account's labels at its service.
     @ObservationIgnored let labelEditor: (AccountID) -> LabelEditor?
 
@@ -66,12 +68,14 @@ public final class MailboxesViewModel {
         directory: @escaping () -> AsyncThrowingStream<MailboxDirectory, any Error>,
         navigate: @escaping (Route) -> Void = { _ in },
         labelEditor: @escaping (AccountID) -> LabelEditor? = { _ in nil },
+        actions: MailActions? = nil,
         combinedTheme: CombinedTheme = Preferences.combinedTheme
     ) {
         directoryStream = directory
         self.navigate = navigate
         self.accounts = accounts
         self.labelEditor = labelEditor
+        self.actions = actions
         theme = Theme(accountID: nil, among: accounts, combined: combinedTheme)
     }
 
