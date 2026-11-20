@@ -6,7 +6,10 @@
 // - A light border turns over the same way, so dividers don't glare.
 // - Text that is then too faint on what it sits on moves toward white or black, keeping its hue: navy body text turns
 //   pale, a link stays blue, and white text on a kept navy banner stays white.
-// - Images, and anything drawn over a background image, stay as they are, since the pass can't see what they show.
+// - An <img> stays as it is, and once it has loaded, keeps the light color the sender drew it on behind it, so a
+//   transparent logo's dark ink doesn't vanish on a turned panel. On an opaque image that color never shows. Images
+//   still blocked or broken, spacers and tracking pixels, and a <picture> with its own dark source get none. Inline
+//   SVG, and anything drawn over a background image, stay as they are, since the pass can't see what they show.
 // Each change is a mark with its replacement color, which the palette's rules apply in dark appearance only, so the
 // sun button shows the sender's own colors again without a reload. Every color is read before any mark lands, since
 // a mark changes what the elements around it show.
@@ -69,24 +72,35 @@ if (PALETTE === 'painted' || PALETTE === 'sendersOwn') {
     passed = true;
     const root = channels(getComputedStyle(document.documentElement).backgroundColor);
     const page = opaque(root) ? over(root, CARD) : CARD;
-    // What each element's content shows on in dark once the marks land, and the element whose paper that is
-    // (null for the page); a null color over a background image, which the pass can't read.
+    // What each element's content shows on in dark once the marks land, the element whose paper that is (null for
+    // the page), and the light color the sender painted there if the pass turned it; a null color over a background
+    // image, which the pass can't read. A painted page shows our sheet in dark where it was white in light, unless
+    // the sender painted the page themselves.
+    const pageSenderColor = PALETTE === 'painted' && page.join() === SHEET.join() ? [255, 255, 255] : null;
     const backdrops = new Map();
     const marks = [];
+    const plates = [];
     for (const el of [document.body, ...document.body.querySelectorAll('*')]) {
       const style = getComputedStyle(el);
-      const below = backdrops.get(el.parentElement) ?? { color: page, owner: null };
+      const below = backdrops.get(el.parentElement)
+        ?? { color: page, owner: null, senderColor: pageSenderColor };
       let backdrop = below;
       const paper = channels(style.backgroundColor);
       if (style.backgroundImage !== 'none') {
-        backdrop = { color: null, owner: el };
+        backdrop = { color: null, owner: el, senderColor: null };
       } else if (opaque(paper) && (below.color || (paper[3] ?? 1) >= 1)) {
         const shown = over(paper, below.color ?? paper);
         const replacement = turned(shown);
-        if (replacement) marks.push({ el, kind: 'paper', value: css(replacement), color: replacement });
-        backdrop = { color: replacement ?? shown, owner: el };
+        // An image's own light paper stays: its plate below is that same color.
+        if (replacement && el.tagName !== 'IMG') {
+          marks.push({ el, kind: 'paper', value: css(replacement), color: replacement });
+        }
+        backdrop = { color: replacement ?? shown, owner: el, senderColor: replacement ? shown : null };
       }
       backdrops.set(el, backdrop);
+      if (el.tagName === 'IMG' && backdrop.senderColor) {
+        plates.push({ el, kind: 'plate', value: css(backdrop.senderColor), owner: backdrop.owner });
+      }
       let ink = null;
       if (backdrop.color && hasText(el)) {
         const color = channels(style.color);
@@ -142,6 +156,17 @@ if (PALETTE === 'painted' || PALETTE === 'sendersOwn') {
     for (const mark of marks) {
       if (held.has(mark.el) && mark.kind === 'paper') remove(mark);
       if (mark.kind === 'ink' && held.has(mark.owner)) remove(mark);
+    }
+    // A plate goes on an image once it shows, big enough to carry ink: a blocked or broken image would otherwise
+    // become a light slab, and a transparent spacer or tracking pixel a light bar or dot. A <picture> showing one of
+    // its sources rather than its <img>'s own picks that source for dark itself.
+    const platable = (img) => img.naturalWidth > 2 && img.naturalHeight > 2
+      && img.offsetWidth >= 16 && img.offsetHeight >= 16
+      && !(img.closest('picture') && img.currentSrc !== img.src);
+    for (const plate of plates) {
+      if (held.has(plate.owner)) continue;
+      const place = () => { if (platable(plate.el)) apply(plate); };
+      if (plate.el.complete) place(); else plate.el.addEventListener('load', place, { once: true });
     }
   };
   pass();

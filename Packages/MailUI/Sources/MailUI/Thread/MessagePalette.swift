@@ -87,6 +87,7 @@ nonisolated enum MessagePalette: String, CaseIterable, Sendable {
     private static let darkPassStyle = """
         <style>@layer goodmail-dark { @media (prefers-color-scheme: dark) {\
         [data-goodmail-dark-paper] { background-color: var(--goodmail-dark-paper) !important; }\
+        [data-goodmail-dark-plate] { background-color: var(--goodmail-dark-plate) !important; }\
         [data-goodmail-dark-ink] { color: var(--goodmail-dark-ink) !important; }\
         [data-goodmail-dark-border] { border-top-color: var(--goodmail-dark-border-top) !important; \
         border-right-color: var(--goodmail-dark-border-right) !important; \

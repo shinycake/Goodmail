@@ -48,11 +48,15 @@ nonisolated struct SwipeShelves: Equatable, Sendable {
 nonisolated enum SwipeListState: Equatable, Sendable {
     case following
     case showingDrop(SwipeShelves)
+    /// A drop that moved nothing on `shelf`. On a busy device the list can report a drop back where the row started
+    /// while drawing the row where the finger let go, and with no change to show it would leave it there, so that
+    /// shelf redraws when the drag ends.
+    case droppedInPlace(SwipeArrangement.Shelf)
 
     /// The shelves the list shows in place of the arrangement's, while there is one.
     var shownShelves: SwipeShelves? {
         switch self {
-        case .following: nil
+        case .following, .droppedInPlace: nil
         case .showingDrop(let shelves): shelves
         }
     }
@@ -63,10 +67,24 @@ nonisolated enum SwipeListState: Equatable, Sendable {
         _ choices: [SwipeChoice], on shelf: SwipeArrangement.Shelf, before anchor: SwipeChoice?,
         into arrangement: inout SwipeArrangement
     ) {
-        var shown = shownShelves ?? SwipeShelves(arrangement)
+        let before = shownShelves ?? SwipeShelves(arrangement)
+        var shown = before
         shown.drop(choices, on: shelf, before: anchor)
         arrangement.move(choices, to: shelf, before: anchor)
-        self = shown == SwipeShelves(arrangement) ? .following : .showingDrop(shown)
+        self =
+            switch (self, shown == SwipeShelves(arrangement), shown == before) {
+            case (_, false, _): .showingDrop(shown)
+            case (.following, true, true): .droppedInPlace(shelf)
+            // A redraw still owed for an earlier drop of this drag stays owed.
+            case (.droppedInPlace(let earlier), true, _): .droppedInPlace(earlier)
+            case (_, true, _): .following
+            }
+    }
+
+    /// The shelf the list has to draw again when the drag ends, if any.
+    var shelfToRedraw: SwipeArrangement.Shelf? {
+        guard case .droppedInPlace(let shelf) = self else { return nil }
+        return shelf
     }
 
     mutating func dragEnded() {

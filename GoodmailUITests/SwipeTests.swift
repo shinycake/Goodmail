@@ -38,13 +38,13 @@ final class SwipeTests: XCTestCase {
         let row = firstThread(in: app)
         XCTAssertTrue(row.swipeOpen(showing: app.buttons["Archive"]), "the swipe opened the row's buttons")
 
-        swipeRight(row, in: app)
-        XCTAssertTrue(app.buttons["Archive"].waitForNonExistence(timeout: 5), "the trailing buttons closed")
+        XCTAssertTrue(
+            retry({ swipeRight(row, in: app) }, until: { !app.buttons["Archive"].exists }),
+            "the trailing buttons closed")
         XCTAssertFalse(app.buttons["Star"].exists || app.buttons["Unstar"].exists, "the leading ones stayed hidden")
 
-        swipeRight(row, in: app)
         XCTAssertTrue(
-            app.buttons["Star"].waitForExistence(timeout: 5) || app.buttons["Unstar"].exists,
+            retry({ swipeRight(row, in: app) }, until: { app.buttons["Star"].exists || app.buttons["Unstar"].exists }),
             "a fresh swipe reveals the leading buttons")
         attach(app, "swipe-leading")
     }

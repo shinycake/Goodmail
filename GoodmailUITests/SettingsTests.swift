@@ -80,8 +80,7 @@ final class SettingsTests: XCTestCase {
         app.buttons[settings].firstMatch.tap()
         XCTAssertTrue(app.navigationBars[settings].waitForExistence(timeout: 5))
         let picker = app.buttons.containing(NSPredicate(format: "label BEGINSWITH %@", setting)).firstMatch
-        for _ in 0..<6 where !picker.isHittable { app.swipeUp() }
-        XCTAssertTrue(picker.isHittable, "the animation setting is in Settings")
+        XCTAssertTrue(picker.scrollIntoView(in: app), "the animation setting is in Settings")
         picker.tap()
         app.buttons[subtle].firstMatch.tap()
         XCTAssertTrue(

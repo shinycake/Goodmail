@@ -9,6 +9,9 @@ struct SwipeSettingsView: View {
     @Bindable var model: SettingsViewModel
     /// Whether the list shows the arrangement or a drop where it fell, until that drag ends.
     @State private var listState = SwipeListState.following
+    /// How many times each shelf's section was drawn again after a drop that moved nothing, as that section's
+    /// identity: a new identity makes the list lay the section out afresh, where the rows really are.
+    @State private var redraws: [SwipeArrangement.Shelf: Int] = [:]
 
     static var title: String {
         String(localized: "Swipe Actions", table: "Swipe", bundle: .module, comment: "Title of the swipe settings")
@@ -28,6 +31,7 @@ struct SwipeSettingsView: View {
                 } header: {
                     Text(title(of: side))
                 }
+                .id(redraws[.side(side), default: 0])
             }
             Section {
                 ForEach(shelves[.unused]) { choice in
@@ -42,6 +46,7 @@ struct SwipeSettingsView: View {
                     "More Actions", tableName: "Swipe", bundle: .module,
                     comment: "Swipe actions on neither side, waiting to be added")
             }
+            .id(redraws[.unused, default: 0])
             SwipeTintsSection(model: model)
             Section {
                 Button {
@@ -73,9 +78,10 @@ struct SwipeSettingsView: View {
         .onDragSessionUpdated { session in
             // The drop is reported before its drag ends, so the list settles back to the arrangement in an update of
             // its own.
-            if case .ended = session.phase, listState != .following {
-                withAnimation { listState.dragEnded() }
-            }
+            guard case .ended = session.phase, listState != .following else { return }
+            // Without animation: a section laid out afresh would otherwise cross-fade.
+            if let shelf = listState.shelfToRedraw { redraws[shelf, default: 0] += 1 }
+            withAnimation { listState.dragEnded() }
         }
         .navigationTitle(Self.title)
         .navigationBarTitleDisplayMode(.inline)

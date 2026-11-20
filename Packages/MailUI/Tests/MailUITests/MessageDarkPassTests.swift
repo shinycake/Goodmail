@@ -9,13 +9,13 @@ import WebKit
 /// keeps its dark brand colors, and is left alone in light.
 @MainActor
 struct MessageDarkPassTests {
-    /// The marks the pass set, by element id: what kind ("paper", "ink" or "border") and the color it set.
+    /// The marks the pass set, by element id: what kind ("paper", "ink", "border" or "plate") and the color it set.
     private func marks(
         in body: MessageBody, palette: MessagePalette, appearance: ForcedAppearance
     ) async throws -> [String: [String: String]] {
         let view = await MessageScriptPage.load(body, palette: palette, appearance: appearance).view
         let script = """
-            (() => Object.fromEntries(['paper', 'ink', 'border'].map((kind) => [kind, Object.fromEntries(
+            (() => Object.fromEntries(['paper', 'ink', 'border', 'plate'].map((kind) => [kind, Object.fromEntries(
               [...document.querySelectorAll('[data-goodmail-dark-' + kind + ']')].filter((el) => el.id)
                 .map((el) => [el.id, el.style.getPropertyValue(
                   kind === 'border' ? '--goodmail-dark-border-bottom' : '--goodmail-dark-' + kind)]))])))()
@@ -79,6 +79,54 @@ struct MessageDarkPassTests {
         let body = MessageBody(html: #"<div id="black" style="color: #000; border: 1px solid #eee">Hi</div>"#)
         let marks = try await marks(in: body, palette: .adaptive, appearance: .dark)
         #expect(marks.values.allSatisfy { $0.isEmpty })
+    }
+
+    /// A 4×4 logo and a 1×1 spacer, as data so they load where remote images are blocked.
+    private static let logo =
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAEklEQVR42mMQEdH4j4wZSBcAALGaFPG5moSKAAAAAElFTkSuQmCC"
+    private static let pixel =
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mMQEdH4DwAB4AFQTvZ85AAAAABJRU5ErkJggg=="
+
+    /// Images drawn for a light backdrop: a transparent logo's dark ink would vanish on the turned panel.
+    private let logos = MessageBody(
+        html: """
+            <img id="onPage" src="\(Self.logo)" width="40" height="40">\
+            <table id="panel" bgcolor="#ffffff"><tr><td>\
+            <img id="onPanel" src="\(Self.logo)" width="40" height="40">\
+            <img id="blocked" src="cid:missing" width="40" height="40">\
+            <img id="spacer" src="\(Self.pixel)" width="300" height="20">\
+            <picture><source media="(prefers-color-scheme: dark)" srcset="\(Self.logo)#dark">\
+            <img id="ownDark" src="\(Self.logo)" width="40" height="40"></picture>\
+            </td></tr></table>\
+            <div id="note" style="background-color: #fff6e0"><img id="onNote" src="\(Self.logo)" width="40" height="40"></div>\
+            <div id="banner" style="background: #0d1b4c"><img id="onBanner" src="\(Self.logo)" width="40" height="40"></div>
+            """)
+
+    @Test func imagesKeepTheLightBackdropTheSenderDrewThemFor() async throws {
+        let plates = try #require(try await marks(in: logos, palette: .painted, appearance: .dark)["plate"])
+        #expect(plates["onPanel"] == "rgb(255, 255, 255)", "the panel's white stays behind its image")
+        #expect(plates["onPage"] == "rgb(255, 255, 255)", "a painted page was white")
+        #expect(plates["onNote"] == "rgb(255, 246, 224)", "a pastel stays the sender's pastel behind an image")
+        #expect(plates["onBanner"] == nil, "an image on a dark color the pass kept was made for dark")
+        #expect(plates["blocked"] == nil, "an image that never loaded would be a light slab")
+        #expect(plates["spacer"] == nil, "a transparent spacer would be a light bar")
+        #expect(plates["ownDark"] == nil, "a picture with its own dark source drew it for dark")
+    }
+
+    @Test func imagesOnTheSendersOwnDarkPageGetNoPlate() async throws {
+        let plates = try #require(try await marks(in: logos, palette: .sendersOwn, appearance: .dark)["plate"])
+        #expect(plates["onPage"] == nil, "a sender with dark styles drew the page's images for dark")
+        #expect(plates["onPanel"] == "rgb(255, 255, 255)", "a white panel the pass turned still was white")
+    }
+
+    @Test func imagesOnAPageTheSenderPaintedDarkGetNoPlate() async throws {
+        let body = MessageBody(
+            html: """
+                <style>html { background: #111111 !important; }</style>\
+                <img id="onPage" src="\(Self.logo)" width="40" height="40">
+                """)
+        let plates = try #require(try await marks(in: body, palette: .painted, appearance: .dark)["plate"])
+        #expect(plates["onPage"] == nil)
     }
 
     /// The computed background and text color of each element by id, once the pass has run in dark.

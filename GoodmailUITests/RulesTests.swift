@@ -44,8 +44,7 @@ final class RulesTests: XCTestCase {
         app.buttons[words.settings].firstMatch.tap()
         XCTAssertTrue(app.navigationBars[words.settings].waitForExistence(timeout: 5))
         let row = app.buttons[words.rules].firstMatch
-        for _ in 0..<8 where !row.isHittable { app.swipeUp() }
-        XCTAssertTrue(row.isHittable, "Rules is in Settings")
+        XCTAssertTrue(row.scrollIntoView(in: app), "Rules is in Settings")
         row.tap()
 
         let addRule = app.buttons[words.addRule].firstMatch
@@ -70,7 +69,7 @@ final class RulesTests: XCTestCase {
         XCTAssertTrue(text.waitForExistence(timeout: 5), "Add Condition offers Text")
         XCTAssertEqual(values.count, 1, "opening Add Condition adds nothing")
         text.tap()
-        XCTAssertEqual(values.count, 2, "choosing Text adds one condition")
+        XCTAssertTrue(waitUntil { values.count == 2 }, "choosing Text adds one condition")
         app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", words.from)).element(boundBy: 1).tap()
         app.buttons[words.subject].firstMatch.tap()
         values.element(boundBy: 1).tap()
@@ -79,20 +78,23 @@ final class RulesTests: XCTestCase {
         // The same for Add Action: nothing until Snooze is chosen, then one action.
         let lengths = app.steppers
         let addAction = app.buttons[words.addAction].firstMatch
-        for _ in 0..<4 where !addAction.isHittable { app.swipeUp() }
+        XCTAssertTrue(addAction.scrollIntoView(in: app), "the editor offers Add Action")
         addAction.buttons.firstMatch.tap()
         let snooze = app.buttons[words.snooze].firstMatch
         XCTAssertTrue(snooze.waitForExistence(timeout: 5), "Add Action offers Snooze")
         XCTAssertEqual(lengths.count, 0, "opening Add Action adds nothing")
         snooze.tap()
-        XCTAssertEqual(lengths.count, 1, "choosing Snooze adds one action")
+        XCTAssertTrue(waitUntil { lengths.count == 1 }, "choosing Snooze adds one action")
 
         // Save is on once the rule reads, and the sheet's title becomes the rule's name.
         let editor = app.navigationBars["Thursday night"]
         XCTAssertTrue(editor.waitForExistence(timeout: 5), "the rule reads")
         attach("\(language)-editor", app)
+        // Read again once the editor has settled, so an extra row that landed after the polls above still shows.
+        XCTAssertEqual(values.count, 2, "the rule has two conditions")
+        XCTAssertEqual(lengths.count, 1, "the rule has one action")
         let save = editor.buttons.element(boundBy: editor.buttons.count - 1)
-        XCTAssertTrue(save.isEnabled, "Save is on")
+        XCTAssertTrue(save.wait(for: \.isEnabled, toEqual: true, timeout: 10), "Save is on")
         save.tap()
 
         XCTAssertTrue(editor.waitForNonExistence(timeout: 5), "saving closes the editor")

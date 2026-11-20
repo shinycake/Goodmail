@@ -6,10 +6,6 @@ extension XCUIElement {
     /// not the behavior under test.
     @MainActor
     func swipeOpen(showing button: XCUIElement) -> Bool {
-        for _ in 0..<3 {
-            swipeLeft(velocity: .slow)
-            if button.waitForExistence(timeout: 3) { return true }
-        }
-        return false
+        retry({ swipeLeft(velocity: .slow) }, until: { button.exists })
     }
 }

@@ -39,6 +39,7 @@ struct SwipeShelvesTests {
         let shown = try #require(state.shownShelves)
         #expect(shown[.side(.right)] == [.star, .archive, .snooze, .trash])
         #expect(shown[.side(.left)] == [.read])
+        #expect(state.shelfToRedraw == nil, "the change back animates as it is")
         state.dragEnded()
         #expect(state == .following)
     }
@@ -49,8 +50,30 @@ struct SwipeShelvesTests {
         state.drop([.spam], on: .unused, before: .star, into: &arrangement)
         #expect(SwipeShelves(arrangement)[.unused] == [.star, .spam], "More Actions keeps the usual order")
         #expect(try #require(state.shownShelves)[.unused] == [.spam, .star])
+        #expect(state.shelfToRedraw == nil)
         state.dragEnded()
         #expect(state.shownShelves == nil)
+    }
+
+    @Test func aDropThatMovesNothingHasTheListRedrawWhenTheDragEnds() {
+        var arrangement = SwipeArrangement(left: [.read], right: [.archive, .snooze, .trash])
+        var state = SwipeListState.following
+        // On a busy device the list can report a drop back where the row started while drawing it where the finger
+        // let go, and with nothing changed it would never draw it back.
+        state.drop([.spam], on: .unused, before: nil, into: &arrangement)
+        #expect(state.shownShelves == nil, "the list shows the arrangement")
+        #expect(state.shelfToRedraw == .unused, "More Actions redraws")
+        state.dragEnded()
+        #expect(state == .following)
+    }
+
+    @Test func aRedrawOwedStaysOwedThroughALaterDropTheArrangementTakes() {
+        var arrangement = SwipeArrangement(left: [.read], right: [.archive, .snooze, .trash])
+        var state = SwipeListState.following
+        state.drop([.spam], on: .unused, before: nil, into: &arrangement)
+        state.drop([.trash], on: .side(.right), before: .archive, into: &arrangement)
+        #expect(arrangement.right == [.trash, .archive, .snooze])
+        #expect(state.shelfToRedraw == .unused)
     }
 
     @Test func aDropAfterARefusedOneStartsFromWhatTheListShows() throws {
