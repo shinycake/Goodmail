@@ -16,6 +16,10 @@ nonisolated struct AppAttestDevice: AttestationDevice {
     }
 
     func generateAssertion(_ keyID: String, clientDataHash: Data) async throws -> Data {
-        try await DCAppAttestService.shared.generateAssertion(keyID, clientDataHash: clientDataHash)
+        do {
+            return try await DCAppAttestService.shared.generateAssertion(keyID, clientDataHash: clientDataHash)
+        } catch let error as DCError where error.code == .invalidKey {
+            throw AttestationKeyLost()
+        }
     }
 }

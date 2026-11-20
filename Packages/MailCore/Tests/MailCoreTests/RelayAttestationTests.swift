@@ -73,6 +73,40 @@ struct RelayAttestationTests {
         #expect(device.asserted.count == 5)
     }
 
+    @Test func requestsAtTheSameTimeSignOneAfterAnother() async throws {
+        let store = MemorySecrets()
+        try store.set(Data("kept".utf8), for: RelayAttestation.storageKey)
+        // On a Mac, App Attest fails every assertion of a key but the first when they overlap.
+        let device = FakeDevice(failsOverlappingAssertions: true)
+        let attestation = RelayAttestation(baseURL: relayURL, device: device, store: store, http: FakeRelay())
+
+        let signed = await withTaskGroup { group in
+            for _ in 0..<5 {
+                group.addTask { await attestation.headers(method: "POST", path: "/v1/devices", body: Data()) }
+            }
+            return await group.reduce(0) { count, headers in count + (headers.isEmpty ? 0 : 1) }
+        }
+
+        #expect(signed == 5)
+        #expect(device.generated == 0)
+    }
+
+    @Test func anAssertionThatFailsForAnotherReasonKeepsTheKey() async throws {
+        let store = MemorySecrets()
+        try store.set(Data("kept".utf8), for: RelayAttestation.storageKey)
+        let device = FakeDevice(failsNextAssertion: true)
+        let relay = FakeRelay()
+        let attestation = RelayAttestation(baseURL: relayURL, device: device, store: store, http: relay)
+
+        let unsigned = await attestation.headers(method: "POST", path: "/v1/devices", body: Data())
+        let signed = await attestation.headers(method: "POST", path: "/v1/devices", body: Data())
+
+        #expect(unsigned.isEmpty)
+        #expect(signed[RelayAttestation.keyHeader] == "kept")
+        #expect(relay.paths.isEmpty)
+        #expect(try store.data(for: RelayAttestation.storageKey) == Data("kept".utf8))
+    }
+
     @Test func aKeyFromAnEarlierLaunchIsUsedWithoutAttesting() async throws {
         let store = MemorySecrets()
         try store.set(Data("kept".utf8), for: RelayAttestation.storageKey)
@@ -178,11 +212,19 @@ private func hex(_ data: Data) -> String {
 private final class FakeDevice: AttestationDevice {
     let isSupported: Bool
     private let forgets: Set<String>
-    private let log = Mutex<(generated: Int, attested: [String], asserted: [Data])>((0, [], []))
+    private let failsOverlappingAssertions: Bool
+    private let log = Mutex<
+        (generated: Int, attested: [String], asserted: [Data], inFlight: Int, failsNextAssertion: Bool)
+    >((0, [], [], 0, false))
 
-    init(supported: Bool = true, forgets: Set<String> = []) {
+    init(
+        supported: Bool = true, forgets: Set<String> = [], failsOverlappingAssertions: Bool = false,
+        failsNextAssertion: Bool = false
+    ) {
         isSupported = supported
         self.forgets = forgets
+        self.failsOverlappingAssertions = failsOverlappingAssertions
+        log.withLock { $0.failsNextAssertion = failsNextAssertion }
     }
 
     var generated: Int { log.withLock { $0.generated } }
@@ -202,7 +244,16 @@ private final class FakeDevice: AttestationDevice {
     }
 
     func generateAssertion(_ keyID: String, clientDataHash: Data) async throws -> Data {
-        if forgets.contains(keyID) { throw CocoaError(.featureUnsupported) }
+        if forgets.contains(keyID) { throw AttestationKeyLost() }
+        let (overlaps, failsNow) = log.withLock {
+            $0.inFlight += 1
+            defer { $0.failsNextAssertion = false }
+            return ($0.inFlight > 1, $0.failsNextAssertion)
+        }
+        // Long enough for overlapping requests to start theirs.
+        try await Task.sleep(for: .milliseconds(20))
+        log.withLock { $0.inFlight -= 1 }
+        if failsNow || (failsOverlappingAssertions && overlaps) { throw CocoaError(.featureUnsupported) }
         log.withLock { $0.asserted.append(clientDataHash) }
         return Data("signed".utf8)
     }
