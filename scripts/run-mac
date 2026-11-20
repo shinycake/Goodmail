@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Build the signed Debug Mac app (Mac Catalyst, ADR-032) and launch it, keeping its data and Keychain sign-in.
+# The Mac counterpart of scripts/run. Extra arguments go to the app.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+source scripts/build-paths # BUILD_ROOT: on the external drive when it's mounted, to spare the internal disk
+source scripts/asc-signing # signing: the App Store Connect API key flags for xcodebuild
+BUILD_DIR="$BUILD_ROOT/dev-mac" # one signed Mac build for every checkout, like scripts/run's dev build
+mkdir -p "$BUILD_DIR"
+
+xcodebuild build -quiet -project Goodmail.xcodeproj -scheme Goodmail -configuration Debug \
+    -destination 'platform=macOS,variant=Mac Catalyst' -derivedDataPath "$BUILD_DIR" \
+    -allowProvisioningUpdates ${signing[@]+"${signing[@]}"}
+app="$BUILD_DIR/Build/Products/Debug-maccatalyst/Goodmail.app"
+# By path, so a simulator's Goodmail and the iPad app from TestFlight keep running.
+pkill -f "$app/Contents/MacOS/Goodmail" && sleep 1 || true
+open -n "$app" --args "$@"

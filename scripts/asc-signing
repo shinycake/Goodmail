@@ -1,0 +1,24 @@
+# Sourced by the scripts that sign with xcodebuild: sets `signing` to the flags that let automatic signing use the
+# App Store Connect API key asc is authenticated with, or to nothing when there's no .p8 file, so Xcode's Apple ID signs.
+#
+# GOODMAIL_ASC_KEY_ID, GOODMAIL_ASC_ISSUER_ID and GOODMAIL_ASC_KEY_PATH override what asc reports. Expand it as
+# ${signing[@]+"${signing[@]}"}, which stays empty under `set -u`.
+# Without asc, or with asc signed out, both stay empty and Xcode's Apple ID signs.
+key_id="${GOODMAIL_ASC_KEY_ID:-$(asc auth status --output json 2>/dev/null |
+    python3 -c 'import json, sys; print(next((c["keyId"] for c in json.load(sys.stdin)["credentials"] if c.get("isDefault")), ""))' 2>/dev/null || true)}"
+issuer_id="${GOODMAIL_ASC_ISSUER_ID:-$(asc auth issuer-id 2>/dev/null || true)}"
+key_path="${GOODMAIL_ASC_KEY_PATH:-}"
+if [[ -z "$key_path" && -n "$key_id" ]]; then
+    for candidate in "$HOME"/.appstoreconnect/private_keys/*"$key_id"*.p8 "$HOME"/.asc/*"$key_id"*.p8 \
+        "$HOME"/.asc/keys/*"$key_id"*.p8 "$HOME"/private_keys/*"$key_id"*.p8; do
+        [[ -f "$candidate" ]] && key_path="$candidate" && break
+    done
+fi
+signing=()
+if [[ -n "$key_path" && -f "$key_path" && -n "$issuer_id" ]]; then
+    signing=(-authenticationKeyPath "$key_path" -authenticationKeyID "$key_id" -authenticationKeyIssuerID "$issuer_id")
+    echo "Signing in to App Store Connect with API key $key_id"
+else
+    echo "warning: no .p8 file for API key ${key_id:-?}, so signing needs an Apple ID signed in to Xcode." >&2
+    echo "warning: docs/setup/testflight.md explains how to export it once." >&2
+fi

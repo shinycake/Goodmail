@@ -141,6 +141,14 @@ for package in "${WATCH_BUILT_PACKAGES[@]}"; do
         -derivedDataPath "$BUILD_DIR/DerivedData-Watch")
 done
 
+# The Mac app (ADR-032). Linux only type-checks it for Mac Catalyst; linking it here catches an API the Mac's UIKit
+# lacks, which otherwise shows only when the app won't launch. Unsigned, like the test build, and for Apple silicon
+# only, which links the same APIs in half the time.
+step "App for Mac Catalyst"
+strict_xcodebuild build -quiet -project Goodmail.xcodeproj -scheme Goodmail \
+    -destination 'generic/platform=macOS,variant=Mac Catalyst' -derivedDataPath "$BUILD_DIR/DerivedData-Mac" \
+    ARCHS=arm64 CODE_SIGNING_ALLOWED=NO
+
 step "App build and launch tests in English and Hebrew ($DESTINATION)"
 strict_xcodebuild test -quiet -project Goodmail.xcodeproj -scheme Goodmail -destination "$DESTINATION" \
     -derivedDataPath "$BUILD_DIR/DerivedData" -resultBundlePath "$BUILD_DIR/results/check-$(date +%Y%m%d-%H%M%S).xcresult" \
