@@ -1,7 +1,7 @@
 public import Foundation
 
-/// What another app shared into a new message through the Share extension: a title, text, links and files, in the
-/// order they came.
+/// What another app shared into a message through the Share extension, or dropped or pasted into one: a title, text,
+/// links and files, in the order they came.
 public struct SharedContent: Equatable, Sendable {
     /// The shared page's or item's own title, as Safari gives a page's.
     public var title: String?

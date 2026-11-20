@@ -55,6 +55,7 @@ final class SceneCoordinator: NSObject {
         actions.reopen = { [weak self] draft in self?.handle(.compose(draft)) }
         drafts.newMessage = { [weak self] account in self?.handle(.compose(Draft(accountID: account))) }
         drafts.newMessageHolding = { [weak self] in self?.compose(holding: $0) }
+        drafts.canStartMessage = { [weak self] in self?.composingAccount != nil }
         drafts.keep = { [minimized = model.minimizedDrafts, window = windowID] in minimized.keep($0, for: window) }
     }
 
@@ -495,8 +496,8 @@ final class SceneCoordinator: NSObject {
 
     /// A composer for `draft` in this window, which can move into a window of its own, or `nil` once its account is
     /// gone.
-    func composer(for draft: Draft, shared: String = "") -> ComposeViewController? {
-        let composer = model.composer(for: draft, shared: shared, actions: actions)
+    func composer(for draft: Draft) -> ComposeViewController? {
+        let composer = model.composer(for: draft, actions: actions)
         composer?.openInOwnWindow = { [weak self] in self?.openComposeWindow(for: $0) }
         return composer
     }
