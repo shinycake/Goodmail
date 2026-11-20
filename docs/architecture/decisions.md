@@ -298,3 +298,26 @@ Amended by ADR-023: Gmail and Outlook accounts are now read on the watch itself.
 - **Our own drags:** a thread's row (to open a window) and a recipient's token carry a local object, and the drop interactions ignore those items, so a row dropped on the window never starts a message. A text view's paste can't see the drag item, so a recipient dropped on the message's text writes their address there, as dropping any text does.
 - **Words keep apart:** dropped words get a space where they would otherwise run into a word beside the caret (`DroppedWords`).
 - **Leaving:** a composer that closes or minimizes, and a chat that's left, cancel what they are still reading (`ContentIntake.cancel()`), and the file copy stops with it.
+
+## ADR-033: Presence says what the app does when the reader looks away
+
+- **Decision (owner, 2026-11-20, for the Mac app):** one value, `AppPresence` (MailCore), says whether anyone is looking at the app and whether the system may stop it. `PresenceTracker` in the app target holds it, is the only code that observes UIKit's lifecycle notifications, and makes every change through the pure `AppPresence.after(_:policy:)`. Sync, the change watches, the database suspension, background refresh and push follow the tracker and never read the lifecycle themselves.
+- **States:** `attended` (a window has the reader's attention); `covered` (iOS: Control Center, a call or the app switcher passed over an attended app, and everything goes on); `arriving` (iOS: in the foreground, not active yet, at launch or on the way back); `unattended` (Mac: running with no one looking, behind other apps or with no window open); `suspendable` (iOS: in the background, where the system may freeze the process). The architecture sketch had a `leaving` state for the few seconds after the app leaves the foreground. Those seconds are one more piece of database work holding a background task in `BackgroundDatabaseWork`, so presence doesn't need a state for them.
+- **Policy:** `PresencePolicy` is chosen once per process. `.suspends` on iPhone and iPad; `.keepsRunning` when `isMacCatalystApp`, which covers the Catalyst build and the iPad app on a Mac. Under `.keepsRunning`, resigning active or entering the background makes the app `unattended`, and it is never `suspendable`.
+- **What follows from it:**
+
+| | attended, covered | arriving | unattended (Mac) | suspendable (iOS) |
+|---|---|---|---|---|
+| Sync rounds | every 30 s, at once on becoming attended | none | every 5 min | cancelled; background app refresh asked for |
+| Change watches (IMAP IDLE) | held | none | held | stopped |
+| Database | open | open | open | suspended after the leaving time, unless work holds it |
+| Inbox marked seen | after each round | | no | |
+| Settings sharing | every round | | every round | one pass on leaving |
+| Prefetch | by network allowance | | by network allowance | cancelled |
+| Placeholder alerts, push subscriptions, badge | refreshed on becoming attended | | | |
+
+- **iOS stays as it was:** every `didBecomeActive` becomes `attended` and every `didEnterBackground` becomes `suspendable`, so each consumer does what its own notification observer did before. The one difference: if the database finishes opening while something covers the app, sync starts then instead of waiting for the cover to go.
+- **Mac only:** background refresh isn't registered, since nothing launches a Mac app in the background. Sync measures its waits on the continuous clock, which counts time asleep: a wait that took more than twice as long as asked, and over a minute longer (`Oversleep`), means the Mac slept, so the watches open afresh and the next round runs at once. When the network allows more than it did, as when it comes back after waking, the watches open afresh and a round runs at once. A watch that ended by itself (a server that can't IDLE, a refused password) tries again after a minute, then less often, up to once an hour (`WatchRestarts`); on iOS it waits for the next foreground as before.
+- **Why:** on a Mac the process keeps running with every window closed. Keyed to "entered background", the iOS code would have suspended the database while Goodmail sat in the Dock, so writes failed, and stopped IDLE and sync. Four observers each decided what "background" meant; now one place does.
+- **Limits:** App Nap may slow the 5-minute rounds while the app is unattended. Alerts still come from the push relay through the notification extension, and becoming attended syncs at once. If lists go stale in practice, the fix is one `ProcessInfo.beginActivity` held while watches are open. Snooze wake-ups and scheduled sends, which lean on background refresh on iOS, happen in the Mac's rounds while the app runs.
+- **Rejected:** checking for the Mac in each consumer, which spreads one decision over four files; and keeping iOS's three lifecycle notifications as the model, with booleans for the Mac's extra cases.

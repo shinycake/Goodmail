@@ -1,10 +1,11 @@
+import MailCore
 import MailStore
 import UIKit
 
-/// Suspends the shared database whenever iOS may suspend the app, and keeps it usable for the work that has background
-/// time. iOS kills an app it suspends while it holds a SQLite lock in the App Group container (0xdead10cc): the
-/// TestFlight crash of build 1.0 (12), where the cache trim at the end of a foreground sync was mid-write as the
-/// reader left the app.
+/// Suspends the shared database whenever iOS may suspend the app (`AppPresence.suspendable`), and keeps it usable for
+/// the work that has background time. iOS kills an app it suspends while it holds a SQLite lock in the App Group
+/// container (0xdead10cc): the TestFlight crash of build 1.0 (12), where the cache trim at the end of a foreground
+/// sync was mid-write as the reader left the app. A Mac never suspends the app, so there the database stays open.
 ///
 /// Work that touches the database outside the foreground runs inside `run(_:_:)`. Anything else that writes then,
 /// such as a straggling prefetch, fails with the database suspended rather than getting the app killed.
@@ -22,17 +23,23 @@ final class BackgroundDatabaseWork {
     private var leaving: Task<Void, Never>?
 
     private init() {
-        let launchedInBackground = UIApplication.shared.applicationState == .background
-        suspension = DatabaseSuspension(phase: launchedInBackground ? .background : .foreground)
+        let presence = PresenceTracker.shared
+        suspension = DatabaseSuspension(phase: Self.phase(in: presence.presence))
         if suspension.isSuspended { MailDatabase.suspendAll() }
-        let center = NotificationCenter.default
-        center.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) {
-            [weak self] _ in
-            MainActor.assumeIsolated { self?.leaveForeground() }
+        presence.follow { [weak self] old, new in
+            switch (Self.phase(in: old), Self.phase(in: new)) {
+            case (.foreground, .background): self?.leaveForeground()
+            case (.background, .foreground): self?.enterForeground()
+            case (.foreground, .foreground), (.background, .background): break
+            }
         }
-        center.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main) {
-            [weak self] _ in
-            MainActor.assumeIsolated { self?.enterForeground() }
+    }
+
+    /// The database is at risk only where the system may freeze the process, which never happens on a Mac.
+    private static func phase(in presence: AppPresence) -> DatabaseSuspension.Phase {
+        switch presence {
+        case .suspendable: .background
+        case .attended, .covered, .arriving, .unattended: .foreground
         }
     }
 

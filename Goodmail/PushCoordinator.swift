@@ -20,9 +20,13 @@ final class PushCoordinator {
     /// Takes down alerts for mail the reader dealt with, for the app's lifetime.
     private let handled: HandledAlertsSweep
 
-    init(model: AppModel, routes: IntentRoutes) {
+    /// Whether the reader is at the app, for what is done each time they come to it.
+    private let presence: PresenceTracker
+
+    init(model: AppModel, routes: IntentRoutes, presence: PresenceTracker) {
         self.model = model
         self.routes = routes
+        self.presence = presence
         badge = AppBadge(database: model.database)
         handled = HandledAlertsSweep(database: model.database)
     }
@@ -31,7 +35,7 @@ final class PushCoordinator {
     /// here.
     func start(_ application: UIApplication) {
         UNUserNotificationCenter.current().setNotificationCategories([NewMailAlert.category])
-        badge.start(accounts: { [model] in model.accounts })
+        badge.start(accounts: { [model] in model.accounts }, presence: presence)
         // Rules post alerts too, so this runs with or without a push relay.
         handled.start()
         guard model.pushRegistrar != nil else {
@@ -40,15 +44,12 @@ final class PushCoordinator {
         }
         model.didAddAccount = { [weak self] in self?.updateSubscriptions() }
         application.registerForRemoteNotifications()
-        NotificationCenter.default.addObserver(
-            forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                self?.clearPlaceholders()
-                self?.updateSubscriptions()
-            }
+        presence.follow { [weak self] _, new in
+            guard new == .attended else { return }
+            self?.clearPlaceholders()
+            self?.updateSubscriptions()
         }
-        if application.applicationState == .active { clearPlaceholders() }
+        if presence.presence == .attended { clearPlaceholders() }
         updateSubscriptions()
     }
 

@@ -30,7 +30,13 @@ final class AppLaunch {
     /// Call once, before launch finishes.
     func start() {
         _ = BackgroundDatabaseWork.shared
-        BackgroundRefresh.register { [weak self] in try? await self?.services().syncScheduler.refresh }
+        switch PresenceTracker.shared.policy {
+        case .suspends:
+            BackgroundRefresh.register { [weak self] in try? await self?.services().syncScheduler.refresh }
+        case .keepsRunning:
+            // Nothing launches a Mac app in the background, and it syncs on its own while it runs.
+            break
+        }
         alerts.start()
         #if canImport(MailIntents)
             registerMailIntentsHost { [weak self] in
@@ -102,8 +108,9 @@ struct AppServices {
         // Then the settings, so a new device opens with the reader's choices for the accounts it now has.
         await model.syncSettings()
         return AppServices(
-            model: model, syncScheduler: SyncScheduler(model: model),
-            push: PushCoordinator(model: model, routes: routes), snoozeAlarms: SnoozeAlarms(model: model),
+            model: model, syncScheduler: SyncScheduler(model: model, presence: .shared),
+            push: PushCoordinator(model: model, routes: routes, presence: .shared),
+            snoozeAlarms: SnoozeAlarms(model: model),
             wrist: WristHost(model: model), routes: routes, quickActions: QuickActionMenu(model: model))
     }
 

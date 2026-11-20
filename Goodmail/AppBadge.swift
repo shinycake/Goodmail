@@ -1,15 +1,14 @@
 import MailCore
 import MailStore
 import OSLog
-import UIKit
 import UserNotifications
 
 /// Keeps the number on the app's icon on the unread count for the app's lifetime, as `MailDatabase.badgeCount()`
 /// counts it. The notification extension sets it too, after each push it fetches for.
 ///
 /// iOS drops a count set before the reader allowed badges, and the count only changes when mail does, so the latest
-/// count is set again whenever the app comes forward and once the reader answers the permission prompt. It asks for
-/// that permission itself, since every account's mail counts, push or not.
+/// count is set again whenever the reader comes to the app and once they answer the permission prompt. It asks for that
+/// permission itself, since every account's mail counts, push or not.
 final class AppBadge {
     private let database: MailDatabase
     /// The accounts now, read when deciding whether there is anything to ask permission for.
@@ -27,7 +26,7 @@ final class AppBadge {
         self.database = database
     }
 
-    func start(accounts: @escaping () -> [Account]) {
+    func start(accounts: @escaping () -> [Account], presence: PresenceTracker) {
         self.accounts = accounts
         following = Task { [weak self, database] in
             do {
@@ -36,10 +35,8 @@ final class AppBadge {
                 Logger.push.error("Stopped updating the badge: \(error, privacy: .public)")
             }
         }
-        NotificationCenter.default.addObserver(
-            forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.setAgain() }
+        presence.follow { [weak self] _, new in
+            if new == .attended { self?.setAgain() }
         }
         asking = Task { [weak self] in await self?.askForPermission() }
     }

@@ -1,79 +1,113 @@
+import MailCore
 import OSLog
 import UIKit
 
-/// Decides when sync runs: on becoming active, every 30 seconds while active, as soon as a watched server reports a
-/// change (ChangeWatchers, IMAP IDLE), and in background app refresh (BackgroundRefresh), which is asked for on
-/// leaving the foreground.
+/// Decides when sync runs, by presence (ADR-033): at once when the reader comes to the app, then every 30 seconds
+/// while they are with it, every 5 minutes on a Mac while no one looks, as soon as a watched server reports a change
+/// (ChangeWatchers, IMAP IDLE), and on iOS in background app refresh (BackgroundRefresh), which is asked for on
+/// leaving the foreground. On a Mac, waking from sleep and the network coming back open the watches afresh and sync
+/// at once.
 /// Push wakes the notification extension when the app isn't open; while it is, the watches and this polling show
 /// new mail.
 final class SyncScheduler {
-    private static let foregroundInterval: Duration = .seconds(30)
-
     private let model: AppModel
     /// Background app refresh, which `AppLaunch` hands the tasks iOS starts.
     let refresh: BackgroundRefresh
+    private let presence: PresenceTracker
     private let watchers: ChangeWatchers
     private let log = Logger(subsystem: "com.idanbirman.goodmail", category: "sync")
-    private var foreground: Task<Void, Never>?
+    /// The rounds of sync, while presence gives them an interval.
+    private var rounds: Task<Void, Never>?
+    /// Mac: starts the watches and the rounds afresh each time the network comes back, for the life of the process.
+    private var networkReturns: Task<Void, Never>?
 
-    init(model: AppModel) {
+    init(model: AppModel, presence: PresenceTracker) {
         self.model = model
+        self.presence = presence
         refresh = BackgroundRefresh(model: model, database: model.database)
-        watchers = ChangeWatchers(model: model)
+        watchers = ChangeWatchers(model: model, policy: presence.policy)
     }
 
-    /// Call once, when the database has opened. That can be after the app became active, so the foreground sync
-    /// starts at once then.
+    /// Call once, when the database has opened. That can be after the reader came to the app, so the rounds start
+    /// at once then.
     func start() {
         #if DEBUG
             TestRefresh.runIfRequested(refresh)
         #endif
-        let center = NotificationCenter.default
-        center.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) {
-            [weak self] _ in
-            MainActor.assumeIsolated { self?.startForegroundSync() }
-        }
-        center.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) {
-            [weak self] _ in
-            MainActor.assumeIsolated {
-                self?.foreground?.cancel()
-                self?.watchers.stop()
-                if let model = self?.model { Task { await model.cancelPrefetch() } }
-                self?.model.shareSettingsNow()
-                self?.refresh.schedule()
+        presence.follow { [weak self] _, new in
+            switch new {
+            // The reader came to the app: sync at once.
+            case .attended: self?.startRounds()
+            case .suspendable: self?.leave()
+            // The rounds go on as they were, at the new presence's interval.
+            case .covered, .arriving, .unattended: break
             }
         }
-        if UIApplication.shared.applicationState == .active { startForegroundSync() }
+        if presence.presence.syncInterval != nil { startRounds() }
+        switch presence.policy {
+        case .suspends: break
+        case .keepsRunning:
+            networkReturns = Task { [weak self, model] in
+                for await _ in model.path.allowsMore() { self?.resume() }
+            }
+        }
     }
 
-    private func startForegroundSync() {
-        foreground?.cancel()
+    /// iOS may suspend the app from now on: what runs stops, and background app refresh takes over.
+    private func leave() {
+        rounds?.cancel()
+        watchers.stop()
+        Task { [model] in await model.cancelPrefetch() }
+        model.shareSettingsNow()
+        refresh.schedule()
+    }
+
+    /// Mac: the connections from before may be dead without knowing it yet.
+    private func resume() {
+        watchers.restart()
+        startRounds()
+    }
+
+    private func startRounds() {
+        rounds?.cancel()
         watchers.start()
-        foreground = Task { [model, log, watchers] in
+        rounds = Task { [model, log, watchers, presence] in
             // Leaving the foreground cancels this, and the sync under way may be writing: the app stays awake, and the
             // database usable, until it stops.
-            await BackgroundDatabaseWork.shared.run("Foreground sync") {
-                async let prefetch: Void = model.prefetchWhenConnectionAllows()
-                while !Task.isCancelled {
-                    // Accounts the reader's other devices added, removed or offer since the last round.
-                    do {
-                        try await model.followSharedAccounts()
-                    } catch {
-                        log.error("Following the shared accounts failed: \(error, privacy: .public)")
+            await BackgroundDatabaseWork.shared.run("Sync") {
+                await withDiscardingTaskGroup { group in
+                    group.addTask { await model.prefetchWhenConnectionAllows() }
+                    while !Task.isCancelled {
+                        // Whether the reader is with the app as the round begins, so what it brings counts as seen.
+                        let shown = presence.presence.showsMail
+                        // Accounts the reader's other devices added, removed or offer since the last round.
+                        do {
+                            try await model.followSharedAccounts()
+                        } catch {
+                            log.error("Following the shared accounts failed: \(error, privacy: .public)")
+                        }
+                        // Settings changed here or on the other devices, for the accounts here now.
+                        await model.syncSettings()
+                        // Accounts added or removed meanwhile.
+                        watchers.follow()
+                        do {
+                            try await model.syncAll()
+                            if shown { await model.markInboxSeen() }
+                        } catch {
+                            log.error("Sync failed: \(error, privacy: .public)")
+                        }
+                        guard let interval = presence.presence.syncInterval else { break }
+                        let began = ContinuousClock.now
+                        try? await Task.sleep(for: interval)
+                        if case .keepsRunning = presence.policy,
+                            Oversleep.meansTheDeviceSlept(asked: interval, took: ContinuousClock.now - began)
+                        {
+                            // The Mac slept: the next round syncs at once, and the watches start afresh.
+                            watchers.restart()
+                        }
                     }
-                    // Settings changed here or on the other devices, for the accounts here now.
-                    await model.syncSettings()
-                    // Accounts added or removed meanwhile.
-                    watchers.follow()
-                    do {
-                        try await model.syncAll()
-                        await model.markInboxSeen()
-                    } catch {
-                        log.error("Foreground sync failed: \(error, privacy: .public)")
-                    }
-                    try? await Task.sleep(for: Self.foregroundInterval)
+                    group.cancelAll()
                 }
-                await prefetch
             }
         }
     }

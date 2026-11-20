@@ -20,7 +20,9 @@ final class AppModel {
     let providers: Providers
     private var engines: [AccountID: SyncEngine] = [:]
     private var prefetchers: [AccountID: BodyPrefetcher] = [:]
-    private let path: PathMonitor
+    /// How much the connection allows. Prefetch follows it, and so does sync on a Mac, to start afresh when it comes
+    /// back.
+    let path: PathMonitor
     /// Fetches threads as they open, joining a fetch their row began when touched or scrolled into view.
     let threadFetcher: ThreadFetcher
     /// Where opened attachments are kept; they count toward the cache cap with the bodies.
