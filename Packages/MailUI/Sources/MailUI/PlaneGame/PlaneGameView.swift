@@ -23,12 +23,22 @@ struct PlaneGameView: View {
                         .opacity(flights.opacity)
                         .position(x: flights.frame.midX, y: flights.frame.midY)
                 }
-                Text("Drag to fly", tableName: "PlaneGame", bundle: .module, comment: "Hint at the start of the game")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .opacity(model.hint)
-                    .position(model.hintCenter)
-                    .accessibilityHidden(model.hint == 0)
+                VStack(spacing: 4) {
+                    Text(
+                        "Drag to fly", tableName: "PlaneGame", bundle: .module, comment: "Hint at the start of the game"
+                    )
+                    if model.hasKeyboard {
+                        Text(
+                            "Arrow keys to fly, Space to fire", tableName: "PlaneGame", bundle: .module,
+                            comment: "Hint at the start of the game, shown when a keyboard is connected")
+                    }
+                }
+                .multilineTextAlignment(.center)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .opacity(model.hint)
+                .position(model.hintCenter)
+                .accessibilityHidden(model.hint == 0)
                 if let boss = model.world.boss,
                     case let beat = PlaneGameBossTitleBeat(age: boss.age, reduceMotion: model.reduceMotion),
                     beat.opacity > 0

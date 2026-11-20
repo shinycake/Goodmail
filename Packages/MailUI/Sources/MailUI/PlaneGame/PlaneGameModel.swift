@@ -13,7 +13,9 @@ import UIKit
     private(set) var clock: TimeInterval = 0
     /// The ring of doodles behind the game.
     private(set) var backdrop: PlaneGameBackdrop
-    /// When a finger first moved the plane, on the game clock, which sends the hint away.
+    /// A hardware keyboard is there to fly with, so the hint says which keys.
+    var hasKeyboard = false
+    /// When a finger or a key first moved the plane, on the game clock, which sends the hint away.
     private(set) var steeredAt: TimeInterval?
     /// Counters the screen plays a haptic on each change of: a kill, a pickup or power-up, a hit and a beaten boss.
     private(set) var kills = 0
@@ -34,6 +36,8 @@ import UIKit
     @ObservationIgnored private var finger = Finger.up
     /// How far the finger moved sideways since the last step.
     @ObservationIgnored private var slide: CGFloat = 0
+    /// The arrows and Space held, which steer and fire alongside the finger.
+    @ObservationIgnored private var keys = PlaneGameKeys()
     @ObservationIgnored private let list: PlaneGameList
     @ObservationIgnored private let defaults: UserDefaults
 
@@ -119,7 +123,10 @@ import UIKit
         clock += dt
         switch phase {
         case .flying:
-            let input = PlaneGameInput(slide: slide, isFiring: finger != .up)
+            let lanes = world.field.lanes
+            let pressed = keys.advance(by: dt, fieldWidth: lanes.upperBound - lanes.lowerBound)
+            if steeredAt == nil, pressed.slide != 0 { steeredAt = clock }
+            let input = PlaneGameInput(slide: slide + pressed.slide, isFiring: finger != .up || pressed.isFiring)
             slide = 0
             answer(world.advance(by: dt, input: input))
             if world.isOver { phase = .over(PlaneGameBest.record(world.score, in: defaults)) }
@@ -154,9 +161,43 @@ import UIKit
         finger = .up
     }
 
+    /// A key of the keyboard went down. In play the arrows steer and Space fires; on a card Space does what the card's
+    /// main button does, as Return does through `confirm()`.
+    func keyDown(_ key: PlaneGameKeys.Key) {
+        switch phase {
+        case .flying:
+            keys.press(key)
+        case .paused, .over, .leaving, .gone:
+            if key == .fire { confirm() }
+        }
+    }
+
+    /// A key of the keyboard came up.
+    func keyUp(_ key: PlaneGameKeys.Key) {
+        keys.release(key)
+    }
+
+    /// Lets go of every key, for when the game pauses or loses the keyboard, so a key released elsewhere never sticks.
+    func releaseKeys() {
+        keys.releaseAll()
+    }
+
+    /// Return, or Space on a card: carries on from the pause card, or plays again from the game over card.
+    func confirm() {
+        switch phase {
+        case .paused(_, .card):
+            resume()
+        case .over where card != nil:
+            playAgain()
+        case .flying, .paused, .over, .leaving, .gone:
+            break
+        }
+    }
+
     /// Holds the game still under the pause card until `resume()`, or stops a countdown and shows the card again. The
     /// takeoff plays out first, and a question about leaving keeps waiting for its answer.
     func pause() {
+        keys.releaseAll()
         switch phase {
         case .flying(let opening) where canPause:
             phase = .paused(opening, .card)
@@ -222,6 +263,7 @@ import UIKit
         scrolledBefore += world.distance
         // A drag over the card steered nothing, so the new plane doesn't start with it.
         slide = 0
+        keys.releaseAll()
         world = PlaneGameWorld(field: world.field, launch: .fromBelow, after: 0, seed: .random(in: .min ... .max))
         phase = .flying(.again)
     }
@@ -250,6 +292,7 @@ import UIKit
         // finger moves, and one still down steers from wherever it is then.
         slide = 0
         finger = .up
+        keys.releaseAll()
         phase = .flying(opening)
     }
 

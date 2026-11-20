@@ -95,6 +95,17 @@
         }
       }
     },
+    "Arrow keys to fly, Space to fire" : {
+      "comment" : "Hint at the start of the game, shown when a keyboard is connected",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מקשי החצים לטיסה, רווח לירי"
+          }
+        }
+      }
+    },
     "Back to Inbox" : {
       "comment" : "Leaves the paper plane game",
       "localizations" : {

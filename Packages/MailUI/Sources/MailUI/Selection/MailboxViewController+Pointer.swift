@@ -82,7 +82,8 @@ extension MailboxViewController {
     public override var canBecomeFirstResponder: Bool { picksWithPointer }
 
     public override var keyCommands: [UIKeyCommand]? {
-        guard picksWithPointer else { return super.keyCommands }
+        // Nothing behind a screen presented over the list, as the paper plane game, takes its keys.
+        guard picksWithPointer, presentedViewController == nil else { return super.keyCommands }
         let keys = ListKey.allCases.filter(answers)
         return (super.keyCommands ?? []) + keys.map { $0.command(action: #selector(press(_:))) }
     }

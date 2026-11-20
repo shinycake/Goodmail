@@ -1,3 +1,4 @@
+import GameController
 import PlaneGame
 import SwiftUI
 import UIKit
@@ -70,6 +71,13 @@ final class PlaneGameViewController: UIViewController {
             self, selector: #selector(sceneWillDeactivate), name: UIScene.willDeactivateNotification, object: scene)
         NotificationCenter.default.addObserver(
             self, selector: #selector(sceneDidActivate), name: UIScene.didActivateNotification, object: scene)
+        // A key let go while another window has the keyboard never reaches this one, so it stops counting as held.
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(windowResignedKey), name: UIWindow.didResignKeyNotification, object: view.window)
+        for name in [Notification.Name.GCKeyboardDidConnect, .GCKeyboardDidDisconnect] {
+            NotificationCenter.default.addObserver(self, selector: #selector(refreshKeyboard), name: name, object: nil)
+        }
+        refreshKeyboard()
         becomeFirstResponder()
     }
 
@@ -115,6 +123,16 @@ final class PlaneGameViewController: UIViewController {
         guard case .running(let link, _) = clock else { return }
         link.isPaused = false
         clock = .running(link, lastFrame: nil)
+        becomeFirstResponder()
+    }
+
+    @objc private func windowResignedKey() {
+        model.releaseKeys()
+    }
+
+    /// The hint names the keys when a hardware keyboard is connected, or the window is a desktop one.
+    @objc private func refreshKeyboard() {
+        model.hasKeyboard = GCKeyboard.coalesced != nil || traitCollection.interactionStyle == .desktop
     }
 
     // MARK: The system around it
@@ -141,6 +159,63 @@ final class PlaneGameViewController: UIViewController {
         let escape = UIKeyCommand(input: UIKeyCommand.inputEscape, modifierFlags: [], action: #selector(askToLeave))
         escape.wantsPriorityOverSystemBehavior = true
         return [escape]
+    }
+
+    override func resignFirstResponder() -> Bool {
+        model.releaseKeys()
+        return super.resignFirstResponder()
+    }
+
+    // MARK: The keyboard
+
+    /// What a key does in the game. The arrows and Space are held, so they come through the presses, which have a key
+    /// up, rather than key commands, which don't. Returning them handled keeps them from the list behind the game: no
+    /// paging, no moving the focus.
+    private enum GameKey {
+        case held(PlaneGameKeys.Key)
+        case confirm
+
+        init?(_ key: UIKey) {
+            guard key.modifierFlags.isDisjoint(with: [.command, .control, .alternate]) else { return nil }
+            switch key.keyCode {
+            case .keyboardLeftArrow: self = .held(.left)
+            case .keyboardRightArrow: self = .held(.right)
+            case .keyboardSpacebar: self = .held(.fire)
+            case .keyboardReturnOrEnter, .keypadEnter: self = .confirm
+            default: return nil
+            }
+        }
+    }
+
+    override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        let unhandled = presses.filter { press in
+            guard let key = press.key.flatMap(GameKey.init) else { return true }
+            switch key {
+            case .held(let key): model.keyDown(key)
+            case .confirm: model.confirm()
+            }
+            return false
+        }
+        if !unhandled.isEmpty { super.pressesBegan(unhandled, with: event) }
+    }
+
+    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        let unhandled = letGo(presses)
+        if !unhandled.isEmpty { super.pressesEnded(unhandled, with: event) }
+    }
+
+    override func pressesCancelled(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        let unhandled = letGo(presses)
+        if !unhandled.isEmpty { super.pressesCancelled(unhandled, with: event) }
+    }
+
+    /// Lets go of the held keys among `presses` and gives back the rest.
+    private func letGo(_ presses: Set<UIPress>) -> Set<UIPress> {
+        presses.filter { press in
+            guard let key = press.key.flatMap(GameKey.init) else { return true }
+            if case .held(let key) = key { model.keyUp(key) }
+            return false
+        }
     }
 
     @objc private func askToLeave() {
