@@ -11,6 +11,7 @@ import Testing
 /// The provider half of sync: cursors, history, windowed queries and the failure paths, on fixtures.
 struct GmailSyncTests {
     private let keychain = InMemorySecretStore()
+    private let time = FakeTime()
 
     private func client(_ replies: [String: [FixtureHTTPClient.Reply]]) async throws -> (GmailClient, FixtureHTTPClient)
     {
@@ -19,7 +20,8 @@ struct GmailSyncTests {
         let http = FixtureHTTPClient(replies)
         let session = try await OAuthSession.signIn(
             client: .gmail, code: "4/abc", pkce: .generate(), http: http, keychain: keychain)
-        return (GmailClient(session: session.session, http: http, retryDelays: [.zero, .zero]), http)
+        let quota = GmailQuota(unitsPerSecond: 200, burst: 200, pause: .seconds(30), jitter: .zero, timing: time.timing)
+        return (GmailClient(session: session.session, http: http, retryDelays: [.zero, .zero], quota: quota), http)
     }
 
     @Test func labelsMapKindColorAndVisibility() async throws {
@@ -263,5 +265,37 @@ struct GmailSyncTests {
         ])
         await #expect(throws: GmailError.self) { try await gmail.currentCursor() }
         #expect(http.requests.filter { $0.url!.path().hasSuffix("/profile") }.count == 1)
+    }
+
+    @Test func aThrottledRequestWaitsOutThePauseAndGoesThrough() async throws {
+        let (gmail, http) = try await client([
+            "/gmail/v1/users/me/profile": [
+                .init(fixture: "rate-limited", status: 403), .init(fixture: "rate-limited", status: 403),
+                .init(fixture: "rate-limited", status: 429), .init(fixture: "profile"),
+            ]
+        ])
+        #expect(try await gmail.currentCursor() == "9001")
+        #expect(http.requests.filter { $0.url!.path().hasSuffix("/profile") }.count == 4)
+        #expect(time.now >= .seconds(90), "three pauses of 30 seconds")
+    }
+
+    @Test func aThrottleHonorsRetryAfter() async throws {
+        let (gmail, _) = try await client([
+            "/gmail/v1/users/me/profile": [
+                .init(fixture: "rate-limited", status: 429, headers: ["Retry-After": "75"]), .init(fixture: "profile"),
+            ]
+        ])
+        _ = try await gmail.currentCursor()
+        #expect(time.now >= .seconds(75))
+        #expect(time.now < .seconds(76))
+    }
+
+    @Test func aThrottleThatNeverLiftsGivesUp() async throws {
+        let (gmail, http) = try await client([
+            "/gmail/v1/users/me/profile": [.init(fixture: "rate-limited", status: 429)]
+        ])
+        await #expect(throws: GmailError.self) { try await gmail.currentCursor() }
+        #expect(
+            http.requests.filter { $0.url!.path().hasSuffix("/profile") }.count == GmailClient.throttleRetries + 1)
     }
 }

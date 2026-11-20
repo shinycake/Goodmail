@@ -10,18 +10,25 @@ public struct GmailClient: MailProvider, UploadSending {
     let session: OAuthSession
     private let http: any HTTPClient
     private let retryDelays: [Duration]
+    private let quota: GmailQuota
     private let pageSize: Int
 
-    /// `retryDelays` are the waits before each retry of a rate-limited or failed request.
+    /// How many times a throttled request waits out the account's pause and is sent again before it fails.
+    static let throttleRetries = 5
+
+    /// `retryDelays` are the waits before each retry of a request that failed at Google's end. `quota` paces every
+    /// request on the account and holds them all after a throttle; one client per account keeps it shared.
     public init(
         session: OAuthSession,
         http: any HTTPClient = URLSession.shared,
         retryDelays: [Duration] = [.seconds(1), .seconds(2), .seconds(4)],
+        quota: GmailQuota = GmailQuota(),
         pageSize: Int = 50
     ) {
         self.session = session
         self.http = http
         self.retryDelays = retryDelays
+        self.quota = quota
         self.pageSize = pageSize
     }
 
@@ -314,8 +321,10 @@ public struct GmailClient: MailProvider, UploadSending {
     func send<Response: Decodable>(
         _ url: URL, method: String, payload: (data: Data, type: String)?, replay: Replay = .safe
     ) async throws -> Response {
-        var attempt = 0
+        var serverRetries = 0
+        var throttles = 0
         while true {
+            try await quota.admit(cost: url.path().hasSuffix("/send") ? 100 : 10)
             var request = URLRequest(url: url)
             request.httpMethod = method
             request.setValue("Bearer \(try await session.validAccessToken())", forHTTPHeaderField: "Authorization")
@@ -329,10 +338,24 @@ public struct GmailClient: MailProvider, UploadSending {
                 return try JSONDecoder().decode(Response.self, from: data)
             }
             let error = GmailError(status: response.statusCode, body: String(decoding: data, as: UTF8.self))
-            guard replay.allowsRetry(after: error.retryable), attempt < retryDelays.count else { throw error }
-            try await Task.sleep(for: retryDelays[attempt])
-            attempt += 1
+            switch error.retryable {
+            case .throttled where replay.allowsRetry(after: .throttled) && throttles < Self.throttleRetries:
+                await quota.throttled(retryAfter: response.retryAfter)
+                throttles += 1
+            case .serverError where replay.allowsRetry(after: .serverError) && serverRetries < retryDelays.count:
+                try await Task.sleep(for: retryDelays[serverRetries])
+                serverRetries += 1
+            default:
+                throw error
+            }
         }
+    }
+}
+
+extension HTTPURLResponse {
+    /// How long the service asked to be left alone, when it gave a number of seconds.
+    fileprivate var retryAfter: Duration? {
+        value(forHTTPHeaderField: "Retry-After").flatMap(Double.init).map { .seconds($0) }
     }
 }
 

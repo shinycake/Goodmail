@@ -13,6 +13,7 @@ final class FixtureHTTPClient: HTTPClient {
     struct Reply: Sendable {
         let fixture: String
         var status = 200
+        var headers: [String: String]? = nil
     }
 
     private let replies: Mutex<[String: [Reply]]>
@@ -36,7 +37,7 @@ final class FixtureHTTPClient: HTTPClient {
         }
         let url = fixtureURL(reply.fixture)
         let response = HTTPURLResponse(
-            url: request.url!, statusCode: reply.status, httpVersion: nil, headerFields: nil)!
+            url: request.url!, statusCode: reply.status, httpVersion: nil, headerFields: reply.headers)!
         return (try Data(contentsOf: url), response)
     }
 }
