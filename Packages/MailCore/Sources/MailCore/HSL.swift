@@ -12,6 +12,14 @@ struct HSL {
         self.lightness = lightness
     }
 
+    /// This color with its lightness moved in steps of `step` until `isDone` holds for it, or as far as it can go:
+    /// white or black at worst.
+    func steppingLightness(by step: Double, until isDone: (RGBColor) -> Bool) -> HSL {
+        var color = self
+        while !isDone(color.rgb), (0...1).contains(color.lightness + step) { color.lightness += step }
+        return color
+    }
+
     func with(lightness: Double) -> HSL {
         HSL(hue: hue, saturation: saturation, lightness: lightness)
     }
@@ -49,11 +57,5 @@ struct HSL {
             }
         let offset = lightness - chroma / 2
         return RGBColor(fractionalRed: red + offset, green: green + offset, blue: blue + offset)
-    }
-}
-
-extension Double {
-    func clamped(to range: ClosedRange<Double>) -> Double {
-        Swift.min(Swift.max(self, range.lowerBound), range.upperBound)
     }
 }

@@ -192,12 +192,11 @@ struct RichTextHTMLTests {
     @Test func oldFontTagsReadAsTheNearestSizeAndTheirColor() {
         let text = RichText(
             html: ##"<div><font size="6" color="#2E9E44">huge</font><font color="#C0FFEE">x</font></div>"##)
-        let mint = TextColor(RGBColor(red: 0xC0, green: 0xFF, blue: 0xEE))
         #expect(
             text.paragraphs == [
-                Paragraph(runs: [Run(text: "huge", size: .huge, color: TextColor(.green)), Run(text: "x", color: mint)])
-            ])
-        #expect(mint.hex != "#c0ffee", "too pale to read on white, so it deepens")
+                Paragraph(runs: [Run(text: "huge", size: .huge, color: TextColor(.green)), Run(text: "x")])
+            ],
+            "a color too pale to read on white is the reader's own")
     }
 
     @Test func anyPickedColorIsSentAsItReadsAndReadsBack() throws {
@@ -211,6 +210,11 @@ struct RichTextHTMLTests {
     @Test func theReadersOwnColorIsSentAsNoColor() {
         let text = RichText([Paragraph(runs: [Run(text: "hi")])])
         #expect(!text.html.contains("color"))
+    }
+
+    @Test func aQuotedMessagesBlackStaysTheReadersOwnWhenADraftReopens() {
+        let text = RichText(html: ##"<div><span style="color:#000000">quoted</span></div>"##)
+        #expect(text.paragraphs == [Paragraph(runs: [Run(text: "quoted")])])
     }
 
     @Test func aBackgroundColorIsNotTheTextColor() {
@@ -371,6 +375,14 @@ struct FormattingTests {
         #expect(after[.foregroundColor] as? UIColor == .label)
         let start = RichText.typingRun(in: text, at: 0, typingAttributes: [.font: font])
         #expect(TextColor(start) == red, "at the very start, the text after it")
+        let lines = editor(
+            RichText([Paragraph(runs: [Run(text: "red", color: red)]), Paragraph(runs: [Run(text: "plain")])]))
+        let nextLine = RichText.typingRun(
+            in: lines, at: 4, typingAttributes: [.font: font, .foregroundColor: red.color])
+        #expect(TextColor(nextLine) == .automatic, "a line's start continues its own text, not the line above")
+        lines.append(NSAttributedString(string: "\n", attributes: [.textColor: TextColor(.blue).hex ?? ""]))
+        let emptyLine = RichText.typingRun(in: lines, at: lines.length, typingAttributes: [.font: font])
+        #expect(TextColor(emptyLine) == TextColor(.blue), "a new empty line continues the color Return was typed in")
     }
 
     @Test func pastedColorsSettleToTheColorsThatAreSent() {

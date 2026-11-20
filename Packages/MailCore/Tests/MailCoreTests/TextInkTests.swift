@@ -28,4 +28,10 @@ struct TextInkTests {
         #expect(ink.lightness < yellow.lightness)
         #expect(ink.red > ink.blue && ink.green > ink.blue, "still a yellow, not a gray")
     }
+
+    @Test func onlyAColorThatAlreadyReadsIsTakenExactly() {
+        let red = RGBColor(red: 0xE0, green: 0x35, blue: 0x2B)
+        #expect(TextInk(exactly: red)?.color == red)
+        #expect(TextInk(exactly: RGBColor(red: 0, green: 0, blue: 0)) == nil, "black vanishes on a dark page")
+    }
 }

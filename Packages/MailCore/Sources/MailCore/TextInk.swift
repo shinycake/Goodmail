@@ -19,13 +19,17 @@ public struct TextInk: Hashable, Sendable {
             color = picked
             return
         }
-        var color = HSL(picked)
         // Too light for the white page means it must deepen; otherwise it must brighten.
         let step = picked.contrastRatio(with: Self.lightPage) < Self.minimumContrast ? -0.01 : 0.01
-        while !Self.readsOnBoth(color.rgb), (0...1).contains(color.lightness + step) {
-            color.lightness += step
-        }
-        self.color = color.rgb
+        color = HSL(picked).steppingLightness(by: step, until: Self.readsOnBoth).rgb
+    }
+
+    /// `color` as it is when it already reads on both pages; `nil` when it doesn't. For colors that come from
+    /// somewhere other than the writer's own pick, such as a message's HTML, where moving them would change text
+    /// the writer never colored.
+    public init?(exactly color: RGBColor) {
+        guard Self.readsOnBoth(color) else { return nil }
+        self.color = color
     }
 
     private static func readsOnBoth(_ color: RGBColor) -> Bool {

@@ -12,12 +12,12 @@ final class ComposeDarkModeTests: XCTestCase {
         let app = launch()
         let body = writeBody("בדיקה", in: app)
         attach(app, "dark-default")
-        let brightest = try XCTUnwrap(brightestLuminance(in: body.screenshot().image))
-        XCTAssertGreaterThan(brightest, 0.8, "the text is light, not near-black on the dark page")
+        let pixels = try XCTUnwrap(Self.pixels(in: body.screenshot().image))
+        XCTAssertGreaterThan(pixels.map(\.luminance).max() ?? 0, 0.8, "the text is light, not near-black on the page")
     }
 
     @MainActor
-    func testAPickedColorColorsWhatIsTypedNext() {
+    func testAPickedColorColorsWhatIsTypedNext() throws {
         let app = launch()
         let body = writeBody("בדיקה ", in: app)
         app.buttons["Text Color"].tap()
@@ -36,11 +36,18 @@ final class ComposeDarkModeTests: XCTestCase {
         settle()
         body.typeText("colored")
         attach(app, "dark-colored")
+        let pixels = try XCTUnwrap(Self.pixels(in: body.screenshot().image))
+        // The word draws about 1,800 colored pixels; its first letter and the caret together, about 500.
+        let colored = pixels.filter { $0.saturation > 0.4 }
+        XCTAssertGreaterThan(colored.count, 1200, "the whole word is colored, not only its first letter")
+        XCTAssertGreaterThan(
+            colored.map(\.luminance).max() ?? 0, 0.15, "the navy was brightened to read on the dark page")
         XCUIDevice.shared.appearance = .light
         settle()
         attach(app, "light-colored")
     }
 
+    /// The picker runs in another process, so the test can't wait on its controls: it gives each step time instead.
     private func settle() {
         _ = XCTWaiter.wait(for: [XCTestExpectation(description: "settles")], timeout: 1.5)
     }
@@ -55,13 +62,22 @@ final class ComposeDarkModeTests: XCTestCase {
         return body
     }
 
-    /// The relative luminance of the brightest pixel, from 0 to 1.
-    private func brightestLuminance(in image: UIImage) -> CGFloat? {
+    private struct Pixel {
+        var red: CGFloat
+        var green: CGFloat
+        var blue: CGFloat
+
+        var luminance: CGFloat { 0.2126 * red + 0.7152 * green + 0.0722 * blue }
+        var saturation: CGFloat { max(red, green, blue) - min(red, green, blue) }
+    }
+
+    /// Every pixel of `image`, components from 0 to 1.
+    private static func pixels(in image: UIImage) -> [Pixel]? {
         guard let cgImage = image.cgImage else { return nil }
         let width = cgImage.width
         let height = cgImage.height
-        var pixels = [UInt8](repeating: 0, count: width * height * 4)
-        let drawn: Bool = pixels.withUnsafeMutableBytes { buffer in
+        var bytes = [UInt8](repeating: 0, count: width * height * 4)
+        let drawn: Bool = bytes.withUnsafeMutableBytes { buffer in
             // Unsafe because the context writes through the buffer's pointer. Safe: it lives only inside this closure,
             // over a buffer sized for every pixel it draws.
             guard
@@ -74,14 +90,15 @@ final class ComposeDarkModeTests: XCTestCase {
             return true
         }
         guard drawn else { return nil }
-        var brightest: CGFloat = 0
-        for index in stride(from: 0, to: pixels.count, by: 4) {
-            let luminance =
-                (0.2126 * CGFloat(pixels[index]) + 0.7152 * CGFloat(pixels[index + 1]) + 0.0722
-                    * CGFloat(pixels[index + 2])) / 255
-            brightest = max(brightest, luminance)
+        var pixels: [Pixel] = []
+        pixels.reserveCapacity(width * height)
+        for index in stride(from: 0, to: bytes.count, by: 4) {
+            let red = CGFloat(bytes[index]) / 255
+            let green = CGFloat(bytes[index + 1]) / 255
+            let blue = CGFloat(bytes[index + 2]) / 255
+            pixels.append(Pixel(red: red, green: green, blue: blue))
         }
-        return brightest
+        return pixels
     }
 
     @MainActor

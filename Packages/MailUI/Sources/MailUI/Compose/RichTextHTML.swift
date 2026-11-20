@@ -2,9 +2,9 @@ import Foundation
 import MailCore
 
 /// Email-safe HTML for formatted text, and reading it back for a reopened draft. Only tags every mail client keeps
-/// (`div`, `ul`, `ol`, `li`, `blockquote`, `b`, `i`, `u`, `s`, `a`, `span`) and inline styles, sizes in `em` of the
-/// reader's own and chosen colors as fixed values, the reader's own as none: each paragraph is its own block with `dir`, and a list or quote states
-/// the direction of its first line, so bullets and the quote bar sit on the side it starts from even where
+/// (`div`, `ul`, `ol`, `li`, `blockquote`, `b`, `i`, `u`, `s`, `a`, `span`) and inline styles. Sizes are in `em` of
+/// the reader's own. A chosen color is sent as its fixed value and the reader's own color as none, so each client
+/// uses its own. Each paragraph is its own block with `dir`, and a list or quote states the direction of its first line, so bullets and the quote bar sit on the side it starts from even where
 /// `dir="auto"` is ignored. A quote's bar is a border on that side, the way Outlook marks its own quotes, since Outlook
 /// for Windows draws no other kind.
 nonisolated extension RichText {
@@ -48,7 +48,7 @@ nonisolated extension RichText {
     private static func openQuote(depth: Int, side: Direction) -> String {
         let edge = side == .rightToLeft ? "right" : "left"
         return "<blockquote dir=\"\(side.rawValue)\" style=\"margin:0;padding-\(edge):10px;"
-            + "border-\(edge):3px solid \(QuoteLevel.barHex(depth: depth))\">"
+            + "border-\(edge):3px solid \(QuoteLevel.barColor(depth: depth).htmlHex)\">"
     }
 
     private static func html(of paragraph: Paragraph) -> String {
@@ -176,12 +176,14 @@ nonisolated extension RichText.Size {
 }
 
 nonisolated extension RichText.TextColor {
-    /// The color of a `span`'s `color` style or a `font` tag's `color`, as a `#rrggbb` value; `nil` for none.
+    /// The color of a `span`'s `color` style or a `font` tag's `color`, as a `#rrggbb` value; `nil` for none. Only a
+    /// color that reads on a light page and a dark one is kept, as every color this writes does. Any other, such as
+    /// the black of a quoted message, reads as the reader's own, so reopening a draft doesn't recolor it.
     init?(htmlAttributes attributes: String) {
         guard let hex = attributes.firstMatch(of: /(?:^|[^-\w])color(?::\s*|=")(#[0-9a-fA-F]{6})/)?.1,
             let color = RGBColor(hex: String(hex))
         else { return nil }
-        self.init(color)
+        self = TextInk(exactly: color).map(Self.ink) ?? .automatic
     }
 }
 

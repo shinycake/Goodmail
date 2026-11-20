@@ -32,10 +32,9 @@ public struct ButtonShade: Hashable, Sendable {
             case .light: (Self.lightLightness, min(picked.lightness, Self.lightSymbolLightness), -0.02)
             }
         let fill = picked.with(lightness: picked.lightness.clamped(to: fillRange)).rgb
-        var symbol = picked.with(lightness: symbolStart)
-        // Brightens a dark-mode symbol, or deepens a light-mode one, until it stands out; white or black at worst.
-        while symbol.rgb.contrastRatio(with: fill) < Self.minimumContrast, (0...1).contains(symbol.lightness + step) {
-            symbol.lightness += step
+        // Brightens a dark-mode symbol, or deepens a light-mode one, until it stands out.
+        let symbol = picked.with(lightness: symbolStart).steppingLightness(by: step) {
+            $0.contrastRatio(with: fill) >= Self.minimumContrast
         }
         self.fill = fill
         self.symbol = symbol.rgb
@@ -62,4 +61,10 @@ extension RGBColor {
 
     /// HSL lightness, from 0 (black) to 1 (white).
     var lightness: Double { HSL(self).lightness }
+}
+
+extension Double {
+    fileprivate func clamped(to range: ClosedRange<Double>) -> Double {
+        Swift.min(Swift.max(self, range.lowerBound), range.upperBound)
+    }
 }

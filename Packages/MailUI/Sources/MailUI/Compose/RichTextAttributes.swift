@@ -5,13 +5,15 @@ nonisolated extension NSAttributedString.Key {
     /// A quoted paragraph's `RichText.QuoteLevel`, by raw value. Lists live in `NSParagraphStyle.textLists`, which
     /// the system's formatting panel also sets; UIKit has no quote of its own.
     static let blockQuote = NSAttributedString.Key("GoodmailBlockQuote")
-    /// A run's `RichText.Size` by raw value and `RichText.TextColor` as `#rrggbb`, so reading the text back doesn't
-    /// guess them from point sizes and the label color. Absent means normal size and the reader's color.
+    /// A run's `RichText.Size`, by raw value, so reading the text back doesn't guess it from point sizes. Absent
+    /// means normal size.
     static let textSize = NSAttributedString.Key("GoodmailTextSize")
     /// A paragraph's direction when the writer set one, by raw value. Absent means it follows its first letter. The
     /// paragraph style always states the direction it reads in, since TextKit indents a paragraph left of
     /// `.natural` text even when that text reads from the right.
     static let paragraphDirection = NSAttributedString.Key("GoodmailParagraphDirection")
+    /// A run's chosen `RichText.TextColor` as `#rrggbb`, so reading the text back doesn't guess it from the color it
+    /// draws in. Absent means the reader's own color.
     static let textColor = NSAttributedString.Key("GoodmailTextColor")
 }
 
@@ -76,15 +78,21 @@ nonisolated extension RichText {
         return text
     }
 
-    /// What a caret at `location` types next: the size and color of the text it continues, the character before it
-    /// or, at the very start, the one after. UIKit carries over that character's font and color but not the
-    /// size and color this text reads back from, so without them typing would draw colored and go out plain.
+    /// What a caret at `location` types next: the size and color of the text it continues. That is the character
+    /// before it, or, at the start of a line that has text, the line's first character, since the line break before
+    /// it belongs to the line above. UIKit carries over a character's font and color but not the size and color this
+    /// text reads back from, so without them typing would draw colored and go out plain.
     static func typingRun(
         in text: NSAttributedString, at location: Int, typingAttributes: [NSAttributedString.Key: Any]
     ) -> [NSAttributedString.Key: Any] {
-        guard let source = [location - 1, location].first(where: { (0..<text.length).contains($0) }) else {
-            return typingAttributes
+        let string = text.string as NSString
+        func isLineBreak(_ index: Int) -> Bool {
+            CharacterSet.newlines.contains(UnicodeScalar(string.character(at: index)) ?? " ")
         }
+        let startsLine = location == 0 || isLineBreak(location - 1)
+        let hasTextAfter = location < string.length && !isLineBreak(location)
+        let source = startsLine && hasTextAfter ? location : location - 1
+        guard (0..<string.length).contains(source) else { return typingAttributes }
         let continued = text.attributes(at: source)
         var typing = typingAttributes
         typing[.textSize] = continued[.textSize]
@@ -156,7 +164,7 @@ nonisolated extension RichText.QuoteLevel {
     static func indent(font: UIFont) -> CGFloat { (font.pointSize * 0.85).rounded() }
 
     /// The bar of the quote at `depth`, the same color that is sent.
-    static func barColor(depth: Int) -> UIColor { RGBColor(hex: barHex(depth: depth)).map(UIColor.init) ?? .tintColor }
+    static func barUIColor(depth: Int) -> UIColor { UIColor(barColor(depth: depth)) }
 }
 
 nonisolated extension RichText.Direction {

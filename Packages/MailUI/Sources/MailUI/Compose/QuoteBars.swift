@@ -120,7 +120,7 @@ final class QuoteBars: UIView {
             // A little shy of the lines' full height, so a bar reads as marking the text rather than the gaps.
             let frame = CGRect(
                 x: x, y: edges.top + bar.top + 2, width: Self.width, height: max(bar.bottom - bar.top - 4, 0))
-            RichText.QuoteLevel.barColor(depth: bar.depth).setFill()
+            RichText.QuoteLevel.barUIColor(depth: bar.depth).setFill()
             UIBezierPath(roundedRect: frame, cornerRadius: Self.width / 2).fill()
         }
     }

@@ -70,8 +70,11 @@ nonisolated struct RichText: Equatable {
 
         /// The bar of the quote at `depth` (1 for the outermost), as sent: a color for each level, as Apple Mail
         /// marks them, that reads on light and dark backgrounds alike.
-        static func barHex(depth: Int) -> String {
-            let colors = ["#1a73e8", "#2e9e44", "#e8790c"]
+        static func barColor(depth: Int) -> RGBColor {
+            let colors = [
+                RGBColor(red: 0x1A, green: 0x73, blue: 0xE8), RGBColor(red: 0x2E, green: 0x9E, blue: 0x44),
+                RGBColor(red: 0xE8, green: 0x79, blue: 0x0C),
+            ]
             return colors[(depth - 1) % colors.count]
         }
     }
@@ -142,9 +145,12 @@ nonisolated struct RichText: Equatable {
         var hex: String? {
             switch self {
             case .automatic: nil
-            case .ink(let ink): ink.color.hex.lowercased()
+            case .ink(let ink): ink.color.htmlHex
             }
         }
+
+        /// The preset this is, if it is one.
+        var preset: Preset? { Preset.allCases.first { Self($0) == self } }
 
         /// Strong colors offered at hand, beside the full picker.
         enum Preset: CaseIterable {
@@ -189,4 +195,9 @@ nonisolated struct RichText: Equatable {
         }
         .joined(separator: "\n")
     }
+}
+
+nonisolated extension RGBColor {
+    /// `#rrggbb`, as the HTML that is sent writes colors.
+    var htmlHex: String { hex.lowercased() }
 }

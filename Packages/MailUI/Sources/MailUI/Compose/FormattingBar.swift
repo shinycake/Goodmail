@@ -249,33 +249,31 @@ final class FormattingBar: UIView {
     }
 
     /// The reader's own color, the presets at hand, and any other color from the picker. A color picked there shows
-    /// as chosen under the picker's own item.
+    /// as chosen under the picker's own item. `current` is `nil` for a selection of mixed colors.
     private func colorMenu(current: RichText.TextColor?) -> UIMenu {
         func swatch(_ color: UIColor) -> UIImage? {
             UIImage(systemName: "circle.fill")?.withTintColor(color, renderingMode: .alwaysOriginal)
         }
-        let choices: [(RichText.TextColor, String)] =
-            [(.automatic, RichText.TextColor.automaticTitle)]
-            + RichText.TextColor.Preset.allCases.map { (RichText.TextColor($0), $0.title) }
-        let presets = choices.map { color, title in
-            UIAction(title: title, image: swatch(color.color), state: current == color ? .on : .off) {
+        let choices = [RichText.TextColor.automatic] + RichText.TextColor.Preset.allCases.map(RichText.TextColor.init)
+        let listed = choices.map { color in
+            UIAction(title: color.title, image: swatch(color.color), state: current == color ? .on : .off) {
                 [weak self] _ in self?.onCommand(.color(color))
             }
         }
-        let isOther = current.map { current in !choices.contains { $0.0 == current } } ?? false
+        let custom = current.flatMap { choices.contains($0) ? nil : $0 }
         let more = UIAction(
             title: String(
                 localized: "More Colors…", table: "Formatting", bundle: .module,
                 comment: "Text color: opens the color picker for any color"),
-            image: isOther ? current.map { swatch($0.color) } ?? nil : UIImage(systemName: "eyedropper"),
-            state: isOther ? .on : .off
+            image: custom.map { swatch($0.color) } ?? UIImage(systemName: "eyedropper"),
+            state: custom == nil ? .off : .on
         ) { [weak self] _ in self?.onMoreColors() }
         return UIMenu(
             title: String(
                 localized: "Text Color", table: "Formatting", bundle: .module,
                 comment: "Formatting: the text color menu"),
             children: [
-                UIMenu(options: .displayInline, children: presets), UIMenu(options: .displayInline, children: [more]),
+                UIMenu(options: .displayInline, children: listed), UIMenu(options: .displayInline, children: [more]),
             ])
     }
 }
@@ -320,16 +318,15 @@ extension RichText.Size {
 }
 
 extension RichText.TextColor {
-    fileprivate static var automaticTitle: String {
-        String(
-            localized: "Default Color", table: "Formatting", bundle: .module,
-            comment: "Text color: the reader's own, black or white")
-    }
-}
-
-extension RichText.TextColor.Preset {
+    /// The name the menu lists it by: the reader's own color or a preset. Any other color is listed only as the
+    /// More Colors… choice.
     fileprivate var title: String {
-        switch self {
+        guard let preset else {
+            return String(
+                localized: "Default Color", table: "Formatting", bundle: .module,
+                comment: "Text color: the reader's own, black or white")
+        }
+        return switch preset {
         case .red: String(localized: "Red", table: "Formatting", bundle: .module, comment: "Text color")
         case .orange: String(localized: "Orange", table: "Formatting", bundle: .module, comment: "Text color")
         case .green: String(localized: "Green", table: "Formatting", bundle: .module, comment: "Text color")
