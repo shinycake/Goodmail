@@ -117,6 +117,46 @@ struct MailScreensTests {
         #expect(made.lists == 1 && made.readers == 1, "nothing was made again")
     }
 
+    /// On screen, a move takes the reader out of one navigation controller and into another, which UIKit reports as
+    /// leaving it: the chat's attachments must go on being taken all the same.
+    @Test(.timeLimit(.minutes(1)))
+    func aReaderMovedOnScreenStillTakesAttachments() async throws {
+        let state = WindowState(place: .list(reading: a))
+        let screens = screens(state, in: .columns)
+        // The test host's own scene, for appearance callbacks as a real window has them.
+        let scene = try #require(UIApplication.shared.connectedScenes.first as? UIWindowScene)
+        let window = UIWindow(windowScene: scene)
+        window.rootViewController = screens.split
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        let reader = try #require(screens.reader)
+        window.layoutIfNeeded()
+        #expect(reader.viewIfLoaded?.window != nil, "the reader is on screen beside the list")
+
+        show(state, on: screens, .resized, in: .stack)
+        window.layoutIfNeeded()
+        show(state, on: screens, .resized, in: .columns)
+        window.layoutIfNeeded()
+        #expect(screens.reader === reader)
+
+        reader.composer.picker.attach {
+            DraftAttachment(filename: "scan.pdf", mimeType: "application/pdf", data: Data([1, 2, 3]))
+        }
+        while reader.composer.attachments.isEmpty { await Task.yield() }
+        #expect(reader.composer.attachments.map(\.filename) == ["scan.pdf"])
+    }
+
+    @Test func aDroppedReaderIsLetGo() async throws {
+        let screens = screens(WindowState(place: .list(reading: a)))
+        let reader = try #require(screens.reader)
+        show(WindowState(place: .list(reading: b)), on: screens, in: .stack)
+        reader.composer.picker.attach {
+            DraftAttachment(filename: "late.pdf", mimeType: "application/pdf", data: Data([1]))
+        }
+        for _ in 0..<50 { await Task.yield() }
+        #expect(reader.composer.attachments.isEmpty, "what it was preparing has nowhere to go")
+    }
+
     @Test func aChangeWhileNarrowMovesWithTheScreensWhenTheWindowWidens() throws {
         let made = Made()
         let screens = screens(WindowState(), made: made)

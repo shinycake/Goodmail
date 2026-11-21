@@ -197,7 +197,7 @@ public final class ThreadViewModel {
         content.refetching()
         do {
             try await loadAction()
-            content.fetched(.done)
+            content.fetched(.done(stored: await stores()))
         } catch ProviderError.notFound {
             content.fetched(.notFound)
         } catch is CancellationError {
@@ -205,6 +205,15 @@ public final class ThreadViewModel {
         } catch {
             content.fetched(.failed)
         }
+    }
+
+    /// Whether the store holds any of the conversation's messages now, as a fetch that just finished left it. A store
+    /// that can't be read says nothing new, so what the reader has decides.
+    private func stores() async -> Bool {
+        do {
+            for try await messages in stream() { return !messages.isEmpty }
+        } catch {}
+        return !received.isEmpty
     }
 
     /// Reading the bodies for their new words parses every message, so it stays off the main actor.

@@ -351,7 +351,7 @@ final class SceneCoordinator: NSObject {
 
     private func mailboxViewController(for mailbox: Mailbox) -> MailboxViewController {
         let model = model
-        let labels = labels(naming: mailbox)
+        let name = listName(of: mailbox)
         let search = ThreadSearch(
             local: { model.database.search($0, including: $1) }, remote: { try await model.search($0, after: $1) })
         let results = SearchResultsController(
@@ -361,7 +361,8 @@ final class SceneCoordinator: NSObject {
         let list = MailboxViewController(
             viewModel: MailboxViewModel(
                 mailbox: mailbox,
-                title: mailbox.listTitle(labels: labels, accounts: model.accounts),
+                title: name.title,
+                naming: name.naming,
                 accounts: model.accounts,
                 source: source(for: mailbox),
                 woken: mailbox.labelID == SystemLabel.inbox ? { model.database.wokenThreads() } : nil,

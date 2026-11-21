@@ -14,7 +14,7 @@ struct ConversationContentTests {
         var content = ConversationContent.loading
         content.received([])
         #expect(content == .loading, "the store hasn't them yet")
-        content.fetched(.done)
+        content.fetched(.done(stored: true))
         #expect(content == .loading, "what was fetched comes through the store")
         content.received([message])
         #expect(content == .shown([message]))
@@ -25,9 +25,24 @@ struct ConversationContentTests {
         var content = ConversationContent.loading
         content.fetched(.notFound)
         #expect(content == .unavailable(.gone))
+    }
+
+    @Test func messagesOnTheDeviceStayWhateverTheServiceSays() {
+        // IMAP can't find a conversation whose keys it hasn't synced yet; one deleted leaves the store, which says so.
         var shown = ConversationContent.shown([message])
         shown.fetched(.notFound)
-        #expect(shown == .unavailable(.gone), "deleted forever elsewhere while open")
+        #expect(shown == .shown([message]))
+        shown.received([])
+        #expect(shown == .unavailable(.gone))
+    }
+
+    @Test func aFetchThatLeavesTheStoreEmptyEndsTheWait() {
+        var content = ConversationContent.loading
+        content.fetched(.done(stored: false))
+        #expect(content == .unavailable(.gone), "not a blank screen for ever")
+        var shown = ConversationContent.shown([message])
+        shown.fetched(.done(stored: false))
+        #expect(shown == .shown([message]), "the store's own word decides once it has spoken")
     }
 
     @Test func oneThatLeavesTheDeviceWhileReadIsGone() {

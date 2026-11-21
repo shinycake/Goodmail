@@ -19,8 +19,9 @@ public enum ConversationContent: Equatable, Sendable {
 
     /// How a fetch of the conversation went.
     public enum Fetch: Equatable, Sendable {
-        /// The service answered; what it had is stored, and comes as `received(_:)`.
-        case done
+        /// The service answered, and what it had is stored, which comes as `received(_:)`. `stored` says whether the
+        /// store holds any of its messages now: none means it has nothing to show.
+        case done(stored: Bool)
         /// The service says it has no such conversation.
         case notFound
         /// The service couldn't be asked.
@@ -46,12 +47,15 @@ public enum ConversationContent: Equatable, Sendable {
         }
     }
 
-    /// A fetch of it went as `fetch` says. What it found arrives through the store; a failure leaves messages already
-    /// shown as they are.
+    /// A fetch of it went as `fetch` says. What it found arrives through the store. Messages already shown stay
+    /// whatever the fetch says: a service that can't find them now, as IMAP before its next sync, hasn't deleted them,
+    /// and one that did takes them out of the store, which says so (`received(_:)`).
     public mutating func fetched(_ fetch: Fetch) {
         switch (fetch, self) {
+        case (.done(stored: false), .loading): self = .unavailable(.gone)
         case (.done, _): break
-        case (.notFound, _): self = .unavailable(.gone)
+        case (.notFound, .loading), (.notFound, .unavailable): self = .unavailable(.gone)
+        case (.notFound, .shown): break
         case (.failed, .loading), (.failed, .unavailable(.unreachable)): self = .unavailable(.unreachable)
         case (.failed, .shown), (.failed, .unavailable(.gone)): break
         }

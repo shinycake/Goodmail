@@ -129,6 +129,8 @@ public final class MailScreens: NSObject {
         listMade = list
         let previous = readerMade?.screen
         readerMade = state.reading.flatMap { reader(for: $0, row: row) }
+        // A reader dropped is let go; one only moving to the other arrangement is the same one, and goes on.
+        if let previous, previous !== readerMade?.screen { previous.leave() }
         let readable = state.reading == nil || readerMade != nil
         readerMade?.screen.steps = arrangement == .stack ? steps : nil
         switch arrangement {

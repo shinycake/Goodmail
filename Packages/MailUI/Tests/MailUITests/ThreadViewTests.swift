@@ -374,6 +374,12 @@ struct ThreadUnavailableTests {
         #expect(shown.button.title == "Try Again")
     }
 
+    @Test func aFetchThatStoresNothingSaysSoRatherThanStayingBlank() async {
+        let reader = reader(load: {})
+        await reader.viewModel.observe()
+        #expect(reader.viewModel.content == .unavailable(.gone))
+    }
+
     @Test func aConversationStillLoadingShowsNoEmptyState() {
         let reader = reader(load: {})
         reader.loadViewIfNeeded()

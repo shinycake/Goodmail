@@ -1,24 +1,30 @@
 import MailCore
+import Observation
 import UIKit
 
 /// The up and down chevrons of a reader pushed in a narrow window, to the conversation above and below in the list,
 /// as Mail has them, dimmed at either end. They point up and down in every language, so they don't mirror.
 ///
-/// They are their own observation scope: this view's `updateProperties` reads only whether each way leads anywhere,
-/// through `steps`, so a row that comes or goes in the list dims them without running the reader's, which lays out
-/// the whole conversation. It takes no room and shows nothing; the items sit in the reader's bar.
-final class StepChevrons: UIView {
+/// They follow where they lead on their own, by an observation of `steps` alone, so a row that comes or goes in the
+/// list dims them without the reader's `updateProperties`, which lays out the whole conversation, running again.
+/// What the window's navigation changes, which isn't observed, comes as `refresh()` (`MailScreens`).
+final class StepChevrons {
     let up = UIBarButtonItem()
     let down = UIBarButtonItem()
     /// Where they lead; `nil` beside the list, where they don't show.
     var steps: ConversationSteps? {
-        didSet { setNeedsUpdateProperties() }
+        didSet { follow() }
+    }
+    /// Follows `leads` while there are steps; leaving the reader cancels it.
+    private var following: Task<Void, Never>?
+
+    /// Whether each way leads anywhere now.
+    private nonisolated struct Leads: Equatable, Sendable {
+        var previous = false
+        var next = false
     }
 
     init() {
-        super.init(frame: .zero)
-        isUserInteractionEnabled = false
-        isAccessibilityElement = false
         for (item, step, command, symbol) in [
             (up, WindowNavigation.Step.previous, MailCommand.previousThread, "chevron.up"),
             (down, .next, .nextThread, "chevron.down"),
@@ -33,16 +39,34 @@ final class StepChevrons: UIView {
         }
     }
 
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) is not supported")
+    isolated deinit {
+        following?.cancel()
     }
 
-    /// Dims a chevron that leads nowhere now. It reads the list's rows through `steps`, so a row that comes or goes
-    /// updates them; what the window's navigation changes calls `setNeedsUpdateProperties` (`MailScreens`).
-    override func updateProperties() {
-        super.updateProperties()
-        up.isEnabled = steps?.leads(.previous) == true
-        down.isEnabled = steps?.leads(.next) == true
+    /// Dims a chevron that leads nowhere now.
+    func refresh() {
+        show(leads)
+    }
+
+    private var leads: Leads {
+        Leads(previous: steps?.leads(.previous) == true, next: steps?.leads(.next) == true)
+    }
+
+    private func show(_ leads: Leads) {
+        up.isEnabled = leads.previous
+        down.isEnabled = leads.next
+    }
+
+    /// Follows the list's rows through `steps`, from now, for as long as there are steps.
+    private func follow() {
+        following?.cancel()
+        following = nil
+        refresh()
+        guard steps != nil else { return }
+        following = Task { [weak self] in
+            for await leads in Observations({ [weak self] in self?.leads ?? Leads() }) {
+                self?.show(leads)
+            }
+        }
     }
 }

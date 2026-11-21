@@ -50,7 +50,7 @@ public final class ThreadViewController: UIViewController {
     /// holds the controls.
     var windowToolbar: WindowToolbar?
     /// The chat's message field and folded mail actions, in place of the toolbar while the chat layout shows.
-    private let composer = ChatComposerBar()
+    let composer = ChatComposerBar()
     /// Letters keep a readable width; chat bubbles reach nearly to the edges.
     private var readableWidth: [NSLayoutConstraint] = []
     private var chatWidth: [NSLayoutConstraint] = []
@@ -91,7 +91,8 @@ public final class ThreadViewController: UIViewController {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("Programmatic UI only") }
 
-    deinit {
+    isolated deinit {
+        composer.finish()
         observation?.cancel()
         fetchingAgain?.cancel()
         unsubscribing?.cancel()
@@ -126,7 +127,6 @@ public final class ThreadViewController: UIViewController {
         stack.addArrangedSubview(header)
         configureToolbar()
         layoutItem.primaryAction = UIAction { [weak self] _ in self?.viewModel.switchLayout() }
-        view.addSubview(chevrons)
         placeShareItem()
         registerForTraitChanges([UITraitHorizontalSizeClass.self, InteractionStyleTrait.self]) { (self: Self, _) in
             self.placeShareItem()
@@ -178,7 +178,7 @@ public final class ThreadViewController: UIViewController {
 
     /// Where the chevrons lead may have changed, with the window's navigation: they look again, and nothing else does.
     func stepsMoved() {
-        chevrons.setNeedsUpdateProperties()
+        chevrons.refresh()
     }
 
     /// Fetches the conversation again, as Try Again asks.
@@ -193,9 +193,12 @@ public final class ThreadViewController: UIViewController {
         announcesOnAppear = true
     }
 
-    public override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        if isMovingFromParent || isBeingDismissed { composer.finish() }
+    /// The reader is let go: the chat's composer folds its tray and stops preparing attachments. Whoever holds the
+    /// reader calls it as it drops it (`MailScreens`), and it runs as the reader goes in any case; leaving its
+    /// navigation controller isn't leaving, as the reader moves between a wide window's columns and a narrow one's
+    /// stack with what is typed and being attached (D8).
+    public func leave() {
+        composer.finish()
     }
 
     /// Letters keep the toolbar; the chat's composer takes its place. The toolbar belongs to the stack, and each
