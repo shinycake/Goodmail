@@ -164,7 +164,7 @@ final class FormattingBar: UIView {
         configuration.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(textStyle: .body)
         configuration.baseForegroundColor = .label
         configuration.cornerStyle = .capsule
-        let button = UIButton(configuration: configuration)
+        let button = ConfiguredButton(configuration: configuration)
         button.accessibilityLabel = title
         button.largeContentTitle = title
         button.showsLargeContentViewer = true

@@ -23,9 +23,9 @@ final class MessageWebView: UIView {
     private let messageHandler: MessageHandler
     private let cidHandler: CIDSchemeHandler
     private var heightConstraint: NSLayoutConstraint!
-    /// The body's height as the page measures it, before the reader's zoom scales it into points.
-    private var contentHeight: CGFloat = 1
-    private var appliedZoom = ReaderZoom.standard
+    /// The reader's zoom this view last asked its page for. The page reports the zoom it is at with each height, so a
+    /// request that reached it before its script ran is sent again.
+    private var appliedZoom = ReaderZoomModel.shared.zoom
     private var content: Content?
     /// Applies the latest `show`. A newer one cancels it, so a slow first rule compile can't load stale content.
     private var loading: Task<Void, Never>?
@@ -47,6 +47,9 @@ final class MessageWebView: UIView {
         webView.clipsToBounds = true
         webView.layer.cornerCurve = .continuous
         webView.scrollView.isScrollEnabled = false
+        // The card grows to fit the body, so there's nothing to scroll, and a Mac would still draw its scrollers.
+        webView.scrollView.showsVerticalScrollIndicator = false
+        webView.scrollView.showsHorizontalScrollIndicator = false
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.navigationDelegate = self
         preview.font = .preferredFont(forTextStyle: .body)
@@ -92,7 +95,7 @@ final class MessageWebView: UIView {
             if let blocker { rules.add(blocker) }
             // A painted body is a sheet of its own on the card, so it gets the card's rounded corners.
             webView.layer.cornerRadius = palette == .painted ? 12 : 0
-            navigation = webView.loadHTMLString(html, baseURL: nil)
+            navigation = webView.loadHTMLString(MessageDocument.zoomed(html, by: appliedZoom), baseURL: nil)
         }
     }
 
@@ -112,10 +115,10 @@ final class MessageWebView: UIView {
     /// Takes what the script reports: the body's height, whether it blocked remote content, or a link under the pointer.
     func handle(_ body: Any) {
         switch MessageReport(body) {
-        case .layout(let height, let hasRemote):
-            contentHeight = height
-            sizeToContent()
+        case .layout(let height, let hasRemote, let zoom):
+            heightConstraint.constant = max(1, height)
             preview.isHidden = true
+            if zoom != appliedZoom.factor { sendZoom() }
             onLayout?(heightConstraint.constant, hasRemote && content?.allowsRemoteContent == false)
         case .hover(let link):
             // A touch window's tap on a link would report a hover that never ends.
@@ -131,14 +134,13 @@ final class MessageWebView: UIView {
         let zoom = ReaderZoomModel.shared.zoom
         guard zoom != appliedZoom else { return }
         appliedZoom = zoom
-        webView.pageZoom = zoom.factor
-        sizeToContent()
+        sendZoom()
     }
 
-    /// The page lays out in its own units, which the zoom scales into points; the page reports again once the new
-    /// width has reflowed it.
-    private func sizeToContent() {
-        heightConstraint.constant = max(1, contentHeight * appliedZoom.factor)
+    /// Asks the page for the reader's zoom. It reflows and reports its new height, and a page whose script hasn't run
+    /// yet reports the zoom it has once it does, which brings this view back here.
+    private func sendZoom() {
+        webView.evaluateJavaScript(MessageScript.zoom(to: appliedZoom), in: nil, in: PreparedWebView.world)
     }
 
     /// Finds the next match of `query` in this message and returns its box in this view's coordinates, or `nil` when
@@ -157,9 +159,8 @@ final class MessageWebView: UIView {
         guard let numbers = box as? [Double], numbers.count == 4 else {
             return CGRect(x: 0, y: 0, width: bounds.width, height: 1)
         }
-        let scale = webView.pageZoom
-        let inWebView = CGRect(
-            x: numbers[0] * scale, y: numbers[1] * scale, width: numbers[2] * scale, height: numbers[3] * scale)
+        // The page's zoom leaves its boxes in the view's points.
+        let inWebView = CGRect(x: numbers[0], y: numbers[1], width: numbers[2], height: numbers[3])
         return webView.convert(inWebView, to: self)
     }
 

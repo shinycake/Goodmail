@@ -7,8 +7,9 @@ import Testing
 struct MessageReportTests {
     @Test func aHeightIsALayout() {
         #expect(
-            MessageReport(["height": 420.0, "hasRemote": true]) == .layout(height: 420, hasRemoteContent: true))
-        #expect(MessageReport(["height": 10.0]) == .layout(height: 10, hasRemoteContent: false))
+            MessageReport(["height": 420.0, "hasRemote": true, "zoom": 1.5])
+                == .layout(height: 420, hasRemoteContent: true, zoom: 1.5))
+        #expect(MessageReport(["height": 10.0]) == .layout(height: 10, hasRemoteContent: false, zoom: 1))
     }
 
     @Test func aLinkIsAHover() {

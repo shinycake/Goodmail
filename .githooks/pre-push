@@ -1,3 +1,10 @@
 #!/usr/bin/env bash
 # The full local gate (ADR-013). Enable with: git config core.hooksPath .githooks
+# Git passes one line per ref: local ref, local sha, remote ref, remote sha. A push that only deletes branches carries
+# no code, so it skips the gate.
+pushes_code=false
+while read -r _ local_sha _ _; do
+  [[ $local_sha =~ ^0+$ ]] || pushes_code=true
+done
+$pushes_code || { echo "No commits to push, so skipping scripts/check."; exit 0; }
 exec "$(git rev-parse --show-toplevel)/scripts/check"

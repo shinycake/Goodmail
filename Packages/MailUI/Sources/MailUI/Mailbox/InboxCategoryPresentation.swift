@@ -53,9 +53,7 @@ extension MailboxViewController {
             attributes.font = Typography.system(.subheadline, weight: .semibold)
             return attributes
         }
-        let button = UIButton(configuration: configuration)
-        // The Mac idiom would draw its own pop-up button, with a second chevron and the accent color.
-        button.preferredBehavioralStyle = .pad
+        let button = ConfiguredButton(configuration: configuration)
         button.showsMenuAsPrimaryAction = true
         button.accessibilityIdentifier = "inboxCategory"
         return button

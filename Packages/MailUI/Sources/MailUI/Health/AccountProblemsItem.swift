@@ -24,7 +24,7 @@ final class AccountProblemsItem {
             attributes.font = UIFont.preferredFont(forTextStyle: .caption2)
             return attributes
         }
-        button = UIButton(configuration: configuration)
+        button = ConfiguredButton(configuration: configuration)
         button.accessibilityIdentifier = "account-problems"
         item = UIBarButtonItem(customView: button)
         item.isHidden = true

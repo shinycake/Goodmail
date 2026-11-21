@@ -60,8 +60,9 @@ struct HoverActionsTests {
         #expect(HoverAction.Face.tooltip(title: "Pin", command: .pin) == "Pin")
     }
 
-    @Test func onlyTrashWearsRed() {
-        let faces = SwipeChoice.allCases.map { HoverAction.Face(title: "", symbol: "", choice: $0).isDestructive }
-        #expect(faces == [false, false, false, false, true, false])
+    @Test func eachButtonLightsUpInItsActionsOwnColor() {
+        for choice in SwipeChoice.allCases {
+            #expect(HoverAction.Face(title: "", symbol: "", choice: choice).color == choice.color)
+        }
     }
 }

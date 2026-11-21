@@ -8,7 +8,7 @@ final class DraftCard: UIView {
     let id: Draft.ID
     var onOpen: (() -> Void)?
     var onClose: ((UIView) -> Void)?
-    private let closeButton = UIButton(configuration: .gray())
+    private let closeButton = ConfiguredButton(configuration: .gray())
 
     init(draft: Draft) {
         id = draft.id

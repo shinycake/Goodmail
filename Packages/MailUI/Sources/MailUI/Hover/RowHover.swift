@@ -38,7 +38,7 @@ final class RowHover: NSObject {
         guard let collectionView, recognizer.state == .began || recognizer.state == .changed,
             let indexPath = collectionView.indexPathForItem(at: recognizer.location(in: collectionView)),
             let id = rowID(indexPath), let cell = collectionView.cellForItem(at: indexPath),
-            let content = cell.contentView.firstSubview(ofType: ThreadRowContentView.self)
+            let content = Self.row(in: cell)
         else { return leave() }
         let offered = actions(id)
         guard !offered.isEmpty else { return leave() }
@@ -53,6 +53,11 @@ final class RowHover: NSObject {
         state = .over(id, content: content, faces: faces)
     }
 
+    /// The row `cell` shows, if it shows one: a content configuration makes its view the cell's content view.
+    static func row(in cell: UICollectionViewCell) -> ThreadRowContentView? {
+        cell.contentView as? ThreadRowContentView
+    }
+
     /// A cell left the screen; its row view would otherwise carry the buttons to whichever row reuses it.
     func cellDidEndDisplaying(_ cell: UICollectionViewCell) {
         if case .over(_, let content, _) = state, content.isDescendant(of: cell) { leave() }
@@ -61,15 +66,5 @@ final class RowHover: NSObject {
     private func leave() {
         if case .over(_, let content, _) = state { content.quickActions = nil }
         state = .away
-    }
-}
-
-extension UIView {
-    /// The first view of type `type` below this one, searching each branch to its end before the next.
-    func firstSubview<View: UIView>(ofType type: View.Type) -> View? {
-        for subview in subviews {
-            if let match = subview as? View ?? subview.firstSubview(ofType: type) { return match }
-        }
-        return nil
     }
 }

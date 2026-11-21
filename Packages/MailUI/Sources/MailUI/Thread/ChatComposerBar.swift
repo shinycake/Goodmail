@@ -25,15 +25,15 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
     private let container = UIVisualEffectView(effect: UIGlassContainerEffect())
     private let actionsGlass = UIVisualEffectView()
     private let actionsRow = UIStackView()
-    private let trayButton = UIButton(configuration: .glass())
-    private let plusButton = UIButton(configuration: .glass())
+    private let trayButton = ConfiguredButton(configuration: .glass())
+    private let plusButton = ConfiguredButton(configuration: .glass())
     private let fieldGlass = UIVisualEffectView(effect: ChatComposerBar.glass())
     private let textView = UITextView()
     private let placeholder = UILabel()
     /// Filled, not glass: it sits on the field's glass, and glass doesn't stack on glass.
-    private let sendButton = UIButton(configuration: .filled())
+    private let sendButton = ConfiguredButton(configuration: .filled())
     /// Plain, on the field's glass beside Send, like Send it doesn't stack glass on glass.
-    private let expandButton = UIButton(configuration: .plain())
+    private let expandButton = ConfiguredButton(configuration: .plain())
     private let attachmentsView = ComposeAttachmentsView()
     private lazy var picker = AttachmentPicker { [weak self] in self?.attach($0) }
     /// Takes in what is dragged in from other apps or pasted: words where the caret is, files attached.
@@ -415,7 +415,7 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
         configuration.image = item.image
         configuration.preferredSymbolConfigurationForImage = symbol
         configuration.baseForegroundColor = .label
-        let button = UIButton(configuration: configuration)
+        let button = ConfiguredButton(configuration: configuration)
         if let action = item.primaryAction {
             button.addAction(action, for: .primaryActionTriggered)
         }
