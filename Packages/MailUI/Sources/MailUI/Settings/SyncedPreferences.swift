@@ -4,7 +4,7 @@ public import MailCore
 /// Left out on purpose: which shared accounts this device turned down and how it takes part in sharing accounts
 /// (each device answers those for itself), Mail Without iPhone (`WatchChoices`, a choice for this iPhone's own watch),
 /// recent searches, which are this device's history rather than a choice, and the storage choices
-/// (`StoragePreferences`), which suit the room this device has.
+/// (`StoragePreferences`), which suit the room this device has, and a Mac's own choices (`DesktopPreferences`).
 extension Preferences {
     /// The name the preferences that shape the mail screens are shared under.
     nonisolated public static let syncedGroup = "preferences"

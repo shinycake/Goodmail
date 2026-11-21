@@ -1,0 +1,94 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Archive" : {
+      "comment" : "What Delete does: archive",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה לארכיון"
+          }
+        }
+      }
+    },
+    "Delete Key" : {
+      "comment" : "Setting for what the Delete key does to the picked conversations",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מקש המחיקה"
+          }
+        }
+      }
+    },
+    "Double-Click Opens a Window" : {
+      "comment" : "Setting for opening a conversation in its own window with a double-click",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לחיצה כפולה פותחת חלון"
+          }
+        }
+      }
+    },
+    "Move to Trash" : {
+      "comment" : "What Delete does: trash",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה לפח"
+          }
+        }
+      }
+    },
+    "Needs approval in System Settings" : {
+      "comment" : "Opens System Settings at Login Items so the reader can allow the app",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נדרש אישור בהגדרות המערכת"
+          }
+        }
+      }
+    },
+    "Open at Login" : {
+      "comment" : "Setting for opening the app when the Mac starts",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פתיחה בכניסה למערכת"
+          }
+        }
+      }
+    },
+    "These stay on this Mac. In Trash, Delete removes mail for good." : {
+      "comment" : "Explains that the Mac's settings don't sync, and what Delete does in Trash",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ההגדרות האלה נשארות במחשב הזה. בפח, מקש המחיקה מוחק הודעות לצמיתות."
+          }
+        }
+      }
+    },
+    "This Mac" : {
+      "comment" : "Settings section for choices of this Mac",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "המחשב הזה"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

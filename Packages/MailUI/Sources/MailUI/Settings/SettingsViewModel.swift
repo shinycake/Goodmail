@@ -46,6 +46,8 @@ public final class SettingsViewModel {
     public var badges: BadgeChoices?
     /// The space downloaded mail takes, and how much to keep and download ahead.
     @ObservationIgnored public var storage: StorageSettings?
+    /// The rows only a Mac has; `nil` on an iPhone or iPad.
+    @ObservationIgnored public let desktop = DesktopSettings.forThisDevice()
     /// The Apple Watch choice; `nil` without a paired watch that has the app.
     public var watch: WatchChoices?
     /// The mail rules, when the app keeps them.

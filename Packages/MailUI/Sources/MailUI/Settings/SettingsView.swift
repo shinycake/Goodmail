@@ -158,6 +158,8 @@ struct SettingsView: View {
                     "How long a sent message waits, so you can take it back.", tableName: "Settings", bundle: .module,
                     comment: "Explains the Undo Send setting")
             }
+
+            if let desktop = model.desktop { DesktopSettingsSection(settings: desktop) }
         }
         .settingsDoodles()
         .navigationDestination(for: AccountID.self) { AccountSettingsView(model: model, accountID: $0) }

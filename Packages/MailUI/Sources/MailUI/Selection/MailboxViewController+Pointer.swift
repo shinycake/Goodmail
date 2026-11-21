@@ -30,7 +30,9 @@ extension MailboxViewController {
     }
 
     private func openWindow(at indexPath: IndexPath) {
-        guard UIApplication.shared.supportsMultipleScenes, let id = dataSource.itemIdentifier(for: indexPath) else {
+        guard DesktopPreferences.doubleClickOpensWindow, UIApplication.shared.supportsMultipleScenes,
+            let id = dataSource.itemIdentifier(for: indexPath)
+        else {
             return
         }
         viewModel.openInNewWindow(id)
@@ -113,8 +115,8 @@ extension MailboxViewController {
         case .openWindow:
             if case .reading(let id) = viewModel.selection { viewModel.openInNewWindow(id) }
         case .delete:
-            // Trash's own Delete is for good, and asks first.
-            perform(viewModel.isTrash ? .deleteForever : .trash, on: viewModel.selectedIDs)
+            // In Trash, Delete is for good and asks first; elsewhere it does what this Mac's setting says.
+            perform(DesktopPreferences.deleteKey.action(inTrash: viewModel.isTrash), on: viewModel.selectedIDs)
         }
     }
 
