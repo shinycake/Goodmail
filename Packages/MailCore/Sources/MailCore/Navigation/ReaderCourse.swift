@@ -15,6 +15,8 @@ public struct ReaderCourse: Sendable {
         public var labels: Set<String>
 
         public var thread: ThreadSummary.ID { summary.id }
+        /// What the window reads while it is on show.
+        public var reading: Reading { Reading(thread, in: mailbox) }
 
         public init(_ summary: ThreadSummary, mailbox: Mailbox, labels: Set<String>) {
             self.summary = summary
@@ -58,24 +60,13 @@ public struct ReaderCourse: Sendable {
         }
     }
 
-    /// A conversation to read, and where it is read.
-    public struct Opening: Equatable, Sendable {
-        public var thread: ThreadSummary.ID
-        public var mailbox: Mailbox
-
-        public init(_ thread: ThreadSummary.ID, in mailbox: Mailbox) {
-            self.thread = thread
-            self.mailbox = mailbox
-        }
-    }
-
     /// What the window does with its reader.
     public enum Move: Equatable, Sendable {
         case stays
         /// Back to the list, with nothing open.
         case closes
         /// Reads this conversation of the list on show in the reader's place.
-        case opens(Opening)
+        case opens(Reading)
         /// A message window, which shows nothing else, goes once the change can't be undone (ADR-035).
         case leavesWindow
     }
@@ -134,7 +125,7 @@ public struct ReaderCourse: Sendable {
         departure = Departure(change: change, left: reader)
         guard case .thread(let next) = landing, let front = facts.front else { return .closes }
         trail = Trail(thread: next, rows: front.rows)
-        return .opens(Opening(next, in: front.mailbox))
+        return .opens(Reading(next, in: front.mailbox))
     }
 
     /// Undo took `change` back. The conversation it took the reader from, as the reader read it, to read again,
@@ -152,7 +143,7 @@ public struct ReaderCourse: Sendable {
         switch landing(after: change, from: anchor, trail: [], facts) {
         case .thread(let next):
             trail = Trail(thread: next, rows: front.rows)
-            return .opens(Opening(next, in: front.mailbox))
+            return .opens(Reading(next, in: front.mailbox))
         // Nothing is open to close: the rows leave, and the pick with them.
         case .list: return .stays
         }

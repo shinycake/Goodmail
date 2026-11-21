@@ -14,7 +14,7 @@ extension SceneCoordinator {
     /// The account of the thread or mailbox on screen, or the first one where it shows every account's mail.
     var composingAccount: AccountID? {
         if let thread = openThread { return thread.accountID }
-        if case .mailbox(let mailbox, _) = shown.list, let account = mailbox.accountID { return account }
+        if case .mailbox(let mailbox) = shown.list, let account = mailbox.accountID { return account }
         return model.accounts.first?.id
     }
 }

@@ -19,28 +19,35 @@ struct WindowCourseTests {
     /// A window that opened `b` from the Inbox, archived it and landed on `c`.
     private func archivedB() -> WindowCourse {
         var window = WindowCourse(showing: WindowState())
-        window.opened(b.id, from: rows)
+        window.opened(Reading(b.id, in: .inbox), from: rows)
         let facts = ReaderCourse.Facts(
             reader: ReaderCourse.Reader(b, mailbox: .inbox, labels: [SystemLabel.inbox]),
             front: ReaderCourse.Front(rows: rows, mailbox: .inbox), layout: .viewer, setting: .next)
-        #expect(window.asked(archiveB, facts) == .opens(ReaderCourse.Opening(c.id, in: .inbox)))
-        window.landed(on: c.id)
+        #expect(window.asked(archiveB, facts) == .opens(Reading(c.id, in: .inbox)))
+        window.landed(on: Reading(c.id, in: .inbox))
         return window
     }
 
     @Test func landingKeepsTheWayBack() {
         var window = archivedB()
-        #expect(window.shown.openThread?.id == c.id)
+        #expect(window.shown.reading == Reading(c.id, in: .inbox))
         let back = window.undone(archiveB, rows: rows)
         #expect(back?.summary == b, "the row as the reader read it, so nothing is read from the store")
         #expect(back?.mailbox == .inbox)
-        #expect(window.shown.openThread?.id == c.id, "the window shows it once it records the landing")
+        #expect(window.shown.reading == Reading(c.id, in: .inbox), "the window shows it once it records the landing")
+    }
+
+    @Test func landingOnTheListClosesTheReaderAndKeepsTheWayBack() {
+        var window = archivedB()
+        window.landedOnList()
+        #expect(window.shown.reading == nil)
+        #expect(window.undone(archiveB, rows: rows)?.summary == b)
     }
 
     @Test func anyOtherMoveEndsIt() {
         let moves: [(inout WindowState) -> Void] = [
-            { $0 = WindowState(list: .mailbox(.starred, thread: nil)) },
-            { $0.setThread(nil) },
+            { $0 = WindowState(list: .mailbox(.starred)) },
+            { $0.closeReader() },
             { $0.filter = .on([.unread]) },
             { _ in },
         ]
@@ -53,8 +60,8 @@ struct WindowCourseTests {
 
     @Test func openingAnotherEndsIt() {
         var window = archivedB()
-        window.opened(a.id, from: rows)
-        #expect(window.shown.openThread?.id == a.id)
+        window.opened(Reading(a.id, in: .allMail), from: rows)
+        #expect(window.shown.reading == Reading(a.id, in: .allMail), "read where it was opened, as from search")
         #expect(window.undone(archiveB, rows: rows) == nil)
     }
 }

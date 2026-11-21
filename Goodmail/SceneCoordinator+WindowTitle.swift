@@ -5,13 +5,13 @@ import MailUI
 extension SceneCoordinator {
     /// What the system calls a window showing `state` (`WindowState.windowTitle`).
     func title(of state: WindowState) -> String {
-        let subject = state.openThread.flatMap { try? model.database.thread($0.id) }?.subject
+        let subject = state.reading.flatMap { try? model.database.thread($0.thread) }?.subject
         let labels: [MailboxDirectory.Label] =
             switch state.list {
-            case .mailbox(let mailbox, _): labels(naming: mailbox)
+            case .mailbox(let mailbox): labels(naming: mailbox)
             case .scheduled, .snoozed, .smart: []
             }
-        let smartMailbox: SmartMailbox? = if case .smart(let id, _) = state.list { smartMailbox(id) } else { nil }
+        let smartMailbox: SmartMailbox? = if case .smart(let id) = state.list { smartMailbox(id) } else { nil }
         return state.windowTitle(
             subject: subject, labels: labels, accounts: model.accounts, smartMailbox: smartMailbox)
     }

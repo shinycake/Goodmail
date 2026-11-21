@@ -15,11 +15,12 @@ extension SceneCoordinator {
         actions.undone = { [weak self] change in self?.readerUndid(change) }
     }
 
-    /// Opens `id`, read in `mailbox`, as the window was asked to by a tap, a click, an alert or a link: in place of
-    /// the conversation on show, if one is. One gone from the device does nothing.
-    func openReader(_ id: ThreadSummary.ID, in mailbox: Mailbox) {
-        guard let split, let reader = reader(for: id, in: mailbox) else { return }
-        course.opened(id, from: frontSequence?.frontRows ?? [])
+    /// Opens `reading` as the window was asked to by a tap, a click, an alert or a link: in place of the conversation
+    /// on show, if one is, and recorded in the mailbox the route reads it in, which a search result's or an alert's
+    /// is apart from the list's. One gone from the device does nothing.
+    func openReader(_ reading: Reading) {
+        guard let split, let reader = reader(for: reading) else { return }
+        course.opened(reading, from: frontSequence?.frontRows ?? [])
         // A narrow window replacing a reader, as an alert's does over one open, is no push UIKit announces.
         let replacing = split.isCollapsed && navigation(for: .compact)?.readerPlacement != .push
         showReader(reader, announcing: replacing)
@@ -28,7 +29,7 @@ extension SceneCoordinator {
     private func readerAsked(_ change: MailChange) {
         let list = frontSequence
         let facts = ReaderCourse.Facts(
-            reader: readerOnShow?.reading, front: list?.courseFront, layout: shown.layout,
+            reader: readerOnShow?.courseReader, front: list?.courseFront, layout: shown.layout,
             setting: Preferences.afterRemoval)
         switch course.asked(change, facts) {
         case .stays:
@@ -54,12 +55,10 @@ extension SceneCoordinator {
         showReader(reader, announcing: true)
     }
 
-    /// A reader for `opening`, from the row the list on show holds when it holds one, else from the store.
-    private func reader(for opening: ReaderCourse.Opening, listedIn list: (any ThreadSequence)?)
-        -> ThreadViewController?
-    {
-        if let summary = list?.summary(of: opening.thread) { return reader(for: summary, in: opening.mailbox) }
-        return reader(for: opening.thread, in: opening.mailbox)
+    /// A reader for `reading`, from the row the list on show holds when it holds one, else from the store.
+    private func reader(for reading: Reading, listedIn list: (any ThreadSequence)?) -> ThreadViewController? {
+        if let summary = list?.summary(of: reading.thread) { return reader(for: summary, in: reading.mailbox) }
+        return reader(for: reading)
     }
 
     /// The list a conversation opens from, as the window shows it now: the narrow stack's, or the one beside the reader.
@@ -88,7 +87,7 @@ extension SceneCoordinator {
     /// the list, VoiceOver goes back to the list from the emptied pane.
     private func closeReader() {
         guard let split else { return }
-        course.landed(on: nil)
+        course.landedOnList()
         let list = frontSequence
         list?.mark(reading: nil)
         if split.isCollapsed {
@@ -105,10 +104,10 @@ extension SceneCoordinator {
     /// it is, and UIKit announces a push.
     private func showReader(_ reader: ThreadViewController, announcing: Bool) {
         guard let split else { return }
-        let thread = reader.reading.thread
+        let reading = reader.courseReader.reading
         if announcing { reader.announceWhenShown() }
-        course.landed(on: thread)
-        frontSequence?.mark(reading: thread)
+        course.landed(on: reading)
+        frontSequence?.mark(reading: reading.thread)
         if split.isCollapsed {
             navigation(for: .compact)?.place(reader)
         } else {
@@ -120,8 +119,8 @@ extension SceneCoordinator {
     /// The reader on top of the narrow stack is gone, by Back or a swipe: the list no longer marks it, and Undo has
     /// nowhere to bring the reader back to. A pop the window made itself (`closeReader`) closed the thread first.
     func readerPopped() {
-        guard shown.openThread != nil else { return }
-        move { $0.setThread(nil) }
+        guard shown.reading != nil else { return }
+        move { $0.closeReader() }
         frontSequence?.mark(reading: nil)
     }
 

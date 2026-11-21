@@ -31,7 +31,7 @@ struct ReaderCourseTests {
         var course = ReaderCourse()
         #expect(
             course.asked(MailChange(.action(.archive), on: [b]), facts(reading: b))
-                == .opens(ReaderCourse.Opening(c, in: .inbox)))
+                == .opens(Reading(c, in: .inbox)))
         #expect(course.asked(MailChange(.action(.archive), on: [b]), facts(reading: b, setting: .list)) == .closes)
     }
 
@@ -41,10 +41,10 @@ struct ReaderCourseTests {
         let fromSearch = facts(reading: b, in: .inbox, listedIn: .allMail)
         #expect(
             course.asked(MailChange(.action(.archive), on: [b]), fromSearch)
-                == .opens(ReaderCourse.Opening(c, in: .allMail)))
+                == .opens(Reading(c, in: .allMail)))
         let picked = facts(reading: nil, pick: [a], listedIn: .starred)
         #expect(
-            course.asked(MailChange(.action(.trash), on: [a]), picked) == .opens(ReaderCourse.Opening(b, in: .starred)))
+            course.asked(MailChange(.action(.trash), on: [a]), picked) == .opens(Reading(b, in: .starred)))
     }
 
     @Test func changesToOtherConversationsLeaveTheReaderWhereItIs() {
@@ -78,7 +78,7 @@ struct ReaderCourseTests {
         // Read in an Unread smart mailbox, its row left as it was read.
         #expect(
             course.asked(MailChange(.snooze, on: [b]), facts(reading: b, rows: [a, c]))
-                == .opens(ReaderCourse.Opening(c, in: .inbox)))
+                == .opens(Reading(c, in: .inbox)))
         course.opened(a, from: [a, c])
         #expect(
             course.asked(MailChange(.snooze, on: [b]), facts(reading: b, rows: [a, c])) == .closes,
@@ -89,12 +89,12 @@ struct ReaderCourseTests {
         var course = ReaderCourse()
         course.opened(a, from: rows)
         #expect(
-            course.asked(MailChange(.snooze, on: [a]), facts(reading: a)) == .opens(ReaderCourse.Opening(b, in: .inbox))
+            course.asked(MailChange(.snooze, on: [a]), facts(reading: a)) == .opens(Reading(b, in: .inbox))
         )
         // Read in an Unread smart mailbox, b's row left as it was read, and a's with it.
         #expect(
             course.asked(MailChange(.snooze, on: [b]), facts(reading: b, rows: [c]))
-                == .opens(ReaderCourse.Opening(c, in: .inbox)))
+                == .opens(Reading(c, in: .inbox)))
     }
 
     @Test func puttingAwayEveryPointerPickReadsTheRowAfterThem() {
@@ -103,7 +103,7 @@ struct ReaderCourseTests {
         let picked = facts(reading: nil, rows: rows, pick: [a, b])
         #expect(
             course.asked(MailChange(.action(.trash), on: [a, b]), picked)
-                == .opens(ReaderCourse.Opening(c, in: .inbox)))
+                == .opens(Reading(c, in: .inbox)))
         #expect(course.asked(MailChange(.action(.trash), on: [a]), picked) == .stays, "some of them stay")
         #expect(course.asked(MailChange(.action(.star(true)), on: [a, b]), picked) == .stays)
         #expect(
