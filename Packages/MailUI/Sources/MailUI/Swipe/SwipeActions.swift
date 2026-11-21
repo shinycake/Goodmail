@@ -37,6 +37,8 @@ final class SwipeActionsController: NSObject {
     var actions: (ThreadSummary.ID, SwipeSide) -> [SwipeAction] = { _, _ in [] }
     /// Opens the swipe settings, as when a button is touched and held.
     var openSettings: () -> Void = {}
+    /// Called once a row's actions are on screen.
+    var didOpenRow: () -> Void = {}
 
     private weak var collectionView: UICollectionView?
     private let rowID: (IndexPath) -> ThreadSummary.ID?
@@ -57,6 +59,9 @@ final class SwipeActionsController: NSObject {
         pan.delegate = self
         collectionView.addGestureRecognizer(pan)
     }
+
+    /// Whether a row's actions are on screen.
+    var isOpen: Bool { state.row != nil }
 
     /// Hides any open actions, as when the list scrolls or another row is tapped. Returns whether any were open.
     @discardableResult
@@ -129,6 +134,7 @@ final class SwipeActionsController: NSObject {
             makeRow(id, side: side, on: cell, in: collectionView)
         }
         if let replaced { hide(replaced, animated: false) }
+        if isOpen { didOpenRow() }
     }
 
     private func makeRow(

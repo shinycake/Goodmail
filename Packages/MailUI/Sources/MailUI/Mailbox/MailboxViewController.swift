@@ -10,6 +10,8 @@ public final class MailboxViewController: UIViewController {
     private var sectionTitles = SectionTitles()
     private var observation: Task<Void, Never>?
     private(set) var swipes: SwipeActionsController!
+    /// Quick actions under the pointer, in a desktop window.
+    var hover: RowHover?
     /// Picks rows on clicks, in a desktop window (`configurePointerPicking`).
     var rowClicks: RowClicks?
     /// Drags rows onto mailboxes and out of the window. The list's drag delegate, which it doesn't keep.
@@ -129,6 +131,7 @@ public final class MailboxViewController: UIViewController {
         configureSwipes()
         configureDrag()
         configurePointerPicking()
+        configureHover()
         installSearch()
         navigationItem.rightBarButtonItems = browsingTrailingItems
         let compose = UIBarButtonItem(
@@ -307,30 +310,34 @@ public final class MailboxViewController: UIViewController {
             return swipeActions(for: id, on: side)
         }
         swipes.openSettings = { [weak self] in self?.viewModel.openSwipeSettings() }
+        swipes.didOpenRow = { [weak self] in self?.hover?.refresh() }
     }
 
     private func swipeActions(for id: ThreadSummary.ID, on side: SwipeSide) -> [SwipeAction] {
         guard let thread = threadsByID[id] else { return [] }
-        return viewModel.swipeActions(for: thread, on: side).map { button in
-            switch button.swipe {
-            case .perform(let action):
-                SwipeAction(
-                    title: action.title, symbol: action.symbol, tint: button.tint, color: button.choice.color,
-                    stow: action.stow
-                ) {
-                    [weak self] stowing in
-                    guard let self else { return }
-                    guard let stowing else { return perform(action, on: [id]) }
-                    stow([id], into: stowing.box, doing: action, then: stowing.done)
-                }
-            case .snooze:
-                SwipeAction(
-                    title: String(
-                        localized: "Snooze", table: "Actions", bundle: .module,
-                        comment: "Hides threads until a later time"),
-                    symbol: "clock", tint: button.tint, color: button.choice.color
-                ) { [weak self] _ in self?.askToSnooze(id) }
+        return viewModel.swipeActions(for: thread, on: side).map { swipeAction($0, for: id) }
+    }
+
+    /// What a swipe button, or a quick action, does to the row `id`.
+    func swipeAction(_ button: MailboxViewModel.SwipeButton, for id: ThreadSummary.ID) -> SwipeAction {
+        switch button.swipe {
+        case .perform(let action):
+            SwipeAction(
+                title: action.title, symbol: action.symbol, tint: button.tint, color: button.choice.color,
+                stow: action.stow
+            ) {
+                [weak self] stowing in
+                guard let self else { return }
+                guard let stowing else { return perform(action, on: [id]) }
+                stow([id], into: stowing.box, doing: action, then: stowing.done)
             }
+        case .snooze:
+            SwipeAction(
+                title: String(
+                    localized: "Snooze", table: "Actions", bundle: .module,
+                    comment: "Hides threads until a later time"),
+                symbol: "clock", tint: button.tint, color: button.choice.color
+            ) { [weak self] _ in self?.askToSnooze(id) }
         }
     }
 
@@ -425,6 +432,7 @@ public final class MailboxViewController: UIViewController {
             if let header = header as? UICollectionViewListCell { title(header, as: section) }
         }
         swipes.rowsDidChange()
+        hover?.refresh()
         markOpenThread()
         // Selected threads may have left the list.
         if isEditing { updateSelectionChrome() }
@@ -512,6 +520,7 @@ extension MailboxViewController: UICollectionViewDelegate {
         _ collectionView: UICollectionView, didEndDisplaying cell: UICollectionViewCell, forItemAt indexPath: IndexPath
     ) {
         swipes.cellDidEndDisplaying(cell)
+        hover?.cellDidEndDisplaying(cell)
     }
 
     public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
@@ -519,6 +528,7 @@ extension MailboxViewController: UICollectionViewDelegate {
     }
 
     public func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        hover?.refresh()
         placeInboxZero()
     }
 

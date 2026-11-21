@@ -37,6 +37,16 @@ final class RowClicks: NSObject, UIGestureRecognizerDelegate {
         }
     }
 
+    /// A click on a row's quick actions is theirs alone: it neither picks the row nor opens it.
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        var view = touch.view
+        while let current = view {
+            if current is HoverActionsView { return false }
+            view = current.superview
+        }
+        return true
+    }
+
     /// The single click waits for nothing, so a row picks at once, and the double click comes on top of it.
     func gestureRecognizer(
         _ gestureRecognizer: UIGestureRecognizer,

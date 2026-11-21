@@ -25,6 +25,26 @@ final class ThreadRowContentView: UIView, UIContentView {
     private let mutedMark = UIImageView(image: UIImage(systemName: "bell.slash.fill"))
     private let subject = UILabel()
     private let preview = UILabel()
+    /// Takes no height of its own: the buttons that stand in for the time float on its line.
+    private let quickSlot = UIView()
+
+    /// The buttons that take the time's place, and tint the row, while the pointer rests on it; `nil` shows the time.
+    var quickActions: HoverActionsView? {
+        didSet {
+            oldValue?.removeFromSuperview()
+            date.isHidden = quickActions != nil
+            quickSlot.isHidden = quickActions == nil
+            backgroundColor = quickActions == nil ? nil : UIColor.label.withAlphaComponent(0.05)
+            guard let quickActions else { return }
+            quickActions.translatesAutoresizingMaskIntoConstraints = false
+            quickSlot.addSubview(quickActions)
+            NSLayoutConstraint.activate([
+                quickActions.trailingAnchor.constraint(equalTo: quickSlot.trailingAnchor),
+                quickActions.centerYAnchor.constraint(equalTo: quickSlot.centerYAnchor),
+                quickSlot.widthAnchor.constraint(equalTo: quickActions.widthAnchor),
+            ])
+        }
+    }
 
     var configuration: any UIContentConfiguration {
         get { current }
@@ -76,7 +96,8 @@ final class ThreadRowContentView: UIView, UIContentView {
         mutedMark.preferredSymbolConfiguration = UIImage.SymbolConfiguration(textStyle: .caption1)
         mutedMark.setContentHuggingPriority(.required, for: .horizontal)
         mutedMark.setContentCompressionResistancePriority(.required, for: .horizontal)
-        let header = UIStackView(arrangedSubviews: [sender, mutedMark, date])
+        quickSlot.isHidden = true
+        let header = UIStackView(arrangedSubviews: [sender, mutedMark, date, quickSlot])
         header.spacing = 8
         header.stacksVerticallyAtAccessibilitySizes()
         let text = UIStackView(arrangedSubviews: [header, subject, preview])
