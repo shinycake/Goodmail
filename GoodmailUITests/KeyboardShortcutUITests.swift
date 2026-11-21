@@ -81,9 +81,28 @@ final class KeyboardShortcutUITests: XCTestCase {
     /// Opens the first row's conversation and returns its subject.
     @MainActor
     private func openFirstConversation(in app: XCUIApplication) -> String {
-        // The list's first cell is its section's header; a conversation's row names the account it's in.
-        let row = app.collectionViews["mailbox"].cells.containing(NSPredicate(format: "label CONTAINS '@example.com'"))
-            .firstMatch
+        // The list's first cell is its section's header, and the query's order isn't the list's, so the top row is
+        // read off one snapshot of the list: the highest cell that names an account.
+        let list = app.collectionViews["mailbox"]
+        func topRow() -> String? {
+            (try? list.snapshot())?.children.filter { $0.elementType == .cell }
+                .compactMap { cell in
+                    Self.labels(in: cell).first { $0.contains("@example.com") }.map { (cell.frame.minY, $0) }
+                }
+                .min { $0.0 < $1.0 }?.1
+        }
+        // A window may come back scrolled where the last one left it, and the test mail is filed after the list
+        // first shows, above what was there: the top row is the one that stays on top of a list scrolled up.
+        var top: String?
+        XCTAssertTrue(
+            waitUntil(timeout: 20) {
+                list.swipeDown()
+                let before = topRow()
+                Thread.sleep(forTimeInterval: 2)
+                top = topRow()
+                return top != nil && top == before
+            }, "the list shows its rows")
+        let row = list.cells.containing(NSPredicate(format: "label == %@", top ?? "")).firstMatch
         XCTAssertTrue(retry({ row.tap() }, until: { app.scrollViews["thread"].exists }), "the conversation opens")
         let shown = app.staticTexts["thread.subject"]
         XCTAssertTrue(shown.waitForExistence(timeout: 5))
@@ -93,6 +112,10 @@ final class KeyboardShortcutUITests: XCTestCase {
     @MainActor
     private func subject(in app: XCUIApplication) -> String {
         app.staticTexts["thread.subject"].label
+    }
+
+    private static func labels(in snapshot: any XCUIElementSnapshot) -> [String] {
+        [snapshot.label] + snapshot.children.flatMap(labels)
     }
 
     @MainActor

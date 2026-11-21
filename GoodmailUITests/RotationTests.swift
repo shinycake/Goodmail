@@ -39,8 +39,9 @@ final class RotationTests: XCTestCase {
         // The synthetic conversations have no messages for a service to bring, so the reader opens on its subject,
         // its bar's title, and says it couldn't load them; its reply bar is what the turn must keep.
         let subject = app.navigationBars["Weekend plans"]
-        result.tap()
-        XCTAssertTrue(subject.waitForExistence(timeout: 15), "the conversation opens")
+        XCTAssertTrue(
+            retry({ Self.results().first(where: \.isHittable)?.tap() }, until: { subject.exists }, timeout: 10),
+            "the conversation opens")
         XCTAssertTrue(
             waitUntil { Self.results().allSatisfy { !$0.isHittable } }, "narrow, the reader covers the results")
 
