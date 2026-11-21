@@ -32,6 +32,9 @@ public final class MailActions {
     @ObservationIgnored public var reopen: ((Draft) -> Void)?
     /// Plays the tap for an action the reader took, as soon as they take it.
     @ObservationIgnored var feedback: (Haptic) -> Void = { _ in }
+    /// Told of each change the reader asks of conversations in this window, as they ask it and before it applies, so
+    /// the window moves its reader at once and for nothing else (R6, R7).
+    @ObservationIgnored public var changed: ((MailChange) -> Void)?
 
     public private(set) var toast: Toast?
     /// A failure to apply or undo an action locally.
@@ -58,6 +61,7 @@ public final class MailActions {
     }
 
     public func perform(_ action: ThreadAction, on threads: [ThreadSummary.ID]) {
+        changed?(MailChange(.action(action), on: threads))
         feedback(.performing(action))
         apply(confirmation: Self.confirmation(for: action, count: threads.count)) {
             try await $0.perform(action, on: threads)
@@ -68,6 +72,7 @@ public final class MailActions {
     public func move(
         _ threads: [ThreadSummary.ID], to destination: MoveDestination, named name: String, from mailbox: Mailbox
     ) {
+        changed?(MailChange(.move(destination, from: mailbox), on: threads))
         feedback(.putAway)
         apply(
             confirmation: String(
@@ -78,6 +83,7 @@ public final class MailActions {
 
     /// Takes the threads out of the Inbox until `date`, with a toast to take that back.
     public func snooze(_ threads: [ThreadSummary.ID], until date: Date) {
+        changed?(MailChange(.snooze, on: threads))
         feedback(.putAway)
         apply(
             confirmation: String(
@@ -94,6 +100,7 @@ public final class MailActions {
 
     /// Puts snoozed threads back in the Inbox now, with a toast to snooze them again.
     public func unsnooze(_ threads: [ThreadSummary.ID]) {
+        changed?(MailChange(.unsnooze, on: threads))
         feedback(.change)
         apply(
             confirmation: String(

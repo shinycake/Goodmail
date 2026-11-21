@@ -5,7 +5,8 @@ public import UIKit
 /// Filters for what is typed are offered above the results; while nothing is typed, the recent searches too.
 public final class SearchResultsController: UIViewController, UISearchResultsUpdating, UISearchBarDelegate {
     private let search: ThreadSearch
-    private let list: MailboxViewController
+    /// The results, which a conversation opened from them goes on in.
+    let list: MailboxViewController
     private let recents: RecentSearches
     private let contacts: (String) -> [Contact]
     private let suggestions = SearchSuggestionsViewController()

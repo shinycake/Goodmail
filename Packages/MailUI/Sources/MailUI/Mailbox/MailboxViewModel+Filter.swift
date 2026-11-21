@@ -11,9 +11,11 @@ extension MailboxViewModel {
         regroup()
     }
 
-    /// Whether the list shows `thread` under the filter now. A thread of an account that is gone has no facts to ask.
+    /// Whether the list shows `thread` under the filter now. The row being read stays while it is read, so opening a
+    /// conversation under Unread doesn't take it out from under the reader. A thread of an account that is gone has
+    /// no facts to ask.
     func isShown(_ thread: ThreadSummary) -> Bool {
-        guard filter.isOn else { return true }
+        guard filter.isOn, selection != .reading(thread.id) else { return true }
         guard let account = accounts[thread.id.accountID] else { return false }
         let local = MailFacts.Local(holdsAttachments: holdingAttachments.contains(thread.id) ? true : nil)
         return filter.admits(MailFacts(thread: thread, account: account, local: local))

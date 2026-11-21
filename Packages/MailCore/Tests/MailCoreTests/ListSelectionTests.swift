@@ -2,7 +2,7 @@ import MailCore
 import Testing
 
 /// Picking rows with a pointer and keys, as in Apple Mail: a click reads one row, ⌘ adds or removes, ⇧ extends from
-/// the anchor, and a removal moves the pick to the next row.
+/// the anchor, and a row that leaves drops out of the pick.
 struct ListSelectionTests {
     private static func row(_ name: String) -> ThreadSummary.ID {
         ThreadSummary.ID(accountID: AccountID(rawValue: "a"), threadID: name)
@@ -110,33 +110,6 @@ struct ListSelectionTests {
     }
 
     // MARK: Rows leaving
-
-    @Test func removingTheRowBeingReadReadsTheNextOne() {
-        #expect(ListSelection.reading(b).following(removalFrom: rows, to: [a, c, d, e]) == .reading(c))
-        #expect(ListSelection.reading(e).following(removalFrom: rows, to: [a, b, c, d]) == .reading(d), "the last row")
-        #expect(ListSelection.reading(a).following(removalFrom: [a], to: []) == .none)
-    }
-
-    @Test func removingSeveralReadsTheRowAfterThem() {
-        let selection = ListSelection.several([b, c], anchor: b)
-        #expect(selection.following(removalFrom: rows, to: [a, d, e]) == .reading(d))
-        #expect(
-            ListSelection.several([b, d], anchor: d).following(removalFrom: rows, to: [a, c, e]) == .reading(c),
-            "the row after the first of them")
-    }
-
-    @Test func removingSomeOfSeveralKeepsTheRest() {
-        let selection = ListSelection.several([b, c, d], anchor: b)
-        #expect(selection.following(removalFrom: rows, to: [a, c, d, e]) == .several([c, d], anchor: nil))
-        #expect(selection.following(removalFrom: rows, to: [a, d, e]) == .reading(d))
-    }
-
-    @Test func rowsThatStayOrWereNeverListedLeaveThePickAlone() {
-        #expect(ListSelection.reading(b).following(removalFrom: rows, to: [a, b]) == .reading(b))
-        let elsewhere = Self.row("from a notification")
-        #expect(ListSelection.reading(elsewhere).following(removalFrom: rows, to: []) == .reading(elsewhere))
-        #expect(ListSelection.none.following(removalFrom: rows, to: []) == .none)
-    }
 
     @Test func keepingDropsGoneRowsWithoutMoving() {
         #expect(ListSelection.reading(b).keeping([a, c]) == .none)

@@ -36,28 +36,32 @@ struct SenderRulesTests {
 
     @Test("Commands that aren't about senders pass to the screen")
     func otherCommandsPass() {
-        #expect(rules().answer(to: .archive, for: [thread], from: dana) == nil)
+        #expect(rules().answer(to: .archive, for: [thread], from: dana, in: nil) == nil)
     }
 
     @Test("Without one sender other than the reader, only Apply Rules is offered")
     func noSender() {
         let rules = rules()
         for command in [MailCommand.vipSender, .blockSender] {
-            guard case .unavailable = rules.answer(to: command, for: [thread], from: nil) else {
+            guard case .unavailable = rules.answer(to: command, for: [thread], from: nil, in: nil) else {
                 Issue.record("\(command) should be dimmed")
                 continue
             }
         }
-        guard case .unavailable = rules.answer(to: .applyRules, for: [], from: nil) else {
+        guard case .unavailable = rules.answer(to: .applyRules, for: [], from: nil, in: nil) else {
             Issue.record("Apply Rules with nothing picked should be dimmed")
             return
         }
     }
 
-    @Test("Block Sender writes the rule, then runs the rules on the conversation it came from")
+    @Test("Block Sender tells the window it takes the conversation away, writes the rule, then runs the rules on it")
     func blockThenApply() async throws {
         let rules = rules()
-        try perform(rules.answer(to: .blockSender, for: [thread], from: dana))
+        let actions = MailActions(commands: MailCommands(store: NoStore(), replay: { _ in }))
+        var changes: [MailChange] = []
+        actions.changed = { changes.append($0) }
+        try perform(rules.answer(to: .blockSender, for: [thread], from: dana, in: actions))
+        #expect(changes == [MailChange(.block, on: [thread])], "at once, so the reader moves on before the rule runs")
         await rules.settled()
         #expect(calls.made == ["block dana@example.com as Block dana@example.com", "apply [\"t1\"]"])
     }
@@ -67,13 +71,13 @@ struct SenderRulesTests {
         let rules = rules(vips: VIPList(["dana@example.com"]))
         rules.start()
         while !rules.vips.contains(dana) { await Task.yield() }
-        guard case .ready(_, let title, _) = rules.answer(to: .vipSender, for: [thread], from: dana) else {
+        guard case .ready(_, let title, _) = rules.answer(to: .vipSender, for: [thread], from: dana, in: nil) else {
             Issue.record("Expected the VIP command to be ready")
             return
         }
         #expect(title == SenderRules.vipTitle(false))
 
-        try perform(rules.answer(to: .vipSender, for: [thread], from: dana))
+        try perform(rules.answer(to: .vipSender, for: [thread], from: dana, in: nil))
         #expect(!rules.vips.contains(dana), "the menu says the new state at once")
         await rules.settled()
         #expect(calls.made == ["vip dana@example.com false"])

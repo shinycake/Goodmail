@@ -1,7 +1,8 @@
 import MailCore
 
 /// The ways the list's pick changes. A desktop window picks with clicks and keys, which the reader follows; touch
-/// reports what the collection view picked, in Select mode or by opening a row, and opens threads itself.
+/// reports what the collection view picked, in Select mode or by opening a row, and opens threads itself. Either way
+/// the window says which row is read after an action (`MailboxViewController.mark(reading:)`).
 extension MailboxViewModel {
     /// The threads' ids as the list shows them, across its sections, top to bottom.
     var rows: [ThreadSummary.ID] { sections.flatMap(\.threads).map(\.id) }
@@ -53,13 +54,14 @@ extension MailboxViewModel {
 
     // MARK: Rows leaving
 
-    /// After the rows changed from `old`. A desktop window moves the pick to the next row when its rows left, which the
-    /// reader follows; touch only drops rows that left, as the collection view does.
-    func pickAfterRowsChanged(from old: [ThreadSummary.ID]) {
-        let new = rows
-        switch interaction {
-        case .desktop: pick(selection.following(removalFrom: old, to: new), revealing: true)
-        case .touch: pick(selection.keeping(new), revealing: false)
+    /// After the rows changed: rows that left drop out of the pick, and nothing opens, whatever took them away. Where
+    /// the reader goes after an action is the window's to say (`mark(reading:)`), and sync or another device never
+    /// moves it (R6). A desktop window counts what is left of several beside the list, and nothing once none is.
+    func pickAfterRowsChanged() {
+        let kept = selection.keeping(rows)
+        switch (interaction, kept) {
+        case (.desktop, .several(let ids, _)): pick(ids.isEmpty ? .none : kept, revealing: true)
+        case (.desktop, _), (.touch, _): pick(kept, revealing: false)
         }
     }
 }

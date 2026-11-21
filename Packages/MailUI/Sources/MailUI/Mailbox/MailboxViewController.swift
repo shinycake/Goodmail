@@ -17,9 +17,9 @@ public final class MailboxViewController: UIViewController {
     /// Drags rows onto mailboxes and out of the window. The list's drag delegate, which it doesn't keep.
     private var drag: ConversationDrag?
     let searchResults: SearchResultsController?
-    /// The thread open beside a list built after it opened, as when the window widens back into columns, which the
-    /// list marks as selected once its row arrives (`markOpenThread`). `nil` once marked.
-    public var threadToMark: ThreadSummary.ID?
+    /// The thread the window says is read, which the list marks as selected once its row arrives (`markOpenThread`),
+    /// as when the window widens back into columns. `nil` once marked.
+    var threadToMark: ThreadSummary.ID?
     /// A search asked for before the list was in a window, as from a Home Screen quick action at launch, which begins
     /// once the list appears (`beginSearch`). `nil` once begun.
     var searchToBegin: SearchQuery?

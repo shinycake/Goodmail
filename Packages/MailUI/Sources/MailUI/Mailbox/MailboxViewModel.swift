@@ -80,7 +80,7 @@ public final class MailboxViewModel {
     var offersFilter: Bool { didChangeFilter != nil }
     /// What the list has picked. Only `pick` changes it; the ways to pick are in `MailboxViewModel+Selection`.
     public private(set) var selection = ListSelection.none
-    /// How the list's window is driven, which decides where the pick goes when its rows leave the list.
+    /// How the list's window is driven: whether a pick opens what it reads (`pick`).
     let interaction: InteractionStyle
     /// Unread threads per category, for the menu; categories with none are left out.
     public private(set) var categoryUnreadCounts: [InboxCategory: Int] = [:]
@@ -265,7 +265,6 @@ public final class MailboxViewModel {
         let back = unpinned.compactMap { thread in woken[thread.id].map { (thread, $0) } }
             .sorted { $0.1 > $1.1 }.map(\.0)
         let rest = unpinned.filter { woken[$0.id] == nil }
-        let shown = rows
         let leading = [
             Section(
                 id: .pinned,
@@ -282,7 +281,7 @@ public final class MailboxViewModel {
             + TimeSection.group(rest, by: \.date, now: now, calendar: calendar).map {
                 Section(id: .time($0.section), title: $0.section.title(now: now, calendar: calendar), threads: $0.items)
             }
-        pickAfterRowsChanged(from: shown)
+        pickAfterRowsChanged()
     }
 
     /// Below this many threads, the list fetches older ones without waiting for a scroll.

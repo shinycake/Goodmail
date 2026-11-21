@@ -36,9 +36,11 @@ final class SceneCoordinator: NSObject {
     private let windowID = UUID().uuidString
     /// What the mail screens show, kept so either arrangement can be rebuilt when the window changes width, and
     /// saved for the system to restore the window or hand it off (`activity`).
-    private(set) var shown: WindowState {
+    var shown: WindowState {
         didSet { if shown != oldValue { publishActivity() } }
     }
+    /// Where the reader goes after the reader asks a change of mail here (`readerAsked`).
+    var course = ReaderCourse()
 
     /// The mailboxes' model of the arrangement built last, which the lists ask for the rows ⌘1 to ⌘9 reach.
     private var sidebar: MailboxesViewModel?
@@ -61,6 +63,7 @@ final class SceneCoordinator: NSObject {
         super.init()
         window.windowAnswer = { [weak self] in self?.windowAnswer(to: $0) ?? .notHere }
         actions.reopen = { [weak self] draft in self?.handle(.compose(draft)) }
+        actions.changed = { [weak self] change in self?.readerAsked(change) }
         drafts.newMessage = { [weak self] account in self?.handle(.compose(Draft(accountID: account))) }
         drafts.newMessageHolding = { [weak self] in self?.compose(holding: $0) }
         drafts.canStartMessage = { [weak self] in self?.composingAccount != nil }
@@ -257,7 +260,7 @@ final class SceneCoordinator: NSObject {
         split.setViewController(
             UINavigationController(rootViewController: mailboxesViewController(style: .sidebar)), for: .primary)
         let list = shownListViewController()
-        (list as? MailboxViewController)?.threadToMark = shown.openThread?.id
+        (list as? any ThreadSequence)?.mark(reading: shown.openThread?.id)
         split.setViewController(UINavigationController(rootViewController: list), for: .supplementary)
         split.setViewController(
             UINavigationController(rootViewController: shownReader() ?? NoThreadViewController()), for: .secondary)
@@ -306,12 +309,12 @@ final class SceneCoordinator: NSObject {
                 navigate: { [weak self] in self?.handle($0) }))
     }
 
-    private func navigation(for column: UISplitViewController.Column) -> UINavigationController? {
+    func navigation(for column: UISplitViewController.Column) -> UINavigationController? {
         split?.viewController(for: column) as? UINavigationController
     }
 
     /// A reader for the thread, opened from `mailbox`, or nil when it is gone.
-    private func reader(for id: ThreadSummary.ID, in mailbox: Mailbox) -> ThreadViewController? {
+    func reader(for id: ThreadSummary.ID, in mailbox: Mailbox) -> ThreadViewController? {
         guard let thread = try? model.database.thread(id),
             let account = model.accounts.first(where: { $0.id == id.accountID })
         else { return nil }
@@ -331,7 +334,6 @@ final class SceneCoordinator: NSObject {
             actions: actions,
             senders: model.senderRules,
             navigate: { [weak self] route in self?.handle(route) },
-            close: { [weak self] in self?.closeThread() },
             attachmentsDirectory: model.attachmentsDirectory
         )
         let unsubscriber = model.listUnsubscriber
@@ -346,19 +348,6 @@ final class SceneCoordinator: NSObject {
             reader.userActivity = .reading(thread)
         #endif
         return reader
-    }
-
-    /// Leaves the open thread, after an action that takes it out of the mailbox. A message window has nothing else to
-    /// show, so it closes once the action can no longer be undone there.
-    private func closeThread() {
-        if case .message = screen { return leaveMessage() }
-        guard let split else { return }
-        shown.setThread(nil)
-        if split.isCollapsed {
-            navigation(for: .compact)?.popViewController(animated: true)
-        } else {
-            navigation(for: .secondary)?.setViewControllers([NoThreadViewController()], animated: false)
-        }
     }
 
     private func mailboxViewController(for mailbox: Mailbox) -> MailboxViewController {
@@ -440,6 +429,7 @@ final class SceneCoordinator: NSObject {
             smartMailboxFlow.edit(id)
         case .thread(let id, let mailbox):
             guard let split, let reader = reader(for: id, in: mailbox) else { return }
+            course.opened(id, from: frontSequence?.frontRows ?? [])
             shown.setThread(id)
             if split.isCollapsed {
                 navigation(for: .compact)?.pushViewController(reader, animated: true)

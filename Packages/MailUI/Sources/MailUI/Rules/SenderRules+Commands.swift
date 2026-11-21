@@ -7,10 +7,10 @@ extension SenderRules {
 
     /// What Apply Rules, the VIP command and Block Sender do to `threads`, from `sender` when they are all from one
     /// person other than the reader; `nil` for any other command. Without such a sender, the sender's commands are
-    /// dimmed.
-    func answer(to command: MailCommand, for threads: [ThreadSummary.ID], from sender: SenderAddress?)
-        -> CommandAnswer?
-    {
+    /// dimmed. Block Sender tells the window's `actions` it takes the threads away, as its rule will.
+    func answer(
+        to command: MailCommand, for threads: [ThreadSummary.ID], from sender: SenderAddress?, in actions: MailActions?
+    ) -> CommandAnswer? {
         switch command {
         case .applyRules:
             guard !threads.isEmpty else { return .unavailable }
@@ -21,24 +21,26 @@ extension SenderRules {
             return .ready(perform: { [self] in setVIP(sender, isVIP) }, title: Self.vipTitle(isVIP))
         case .blockSender:
             guard let sender else { return .unavailable }
-            return .ready(perform: { [self] in block(sender, then: threads) })
+            return .ready(perform: { [self] in
+                actions?.changed?(MailChange(.block, on: threads))
+                block(sender, then: threads)
+            })
         default:
             return nil
         }
     }
 
     /// The same commands as a section of a context menu, leaving out what the menu bar would dim.
-    func menuSection(for threads: [ThreadSummary.ID], from sender: SenderAddress?) -> UIMenu {
-        let actions = Self.commands.compactMap { command -> UIAction? in
-            guard case .ready(let perform, let title, _) = answer(to: command, for: threads, from: sender) else {
-                return nil
-            }
+    func menuSection(for threads: [ThreadSummary.ID], from sender: SenderAddress?, in actions: MailActions?) -> UIMenu {
+        let items = Self.commands.compactMap { command -> UIAction? in
+            guard case .ready(let perform, let title, _) = answer(to: command, for: threads, from: sender, in: actions)
+            else { return nil }
             return UIAction(
                 title: title ?? command.title, image: UIImage(systemName: command.senderSymbol),
                 attributes: command == .blockSender ? .destructive : []
             ) { _ in perform() }
         }
-        return UIMenu(options: .displayInline, children: actions)
+        return UIMenu(options: .displayInline, children: items)
     }
 
     static func vipTitle(_ isVIP: Bool) -> String {

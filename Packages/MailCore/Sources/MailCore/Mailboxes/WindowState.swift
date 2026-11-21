@@ -124,7 +124,7 @@ public struct WindowState: Equatable, Codable, Sendable {
     }
 
     /// The mailbox a thread opened from the shown list is read in. Scheduled holds messages, not threads.
-    private var readingMailbox: Mailbox? {
+    public var readingMailbox: Mailbox? {
         switch list {
         case .mailbox(let mailbox, _): mailbox
         case .snoozed, .smart: .allMail

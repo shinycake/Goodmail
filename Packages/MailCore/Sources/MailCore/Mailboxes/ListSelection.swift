@@ -3,7 +3,7 @@
 ///
 /// The transitions are pure: each takes the list's rows, top to bottom, and returns the next value. The pointer ones
 /// never leave `several` holding one row or none, which reads that row or nothing instead. Select mode on touch may
-/// hold any number, since it stays on until Done.
+/// hold any number, since it stays on until Done, and so may a pointer's several once rows leave from under it.
 public enum ListSelection: Hashable, Sendable {
     case none
     /// One conversation, shown in the reader.
@@ -107,24 +107,9 @@ public enum ListSelection: Hashable, Sendable {
 
     // MARK: Rows leaving
 
-    /// After the list went from `old` to `new` rows, with a pointer: picked rows that left are dropped, and when none
-    /// is left the row after the first that left is read, or the one before when they were last, so Delete can be
-    /// pressed again and again. Rows that were never listed, as a thread opened from a notification, stay picked.
-    public func following(removalFrom old: [ThreadSummary.ID], to new: [ThreadSummary.ID]) -> ListSelection {
-        let present = Set(new)
-        let listed = Set(old)
-        let ids = ids
-        let gone = ids.filter { listed.contains($0) && !present.contains($0) }
-        guard !gone.isEmpty else { return self }
-        let kept = ids.subtracting(gone)
-        guard kept.isEmpty else { return .picked(kept, anchor: anchor.flatMap { kept.contains($0) ? $0 : nil }) }
-        guard let start = old.firstIndex(where: gone.contains) else { return .none }
-        let next = old[start...].first(where: present.contains) ?? old[..<start].last(where: present.contains)
-        return next.map(ListSelection.reading) ?? .none
-    }
-
-    /// After the list's rows became `rows`, on touch: rows that left are dropped and nothing else moves. Select mode
-    /// stays on however few are left.
+    /// After the list's rows became `rows`: rows that left are dropped and nothing else moves, so the reader stays on a
+    /// conversation whatever takes its row away (R6). Several stay several however few are left: Select mode stays on
+    /// until Done.
     public func keeping(_ rows: [ThreadSummary.ID]) -> ListSelection {
         let present = Set(rows)
         switch self {

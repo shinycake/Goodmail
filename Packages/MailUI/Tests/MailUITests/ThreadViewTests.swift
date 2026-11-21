@@ -122,10 +122,9 @@ struct ThreadViewModelTests {
 }
 
 extension ThreadViewModelTests {
-    @Test func muteIsOfferedFromTheThreadsCurrentLabelsAndClosesTheReader() async {
+    @Test func muteIsOfferedFromTheThreadsCurrentLabels() async {
         var inbox = message("1", unread: false, minutes: 1)
         inbox.labelIDs = ["INBOX"]
-        var closes = 0
         let model = ThreadViewModel(
             thread: ThreadSummary(
                 id: .init(accountID: account, threadID: "t"), subject: "Plan", snippet: "",
@@ -137,20 +136,15 @@ extension ThreadViewModelTests {
                     $0.yield([inbox])
                     $0.finish()
                 }
-            }, load: {}, attachmentData: { _, _ in Data() }, source: { _ in Data() }, close: { closes += 1 })
+            }, load: {}, attachmentData: { _, _ in Data() }, source: { _ in Data() })
         #expect(model.muteAction == .mute, "before the messages load, the summary's labels decide")
         await model.observe()
         #expect(model.muteAction == .mute)
-
-        model.perform(.mute)
-        model.perform(.mute)
-        #expect(closes == 1, "muting takes the thread out of the way, once")
     }
 
-    @Test func aMutedThreadOffersUnmuteAndStaysOpenAfterIt() async {
+    @Test func aMutedThreadOffersUnmute() async {
         var muted = message("1", unread: false, minutes: 1)
         muted.labelIDs = ["MUTED"]
-        var closes = 0
         let model = ThreadViewModel(
             thread: ThreadSummary(
                 id: .init(accountID: account, threadID: "t"), subject: "Plan", snippet: "",
@@ -162,11 +156,40 @@ extension ThreadViewModelTests {
                     $0.yield([muted])
                     $0.finish()
                 }
-            }, load: {}, attachmentData: { _, _ in Data() }, source: { _ in Data() }, close: { closes += 1 })
+            }, load: {}, attachmentData: { _, _ in Data() }, source: { _ in Data() })
         await model.observe()
         #expect(model.muteAction == .unmute)
-        model.perform(.unmute)
-        #expect(closes == 0)
+    }
+
+    @Test func theReaderStaysWhateverTheStoreSaysAndAsksTheWindowForWhatItDoes() async {
+        let leaving = [["Label_1"], ["Label_2"], [SystemLabel.trash]].map { labels -> Message in
+            var message = message("1", unread: false, minutes: 1)
+            message.labelIDs = Set(labels)
+            return message
+        }
+        let actions = MailActions(commands: MailCommands(store: NoStore(), replay: { _ in }))
+        var changes: [MailChange] = []
+        actions.changed = { changes.append($0) }
+        let thread = ThreadSummary(
+            id: .init(accountID: account, threadID: "t"), subject: "Plan", snippet: "", sender: leaving[0].from,
+            date: .now, isUnread: false, messageCount: 1, labelIDs: ["Label_1"])
+        let model = ThreadViewModel(
+            thread: thread, mailbox: Mailbox(labelID: "Label_1"), accountEmail: "me@example.com",
+            accountColor: .blue,
+            messages: {
+                AsyncThrowingStream {
+                    // Another device moves it out, then trashes it.
+                    for messages in leaving { $0.yield([messages]) }
+                    $0.finish()
+                }
+            }, load: {}, attachmentData: { _, _ in Data() }, source: { _ in Data() }, actions: actions)
+        await model.observe()
+        #expect(changes.isEmpty, "sync never moves the reader (R6)")
+        #expect(model.labels == [SystemLabel.trash], "the labels as its messages carry them now")
+
+        model.perform(.archive)
+        model.snooze(until: .now + 3600)
+        #expect(changes == [MailChange(.action(.archive), on: [thread.id]), MailChange(.snooze, on: [thread.id])])
     }
 }
 

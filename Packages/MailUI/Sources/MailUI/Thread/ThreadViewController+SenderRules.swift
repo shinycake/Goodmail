@@ -14,7 +14,7 @@ extension ThreadViewModel {
     }
 
     func senderAnswer(to command: MailCommand) -> CommandAnswer? {
-        senders?.answer(to: command, for: [thread.id], from: sender)
+        senders?.answer(to: command, for: [thread.id], from: sender, in: actions)
     }
 }
 
@@ -25,6 +25,6 @@ extension ThreadViewController: SenderMenuOffering {
         let model = viewModel
         guard let senders = model.senders else { return nil }
         return senders.menuSection(
-            for: [model.thread.id], from: SenderAddress(of: contact, notFrom: model.ownAddresses))
+            for: [model.thread.id], from: SenderAddress(of: contact, notFrom: model.ownAddresses), in: model.actions)
     }
 }
