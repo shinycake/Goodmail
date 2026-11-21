@@ -39,16 +39,23 @@ public struct RuleRun: Sendable {
 
     public var alerts: [RuleAlert] = []
     public var failures: [Failure] = []
+
+    /// Adds what a later batch of the same run did.
+    mutating func add(_ batch: RuleRun) {
+        alerts += batch.alerts
+        failures += batch.failures
+    }
 }
 
 /// Runs the rules on an account's newly arrived mail: once per conversation that a new message arrived in, judged by
 /// that message, and only for mail others sent. Called after each sync, in the app and in the notification
-/// extension, whichever gets the mail first.
+/// extension, whichever gets the mail first. Apply Rules runs them on conversations the reader picks (`apply(to:)`).
 public struct RuleRunner: Sendable {
-    /// The most conversations one run takes, so a flood of mail doesn't keep a short-lived process busy. The newer
-    /// rest wait for the next run.
+    /// The most conversations one batch takes, so a flood of mail doesn't keep a short-lived process busy. The newer
+    /// rest wait for the next batch, in the same run on a Mac (`RuleCatchUp.everything`), else in the next run.
     public static let claimLimit = 50
 
+    private let batchSize: Int
     private let store: any RuleStore
     private let provider: any MailProvider
     private let commands: MailCommands
@@ -60,8 +67,10 @@ public struct RuleRunner: Sendable {
         provider: any MailProvider,
         commands: MailCommands,
         calendar: Calendar = .current,
+        batchSize: Int = Self.claimLimit,
         now: @escaping @Sendable () -> Date = { .now }
     ) {
+        self.batchSize = batchSize
         self.store = store
         self.provider = provider
         self.commands = commands
@@ -69,25 +78,61 @@ public struct RuleRunner: Sendable {
         self.now = now
     }
 
-    /// Runs the rules on `account`'s new mail. Returns the notifications they asked for, for the caller to post, and
-    /// the actions that failed. A message whose body can't be fetched is judged by what its list row shows. It
-    /// throws only when the rules or the mail can't be read.
-    @concurrent public func run(for account: AccountID) async throws -> RuleRun {
+    /// Runs the rules on `account`'s new mail: one batch of it, or with `.everything` batch after batch until none is
+    /// left. Returns the notifications they asked for, for the caller to post, and the actions that failed. A message
+    /// whose body can't be fetched is judged by what its list row shows. It throws only when the rules or the mail
+    /// can't be read. Cancelling it ends it after the batch under way.
+    @concurrent public func run(for account: AccountID, catchingUp catchUp: RuleCatchUp = .oneBatch) async throws
+        -> RuleRun
+    {
         let date = now()
         let book = RuleBook(try store.rules().filter(\.isEnabled))
-        let labels = try store.labels(for: account)
-        let claimed = try store.claimRuleMail(in: account, now: date, limit: Self.claimLimit)
-        guard !claimed.isEmpty, !book.rules.isEmpty else { return RuleRun() }
-        await fetchMissingBodies(of: claimed)
+        let labels = [account: try store.labels(for: account)]
+        var run = RuleRun()
+        while true {
+            let claimed = try store.claimRuleMail(in: account, now: date, limit: batchSize)
+            if !claimed.isEmpty, !book.rules.isEmpty {
+                run.add(try await act(book, on: claimed, judgedBy: .arrival, labels: labels, at: date))
+            }
+            guard catchUp == .everything, claimed.count == batchSize, !Task.isCancelled else { return run }
+        }
+    }
+
+    /// Apply Rules: runs the rules on `threads` now, whether or not they ran when the mail arrived, each judged by the
+    /// newest message someone else sent in it. A conversation of only the reader's mail is left alone.
+    @concurrent public func apply(to threads: [ThreadSummary.ID]) async throws -> RuleRun {
+        let date = now()
+        let book = RuleBook(try store.rules().filter(\.isEnabled))
+        guard !threads.isEmpty, !book.rules.isEmpty else { return RuleRun() }
+        var labels: [AccountID: [MailLabel]] = [:]
+        for account in Set(threads.map(\.accountID)) { labels[account] = try store.labels(for: account) }
+        return try await act(book, on: threads, judgedBy: .request, labels: labels, at: date)
+    }
+
+    /// What a run judges each conversation by.
+    private enum Judged {
+        /// The message that just arrived: its newest. One the reader sent, as a reply, isn't judged.
+        case arrival
+        /// Its newest message from someone else.
+        case request
+    }
+
+    /// Does what `book` says to each of `threads`, from the account's `labels`.
+    private func act(
+        _ book: RuleBook, on threads: [ThreadSummary.ID], judgedBy judged: Judged,
+        labels: [AccountID: [MailLabel]], at date: Date
+    ) async throws -> RuleRun {
+        await fetchMissingBodies(of: threads)
         let context = MailCondition.Context(now: date, calendar: calendar)
         var run = RuleRun()
-        for facts in try newestFacts(of: claimed) where facts.flag(.fromMe) != true {
+        for facts in try newestFacts(of: threads, judgedBy: judged) where facts.flag(.fromMe) != true {
             let match = book.match(facts, in: context)
             let thread = facts.envelope.thread
+            let accountLabels = labels[thread.accountID] ?? []
             for action in match.actions {
                 let rule = match.rules.first { $0.actions.contains(action) }?.name ?? ""
                 do {
-                    switch Step(action, labels: labels, in: facts.envelope.labelIDs, now: date) {
+                    switch Step(action, labels: accountLabels, in: facts.envelope.labelIDs, now: date) {
                     case .perform(let change): try await commands.perform(change, on: [thread])
                     case .snooze(let wake): try await commands.snooze([thread], until: wake)
                     case .pin: try await commands.pin([thread], true)
@@ -123,11 +168,12 @@ public struct RuleRunner: Sendable {
         }
     }
 
-    /// Each thread's newest cached message, or its list row when none is cached.
-    private func newestFacts(of threads: [ThreadSummary.ID]) throws -> [MailFacts] {
+    /// Each thread's newest cached message, from someone else when judged on request, or its list row when none is
+    /// cached.
+    private func newestFacts(of threads: [ThreadSummary.ID], judgedBy judged: Judged) throws -> [MailFacts] {
         var newest: [ThreadSummary.ID: MailFacts] = [:]
         for facts in try store.messageFacts(inThreads: threads, mailboxNames: [:])
-        where newest[facts.envelope.thread] == nil {
+        where newest[facts.envelope.thread] == nil && (judged == .arrival || facts.flag(.fromMe) != true) {
             newest[facts.envelope.thread] = facts
         }
         let rows = try store.threadFacts(threads.filter { newest[$0] == nil }, mailboxNames: [:])

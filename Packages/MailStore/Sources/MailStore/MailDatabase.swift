@@ -382,6 +382,7 @@ public final class MailDatabase: Sendable {
             try db.alter(table: "snooze") { table in table.add(column: "keeper", .text) }
             try db.execute(sql: "UPDATE snooze SET keeper = 'thisDevice' WHERE wakeAt IS NOT NULL")
         }
+        migrator.registerMigration("v35-vips", migrate: createVIPs)
         return migrator
     }
 }

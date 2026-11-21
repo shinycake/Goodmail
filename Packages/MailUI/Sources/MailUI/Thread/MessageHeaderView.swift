@@ -278,6 +278,8 @@ private final class AddressLabel: UILabel, UIContextMenuInteractionDelegate {
     ) -> UIContextMenuConfiguration? {
         guard !contacts.isEmpty else { return nil }
         let contacts = contacts
+        // One person's address also offers what can be decided about them, as Block Sender.
+        let person = contacts.count == 1 ? [SenderMenu.deferred(for: contacts[0], from: self)] : []
         return UIContextMenuConfiguration(actionProvider: { _ in
             UIMenu(
                 children: contacts.map { contact in
@@ -287,7 +289,7 @@ private final class AddressLabel: UILabel, UIContextMenuInteractionDelegate {
                             comment: "Copies an email address from a message's header; the argument is the address"),
                         image: UIImage(systemName: "doc.on.doc")
                     ) { _ in UIPasteboard.general.string = contact.address }
-                })
+                } + person)
         })
     }
 

@@ -52,11 +52,17 @@ struct RuleRunnerTests {
     }
 
     /// A runner whose commands change `commands`, the rules' own store unless a test gives another.
-    private func runner(at date: Date, commands: MailDatabase? = nil) -> RuleRunner {
+    private func runner(at date: Date, commands: MailDatabase? = nil, batchSize: Int = RuleRunner.claimLimit)
+        -> RuleRunner
+    {
         RuleRunner(
             store: database, provider: server,
             commands: MailCommands(store: commands ?? database, replay: { _ in }, now: { date }),
-            calendar: Self.jerusalem, now: { date })
+            calendar: Self.jerusalem, batchSize: batchSize, now: { date })
+    }
+
+    private func isStarred(_ threadID: String) throws -> Bool {
+        try database.thread(id(threadID))?.labelIDs.contains(SystemLabel.starred) == true
     }
 
     /// Idan's rule: mail from Dana between 3:30 and 4 on a Thursday night, with a Y in the subject and at least two
@@ -153,5 +159,78 @@ struct RuleRunnerTests {
         #expect(try database.rules() == rules)
         try database.setRules(Array(rules.reversed()))
         #expect(try database.rules().map(\.name) == ["A", "B"])
+    }
+
+    @Test("A Mac's run takes batch after batch until every arrival has been through the rules")
+    func aRunThatCatchesUpTakesEveryBatch() async throws {
+        try database.setRules([MailRule(name: "Star all", condition: .all([]), actions: [.star])])
+        _ = try await runner(at: Self.thursdayNight - 600).run(for: account.id)
+        for (index, name) in ["a", "b", "c", "d", "e"].enumerated() {
+            try arrive(name, at: Self.thursdayNight + Double(index))
+        }
+
+        _ = try await runner(at: Self.thursdayNight + 60, batchSize: 2).run(for: account.id)
+        #expect(try ["a", "b", "c", "d", "e"].map(isStarred) == [true, true, false, false, false], "one batch")
+
+        _ = try await runner(at: Self.thursdayNight + 60, batchSize: 2).run(for: account.id, catchingUp: .everything)
+        #expect(try ["c", "d", "e"].allSatisfy(isStarred))
+    }
+
+    @Test("Apply Rules runs them on mail that was there before, and again on mail they ran on")
+    func applyRulesToPickedMail() async throws {
+        try arrive("old", at: Self.thursdayNight - 86_400)
+        try arrive("other", at: Self.thursdayNight - 86_400, from: "noa@example.com")
+        try database.setRules([
+            MailRule(
+                name: "Dana", condition: .text(.senderAddress, .equals("dana@example.com")),
+                actions: [.star, .notify(keyword: "Dana")])
+        ])
+
+        let run = try await runner(at: Self.thursdayNight).apply(to: [id("old"), id("other")])
+
+        #expect(try isStarred("old"))
+        #expect(try !isStarred("other"))
+        #expect(run.alerts.map(\.thread) == [id("old")])
+        #expect(try await runner(at: Self.thursdayNight + 60).apply(to: [id("old")]).alerts.count == 1)
+    }
+
+    @Test("Apply Rules judges a conversation by the newest message someone else sent in it")
+    func applyRulesSkipsTheReadersReply() async throws {
+        let dana = Contact(name: "Dana", address: "dana@example.com")
+        let me = Contact(name: nil, address: account.email)
+        try database.upsert([
+            ThreadSummary(
+                id: id("t"), subject: "Lunch", snippet: "", sender: me, date: Self.thursdayNight, isUnread: false,
+                messageCount: 2, labelIDs: [SystemLabel.inbox])
+        ])
+        let message = { (number: Int, from: Contact, date: Date) in
+            Message(
+                id: Message.ID(accountID: account.id, messageID: "m\(number)"), threadID: "t", from: from, to: [],
+                subject: "Lunch", date: date, labelIDs: [SystemLabel.inbox], body: MessageBody(plain: "Hi"))
+        }
+        server.setMessages(
+            [message(1, dana, Self.thursdayNight - 60), message(2, me, Self.thursdayNight)], inThread: "t")
+        try database.setRules([
+            MailRule(name: "Dana", condition: .text(.senderAddress, .equals("dana@example.com")), actions: [.star])
+        ])
+
+        _ = try await runner(at: Self.thursdayNight + 60).apply(to: [id("t")])
+
+        #expect(try isStarred("t"))
+    }
+
+    @Test func blockSendersRuleTrashesTheirMailAndNothingElseActsOnIt() async throws {
+        try database.setRules([MailRule(name: "Star all", condition: .all([]), actions: [.star])])
+        try database.block(SenderAddress("dana@example.com")!, named: "Block Dana")
+        _ = try await runner(at: Self.thursdayNight - 600).run(for: account.id)
+        try arrive("dana", at: Self.thursdayNight)
+        try arrive("noa", at: Self.thursdayNight + 1, from: "noa@example.com")
+
+        _ = try await runner(at: Self.thursdayNight + 60).run(for: account.id)
+
+        let dana = try #require(try database.thread(id("dana")))
+        #expect(dana.labelIDs.contains(SystemLabel.trash))
+        #expect(!dana.labelIDs.contains(SystemLabel.starred))
+        #expect(try isStarred("noa"))
     }
 }

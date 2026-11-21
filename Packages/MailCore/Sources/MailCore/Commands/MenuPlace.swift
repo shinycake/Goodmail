@@ -44,6 +44,8 @@ public enum MenuPlace: CaseIterable, Sendable {
     case messageAway
     case messageOrganize
     case messageMark
+    /// Apply Rules and what is decided about the sender: VIP, Block Sender.
+    case messageSender
     case messageNavigate
     case formatStyle
     case formatLists
@@ -56,7 +58,9 @@ public enum MenuPlace: CaseIterable, Sendable {
         case .editFind, .editInsert: .edit
         case .viewLayout, .viewZoom, .viewCategories, .viewFilter, .viewFilterBy, .viewComposer: .view
         case .mailboxFetch, .mailboxNew, .mailboxGoTo, .mailboxMoveTo, .mailboxErase: .mailbox
-        case .messageSend, .messageAnswer, .messageAway, .messageOrganize, .messageMark, .messageNavigate: .message
+        case .messageSend, .messageAnswer, .messageAway, .messageOrganize, .messageMark, .messageSender,
+            .messageNavigate:
+            .message
         case .formatStyle, .formatLists, .formatQuote: .format
         }
     }

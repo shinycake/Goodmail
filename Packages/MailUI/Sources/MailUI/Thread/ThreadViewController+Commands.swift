@@ -7,6 +7,7 @@ extension ThreadViewController: CommandScreen {
     public func answer(to command: MailCommand) -> CommandAnswer {
         let model = viewModel
         if let answer = command.answer { return .ready(perform: { model.answer(answer) }) }
+        if let answer = model.senderAnswer(to: command) { return answer }
         switch command {
         case .archive: return .ready(perform: { model.perform(.archive) })
         // In Trash, the toolbar offers Delete Forever, which asks first; the keyboard leaves that to the button.

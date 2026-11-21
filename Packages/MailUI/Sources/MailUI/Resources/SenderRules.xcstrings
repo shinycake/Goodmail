@@ -1,0 +1,61 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Add Sender to VIPs" : {
+      "comment" : "Menu command that adds the sender of the picked mail to the reader's VIPs",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הוספת השולח ל-VIP"
+          }
+        }
+      }
+    },
+    "Apply Rules" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "החלת הכללים"
+          }
+        }
+      }
+    },
+    "Block %@" : {
+      "comment" : "The name of the rule Block Sender writes; the argument is the sender's address",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חסימת %@"
+          }
+        }
+      }
+    },
+    "Block Sender" : {
+      "comment" : "Menu command that writes a rule sending the sender's mail to Trash",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חסימת השולח"
+          }
+        }
+      }
+    },
+    "Remove Sender from VIPs" : {
+      "comment" : "Menu command that takes the sender of the picked mail off the reader's VIPs",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הסרת השולח מה-VIP"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

@@ -5,6 +5,7 @@ import UIKit
 /// erases Trash and acts on several picked threads from the menu bar and the keyboard.
 extension MailboxViewController: CommandScreen {
     public func answer(to command: MailCommand) -> CommandAnswer {
+        if let sender = senderAnswer(to: command) { return sender }
         if let several = answerForSeveral(command) { return several }
         if let shortcut = command.rowShortcut { return answer(to: shortcut) }
         if let filtering = answerForFilter(command) { return filtering }

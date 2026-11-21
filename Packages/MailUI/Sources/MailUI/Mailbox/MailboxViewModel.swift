@@ -58,6 +58,8 @@ public final class MailboxViewModel {
     @ObservationIgnored private let mailboxAccounts: [Account]
     @ObservationIgnored private let health: AccountHealthBoard
     public let actions: MailActions?
+    /// Apply Rules, Block Sender and VIPs, where the app offers them.
+    let senders: SenderRules?
     /// Where a dragged conversation's files come from, in a desktop window; `nil` where none are made.
     let conversationSources: ConversationSources?
     public let mailbox: Mailbox
@@ -128,6 +130,7 @@ public final class MailboxViewModel {
         navigate: @escaping (Route) -> Void = { _ in },
         readAhead: @escaping (ThreadFetcher.Request) -> Void = { _ in },
         actions: MailActions? = nil,
+        senders: SenderRules? = nil,
         conversationSources: ConversationSources? = nil,
         interaction: InteractionStyle = .touch,
         health: AccountHealthBoard = AccountHealthBoard(),
@@ -136,6 +139,7 @@ public final class MailboxViewModel {
         calendar: Calendar = .autoupdatingCurrent
     ) {
         self.actions = actions
+        self.senders = senders
         self.conversationSources = conversationSources
         self.interaction = interaction
         self.mailbox = mailbox

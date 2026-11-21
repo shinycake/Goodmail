@@ -67,6 +67,12 @@ public enum MailCommand: String, CaseIterable, Sendable {
     case pin
     /// Mute or Unmute.
     case mute
+    /// Runs the rules on the conversations picked now (ADR-038).
+    case applyRules
+    /// Add Sender to VIPs, or Remove Sender from VIPs.
+    case vipSender
+    /// Writes a rule that sends the sender's mail to Trash.
+    case blockSender
     case previousThread
     case nextThread
 
@@ -101,6 +107,7 @@ public enum MailCommand: String, CaseIterable, Sendable {
         case .archive, .trash, .reportSpam: .messageAway
         case .move, .changeLabels, .snooze: .messageOrganize
         case .markRead, .star, .pin, .mute: .messageMark
+        case .applyRules, .vipSender, .blockSender: .messageSender
         case .previousThread, .nextThread: .messageNavigate
         case .strikethrough: .formatStyle
         case .bulletedList, .numberedList: .formatLists
@@ -149,6 +156,7 @@ public enum MailCommand: String, CaseIterable, Sendable {
         case .snooze: .own(KeyChord([.command, .shift], "s"))
         case .markRead: .own(KeyChord([.command, .shift], "u"))
         case .star: .own(KeyChord([.command, .shift], "l"))
+        case .applyRules: .own(KeyChord([.command, .option], "l"))
         case .previousThread: .own(KeyChord([.command, .control], .upArrow))
         case .nextThread: .own(KeyChord([.command, .control], .downArrow))
         case .increaseQuoteLevel: .own(KeyChord(.command, "'"))
@@ -156,7 +164,8 @@ public enum MailCommand: String, CaseIterable, Sendable {
         case .filterByUnread, .filterByStarred, .filterByAttachments, .exportPDF, .newLabel, .showPrimary,
             .showPromotions,
             .showSocial, .showUpdates, .showForums, .sendLater,
-            .forwardAsAttachment, .editAsNew, .changeLabels, .pin, .mute, .strikethrough, .bulletedList,
+            .forwardAsAttachment, .editAsNew, .changeLabels, .pin, .mute, .vipSender, .blockSender, .strikethrough,
+            .bulletedList,
             .numberedList:
             .none
         case .goTo1, .goTo2, .goTo3, .goTo4, .goTo5, .goTo6, .goTo7, .goTo8, .goTo9, .moveTo1, .moveTo2, .moveTo3,
@@ -176,7 +185,8 @@ public enum MailCommand: String, CaseIterable, Sendable {
             .zoomIn, .zoomOut, .actualSize, .exportPDF, .closeWindow, .addLink, .showPrimary,
             .showPromotions, .showSocial, .showUpdates, .showForums, .showCopyFields, .newLabel, .eraseTrash,
             .sendLater,
-            .forwardAsAttachment, .editAsNew, .previousThread, .nextThread, .strikethrough, .bulletedList,
+            .forwardAsAttachment, .editAsNew, .applyRules, .vipSender, .blockSender, .previousThread, .nextThread,
+            .strikethrough, .bulletedList,
             .numberedList, .increaseQuoteLevel, .decreaseQuoteLevel, .toggleFilter, .filterByUnread, .filterByStarred,
             .filterByAttachments, .goTo1, .goTo2, .goTo3, .goTo4, .goTo5, .goTo6, .goTo7, .goTo8, .goTo9, .moveTo1,
             .moveTo2, .moveTo3, .moveTo4, .moveTo5, .moveTo6, .moveTo7, .moveTo8, .moveTo9:

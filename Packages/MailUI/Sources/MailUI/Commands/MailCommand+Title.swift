@@ -96,6 +96,7 @@ extension MailCommand {
             String(localized: "Pin", table: "Keyboard", bundle: .module, comment: "Menu bar command")
         case .mute:
             String(localized: "Mute", table: "Keyboard", bundle: .module, comment: "Menu bar command")
+        case .applyRules, .vipSender, .blockSender: senderTitle
         case .previousThread:
             String(localized: "Previous Conversation", table: "Keyboard", bundle: .module, comment: "Menu bar command")
         case .nextThread:

@@ -248,7 +248,7 @@ final class ChatAvatarView: UIButton {
                 comment: "Copies a chat sender's email address"),
             subtitle: sender.address, image: UIImage(systemName: "doc.on.doc")
         ) { _ in UIPasteboard.general.string = sender.address }
-        menu = UIMenu(title: sender.displayName, children: [copy])
+        menu = UIMenu(title: sender.displayName, children: [copy, SenderMenu.deferred(for: sender, from: self)])
     }
 }
 

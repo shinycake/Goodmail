@@ -1,4 +1,5 @@
 import MailCore
+import MailUI
 import OSLog
 import UIKit
 
@@ -140,6 +141,7 @@ struct AppServices {
         push.start(UIApplication.shared)
         snoozeAlarms.start()
         wrist.start()
+        model.senderRules.start()
         #if canImport(MailIntents)
             let spotlight = SpotlightIndexer(host: intents)
             model.didChange = { change in

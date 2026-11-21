@@ -5,21 +5,39 @@ import MailUI
 import OSLog
 
 /// The reader's mail rules, run on what each sync brings (`RuleRunner`). The notification extension runs them too,
-/// on what a push brings; each message goes through them once, in whichever process stores it first.
+/// on what a push brings; each message goes through them once, in whichever process stores it first. A Mac runs
+/// them on all of it as it comes, an iPhone or iPad a batch at a time (`RuleCatchUp`, ADR-038).
 extension AppModel {
     /// Runs the rules on each account's new mail, and posts the notifications they ask for. An account whose rules
     /// can't run, or an action that fails, is logged; the others still run.
     func runRules(for accounts: [Account]) async {
+        let catchUp = RuleCatchUp(PresenceTracker.shared.policy)
         for account in accounts {
-            do {
-                let runner = RuleRunner(
-                    store: database, provider: try providers.provider(for: account.id), commands: commands)
-                let run = try await runner.run(for: account.id)
-                run.logFailures(after: "a sync")
-                if !run.alerts.isEmpty { await RuleNotification.post(run.alerts, in: account) }
-            } catch {
-                RuleRun.log.error("Rules after a sync failed: \(error, privacy: .public)")
-            }
+            await runRules(in: account, after: "a sync") { try await $0.run(for: account.id, catchingUp: catchUp) }
+        }
+    }
+
+    /// Apply Rules: runs the rules on the picked conversations, each account's with its own provider, and posts the
+    /// notifications they ask for, as a sync's run does.
+    func applyRules(to threads: [ThreadSummary.ID]) async {
+        for (id, picked) in Dictionary(grouping: threads, by: \.accountID) {
+            guard let account = accounts.first(where: { $0.id == id }) else { continue }
+            await runRules(in: account, after: "Apply Rules") { try await $0.apply(to: picked) }
+        }
+    }
+
+    /// Runs `run` with a runner for `account`, then posts its alerts and logs what failed.
+    private func runRules(
+        in account: Account, after occasion: String, _ run: (RuleRunner) async throws -> RuleRun
+    ) async {
+        do {
+            let providers = providers
+            let provider = try await Self.offMain { [id = account.id] in try providers.provider(for: id) }
+            let outcome = try await run(RuleRunner(store: database, provider: provider, commands: commands))
+            outcome.logFailures(after: occasion)
+            if !outcome.alerts.isEmpty { await RuleNotification.post(outcome.alerts, in: account) }
+        } catch {
+            RuleRun.log.error("Rules after \(occasion, privacy: .public) failed: \(error, privacy: .public)")
         }
     }
 

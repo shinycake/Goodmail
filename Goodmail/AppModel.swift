@@ -37,6 +37,8 @@ final class AppModel {
     let senderPictures: SenderPictures
     /// The messages minimized in each window, kept for the next launch.
     let minimizedDrafts: MinimizedDrafts
+    /// Apply Rules, Block Sender and VIPs, for every window (ADR-038).
+    private(set) lazy var senderRules = SenderRules(service: senderRulesService())
     private let senders: Senders
     /// Keeps each account's push subscription current; `nil` when the build names no push relay.
     let pushRegistrar: PushRegistrar?

@@ -323,6 +323,7 @@ final class SceneCoordinator: NSObject {
             attachmentData: { try await model.attachmentData($0, in: $1) },
             source: { try await model.source(of: $0) },
             actions: actions,
+            senders: model.senderRules,
             navigate: { [weak self] route in self?.handle(route) },
             close: { [weak self] in self?.closeThread() },
             attachmentsDirectory: model.attachmentsDirectory
@@ -381,6 +382,7 @@ final class SceneCoordinator: NSObject {
                 navigate: { [weak self] route in self?.handle(route) },
                 readAhead: { model.readAhead($0) },
                 actions: actions,
+                senders: model.senderRules,
                 conversationSources: ConversationSources(
                     messages: { try await model.messagesToAnswer(in: $0).map(\.id) },
                     source: { try await model.source(of: $0) }),

@@ -60,6 +60,8 @@ public final class ThreadViewModel {
     /// A message's raw RFC 5322 source, for sharing it as an `.eml` file or `.mbox` archive.
     @ObservationIgnored let source: (Message.ID) async throws -> Data
     @ObservationIgnored private let actions: MailActions?
+    /// Apply Rules, Block Sender and VIPs, where the app offers them.
+    @ObservationIgnored let senders: SenderRules?
     @ObservationIgnored private let navigate: (Route) -> Void
     @ObservationIgnored private let close: () -> Void
     @ObservationIgnored private var hasMarkedRead = false
@@ -85,6 +87,7 @@ public final class ThreadViewModel {
         attachmentData: @escaping (Attachment, Message.ID) async throws -> Data,
         source: @escaping (Message.ID) async throws -> Data,
         actions: MailActions? = nil,
+        senders: SenderRules? = nil,
         navigate: @escaping (Route) -> Void = { _ in },
         close: @escaping () -> Void = {},
         attachmentsDirectory: URL = FileManager.default.temporaryDirectory.appending(path: "Attachments"),
@@ -98,6 +101,7 @@ public final class ThreadViewModel {
         self.layout = layout
         transcript = ChatTranscript(messages: [], accountEmail: accountEmail, aliases: accountAliases)
         self.actions = actions
+        self.senders = senders
         self.navigate = navigate
         self.close = close
         self.attachmentsDirectory = attachmentsDirectory

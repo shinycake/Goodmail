@@ -109,14 +109,17 @@ extension ThreadMenu {
             })
     }
 
-    /// The menu's sections in UIKit's terms.
+    /// The menu's sections in UIKit's terms, with the sender's commands before what takes the threads away.
     func uiMenu(_ elements: Elements) -> UIMenu {
-        UIMenu(
-            children: groups.map { group in
-                let section = UIMenu(options: .displayInline, children: group.items.map(elements.element))
-                if group.layout == .row { section.preferredElementSize = .medium }
-                return section
-            })
+        var sections = groups.map { group in
+            let section = UIMenu(options: .displayInline, children: group.items.map(elements.element))
+            if group.layout == .row { section.preferredElementSize = .medium }
+            return section
+        }
+        if let senders = elements.senderSection, !senders.children.isEmpty {
+            sections.insert(senders, at: max(sections.endIndex - 1, 0))
+        }
+        return UIMenu(children: sections)
     }
 
     /// Turns menu items into UIKit's, for the threads the menu is for. What only one thread can do, as a reply, is
