@@ -29,11 +29,8 @@ final class ArrivalTests: XCTestCase {
     @MainActor
     func testAnotherConversationOpenGivesWay() {
         let app = launchForAlert()
-        let rows = app.collectionViews["mailbox"].cells
-        XCTAssertTrue(rows.element(boundBy: 1).waitForExistence(timeout: 10))
-        let other = rows.element(boundBy: rows.element(boundBy: 0).label.contains(Self.weekendPlans) ? 1 : 0)
-        XCTAssertTrue(retry({ other.tap() }, until: { app.scrollViews["thread"].exists }), "a conversation opens")
-        XCTAssertFalse(reads(Self.weekendPlans, in: app, within: 1), "another one")
+        open("Lunch tomorrow?", in: app)
+        XCTAssertTrue(reads("Lunch tomorrow?", in: app, within: 5), "another one")
         tapAlert(in: app)
         XCTAssertTrue(reads(Self.weekendPlans, in: app, within: 30), "the alert's conversation shows")
         assertOneBackReachesTheList(in: app)
@@ -182,10 +179,14 @@ final class ArrivalTests: XCTestCase {
             "-GoodmailTestAlertFrom", "Sam <sam@example.com>", "-GoodmailTestAlertSubject", Self.weekendPlans,
             "-GoodmailTestAlertThread", "synthetic-1/t19",
         ])
-        // A new simulator asks to allow notifications on the first launch. Its second button allows them, in any
-        // language.
+        // A new simulator asks to allow notifications on the first launch, a few seconds in. Answer it before the test
+        // taps anything: on iPad it sits over the list, where a tap meant for a row turns notifications off. Allow is
+        // its second button, in any language.
         let permission = Self.springboard.alerts.firstMatch
-        if permission.waitForExistence(timeout: 3) { permission.buttons.element(boundBy: 1).tap() }
+        if permission.waitForExistence(timeout: 10) {
+            let allow = permission.buttons["Allow"]
+            (allow.exists ? allow : permission.buttons.element(boundBy: 1)).tap()
+        }
         return app
     }
 
@@ -198,7 +199,9 @@ final class ArrivalTests: XCTestCase {
                 "-AppleLanguages", "(en)", "-AppleLocale", "en_US",
             ] + arguments
         app.launch()
-        XCTAssertTrue(app.collectionViews["mailbox"].waitForExistence(timeout: 15))
+        // A phone opening a conversation at launch shows its reader over the list.
+        XCTAssertTrue(
+            waitUntil(timeout: 15) { app.collectionViews["mailbox"].exists || app.scrollViews["thread"].exists })
         return app
     }
 
@@ -209,11 +212,19 @@ final class ArrivalTests: XCTestCase {
     /// back through `AlertResponder`, as a pushed alert's tap does.
     @MainActor
     private func tapAlert(in app: XCUIApplication, line: UInt = #line) {
+        // UIKit saves the window's state as the app goes to the background, so going there again at the end, until it
+        // is suspended with the state written, saves where the test left it: the next launch restores that, not the
+        // conversation open before the alert.
+        addTeardownBlock { @MainActor in
+            XCUIDevice.shared.press(.home)
+            _ = app.wait(for: .runningBackgroundSuspended, timeout: 10)
+        }
         postTestTrigger("alert")
         XCUIDevice.shared.press(.home)
-        let banner = Self.springboard.otherElements
+        // The alert waits on the sender's picture, so it can take a while. The banner isn't always an `other` element.
+        let banner = Self.springboard.descendants(matching: .any)
             .matching(NSPredicate(format: "label CONTAINS %@", Self.weekendPlans)).firstMatch
-        XCTAssertTrue(banner.waitForExistence(timeout: 15), "the alert shows", line: line)
+        XCTAssertTrue(banner.waitForExistence(timeout: 45), "the alert shows", line: line)
         banner.tap()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10), line: line)
     }
@@ -257,8 +268,12 @@ final class ArrivalTests: XCTestCase {
 
     @MainActor
     private func openMailbox(_ identifier: String, in app: XCUIApplication) {
-        let cell = app.collectionViews["mailboxes"].cells[identifier].firstMatch
-        if !cell.isHittable { app.navigationBars.buttons.element(boundBy: 0).tap() }
+        let mailboxes = app.collectionViews["mailboxes"]
+        let cell = mailboxes.cells[identifier].firstMatch
+        if !(cell.exists && cell.isHittable) { app.buttons["mailboxesSidebar"].tap() }
+        XCTAssertTrue(mailboxes.waitForExistence(timeout: 5))
+        // A phone's mailboxes run past the screen, and the list makes the cells below it only as they scroll in.
+        for _ in 0..<4 where !(cell.exists && cell.isHittable) { mailboxes.swipeUp() }
         XCTAssertTrue(cell.waitForExistence(timeout: 5))
         cell.tap()
         XCTAssertTrue(app.collectionViews["mailbox"].cells.firstMatch.waitForExistence(timeout: 15))
