@@ -100,7 +100,7 @@ final class DraftCard: UIView {
     }
 }
 
-extension UIColor {
+nonisolated extension UIColor {
     /// A laid-out draft: lifted off the dimmed mail screens in both themes.
     static let draftCard = UIColor { traits in
         traits.userInterfaceStyle == .dark ? .tertiarySystemBackground : .systemBackground

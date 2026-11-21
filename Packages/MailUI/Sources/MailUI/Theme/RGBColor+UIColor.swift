@@ -1,9 +1,9 @@
 import MailCore
 import UIKit
 
-extension UIColor {
+nonisolated extension UIColor {
     /// The picked color exactly, in both light and dark mode.
-    nonisolated convenience init(_ color: MailCore.RGBColor) {
+    convenience init(_ color: MailCore.RGBColor) {
         let components = color.components
         self.init(red: components.red, green: components.green, blue: components.blue, alpha: 1)
     }
