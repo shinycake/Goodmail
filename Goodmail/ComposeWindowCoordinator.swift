@@ -74,7 +74,7 @@ final class ComposeWindowCoordinator {
                 sendingThrough: { [weak self, actions] in self?.actionsSending() ?? actions })
         else { return finish() }
         let controller = ComposeWindowController(
-            composer: composer, kept: { [weak self] in self?.keepMessage() },
+            composer: composer, placement: placement, kept: { [weak self] in self?.keepMessage() },
             closed: { [weak self] in self?.composerClosed() },
             onScreen: loaded.map { loaded in { [weak composer] in composer?.start(with: loaded) } })
         state = .writing(controller)

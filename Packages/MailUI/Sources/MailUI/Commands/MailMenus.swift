@@ -14,6 +14,7 @@ public enum MailMenus {
 
     public static func build(_ builder: any UIMenuBuilder, action: Selector) {
         guard builder.system == .main, inMenuBar else { return }
+        keepMailFileItems(builder)
         func offers(_ menu: UIMenu.Identifier) -> Bool { builder.menu(for: menu)?.children.isEmpty == false }
 
         /// The command's item, or `nil` where the system's own item does all of it.

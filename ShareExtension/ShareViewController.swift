@@ -76,9 +76,10 @@ final class ShareViewController: UIViewController, UIAdaptivePresentationControl
         guard let account = session.accounts.first else {
             return explain(.noAccounts) { [weak self] in self?.finish(sent: false) }
         }
-        let window = ComposeWindowController(composer: composer(for: shared.content, from: account, in: session)) {
-            [weak self] in self?.composerClosed()
-        }
+        // The share sheet has no close button of its own, so the composer keeps its Close.
+        let window = ComposeWindowController(
+            composer: composer(for: shared.content, from: account, in: session), placement: .sheet
+        ) { [weak self] in self?.composerClosed() }
         addChild(window)
         window.view.frame = view.bounds
         window.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]

@@ -227,9 +227,7 @@ public final class ComposeViewController: UIViewController {
             viewModel.isReply
             ? String(localized: "Reply", table: "Compose", bundle: .module, comment: "Composer title for a reply")
             : String(localized: "New Message", table: "Compose", bundle: .module, comment: "Composer title")
-        let close = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { [weak self] _ in self?.cancel() })
-        close.accessibilityIdentifier = "compose.close"
-        navigationItem.leftBarButtonItems = [close] + [ownWindowItem()].compactMap(\.self)
+        navigationItem.leftBarButtonItems = [closeItem(), ownWindowItem()].compactMap(\.self)
         sendItem.image = UIImage(systemName: "arrow.up")
         sendItem.style = .prominent
         sendItem.accessibilityLabel = String(
@@ -243,6 +241,14 @@ public final class ComposeViewController: UIViewController {
             UIDeferredMenuElement.uncached { [weak self] completion in completion(self?.sendLaterItems() ?? []) }
         ])
         navigationItem.rightBarButtonItems = [sendItem, attachItem()]
+    }
+
+    /// Close, unless the window closes the message with its own close button, as a Mac window does.
+    private func closeItem() -> UIBarButtonItem? {
+        guard host?.closesWithWindow != true else { return nil }
+        let close = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { [weak self] _ in self?.cancel() })
+        close.accessibilityIdentifier = "compose.close"
+        return close
     }
 
     private func configure(_ field: UITextField, text: String) {
@@ -381,6 +387,8 @@ public final class ComposeViewController: UIViewController {
         fromButton.configuration?.image = UIImage(systemName: "chevron.up.chevron.down")
         fromButton.configuration?.imagePlacement = .trailing
         fromButton.configuration?.imagePadding = 4
+        // The glyph is the one chevron: a Mac pop-up button would add its own beside it.
+        fromButton.configuration?.indicator = .none
         fromButton.configuration?.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(
             textStyle: .footnote)
         fromButton.showsMenuAsPrimaryAction = true

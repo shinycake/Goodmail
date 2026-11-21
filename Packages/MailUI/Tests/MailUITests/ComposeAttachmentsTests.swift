@@ -13,7 +13,7 @@ struct ComposeAttachmentsTests {
             viewModel: ComposeViewModel(
                 draft: Draft(accountID: AccountID(rawValue: "a"), attachments: [file]),
                 accountEmail: "me@example.com", send: { _, _ in }))
-        let host = ComposeWindowController(composer: composer) {}
+        let host = ComposeWindowController(composer: composer, placement: .sheet) {}
         host.view.frame = CGRect(x: 0, y: 0, width: 402, height: 874)
         host.view.layoutIfNeeded()
         let files = try #require(composer.view.descendants(ComposeAttachmentsView.self).first)

@@ -49,7 +49,8 @@ public struct KeyChord: Hashable, Sendable, CustomStringConvertible {
     public static let heldBySystemMenus: Set<KeyChord> = [
         // The app menu: Hide, Hide Others, Quit.
         KeyChord(.command, "h"), KeyChord([.command, .option], "h"), KeyChord(.command, "q"),
-        // File: New Window and Close, where the system offers them, and Print.
+        // File: New Window and Close, where the system offers them, and Print. On the Mac the system's New Window holds
+        // ⌘N, Mail's New Message, so the menu bar takes it out there and New Viewer Window takes ⌥⌘N itself.
         KeyChord([.command, .option], "n"), KeyChord(.command, "w"), KeyChord(.command, "p"),
         // Edit: Undo, Redo, Cut, Copy, Paste, Paste and Match Style, Select All, Emoji and Symbols.
         KeyChord(.command, "z"), KeyChord([.command, .shift], "z"), KeyChord(.command, "x"), KeyChord(.command, "c"),

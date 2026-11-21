@@ -38,6 +38,8 @@ public enum MailCommand: String, CaseIterable, Sendable {
     case showCopyFields
 
     case getMail
+    /// New Label, as the sidebar's toolbar button has it: Mail's New Mailbox.
+    case newLabel
     /// Opens the sidebar's first nine rows, from ⌘1 to ⌘9.
     case goTo1, goTo2, goTo3, goTo4, goTo5, goTo6, goTo7, goTo8, goTo9
     /// Moves the picked conversations to the sidebar's first nine rows, from ⌃⌘1 to ⌃⌘9.
@@ -90,6 +92,7 @@ public enum MailCommand: String, CaseIterable, Sendable {
         case .filterByUnread, .filterByStarred, .filterByAttachments: .viewFilterBy
         case .showCopyFields: .viewComposer
         case .getMail: .mailboxFetch
+        case .newLabel: .mailboxNew
         case .goTo1, .goTo2, .goTo3, .goTo4, .goTo5, .goTo6, .goTo7, .goTo8, .goTo9: .mailboxGoTo
         case .moveTo1, .moveTo2, .moveTo3, .moveTo4, .moveTo5, .moveTo6, .moveTo7, .moveTo8, .moveTo9: .mailboxMoveTo
         case .eraseTrash: .mailboxErase
@@ -150,7 +153,8 @@ public enum MailCommand: String, CaseIterable, Sendable {
         case .nextThread: .own(KeyChord([.command, .control], .downArrow))
         case .increaseQuoteLevel: .own(KeyChord(.command, "'"))
         case .decreaseQuoteLevel: .own(KeyChord([.command, .option], "'"))
-        case .filterByUnread, .filterByStarred, .filterByAttachments, .exportPDF, .showPrimary, .showPromotions,
+        case .filterByUnread, .filterByStarred, .filterByAttachments, .exportPDF, .newLabel, .showPrimary,
+            .showPromotions,
             .showSocial, .showUpdates, .showForums, .sendLater,
             .forwardAsAttachment, .editAsNew, .changeLabels, .pin, .mute, .strikethrough, .bulletedList,
             .numberedList:
@@ -170,7 +174,8 @@ public enum MailCommand: String, CaseIterable, Sendable {
             true
         case .settings, .newWindow, .openInNewWindow, .quickLook, .findInConversation, .findNext, .findPrevious,
             .zoomIn, .zoomOut, .actualSize, .exportPDF, .closeWindow, .addLink, .showPrimary,
-            .showPromotions, .showSocial, .showUpdates, .showForums, .showCopyFields, .eraseTrash, .sendLater,
+            .showPromotions, .showSocial, .showUpdates, .showForums, .showCopyFields, .newLabel, .eraseTrash,
+            .sendLater,
             .forwardAsAttachment, .editAsNew, .previousThread, .nextThread, .strikethrough, .bulletedList,
             .numberedList, .increaseQuoteLevel, .decreaseQuoteLevel, .toggleFilter, .filterByUnread, .filterByStarred,
             .filterByAttachments, .goTo1, .goTo2, .goTo3, .goTo4, .goTo5, .goTo6, .goTo7, .goTo8, .goTo9, .moveTo1,

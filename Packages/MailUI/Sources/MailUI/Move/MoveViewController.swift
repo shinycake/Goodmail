@@ -55,9 +55,7 @@ public final class MoveViewController: UIViewController {
         }
         let newLabel = UICollectionView.CellRegistration<UICollectionViewListCell, Row> { cell, _, _ in
             var content = cell.defaultContentConfiguration()
-            content.text = String(
-                localized: "New Label", table: "LabelEditing", bundle: .module,
-                comment: "Action: makes a new label, and the title of the alert that names it")
+            content.text = LabelEditFlow.newLabel
             content.textProperties.color = .tintColor
             content.image = UIImage(systemName: "plus")
             cell.contentConfiguration = content

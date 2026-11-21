@@ -15,7 +15,7 @@ struct ComposerKeptTests {
             saveDraft: { draft, _ in saved.append(draft.body.plain) }, autosavePause: .zero, send: { _, _ in })
         var kept = 0
         let host = ComposeWindowController(
-            composer: ComposeViewController(viewModel: model), kept: { kept += 1 }, closed: {})
+            composer: ComposeViewController(viewModel: model), placement: .sheet, kept: { kept += 1 }, closed: {})
 
         model.edited { MessageBody(plain: "Hi") }
         await model.settleAutosave()
@@ -34,7 +34,7 @@ struct ComposerKeptTests {
             saveDraft: { _, _ in }, autosavePause: .zero, send: { _, _ in })
         var kept = 0
         let host = ComposeWindowController(
-            composer: ComposeViewController(viewModel: model), kept: { kept += 1 }, closed: {})
+            composer: ComposeViewController(viewModel: model), placement: .sheet, kept: { kept += 1 }, closed: {})
 
         model.edited { model.draft.body }
         await model.settleAutosave()

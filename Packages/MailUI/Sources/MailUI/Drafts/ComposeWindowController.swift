@@ -6,18 +6,22 @@ public import UIKit
 public final class ComposeWindowController: UINavigationController, ComposerHost {
     private let kept: () -> Void
     private let closed: () -> Void
+    /// Where the window's app opens new messages: in a window of their own, as on the Mac, the window closes the message
+    /// with its own close button.
+    private let placement: ComposePlacement
     /// What runs once the composer is first on screen, as what was dropped on a mail window for it going in. Only the
     /// first appearance takes it.
     private var onScreen: (() -> Void)?
 
-    /// `kept` runs each time the message is kept as written, `closed` once the message is done with, and `onScreen`
-    /// once the composer is first on screen.
+    /// `placement` is where the window opens new messages. `kept` runs each time the message is kept as written,
+    /// `closed` once the message is done with, and `onScreen` once the composer is first on screen.
     public init(
-        composer: ComposeViewController, kept: @escaping () -> Void = {}, closed: @escaping () -> Void,
-        onScreen: (() -> Void)? = nil
+        composer: ComposeViewController, placement: ComposePlacement, kept: @escaping () -> Void = {},
+        closed: @escaping () -> Void, onScreen: (() -> Void)? = nil
     ) {
         self.kept = kept
         self.closed = closed
+        self.placement = placement
         self.onScreen = onScreen
         super.init(rootViewController: composer)
         composer.host = self
@@ -37,6 +41,14 @@ public final class ComposeWindowController: UINavigationController, ComposerHost
     public var composer: ComposeViewController? { viewControllers.first as? ComposeViewController }
 
     var canMinimize: Bool { false }
+
+    var closesWithWindow: Bool {
+        switch placement {
+        // A message moved out of a mail window on iPad, whose window has no close button of its own.
+        case .sheet: false
+        case .ownWindow: true
+        }
+    }
 
     func minimize(_ composer: ComposeViewController, then next: (() -> Void)?) {
         next?()

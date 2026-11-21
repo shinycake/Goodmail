@@ -539,6 +539,17 @@
         }
       }
     },
+    "New Label…" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תווית חדשה…"
+          }
+        }
+      }
+    },
     "New Message" : {
       "comment" : "Menu bar command",
       "localizations" : {

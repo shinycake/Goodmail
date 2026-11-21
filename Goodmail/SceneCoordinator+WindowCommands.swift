@@ -3,13 +3,11 @@ import MailUI
 import UIKit
 
 extension SceneCoordinator {
-    /// What the window does for a menu bar command or shortcut that no screen has: New Window and Close Window where
-    /// the device has windows, and Settings, over the mail screens or in its own window.
+    /// What the window does for a menu bar command or shortcut that no screen has: Close Window where the device has
+    /// windows, and Settings, over the mail screens or in its own window. New Viewer Window is the app's
+    /// (`AppDelegate+Commands`).
     func windowAnswer(to command: MailCommand) -> CommandAnswer {
         switch command {
-        case .newWindow:
-            guard UIApplication.shared.supportsMultipleScenes, showsMail else { return .unavailable }
-            return .ready(perform: { [weak self] in self?.openWindow(showing: WindowState()) {} })
         case .closeWindow:
             guard UIApplication.shared.supportsMultipleScenes, window.windowScene != nil else { return .unavailable }
             return .ready(perform: { [weak self] in self?.closeWindow() })
@@ -35,8 +33,16 @@ extension SceneCoordinator {
 
     /// Opens a new window for `activity`, beside this one, or calls `failed` when the system can't open one.
     private func openWindow(for activity: NSUserActivity?, failed: @escaping @MainActor () -> Void) {
+        Self.openWindow(for: activity, beside: window.windowScene, failed: failed)
+    }
+
+    /// Opens a new window for `activity`, beside `scene` when there is one, or calls `failed` when the system can't
+    /// open one.
+    static func openWindow(
+        for activity: NSUserActivity?, beside scene: UIWindowScene?, failed: @escaping @MainActor () -> Void
+    ) {
         let options = UIScene.ActivationRequestOptions()
-        options.requestingScene = window.windowScene
+        options.requestingScene = scene
         var request = UISceneSessionActivationRequest()
         request.userActivity = activity
         request.options = options

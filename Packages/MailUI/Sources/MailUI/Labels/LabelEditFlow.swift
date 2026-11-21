@@ -21,10 +21,7 @@ final class LabelEditFlow {
     /// Asks for a name and creates the label; `created` runs once the service has it.
     func create(then created: @escaping (MailLabel) -> Void) {
         let alert = UIAlertController.labelName(
-            title: String(
-                localized: "New Label", table: "LabelEditing", bundle: .module,
-                comment: "Action: makes a new label, and the title of the alert that names it"),
-            name: nil,
+            title: Self.newLabel, name: nil,
             action: String(
                 localized: "Create", table: "LabelEditing", bundle: .module, comment: "Button: creates the label")
         ) { [weak self, editor] name in
@@ -129,6 +126,12 @@ final class LabelEditFlow {
 
     enum Kind {
         case create, rename, delete
+    }
+
+    static var newLabel: String {
+        String(
+            localized: "New Label", table: "LabelEditing", bundle: .module,
+            comment: "Action: makes a new label, and the title of the alert that names it")
     }
 
     static var cancel: String {

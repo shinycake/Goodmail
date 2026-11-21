@@ -32,6 +32,8 @@ public enum MenuPlace: CaseIterable, Sendable {
     case viewFilterBy
     case viewComposer
     case mailboxFetch
+    /// New Label, as Mail's New Mailbox.
+    case mailboxNew
     /// The Go To submenu: the sidebar's first nine rows.
     case mailboxGoTo
     /// The Move To submenu: the sidebar's first nine rows.
@@ -53,7 +55,7 @@ public enum MenuPlace: CaseIterable, Sendable {
         case .fileNew, .fileAttachment, .fileExport, .fileClose: .file
         case .editFind, .editInsert: .edit
         case .viewLayout, .viewZoom, .viewCategories, .viewFilter, .viewFilterBy, .viewComposer: .view
-        case .mailboxFetch, .mailboxGoTo, .mailboxMoveTo, .mailboxErase: .mailbox
+        case .mailboxFetch, .mailboxNew, .mailboxGoTo, .mailboxMoveTo, .mailboxErase: .mailbox
         case .messageSend, .messageAnswer, .messageAway, .messageOrganize, .messageMark, .messageNavigate: .message
         case .formatStyle, .formatLists, .formatQuote: .format
         }

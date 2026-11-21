@@ -403,9 +403,7 @@ extension MailboxesViewController {
     func newLabelItem() -> UIBarButtonItem? {
         let accounts = viewModel.labelAccounts
         guard let first = accounts.first else { return nil }
-        let title = String(
-            localized: "New Label", table: "LabelEditing", bundle: .module,
-            comment: "Action: makes a new label, and the title of the alert that names it")
+        let title = LabelEditFlow.newLabel
         let image = UIImage(systemName: "folder.badge.plus")
         guard accounts.count > 1 else {
             return UIBarButtonItem(
@@ -425,7 +423,7 @@ extension MailboxesViewController {
         return UIBarButtonItem(title: title, image: image, menu: menu)
     }
 
-    private func labelFlow(for account: AccountID) -> LabelEditFlow? {
+    func labelFlow(for account: AccountID) -> LabelEditFlow? {
         if let flow = labelFlows[account] { return flow }
         guard let editor = viewModel.labelEditor(account) else { return nil }
         let flow = LabelEditFlow(editor: editor, presenter: self)
