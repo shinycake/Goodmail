@@ -81,7 +81,9 @@ final class KeyboardShortcutUITests: XCTestCase {
     /// Opens the first row's conversation and returns its subject.
     @MainActor
     private func openFirstConversation(in app: XCUIApplication) -> String {
-        let row = app.collectionViews["mailbox"].cells.firstMatch
+        // The list's first cell is its section's header; a conversation's row names the account it's in.
+        let row = app.collectionViews["mailbox"].cells.containing(NSPredicate(format: "label CONTAINS '@example.com'"))
+            .firstMatch
         XCTAssertTrue(retry({ row.tap() }, until: { app.scrollViews["thread"].exists }), "the conversation opens")
         let shown = app.staticTexts["thread.subject"]
         XCTAssertTrue(shown.waitForExistence(timeout: 5))
