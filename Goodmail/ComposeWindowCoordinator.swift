@@ -10,22 +10,36 @@ import UIKit
 /// they open in a sheet, as on iPad, the window holds a message moved out of a mail window: closing it keeps the
 /// message for the next mail window's drafts pill, and a mail window takes its place. Where every message has a
 /// window, as on the Mac, closing it saves the message to Drafts as closing the sheet does, and Send hands the message
-/// to the front mail window, whose toast offers Undo Send.
+/// to the front mail window, whose toast offers Undo Send. With no mail window open, the window stays after Send and
+/// offers Undo Send itself until its wait is over, and Undo brings the message back into it.
 final class ComposeWindowCoordinator {
     let window: ShakeToUndoWindow
     private let model: AppModel
     private let shown: ComposeWindow
     private let actions: MailActions
     private let placement: ComposePlacement
-    /// Whether the window holds its message yet. Only `start()`, the composer's closing and `close()` change it.
+    /// Whether the window holds its message yet. Only `start()`, `write(_:holding:)`, `offerUndo()`, `finish()` and
+    /// `close()` change it.
     private var state = State.reading
 
     private enum State {
         /// Reading the message back from where its last window kept it.
         case reading
         case writing(ComposeWindowController)
+        /// Sent from here with no mail window to offer Undo Send: the window offers it until the wait is over, then
+        /// closes, unless Undo brings the message back (`write(_:)`).
+        case sent(Task<Void, Never>)
         /// The message was sent, deleted or saved away, or was gone: the window is closing.
         case done
+    }
+
+    /// What was dropped on a mail window for a message that opens in a window of its own, under the window's key, until
+    /// that window has its composer. Held in memory, as a drop on a mail window's composer is.
+    private static var dropped: [String: SharedItems.Loaded] = [:]
+
+    /// Holds `loaded` for the message window `shown` opens with, or, with `nil`, lets it go when the window won't open.
+    static func hold(_ loaded: SharedItems.Loaded?, for shown: ComposeWindow) {
+        dropped[shown.key] = loaded
     }
 
     init(windowScene: UIWindowScene, model: AppModel, showing shown: ComposeWindow) {
@@ -40,25 +54,32 @@ final class ComposeWindowCoordinator {
         window.rootViewController = UIViewController()
         window.rootViewController?.view.backgroundColor = .systemBackground
         window.windowAnswer = { [weak self] in self?.windowAnswer(to: $0) ?? .notHere }
+        actions.reopen = { [weak self] in self?.undidSend($0) }
     }
 
     func start() {
         model.minimizedDrafts.take(for: shown.key) { [weak self] drafts in
             guard let self, case .reading = state else { return }
-            guard let draft = drafts.first,
-                let composer = model.composer(
-                    for: draft, actions: actions,
-                    sendingThrough: { [weak self, actions] in self?.sendingActions ?? actions })
-            else {
-                return finish()
-            }
-            let controller = ComposeWindowController(
-                composer: composer, kept: { [weak self] in self?.keepMessage() },
-                closed: { [weak self] in self?.finish() })
-            state = .writing(controller)
-            nameWindow(after: composer)
-            window.rootViewController = controller
+            guard let draft = drafts.first else { return finish() }
+            write(draft, holding: Self.dropped.removeValue(forKey: shown.key))
         }
+    }
+
+    /// Fills the window with a composer for `draft`: the message read back, or one Undo Send took back. `loaded`, what
+    /// was dropped on a mail window for it, goes in once the composer is on screen.
+    private func write(_ draft: Draft, holding loaded: SharedItems.Loaded? = nil) {
+        guard
+            let composer = model.composer(
+                for: draft, actions: actions,
+                sendingThrough: { [weak self, actions] in self?.actionsSending() ?? actions })
+        else { return finish() }
+        let controller = ComposeWindowController(
+            composer: composer, kept: { [weak self] in self?.keepMessage() },
+            closed: { [weak self] in self?.composerClosed() },
+            onScreen: loaded.map { loaded in { [weak composer] in composer?.start(with: loaded) } })
+        state = .writing(controller)
+        nameWindow(after: composer)
+        window.rootViewController = controller
     }
 
     /// Saved with the window when the system puts it away. Keeps the message as written, for the window to read
@@ -77,12 +98,20 @@ final class ComposeWindowCoordinator {
         case .sheet:
             keepMessage()
         case .ownWindow:
-            // A message not read back yet stays kept, rather than lost with a window closed as it opened.
-            guard case .writing(let controller) = state else { break }
-            // Done with before the composer says it closed, so the window doesn't ask to close again.
-            state = .done
-            controller.composer?.dismissKeepingDraft()
-            model.minimizedDrafts.keep([], for: shown.key)
+            switch state {
+            case .reading, .done:
+                // A message not read back yet stays kept, rather than lost with a window closed as it opened.
+                break
+            case .writing(let controller):
+                // Done with before the composer says it closed, so the window doesn't ask to close again.
+                state = .done
+                controller.composer?.dismissKeepingDraft()
+                model.minimizedDrafts.keep([], for: shown.key)
+            case .sent(let waiting):
+                // Closed before the wait was over: the message goes, with nothing left to undo it.
+                state = .done
+                waiting.cancel()
+            }
         }
         model.minimizedDrafts.close(shown.key)
     }
@@ -101,13 +130,49 @@ final class ComposeWindowCoordinator {
         window.windowScene?.title = subject.isEmpty ? composer.title : subject
     }
 
-    /// Where a message sent from here goes to be undone: the front mail window, whose toast offers Undo Send, where
-    /// every message has a window of its own; else this window, which closes as it sends.
-    private var sendingActions: MailActions {
+    /// Where the message being sent goes to be undone, asked as it is sent. Where every message has a window of its own,
+    /// that is the front mail window, whose toast offers Undo Send, or, with none open, this window, which stays to
+    /// offer it (`offerUndo()`). Else this window, which closes as it sends.
+    private func actionsSending() -> MailActions {
         switch placement {
-        case .sheet: actions
-        case .ownWindow: MailWindows.frontViewer?.actions ?? actions
+        case .sheet:
+            return actions
+        case .ownWindow:
+            if let viewer = MailWindows.frontViewer { return viewer.actions }
+            offerUndo()
+            return actions
         }
+    }
+
+    /// Stays open once the composer closes after Send, offering Undo Send in place of the message until the wait is
+    /// over, then closes. Undo brings the message back here (`actions.reopen`), and the window stays.
+    private func offerUndo() {
+        guard case .writing = state else { return }
+        // Sent, so a window restored before Undo brings it back has no message to read back.
+        model.minimizedDrafts.keep([], for: shown.key)
+        let actions = actions
+        state = .sent(
+            Task { [weak self] in
+                // Starts once the send is asked for, which follows this at once.
+                _ = await actions.waitOutUndo { [weak self] toast in
+                    self?.window.rootViewController = UndoCountdown.make(toast, undo: { actions.undoLast() })
+                }
+                // Undo has put the message back in the window by now; else it went.
+                guard let self, case .sent = state else { return }
+                finish()
+            })
+    }
+
+    /// Undo Send took the message back while the window offered it: writing goes on here.
+    private func undidSend(_ draft: Draft) {
+        guard case .sent = state else { return }
+        write(draft)
+    }
+
+    /// The composer closed. A message sent with Undo Send to offer here leaves the window to `offerUndo()`.
+    private func composerClosed() {
+        if case .sent = state { return }
+        finish()
     }
 
     /// The message is done with, or was gone: nothing more to keep, and the window closes. A window already closing
@@ -148,11 +213,15 @@ final class ComposeWindowCoordinator {
     private func windowAnswer(to command: MailCommand) -> CommandAnswer {
         switch command {
         case .closeWindow:
-            guard case .writing = state else { return .notHere }
-            return .ready(perform: { [weak self] in self?.closeWindow() })
+            switch state {
+            case .writing, .sent: return .ready(perform: { [weak self] in self?.closeWindow() })
+            case .reading, .done: return .notHere
+            }
         case .settings:
             guard case .ownWindow = window.interactionStyle.settingsPlacement else { return .notHere }
-            return .ready(perform: { [weak self] in SettingsWindowCoordinator.open(from: self?.window.windowScene) })
+            return .ready(perform: { [weak self] in
+                SettingsWindowCoordinator.open(at: .main, from: self?.window.windowScene)
+            })
         default:
             return .notHere
         }

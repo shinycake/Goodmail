@@ -18,6 +18,9 @@ extension SceneCoordinator {
         /// One conversation alone, in a window of its own (`WindowState.Layout.message`): the reader, built for
         /// `accounts` like the mail screens.
         case message(UIViewController, accounts: [AccountID])
+        /// A message window whose thread an action took away, offering to undo it until its toast goes
+        /// (`leaveMessage()`). Leaving this screen for any other ends `waiting`.
+        case leaving(waiting: Task<Void, Never>)
     }
 
     /// The accounts the mail on show is built for, while nothing covers it: what may rebuild it, or open Settings over
@@ -25,7 +28,7 @@ extension SceneCoordinator {
     var uncoveredMail: [AccountID]? {
         switch screen {
         case .mailbox(_, let accounts, .none), .message(_, let accounts): accounts
-        case .starting, .welcome, .offer, .mailbox: nil
+        case .starting, .welcome, .offer, .mailbox, .leaving: nil
         }
     }
 

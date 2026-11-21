@@ -228,15 +228,15 @@ extension SettingsView {
 
 /// The settings screen, for UIKit to present.
 public enum SettingsScreen {
-    /// Settings, open at `page`, as a cover over the mail screens or filling the Settings window. A cover tells `model`
-    /// it closed once it is dismissed; the Settings window tells it as the window closes.
-    public static func make(
-        model: SettingsViewModel, at page: SettingsPage = .main, placement: SettingsPlacement = .cover
-    ) -> UIViewController {
-        switch placement {
-        case .cover: Controller(model: model, page: page)
-        case .ownWindow: UIHostingController(rootView: Root(model: model, page: page, placement: placement))
-        }
+    /// Settings, open at `page`, as a cover over the mail screens. It tells `model` it closed once it is dismissed.
+    public static func make(model: SettingsViewModel, at page: SettingsPage = .main) -> UIViewController {
+        Controller(model: model, page: page)
+    }
+
+    /// Settings filling the Settings window, showing the pages `pages` holds, which a request for a page while the
+    /// window is open adds to. The window tells `model` it closed as the window closes.
+    public static func window(model: SettingsViewModel, pages: SettingsPages) -> UIViewController {
+        UIHostingController(rootView: Root(model: model, pages: pages, placement: .ownWindow))
     }
 
     /// What the system calls the Settings window.
@@ -246,20 +246,11 @@ public enum SettingsScreen {
 
     private struct Root: View {
         let model: SettingsViewModel
+        @Bindable var pages: SettingsPages
         let placement: SettingsPlacement
-        /// The pages pushed over the first screen. Seeded once from the page Settings opens at; the reader moves on
-        /// from there. Untyped, because the screens push more than pages: an account row pushes its `AccountID`, and a
-        /// path typed to `SettingsPage` silently drops that push.
-        @State private var path: NavigationPath
-
-        init(model: SettingsViewModel, page: SettingsPage, placement: SettingsPlacement) {
-            self.model = model
-            self.placement = placement
-            _path = State(initialValue: NavigationPath(page == .main ? [] : [page]))
-        }
 
         var body: some View {
-            NavigationStack(path: $path) {
+            NavigationStack(path: $pages.path) {
                 SettingsView(model: model)
                     .navigationDestination(for: SettingsPage.self) { page in
                         switch page {
@@ -280,7 +271,7 @@ public enum SettingsScreen {
 
         init(model: SettingsViewModel, page: SettingsPage) {
             self.model = model
-            super.init(rootView: Root(model: model, page: page, placement: .cover))
+            super.init(rootView: Root(model: model, pages: SettingsPages(at: page), placement: .cover))
             // A page sheet, so Settings gets most of a large iPad's height rather than a small form in the middle.
             modalPresentationStyle = .pageSheet
         }

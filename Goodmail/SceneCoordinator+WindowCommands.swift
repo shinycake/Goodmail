@@ -51,16 +51,19 @@ extension SceneCoordinator {
 extension SceneCoordinator {
     /// Moves `draft` into a window of its own, or into this window's composer when the system can't open one: a
     /// message just taken off this window, or, where every message has a window, any new one. It travels with the
-    /// minimized messages, under the new window's name, held for that window so no other takes it first.
-    func openComposeWindow(for draft: Draft) {
+    /// minimized messages, under the new window's name, held for that window so no other takes it first, and what was
+    /// dropped for it, `loaded`, with it.
+    func openComposeWindow(for draft: Draft, holding loaded: SharedItems.Loaded? = nil) {
         let window = ComposeWindow(for: draft.id)
         let minimized = model.minimizedDrafts
         minimized.reserve(window.key)
         minimized.keep([draft], for: window.key)
+        ComposeWindowCoordinator.hold(loaded, for: window)
         openWindow(for: window.activity) { [weak self] in
             minimized.keep([], for: window.key)
             minimized.close(window.key)
-            self?.composeHere(draft)
+            ComposeWindowCoordinator.hold(nil, for: window)
+            self?.composeHere(draft, holding: loaded)
         }
     }
 }

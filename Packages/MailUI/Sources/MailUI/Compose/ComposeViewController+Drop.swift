@@ -10,6 +10,14 @@ extension ComposeViewController {
         view.addInteraction(intake.makeInteraction())
     }
 
+    /// Starts a new message with what was dropped on a mail window, once its own window shows it: the words go at the
+    /// top, above the signature, where a new message's caret starts, as they do in the sheet.
+    public func start(with loaded: SharedItems.Loaded) {
+        loadViewIfNeeded()
+        bodyView.selectedRange = NSRange(location: 0, length: 0)
+        receive(loaded)
+    }
+
     /// Puts what came into the message: a title as the subject when there is none yet, words where the caret is in
     /// the body, and files attached while they fit. A message that has stopped being written takes nothing.
     public func receive(_ loaded: SharedItems.Loaded) {

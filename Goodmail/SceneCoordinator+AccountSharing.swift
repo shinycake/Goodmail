@@ -16,8 +16,9 @@ extension SceneCoordinator {
 
     private func followSharedAccounts() {
         switch screen {
-        case .starting, .offer:
-            // Not started yet, or the offer in place of the welcome screen decides what follows once answered.
+        case .starting, .offer, .leaving:
+            // Not started yet, the offer in place of the welcome screen decides what follows once answered, or the
+            // window closes once its undo is over.
             return
         case .welcome:
             if !model.accounts.isEmpty { showMailbox() }
@@ -57,7 +58,7 @@ extension SceneCoordinator {
             offer.onFinished = { [weak self] in self?.offerAnswered() }
             enter(.mailbox(split, accounts: accounts, cover: .offer(sheet)))
             topViewController()?.present(sheet, animated: true)
-        case .offer, .mailbox, .message:
+        case .offer, .mailbox, .message, .leaving:
             return
         }
     }

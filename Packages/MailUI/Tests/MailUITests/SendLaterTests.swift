@@ -42,7 +42,7 @@ struct SendLaterTests {
 }
 
 /// The send queue in memory.
-private final class OutgoingQueue: MailCommands.Store, @unchecked Sendable {
+final class OutgoingQueue: MailCommands.Store, @unchecked Sendable {
     var messages: [OutgoingMessage] = []
 
     func enqueue(_ message: OutgoingMessage) throws {

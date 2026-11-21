@@ -66,6 +66,7 @@ final class SceneCoordinator: NSObject {
         failures?.cancel()
         signingInAgain?.cancel()
         answering?.cancel()
+        if case .leaving(let waiting) = screen { waiting.cancel() }
     }
 
     /// The window is going away; another window may take its minimized messages.
@@ -154,8 +155,10 @@ final class SceneCoordinator: NSObject {
     func enter(_ next: Screen) {
         let before = screen
         screen = next
+        // Whatever replaces a message window waiting out its undo ends the wait.
+        if case .leaving(let waiting) = before { waiting.cancel() }
         switch next {
-        case .starting: break
+        case .starting, .leaving: break
         case .welcome(let content), .offer(let content), .message(let content, _): show(content)
         case .mailbox(let split, _, _):
             if case .mailbox(let shown, _, _) = before, shown === split { return }
@@ -165,7 +168,7 @@ final class SceneCoordinator: NSObject {
     }
 
     /// Fills the window with `screen`, fading over whatever showed before.
-    private func show(_ screen: UIViewController) {
+    func show(_ screen: UIViewController) {
         guard window.rootViewController != nil else {
             drafts.content = screen
             window.rootViewController = drafts
@@ -331,9 +334,9 @@ final class SceneCoordinator: NSObject {
     }
 
     /// Leaves the open thread, after an action that takes it out of the mailbox. A message window has nothing else to
-    /// show, so it closes.
+    /// show, so it closes once the action can no longer be undone there.
     private func closeThread() {
-        if case .message = screen { return closeWindow() }
+        if case .message = screen { return leaveMessage() }
         guard let split else { return }
         shown.setThread(nil)
         if split.isCollapsed {
@@ -459,7 +462,7 @@ final class SceneCoordinator: NSObject {
         case .settings(let page):
             switch window.interactionStyle.settingsPlacement {
             case .cover: showSettings(at: page)
-            case .ownWindow: SettingsWindowCoordinator.open(from: window.windowScene)
+            case .ownWindow: SettingsWindowCoordinator.open(at: page, from: window.windowScene)
             }
         case .signInAgain(let id):
             signInAgain(id)
@@ -492,16 +495,24 @@ final class SceneCoordinator: NSObject {
         case .search(let query):
             drafts.uncover { [weak self] in self?.search(for: query) }
         case .compose(let draft):
-            switch window.interactionStyle.composePlacement {
-            case .sheet: composeHere(draft)
-            case .ownWindow: openComposeWindow(for: draft)
-            }
+            compose(draft)
         }
     }
 
-    /// Opens `draft` in this window's composer, over the mail screens.
-    func composeHere(_ draft: Draft) {
+    /// Opens `draft` where this window opens new messages: in its composer, or in a window of its own. What was
+    /// dropped for it, `loaded`, goes in once it is open.
+    func compose(_ draft: Draft, holding loaded: SharedItems.Loaded? = nil) {
+        switch window.interactionStyle.composePlacement {
+        case .sheet: composeHere(draft, holding: loaded)
+        case .ownWindow: openComposeWindow(for: draft, holding: loaded)
+        }
+    }
+
+    /// Opens `draft` in this window's composer, over the mail screens, with what was dropped for it, `loaded`, once it
+    /// is open.
+    func composeHere(_ draft: Draft, holding loaded: SharedItems.Loaded? = nil) {
         guard let composer = composer(for: draft) else { return }
+        if let loaded { composer.whenOpen { [weak composer] in composer?.receive(loaded) } }
         drafts.open(composer)
     }
 
@@ -595,10 +606,10 @@ extension SceneCoordinator {
         showsMail ? shown.activity : nil
     }
 
-    /// Whether the window shows mail: the mail screens, or one conversation.
+    /// Whether the window shows mail: the mail screens, or one conversation, even while it waits out an undo.
     var showsMail: Bool {
         switch screen {
-        case .mailbox, .message: true
+        case .mailbox, .message, .leaving: true
         case .starting, .welcome, .offer: false
         }
     }

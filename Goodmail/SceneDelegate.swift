@@ -22,16 +22,18 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         /// The mail screens, or one conversation, showing what the window last showed, if it was saved.
         case mail(restoring: WindowState?)
         case compose(ComposeWindow)
-        case settings
+        /// The one Settings window, open at `page`.
+        case settings(at: SettingsPage)
 
-        init(_ activities: [NSUserActivity]) {
+        /// What `session` holds, or `nil` for a second Settings window, which closes as the open one comes forward.
+        static func of(_ session: UISceneSession, opening activities: [NSUserActivity]) -> Kind? {
             if let composing = activities.lazy.compactMap(ComposeWindow.init).first {
-                self = .compose(composing)
-            } else if activities.contains(where: SettingsWindow.opens) {
-                self = .settings
-            } else {
-                self = .mail(restoring: activities.lazy.compactMap(WindowState.init).first)
+                return .compose(composing)
             }
+            if activities.contains(where: SettingsWindow.opens) {
+                return SettingsWindowCoordinator.connecting(session).map(Kind.settings(at:))
+            }
+            return .mail(restoring: activities.lazy.compactMap(WindowState.init).first)
         }
     }
 
@@ -55,7 +57,8 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Unsafe because `delegate` is unowned. Safe: UIKit keeps the app delegate for the life of the process.
         let launch = (unsafe UIApplication.shared.delegate as! AppDelegate).launch
         // A handoff from another device wins over what this window showed when it was last saved.
-        let kind = Kind(connectionOptions.userActivities + [session.stateRestorationActivity].compactMap(\.self))
+        let activities = connectionOptions.userActivities + [session.stateRestorationActivity].compactMap(\.self)
+        guard let kind = Kind.of(session, opening: activities) else { return }
         let arrival =
             connectionOptions.urlContexts.first.map { Arrival.link($0.url) }
             ?? connectionOptions.shortcutItem?.quickAction.map(Arrival.quickAction)
@@ -82,7 +85,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         switch kind {
         case .mail(let restoring): connect(windowScene, to: services, restoring: restoring, arrival: arrival)
         case .compose(let shown): compose(shown, in: windowScene, with: services)
-        case .settings: showSettings(in: windowScene, with: services)
+        case .settings(let page): showSettings(at: page, in: windowScene, with: services)
         }
     }
 
@@ -116,9 +119,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window = coordinator.window
     }
 
-    /// Fills the window with Settings.
-    private func showSettings(in windowScene: UIWindowScene, with services: AppServices) {
-        let coordinator = SettingsWindowCoordinator(windowScene: windowScene, model: services.model)
+    /// Fills the window with Settings, open at `page`.
+    private func showSettings(at page: SettingsPage, in windowScene: UIWindowScene, with services: AppServices) {
+        let coordinator = SettingsWindowCoordinator(windowScene: windowScene, model: services.model, at: page)
         state = .settings(coordinator)
         coordinator.start()
         coordinator.window.makeKeyAndVisible()
@@ -170,10 +173,10 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         return coordinator
     }
 
-    /// Whether the window holds Settings, so asking for Settings again brings it forward.
-    var holdsSettings: Bool {
-        guard case .settings = state else { return false }
-        return true
+    /// The window's Settings, when it holds them, so a page asked for while it is open shows in it.
+    var settingsWindow: SettingsWindowCoordinator? {
+        guard case .settings(let coordinator) = state else { return nil }
+        return coordinator
     }
 
     /// Saved with the scene when the system puts the window away, and handed back to `willConnectTo` with it.
@@ -186,8 +189,10 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
     }
 
-    /// The window closed, or the system put it away: its minimized messages are free for another window to take.
+    /// The window closed, or the system put it away: its minimized messages are free for another window to take, and
+    /// once it held Settings, Settings can open again.
     func sceneDidDisconnect(_ scene: UIScene) {
+        SettingsWindowCoordinator.disconnected(scene.session)
         switch state {
         case .running(let coordinator): coordinator.close()
         case .composing(let coordinator): coordinator.close()

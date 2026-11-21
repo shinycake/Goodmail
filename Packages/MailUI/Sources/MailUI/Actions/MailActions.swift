@@ -12,6 +12,14 @@ public final class MailActions {
         public let id = UUID()
         public let message: String
         let undo: Undo
+        /// When the toast goes, and with it the chance to undo from it.
+        public let ends: ContinuousClock.Instant
+
+        init(message: String, undo: Undo, lasting duration: Duration) {
+            self.message = message
+            self.undo = undo
+            ends = .now + duration
+        }
     }
 
     enum Undo: Equatable {
@@ -29,7 +37,8 @@ public final class MailActions {
     /// A failure to apply or undo an action locally.
     public private(set) var error: (any Error)?
     @ObservationIgnored private let commands: MailCommands
-    @ObservationIgnored private var lastUndo: Undo?
+    /// What Undo takes back, which outlasts the toast: a shake undoes it after the toast has gone.
+    @ObservationIgnored private(set) var lastUndo: Undo?
     /// Messages the writer took back out of the queue (undo, edit, delete), so a conversation tells a reply taken
     /// back from one that went. Each is added before the queue drops it.
     @ObservationIgnored private(set) var takenBack: Set<Draft.ID> = []
@@ -146,13 +155,11 @@ public final class MailActions {
                         message: String(
                             localized: "Sent", table: "Actions", bundle: .module,
                             comment: "Toast with Undo after sending a message, while it can still be taken back"),
-                        undo: .send(draft.id)),
-                    for: delay)
+                        undo: .send(draft.id), lasting: delay))
             case .at(let date):
                 try await commands.schedule(draft, at: date)
                 lastUndo = .send(draft.id)
-                show(
-                    Toast(message: Self.scheduledConfirmation(for: date), undo: .send(draft.id)), for: readingTime)
+                show(Toast(message: Self.scheduledConfirmation(for: date), undo: .send(draft.id), lasting: readingTime))
             }
         }
     }
@@ -198,7 +205,7 @@ public final class MailActions {
             guard !undo.isEmpty else { return }
             lastUndo = .actions(undo)
             if let confirmation {
-                show(Toast(message: confirmation, undo: .actions(undo)), for: readingTime)
+                show(Toast(message: confirmation, undo: .actions(undo), lasting: readingTime))
             }
         }
     }
@@ -231,10 +238,10 @@ public final class MailActions {
         ToastTime.lasting(toastDuration, assistiveTechnologyRuns: SystemAccessibility.assistiveTechnologyRuns)
     }
 
-    private func show(_ toast: Toast, for duration: Duration) {
+    private func show(_ toast: Toast) {
         self.toast = toast
         Task {
-            try? await Task.sleep(for: duration)
+            try? await Task.sleep(until: toast.ends, clock: .continuous)
             if self.toast?.id == toast.id { self.toast = nil }
         }
     }
