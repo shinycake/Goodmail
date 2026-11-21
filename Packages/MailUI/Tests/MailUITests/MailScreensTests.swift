@@ -23,7 +23,7 @@ struct MailScreensTests {
         let split = MailSplitViewController(
             actions: MailActions(commands: MailCommands(store: NoStore(), replay: { _ in })))
         return MailScreens(
-            state, row: nil, in: split,
+            state, row: nil, in: split, arrangement: .stack,
             making: MailScreens.Makers(
                 mailboxes: { style in
                     MailboxesViewController(
@@ -107,6 +107,23 @@ struct MailScreensTests {
         #expect(after[0] === before[0] && after[1] !== before[1])
     }
 
+    @Test func aChangeOnShowRemakesTheOtherArrangementWhenItShows() throws {
+        let made = Made()
+        let screens = screens(WindowState(), made: made)
+        let listBeside = screens.split.viewController(for: .supplementary) as? UINavigationController
+        let besideBefore = listBeside?.viewControllers.first
+        var social = WindowState()
+        social.category = .social
+        screens.show(social, row: nil, .quiet, in: .stack)
+        #expect(made.lists == 2, "the list on show stays, though its category changed")
+        screens.show(social, row: nil, .resized, in: .columns)
+        #expect(made.lists == 3, "the one beside was made for the category before")
+        #expect(listBeside?.viewControllers.first !== besideBefore)
+        screens.show(social, row: nil, .resized, in: .stack)
+        screens.show(social, row: nil, .resized, in: .columns)
+        #expect(made.lists == 3, "a width change alone keeps both")
+    }
+
     @Test func backOnTheStackIsReported() throws {
         let screens = screens(WindowState(place: .list(reading: a)))
         var went: [WindowNavigation.Back] = []
@@ -137,7 +154,7 @@ struct MailScreensTests {
         let split = MailSplitViewController(
             actions: MailActions(commands: MailCommands(store: NoStore(), replay: { _ in })))
         let screens = MailScreens(
-            WindowState(), row: nil, in: split,
+            WindowState(), row: nil, in: split, arrangement: .stack,
             making: MailScreens.Makers(
                 mailboxes: {
                     MailboxesViewController(

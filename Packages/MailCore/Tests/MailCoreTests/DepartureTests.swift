@@ -48,7 +48,7 @@ struct DepartureTests {
 
     @Test(arguments: [
         WindowNavigation.Event.route(.mailbox(.starred)), .back(to: .list), .filter(.on([.unread])),
-        .category(.social), .searchToggled, .route(.search(SearchQuery(terms: []))),
+        .category(.social), .searching(true), .route(.search(SearchQuery(terms: []))),
         .accounts([]), .handedOff(WindowState(), accounts: [AccountID(rawValue: "a")]),
     ])
     func anyOtherMoveBringsBackOnlyTheRow(move: WindowNavigation.Event) {
@@ -57,6 +57,25 @@ struct DepartureTests {
         let moved = window.state
         _ = window.handle(.undone(archiveB, rows: rows), in: context())
         #expect(window.state == moved)
+    }
+
+    @Test(arguments: [
+        WindowNavigation.Event.filter(.none), .category(.primary), .back(to: .list), .missing(navigationRow("d").id),
+        .accounts([AccountID(rawValue: "a")]),
+        .lists(.init(labels: [], smartMailboxes: []), accounts: [AccountID(rawValue: "a")]),
+    ])
+    func aMoveThatChangesNothingKeepsTheWayBack(move: WindowNavigation.Event) {
+        var window = archivedB(setting: .list)
+        _ = window.handle(move, in: context(.list))
+        _ = window.handle(.undone(archiveB, rows: rows), in: context(.list))
+        #expect(window.state.reading == Reading(b.id, in: .inbox))
+    }
+
+    @Test func aHandOffOfWhatShowsAlreadyKeepsTheWayBack() {
+        var window = archivedB()
+        _ = window.handle(.handedOff(window.state, accounts: [AccountID(rawValue: "a")]), in: context())
+        _ = window.handle(.undone(archiveB, rows: rows), in: context())
+        #expect(window.state.reading == Reading(b.id, in: .inbox))
     }
 
     @Test func undoAfterPickingSeveralSinceBringsBackOnlyTheRow() {
@@ -114,6 +133,13 @@ struct DepartureTests {
                 front: WindowNavigation.Front(rows: [a.id, c.id], mailbox: .inbox)),
             in: context())
         #expect(window.state.reading == Reading(a.id, in: .inbox), "b left the rows: the trail from Undo places it")
+    }
+
+    @Test func onlyTheReadersOwnCourseMovesTheWindowByItself() {
+        #expect(changed(archiveB, on: b).movesByItself)
+        #expect(WindowNavigation.Event.undone(archiveB, rows: rows).movesByItself)
+        #expect(!WindowNavigation.Event.found(b, rows: rows).movesByItself, "a tap or a click")
+        #expect(!WindowNavigation.Event.back(to: .list).movesByItself)
     }
 
     @Test func aMessageWindowKeepsItsOwnUndo() {

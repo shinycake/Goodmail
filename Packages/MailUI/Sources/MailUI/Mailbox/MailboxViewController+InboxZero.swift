@@ -90,12 +90,12 @@ extension MailboxViewController: UISearchControllerDelegate {
     /// Also tells the window the rows on show changed (`searchToggled`).
     public func willPresentSearchController(_ searchController: UISearchController) {
         lendInboxZero()
-        searchToggled?()
+        searchToggled?(true)
     }
 
     public func didDismissSearchController(_ searchController: UISearchController) {
         lendInboxZero()
-        searchToggled?()
+        searchToggled?(false)
     }
 }
 

@@ -4,11 +4,11 @@ import MailUI
 import UIKit
 
 extension SceneCoordinator {
-    /// Presents what `route` names over or beside the window, which moves nothing the window shows: the composer, the
+    /// Presents `presentation` over or beside the window, which moves nothing the window shows: the composer, the
     /// label and move pickers, Settings, a sign-in, the smart mailbox editor, or another window. Where it goes is the
     /// window's interaction style's to say for compose, Settings and a conversation's own window (ADR-035).
-    func present(_ route: Route) {
-        switch route {
+    func present(_ presentation: Presentation) {
+        switch presentation {
         case .newWindow(let id, let mailbox):
             // iPhone Duo opens new windows only on its inner display, so closed, the thread opens here instead.
             let opened = shown.opening(Reading(id, in: mailbox), as: window.interactionStyle.threadWindowLayout)
@@ -42,9 +42,6 @@ extension SceneCoordinator {
             smartMailboxFlow.edit(id)
         case .compose(let draft):
             compose(draft)
-        // The window's navigation moves for these itself.
-        case .thread, .selection, .mailbox, .scheduled, .snoozed, .smartMailbox, .search:
-            break
         }
     }
 

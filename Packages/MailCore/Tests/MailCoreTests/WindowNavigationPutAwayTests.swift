@@ -110,6 +110,22 @@ struct WindowNavigationPutAwayTests {
         #expect(window.state.reading == Reading(c.id, in: .inbox))
     }
 
+    @Test func theRowsOfAnotherListAreNeverItsTrail() {
+        // Opened from the search results, which listed b; search ended, and the list doesn't list b.
+        var window = WindowNavigation(showing: WindowState())
+        _ = window.handle(.searching(true), in: context())
+        window.open(b, in: .allMail, from: rows, context())
+        _ = window.handle(.searching(false), in: context())
+        _ = asking(&window, .snooze, of: [b], on: b, rows: [a.id, c.id])
+        #expect(window.state.reading == nil, "the results' rows don't place it in the list")
+
+        var searched = WindowNavigation(showing: WindowState())
+        _ = searched.handle(.searching(true), in: context())
+        searched.open(b, in: .allMail, from: rows, context())
+        _ = asking(&searched, .snooze, of: [b], on: b, rows: [a.id, c.id])
+        #expect(searched.state.reading == Reading(c.id, in: .inbox), "the results it was opened from place it")
+    }
+
     @Test func puttingAwayEveryPointerPickReadsTheRowAfterThem() {
         let d = navigationRow("d")
         let rows = rows + [d.id]

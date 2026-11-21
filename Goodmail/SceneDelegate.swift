@@ -105,11 +105,13 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             windowScene: windowScene, model: services.model, restoring: restoring, lists: lists)
         state = .running(coordinator)
         coordinator.start()
-        if let route = services.routes.takeWaiting() { coordinator.handle(route) }
         coordinator.window.makeKeyAndVisible()
         ViewerWindowSize.fit(windowScene, isNew: restoring == nil)
         window?.isHidden = true
         window = coordinator.window
+        // Once the window is visible, so the route goes to the screens as they are laid out, with Settings or a
+        // composer able to present over them.
+        if let route = services.routes.takeWaiting() { coordinator.handle(route) }
         // Messages open into a web view whose content process takes a while to start; start one now.
         MessageWebViewPool.shared.warmUp()
         // The composer and the transfer screen need a visible window to present on.

@@ -18,7 +18,7 @@ public final class MailboxViewController: UIViewController {
     private var drag: ConversationDrag?
     let searchResults: SearchResultsController?
     /// Told as search begins or ends from the field, which changes the rows a conversation opened here goes on in.
-    public var searchToggled: (() -> Void)?
+    public var searchToggled: ((Bool) -> Void)?
     /// A search asked for before the list was in a window, as from a Home Screen quick action at launch, which begins
     /// once the list appears (`beginSearch`). `nil` once begun.
     var searchToBegin: SearchQuery?

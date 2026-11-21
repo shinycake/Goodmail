@@ -5,18 +5,30 @@
 /// window's screens then show `state` as it is (`stack`, `columns`), so nothing on screen keeps its own idea of what is
 /// read.
 ///
-/// It also keeps what the window must remember to move as the reader expects: the rows a conversation was opened from,
-/// so one whose row has left since still has a next one (R7), and the conversation the reader last left, so Undo can
-/// bring the reader back to it until the window moves on by any other way (R9).
+/// It also keeps what the window must remember to move as the reader expects: the conversation opened and the rows it
+/// was opened from, so one whose row has left since still has a next one (R7); the conversation the reader last left,
+/// so Undo can bring the reader back to it until the window moves on by any other way (R9); and the conversation a
+/// lookup is under way for, whose answer counts only while the window hasn't moved since.
 public struct WindowNavigation: Equatable, Sendable {
-    /// What the window shows.
-    public internal(set) var state: WindowState
-    /// The row of the conversation read, as the window found it, so its reader is made without reading the store.
-    var found: ThreadSummary?
-    /// The list's rows when the conversation read opened.
-    var trail: Trail?
+    /// What the window shows. Any change to it ends Undo's way back and the lookup under way, so no transition can
+    /// forget to; the reader's own course records its way back once it has moved.
+    public internal(set) var state: WindowState {
+        didSet {
+            guard state != oldValue else { return }
+            departure = nil
+            pending = nil
+            if state.list != oldValue.list { searching = false }
+        }
+    }
+    /// The conversation read, as it was opened.
+    var opened: Opened?
     /// The conversation the reader last left by a change they asked, until the window moves on by any other way.
     var departure: Departure?
+    /// The conversation a lookup is under way for, and where to read it.
+    public internal(set) var pending: Reading?
+    /// Whether search shows its results over the list, so a conversation opened from them is told from one opened from
+    /// the list's own rows.
+    var searching = false
     /// When a list the state names, missing from the device, counts as gone.
     var listCheck: WindowState.ListCheck
 
@@ -56,10 +68,12 @@ public struct WindowNavigation: Equatable, Sendable {
     public enum Event: Equatable, Sendable {
         /// The window was asked to go somewhere.
         case route(Route)
-        /// The conversation a `.lookUp` asked for, as `summary`, to read in `mailbox`, from a list showing `rows`.
-        case found(ThreadSummary, in: Mailbox, rows: [ThreadSummary.ID])
-        /// The conversation isn't on the device: one a `.lookUp` asked for, or the one read, as one restored or handed
-        /// off that was deleted meanwhile, which closes. A message window becomes a viewer.
+        /// The conversation a `.lookUp` asked for, as `summary`, from a list showing `rows`. It counts only while that
+        /// lookup is the one under way.
+        case found(ThreadSummary, rows: [ThreadSummary.ID])
+        /// The conversation isn't on the device: the one a `.lookUp` asked for, which then opens nothing, or the one
+        /// read, as one restored that was deleted meanwhile or whose reader can't be made, which closes. A message
+        /// window becomes a viewer.
         case missing(ThreadSummary.ID)
         /// The reader went back by the stack's Back button or its edge swipe.
         case back(to: Back)
@@ -77,17 +91,25 @@ public struct WindowNavigation: Equatable, Sendable {
         case category(InboxCategory)
         /// The list is filtered by `filter`.
         case filter(ListFilter)
-        /// Search began or ended over the list, so the rows the reader goes on in changed.
-        case searchToggled
+        /// Search began (`true`) or ended over the list, so the rows the reader goes on in changed.
+        case searching(Bool)
+
+        /// Whether the window moves by itself for this, rather than as the reader moved it: after an action or Undo,
+        /// which VoiceOver is told of, as it isn't of a tap, a click or Back.
+        public var movesByItself: Bool {
+            switch self {
+            case .changed, .undone: true
+            case .route, .found, .missing, .back, .accounts, .lists, .handedOff, .category, .filter, .searching: false
+            }
+        }
     }
 
     /// What the window does beyond showing `state`.
     public enum Effect: Equatable, Sendable {
         /// Finds the conversation, to answer with `.found` or `.missing`.
-        case lookUp(ThreadSummary.ID, in: Mailbox)
-        /// Presents what `route` names over or beside the window: the composer, a picker, Settings, a sign-in, the
-        /// smart mailbox editor, another window. Nothing the window shows changes.
-        case present(Route)
+        case lookUp(ThreadSummary.ID)
+        /// Presents a screen over or beside the window. Nothing the window shows changes.
+        case present(Presentation)
         /// Begins search over the list with `query` in its field.
         case beginSearch(SearchQuery)
         /// Shows the list's column, as after a mailbox was picked in a sidebar that covers it.
@@ -104,65 +126,72 @@ public struct WindowNavigation: Equatable, Sendable {
         switch event {
         case .route(let route):
             return go(to: route, in: context)
-        case .found(let summary, let mailbox, let rows):
-            open(summary, in: mailbox, from: rows)
-            return []
+        case .found(let summary, let rows):
+            open(summary, from: rows)
         case .missing(let thread):
-            if state.reading?.thread == thread { move { $0.closeReader() } }
-            return []
+            missed(thread)
         case .back(let back):
             goBack(to: back)
-            return []
         case .changed(let change, let reader, let front):
             return asked(change, reader: reader, front: front, in: context)
         case .undone(let change, let rows):
             undid(change, rows: rows)
-            return []
         case .accounts(let accounts):
-            move { $0 = $0.keeping(accounts) }
-            return []
+            // The screens are built again for them, so a lookup started for the ones before is dropped.
+            pending = nil
+            show(state.keeping(accounts))
         case .lists(let lists, let accounts):
             // Only the viewer shows its list; a message window keeps reading where it was opened.
             guard state.layout == .viewer, let kept = listCheck.next(state, accounts: accounts, lists: lists)
             else { return [] }
-            move { $0 = kept }
-            return []
+            show(kept)
         case .handedOff(let handed, let accounts):
             showHandedOff(handed, accounts: accounts)
-            return []
         case .category(let category):
-            move { $0.category = category }
-            return []
+            var next = state
+            next.category = category
+            if next != state { next.closeReader() }
+            state = next
         case .filter(let filter):
-            move { $0.filter = filter }
-            return []
-        case .searchToggled:
+            state.filter = filter
+        case .searching(let on):
+            searching = on
             departure = nil
-            return []
         }
+        return []
     }
 
     /// The row of the conversation read, as the window found it or as Undo brings it back; `nil` when it reads none,
     /// or one it went on to from a list's rows or was restored with, which the screens find in the list or the store.
     public var foundRow: ThreadSummary? {
-        guard let found, found.id == state.reading?.thread else { return nil }
-        return found
+        guard let opened, opened.thread == state.reading?.thread else { return nil }
+        return opened.row
     }
 
-    /// Changes what the window shows by any way but the reader's own course. When anything changed, Undo has nowhere
-    /// to bring the reader back to (R9).
-    mutating func move(_ change: (inout WindowState) -> Void) {
-        let before = state
-        change(&state)
-        if state != before { departure = nil }
+    /// The list a conversation opens from, as it shows now: its own rows, or search's over them.
+    var source: Opened.From {
+        Opened.From(list: state.list, searching: searching)
+    }
+
+    /// Shows `next`, which differs from what shows by what is gone from the device: another list closes the reader,
+    /// as every change of list does.
+    private mutating func show(_ next: WindowState) {
+        var next = next
+        if next.list != state.list { next.closeReader() }
+        state = next
+    }
+
+    private mutating func missed(_ thread: ThreadSummary.ID) {
+        if pending?.thread == thread { pending = nil }
+        if state.reading?.thread == thread { state.closeReader() }
     }
 
     /// Back went to `back`: the list stays for a window that widens.
     private mutating func goBack(to back: Back) {
         guard state.layout == .viewer else { return }
         switch back {
-        case .list: move { $0.closeReader() }
-        case .mailboxes: move { $0.backToMailboxes() }
+        case .list: state.closeReader()
+        case .mailboxes: state.backToMailboxes()
         }
     }
 
@@ -171,11 +200,12 @@ public struct WindowNavigation: Equatable, Sendable {
     /// here yet, so a missing one waits for the lists here to change before it gives way.
     private mutating func showHandedOff(_ handed: WindowState, accounts: [AccountID]) {
         let kept = handed.keeping(accounts)
-        let laidOut =
+        state =
             switch state.layout {
             case .viewer: kept.asViewer
             case .message: kept.asMessage ?? kept.asViewer
             }
-        self = WindowNavigation(showing: laidOut, checking: .handedOff)
+        pending = nil
+        listCheck = .handedOff
     }
 }

@@ -9,7 +9,7 @@ extension SceneCoordinator {
     /// Follows the navigation and the reader's changes. Called once, as the window is made.
     func followNavigation() {
         navigator.stateChanged = { [weak self] _ in self?.publishActivity() }
-        navigator.present = { [weak self] route in self?.present(route) }
+        navigator.present = { [weak self] presentation in self?.present(presentation) }
         navigator.leaveWindow = { [weak self] in self?.leaveMessage() }
         // The window's actions tell it of each change as it is asked, before it applies, and of each Undo; what sync,
         // other devices, alerts and other windows change only changes rows (R6).
@@ -40,8 +40,8 @@ extension SceneCoordinator {
     }
 
     /// Search began or ended in the list, so the rows the reader would go on in changed (R9).
-    func searchToggled() {
-        navigator.send(.searchToggled)
+    func searchToggled(_ on: Bool) {
+        navigator.send(.searching(on))
     }
 
     /// Follows the labels and smart mailboxes here for as long as the window lives, off the main actor, so a list gone
