@@ -18,7 +18,7 @@ extension MailActions {
     /// composer again (`reopen`).
     public func waitOutUndo(showing: (Toast) -> Void) async -> UndoWait {
         await settled()
-        guard let raised = toast, raised.undo != nil else { return .nothingToUndo }
+        guard let raised = toast, raised.offersUndo else { return .nothingToUndo }
         showing(raised)
         for await shown in Observations({ self.toast?.id }) where shown != raised.id { break }
         await settled()

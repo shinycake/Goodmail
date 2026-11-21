@@ -5,6 +5,14 @@ import UIKit
 final class WebAuthentication: NSObject, ASWebAuthenticationPresentationContextProviding {
     private let window: UIWindow
     private var session: ASWebAuthenticationSession?
+    /// How many sign-in pages are up over each window, by window.
+    private static var signingIn: [ObjectIdentifier: Int] = [:]
+
+    /// Whether a sign-in page is up over `window`, which nothing arriving from outside may take down (R3): the page
+    /// isn't among the window's presented screens, so the window can't see it by itself.
+    static func isSigningIn(in window: UIWindow) -> Bool {
+        signingIn[ObjectIdentifier(window)] != nil
+    }
 
     init(window: UIWindow) {
         self.window = window
@@ -12,7 +20,12 @@ final class WebAuthentication: NSObject, ASWebAuthenticationPresentationContextP
 
     /// The redirect URL, or `nil` if the user closed the page.
     func authenticate(url: URL, callbackScheme: String) async throws -> URL? {
-        defer { session = nil }
+        let key = ObjectIdentifier(window)
+        Self.signingIn[key, default: 0] += 1
+        defer {
+            session = nil
+            Self.signingIn[key] = Self.signingIn[key].flatMap { $0 > 1 ? $0 - 1 : nil }
+        }
         return try await withCheckedThrowingContinuation { continuation in
             // `@Sendable`, so it isn't inferred main-actor: the session doesn't promise which queue calls it.
             let session = ASWebAuthenticationSession(url: url, callback: .customScheme(callbackScheme)) {

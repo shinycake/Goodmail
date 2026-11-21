@@ -34,14 +34,16 @@ extension SceneCoordinator {
             signInAgain(id)
         case .answer(let id, let answer):
             compose(answering: id, with: answer)
-        case .draft(let id):
-            finishDraft(in: id)
+        case .draft(let id, let source):
+            finishDraft(in: id, from: source)
         case .newSmartMailbox(let query):
             smartMailboxFlow.create(from: query)
         case .editSmartMailbox(let id):
             smartMailboxFlow.edit(id)
         case .compose(let draft):
             compose(draft)
+        case .receiveTransfer(let code):
+            receiveTransfer(code: code)
         }
     }
 
@@ -81,17 +83,18 @@ extension SceneCoordinator {
     }
 
     /// The composer with the draft that is the thread's newest message, once it is fetched, or the thread itself when
-    /// its newest message is no draft. A newer answer or draft replaces it.
-    private func finishDraft(in id: ThreadSummary.ID) {
+    /// its newest message is no draft, as one sent or deleted since: from outside, as Continue Draft, it is revealed in
+    /// Drafts or said to be gone. A newer answer or draft replaces it.
+    private func finishDraft(in id: ThreadSummary.ID, from source: RouteSource) {
         guard let account = model.accounts.first(where: { $0.id == id.accountID }) else { return }
         answering?.cancel()
         answering = Task { [weak self, model] in
             let newest = try? await model.messagesToAnswer(in: id).last
             guard !Task.isCancelled, let self else { return }
             if let newest, newest.labelIDs.contains(SystemLabel.draft) {
-                handle(.compose(Draft.editing(newest, aliases: account.aliases)))
+                handle(.compose(Draft.editing(newest, aliases: account.aliases)), from: source)
             } else {
-                handle(.thread(id, in: .drafts))
+                handle(.thread(id, in: .drafts), from: source)
             }
         }
     }

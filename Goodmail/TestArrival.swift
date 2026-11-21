@@ -2,11 +2,11 @@
     import Foundation
     import MailCore
 
-    /// Launch with `-GoodmailTestArrivalThread synthetic-1/t19` to have the app open that conversation a few seconds
-    /// later as a tapped new-mail alert does (`PushCoordinator`), so the UI tests can check what an alert does to a
-    /// window already reading another. `-GoodmailTestArrivalAfter` sets the seconds, 8 unless given; 0 opens it as the
-    /// database opens, before the window has filled, as an alert that launches the app does. A thread that isn't in
-    /// the synthetic mailboxes arrives as one that is gone.
+    /// Launch with `-GoodmailTestArrivalThread synthetic-1/t19` to have the app open that conversation as a tapped
+    /// new-mail alert does (`PushCoordinator`) each time the UI test posts `TestTrigger.arrival`, once it has set the
+    /// window up, so the tests can check what an alert does to a window already showing something.
+    /// `-GoodmailTestArrivalAtLaunch YES` opens it as the database opens instead, before the window has filled, as an
+    /// alert that launches the app does. A thread that isn't in the synthetic mailboxes arrives as one that is gone.
     enum TestArrival {
         static func scheduleIfRequested(routes: IntentRoutes) {
             let defaults = UserDefaults.standard
@@ -14,15 +14,10 @@
             guard let thread = ThreadSummary.ID(testName: name) else {
                 return print("Test arrival needs account/thread, not \(name)")
             }
-            let delay =
-                defaults.object(forKey: "GoodmailTestArrivalAfter") == nil
-                ? 8 : defaults.integer(forKey: "GoodmailTestArrivalAfter")
-            guard delay > 0 else { return routes.open(.thread(thread, in: .inbox)) }
-            // A debug launch option: nothing awaits or cancels it, and it ends once it has opened the conversation.
-            Task {
-                try? await Task.sleep(for: .seconds(delay))
-                routes.open(.thread(thread, in: .inbox))
+            guard !defaults.bool(forKey: "GoodmailTestArrivalAtLaunch") else {
+                return routes.open(.thread(thread, in: .inbox))
             }
+            TestTrigger.arrival.onPost { routes.open(.thread(thread, in: .inbox)) }
         }
     }
 

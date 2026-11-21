@@ -2,11 +2,27 @@ public import MailCore
 
 /// Runs one window's navigation (`WindowNavigation`): every event goes through `send(_:)`, which moves the state,
 /// has the screens show it (`MailScreens`), and does what the transition says beyond that. A conversation to open is
-/// found in the list on show when it holds it, else in the store, off the main actor. The navigation says which lookup
-/// it waits for (`pending`); one it no longer waits for is cancelled.
+/// found in the list on show when it holds it, else in the store or from its service, off the main actor
+/// (`ConversationLookup`). The navigation says which lookup it waits for (`pending`); one it no longer waits for is
+/// cancelled.
+///
+/// Effects that need the window wait for it (`Deferred`): those after `.uncover` until the window is clear, and those
+/// that present or touch the screens until the window is on screen, as at a cold launch. Each route that comes
+/// meanwhile replaces what waits, so only the newest arrival's screen comes up.
 public final class WindowNavigator {
-    /// Finds a conversation's row, off the main actor: in the store, or once from its service; `nil` when neither has it.
-    public typealias LookUp = @concurrent @Sendable (ThreadSummary.ID) async -> ThreadSummary?
+    /// Finds a conversation's row, off the main actor.
+    public typealias LookUp = @concurrent @Sendable (ThreadSummary.ID) async -> ConversationLookup.Answer
+
+    /// Effects waiting for the window.
+    private enum Deferred: Equatable {
+        case none
+        /// The window is being uncovered for an arrival; these follow once it is clear. Another arrival meanwhile
+        /// replaces them rather than uncover again, which would lose the dismissal under way.
+        case uncovering(then: ArraySlice<WindowNavigation.Effect>)
+        /// The window isn't on screen yet, as at a cold launch, or before its screens are built; these follow once it
+        /// is.
+        case waitingForScreen(ArraySlice<WindowNavigation.Effect>)
+    }
 
     public private(set) var navigation: WindowNavigation
     /// The viewer's screens; `nil` while the window shows something else, as one conversation alone.
@@ -17,6 +33,7 @@ public final class WindowNavigator {
     private let context: () -> WindowNavigation.Context
     /// The store lookup under way, for `navigation.pending`.
     private var arriving: Task<Void, Never>?
+    private var deferred = Deferred.none
     /// What the window shows changed.
     public var stateChanged: (WindowState) -> Void = { _ in }
     /// Presents a screen over or beside the window, which moves nothing in it.
@@ -28,6 +45,8 @@ public final class WindowNavigator {
     public var uncover: (_ then: @escaping () -> Void) -> Void = { $0() }
     /// Tells the reader something the window can't show.
     public var say: (WindowNavigation.Notice) -> Void = { _ in }
+    /// Whether the window is on screen in an active scene, so a sheet presented over it shows.
+    public var isOnScreen: () -> Bool = { true }
 
     public init(
         showing state: WindowState, checking lists: WindowState.ListCheck,
@@ -52,6 +71,14 @@ public final class WindowNavigator {
         screens.wentBack = { [weak self] in self?.send(.back(to: $0)) }
         self.screens = screens
         if !screens.readable { readerUnmade() }
+        cameOnScreen()
+    }
+
+    /// The window came on screen, or may have: what waited for it follows.
+    public func cameOnScreen() {
+        guard case .waitingForScreen(let waiting) = deferred, isOnScreen() else { return }
+        deferred = .none
+        perform(waiting)
     }
 
     /// The window no longer shows the viewer's screens, as before it is rebuilt or while it shows one conversation.
@@ -69,6 +96,10 @@ public final class WindowNavigator {
     public func send(_ event: WindowNavigation.Event) {
         let before = state
         let context = context()
+        switch event {
+        case .route, .launched: dropWaitingEffects()
+        default: break
+        }
         let effects = navigation.handle(event, in: context)
         if navigation.pending == nil {
             arriving?.cancel()
@@ -90,21 +121,74 @@ public final class WindowNavigator {
         send(.missing(thread))
     }
 
-    /// Performs `effects` in order. Those after `.uncover` wait until the window is clear.
+    /// A newer route replaces what an earlier one left waiting. An uncovering under way goes on, for the newer one.
+    private func dropWaitingEffects() {
+        switch deferred {
+        case .none: break
+        case .uncovering: deferred = .uncovering(then: [])
+        case .waitingForScreen: deferred = .none
+        }
+    }
+
+    /// Performs `effects` in order, those that need the window once it can take them (`Deferred`).
     private func perform(_ effects: ArraySlice<WindowNavigation.Effect>) {
         guard let effect = effects.first else { return }
         let rest = effects.dropFirst()
-        guard effect != .uncover else {
-            return uncover { [weak self] in self?.perform(rest) }
+        if effect == .uncover {
+            return beginUncovering(then: effects)
         }
+        guard canPerform(effect) else { return wait(effects) }
         perform(effect)
         perform(rest)
+    }
+
+    /// Uncovers the window for `effects`, which start with `.uncover`, then performs the rest; joins an uncovering
+    /// under way rather than start another.
+    private func beginUncovering(then effects: ArraySlice<WindowNavigation.Effect>) {
+        let rest = effects.dropFirst()
+        switch deferred {
+        case .uncovering:
+            deferred = .uncovering(then: rest)
+        case .none, .waitingForScreen:
+            // A window off screen is uncovered once it is on screen.
+            guard isOnScreen() else {
+                deferred = .waitingForScreen(effects)
+                return
+            }
+            deferred = .uncovering(then: rest)
+            uncover { [weak self] in self?.uncovered() }
+        }
+    }
+
+    /// The window is clear: what waited for it follows.
+    private func uncovered() {
+        guard case .uncovering(let waiting) = deferred else { return }
+        deferred = .none
+        perform(waiting)
+    }
+
+    /// `effects` wait for the window to come on screen, after any uncovering under way.
+    private func wait(_ effects: ArraySlice<WindowNavigation.Effect>) {
+        switch deferred {
+        case .uncovering(let waiting): deferred = .uncovering(then: waiting + effects)
+        case .none, .waitingForScreen: deferred = .waitingForScreen(effects)
+        }
+    }
+
+    /// Whether `effect` can be performed now: a screen presented needs the window on screen, and what touches the
+    /// screens or the toast needs them built too.
+    private func canPerform(_ effect: WindowNavigation.Effect) -> Bool {
+        switch effect {
+        case .uncover, .lookUp, .leaveWindow: true
+        case .present: isOnScreen()
+        case .beginSearch, .showList, .showPicked, .say: screens != nil && isOnScreen()
+        }
     }
 
     private func perform(_ effect: WindowNavigation.Effect) {
         switch effect {
         case .uncover:
-            // Performed in order above, as the effects after it wait for it.
+            // Begun in order above, as the effects after it wait for it.
             break
         case .lookUp(let thread):
             find(thread)
@@ -133,17 +217,20 @@ public final class WindowNavigator {
             return send(.found(row, rows: front.frontRows))
         }
         arriving = Task { @concurrent [weak self, lookUp] in
-            let row = await lookUp(thread)
-            await self?.arrived(row, as: thread)
+            let answer = await lookUp(thread)
+            await self?.arrived(answer, for: thread)
         }
     }
 
-    /// The store's answer for `thread`, unless the navigation stopped waiting for it. Called on the lookup's own task,
+    /// The lookup's answer for `thread`, unless the navigation stopped waiting for it. Called on the lookup's own task,
     /// which only the main actor cancels, so the check and what follows can't be split by a newer lookup.
-    private func arrived(_ row: ThreadSummary?, as thread: ThreadSummary.ID) {
+    private func arrived(_ answer: ConversationLookup.Answer, for thread: ThreadSummary.ID) {
         guard !Task.isCancelled else { return }
         arriving = nil
-        guard let row else { return send(.missing(thread)) }
-        send(.found(row, rows: screens?.front?.frontRows ?? []))
+        switch answer {
+        case .found(let row): send(.found(row, rows: screens?.front?.frontRows ?? []))
+        case .gone: send(.missing(thread))
+        case .unreachable: send(.unreachable(thread))
+        }
     }
 }

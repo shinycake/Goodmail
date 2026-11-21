@@ -41,10 +41,9 @@ extension WindowNavigation {
         state = next
     }
 
-    /// An arrival's conversation isn't on the device, and its service didn't have it either (R10): the window shows
-    /// the Inbox, reading nothing, and says so.
-    mutating func gone(in context: Context) -> [Effect] {
-        show(.mailbox(.inbox), in: context) + [.say(.conversationGone)]
+    /// An arrival's conversation can't be shown (R10): the window shows the Inbox, reading nothing, and says why.
+    mutating func showInbox(saying notice: Notice, in context: Context) -> [Effect] {
+        show(.mailbox(.inbox), in: context) + [.say(notice)]
     }
 }
 

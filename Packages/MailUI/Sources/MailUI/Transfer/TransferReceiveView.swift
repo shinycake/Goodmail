@@ -142,6 +142,6 @@ private struct Scanning: View {
 /// The screen, for UIKit to present.
 public enum TransferReceiveScreen {
     public static func make(model: TransferReceiving) -> UIViewController {
-        ArrivalBlockingHost(rootView: NavigationStack { TransferReceiveView(model: model) })
+        UIHostingController(rootView: NavigationStack { TransferReceiveView(model: model) })
     }
 }

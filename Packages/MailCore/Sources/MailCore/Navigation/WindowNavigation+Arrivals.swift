@@ -26,7 +26,7 @@ extension WindowNavigation {
 
     /// Goes where `route`, from `source`, asks.
     mutating func go(to route: Route, from source: RouteSource = .window, in context: Context) -> [Effect] {
-        if let presentation = Presentation(route) { return [.present(presentation)] }
+        if let presentation = Presentation(route, from: source) { return [.present(presentation)] }
         switch route {
         case .thread(let thread, let mailbox):
             // The one read already changes nothing (R2), and a message window reads only its own.
@@ -52,7 +52,7 @@ extension WindowNavigation {
             state.closeReader()
             return [.showPicked(count)]
         case .compose, .draft, .answer, .changeLabels, .move, .newSmartMailbox, .editSmartMailbox, .settings,
-            .signInAgain, .newWindow:
+            .signInAgain, .newWindow, .receiveTransfer:
             // Presented above.
             return []
         }

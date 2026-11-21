@@ -209,6 +209,52 @@ struct ArrivalTests {
         #expect(window.state.list == .mailbox(.sent))
     }
 
+    @Test func anArrivalOutOfReachShowsTheInboxAndSaysSo() {
+        var window = WindowNavigation(showing: WindowState(list: .mailbox(.starred)))
+        _ = window.handle(.route(.thread(row("new").id, in: .inbox), from: .outside), in: stack)
+        #expect(window.handle(.unreachable(row("new").id), in: stack) == [.say(.conversationUnreachable)])
+        #expect(window.state == WindowState(list: .mailbox(.inbox)))
+    }
+
+    @Test func aRouteFromInsideOutOfReachSaysNothing() {
+        var window = WindowNavigation(showing: WindowState(list: .mailbox(.starred)))
+        _ = window.handle(.route(.thread(row("new").id, in: .inbox)), in: stack)
+        #expect(window.handle(.unreachable(row("new").id), in: stack) == [])
+        #expect(window.state == WindowState(list: .mailbox(.starred)))
+    }
+
+    @Test func aDraftFromOutsideFallsBackToAnArrival() {
+        var window = WindowNavigation(showing: WindowState())
+        let draft = row("draft", labels: [SystemLabel.draft])
+        #expect(
+            window.handle(.route(.draft(draft.id), from: .outside), in: stack) == [
+                .uncover, .present(.draft(draft.id, from: .outside)),
+            ], "a draft gone or no longer a draft opens as an arrival does")
+        _ = window.handle(.route(.thread(draft.id, in: .drafts), from: .outside), in: stack)
+        #expect(window.handle(.missing(draft.id), in: stack) == [.say(.conversationGone)])
+        _ = window.handle(.route(.thread(draft.id, in: .drafts), from: .outside), in: stack)
+        _ = window.handle(.found(draft, rows: []), in: stack)
+        #expect(window.state.list == .mailbox(.drafts), "one found shows in Drafts")
+    }
+
+    @Test func twoArrivalsInARowEachUncoverAndOnlyTheNewestOpens() {
+        var window = WindowNavigation(showing: WindowState())
+        let first = row("a")
+        let second = row("b")
+        #expect(
+            window.handle(.route(.thread(first.id, in: .inbox), from: .outside), in: stack) == [
+                .uncover, .lookUp(first.id),
+            ])
+        #expect(
+            window.handle(.route(.thread(second.id, in: .inbox), from: .outside), in: stack) == [
+                .uncover, .lookUp(second.id),
+            ])
+        _ = window.handle(.found(first, rows: []), in: stack)
+        #expect(window.state.reading == nil, "the first one's answer opens nothing")
+        _ = window.handle(.found(second, rows: []), in: stack)
+        #expect(window.state.reading == Reading(second.id, in: .inbox))
+    }
+
     // MARK: Cold launch
 
     @Test func aColdLaunchClosesTheRestoredConversationBeforeAnythingIsBuilt() {
@@ -236,6 +282,15 @@ struct ArrivalTests {
         _ = window.handle(.found(alert, rows: []), in: stack)
         #expect(window.state.layout == .viewer)
         #expect(window.state.reading == Reading(alert.id, in: .inbox))
+    }
+
+    @Test func aColdLaunchForAScreenOrSearchSaysWhatToDoOnceShown() {
+        var window = WindowNavigation(showing: WindowState())
+        #expect(window.handle(.launched(for: .settings(.main)), in: stack) == [.present(.settings(.main))])
+        #expect(
+            window.handle(.launched(for: .search(SearchQuery(terms: []))), in: stack) == [
+                .beginSearch(SearchQuery(terms: []))
+            ])
     }
 
     @Test func aColdLaunchForAListShowsIt() {

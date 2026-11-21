@@ -13,6 +13,18 @@ extension SceneCoordinator {
         navigator.leaveWindow = { [weak self] in self?.leaveMessage() }
         navigator.uncover = { [weak self] next in self?.uncover(then: next) }
         navigator.say = { [actions] notice in actions.say(notice.text) }
+        // A screen presented over a window not yet on screen, as at a cold launch, would be dropped (D14): the
+        // navigation holds what it presents until the window is visible in an active scene.
+        navigator.isOnScreen = { [weak window] in
+            guard let window else { return false }
+            return !window.isHidden && window.windowScene?.activationState == .foregroundActive
+        }
+        deviceObservers.append(
+            NotificationCenter.default.addObserver(
+                forName: UIScene.didActivateNotification, object: window.windowScene, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.navigator.cameOnScreen() }
+            })
         // The window's actions tell it of each change as it is asked, before it applies, and of each Undo; what sync,
         // other devices, alerts and other windows change only changes rows (R6).
         actions.changed = { [weak self] change in self?.readerAsked(change) }

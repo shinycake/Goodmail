@@ -24,9 +24,6 @@ final class SceneCoordinator: NSObject {
     var answering: Task<Void, Never>?
     /// Follows the labels and smart mailboxes here, so a list gone from the device gives way (`followOwnLists`).
     var listsCheck: Task<Void, Never>?
-    /// Settings asked for before the window was on screen, as at a cold launch, waiting for the window's scene to
-    /// become active (`showSettings(at:)`).
-    var settingsWaitingForScreen: (any NSObjectProtocol)?
     /// Failed sends already shown, so each is offered once per launch.
     private var shownFailures: Set<Draft.ID> = []
     /// What fills the window. Only `enter(_:)` changes it.
@@ -70,13 +67,7 @@ final class SceneCoordinator: NSObject {
                     arrangement: WindowNavigation.Arrangement(window?.windowScene?.traitCollection ?? .current),
                     afterRemoval: Preferences.afterRemoval, unsortedInboxes: model.unsortedInboxAccounts)
             },
-            lookUp: { [database = model.database, fetcher = model.threadFetcher] thread in
-                if let row = try? database.thread(thread) { return row }
-                // Not on the device, as for an alert about mail sync hasn't brought yet: fetched once from its
-                // service, as opening it would, then read again (R10).
-                try? await fetcher.load(thread)
-                return try? database.thread(thread)
-            })
+            lookUp: { [lookup = model.conversationLookup] in await lookup.find($0) })
         super.init()
         window.windowAnswer = { [weak self] in self?.windowAnswer(to: $0) ?? .notHere }
         actions.reopen = { [weak self] draft in self?.handle(.compose(draft)) }
@@ -93,7 +84,6 @@ final class SceneCoordinator: NSObject {
         signingInAgain?.cancel()
         answering?.cancel()
         listsCheck?.cancel()
-        if let settingsWaitingForScreen { NotificationCenter.default.removeObserver(settingsWaitingForScreen) }
         if case .leaving(let waiting) = screen { waiting.cancel() }
     }
 
@@ -403,13 +393,6 @@ final class SceneCoordinator: NSObject {
             unreadCounts: { database.categoryUnreadCounts(in: mailbox, unsorted: unsorted) },
             didSelect: { [weak self] category in self?.navigator.send(.category(category)) })
         return .categorised(categories, selected: shown.category)
-    }
-
-    /// Opens a `mailto:` link in the composer, from the first account. Without an account there is nothing to send
-    /// from, so the welcome screen stays.
-    func compose(mailto link: URL) {
-        guard let account = model.accounts.first?.id, let draft = Draft(mailto: link, from: account) else { return }
-        handle(.compose(draft), from: .outside)
     }
 
     /// The one place navigation happens (ADR-011): each route goes through the window's navigation, which moves what it

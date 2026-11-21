@@ -13,15 +13,23 @@ enum MailWindows {
         }
     }
 
-    /// Every window, once each and front first as `frontFirst` orders them, as an arrival from outside sees it, with
-    /// its coordinator while it shows mail.
-    static var facing: [(facts: WindowFacts, coordinator: SceneCoordinator?)] {
+    /// A window as an arrival from outside sees it: its scene, what it holds, and its coordinator while it shows mail.
+    struct Facing {
+        let scene: UIScene
+        let facts: WindowFacts
+        let coordinator: SceneCoordinator?
+    }
+
+    /// Every window, once each and front first as `frontFirst` orders them, as an arrival from outside sees it.
+    static var facing: [Facing] {
         let scenes = Array(UIApplication.shared.connectedScenes)
         var seen: Set<ObjectIdentifier> = []
         return (scenes.filter(isKey) + scenes.filter(isInFront) + scenes).compactMap { scene in
             guard let delegate = scene.delegate as? SceneDelegate, seen.insert(ObjectIdentifier(scene)).inserted
             else { return nil }
-            return (WindowFacts(delegate.holds, isKey: isKey(scene)), delegate.coordinator)
+            return Facing(
+                scene: scene, facts: WindowFacts(delegate.holds, isKey: isKey(scene)), coordinator: delegate.coordinator
+            )
         }
     }
 

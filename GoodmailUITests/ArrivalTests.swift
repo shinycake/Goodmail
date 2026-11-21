@@ -3,8 +3,9 @@ import XCTest
 /// A tapped alert, or anything else from outside the window, uncovers it and shows the conversation in a list that
 /// holds it (R3, R4): over the composer, the drafts laid out, Settings, search and Select mode, from another account's
 /// list or another Inbox category; beneath an alert, which stays; and a conversation that is gone is said to be
-/// (R10). The arrival is `-GoodmailTestArrivalThread` (`TestArrival`), as a tap on an alert opens it. On iPhone and
-/// iPad.
+/// (R10). The arrival is `-GoodmailTestArrivalThread` (`TestArrival`), as a tap on an alert opens it, which comes
+/// when the test posts its trigger once the window is set up; with another conversation open and with the composer
+/// open, it is a real alert's banner tapped on the Home Screen (`TestAlert`). On iPhone and iPad.
 final class ArrivalTests: XCTestCase {
     /// t19 is in the first account's Inbox, Primary, as "Weekend plans" (`SyntheticMailbox`).
     private static let weekendPlans = "Weekend plans"
@@ -26,9 +27,24 @@ final class ArrivalTests: XCTestCase {
     }
 
     @MainActor
+    func testAnotherConversationOpenGivesWay() {
+        let app = launchForAlert()
+        let rows = app.collectionViews["mailbox"].cells
+        XCTAssertTrue(rows.element(boundBy: 1).waitForExistence(timeout: 10))
+        let other = rows.element(boundBy: rows.element(boundBy: 0).label.contains(Self.weekendPlans) ? 1 : 0)
+        XCTAssertTrue(retry({ other.tap() }, until: { app.scrollViews["thread"].exists }), "a conversation opens")
+        XCTAssertFalse(reads(Self.weekendPlans, in: app, within: 1), "another one")
+        tapAlert(in: app)
+        XCTAssertTrue(reads(Self.weekendPlans, in: app, within: 30), "the alert's conversation shows")
+        assertOneBackReachesTheList(in: app)
+        attach(app, "arrival-another-open")
+    }
+
+    @MainActor
     func testTheComposerGoesDownToThePill() {
-        let app = launch(arriving: "t19")
+        let app = launchForAlert()
         write("Lunch", in: app)
+        tapAlert(in: app)
         XCTAssertTrue(reads(Self.weekendPlans, in: app, within: 30), "the conversation shows")
         XCTAssertFalse(app.textFields["compose.subject"].exists, "the composer went down")
         if UIDevice.current.userInterfaceIdiom == .phone { app.navigationBars.buttons.element(boundBy: 0).tap() }
@@ -40,7 +56,7 @@ final class ArrivalTests: XCTestCase {
 
     @MainActor
     func testTheDraftsLaidOutFoldAway() {
-        let app = launch(arriving: "t19", after: 40)
+        let app = launch(arriving: "t19")
         write("Lunch", in: app)
         minimize(app)
         write("Budget", in: app)
@@ -50,7 +66,7 @@ final class ArrivalTests: XCTestCase {
         pill.tap()
         let cards = app.otherElements.matching(identifier: "drafts.card")
         XCTAssertTrue(cards.firstMatch.waitForExistence(timeout: 5), "the drafts are laid out")
-        XCTAssertTrue(reads(Self.weekendPlans, in: app, within: 45))
+        XCTAssertTrue(arrived(in: app))
         XCTAssertFalse(cards.firstMatch.exists, "the picker folded away")
         attach(app, "arrival-drafts")
     }
@@ -78,9 +94,11 @@ final class ArrivalTests: XCTestCase {
         deleteForever.tap()
         let alert = app.alerts.firstMatch
         XCTAssertTrue(alert.waitForExistence(timeout: 5))
-        XCTAssertFalse(alert.waitForNonExistence(timeout: 20), "the arrival leaves the alert up")
+        postTestTrigger("arrival")
+        XCTAssertFalse(alert.waitForNonExistence(timeout: 5), "the arrival leaves the alert up")
         attach(app, "arrival-under-alert")
         alert.buttons["Cancel"].tap()
+        // Cancel opens nothing, and the arrival came before it: the conversation showing is the arrival's.
         XCTAssertTrue(reads(Self.weekendPlans, in: app, within: 5), "the conversation is beneath it")
     }
 
@@ -121,6 +139,7 @@ final class ArrivalTests: XCTestCase {
     @MainActor
     func testTheInboxShowsTheConversationsCategory() {
         let app = launch(arriving: "t29")
+        postTestTrigger("arrival")
         XCTAssertTrue(reads(Self.promotion, in: app, within: 30))
         assertOneBackReachesTheList(in: app)
         XCTAssertTrue(listed(Self.promotion, in: app), "the Inbox shows Promotions, with its row")
@@ -130,6 +149,7 @@ final class ArrivalTests: XCTestCase {
     @MainActor
     func testAConversationGoneIsSaidToBe() {
         let app = launch(arriving: "no-such-thread")
+        postTestTrigger("arrival")
         XCTAssertTrue(app.staticTexts[Self.gone].waitForExistence(timeout: 40), "the window says it is gone")
         XCTAssertFalse(app.scrollViews["thread"].exists, "nothing opens")
         XCTAssertTrue(app.collectionViews["mailbox"].exists, "the Inbox shows")
@@ -138,7 +158,7 @@ final class ArrivalTests: XCTestCase {
 
     @MainActor
     func testAColdLaunchOpensTheConversation() {
-        let app = launch(arriving: "t19", after: 0)
+        let app = launch(arriving: "t19", atLaunch: true)
         XCTAssertTrue(reads(Self.weekendPlans, in: app, within: 15))
         assertOneBackReachesTheList(in: app)
         attach(app, "arrival-cold-launch")
@@ -146,24 +166,63 @@ final class ArrivalTests: XCTestCase {
 
     // MARK: Helpers
 
-    /// The synthetic mailboxes, with the first account's `thread` arriving from outside `after` seconds from launch.
+    /// The synthetic mailboxes, with the first account's `thread` arriving from outside when the test posts the
+    /// trigger (`postTestTrigger`), or `atLaunch`, as the database opens.
     @MainActor
-    private func launch(arriving thread: String, after seconds: Int = 15) -> XCUIApplication {
+    private func launch(arriving thread: String, atLaunch: Bool = false) -> XCUIApplication {
+        launch(
+            with: ["-GoodmailTestArrivalThread", "synthetic-1/\(thread)"]
+                + (atLaunch ? ["-GoodmailTestArrivalAtLaunch", "YES"] : []))
+    }
+
+    /// The synthetic mailboxes, with an alert for "Weekend plans" posted when the test asks (`tapAlert`).
+    @MainActor
+    private func launchForAlert() -> XCUIApplication {
+        let app = launch(with: [
+            "-GoodmailTestAlertFrom", "Sam <sam@example.com>", "-GoodmailTestAlertSubject", Self.weekendPlans,
+            "-GoodmailTestAlertThread", "synthetic-1/t19",
+        ])
+        // A new simulator asks to allow notifications on the first launch. Its second button allows them, in any
+        // language.
+        let permission = Self.springboard.alerts.firstMatch
+        if permission.waitForExistence(timeout: 3) { permission.buttons.element(boundBy: 1).tap() }
+        return app
+    }
+
+    @MainActor
+    private func launch(with arguments: [String]) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = [
-            "-GoodmailSyntheticThreads", "40", "-GoodmailSyntheticArrivalEvery", "3600",
-            "-AppleLanguages", "(en)", "-AppleLocale", "en_US",
-            "-GoodmailTestArrivalThread", "synthetic-1/\(thread)", "-GoodmailTestArrivalAfter", "\(seconds)",
-        ]
+        app.launchArguments =
+            [
+                "-GoodmailSyntheticThreads", "40", "-GoodmailSyntheticArrivalEvery", "3600",
+                "-AppleLanguages", "(en)", "-AppleLocale", "en_US",
+            ] + arguments
         app.launch()
         XCTAssertTrue(app.collectionViews["mailbox"].waitForExistence(timeout: 15))
         return app
     }
 
-    /// Whether "Weekend plans" arrived in the reader.
+    @MainActor
+    private static var springboard: XCUIApplication { XCUIApplication(bundleIdentifier: "com.apple.springboard") }
+
+    /// Has the app post its alert, goes to the Home Screen, and taps the alert's banner there, which brings the app
+    /// back through `AlertResponder`, as a pushed alert's tap does.
+    @MainActor
+    private func tapAlert(in app: XCUIApplication, line: UInt = #line) {
+        postTestTrigger("alert")
+        XCUIDevice.shared.press(.home)
+        let banner = Self.springboard.otherElements
+            .matching(NSPredicate(format: "label CONTAINS %@", Self.weekendPlans)).firstMatch
+        XCTAssertTrue(banner.waitForExistence(timeout: 15), "the alert shows", line: line)
+        banner.tap()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10), line: line)
+    }
+
+    /// Posts the arrival, and says whether "Weekend plans" arrived in the reader.
     @MainActor
     private func arrived(in app: XCUIApplication) -> Bool {
-        reads(Self.weekendPlans, in: app, within: 30)
+        postTestTrigger("arrival")
+        return reads(Self.weekendPlans, in: app, within: 30)
     }
 
     @MainActor
