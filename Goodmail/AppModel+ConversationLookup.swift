@@ -5,9 +5,16 @@ extension AppModel {
     /// Finds a conversation a window was asked to open from outside, as a tapped alert, off the main actor: on the
     /// device, or else from its service, whose answer is stored so the reader's messages have their row (R10).
     var conversationLookup: ConversationLookup {
-        ConversationLookup(
+        #if DEBUG
+            // The synthetic mailboxes have no service to ask, so a conversation not in them is one it says is missing.
+            let synthetic = SyntheticMailbox.requestedCount != nil
+        #else
+            let synthetic = false
+        #endif
+        return ConversationLookup(
             stored: { [database] in try database.thread($0) },
             fetch: { [providers] thread in
+                if synthetic { return ThreadFetch(found: [], missing: [thread.threadID]) }
                 let provider: any MailProvider
                 do {
                     provider = try providers.provider(for: thread.accountID)
