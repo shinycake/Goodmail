@@ -16,12 +16,16 @@ public final class MailboxesViewModel {
         case snoozed
         /// A step of nested labels' paths that is no label itself, which only holds them.
         case folder(path: String, accountID: AccountID)
+        /// A smart mailbox, which no drop goes to (`MailDrop`).
+        case smart(SmartMailbox.ID)
     }
 
     /// A group of rows, under its own header.
     nonisolated public enum Section: Hashable, Sendable {
         /// The standard mailboxes, spanning every account.
         case mailboxes
+        /// The reader's smart mailboxes, after the standard ones.
+        case smartMailboxes
         /// The only account's labels.
         case labels
         /// One of several accounts: its Inbox, then its labels.
@@ -55,26 +59,37 @@ public final class MailboxesViewModel {
     /// The rows with labels nested in them that the reader folded away, in the sidebar or the list of mailboxes. The
     /// list keeps it in step as rows fold, so the rows on show are known without it, for ⌘1 to ⌘9.
     @ObservationIgnored var folded: Set<Destination> = []
+    /// The smart mailboxes, with their unread counts.
+    public private(set) var smartDirectory = SmartMailboxDirectory()
     /// What every account's mailboxes wear, or the only account's color.
     public let theme: Theme
 
     @ObservationIgnored private let directoryStream: () -> AsyncThrowingStream<MailboxDirectory, any Error>
-    @ObservationIgnored private let navigate: (Route) -> Void
+    @ObservationIgnored private let smartDirectoryStream: () -> AsyncThrowingStream<SmartMailboxDirectory, any Error>
+    @ObservationIgnored let navigate: (Route) -> Void
     @ObservationIgnored let accounts: [Account]
     /// Carries out what a drop on a row asks for, as the menus' actions do; `nil` where mail can't be changed.
     @ObservationIgnored let actions: MailActions?
     /// What changes an account's labels at its service.
     @ObservationIgnored let labelEditor: (AccountID) -> LabelEditor?
+    /// What renames and deletes smart mailboxes; `nil` where they can't be changed.
+    @ObservationIgnored let smartMailboxStore: SmartMailboxStore?
 
     public init(
         accounts: [Account],
         directory: @escaping () -> AsyncThrowingStream<MailboxDirectory, any Error>,
+        smartMailboxes: @escaping () -> AsyncThrowingStream<SmartMailboxDirectory, any Error> = {
+            AsyncThrowingStream { $0.finish() }
+        },
         navigate: @escaping (Route) -> Void = { _ in },
         labelEditor: @escaping (AccountID) -> LabelEditor? = { _ in nil },
+        smartMailboxStore: SmartMailboxStore? = nil,
         actions: MailActions? = nil,
         combinedTheme: CombinedTheme = Preferences.combinedTheme
     ) {
         directoryStream = directory
+        smartDirectoryStream = smartMailboxes
+        self.smartMailboxStore = smartMailboxStore
         self.navigate = navigate
         self.accounts = accounts
         self.labelEditor = labelEditor
@@ -87,7 +102,7 @@ public final class MailboxesViewModel {
     public func theme(of section: Section) -> Theme {
         switch section {
         case .account(let account): .account(account.color)
-        case .mailboxes, .labels: theme
+        case .mailboxes, .smartMailboxes, .labels: theme
         }
     }
 
@@ -95,9 +110,9 @@ public final class MailboxesViewModel {
     public var groups: [Group] {
         let mailboxes = Group(section: .mailboxes, items: standardItems)
         guard accounts.count > 1 else {
-            return [mailboxes, labelGroup(.labels, labels: directory.labels)].filter { !$0.items.isEmpty }
+            return [mailboxes, smartGroup, labelGroup(.labels, labels: directory.labels)].filter { !$0.items.isEmpty }
         }
-        return [mailboxes]
+        return [mailboxes, smartGroup].filter { !$0.items.isEmpty }
             + accounts.map { account in
                 let inbox = item(for: Mailbox(labelID: SystemLabel.inbox, accountID: account.id), color: nil)
                 let group = labelGroup(
@@ -169,8 +184,16 @@ public final class MailboxesViewModel {
 
     /// Follows the store until the calling task is cancelled. A failure leaves the last directory in place.
     public func observe() async {
+        async let smart: Void = followSmartMailboxes()
         do {
             for try await directory in directoryStream() { self.directory = directory }
+        } catch {}
+        await smart
+    }
+
+    private func followSmartMailboxes() async {
+        do {
+            for try await directory in smartDirectoryStream() { smartDirectory = directory }
         } catch {}
     }
 
@@ -200,6 +223,7 @@ public final class MailboxesViewModel {
         case .mailbox(let mailbox): navigate(.mailbox(mailbox))
         case .scheduled: navigate(.scheduled)
         case .snoozed: navigate(.snoozed)
+        case .smart(let id): navigate(.smartMailbox(id))
         case .folder: break
         }
     }

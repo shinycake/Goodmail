@@ -8,7 +8,7 @@ extension MailDatabase {
     public var syncedSettings: [any SettingsFamily] {
         [
             SyncedSignatures(database: self), SyncedAlerts(database: self), SyncedBadges(database: self),
-            SyncedRules(database: self),
+            SyncedRules(database: self), SyncedSmartMailboxes(database: self), SyncedVIPs(database: self),
         ]
     }
 
@@ -18,6 +18,8 @@ extension MailDatabase {
         public static let alerts = "alerts"
         public static let badges = "badges"
         public static let rules = "rules"
+        public static let smartMailboxes = "smartMailboxes"
+        public static let vips = "vips"
     }
 }
 

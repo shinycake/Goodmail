@@ -28,6 +28,12 @@ public enum Route: Hashable, Sendable {
     case scheduled
     /// The threads snoozed out of the Inbox until later.
     case snoozed
+    /// A smart mailbox's conversations (ADR-039).
+    case smartMailbox(SmartMailbox.ID)
+    /// The smart mailbox editor with a new box holding what `query` finds, or a blank one for an empty query.
+    case newSmartMailbox(SearchQuery)
+    /// The smart mailbox editor, changing a box.
+    case editSmartMailbox(SmartMailbox.ID)
     /// Accounts and preferences, open at `page`.
     case settings(SettingsPage)
     /// The account's sign-in, again, after its service turned the stored one down: its web page, or its password.

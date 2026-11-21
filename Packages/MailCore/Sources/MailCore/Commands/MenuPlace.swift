@@ -32,7 +32,7 @@ public enum MenuPlace: CaseIterable, Sendable {
     case viewFilterBy
     case viewComposer
     case mailboxFetch
-    /// New Label, as Mail's New Mailbox.
+    /// New Label and New Smart Mailbox, as Mail's New Mailbox and New Smart Mailbox.
     case mailboxNew
     /// The Go To submenu: the sidebar's first nine rows.
     case mailboxGoTo

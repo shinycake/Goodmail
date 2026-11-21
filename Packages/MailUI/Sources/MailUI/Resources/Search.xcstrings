@@ -45,6 +45,17 @@
         }
       }
     },
+    "Save as Smart Mailbox" : {
+      "comment" : "Keeps the search in the sidebar as a smart mailbox",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שמירה כתיבת דואר חכמה"
+          }
+        }
+      }
+    },
     "Search" : {
       "comment" : "Title of the search results list",
       "localizations" : {

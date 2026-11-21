@@ -44,7 +44,8 @@ extension MailDatabase {
         VIPList(try String.fetchAll(db, sql: "SELECT address FROM vip ORDER BY position"))
     }
 
-    private static func setVIPs(_ vips: VIPList, in db: Database) throws {
+    /// Makes `vips` the VIPs, in their order, within the transaction `db` is in.
+    static func setVIPs(_ vips: VIPList, in db: Database) throws {
         try db.execute(sql: "DELETE FROM vip")
         for (position, address) in vips.addresses.enumerated() {
             try db.execute(sql: "INSERT INTO vip (address, position) VALUES (?, ?)", arguments: [address, position])

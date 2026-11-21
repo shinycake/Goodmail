@@ -40,6 +40,8 @@ public enum MailCommand: String, CaseIterable, Sendable {
     case getMail
     /// New Label, as the sidebar's toolbar button has it: Mail's New Mailbox.
     case newLabel
+    /// New Smart Mailbox, beside New Label as Mail has it beside New Mailbox.
+    case newSmartMailbox
     /// Opens the sidebar's first nine rows, from ⌘1 to ⌘9.
     case goTo1, goTo2, goTo3, goTo4, goTo5, goTo6, goTo7, goTo8, goTo9
     /// Moves the picked conversations to the sidebar's first nine rows, from ⌃⌘1 to ⌃⌘9.
@@ -98,7 +100,7 @@ public enum MailCommand: String, CaseIterable, Sendable {
         case .filterByUnread, .filterByStarred, .filterByAttachments: .viewFilterBy
         case .showCopyFields: .viewComposer
         case .getMail: .mailboxFetch
-        case .newLabel: .mailboxNew
+        case .newLabel, .newSmartMailbox: .mailboxNew
         case .goTo1, .goTo2, .goTo3, .goTo4, .goTo5, .goTo6, .goTo7, .goTo8, .goTo9: .mailboxGoTo
         case .moveTo1, .moveTo2, .moveTo3, .moveTo4, .moveTo5, .moveTo6, .moveTo7, .moveTo8, .moveTo9: .mailboxMoveTo
         case .eraseTrash: .mailboxErase
@@ -165,8 +167,7 @@ public enum MailCommand: String, CaseIterable, Sendable {
             .showPromotions,
             .showSocial, .showUpdates, .showForums, .sendLater,
             .forwardAsAttachment, .editAsNew, .changeLabels, .pin, .mute, .vipSender, .blockSender, .strikethrough,
-            .bulletedList,
-            .numberedList:
+            .bulletedList, .numberedList, .newSmartMailbox:
             .none
         case .goTo1, .goTo2, .goTo3, .goTo4, .goTo5, .goTo6, .goTo7, .goTo8, .goTo9, .moveTo1, .moveTo2, .moveTo3,
             .moveTo4, .moveTo5, .moveTo6, .moveTo7, .moveTo8, .moveTo9:
@@ -183,7 +184,8 @@ public enum MailCommand: String, CaseIterable, Sendable {
             true
         case .settings, .newWindow, .openInNewWindow, .quickLook, .findInConversation, .findNext, .findPrevious,
             .zoomIn, .zoomOut, .actualSize, .exportPDF, .closeWindow, .addLink, .showPrimary,
-            .showPromotions, .showSocial, .showUpdates, .showForums, .showCopyFields, .newLabel, .eraseTrash,
+            .showPromotions, .showSocial, .showUpdates, .showForums, .showCopyFields, .newLabel, .newSmartMailbox,
+            .eraseTrash,
             .sendLater,
             .forwardAsAttachment, .editAsNew, .applyRules, .vipSender, .blockSender, .previousThread, .nextThread,
             .strikethrough, .bulletedList,

@@ -34,6 +34,9 @@ public enum TextField: String, CaseIterable, Codable, Hashable, Sendable {
     case unsubscribe
     /// The RFC 5322 Message-ID.
     case internetMessageID
+    /// The subject, the sender, the preview and the body: what a word typed in search reads. A conversation only
+    /// listed so far answers with what its row shows.
+    case anyText
 }
 
 /// A field read as a number.

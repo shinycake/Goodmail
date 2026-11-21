@@ -30,6 +30,7 @@ extension MailboxesViewModel.Section {
     var foldingKey: String {
         switch self {
         case .mailboxes: "mailboxes"
+        case .smartMailboxes: "smartMailboxes"
         case .labels: "labels"
         case .account(let account): "account.\(account.id.rawValue)"
         }
@@ -48,7 +49,7 @@ extension MailboxesViewModel.Item {
     fileprivate var countsWaiting: Bool {
         switch destination {
         case .scheduled, .snoozed: true
-        case .mailbox, .folder: false
+        case .mailbox, .folder, .smart: false
         }
     }
 }

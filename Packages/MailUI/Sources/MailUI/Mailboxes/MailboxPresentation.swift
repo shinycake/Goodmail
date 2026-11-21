@@ -27,6 +27,14 @@ extension Mailbox {
         }
     }
 
+    /// The standard mailboxes' names, as the mailbox list shows them, by label ID, for conditions on the mailbox a
+    /// mail is in (`MailFacts.labelNames`).
+    nonisolated public static var standardNames: [String: String] {
+        Dictionary(
+            standard.compactMap { mailbox in mailbox.labelID.map { ($0, mailbox.title(labels: [])) } },
+            uniquingKeysWith: { first, _ in first })
+    }
+
     /// The title of this mailbox's list. One account's Inbox goes by the account's name, as in Apple Mail, so it reads
     /// apart from the other accounts' Inboxes; any other list by `title(labels:)`.
     nonisolated public func listTitle(labels: [MailboxDirectory.Label], accounts: [Account]) -> String {

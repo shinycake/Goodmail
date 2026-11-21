@@ -49,6 +49,7 @@ extension MailboxesViewController {
         var content = UIListContentConfiguration.header()
         switch section {
         case .mailboxes: break
+        case .smartMailboxes: content.text = SmartMailbox.sectionTitle
         case .labels:
             content.text = String(
                 localized: "Labels", table: "Mailboxes", bundle: .module, comment: "Header above the user's labels")

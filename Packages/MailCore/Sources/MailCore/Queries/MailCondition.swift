@@ -17,7 +17,8 @@ public indirect enum MailCondition: Codable, Hashable, Sendable {
     /// Sent from `from` up to, not including, `to`. A range that ends before it starts runs past midnight.
     case timeOfDay(from: TimeOfDay, to: TimeOfDay)
     case category(InboxCategory)
-    /// In the label or folder with this ID, or the standard mailbox, as `INBOX`.
+    /// In the label or folder with this ID, or the standard mailbox, as `INBOX`, or in one with this name, as the
+    /// rules editor names labels.
     case label(String)
     case account(AccountID)
 
@@ -73,8 +74,11 @@ public indirect enum MailCondition: Codable, Hashable, Sendable {
             return from <= to ? (from <= time && time < to) : (time >= from || time < to)
         case .category(let category):
             return mail.category == category
-        case .label(let id):
-            return mail.envelope.labelIDs.contains(id)
+        case .label(let label):
+            let name = TextMatch.fold(label)
+            return mail.envelope.labelIDs.contains {
+                $0 == label || mail.labelNames[$0].map { TextMatch.fold($0) == name } == true
+            }
         case .account(let id):
             return mail.envelope.account.id == id
         }

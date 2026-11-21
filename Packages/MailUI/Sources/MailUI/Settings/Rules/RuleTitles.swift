@@ -50,6 +50,10 @@ extension MailCore.TextField {
         case .internetMessageID:
             String(
                 localized: "Message-ID", table: "RuleFields", bundle: .module, comment: "Rule field: Message-ID header")
+        case .anyText:
+            String(
+                localized: "Any Text", table: "RuleFields", bundle: .module,
+                comment: "Rule field: the subject, sender, preview or message text, as a search word reads them")
         }
     }
 }

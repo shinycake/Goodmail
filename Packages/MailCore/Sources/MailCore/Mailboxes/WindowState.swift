@@ -14,6 +14,8 @@ public struct WindowState: Equatable, Codable, Sendable {
         case scheduled
         /// Snoozed threads, read as in All Mail since they are out of the Inbox.
         case snoozed(thread: ThreadSummary.ID?)
+        /// A smart mailbox's conversations, read as in All Mail, as search's are: they come from any mailbox.
+        case smart(SmartMailbox.ID, thread: ThreadSummary.ID?)
     }
 
     /// The `NSUserActivity` type a window's state travels as, declared in the app's `NSUserActivityTypes`.
@@ -85,8 +87,9 @@ public struct WindowState: Equatable, Codable, Sendable {
     /// The thread open from the shown list, and the mailbox it is read in.
     public var openThread: (id: ThreadSummary.ID, mailbox: Mailbox)? {
         switch list {
-        case .mailbox(_, let thread?), .snoozed(let thread?): readingMailbox.map { (thread, $0) }
-        case .mailbox, .scheduled, .snoozed: nil
+        case .mailbox(_, let thread?), .snoozed(let thread?), .smart(_, let thread?):
+            readingMailbox.map { (thread, $0) }
+        case .mailbox, .scheduled, .snoozed, .smart: nil
         }
     }
 
@@ -98,6 +101,7 @@ public struct WindowState: Equatable, Codable, Sendable {
         switch list {
         case .mailbox(let mailbox, _): list = .mailbox(mailbox, thread: thread)
         case .snoozed: list = .snoozed(thread: thread)
+        case .smart(let box, _): list = .smart(box, thread: thread)
         case .scheduled: break
         }
     }
@@ -123,7 +127,7 @@ public struct WindowState: Equatable, Codable, Sendable {
     private var readingMailbox: Mailbox? {
         switch list {
         case .mailbox(let mailbox, _): mailbox
-        case .snoozed: .allMail
+        case .snoozed, .smart: .allMail
         case .scheduled: nil
         }
     }

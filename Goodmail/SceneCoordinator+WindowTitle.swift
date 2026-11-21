@@ -9,9 +9,11 @@ extension SceneCoordinator {
         let labels: [MailboxDirectory.Label] =
             switch state.list {
             case .mailbox(let mailbox, _): labels(naming: mailbox)
-            case .scheduled, .snoozed: []
+            case .scheduled, .snoozed, .smart: []
             }
-        return state.windowTitle(subject: subject, labels: labels, accounts: model.accounts)
+        let smartMailbox: SmartMailbox? = if case .smart(let id, _) = state.list { smartMailbox(id) } else { nil }
+        return state.windowTitle(
+            subject: subject, labels: labels, accounts: model.accounts, smartMailbox: smartMailbox)
     }
 
     /// The labels of `mailbox`'s account, which name its list when it is one of them.

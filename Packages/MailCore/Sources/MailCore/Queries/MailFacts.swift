@@ -142,6 +142,9 @@ public struct MailFacts: Equatable, Sendable {
         case .attachmentType: content.map { $0.attachments.map(\.mimeType) }
         case .unsubscribe: content.map { $0.unsubscribe.map { [$0.target] } ?? [] }
         case .internetMessageID: content.map { $0.internetMessageID.map { [$0] } ?? [] }
+        case .anyText:
+            [envelope.subject, envelope.snippet] + Self.words(of: [envelope.sender])
+                + (content.map { [$0.bodyText] } ?? [])
         }
     }
 

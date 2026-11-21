@@ -383,6 +383,7 @@ public final class MailDatabase: Sendable {
             try db.execute(sql: "UPDATE snooze SET keeper = 'thisDevice' WHERE wakeAt IS NOT NULL")
         }
         migrator.registerMigration("v35-vips", migrate: createVIPs)
+        migrator.registerMigration("v36-smart-mailboxes", migrate: createSmartMailboxes)
         return migrator
     }
 }

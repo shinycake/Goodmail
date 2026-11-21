@@ -42,6 +42,9 @@ final class SceneCoordinator: NSObject {
 
     /// The mailboxes' model of the arrangement built last, which the lists ask for the rows ⌘1 to ⌘9 reach.
     private var sidebar: MailboxesViewModel?
+    /// Opens the smart mailbox editor and stores what it saves (ADR-039).
+    private(set) lazy var smartMailboxFlow = SmartMailboxFlow(
+        store: model.smartMailboxStore(), presenter: { [weak self] in self?.topViewController() })
 
     /// The thread the window is reading, for Get Open Conversation.
     var openThread: ThreadSummary.ID? { shown.openThread?.id }
@@ -233,8 +236,10 @@ final class SceneCoordinator: NSObject {
         let sidebar = MailboxesViewModel(
             accounts: model.accounts,
             directory: { model.database.mailboxDirectory() },
+            smartMailboxes: { model.database.smartMailboxDirectory(mailboxNames: Mailbox.standardNames) },
             navigate: { [weak self] route in self?.handle(route) },
-            labelEditor: { model.labelEditor(for: $0) }, actions: actions)
+            labelEditor: { model.labelEditor(for: $0) }, smartMailboxStore: model.smartMailboxStore(),
+            actions: actions)
         // The lists ask the latest one for the rows ⌘1 to ⌘9 reach, as the window is rebuilt for another width.
         self.sidebar = sidebar
         let mailboxes = MailboxesViewController(
@@ -278,6 +283,7 @@ final class SceneCoordinator: NSObject {
         case .mailbox(let mailbox, _): mailboxViewController(for: mailbox)
         case .scheduled: scheduledViewController()
         case .snoozed: snoozedViewController()
+        case .smart(let id, _): smartMailboxViewController(for: id)
         }
     }
 
@@ -426,6 +432,12 @@ final class SceneCoordinator: NSObject {
             show(.scheduled)
         case .snoozed:
             show(.snoozed(thread: nil))
+        case .smartMailbox(let id):
+            drafts.uncover { [weak self] in self?.show(.smart(id, thread: nil)) }
+        case .newSmartMailbox(let query):
+            smartMailboxFlow.create(from: query)
+        case .editSmartMailbox(let id):
+            smartMailboxFlow.edit(id)
         case .thread(let id, let mailbox):
             guard let split, let reader = reader(for: id, in: mailbox) else { return }
             shown.setThread(id)
@@ -609,6 +621,7 @@ extension WindowState {
         case .mailbox(let mailbox, _): .mailbox(mailbox)
         case .scheduled: .scheduled
         case .snoozed: .snoozed
+        case .smart(let id, _): .smart(id)
         }
     }
 }

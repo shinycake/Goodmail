@@ -1,0 +1,248 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Add" : {
+      "comment" : "Adds the typed VIP",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הוספה"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "comment" : "Button: changes nothing",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ביטול"
+          }
+        }
+      }
+    },
+    "Conversations That Match" : {
+      "comment" : "Header above a smart mailbox's conditions",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שיחות שמתאימות"
+          }
+        }
+      }
+    },
+    "Conversations from these addresses show here, on all your devices." : {
+      "comment" : "Explains the VIPs list",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שיחות מהכתובות האלה יופיעו כאן, בכל המכשירים שלך."
+          }
+        }
+      }
+    },
+    "Couldn’t Save the Smart Mailbox" : {
+      "comment" : "Alert title when storing a smart mailbox failed",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן היה לשמור את תיבת הדואר החכמה"
+          }
+        }
+      }
+    },
+    "Delete" : {
+      "comment" : "Button: deletes the smart mailbox",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחיקה"
+          }
+        }
+      }
+    },
+    "Delete Smart Mailbox" : {
+      "comment" : "Action: deletes a smart mailbox",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחיקת תיבת הדואר החכמה"
+          }
+        }
+      }
+    },
+    "Delete “%@”?" : {
+      "comment" : "Title of the alert before deleting a smart mailbox, with its name",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "למחוק את ״%@״?"
+          }
+        }
+      }
+    },
+    "Edit Smart Mailbox…" : {
+      "comment" : "Action: opens a smart mailbox's name, symbol and conditions",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עריכת תיבת הדואר החכמה…"
+          }
+        }
+      }
+    },
+    "Email Address" : {
+      "comment" : "Placeholder: a VIP's address",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כתובת דוא״ל"
+          }
+        }
+      }
+    },
+    "Its mail stays where it is. The smart mailbox goes from all your devices." : {
+      "comment" : "What deleting a smart mailbox does",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הדואר שבה נשאר במקומו. תיבת הדואר החכמה תוסר מכל המכשירים שלך."
+          }
+        }
+      }
+    },
+    "Looks through the mail on this device, apart from Spam and Trash." : {
+      "comment" : "Explains where a smart mailbox finds its conversations",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחפשת בדואר שבמכשיר הזה, מלבד ספאם ופח."
+          }
+        }
+      }
+    },
+    "Name" : {
+      "comment" : "Placeholder: a smart mailbox's name",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שם"
+          }
+        }
+      }
+    },
+    "OK" : {
+      "comment" : "Button: dismisses the alert",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אישור"
+          }
+        }
+      }
+    },
+    "Rename" : {
+      "comment" : "Button: renames the smart mailbox",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שינוי שם"
+          }
+        }
+      }
+    },
+    "Rename Smart Mailbox" : {
+      "comment" : "Action: renames a smart mailbox, and the title of the alert that names it",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שינוי השם של תיבת הדואר החכמה"
+          }
+        }
+      }
+    },
+    "Smart Mailbox" : {
+      "comment" : "Title of the editor",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תיבת דואר חכמה"
+          }
+        }
+      }
+    },
+    "Smart Mailboxes" : {
+      "comment" : "Header above the reader's smart mailboxes in the sidebar",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תיבות דואר חכמות"
+          }
+        }
+      }
+    },
+    "Symbol" : {
+      "comment" : "Header above the symbols a smart mailbox can show",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סמל"
+          }
+        }
+      }
+    },
+    "Unread" : {
+      "comment" : "Smart mailbox: every unread conversation",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא נקראו"
+          }
+        }
+      }
+    },
+    "VIPs" : {
+      "comment" : "The people the reader marked as VIPs: their smart mailbox, and the header above their addresses",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VIP"
+          }
+        }
+      }
+    },
+    "With Attachments" : {
+      "comment" : "Smart mailbox: conversations with files attached",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עם קבצים מצורפים"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

@@ -25,6 +25,11 @@ struct WindowStateTests {
         snoozed.setThread(thread)
         #expect(snoozed.openThread?.mailbox == .allMail, "snoozed threads are out of the Inbox")
 
+        var smart = WindowState(list: .smart(SmartMailbox.ID(rawValue: "unread"), thread: nil))
+        smart.setThread(thread)
+        #expect(smart.list == .smart(SmartMailbox.ID(rawValue: "unread"), thread: thread))
+        #expect(smart.openThread?.mailbox == .allMail, "a smart mailbox's mail comes from any mailbox")
+
         var scheduled = WindowState(list: .scheduled)
         scheduled.setThread(thread)
         #expect(scheduled.list == .scheduled)
@@ -52,6 +57,7 @@ struct WindowStateTests {
             WindowState(list: .mailbox(label, thread: thread), category: .updates),
             WindowState(list: .mailbox(.allMail, thread: nil)),
             WindowState(list: .snoozed(thread: thread)),
+            WindowState(list: .smart(SmartMailbox.ID(rawValue: "vips"), thread: thread)),
             WindowState(list: .scheduled, category: .social),
         ]
         for state in states {

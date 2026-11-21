@@ -67,6 +67,17 @@
         }
       }
     },
+    "Any Text" : {
+      "comment" : "Rule field: the subject, sender, preview or message text, as a search word reads them",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "טקסט כלשהו"
+          }
+        }
+      }
+    },
     "Archive" : {
       "comment" : "Rule action",
       "localizations" : {

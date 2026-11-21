@@ -32,6 +32,10 @@ public final class MailboxesViewController: UIViewController {
     private var mailDrop: SidebarDrop?
     /// Each account's label changes, made when first needed.
     private var labelFlows: [AccountID: LabelEditFlow] = [:]
+    /// Renames and deletes smart mailboxes, made when first needed; `nil` where they can't be changed.
+    private(set) lazy var smartMailboxFlow = viewModel.smartMailboxStore.map {
+        SmartMailboxFlow(store: $0, presenter: { [weak self] in self })
+    }
 
     /// `syncFooter` is what a desktop sidebar says under its rows about mail coming in.
     public init(
@@ -237,6 +241,7 @@ public final class MailboxesViewController: UIViewController {
                 case .scheduled: "mailbox.scheduled"
                 case .snoozed: "mailbox.snoozed"
                 case .folder(let path, let account): "mailbox.folder.\(path).\(account.rawValue)"
+                case .smart(let id): "mailbox.smart.\(id.rawValue)"
                 }
         }
         let header = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(
@@ -293,12 +298,14 @@ extension MailboxesViewController: UICollectionViewDelegate {
         }
     }
 
-    /// Rename and Delete on a user label, or on a folder that only holds labels.
+    /// Rename and Delete on a user label, on a folder that only holds labels, or on a smart mailbox.
     public func collectionView(
         _ collectionView: UICollectionView, contextMenuConfigurationForItemsAt indexPaths: [IndexPath],
         point: CGPoint
     ) -> UIContextMenuConfiguration? {
-        guard indexPaths.count == 1, let edits = indexPaths.first.flatMap(labelEdits(at:)) else { return nil }
+        guard indexPaths.count == 1, let indexPath = indexPaths.first else { return nil }
+        if let menu = smartMailboxMenu(for: dataSource.itemIdentifier(for: indexPath)?.item) { return menu }
+        guard let edits = labelEdits(at: indexPath) else { return nil }
         return UIContextMenuConfiguration(actionProvider: { _ in
             UIMenu(children: [
                 UIAction(title: edits.renameTitle, image: UIImage(systemName: "pencil")) { _ in edits.rename() },
@@ -431,8 +438,8 @@ extension MailboxesViewController {
         return flow
     }
 
-    /// After its label is deleted, the sidebar stops showing a mailbox that no longer exists.
-    private func leave(_ destination: MailboxesViewModel.Destination) {
+    /// After its label or smart mailbox is deleted, the sidebar stops showing a mailbox that no longer exists.
+    func leave(_ destination: MailboxesViewModel.Destination) {
         guard style == .sidebar, selected == destination else { return }
         viewModel.open(.mailbox(.inbox))
     }

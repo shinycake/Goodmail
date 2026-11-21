@@ -11,6 +11,10 @@ public final class SearchResultsController: UIViewController, UISearchResultsUpd
     private let suggestions = SearchSuggestionsViewController()
     private var suggestionsHeight: NSLayoutConstraint!
     private weak var searchController: UISearchController?
+    /// Opens the smart mailbox editor on what the field asks for.
+    private let saveAsSmartMailbox: (SearchQuery) -> Void
+    /// What the field asks for now.
+    private var query = SearchQuery(terms: [])
 
     public init(
         search: ThreadSearch, accounts: [Account], navigate: @escaping (Route) -> Void,
@@ -21,6 +25,7 @@ public final class SearchResultsController: UIViewController, UISearchResultsUpd
         self.search = search
         self.recents = recents
         self.contacts = contacts
+        saveAsSmartMailbox = { navigate(.newSmartMailbox($0)) }
         // Opening a result is what makes a search worth remembering.
         let navigate: (Route) -> Void = { route in
             if case .thread = route { recents.record(search.text) }
@@ -87,6 +92,10 @@ public final class SearchResultsController: UIViewController, UISearchResultsUpd
             recents.record(text)
             updateSearchResults(for: searchController)
         }
+        suggestions.onSave = { [weak self] in
+            guard let self else { return }
+            saveAsSmartMailbox(query)
+        }
         suggestions.onClear = { [weak self] in
             guard let self, let searchController else { return }
             recents.clear()
@@ -101,9 +110,12 @@ public final class SearchResultsController: UIViewController, UISearchResultsUpd
         let typed = field.text ?? ""
         let applied = field.tokens.compactMap { $0.representedObject as? SearchQuery.Term }
         let query = SearchQuery(terms: applied + SearchQuery(typed).terms)
+        self.query = query
         search.update(query.text)
         let recentSearches = query.isEmpty ? recents.all : []
-        suggestions.show(filters: filters(for: typed, besides: applied), recents: recentSearches)
+        suggestions.show(
+            filters: filters(for: typed, besides: applied), recents: recentSearches,
+            canSave: SmartMailboxDraft(query: query) != nil)
         // While nothing is asked, the suggestions stand alone; otherwise they sit above the results.
         list.view.isHidden = query.isEmpty
         suggestionsHeight.constant = min(suggestions.contentHeight, view.safeAreaLayoutGuide.layoutFrame.height)

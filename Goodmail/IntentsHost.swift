@@ -52,26 +52,19 @@
         }
 
         func threadFacts(_ ids: [ThreadSummary.ID]) throws -> [MailFacts] {
-            try database.threadFacts(ids, mailboxNames: Self.mailboxNames)
+            try database.threadFacts(ids, mailboxNames: Mailbox.standardNames)
         }
 
         func messageFacts(inThreads ids: [ThreadSummary.ID]) throws -> [MailFacts] {
-            try database.messageFacts(inThreads: ids, mailboxNames: Self.mailboxNames)
+            try database.messageFacts(inThreads: ids, mailboxNames: Mailbox.standardNames)
         }
 
         func messageFacts(matching condition: MailCondition, in context: MailCondition.Context) throws -> [MailFacts] {
-            try database.messageFacts(matching: condition, in: context, mailboxNames: Self.mailboxNames)
+            try database.messageFacts(matching: condition, in: context, mailboxNames: Mailbox.standardNames)
         }
 
         func threadFacts(matching condition: MailCondition, in context: MailCondition.Context) throws -> [MailFacts] {
-            try database.threadFacts(matching: condition, in: context, mailboxNames: Self.mailboxNames)
-        }
-
-        /// The standard mailboxes' names, as the mailbox list shows them, by label ID.
-        private static var mailboxNames: [String: String] {
-            Dictionary(
-                Mailbox.standard.compactMap { mailbox in mailbox.labelID.map { ($0, mailbox.title(labels: [])) } },
-                uniquingKeysWith: { first, _ in first })
+            try database.threadFacts(matching: condition, in: context, mailboxNames: Mailbox.standardNames)
         }
 
         // Intents can run with the app in the background, as from Siri or a widget, so their writes keep it awake.

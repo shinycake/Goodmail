@@ -85,7 +85,7 @@ extension MailDatabase {
 
 /// What a read of facts looks up for every mail it builds: the accounts, the label names, pins and snoozes. Each
 /// is a small table, read once.
-private struct FactsLookup {
+struct FactsLookup {
     let accounts: [AccountID: Account]
     let labelNames: [AccountID: [String: String]]
     let pins: Set<ThreadSummary.ID>

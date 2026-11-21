@@ -60,6 +60,8 @@ extension MailCommand {
             String(localized: "Get New Mail", table: "Keyboard", bundle: .module, comment: "Menu bar command")
         case .newLabel:
             String(localized: "New Label…", table: "Keyboard", bundle: .module, comment: "Menu bar command")
+        case .newSmartMailbox:
+            String(localized: "New Smart Mailbox…", table: "Keyboard", bundle: .module, comment: "Menu bar command")
         case .eraseTrash:
             String(localized: "Erase Trash…", table: "Keyboard", bundle: .module, comment: "Menu bar command")
         case .send:

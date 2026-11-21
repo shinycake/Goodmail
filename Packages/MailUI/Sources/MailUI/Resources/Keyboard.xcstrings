@@ -561,6 +561,17 @@
         }
       }
     },
+    "New Smart Mailbox…" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תיבת דואר חכמה חדשה…"
+          }
+        }
+      }
+    },
     "New Viewer Window" : {
       "comment" : "Menu bar command",
       "localizations" : {
