@@ -11,6 +11,8 @@ extension SceneCoordinator {
         navigator.stateChanged = { [weak self] _ in self?.publishActivity() }
         navigator.present = { [weak self] presentation in self?.present(presentation) }
         navigator.leaveWindow = { [weak self] in self?.leaveMessage() }
+        navigator.uncover = { [weak self] next in self?.uncover(then: next) }
+        navigator.say = { [actions] notice in actions.say(notice.text) }
         // The window's actions tell it of each change as it is asked, before it applies, and of each Undo; what sync,
         // other devices, alerts and other windows change only changes rows (R6).
         actions.changed = { [weak self] change in self?.readerAsked(change) }

@@ -24,6 +24,9 @@ final class SceneCoordinator: NSObject {
     var answering: Task<Void, Never>?
     /// Follows the labels and smart mailboxes here, so a list gone from the device gives way (`followOwnLists`).
     var listsCheck: Task<Void, Never>?
+    /// Settings asked for before the window was on screen, as at a cold launch, waiting for the window's scene to
+    /// become active (`showSettings(at:)`).
+    var settingsWaitingForScreen: (any NSObjectProtocol)?
     /// Failed sends already shown, so each is offered once per launch.
     private var shownFailures: Set<Draft.ID> = []
     /// What fills the window. Only `enter(_:)` changes it.
@@ -62,12 +65,18 @@ final class SceneCoordinator: NSObject {
         navigator = WindowNavigator(
             showing: window.interactionStyle.laying(out: restoring?.keeping(model.accounts.map(\.id)) ?? WindowState()),
             checking: lists,
-            context: { [weak window] in
+            context: { [weak window, model] in
                 WindowNavigation.Context(
                     arrangement: WindowNavigation.Arrangement(window?.windowScene?.traitCollection ?? .current),
-                    afterRemoval: Preferences.afterRemoval)
+                    afterRemoval: Preferences.afterRemoval, unsortedInboxes: model.unsortedInboxAccounts)
             },
-            lookUp: { [database = model.database] in try? database.thread($0) })
+            lookUp: { [database = model.database, fetcher = model.threadFetcher] thread in
+                if let row = try? database.thread(thread) { return row }
+                // Not on the device, as for an alert about mail sync hasn't brought yet: fetched once from its
+                // service, as opening it would, then read again (R10).
+                try? await fetcher.load(thread)
+                return try? database.thread(thread)
+            })
         super.init()
         window.windowAnswer = { [weak self] in self?.windowAnswer(to: $0) ?? .notHere }
         actions.reopen = { [weak self] draft in self?.handle(.compose(draft)) }
@@ -84,6 +93,7 @@ final class SceneCoordinator: NSObject {
         signingInAgain?.cancel()
         answering?.cancel()
         listsCheck?.cancel()
+        if let settingsWaitingForScreen { NotificationCenter.default.removeObserver(settingsWaitingForScreen) }
         if case .leaving(let waiting) = screen { waiting.cancel() }
     }
 
@@ -383,8 +393,7 @@ final class SceneCoordinator: NSObject {
     /// is in Primary.
     private func source(for mailbox: Mailbox) -> MailboxSource {
         let database = model.database
-        let unsorted = Preferences.unsortedInboxAccounts.union(
-            model.accounts.filter { !$0.service.hasInboxCategories }.map(\.id))
+        let unsorted = model.unsortedInboxAccounts
         let accounts = model.accounts.filter { mailbox.accountID == nil || mailbox.accountID == $0.id }
         guard mailbox.labelID == SystemLabel.inbox, accounts.contains(where: { !unsorted.contains($0.id) }) else {
             return .flat { database.threads(in: mailbox) }
@@ -400,18 +409,19 @@ final class SceneCoordinator: NSObject {
     /// from, so the welcome screen stays.
     func compose(mailto link: URL) {
         guard let account = model.accounts.first?.id, let draft = Draft(mailto: link, from: account) else { return }
-        handle(.compose(draft))
+        handle(.compose(draft), from: .outside)
     }
 
     /// The one place navigation happens (ADR-011): each route goes through the window's navigation, which moves what it
-    /// shows or has a screen presented (`present(_:)`). A new list or search shows over the message being written, which
-    /// goes down to the drafts pill first.
-    func handle(_ route: Route) {
-        switch route {
-        case .mailbox, .smartMailbox, .search:
+    /// shows or has a screen presented (`present(_:)`). A route from outside uncovers the window first
+    /// (`WindowNavigation.Effect.uncover`); from inside, a new list or search shows over the message being written,
+    /// which goes down to the drafts pill first.
+    func handle(_ route: Route, from source: RouteSource = .window) {
+        switch (route, source) {
+        case (.mailbox, .window), (.smartMailbox, .window), (.search, .window):
             drafts.uncover { [weak self] in self?.navigator.send(.route(route)) }
         default:
-            navigator.send(.route(route))
+            navigator.send(.route(route, from: source))
         }
     }
 

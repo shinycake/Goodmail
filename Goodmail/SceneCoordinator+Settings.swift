@@ -10,16 +10,36 @@ extension SceneCoordinator {
     /// Accounts and preferences, open at `page`, over the mail screens with nothing else over them. Asking again while
     /// it's up does nothing.
     func showSettings(at page: SettingsPage) {
-        // A presenter off screen would drop the sheet and leave the cover saying Settings is up.
-        guard case .mailbox(let split, let accounts, .none) = screen, let presenter = topViewController(),
-            presenter.viewIfLoaded?.window != nil
-        else { return }
+        guard case .mailbox(let split, let accounts, .none) = screen, let presenter = topViewController() else {
+            return
+        }
+        // A presenter off screen would drop the sheet and leave the cover saying Settings is up. At a cold launch the
+        // window isn't on screen until its scene becomes active, so Settings waits for that (D14).
+        guard presenter.viewIfLoaded?.window != nil, window.windowScene?.activationState == .foregroundActive else {
+            return showSettingsOnceActive(at: page)
+        }
         let before = Appearance(model)
         let viewModel = model.settingsViewModel(
             signIn: accountSignIn, transfer: transferActions,
             closed: { [weak self, model] in self?.settingsClosed(changed: Appearance(model) != before) })
         enter(.mailbox(split, accounts: accounts, cover: .settings(page)))
         presenter.present(SettingsScreen.make(model: viewModel, at: page), animated: true)
+    }
+
+    /// Shows Settings at `page` once the window's scene becomes active, in place of any asked for before it was.
+    private func showSettingsOnceActive(at page: SettingsPage) {
+        guard let scene = window.windowScene, scene.activationState != .foregroundActive else { return }
+        if let waiting = settingsWaitingForScreen { NotificationCenter.default.removeObserver(waiting) }
+        settingsWaitingForScreen = NotificationCenter.default.addObserver(
+            forName: UIScene.didActivateNotification, object: scene, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, let waiting = self.settingsWaitingForScreen else { return }
+                NotificationCenter.default.removeObserver(waiting)
+                self.settingsWaitingForScreen = nil
+                self.showSettings(at: page)
+            }
+        }
     }
 
     /// Settings is gone. The mail screens are rebuilt where the reader was when what they show changed meanwhile,

@@ -217,7 +217,7 @@ public enum OtherAccountSignInScreen {
             async throws -> Void,
         finished: @escaping (_ added: Bool) -> Void
     ) -> UIViewController {
-        let screen = UIHostingController(
+        let screen = ArrivalBlockingHost(
             rootView: NavigationStack {
                 OtherAccountSignInView(discover: discover, guess: guess, signIn: signIn, finished: finished)
             })

@@ -25,7 +25,7 @@ struct WindowNavigationTests {
         var window = WindowNavigation(showing: WindowState())
         #expect(window.handle(.route(.thread(b.id, in: .allMail)), in: context) == [.lookUp(b.id)])
         #expect(window.state.reading == nil, "nothing changes until it is found")
-        #expect(window.pending == Reading(b.id, in: .allMail))
+        #expect(window.pending?.reading == Reading(b.id, in: .allMail))
         #expect(window.handle(.found(b, rows: rows), in: context) == [])
         #expect(window.state.reading == Reading(b.id, in: .allMail), "read where the route reads it, as from search")
         #expect(window.foundRow == b, "its reader is made from the row found")
@@ -66,7 +66,7 @@ struct WindowNavigationTests {
         _ = window.handle(.route(.thread(b.id, in: .inbox)), in: stack)
         _ = window.handle(.found(c, rows: rows), in: stack)
         #expect(window.state.reading == Reading(a.id, in: .inbox), "an answer for another conversation")
-        #expect(window.pending == Reading(b.id, in: .inbox), "still waiting for its own")
+        #expect(window.pending?.reading == Reading(b.id, in: .inbox), "still waiting for its own")
     }
 
     @Test func aNewerLookupReplacesTheOneUnderWay() {
@@ -83,7 +83,7 @@ struct WindowNavigationTests {
         WindowNavigation.Event.back(to: .mailboxes), .route(.mailbox(.starred)),
         .route(.search(SearchQuery(terms: []))),
         .handedOff(WindowState(list: .mailbox(.sent)), accounts: [AccountID(rawValue: "a")]),
-        .accounts([AccountID(rawValue: "a")]), .category(.social),
+        .accounts([AccountID(rawValue: "work")]), .category(.social),
     ])
     func movingOnBeforeTheAnswerDropsIt(move: WindowNavigation.Event) {
         var window = WindowNavigation(showing: WindowState())
@@ -93,6 +93,14 @@ struct WindowNavigationTests {
         let moved = window.state
         _ = window.handle(.found(b, rows: rows), in: stack)
         #expect(window.state == moved, "the answer is ignored")
+    }
+
+    @Test func aLookupForAnAccountStillHereOutlastsTheScreensBuiltAgain() {
+        var window = WindowNavigation(showing: WindowState())
+        _ = window.handle(.route(.thread(b.id, in: .inbox)), in: stack)
+        _ = window.handle(.accounts(accounts), in: stack)
+        _ = window.handle(.found(b, rows: rows), in: stack)
+        #expect(window.state.reading == Reading(b.id, in: .inbox), "as for an arrival at launch")
     }
 
     @Test func aConversationMissingChangesNothing() {

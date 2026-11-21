@@ -5,7 +5,7 @@ public import MailCore
 /// found in the list on show when it holds it, else in the store, off the main actor. The navigation says which lookup
 /// it waits for (`pending`); one it no longer waits for is cancelled.
 public final class WindowNavigator {
-    /// Reads a conversation's row from the store, off the main actor; `nil` when it isn't on the device.
+    /// Finds a conversation's row, off the main actor: in the store, or once from its service; `nil` when neither has it.
     public typealias LookUp = @concurrent @Sendable (ThreadSummary.ID) async -> ThreadSummary?
 
     public private(set) var navigation: WindowNavigation
@@ -23,6 +23,11 @@ public final class WindowNavigator {
     public var present: (Presentation) -> Void = { _ in }
     /// A message window's conversation went, so the window goes once that can't be undone.
     public var leaveWindow: () -> Void = {}
+    /// Clears what covers the window for an arrival from outside, then calls `then`, once, when it is clear. The
+    /// effects after it wait for it, so a lookup answers over a window already uncovered.
+    public var uncover: (_ then: @escaping () -> Void) -> Void = { $0() }
+    /// Tells the reader something the window can't show.
+    public var say: (WindowNavigation.Notice) -> Void = { _ in }
 
     public init(
         showing state: WindowState, checking lists: WindowState.ListCheck,
@@ -76,7 +81,7 @@ public final class WindowNavigator {
             }
             stateChanged(state)
         }
-        for effect in effects { perform(effect) }
+        perform(effects[...])
     }
 
     /// The reader for what is read couldn't be made, as for a conversation whose account just went: it is gone.
@@ -85,8 +90,22 @@ public final class WindowNavigator {
         send(.missing(thread))
     }
 
+    /// Performs `effects` in order. Those after `.uncover` wait until the window is clear.
+    private func perform(_ effects: ArraySlice<WindowNavigation.Effect>) {
+        guard let effect = effects.first else { return }
+        let rest = effects.dropFirst()
+        guard effect != .uncover else {
+            return uncover { [weak self] in self?.perform(rest) }
+        }
+        perform(effect)
+        perform(rest)
+    }
+
     private func perform(_ effect: WindowNavigation.Effect) {
         switch effect {
+        case .uncover:
+            // Performed in order above, as the effects after it wait for it.
+            break
         case .lookUp(let thread):
             find(thread)
         case .present(let presentation):
@@ -99,11 +118,15 @@ public final class WindowNavigator {
             screens?.showPicked(count)
         case .leaveWindow:
             leaveWindow()
+        case .say(let notice):
+            say(notice)
         }
     }
 
-    /// Finds `thread`: at once from the list on show when it holds it, else from the store.
+    /// Finds `thread`: at once from the list on show when it holds it, else from the store. A lookup the navigation
+    /// stopped waiting for while the window was being uncovered isn't started.
     private func find(_ thread: ThreadSummary.ID) {
+        guard navigation.pending?.reading.thread == thread else { return }
         arriving?.cancel()
         arriving = nil
         if let front = screens?.front, let row = front.summary(of: thread) {

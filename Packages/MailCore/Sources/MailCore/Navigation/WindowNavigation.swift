@@ -24,8 +24,8 @@ public struct WindowNavigation: Equatable, Sendable {
     var opened: Opened?
     /// The conversation the reader last left by a change they asked, until the window moves on by any other way.
     var departure: Departure?
-    /// The conversation a lookup is under way for, and where to read it.
-    public internal(set) var pending: Reading?
+    /// The conversation a lookup is under way for, where the route reads it, and where the route came from.
+    public internal(set) var pending: Awaited?
     /// Whether search shows its results over the list, so a conversation opened from them is told from one opened from
     /// the list's own rows.
     var searching = false
@@ -49,10 +49,15 @@ public struct WindowNavigation: Equatable, Sendable {
         public var arrangement: Arrangement
         /// Where the reader goes after putting the conversation on show away, read as each change is asked.
         public var afterRemoval: AfterRemoval
+        /// The accounts whose Inbox isn't sorted into categories, so all of it is in Primary.
+        public var unsortedInboxes: Set<AccountID>
 
-        public init(arrangement: Arrangement, afterRemoval: AfterRemoval = .standard) {
+        public init(
+            arrangement: Arrangement, afterRemoval: AfterRemoval = .standard, unsortedInboxes: Set<AccountID> = []
+        ) {
             self.arrangement = arrangement
             self.afterRemoval = afterRemoval
+            self.unsortedInboxes = unsortedInboxes
         }
     }
 
@@ -66,8 +71,11 @@ public struct WindowNavigation: Equatable, Sendable {
 
     /// Something that moves the window, or may.
     public enum Event: Equatable, Sendable {
-        /// The window was asked to go somewhere.
-        case route(Route)
+        /// The window was asked to go somewhere, by its own screens unless `source` says otherwise.
+        case route(Route, from: RouteSource = .window)
+        /// The window comes up for `route`, from outside, over the state it restored, before any screen is built: a
+        /// restored conversation the route doesn't open closes at once, so its reader isn't built under the new one.
+        case launched(for: Route)
         /// The conversation a `.lookUp` asked for, as `summary`, from a list showing `rows`. It counts only while that
         /// lookup is the one under way.
         case found(ThreadSummary, rows: [ThreadSummary.ID])
@@ -99,13 +107,20 @@ public struct WindowNavigation: Equatable, Sendable {
         public var movesByItself: Bool {
             switch self {
             case .changed, .undone: true
-            case .route, .found, .missing, .back, .accounts, .lists, .handedOff, .category, .filter, .searching: false
+            case .route, .launched, .found, .missing, .back, .accounts, .lists, .handedOff, .category, .filter,
+                .searching:
+                false
             }
         }
     }
 
     /// What the window does beyond showing `state`.
     public enum Effect: Equatable, Sendable {
+        /// Clears what covers the window for an arrival from outside, before the effects after it (R3): Settings and
+        /// the sheets that only read or pick go, the message being written goes down to the drafts pill, and search
+        /// and Select mode end. An alert, a confirmation, a sign-in, a transfer or the accounts offer stays, and the
+        /// arrival lands beneath it.
+        case uncover
         /// Finds the conversation, to answer with `.found` or `.missing`.
         case lookUp(ThreadSummary.ID)
         /// Presents a screen over or beside the window. Nothing the window shows changes.
@@ -119,17 +134,29 @@ public struct WindowNavigation: Equatable, Sendable {
         /// A message window, which shows nothing else, goes once the change that took its conversation can't be
         /// undone (ADR-035).
         case leaveWindow
+        /// Tells the reader something the window can't show, without stopping them (R10).
+        case say(Notice)
+    }
+
+    /// What the window tells the reader when it can't show what was asked.
+    public enum Notice: Equatable, Sendable {
+        /// The conversation an arrival asked for isn't on the device, nor with its service.
+        case conversationGone
     }
 
     /// Moves the window for `event`, and says what it does beyond showing `state`.
     public mutating func handle(_ event: Event, in context: Context) -> [Effect] {
         switch event {
-        case .route(let route):
+        case .route(let route, .window):
             return go(to: route, in: context)
+        case .route(let route, .outside):
+            return arrive(at: route, in: context)
+        case .launched(let route):
+            return launch(for: route, in: context)
         case .found(let summary, let rows):
-            open(summary, from: rows)
+            open(summary, from: rows, in: context)
         case .missing(let thread):
-            missed(thread)
+            return missed(thread, in: context)
         case .back(let back):
             goBack(to: back)
         case .changed(let change, let reader, let front):
@@ -137,8 +164,9 @@ public struct WindowNavigation: Equatable, Sendable {
         case .undone(let change, let rows):
             undid(change, rows: rows)
         case .accounts(let accounts):
-            // The screens are built again for them, so a lookup started for the ones before is dropped.
-            pending = nil
+            // A lookup for an account that went is dropped; one for an account still here goes on, as one a window
+            // coming up for an arrival started before its screens were built for the accounts (`launched`).
+            if let pending, !accounts.contains(pending.reading.thread.accountID) { self.pending = nil }
             show(state.keeping(accounts))
         case .lists(let lists, let accounts):
             // Only the viewer shows its list; a message window keeps reading where it was opened.
@@ -147,6 +175,8 @@ public struct WindowNavigation: Equatable, Sendable {
             show(kept)
         case .handedOff(let handed, let accounts):
             showHandedOff(handed, accounts: accounts)
+            // Handoff comes from outside, so it uncovers what it shows.
+            return [.uncover]
         case .category(let category):
             var next = state
             next.category = category
@@ -181,9 +211,15 @@ public struct WindowNavigation: Equatable, Sendable {
         state = next
     }
 
-    private mutating func missed(_ thread: ThreadSummary.ID) {
-        if pending?.thread == thread { pending = nil }
+    /// `thread` isn't on the device. The one read closes; one a route from inside asked for opens nothing, and one an
+    /// arrival asked for is said to be gone, over the Inbox (R10).
+    private mutating func missed(_ thread: ThreadSummary.ID, in context: Context) -> [Effect] {
+        if let pending, pending.reading.thread == thread {
+            self.pending = nil
+            if pending.source == .outside { return gone(in: context) }
+        }
         if state.reading?.thread == thread { state.closeReader() }
+        return []
     }
 
     /// Back went to `back`: the list stays for a window that widens.

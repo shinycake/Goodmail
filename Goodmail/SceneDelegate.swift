@@ -6,8 +6,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private enum State {
         /// UIKit hasn't connected the scene yet.
         case notConnected
-        /// The database is still opening; the window shows nothing yet. `arrival` is what to open once it has.
-        case opening(Task<Void, Never>, arrival: Arrival?)
+        /// The database is still opening; the window shows nothing yet. What arrives meanwhile is held for it
+        /// (`IntentRoutes.hold`).
+        case opening(Task<Void, Never>)
         case running(SceneCoordinator)
         /// A window that holds one message being written.
         case composing(ComposeWindowCoordinator)
@@ -46,14 +47,6 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
     }
 
-    /// What the window was asked to open as it came up or while the database was opening.
-    private enum Arrival {
-        /// A `mailto:` link or transfer code.
-        case link(URL)
-        /// A Home Screen quick action.
-        case quickAction(QuickAction)
-    }
-
     var window: UIWindow?
     private var state = State.notConnected
 
@@ -63,63 +56,69 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         options connectionOptions: UIScene.ConnectionOptions
     ) {
         guard let windowScene = scene as? UIWindowScene else { return }
-        // Unsafe because `delegate` is unowned. Safe: UIKit keeps the app delegate for the life of the process.
-        let launch = (unsafe UIApplication.shared.delegate as! AppDelegate).launch
+        let launch = Self.launch
         guard let kind = Kind.of(session, opening: Array(connectionOptions.userActivities)) else { return }
-        let arrival =
-            connectionOptions.urlContexts.first.map { Arrival.link($0.url) }
+        // What the system opened the window for waits for it with whatever else arrived from outside, the newest
+        // winning.
+        if let arrival = connectionOptions.urlContexts.first.map({ Arrival.link($0.url) })
             ?? connectionOptions.shortcutItem?.quickAction.map(Arrival.quickAction)
+        {
+            launch.routes.hold(arrival)
+        }
         if let services = launch.running {
-            return fill(windowScene, with: kind, services: services, arrival: arrival)
+            return fill(windowScene, with: kind, services: services)
         }
         show(LaunchViewController(), in: windowScene)
         state = .opening(
             Task {
                 do {
                     let services = try await launch.services()
-                    guard case .opening(_, let arrival) = state else { return }
-                    fill(windowScene, with: kind, services: services, arrival: arrival)
+                    guard case .opening = state else { return }
+                    fill(windowScene, with: kind, services: services)
                 } catch {
                     show(LaunchViewController(failure: error), in: windowScene)
                     state = .unavailable
                 }
-            },
-            arrival: arrival)
+            })
     }
 
     /// Fills the window with what it holds, once the database is open.
-    private func fill(_ windowScene: UIWindowScene, with kind: Kind, services: AppServices, arrival: Arrival?) {
+    private func fill(_ windowScene: UIWindowScene, with kind: Kind, services: AppServices) {
         switch kind {
         case .mail(let restoring, let lists):
-            connect(windowScene, to: services, restoring: restoring, lists: lists, arrival: arrival)
-        case .compose(let shown): compose(shown, in: windowScene, with: services)
-        case .settings(let page): showSettings(at: page, in: windowScene, with: services)
+            connect(windowScene, to: services, restoring: restoring, lists: lists)
+        case .compose(let shown):
+            compose(shown, in: windowScene, with: services)
+            forwardHeldArrival(of: services)
+        case .settings(let page):
+            showSettings(at: page, in: windowScene, with: services)
+            forwardHeldArrival(of: services)
         }
+    }
+
+    /// The window that filled holds no mail screens: what was held for it goes to a mail window (D13).
+    private func forwardHeldArrival(of services: AppServices) {
+        if let held = services.routes.takeArrival() { services.routes.arrive(held) }
     }
 
     private func connect(
         _ windowScene: UIWindowScene, to services: AppServices, restoring: WindowState?,
-        lists: WindowState.ListCheck, arrival: Arrival?
+        lists: WindowState.ListCheck
     ) {
         let coordinator = SceneCoordinator(
             windowScene: windowScene, model: services.model, restoring: restoring, lists: lists)
         state = .running(coordinator)
+        // An arrival that moves the window applies to what it restored before anything is built, so no restored
+        // conversation is built under the arrival's; a screen to present waits for the window to be visible.
+        let toPresent = services.routes.takeArrival().flatMap(coordinator.arriveBeforeShowing)
         coordinator.start()
         coordinator.window.makeKeyAndVisible()
         ViewerWindowSize.fit(windowScene, isNew: restoring == nil)
         window?.isHidden = true
         window = coordinator.window
-        // Once the window is visible, so the route goes to the screens as they are laid out, with Settings or a
-        // composer able to present over them.
-        if let route = services.routes.takeWaiting() { coordinator.handle(route) }
         // Messages open into a web view whose content process takes a while to start; start one now.
         MessageWebViewPool.shared.warmUp()
-        // The composer and the transfer screen need a visible window to present on.
-        switch arrival {
-        case .link(let link): coordinator.open(link)
-        case .quickAction(let action): coordinator.perform(action)
-        case nil: break
-        }
+        if let toPresent { coordinator.arrive(toPresent) }
     }
 
     /// Fills the window with the one message it holds.
@@ -142,14 +141,25 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window = coordinator.window
     }
 
-    /// A `mailto:` link or transfer code opened while the window is up, or while the database is still opening.
+    /// A `mailto:` link or transfer code opened while the window is up, or while the database is still opening. A
+    /// window holding a message or Settings hands it to a mail window (D13).
     func scene(_ scene: UIScene, openURLContexts contexts: Set<UIOpenURLContext>) {
         guard let link = contexts.first?.url else { return }
+        arrive(.link(link))
+    }
+
+    /// Takes `arrival`, which the system gave this window, or holds it while the database opens. A window without the
+    /// mail screens hands it on.
+    @discardableResult
+    private func arrive(_ arrival: Arrival) -> Bool {
+        let routes = Self.launch.routes
         switch state {
-        case .running(let coordinator): coordinator.open(link)
-        case .opening(let task, _): state = .opening(task, arrival: .link(link))
-        case .notConnected, .unavailable, .composing, .settings: break
+        case .running(let coordinator): coordinator.arrive(arrival)
+        case .opening: routes.hold(arrival)
+        case .composing, .settings: routes.arrive(arrival)
+        case .notConnected, .unavailable: return false
         }
+        return true
     }
 
     /// A Home Screen quick action, while the window is up or the database is still opening. One that launches the
@@ -158,18 +168,18 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         _ windowScene: UIWindowScene, performActionFor shortcutItem: UIApplicationShortcutItem
     ) async -> Bool {
         guard let action = shortcutItem.quickAction else { return false }
-        switch state {
-        case .running(let coordinator): coordinator.perform(action)
-        case .opening(let task, _): state = .opening(task, arrival: .quickAction(action))
-        case .notConnected, .unavailable, .composing, .settings: return false
-        }
-        return true
+        return arrive(.quickAction(action))
     }
 
     /// The Home Screen menu is set as the app leaves the foreground, so it matches what the reader left.
     func sceneWillResignActive(_ scene: UIScene) {
+        Self.launch.running?.quickActions.refresh()
+    }
+
+    /// The app's launch, which opens the database and holds what arrives meanwhile.
+    private static var launch: AppLaunch {
         // Unsafe because `delegate` is unowned. Safe: UIKit keeps the app delegate for the life of the process.
-        (unsafe UIApplication.shared.delegate as! AppDelegate).launch.running?.quickActions.refresh()
+        (unsafe UIApplication.shared.delegate as! AppDelegate).launch
     }
 
     /// Shows `controller` in a window of its own, until the coordinator's window replaces it.
@@ -214,9 +224,19 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
     }
 
-    /// Handoff into a window that is already open.
+    /// Handoff into a window that is already open, or held while the database opens.
     func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
         guard let state = WindowState(userActivity) else { return }
-        coordinator?.showHandedOff(state)
+        arrive(.handoff(state))
+    }
+
+    /// What the window holds, as an arrival from outside sees it (`WindowChoice`).
+    var holds: WindowFacts.Holds {
+        switch state {
+        case .notConnected, .opening: .opening
+        case .running(let coordinator): coordinator.holds
+        case .composing, .settings: .otherWork
+        case .unavailable: .noMail
+        }
     }
 }

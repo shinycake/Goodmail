@@ -146,6 +146,6 @@ struct SharedAccountsOfferView: View {
 /// The offer, for UIKit to show: in place of the welcome screen, or as a sheet over the mail.
 public enum SharedAccountsOfferScreen {
     public static func make(offer: SharedAccountsOffer) -> UIViewController {
-        UIHostingController(rootView: SharedAccountsOfferView(offer: offer))
+        ArrivalBlockingHost(rootView: SharedAccountsOfferView(offer: offer))
     }
 }
