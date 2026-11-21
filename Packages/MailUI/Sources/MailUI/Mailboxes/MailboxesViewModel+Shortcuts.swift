@@ -9,7 +9,7 @@ extension MailboxesViewModel {
         let title: String
     }
 
-    /// The first nine rows the sidebar shows now, folded labels left out (`folded`). With several accounts a row
+    /// The first nine rows the sidebar shows now, folded sections and labels left out (`foldedSections`, `folded`). With several accounts a row
     /// that every account has, as its Inbox, is named with its account.
     var numberedRows: NumberedRows<NumberedRow> {
         NumberedRows(
@@ -19,10 +19,15 @@ extension MailboxesViewModel {
             })
     }
 
+    /// Notes whether a sidebar shows `section` folded under its header.
+    func show(_ section: Section, folded isFolded: Bool) {
+        if isFolded { foldedSections.insert(section) } else { foldedSections.remove(section) }
+    }
+
     /// Every row on show, top to bottom, in the order the sidebar lists them.
     private var visibleRows: [NumberedRow] {
         var rows: [NumberedRow] = []
-        for group in groups {
+        for group in groups where !foldedSections.contains(group.section) {
             func append(_ items: [Item]) {
                 for item in items {
                     rows.append(NumberedRow(destination: item.destination, title: name(of: item, in: group.section)))

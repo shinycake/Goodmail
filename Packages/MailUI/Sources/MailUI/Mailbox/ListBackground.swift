@@ -14,10 +14,13 @@ extension UIBackgroundConfiguration {
     }
 
     /// The background of a list's section header that stays pinned to the top as the list scrolls: solid, so the rows
-    /// scrolling under it don't show through its title.
+    /// scrolling under it don't show through its title. Only a fill: the list header's own background draws a rounded
+    /// outline on the Mac.
     static func pinnedHeader(in cell: UIView) -> UIBackgroundConfiguration {
         var background = UIBackgroundConfiguration.listHeader()
         background.backgroundColor = .systemBackground
+        background.strokeWidth = 0
+        background.cornerRadius = 0
         return background.kept(toSafeAreaOf: cell)
     }
 }

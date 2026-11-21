@@ -122,4 +122,25 @@ struct ListPickTests {
                 [.perform(.reportSpam), .perform(.trash)],
             ])
     }
+
+    @Test func anAssistivePressOnADesktopRowPicksItAsAClickDoes() async throws {
+        let (list, feed, routes) = list(.desktop)
+        let controller = MailboxViewController(viewModel: list)
+        controller.loadViewIfNeeded()
+        controller.view.frame = CGRect(x: 0, y: 0, width: 400, height: 800)
+        await show(ids, in: list, through: feed)
+        // Out of a window UIKit doesn't run the update that shows the rows; run it as it would.
+        controller.updateProperties()
+        let collectionView = try #require(controller.collectionView)
+        var row: ThreadRowContentView?
+        while row == nil {
+            collectionView.layoutIfNeeded()
+            row = collectionView.cellForItem(at: IndexPath(item: 1, section: 0))?.contentView as? ThreadRowContentView
+            if row == nil { await Task.yield() }
+        }
+        #expect(try #require(row).accessibilityActivate())
+        #expect(list.selection == .reading(ids[1]))
+        #expect(routes.all.last == .thread(ids[1], in: .inbox))
+        feed.finish()
+    }
 }

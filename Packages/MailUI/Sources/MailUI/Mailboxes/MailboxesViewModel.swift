@@ -59,6 +59,8 @@ public final class MailboxesViewModel {
     /// The rows with labels nested in them that the reader folded away, in the sidebar or the list of mailboxes. The
     /// list keeps it in step as rows fold, so the rows on show are known without it, for ⌘1 to ⌘9.
     @ObservationIgnored var folded: Set<Destination> = []
+    /// The sections a sidebar folded under their headers. The sidebar keeps it in step too, for ⌘1 to ⌘9.
+    @ObservationIgnored var foldedSections: Set<Section> = []
     /// The smart mailboxes, with their unread counts.
     public private(set) var smartDirectory = SmartMailboxDirectory()
     /// What every account's mailboxes wear, or the only account's color.

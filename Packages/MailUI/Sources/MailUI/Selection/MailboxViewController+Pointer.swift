@@ -22,6 +22,11 @@ extension MailboxViewController {
 
     private func click(at indexPath: IndexPath, _ click: ListSelection.Click) {
         guard let id = dataSource.itemIdentifier(for: indexPath) else { return }
+        self.click(id, click)
+    }
+
+    /// Picks `id` as a click on its row does.
+    func click(_ id: ThreadSummary.ID, _ click: ListSelection.Click) {
         // A click while a row's swipe actions are open just closes them, as a tap does.
         guard !swipes.close() else { return }
         // The keys go to the list after a click in it, as after a click in the reader they go there.

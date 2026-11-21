@@ -28,6 +28,16 @@ final class ThreadRowContentView: UIView, UIContentView {
     /// Takes no height of its own: the buttons that stand in for the time float on its line.
     private let quickSlot = UIView()
 
+    /// What a press from VoiceOver or another assistive app does, where the list's clicks aren't the collection
+    /// view's own selection; `nil` leaves the press to the collection view.
+    var activate: (() -> Void)?
+
+    override func accessibilityActivate() -> Bool {
+        guard let activate else { return super.accessibilityActivate() }
+        activate()
+        return true
+    }
+
     /// The buttons that take the time's place, and tint the row, while the pointer rests on it; `nil` shows the time.
     var quickActions: HoverActionsView? {
         didSet {

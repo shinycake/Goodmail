@@ -57,6 +57,20 @@ struct RowShortcutAnswerTests {
         #expect(!sidebar.numberedRows.rows.map(\.title).contains("2026"))
     }
 
+    @Test func rowsInAFoldedSectionTakeNoNumber() async throws {
+        let sidebar = await sidebar(labels: [label("L1", "Receipts")])
+        let before = sidebar.numberedRows.rows.map(\.title)
+        #expect(before.contains("Receipts"))
+        let section = try #require(
+            sidebar.groups.first { $0.items.contains { $0.title == "Receipts" } }?.section)
+        sidebar.show(section, folded: true)
+        let after = sidebar.numberedRows.rows.map(\.title)
+        #expect(!after.contains("Receipts"), "a folded section's rows are out of sight")
+        #expect(after.starts(with: before.prefix { $0 != "Receipts" }), "the rows above it keep their numbers")
+        sidebar.show(section, folded: false)
+        #expect(sidebar.numberedRows.rows.map(\.title) == before)
+    }
+
     @Test func goToOpensTheRowUnderItsName() async {
         var routes: [Route] = []
         let sidebar = await sidebar(routes: { routes.append($0) })

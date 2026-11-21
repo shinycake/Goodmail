@@ -1,6 +1,7 @@
 import Foundation
 import MailCore
 import Testing
+import UIKit
 
 @testable import MailUI
 
@@ -64,5 +65,31 @@ struct SidebarFoldingTests {
         #expect(groups.first { $0.section == .account(work) }?.unread == 6, "the Inbox, a label and the one in it")
         #expect(groups.first { $0.section == .account(home) }?.unread == 0)
         #expect(groups.first { $0.section == .mailboxes }?.unread == 9, "snoozed threads aren't unread")
+    }
+
+    @Test func aSidebarFoldedOnALastLaunchNumbersOnlyTheRowsOnShow() async throws {
+        let receipts = Mailbox(labelID: "Label_1", accountID: home.id)
+        let directory = MailboxDirectory(
+            labels: [MailboxDirectory.Label(mailbox: receipts, name: "Receipts", color: nil)], unreadCounts: [:])
+        let viewModel = MailboxesViewModel(
+            accounts: [home],
+            directory: {
+                AsyncThrowingStream {
+                    $0.yield(directory)
+                    $0.finish()
+                }
+            })
+        await viewModel.observe()
+        let section = try #require(viewModel.groups.first { $0.items.contains { $0.title == "Receipts" } }?.section)
+        FoldedSections(defaults: defaults).set(section, folded: true)
+
+        let sidebar = MailboxesViewController(
+            viewModel: viewModel, style: .sidebar, foldedSections: FoldedSections(defaults: defaults))
+        sidebar.loadViewIfNeeded()
+        sidebar.updateProperties()
+        #expect(!viewModel.numberedRows.rows.map(\.title).contains("Receipts"))
+
+        sidebar.remember(.header(section), folded: false)
+        #expect(viewModel.numberedRows.rows.map(\.title).contains("Receipts"), "unfolding brings its numbers back")
     }
 }

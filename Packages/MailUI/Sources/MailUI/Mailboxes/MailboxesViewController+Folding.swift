@@ -98,11 +98,13 @@ extension MailboxesViewController {
         dataSource.apply(snapshot, animatingDifferences: false)
     }
 
-    /// Keeps what the reader folded or unfolded: a section for the next launch, a row's labels in the model, which
-    /// leaves them out of the rows ⌘1 to ⌘9 reach.
+    /// Keeps what the reader folded or unfolded: a section for the next launch, and a section or a row's labels in the
+    /// model, which leaves their rows out of the ones ⌘1 to ⌘9 reach.
     func remember(_ row: SidebarRow, folded: Bool) {
         switch row {
-        case .header(let section): foldedSections.set(section, folded: folded)
+        case .header(let section):
+            foldedSections.set(section, folded: folded)
+            viewModel.show(section, folded: folded)
         case .mailbox(let item):
             if folded { viewModel.folded.insert(item.destination) } else { viewModel.folded.remove(item.destination) }
         }

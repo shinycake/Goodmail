@@ -154,9 +154,12 @@ public final class MailboxesViewController: UIViewController {
             let header = SidebarRow.header(group.section)
             section.append([header])
             append(group.items, to: header)
-            if !foldedSections.isFolded(group.section) { section.expand([header]) }
+            let isFolded = foldedSections.isFolded(group.section)
+            if !isFolded { section.expand([header]) }
+            viewModel.show(group.section, folded: isFolded)
         } else {
             append(group.items, to: nil)
+            viewModel.show(group.section, folded: false)
         }
         return section
     }

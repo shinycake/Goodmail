@@ -387,6 +387,9 @@ public final class MailboxViewController: UIViewController {
                 }
                 cell.backgroundConfiguration = background.kept(toSafeAreaOf: cell)
             }
+            // A press from an assistive app picks the row as a click does, since a desktop list's clicks are its own.
+            (cell.contentView as? ThreadRowContentView)?.activate =
+                picksWithPointer ? { [weak self] in self?.click(id, .plain) } : nil
             // VoiceOver reaches the swipe actions through the rotor.
             cell.accessibilityCustomActions =
                 (swipeActions(for: id, on: .right)

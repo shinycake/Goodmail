@@ -30,7 +30,10 @@ extension ThreadViewController {
         ])
         find.targets = { [weak self] in self?.openCards ?? [] }
         find.onMatch = { [weak self] target, box in self?.reveal(box, in: target) }
-        find.onChange = { [weak self] in self?.findBar.show($0) }
+        find.onChange = { [weak self] state in
+            self?.findBar.show(state)
+            self?.makeRoom(forFind: state != .closed)
+        }
         findBar.onQuery = { [weak self] in self?.find.setQuery($0) }
         findBar.onStep = { [weak self] in self?.find.step(backwards: $0) }
         findBar.onDone = { [weak self] in self?.find.close() }
@@ -45,11 +48,16 @@ extension ThreadViewController {
     }
 
     private static let findBarGap: CGFloat = 8
-    private static let findBarHeight: CGFloat = 44
 
-    /// How much of the top of the scroll view the find bar covers.
-    private var findClearance: CGFloat {
-        find.isOpen ? Self.findBarHeight + Self.findBarGap * 2 : 0
+    /// While the find bar shows, the conversation starts below it, so the bar never covers the subject. A reader at
+    /// the top stays at the top as the room opens and closes.
+    private func makeRoom(forFind isOpen: Bool) {
+        view.layoutIfNeeded()
+        let room = isOpen ? findBar.bounds.height + Self.findBarGap * 2 : 0
+        guard scrollView.contentInset.top != room else { return }
+        let atTop = scrollView.contentOffset.y <= -scrollView.adjustedContentInset.top + 1
+        scrollView.contentInset.top = room
+        if atTop { scrollView.contentOffset.y = -scrollView.adjustedContentInset.top }
     }
 
     func showFind() {
@@ -62,10 +70,10 @@ extension ThreadViewController {
         view.layoutIfNeeded()
         let match = target.convert(box, to: scrollView)
         let inset = scrollView.adjustedContentInset
-        let top = scrollView.contentOffset.y + inset.top + findClearance
+        let top = scrollView.contentOffset.y + inset.top
         let bottom = scrollView.contentOffset.y + scrollView.bounds.height - inset.bottom
         guard match.minY < top || match.maxY > bottom else { return }
-        let wanted = match.midY - (bottom - top) / 2 - inset.top - findClearance
+        let wanted = match.midY - (bottom - top) / 2 - inset.top
         let lowest = -inset.top
         let highest = max(lowest, scrollView.contentSize.height + inset.bottom - scrollView.bounds.height)
         scrollView.setContentOffset(
