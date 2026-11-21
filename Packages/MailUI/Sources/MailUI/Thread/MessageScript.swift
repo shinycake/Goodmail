@@ -1,4 +1,5 @@
 import Foundation
+import MailCore
 
 /// Runs in Goodmail's own content world after each message loads. Email JavaScript stays off (ADR-003); this script
 /// is ours, and the sender's page can neither see nor call it.
@@ -18,9 +19,10 @@ nonisolated enum MessageScript {
         case paper
     }
 
-    /// The parts after `shared`, in the order they run. The order matters for what each leaves in the page: the fold
-    /// comes before contrast, which skips our fold control, and layout comes last, since it measures the finished page.
-    private static let parts = ["direction", "fold", "fonts", "contrast", "dark", "links", "find", "layout"]
+    /// The parts after `shared`, in the order they run. The order matters for what each leaves in the page: size comes
+    /// first, so fonts reads the body's pinned system font, the fold comes before contrast, which skips our fold
+    /// control, and layout comes last, since it measures the finished page.
+    private static let parts = ["size", "direction", "fold", "fonts", "contrast", "dark", "links", "find", "layout"]
 
     /// The script after its header, read from the bundle once. A part missing from the bundle is a broken build, so it
     /// stops the app rather than show mail without its script.
@@ -53,6 +55,11 @@ nonisolated enum MessageScript {
             \(body)
             })();
             """
+    }
+
+    /// Zooms a loaded reader page to `zoom`; the page reports its new height.
+    static func zoom(to zoom: ReaderZoom) -> String {
+        "window.goodmailZoom(\(zoom.factor))"
     }
 
     private static func jsonString(_ text: String) -> String {

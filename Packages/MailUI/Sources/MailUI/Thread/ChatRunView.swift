@@ -179,7 +179,7 @@ struct ChatBubbleShape: Equatable {
 
 /// The sender's picture, or their initials in a small neutral circle, beside their last bubble. Tapping it shows who that really is:
 /// the name over the address, which a name in a chat could otherwise hide.
-final class ChatAvatarView: UIButton {
+final class ChatAvatarView: ConfiguredButton {
     static let diameter: CGFloat = 28
     private let initials = UILabel()
     private let picture = UIImageView()

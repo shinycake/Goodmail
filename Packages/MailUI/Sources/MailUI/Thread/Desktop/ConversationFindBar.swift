@@ -9,8 +9,8 @@ final class ConversationFindBar: UIView {
 
     private let field = UISearchTextField()
     private let status = UILabel()
-    private let previous = UIButton(configuration: .plain())
-    private let nextMatch = UIButton(configuration: .plain())
+    private let previous = ConfiguredButton(configuration: .plain())
+    private let nextMatch = ConfiguredButton(configuration: .plain())
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -43,7 +43,7 @@ final class ConversationFindBar: UIView {
             title: String(
                 localized: "Next Match", table: "Thread", bundle: .module,
                 comment: "Find bar button, with its key ⌘G in the tooltip"))
-        let done = UIButton(
+        let done = ConfiguredButton(
             configuration: .plain(),
             primaryAction: UIAction(
                 title: String(localized: "Done", table: "Thread", bundle: .module, comment: "Closes the find bar")

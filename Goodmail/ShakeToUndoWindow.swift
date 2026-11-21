@@ -40,12 +40,12 @@ final class ShakeToUndoWindow: UIWindow {
             }
     }
 
-    /// The menu bar's commands are enabled only while this window can do them, and so are the system items that carry
-    /// Apple Mail's keys for one of them, as Find and Replace for Search Mail.
+    /// The window takes every command of its own; `validate(_:)` dims a menu bar item it can't do now. The menu bar asks
+    /// with its own item as the sender, not the command, so the sender can't say which command it is. The system items
+    /// that carry Apple Mail's keys for a command, as Find and Replace for Search Mail, are enabled only while this
+    /// window can do that command.
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
-        if action == #selector(performCommand(_:)) {
-            return (sender as? UICommand).flatMap(MailCommand.init).flatMap(perform(for:)) != nil
-        }
+        if action == #selector(performCommand(_:)) { return true }
         // Without a menu bar, the command has the keys itself, and the system item isn't there to answer.
         if let item = SystemMenuItem(action: action) {
             return MailMenus.inMenuBar && item.command.flatMap(perform(for:)) != nil
@@ -53,26 +53,11 @@ final class ShakeToUndoWindow: UIWindow {
         return super.canPerformAction(action, withSender: sender)
     }
 
-    /// Titles and checks a command's menu item as the screen that would do it says.
+    /// Enables, titles and checks a command's menu item as the screen that would do it says.
     override func validate(_ command: UICommand) {
         super.validate(command)
         guard let mailCommand = MailCommand(command) else { return }
-        command.state = .off
-        // A number past the sidebar's last row has nothing to name, so its item goes from the menu.
-        var hidden = false
-        switch answer(to: mailCommand) {
-        case .ready(_, let title, let isOn):
-            command.title = title ?? mailCommand.title
-            command.state = isOn ? .on : .off
-        case .unavailable:
-            command.title = mailCommand.title
-        case .refused(let title):
-            command.title = title
-        case .notHere:
-            command.title = mailCommand.title
-            hidden = mailCommand.rowShortcut != nil
-        }
-        if hidden { command.attributes.insert(.hidden) } else { command.attributes.remove(.hidden) }
+        command.show(answer(to: mailCommand), as: mailCommand)
     }
 
     /// In the menu bar, Find and Replace holds ⌥⌘F, Apple Mail's Search Mail, so it searches the mail while no text
@@ -97,16 +82,6 @@ final class ShakeToUndoWindow: UIWindow {
 
     override func findPrevious(_ sender: Any?) {
         performSystemItem(.findPrevious)
-    }
-
-    /// Format > Font > Bigger and Smaller zoom the reader while no text view has the keyboard and takes them as its
-    /// font size.
-    override func increaseSize(_ sender: Any?) {
-        performSystemItem(.biggerText)
-    }
-
-    override func decreaseSize(_ sender: Any?) {
-        performSystemItem(.smallerText)
     }
 
     @objc func performCommand(_ command: UICommand) {

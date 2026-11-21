@@ -10,7 +10,7 @@ struct PillSpot {
 /// minimized. Hidden while there are none. Tapping it opens them.
 final class DraftsPillItem {
     let item: UIBarButtonItem
-    private let button = UIButton(configuration: .plain())
+    private let button = ConfiguredButton(configuration: .plain())
     private weak var site: (any DraftsPillSite)?
     private let opened: () -> Void
     /// What it shows. Zero hides the item.

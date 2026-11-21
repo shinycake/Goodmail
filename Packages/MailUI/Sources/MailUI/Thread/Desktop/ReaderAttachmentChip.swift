@@ -4,7 +4,7 @@ import UIKit
 /// An attachment's capsule. Touch opens it with a tap. On a desktop window a click selects it, as in the Finder: it
 /// takes the keyboard and an outline, Space or ⌘Y previews it in Quick Look, a double-click opens it, and the context
 /// menu offers Save to Downloads. Whether it is selected is whether it is the first responder.
-final class ReaderAttachmentChip: UIButton {
+final class ReaderAttachmentChip: ConfiguredButton {
     let attachment: Attachment
     /// Opens the attachment's preview.
     var onOpen: (() -> Void)?

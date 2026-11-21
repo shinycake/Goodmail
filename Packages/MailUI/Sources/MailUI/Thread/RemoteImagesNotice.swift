@@ -7,8 +7,8 @@ final class RemoteImagesNotice: UIView {
     var onLoad: (() -> Void)?
     var onTrust: ((ImageTrustRule) -> Void)?
 
-    private let load = UIButton(configuration: .gray())
-    private let more = UIButton(configuration: .gray())
+    private let load = ConfiguredButton(configuration: .gray())
+    private let more = ConfiguredButton(configuration: .gray())
 
     override init(frame: CGRect) {
         super.init(frame: frame)

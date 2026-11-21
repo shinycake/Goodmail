@@ -137,8 +137,9 @@ public enum MailCommand: String, CaseIterable, Sendable {
         // Goodmail's own: Mail has no chat layout.
         case .switchLayout: .own(KeyChord([.command, .shift], "k"))
         // Zoom In and Out ride on Format > Font's Bigger and Smaller, which hold ⌘+ and ⌘−; the reader answers them.
-        case .zoomIn: .system(.biggerText)
-        case .zoomOut: .system(.smallerText)
+        // Apple Mail's keys, which the composer answers by growing or shrinking its text.
+        case .zoomIn: .own(KeyChord(.command, "+"))
+        case .zoomOut: .own(KeyChord(.command, "-"))
         case .actualSize: .own(KeyChord(.command, "0"))
         // Mail's Filter is ⌘L too, where Goodmail's Star takes ⇧⌘L.
         case .toggleFilter: .own(KeyChord(.command, "l"))

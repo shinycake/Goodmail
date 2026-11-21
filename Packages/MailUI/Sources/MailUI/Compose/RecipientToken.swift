@@ -3,7 +3,7 @@ import UIKit
 
 /// One recipient in a field, as a tinted pill with the person's name. A tap selects it and opens its menu, which
 /// names the address and offers Copy, a move to another field and Remove. An address that can't be sent to is red.
-final class RecipientToken: UIButton {
+final class RecipientToken: ConfiguredButton {
     let contact: Contact
 
     init(contact: Contact, menu: UIMenu) {

@@ -61,10 +61,10 @@ public struct KeyChord: Hashable, Sendable, CustomStringConvertible {
         KeyChord([.command, .shift], "g"), KeyChord(.command, "e"),
         // Edit > Spelling: Show Spelling and Grammar, Check Document Now.
         KeyChord(.command, ":"), KeyChord(.command, ";"),
-        // Format > Font: Show Fonts, Bold, Italic, Underline, Bigger, Smaller, Show Colors, Copy Style, Paste Style.
+        // Format > Font: Show Fonts, Bold, Italic, Underline, Show Colors, Copy Style, Paste Style. Bigger and Smaller
+        // give up ⌘+ and ⌘- to Zoom In and Zoom Out, as in Apple Mail (`MailMenus.build`).
         KeyChord(.command, "t"), KeyChord(.command, "b"), KeyChord(.command, "i"), KeyChord(.command, "u"),
-        KeyChord(.command, "+"), KeyChord(.command, "="), KeyChord(.command, "-"), KeyChord([.command, .shift], "c"),
-        KeyChord([.command, .option], "c"), KeyChord([.command, .option], "v"),
+        KeyChord([.command, .shift], "c"), KeyChord([.command, .option], "c"), KeyChord([.command, .option], "v"),
         // Format > Text: Align Left, Center, Right.
         KeyChord(.command, "{"), KeyChord(.command, "|"), KeyChord(.command, "}"),
         // View: Show Sidebar, Enter Full Screen, Show Toolbar.
@@ -92,10 +92,6 @@ public enum SystemMenuItem: CaseIterable, Sendable {
     case findNext
     /// Edit > Find > Find Previous.
     case findPrevious
-    /// Format > Font > Bigger, which the reader answers by zooming in.
-    case biggerText
-    /// Format > Font > Smaller.
-    case smallerText
 
     public var keys: KeyChord {
         switch self {
@@ -106,10 +102,6 @@ public enum SystemMenuItem: CaseIterable, Sendable {
         case .find: KeyChord(.command, "f")
         case .findNext: KeyChord(.command, "g")
         case .findPrevious: KeyChord([.command, .shift], "g")
-        // ⌘= and not ⌘+, which is typed with Shift and so reaches a key command as another chord; the menu bar's own
-        // item answers to both.
-        case .biggerText: KeyChord(.command, "=")
-        case .smallerText: KeyChord(.command, "-")
         }
     }
 }

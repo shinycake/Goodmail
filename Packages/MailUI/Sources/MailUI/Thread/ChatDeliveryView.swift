@@ -34,7 +34,7 @@ extension ChatTranscript.Delivery {
 
 /// The caption under my reply while it is on its way: a spinner and "Sending…", a clock and when it is scheduled
 /// for, or a red "Not Delivered". Scheduled and failed ones open a menu of what to do with the reply.
-final class ChatDeliveryView: UIButton {
+final class ChatDeliveryView: ConfiguredButton {
     /// What the caption's menu does with a reply.
     struct Actions {
         var retry: (Draft.ID) -> Void

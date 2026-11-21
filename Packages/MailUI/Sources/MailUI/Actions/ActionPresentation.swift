@@ -235,7 +235,7 @@ extension ThreadAction {
 final class UndoToastView: UIView {
     var onUndo: (() -> Void)?
     private let label = UILabel()
-    private let undoButton = UIButton(configuration: .plain())
+    private let undoButton = ConfiguredButton(configuration: .plain())
 
     override init(frame: CGRect) {
         super.init(frame: frame)

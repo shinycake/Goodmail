@@ -1,4 +1,5 @@
 import MailCore
+import UIKit
 
 nonisolated extension SwipeArrangement {
     /// The buttons a row shows while the pointer rests on it, in the order the reader's swipes come: the left side's
@@ -32,14 +33,14 @@ struct HoverAction {
         let title: String
         let symbol: String
         let tooltip: String
-        /// Whether the glyph is red: for the action that deletes.
-        let isDestructive: Bool
+        /// The action's own color, which the glyph lights up in under the pointer: the color its full swipe fills with.
+        let color: UIColor
 
         init(title: String, symbol: String, choice: SwipeChoice) {
             self.title = title
             self.symbol = symbol
             tooltip = Self.tooltip(title: title, command: choice.command)
-            isDestructive = choice == .trash
+            color = choice.color
         }
 
         /// The action's name with the command's keys, as "Archive ⌃⌘A"; the name alone for a command without keys.

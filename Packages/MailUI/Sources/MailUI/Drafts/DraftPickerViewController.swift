@@ -13,7 +13,7 @@ final class DraftPickerViewController: UIViewController {
     private let dimming = UIVisualEffectView(effect: nil)
     private let scrollView = UIScrollView()
     private let cards = UIStackView()
-    private let newMessage = UIButton(configuration: .glass())
+    private let newMessage = ConfiguredButton(configuration: .glass())
     /// How much of each card behind shows above the next.
     private static let peek: CGFloat = 150
     private static let cardHeight: CGFloat = 300
