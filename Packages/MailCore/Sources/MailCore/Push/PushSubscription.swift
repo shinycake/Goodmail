@@ -6,6 +6,24 @@ public enum APNsEnvironment: String, Codable, Sendable {
     case sandbox, production
 }
 
+extension APNsEnvironment {
+    /// Development-signed builds carry a provisioning profile with `aps-environment` set to development, and get
+    /// sandbox tokens. TestFlight and App Store builds carry no profile and get production ones.
+    public init(provisioningProfile profile: String?) {
+        let development = #/<key>aps-environment</key>\s*<string>development</string>/#
+        self = profile?.contains(development) == true ? .sandbox : .production
+    }
+
+    /// Reads the profile of the app at `bundle`: `embedded.mobileprovision` on iPhone and iPad, and
+    /// `Contents/embedded.provisionprofile` in a Mac app, where the first isn't.
+    public init(bundleAt bundle: URL) {
+        let profile = ["embedded.mobileprovision", "Contents/embedded.provisionprofile"].lazy
+            .compactMap { try? String(contentsOf: bundle.appending(path: $0), encoding: .isoLatin1) }
+            .first
+        self.init(provisioningProfile: profile)
+    }
+}
+
 /// This device's APNs address, with its paired watch's when the watch app has one (ADR-023).
 public struct DeviceToken: Equatable, Sendable {
     /// The token as lowercase hex, as the relay takes it.

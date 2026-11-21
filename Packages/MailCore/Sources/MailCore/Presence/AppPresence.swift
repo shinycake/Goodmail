@@ -1,4 +1,4 @@
-/// Whether anyone is looking at the app, and whether the system may stop it (ADR-033). The app's `PresenceTracker`
+/// Whether anyone is looking at the app, and whether the system may stop it (ADR-033). `PresenceTracker`
 /// holds the one value and makes every change through `after(_:policy:)`. Sync, the change watches, the database and
 /// push follow it, and none of them reads the app's lifecycle itself.
 public enum AppPresence: Sendable, Equatable {

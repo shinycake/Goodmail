@@ -57,6 +57,9 @@ final class SwipeActionsController: NSObject {
         super.init()
         pan.addTarget(self, action: #selector(handlePan))
         pan.delegate = self
+        // A Mac trackpad's two-finger swipe comes as scrolling, not touches. Only a mostly sideways one swipes a row
+        // (`gestureRecognizerShouldBegin`); the rest still scrolls the list.
+        pan.allowedScrollTypesMask = .continuous
         collectionView.addGestureRecognizer(pan)
     }
 

@@ -12,13 +12,6 @@ enum PushConfiguration {
         return URL(string: value)
     }()
 
-    /// Development-signed builds carry a provisioning profile with `aps-environment` set to development, and get
-    /// sandbox tokens. TestFlight and App Store builds carry no profile and get production ones.
-    static let environment: APNsEnvironment = {
-        guard let url = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision"),
-            let profile = try? String(contentsOf: url, encoding: .isoLatin1)
-        else { return .production }
-        let development = #/<key>aps-environment</key>\s*<string>development</string>/#
-        return profile.contains(development) ? .sandbox : .production
-    }()
+    /// Which APNs server this build's tokens belong to, from its provisioning profile.
+    static let environment = APNsEnvironment(bundleAt: Bundle.main.bundleURL)
 }

@@ -13,6 +13,9 @@ final class PushCoordinator {
     private let routes: IntentRoutes
     /// The latest update of the accounts' push subscriptions. A newer one replaces it, since it covers the same.
     private var update: Task<Void, Never>?
+    /// Brings the subscriptions up to date on a timer where the app keeps running, for as long as this coordinator
+    /// lives. `nil` where coming back to the app does it (`PresencePolicy.pushRenewalInterval`).
+    private var renewal: Task<Void, Never>?
     /// The latest clearing of placeholder alerts.
     private var placeholders: Task<Void, Never>?
     /// Keeps the app badge on the unread count for the app's lifetime.
@@ -51,6 +54,26 @@ final class PushCoordinator {
         }
         if presence.presence == .attended { clearPlaceholders() }
         updateSubscriptions()
+        if let interval = presence.policy.pushRenewalInterval { renewal = renew(every: interval) }
+    }
+
+    isolated deinit {
+        renewal?.cancel()
+    }
+
+    /// Brings the subscriptions up to date every `interval` until cancelled. A Mac app can run for days without the
+    /// reader coming back to it, which is when the rest of the app brings them up to date.
+    private func renew(every interval: Duration) -> Task<Void, Never> {
+        Task { [weak self] in
+            while true {
+                do {
+                    try await Task.sleep(for: interval)
+                } catch {
+                    return
+                }
+                self?.updateSubscriptions()
+            }
+        }
     }
 
     func didRegister(deviceToken: Data) {
