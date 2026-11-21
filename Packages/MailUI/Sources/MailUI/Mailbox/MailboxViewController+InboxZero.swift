@@ -13,12 +13,11 @@ extension MailboxViewController {
             scene: UIHostingConfiguration { InboxZeroView(model: model) }.margins(.all, 0).makeContentView())
     }
 
-    /// The scene to show in an empty Inbox, or `nil` where the Inbox keeps today's "No Mail": a category other than
-    /// Primary, and an account with a sync problem, whose empty Inbox can't be vouched for.
+    /// The scene to show in an empty Inbox, or `nil` where the Inbox keeps "No Mail": a category other than Primary.
+    /// An account with a sync problem still gets the scene: its mail stays in the store, so an empty Inbox is the
+    /// last one it saw, and the toolbar's problem status already says it may be out of date.
     func inboxZeroState() -> EmptyState? {
-        guard inboxZero != nil, viewModel.category == nil || viewModel.category == .primary,
-            viewModel.problems.isEmpty
-        else { return nil }
+        guard inboxZero != nil, viewModel.category == nil || viewModel.category == .primary else { return nil }
         let pointing = viewModel.categoryWithUnread.map {
             InboxZeroPointer(category: $0, unread: viewModel.categoryUnreadCounts[$0, default: 0])
         }
