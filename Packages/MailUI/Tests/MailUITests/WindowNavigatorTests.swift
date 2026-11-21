@@ -160,6 +160,25 @@ struct WindowNavigatorTests {
         #expect(next.announcesOnAppear, "after Archive, VoiceOver goes to the next")
     }
 
+    @Test func thePushedReaderStepsThroughTheListAndDimsAtTheEnds() throws {
+        let navigator = navigator(store: Store())
+        navigator.send(.route(.thread(Self.id("b"), in: .inbox)))
+        let reader = try #require(navigator.screens?.reader)
+        let steps = try #require(reader.steps, "a reader on the stack offers the chevrons")
+        #expect(steps.leads(.previous) && steps.leads(.next))
+        steps.take(.next)
+        #expect(navigator.state.reading == Reading(Self.id("c"), in: .inbox))
+        let last = try #require(navigator.screens?.reader)
+        #expect(last.announcesOnAppear, "VoiceOver goes to the new conversation")
+        #expect(last.steps?.leads(.next) == false, "the bottom row")
+        guard case .ready(let previous, _, _) = navigator.screens?.split.answer(to: .previousThread) else {
+            Issue.record("Previous Conversation should be ready")
+            return
+        }
+        previous()
+        #expect(navigator.state.reading?.thread == Self.id("b"))
+    }
+
     // MARK: Waiting for the window
 
     /// An uncover hook that finishes only when told to, as a dismissal animates.

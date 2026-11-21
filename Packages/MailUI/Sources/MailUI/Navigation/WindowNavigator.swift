@@ -66,8 +66,12 @@ public final class WindowNavigator {
 
     /// Shows the viewer in `split`, with new screens made by `makers`, in the place of any shown before.
     public func show(in split: MailSplitViewController, making makers: MailScreens.Makers) {
+        let steps = ConversationSteps(
+            leads: { [weak self] in self?.leads($0) == true }, take: { [weak self] in self?.take($0) })
+        split.steps = steps
         let screens = MailScreens(
-            state, row: navigation.foundRow, in: split, arrangement: context().arrangement, making: makers)
+            state, row: navigation.foundRow, in: split, arrangement: context().arrangement, steps: steps,
+            making: makers)
         screens.wentBack = { [weak self] in self?.send(.back(to: $0)) }
         self.screens = screens
         if !screens.readable { readerUnmade() }
@@ -113,6 +117,16 @@ public final class WindowNavigator {
             stateChanged(state)
         }
         perform(effects[...])
+    }
+
+    /// Whether Next or Previous Conversation leads anywhere from what is read, in the list on show.
+    private func leads(_ step: WindowNavigation.Step) -> Bool {
+        navigation.conversation(step, in: screens?.front?.navigationFront) != nil
+    }
+
+    /// Next or Previous Conversation, through the list on show.
+    private func take(_ step: WindowNavigation.Step) {
+        send(.step(step, front: screens?.front?.navigationFront))
     }
 
     /// The reader for what is read couldn't be made, as for a conversation whose account just went: it is gone.

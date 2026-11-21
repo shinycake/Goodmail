@@ -104,12 +104,15 @@ public struct WindowNavigation: Equatable, Sendable {
         case filter(ListFilter)
         /// Search began (`true`) or ended over the list, so the rows the reader goes on in changed.
         case searching(Bool)
+        /// Next or Previous Conversation, through `front`, the list on show.
+        case step(Step, front: Front?)
 
-        /// Whether the window moves by itself for this, rather than as the reader moved it: after an action or Undo,
-        /// which VoiceOver is told of, as it isn't of a tap, a click or Back.
+        /// Whether the window moves by itself for this, rather than as the reader moved it by a tap, a click or Back,
+        /// which VoiceOver follows on its own: after an action or Undo, or a step to the next or previous
+        /// conversation, which puts a reader in another's place, so VoiceOver is told of it.
         public var movesByItself: Bool {
             switch self {
-            case .changed, .undone: true
+            case .changed, .undone, .step: true
             case .route, .launched, .found, .missing, .unreachable, .back, .accounts, .lists, .handedOff, .category,
                 .filter, .searching:
                 false
@@ -194,6 +197,8 @@ public struct WindowNavigation: Equatable, Sendable {
         case .searching(let on):
             searching = on
             departure = nil
+        case .step(let step, let front):
+            take(step, in: front)
         }
         return []
     }

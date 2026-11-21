@@ -46,6 +46,36 @@ struct CommandRoutingTests {
         #expect(thread.performed == [.reply])
     }
 
+    @Test("A reader pushed on a narrow stack offers Next and Previous, from the mail screens around it")
+    func pushedReaderOffersBoth() {
+        let stack = UINavigationController(rootViewController: list)
+        stack.pushViewController(thread, animated: false)
+        var taken: [WindowNavigation.Step] = []
+        let root = StepsSplit(steps: ConversationSteps(leads: { _ in true }, take: { taken.append($0) }))
+        root.setViewController(stack, for: .compact)
+        let offered = Set(keyCommands(in: root).compactMap { MailCommand($0) })
+        #expect(offered.isSuperset(of: [.nextThread, .previousThread, .reply]))
+        perform(.nextThread, in: root)
+        perform(.previousThread, in: root)
+        #expect(taken == [.next, .previous])
+        perform(.reply, in: root)
+        #expect(thread.performed == [.reply], "the reader still answers first")
+    }
+
+    @Test("At an end, the way that leads nowhere is dimmed")
+    func endDimsTheStep() {
+        let root = StepsSplit(steps: ConversationSteps(leads: { $0 == .next }, take: { _ in }))
+        root.setViewController(UINavigationController(rootViewController: thread), for: .compact)
+        guard case .unavailable = CommandRouting.answer(to: .previousThread, in: root) else {
+            Issue.record("Previous Conversation should be dimmed at the top")
+            return
+        }
+        guard case .ready = CommandRouting.answer(to: .nextThread, in: root) else {
+            Issue.record("Next Conversation should be ready")
+            return
+        }
+    }
+
     @Test("A presented screen hides the screens behind it")
     func presentedAnswersAlone() {
         let composer = StubScreen(answering: [.send])
@@ -160,6 +190,25 @@ private final class StubSplit: UISplitViewController {
     required init?(coder: NSCoder) { fatalError("Programmatic UI only") }
 
     override var isCollapsed: Bool { folded }
+}
+
+/// A collapsed split view that offers Next and Previous Conversation through `steps`, as the window's mail screens do.
+private final class StepsSplit: UISplitViewController, CommandScreen {
+    private let steps: ConversationSteps
+
+    init(steps: ConversationSteps) {
+        self.steps = steps
+        super.init(style: .tripleColumn)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("Programmatic UI only") }
+
+    override var isCollapsed: Bool { true }
+
+    func answer(to command: MailCommand) -> CommandAnswer {
+        steps.answer(to: command)
+    }
 }
 
 /// A root that shows `presenting` over its children without a window.

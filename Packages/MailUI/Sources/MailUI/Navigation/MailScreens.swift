@@ -62,6 +62,8 @@ public final class MailScreens: NSObject {
 
     public let split: MailSplitViewController
     private let makers: Makers
+    /// Next and Previous Conversation, which a reader pushed on the stack offers as chevrons in its bar.
+    private let steps: ConversationSteps?
     /// Back on the stack, by its button or edge swipe.
     public var wentBack: ((WindowNavigation.Back) -> Void)?
     /// The arrangement shown last.
@@ -76,14 +78,16 @@ public final class MailScreens: NSObject {
     /// The stack's screens as last set, so a change the stack made itself is told from one made here.
     private var stackScreens: [UIViewController] = []
 
-    /// Builds both arrangements for `state`, in `split`, `arrangement` on show. `row` is the conversation read's, when
-    /// the window has it. A reader that can't be made leaves the list showing, and `readable` says so.
+    /// Builds both arrangements for `state`, in `split`, `arrangement` on show, a reader pushed on the stack offering
+    /// `steps`. `row` is the conversation read's, when the window has it. A reader that can't be made leaves the list
+    /// showing, and `readable` says so.
     public init(
         _ state: WindowState, row: ThreadSummary?, in split: MailSplitViewController,
-        arrangement: WindowNavigation.Arrangement, making makers: Makers
+        arrangement: WindowNavigation.Arrangement, steps: ConversationSteps? = nil, making makers: Makers
     ) {
         self.split = split
         self.makers = makers
+        self.steps = steps
         self.arrangement = arrangement
         super.init()
         stack.delegate = self
@@ -218,6 +222,9 @@ public final class MailScreens: NSObject {
                     continue
                 }
                 arranged.reader = made
+                if made.screen.steps == nil { made.screen.steps = steps }
+                // Where the chevrons lead may have changed with the rest.
+                made.screen.setNeedsUpdateProperties()
                 screens.append(made.screen)
             }
         }

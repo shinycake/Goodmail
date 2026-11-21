@@ -33,6 +33,18 @@ public final class ThreadViewController: UIViewController {
     /// The classic letter just sent and where scrolling to it left the view, until its body takes its height.
     private var followedLetter: FollowedLetter?
     let layoutItem = UIBarButtonItem()
+    /// The chevrons to the conversations above and below, in a narrow window's bar (`steps`).
+    let previousItem = UIBarButtonItem()
+    let nextItem = UIBarButtonItem()
+    /// Next and Previous Conversation, which a reader pushed in a narrow window offers as chevrons in its bar, as Mail
+    /// does; `nil` beside the list, where the list shows the way.
+    public var steps: ConversationSteps? {
+        didSet {
+            guard isViewLoaded else { return }
+            placeShareItem()
+            setNeedsUpdateProperties()
+        }
+    }
     /// The window's toolbar over the letter on a desktop window, as last laid out; `nil` where the bar at the bottom
     /// holds the controls.
     var windowToolbar: WindowToolbar?
@@ -110,6 +122,7 @@ public final class ThreadViewController: UIViewController {
         stack.addArrangedSubview(header)
         configureToolbar()
         layoutItem.primaryAction = UIAction { [weak self] _ in self?.viewModel.switchLayout() }
+        configureStepItems()
         placeShareItem()
         registerForTraitChanges([UITraitHorizontalSizeClass.self, InteractionStyleTrait.self]) { (self: Self, _) in
             self.placeShareItem()
@@ -334,7 +347,9 @@ public final class ThreadViewController: UIViewController {
     private func placeShareItem() {
         if usesWindowToolbar { return placeWindowToolbar() }
         let regular = traitCollection.horizontalSizeClass == .regular
-        navigationItem.rightBarButtonItems = regular ? [layoutItem, shareItem] : [layoutItem]
+        // The chevrons sit at the trailing end, the one below after the one above, in every language.
+        let stepping = steps == nil ? [] : [nextItem, previousItem]
+        navigationItem.rightBarButtonItems = stepping + (regular ? [layoutItem, shareItem] : [layoutItem])
         var items = (toolbarItems ?? []).filter { $0 !== shareItem }
         if !regular, let reply = items.indices.last { items.insert(shareItem, at: reply - 1) }
         toolbarItems = items
@@ -352,6 +367,7 @@ public final class ThreadViewController: UIViewController {
             toolbarItems = items
         }
         updateWindowToolbar()
+        updateStepItems()
         let messages = viewModel.messages
         metadata.text = [viewModel.accountEmail, Self.countText(messages.count)]
             .filter { !$0.isEmpty }.joined(separator: " · ")
