@@ -4,6 +4,7 @@ public import Foundation
 /// the window is the whole viewer or that one thread alone. The scene coordinator keeps it in step as the reader
 /// moves, rebuilds either arrangement from it when the window changes width, and saves it so the system can restore
 /// the window or hand it off to another device.
+/// A state saved before windows had a filter reads as unfiltered.
 public struct WindowState: Equatable, Codable, Sendable {
     /// The list beside the mailboxes, and the thread open from it.
     public enum List: Equatable, Codable, Sendable {
@@ -23,6 +24,8 @@ public struct WindowState: Equatable, Codable, Sendable {
     public var list: List
     /// The Inbox's category, so a rebuilt Inbox opens on it.
     public var category: InboxCategory
+    /// What the list is filtered by. It stays when the window moves to another mailbox, as the category does.
+    public var filter = ListFilter.none
     /// How far a narrow window's one stack goes. Not saved: a restored or handed-off window opens on its list.
     public var depth = Depth.list
     /// What the window lays out. A message window always has its thread open: the methods that close the thread, or
@@ -47,14 +50,16 @@ public struct WindowState: Equatable, Codable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case list, category, layout
+        case list, category, filter, layout
     }
 
     public init(
-        list: List = .mailbox(.inbox, thread: nil), category: InboxCategory = .primary, depth: Depth = .list
+        list: List = .mailbox(.inbox, thread: nil), category: InboxCategory = .primary,
+        filter: ListFilter = .none, depth: Depth = .list
     ) {
         self.list = list
         self.category = category
+        self.filter = filter
         self.depth = depth
     }
 
@@ -63,7 +68,8 @@ public struct WindowState: Equatable, Codable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.init(
             list: try container.decode(List.self, forKey: .list),
-            category: try container.decode(InboxCategory.self, forKey: .category))
+            category: try container.decode(InboxCategory.self, forKey: .category),
+            filter: try container.decodeIfPresent(ListFilter.self, forKey: .filter) ?? .none)
         self = laidOut(as: try container.decodeIfPresent(Layout.self, forKey: .layout) ?? .viewer)
     }
 

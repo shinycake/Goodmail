@@ -45,6 +45,27 @@ struct MailConditionTests {
         return MailFacts(thread: thread, account: account)
     }
 
+    @Test func aListedConversationIsUnreadWhenTheListSaysSo() {
+        // Providers leave UNREAD out of a thread's labels and say `isUnread`, which a condition on the flag reads.
+        let thread = ThreadSummary(
+            id: ThreadSummary.ID(accountID: Self.account.id, threadID: "t"), subject: "", snippet: "",
+            sender: Contact(name: nil, address: "dana@shop.com"), date: Self.thursdayNight, isUnread: true,
+            messageCount: 1, labelIDs: [SystemLabel.inbox])
+        var read = thread
+        read.isUnread = false
+        #expect(MailCondition.flag(.unread, true).matches(MailFacts(thread: thread, account: Self.account)))
+        #expect(MailCondition.flag(.unread, false).matches(MailFacts(thread: read, account: Self.account)))
+    }
+
+    @Test func aListedConversationHoldsAttachmentsOnlyWhenKnownTo() {
+        let known = MailFacts.Local(holdsAttachments: true)
+        let thread = Self.listed()
+        let withFiles = MailFacts(thread: ThreadSummary(listedAs: thread), account: Self.account, local: known)
+        #expect(MailCondition.flag(.hasAttachments, true).matches(withFiles))
+        #expect(!MailCondition.flag(.hasAttachments, true).matches(thread))
+        #expect(!MailCondition.flag(.hasAttachments, false).matches(thread), "unknown is neither")
+    }
+
     @Test func idansRuleMatchesTheMailItDescribes() {
         // From Dana, Thursday between 3:30 and 4 at night, a "Y" in the subject, and at least 2 people on Cc.
         let rule = MailCondition.all([
@@ -168,5 +189,15 @@ struct MailConditionBoundsTests {
         #expect(condition.dateBounds(now: now).from == nil)
         #expect(MailCondition.not(.date(.date, .after(now))).dateBounds(now: now).from == nil)
         #expect(MailCondition.date(.snoozedUntil, .after(now)).dateBounds(now: now).from == nil)
+    }
+}
+
+extension ThreadSummary {
+    /// The thread behind `facts` of a conversation only listed.
+    fileprivate init(listedAs facts: MailFacts) {
+        self.init(
+            id: facts.envelope.thread, subject: facts.envelope.subject, snippet: facts.envelope.snippet,
+            sender: facts.envelope.sender, date: facts.envelope.date, isUnread: false,
+            messageCount: facts.envelope.messageCount, labelIDs: facts.envelope.labelIDs)
     }
 }

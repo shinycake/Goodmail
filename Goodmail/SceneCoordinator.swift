@@ -40,6 +40,9 @@ final class SceneCoordinator: NSObject {
         didSet { if shown != oldValue { publishActivity() } }
     }
 
+    /// The mailboxes' model of the arrangement built last, which the lists ask for the rows ⌘1 to ⌘9 reach.
+    private var sidebar: MailboxesViewModel?
+
     /// The thread the window is reading, for Get Open Conversation.
     var openThread: ThreadSummary.ID? { shown.openThread?.id }
 
@@ -227,13 +230,14 @@ final class SceneCoordinator: NSObject {
 
     private func mailboxesViewController(style: MailboxesViewController.Style) -> MailboxesViewController {
         let model = model
-        let mailboxes = MailboxesViewController(
-            viewModel: MailboxesViewModel(
-                accounts: model.accounts,
-                directory: { model.database.mailboxDirectory() },
-                navigate: { [weak self] route in self?.handle(route) },
-                labelEditor: { model.labelEditor(for: $0) }, actions: actions),
-            style: style)
+        let sidebar = MailboxesViewModel(
+            accounts: model.accounts,
+            directory: { model.database.mailboxDirectory() },
+            navigate: { [weak self] route in self?.handle(route) },
+            labelEditor: { model.labelEditor(for: $0) }, actions: actions)
+        // The lists ask the latest one for the rows ⌘1 to ⌘9 reach, as the window is rebuilt for another width.
+        self.sidebar = sidebar
+        let mailboxes = MailboxesViewController(viewModel: sidebar, style: style)
         mailboxes.selected = shown.destination
         return mailboxes
     }
@@ -363,6 +367,10 @@ final class SceneCoordinator: NSObject {
                 source: source(for: mailbox),
                 woken: mailbox.labelID == SystemLabel.inbox ? { model.database.wokenThreads() } : nil,
                 pins: { model.database.pinnedThreads() },
+                filter: shown.filter,
+                didChangeFilter: { [weak self] in self?.shown.filter = $0 },
+                attachmentThreads: { model.database.threadsHoldingAttachments() },
+                sidebar: { [weak self] in self?.sidebar },
                 refresh: { try await model.syncAll() },
                 retryAlerts: { await model.refreshPush() },
                 loadOlder: { try await model.loadOlder(mailbox) },
@@ -529,7 +537,7 @@ extension SceneCoordinator {
     /// Shows `list` beside the mailboxes, with no thread open.
     private func show(_ list: WindowState.List) {
         guard let split else { return }
-        shown = WindowState(list: list, category: shown.category)
+        shown = WindowState(list: list, category: shown.category, filter: shown.filter)
         let controller = shownListViewController()
         if split.isCollapsed, let stack = navigation(for: .compact) {
             // The list takes the place of any list or thread over the mailboxes, so the stack stays the one list
@@ -583,7 +591,7 @@ extension SceneCoordinator: UISplitViewControllerDelegate, UINavigationControlle
             shown.setThread(nil)
         }
         if navigationController.viewControllers.count == 1 {
-            shown = WindowState(category: shown.category, depth: .mailboxes)
+            shown = WindowState(category: shown.category, filter: shown.filter, depth: .mailboxes)
         }
     }
 }

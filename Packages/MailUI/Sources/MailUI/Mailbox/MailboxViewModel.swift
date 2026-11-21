@@ -53,7 +53,7 @@ public final class MailboxViewModel {
     public var problems: [AccountProblemNotice] { health.notices(for: mailboxAccounts) }
     /// The account's color in one account's mailbox; the combined theme in one that spans them.
     public let theme: Theme
-    @ObservationIgnored private let accounts: [AccountID: Account]
+    @ObservationIgnored let accounts: [AccountID: Account]
     /// The accounts whose threads this mailbox lists, in their order.
     @ObservationIgnored private let mailboxAccounts: [Account]
     @ObservationIgnored private let health: AccountHealthBoard
@@ -69,6 +69,13 @@ public final class MailboxViewModel {
         guard case .categorised(_, let selected) = source else { return nil }
         return selected
     }
+    /// What the list is filtered by. Only `setFilter` changes it.
+    public internal(set) var filter: ListFilter
+    /// How many threads the filter leaves out of what the store listed, so an empty list can tell a filter that hides
+    /// everything from a mailbox with nothing in it.
+    public private(set) var hiddenByFilter = 0
+    /// Whether the list can be filtered: the window keeps the filter (`didChangeFilter`).
+    var offersFilter: Bool { didChangeFilter != nil }
     /// What the list has picked. Only `pick` changes it; the ways to pick are in `MailboxViewModel+Selection`.
     public private(set) var selection = ListSelection.none
     /// How the list's window is driven, which decides where the pick goes when its rows leave the list.
@@ -92,6 +99,13 @@ public final class MailboxViewModel {
     @ObservationIgnored private let retryAlerts: () async -> Void
     @ObservationIgnored private let loadOlderAction: () async throws -> Bool
     @ObservationIgnored private let navigate: (Route) -> Void
+    /// Told of each filter the reader picks, so a rebuilt list opens with it; `nil` for a list that isn't filtered.
+    @ObservationIgnored let didChangeFilter: ((ListFilter) -> Void)?
+    /// The threads that hold files among those downloaded, which With Attachments needs; `nil` where it can't be asked.
+    @ObservationIgnored let attachmentThreads: (() -> AsyncThrowingStream<Set<ThreadSummary.ID>, any Error>)?
+    /// The sidebar's model, which ⌘1 to ⌘9 and ⌃⌘1 to ⌃⌘9 ask for the rows; `nil` where this list has none beside it.
+    @ObservationIgnored let sidebar: () -> MailboxesViewModel?
+    @ObservationIgnored var holdingAttachments: Set<ThreadSummary.ID> = []
     @ObservationIgnored private let readAheadAction: (ThreadFetcher.Request) -> Void
     @ObservationIgnored private var mayHaveOlder = true
     @ObservationIgnored private let now: () -> Date
@@ -104,6 +118,10 @@ public final class MailboxViewModel {
         source: MailboxSource,
         woken: (() -> AsyncThrowingStream<[ThreadSummary.ID: Date], any Error>)? = nil,
         pins: (() -> AsyncThrowingStream<Set<ThreadSummary.ID>, any Error>)? = nil,
+        filter: ListFilter = .none,
+        didChangeFilter: ((ListFilter) -> Void)? = nil,
+        attachmentThreads: (() -> AsyncThrowingStream<Set<ThreadSummary.ID>, any Error>)? = nil,
+        sidebar: @escaping () -> MailboxesViewModel? = { nil },
         refresh: @escaping () async throws -> Void,
         retryAlerts: @escaping () async -> Void = {},
         loadOlder: @escaping () async throws -> Bool = { false },
@@ -130,6 +148,10 @@ public final class MailboxViewModel {
         self.source = source
         wokenThreads = woken
         pinnedThreads = pins
+        self.filter = filter
+        self.didChangeFilter = didChangeFilter
+        self.attachmentThreads = attachmentThreads
+        self.sidebar = sidebar
         refreshAction = refresh
         self.retryAlerts = retryAlerts
         loadOlderAction = loadOlder
@@ -143,9 +165,11 @@ public final class MailboxViewModel {
     public func observe() async {
         async let woken: Void = followWoken()
         async let pins: Void = followPins()
+        async let attachments: Void = followAttachments()
         await followSource()
         await woken
         await pins
+        await attachments
     }
 
     private func followSource() async {
@@ -228,10 +252,12 @@ public final class MailboxViewModel {
 
     /// Pinned threads first, newest on top, then threads back from snooze, latest woken on top, then the rest by
     /// time.
-    private func regroup() {
+    func regroup() {
         let now = now()
-        let pinned = listed.filter { self.pinned.contains($0.id) }
-        let unpinned = listed.filter { !self.pinned.contains($0.id) }
+        let kept = listed.filter(isShown)
+        hiddenByFilter = listed.count - kept.count
+        let pinned = kept.filter { self.pinned.contains($0.id) }
+        let unpinned = kept.filter { !self.pinned.contains($0.id) }
         let back = unpinned.compactMap { thread in woken[thread.id].map { (thread, $0) } }
             .sorted { $0.1 > $1.1 }.map(\.0)
         let rest = unpinned.filter { woken[$0.id] == nil }
@@ -330,7 +356,7 @@ public final class MailboxViewModel {
     /// The window `id` opens in when its row is dragged out of the list: this list, on the category it shows, with
     /// the thread open.
     func newWindow(for id: ThreadSummary.ID) -> WindowState {
-        WindowState(list: .mailbox(mailbox, thread: id), category: category ?? .primary)
+        WindowState(list: .mailbox(mailbox, thread: id), category: category ?? .primary, filter: filter)
     }
 
     /// What a swipe button does: act on the thread at once, or ask until when to snooze it.

@@ -31,6 +31,20 @@ struct WindowStateTests {
         #expect(scheduled.openThread == nil)
     }
 
+    @Test func aNewWindowIsUnfiltered() {
+        #expect(WindowState().filter == .none)
+    }
+
+    @Test func theFilterSurvivesBeingSavedAndAStateSavedWithoutOneIsUnfiltered() throws {
+        let filtered = WindowState(filter: .on([.unread, .starred]))
+        #expect(try WindowState(saved: filtered.saved()) == filtered)
+        var old = try JSONSerialization.jsonObject(with: filtered.saved()) as! [String: Any]
+        old["filter"] = nil
+        let restored = try WindowState(saved: JSONSerialization.data(withJSONObject: old))
+        #expect(restored.filter == .none)
+        #expect(restored.list == filtered.list)
+    }
+
     @Test func whatAWindowShowsSurvivesBeingSaved() throws {
         let label = Mailbox(labelID: "Label_7", accountID: work)
         let thread = ThreadSummary.ID(accountID: work, threadID: "t9")

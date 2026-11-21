@@ -108,6 +108,68 @@
         }
       }
     },
+    "Filter" : {
+      "comment" : "Button: filters the list",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סינון"
+          }
+        }
+      }
+    },
+    "Filter.Starred" : {
+      "comment" : "List filter: only conversations with a star",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Starred"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מסומנים בכוכב"
+          }
+        }
+      }
+    },
+    "Filter.Unread" : {
+      "comment" : "List filter: only conversations not read yet",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unread"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שלא נקראו"
+          }
+        }
+      }
+    },
+    "Filter.WithAttachments" : {
+      "comment" : "List filter: only conversations that carry files",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "With Attachments"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עם קבצים מצורפים"
+          }
+        }
+      }
+    },
     "Forward" : {
       "comment" : "Forwards the message",
       "localizations" : {
@@ -342,6 +404,50 @@
         }
       }
     },
+    "No Mail with Attachments" : {
+      "comment" : "An empty list while only conversations with files are shown",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אין דואר עם קבצים מצורפים"
+          }
+        }
+      }
+    },
+    "No Matching Mail" : {
+      "comment" : "An empty list while several filters are on and no conversation meets them all",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אין דואר מתאים"
+          }
+        }
+      }
+    },
+    "No Starred Mail" : {
+      "comment" : "An empty list while only starred conversations are shown",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אין דואר מסומן בכוכב"
+          }
+        }
+      }
+    },
+    "No Unread Mail" : {
+      "comment" : "An empty list while only unread conversations are shown",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אין דואר שלא נקרא"
+          }
+        }
+      }
+    },
     "OK" : {
       "comment" : "Dismiss",
       "localizations" : {
@@ -430,6 +536,17 @@
         }
       }
     },
+    "The filter leaves out everything in this mailbox." : {
+      "comment" : "An empty list while a filter hides every conversation",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הסינון מסתיר את כל מה שבתיבה הזו."
+          }
+        }
+      }
+    },
     "This afternoon" : {
       "comment" : "Mailbox section header",
       "localizations" : {
@@ -481,6 +598,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "השבוע"
+          }
+        }
+      }
+    },
+    "Turn Off Filter" : {
+      "comment" : "Button: stops filtering the list",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כיבוי הסינון"
           }
         }
       }

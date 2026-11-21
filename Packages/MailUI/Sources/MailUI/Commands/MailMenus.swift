@@ -28,7 +28,13 @@ public enum MailMenus {
         }
         let sections: [(place: MenuPlace, menu: UIMenu)] = MenuPlace.allCases.compactMap { place in
             let items = MailCommand.allCases.filter { $0.place == place }.compactMap(item(for:))
-            return items.isEmpty ? nil : (place, UIMenu(options: .displayInline, children: items))
+            guard !items.isEmpty else { return nil }
+            // A submenu shows under its own title; any other section sits between lines.
+            return (
+                place,
+                place.submenu.map { UIMenu(title: $0.title, children: items) }
+                    ?? UIMenu(options: .displayInline, children: items)
+            )
         }
 
         // Settings takes the place of the system's own item, which would open the app's page in the Settings app.

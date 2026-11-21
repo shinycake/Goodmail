@@ -1,6 +1,17 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ (%@)" : {
+      "comment" : "Menu bar command naming a mailbox of one account among several, as Inbox (me@example.com)",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (%@)"
+          }
+        }
+      }
+    },
     "Actual Size" : {
       "comment" : "Menu bar command",
       "localizations" : {
@@ -174,6 +185,17 @@
         }
       }
     },
+    "Filter by" : {
+      "comment" : "Menu bar submenu",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סינון לפי"
+          }
+        }
+      }
+    },
     "Find Next" : {
       "comment" : "Menu bar command",
       "localizations" : {
@@ -247,6 +269,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "בדיקת דואר חדש"
+          }
+        }
+      }
+    },
+    "Go To" : {
+      "comment" : "Menu bar submenu",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מעבר אל"
+          }
+        }
+      }
+    },
+    "Go to Mailbox %lld" : {
+      "comment" : "Menu bar command: opens the sidebar's row with this number",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מעבר לתיבה %lld"
           }
         }
       }
@@ -436,6 +480,28 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "Move To" : {
+      "comment" : "Menu bar submenu",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה אל"
+          }
+        }
+      }
+    },
+    "Move to Mailbox %lld" : {
+      "comment" : "Menu bar command: moves the picked conversations to the sidebar's row with this number",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה לתיבה %lld"
           }
         }
       }
@@ -700,6 +766,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "קו חוצה"
+          }
+        }
+      }
+    },
+    "Turn Filter Off" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כיבוי סינון"
+          }
+        }
+      }
+    },
+    "Turn Filter On" : {
+      "comment" : "Menu bar command",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הפעלת סינון"
           }
         }
       }

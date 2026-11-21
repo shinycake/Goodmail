@@ -57,13 +57,22 @@ final class ShakeToUndoWindow: UIWindow {
     override func validate(_ command: UICommand) {
         super.validate(command)
         guard let mailCommand = MailCommand(command) else { return }
-        guard case .ready(_, let title, let isOn) = answer(to: mailCommand) else {
+        command.state = .off
+        // A number past the sidebar's last row has nothing to name, so its item goes from the menu.
+        var hidden = false
+        switch answer(to: mailCommand) {
+        case .ready(_, let title, let isOn):
+            command.title = title ?? mailCommand.title
+            command.state = isOn ? .on : .off
+        case .unavailable:
             command.title = mailCommand.title
-            command.state = .off
-            return
+        case .refused(let title):
+            command.title = title
+        case .notHere:
+            command.title = mailCommand.title
+            hidden = mailCommand.rowShortcut != nil
         }
-        command.title = title ?? mailCommand.title
-        command.state = isOn ? .on : .off
+        if hidden { command.attributes.insert(.hidden) } else { command.attributes.remove(.hidden) }
     }
 
     /// In the menu bar, Find and Replace holds ⌥⌘F, Apple Mail's Search Mail, so it searches the mail while no text

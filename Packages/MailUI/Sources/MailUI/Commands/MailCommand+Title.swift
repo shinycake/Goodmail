@@ -49,6 +49,13 @@ extension MailCommand {
         case .showForums: InboxCategory.forums.title
         case .showCopyFields:
             String(localized: "Show Cc and Bcc", table: "Keyboard", bundle: .module, comment: "Menu bar command")
+        case .toggleFilter: FilterButton.turnOnMenuTitle
+        case .filterByUnread: ListFilter.Option.unread.title
+        case .filterByStarred: ListFilter.Option.starred.title
+        case .filterByAttachments: ListFilter.Option.withAttachments.title
+        case .goTo1, .goTo2, .goTo3, .goTo4, .goTo5, .goTo6, .goTo7, .goTo8, .goTo9, .moveTo1, .moveTo2, .moveTo3,
+            .moveTo4, .moveTo5, .moveTo6, .moveTo7, .moveTo8, .moveTo9:
+            rowShortcut.map(\.title) ?? ""
         case .getMail:
             String(localized: "Get New Mail", table: "Keyboard", bundle: .module, comment: "Menu bar command")
         case .eraseTrash:
@@ -123,6 +130,36 @@ extension MenuBarMenu {
             String(localized: "Message", table: "Keyboard", bundle: .module, comment: "Menu bar menu")
         case .format:
             String(localized: "Format", table: "Keyboard", bundle: .module, comment: "Menu bar menu")
+        }
+    }
+}
+
+extension RowShortcut {
+    /// The name before the sidebar says which mailbox the number is, which the menu bar shows until it does.
+    var title: String {
+        switch self {
+        case .goTo(let number):
+            String(
+                localized: "Go to Mailbox \(number)", table: "Keyboard", bundle: .module,
+                comment: "Menu bar command: opens the sidebar's row with this number")
+        case .moveTo(let number):
+            String(
+                localized: "Move to Mailbox \(number)", table: "Keyboard", bundle: .module,
+                comment: "Menu bar command: moves the picked conversations to the sidebar's row with this number")
+        }
+    }
+}
+
+extension MenuSubmenu {
+    /// The title of a submenu.
+    var title: String {
+        switch self {
+        case .filterBy:
+            String(localized: "Filter by", table: "Keyboard", bundle: .module, comment: "Menu bar submenu")
+        case .goTo:
+            String(localized: "Go To", table: "Keyboard", bundle: .module, comment: "Menu bar submenu")
+        case .moveTo:
+            String(localized: "Move To", table: "Keyboard", bundle: .module, comment: "Menu bar submenu")
         }
     }
 }

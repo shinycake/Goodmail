@@ -6,6 +6,8 @@ import UIKit
 extension MailboxViewController: CommandScreen {
     public func answer(to command: MailCommand) -> CommandAnswer {
         if let several = answerForSeveral(command) { return several }
+        if let shortcut = command.rowShortcut { return answer(to: shortcut) }
+        if let filtering = answerForFilter(command) { return filtering }
         if let category = command.category {
             guard let shown = viewModel.category else { return .notHere }
             return .ready(perform: { [weak self] in self?.show(category) }, isOn: category == shown)

@@ -30,9 +30,18 @@ public enum MailCommand: String, CaseIterable, Sendable {
     case showSocial
     case showUpdates
     case showForums
+    /// Turns the list's filter on, or off.
+    case toggleFilter
+    case filterByUnread
+    case filterByStarred
+    case filterByAttachments
     case showCopyFields
 
     case getMail
+    /// Opens the sidebar's first nine rows, from ⌘1 to ⌘9.
+    case goTo1, goTo2, goTo3, goTo4, goTo5, goTo6, goTo7, goTo8, goTo9
+    /// Moves the picked conversations to the sidebar's first nine rows, from ⌃⌘1 to ⌃⌘9.
+    case moveTo1, moveTo2, moveTo3, moveTo4, moveTo5, moveTo6, moveTo7, moveTo8, moveTo9
     case eraseTrash
 
     case send
@@ -77,8 +86,12 @@ public enum MailCommand: String, CaseIterable, Sendable {
         case .switchLayout: .viewLayout
         case .zoomIn, .zoomOut, .actualSize: .viewZoom
         case .showPrimary, .showPromotions, .showSocial, .showUpdates, .showForums: .viewCategories
+        case .toggleFilter: .viewFilter
+        case .filterByUnread, .filterByStarred, .filterByAttachments: .viewFilterBy
         case .showCopyFields: .viewComposer
         case .getMail: .mailboxFetch
+        case .goTo1, .goTo2, .goTo3, .goTo4, .goTo5, .goTo6, .goTo7, .goTo8, .goTo9: .mailboxGoTo
+        case .moveTo1, .moveTo2, .moveTo3, .moveTo4, .moveTo5, .moveTo6, .moveTo7, .moveTo8, .moveTo9: .mailboxMoveTo
         case .eraseTrash: .mailboxErase
         case .send, .sendLater: .messageSend
         case .reply, .replyAll, .forward, .forwardAsAttachment, .editAsNew: .messageAnswer
@@ -115,6 +128,8 @@ public enum MailCommand: String, CaseIterable, Sendable {
         case .zoomIn: .system(.biggerText)
         case .zoomOut: .system(.smallerText)
         case .actualSize: .own(KeyChord(.command, "0"))
+        // Mail's Filter is ⌘L too, where Goodmail's Star takes ⇧⌘L.
+        case .toggleFilter: .own(KeyChord(.command, "l"))
         case .showCopyFields: .own(KeyChord([.command, .option], "b"))
         case .getMail: .own(KeyChord([.command, .shift], "n"))
         case .eraseTrash: .own(KeyChord([.command, .shift], .delete))
@@ -135,10 +150,15 @@ public enum MailCommand: String, CaseIterable, Sendable {
         case .nextThread: .own(KeyChord([.command, .control], .downArrow))
         case .increaseQuoteLevel: .own(KeyChord(.command, "'"))
         case .decreaseQuoteLevel: .own(KeyChord([.command, .option], "'"))
-        case .exportPDF, .showPrimary, .showPromotions, .showSocial, .showUpdates, .showForums, .sendLater,
+        case .filterByUnread, .filterByStarred, .filterByAttachments, .exportPDF, .showPrimary, .showPromotions,
+            .showSocial, .showUpdates, .showForums, .sendLater,
             .forwardAsAttachment, .editAsNew, .changeLabels, .pin, .mute, .strikethrough, .bulletedList,
             .numberedList:
             .none
+        case .goTo1, .goTo2, .goTo3, .goTo4, .goTo5, .goTo6, .goTo7, .goTo8, .goTo9, .moveTo1, .moveTo2, .moveTo3,
+            .moveTo4, .moveTo5, .moveTo6, .moveTo7, .moveTo8, .moveTo9:
+            // The keys follow the number.
+            rowShortcut.map { .own($0.chord) } ?? .none
         }
     }
 
@@ -152,7 +172,9 @@ public enum MailCommand: String, CaseIterable, Sendable {
             .zoomIn, .zoomOut, .actualSize, .exportPDF, .closeWindow, .addLink, .showPrimary,
             .showPromotions, .showSocial, .showUpdates, .showForums, .showCopyFields, .eraseTrash, .sendLater,
             .forwardAsAttachment, .editAsNew, .previousThread, .nextThread, .strikethrough, .bulletedList,
-            .numberedList, .increaseQuoteLevel, .decreaseQuoteLevel:
+            .numberedList, .increaseQuoteLevel, .decreaseQuoteLevel, .toggleFilter, .filterByUnread, .filterByStarred,
+            .filterByAttachments, .goTo1, .goTo2, .goTo3, .goTo4, .goTo5, .goTo6, .goTo7, .goTo8, .goTo9, .moveTo1,
+            .moveTo2, .moveTo3, .moveTo4, .moveTo5, .moveTo6, .moveTo7, .moveTo8, .moveTo9:
             false
         }
     }
@@ -179,5 +201,25 @@ public enum MailCommand: String, CaseIterable, Sendable {
         case .showForums: .forums
         default: nil
         }
+    }
+
+    /// The filter choice the command checks or unchecks, for the View menu's Filter by.
+    public var filterOption: ListFilter.Option? {
+        switch self {
+        case .filterByUnread: .unread
+        case .filterByStarred: .starred
+        case .filterByAttachments: .withAttachments
+        default: nil
+        }
+    }
+
+    /// The sidebar row the command reaches by its number.
+    public var rowShortcut: RowShortcut? {
+        let goTo: [MailCommand] = [.goTo1, .goTo2, .goTo3, .goTo4, .goTo5, .goTo6, .goTo7, .goTo8, .goTo9]
+        let moveTo: [MailCommand] = [
+            .moveTo1, .moveTo2, .moveTo3, .moveTo4, .moveTo5, .moveTo6, .moveTo7, .moveTo8, .moveTo9,
+        ]
+        if let index = goTo.firstIndex(of: self) { return .goTo(index + 1) }
+        return moveTo.firstIndex(of: self).map { .moveTo($0 + 1) }
     }
 }

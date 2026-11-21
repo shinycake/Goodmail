@@ -69,10 +69,14 @@ public struct MailFacts: Equatable, Sendable {
     public struct Local: Equatable, Sendable {
         public var isPinned: Bool
         public var snooze: SnoozeState?
+        /// `true` when a message of the conversation downloaded here carries files, which a conversation only listed
+        /// can't say itself. `nil` when none is known to.
+        public var holdsAttachments: Bool?
 
-        public init(isPinned: Bool = false, snooze: SnoozeState? = nil) {
+        public init(isPinned: Bool = false, snooze: SnoozeState? = nil, holdsAttachments: Bool? = nil) {
             self.isPinned = isPinned
             self.snooze = snooze
+            self.holdsAttachments = holdsAttachments
         }
     }
 
@@ -102,13 +106,16 @@ public struct MailFacts: Equatable, Sendable {
             envelope: envelope, content: Content(message, bodyText: bodyText), local: local, labelNames: labelNames)
     }
 
-    /// A conversation as the list shows it, from its latest message.
+    /// A conversation as the list shows it, from its latest message. Providers leave the unread marker out of a
+    /// thread's labels and say it as `isUnread`, so it is put back for the conditions that ask.
     public init(
         thread: ThreadSummary, account: Account, local: Local = Local(), labelNames: [String: String] = [:]
     ) {
         let envelope = Envelope(
             account: account, thread: thread.id, subject: thread.subject, snippet: thread.snippet,
-            sender: thread.sender, date: thread.date, labelIDs: thread.labelIDs, messageCount: thread.messageCount)
+            sender: thread.sender, date: thread.date,
+            labelIDs: thread.labelIDs.union(thread.isUnread ? [SystemLabel.unread] : []),
+            messageCount: thread.messageCount)
         self.init(envelope: envelope, content: nil, local: local, labelNames: labelNames)
     }
 
@@ -189,7 +196,7 @@ public struct MailFacts: Equatable, Sendable {
             guard let content else { return Self.replyPrefix.prefixMatch(in: envelope.subject) }
             return !content.references.isEmpty || Self.replyPrefix.prefixMatch(in: envelope.subject)
         case .toMe: return content.map { $0.to.contains { isOwn($0.address) } }
-        case .hasAttachments: return content.map { !$0.attachments.isEmpty }
+        case .hasAttachments: return content.map { !$0.attachments.isEmpty } ?? local.holdsAttachments
         case .hasUnsubscribe: return content.map { $0.unsubscribe != nil }
         }
     }

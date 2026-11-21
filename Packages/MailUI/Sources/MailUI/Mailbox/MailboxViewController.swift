@@ -60,6 +60,8 @@ public final class MailboxViewController: UIViewController {
         case empty(pointingTo: InboxCategory?)
         /// The Inbox is clear, with another category that has unread mail to point to.
         case inboxZero(pointing: InboxZeroPointer?)
+        /// The filter leaves nothing of the threads the mailbox has.
+        case filtered(ListFilter)
     }
     private var browsingToolbarItems: [UIBarButtonItem] = []
     /// The buttons at the ends of the browsing toolbar: the drafts pill, when the window has one, and Compose.
@@ -73,6 +75,8 @@ public final class MailboxViewController: UIViewController {
     /// The Inbox's category menu, when the list is split into categories.
     private let categoryButton: UIButton?
     private let categoryItem: UIBarButtonItem?
+    /// The filter button in the navigation bar, while the list can be filtered.
+    lazy var filterButton = FilterButton { [weak self] in self?.setFilter($0) }
 
     /// `searchResults`, when given, adds search to the navigation bar. `empty` is what an empty list shows: by
     /// default the mailbox's symbol and "No Mail". `display` is how its rows look. `draftsDock`, when given, puts the
@@ -218,7 +222,8 @@ public final class MailboxViewController: UIViewController {
     /// by hand among these items, the search button's pressed glass outlived its morph into the field and hung under
     /// the field's leading end as a blank capsule until the field took focus.
     private var browsingTrailingItems: [UIBarButtonItem] {
-        viewModel.actions == nil || picksWithPointer ? [] : [select.item]
+        (viewModel.actions == nil || picksWithPointer ? [] : [select.item])
+            + (viewModel.offersFilter ? [filterButton.item] : [])
     }
 
     /// Called by UIKit whenever an observed view-model property changes.
@@ -228,6 +233,7 @@ public final class MailboxViewController: UIViewController {
         showPick()
         updateEmptyState()
         if problemsItem.show(viewModel.problems) { toolbarEndsChanged() }
+        showFilter()
         if let categoryButton, let category = viewModel.category {
             Self.update(categoryButton, selected: category, unreadCounts: viewModel.categoryUnreadCounts) {
                 [weak self] in self?.show($0)
@@ -268,6 +274,7 @@ public final class MailboxViewController: UIViewController {
             case .loading: UIContentUnavailableConfiguration.loading()
             case .empty(let other?): pointing(empty, to: other)
             case .empty(nil): empty
+            case .filtered(let filter): filteredConfiguration(for: filter)
             }
         showInboxZero(for: state, after: previous)
     }

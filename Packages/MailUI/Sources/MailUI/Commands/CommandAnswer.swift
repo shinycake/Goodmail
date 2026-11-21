@@ -8,6 +8,8 @@ public enum CommandAnswer {
     /// The screen's command, which it can't do now, as Move to Trash in Trash: the menu shows it dimmed, and no screen
     /// behind is asked.
     case unavailable
+    /// Like `unavailable`, with the title the dimmed item shows, as a mailbox's name for Move To while it refuses.
+    case refused(title: String)
     /// Ready, with the title the menu shows now when it differs from the command's own, as "Mark as Read" against
     /// "Mark as Unread", and whether the menu checks it, as the category on show.
     case ready(perform: () -> Void, title: String? = nil, isOn: Bool = false)

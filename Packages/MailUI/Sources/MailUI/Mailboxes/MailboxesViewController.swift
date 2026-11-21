@@ -122,20 +122,17 @@ public final class MailboxesViewController: UIViewController {
         selectShownMailbox()
     }
 
-    /// The group's rows with their nested labels, unfolded unless the reader folded them in the rows shown now.
+    /// The group's rows with their nested labels, unfolded unless the reader folded them (`MailboxesViewModel.folded`).
     private func sectionSnapshot(
         of group: MailboxesViewModel.Group
     ) -> NSDiffableDataSourceSectionSnapshot<MailboxesViewModel.Item> {
-        let shown = dataSource.snapshot(for: group.section)
-        let folded = Set(
-            shown.items.filter { $0.isParent && shown.contains($0) && !shown.isExpanded($0) }.map(\.destination))
         var section = NSDiffableDataSourceSectionSnapshot<MailboxesViewModel.Item>()
         func append(_ items: [MailboxesViewModel.Item], to parent: MailboxesViewModel.Item?) {
             section.append(items, to: parent)
             for item in items {
                 guard let children = group.children[item.destination] else { continue }
                 append(children, to: item)
-                if !folded.contains(item.destination) { section.expand([item]) }
+                if !viewModel.folded.contains(item.destination) { section.expand([item]) }
             }
         }
         append(group.items, to: nil)
@@ -146,7 +143,13 @@ public final class MailboxesViewController: UIViewController {
     private func toggle(_ item: MailboxesViewModel.Item, at indexPath: IndexPath) {
         guard let sectionID = dataSource.sectionIdentifier(for: indexPath.section) else { return }
         var section = dataSource.snapshot(for: sectionID)
-        if section.isExpanded(item) { section.collapse([item]) } else { section.expand([item]) }
+        if section.isExpanded(item) {
+            section.collapse([item])
+            viewModel.folded.insert(item.destination)
+        } else {
+            section.expand([item])
+            viewModel.folded.remove(item.destination)
+        }
         dataSource.apply(section, to: sectionID, animatingDifferences: true)
     }
 
@@ -247,6 +250,13 @@ public final class MailboxesViewController: UIViewController {
         dataSource = UICollectionViewDiffableDataSource(collectionView: collectionView) {
             collectionView, indexPath, item in
             collectionView.dequeueConfiguredReusableCell(using: row, for: indexPath, item: item)
+        }
+        // Rows folded with their disclosure button, which the model keeps for the rows on show.
+        dataSource.sectionSnapshotHandlers.willExpandItem = { [weak self] item in
+            self?.viewModel.folded.remove(item.destination)
+        }
+        dataSource.sectionSnapshotHandlers.willCollapseItem = { [weak self] item in
+            self?.viewModel.folded.insert(item.destination)
         }
         dataSource.supplementaryViewProvider = { collectionView, _, indexPath in
             collectionView.dequeueConfiguredReusableSupplementary(using: header, for: indexPath)

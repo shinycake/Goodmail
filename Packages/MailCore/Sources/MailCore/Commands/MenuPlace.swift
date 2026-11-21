@@ -26,8 +26,16 @@ public enum MenuPlace: CaseIterable, Sendable {
     case viewLayout
     case viewZoom
     case viewCategories
+    /// Turn Filter On or Off.
+    case viewFilter
+    /// The Filter by submenu: Unread, Starred and With Attachments.
+    case viewFilterBy
     case viewComposer
     case mailboxFetch
+    /// The Go To submenu: the sidebar's first nine rows.
+    case mailboxGoTo
+    /// The Move To submenu: the sidebar's first nine rows.
+    case mailboxMoveTo
     case mailboxErase
     case messageSend
     case messageAnswer
@@ -44,10 +52,28 @@ public enum MenuPlace: CaseIterable, Sendable {
         case .settings: .application
         case .fileNew, .fileAttachment, .fileExport, .fileClose: .file
         case .editFind, .editInsert: .edit
-        case .viewLayout, .viewZoom, .viewCategories, .viewComposer: .view
-        case .mailboxFetch, .mailboxErase: .mailbox
+        case .viewLayout, .viewZoom, .viewCategories, .viewFilter, .viewFilterBy, .viewComposer: .view
+        case .mailboxFetch, .mailboxGoTo, .mailboxMoveTo, .mailboxErase: .mailbox
         case .messageSend, .messageAnswer, .messageAway, .messageOrganize, .messageMark, .messageNavigate: .message
         case .formatStyle, .formatLists, .formatQuote: .format
         }
     }
+
+    /// The submenu the section is, which the menu bar shows under a title of its own, or `nil` for a section of
+    /// items set apart by a line.
+    public var submenu: MenuSubmenu? {
+        switch self {
+        case .viewFilterBy: .filterBy
+        case .mailboxGoTo: .goTo
+        case .mailboxMoveTo: .moveTo
+        default: nil
+        }
+    }
+}
+
+/// A submenu of the menu bar that holds a section of the app's commands.
+public enum MenuSubmenu: Sendable {
+    case filterBy
+    case goTo
+    case moveTo
 }

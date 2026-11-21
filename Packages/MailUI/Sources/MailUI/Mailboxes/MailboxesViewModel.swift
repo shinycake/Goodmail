@@ -52,6 +52,9 @@ public final class MailboxesViewModel {
     }
 
     public private(set) var directory = MailboxDirectory()
+    /// The rows with labels nested in them that the reader folded away, in the sidebar or the list of mailboxes. The
+    /// list keeps it in step as rows fold, so the rows on show are known without it, for ⌘1 to ⌘9.
+    @ObservationIgnored var folded: Set<Destination> = []
     /// What every account's mailboxes wear, or the only account's color.
     public let theme: Theme
 
