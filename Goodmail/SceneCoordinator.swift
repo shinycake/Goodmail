@@ -24,6 +24,14 @@ final class SceneCoordinator: NSObject {
     var answering: Task<Void, Never>?
     /// Follows the labels and smart mailboxes here, so a list gone from the device gives way (`followOwnLists`).
     var listsCheck: Task<Void, Never>?
+    /// Called once, as the window first fills with a screen, which the scene waits for to hand on an arrival held
+    /// for it (`SceneDelegate`).
+    var filled: (() -> Void)?
+    /// What the mail screens were last built with, so a setting synced from another device that changes none of it
+    /// leaves them be (D9).
+    var builtFor: Appearance?
+    /// The label picker's threads and labels, read off the main actor before it opens; a newer one replaces it.
+    var pickingLabels: Task<Void, Never>?
     /// Failed sends already shown, so each is offered once per launch.
     private var shownFailures: Set<Draft.ID> = []
     /// What fills the window. Only `enter(_:)` changes it.
@@ -42,7 +50,7 @@ final class SceneCoordinator: NSObject {
     var shown: WindowState { navigator.state }
 
     /// The mailboxes' model of the arrangement built last, which the lists ask for the rows ⌘1 to ⌘9 reach.
-    private var sidebar: MailboxesViewModel?
+    private(set) var sidebar: MailboxesViewModel?
     /// Opens the smart mailbox editor and stores what it saves (ADR-039).
     private(set) lazy var smartMailboxFlow = SmartMailboxFlow(
         store: model.smartMailboxStore(), presenter: { [weak self] in self?.topViewController() })
@@ -67,7 +75,8 @@ final class SceneCoordinator: NSObject {
                     arrangement: WindowNavigation.Arrangement(window?.windowScene?.traitCollection ?? .current),
                     afterRemoval: Preferences.afterRemoval, unsortedInboxes: model.unsortedInboxAccounts)
             },
-            lookUp: { [lookup = model.conversationLookup] in await lookup.find($0) })
+            lookUp: { [lookup = model.conversationLookup] in await lookup.find($0) },
+            stored: { [database = model.database] in try? database.thread($0) })
         super.init()
         window.windowAnswer = { [weak self] in self?.windowAnswer(to: $0) ?? .notHere }
         actions.reopen = { [weak self] draft in self?.handle(.compose(draft)) }
@@ -84,6 +93,7 @@ final class SceneCoordinator: NSObject {
         signingInAgain?.cancel()
         answering?.cancel()
         listsCheck?.cancel()
+        pickingLabels?.cancel()
         if case .leaving(let waiting) = screen { waiting.cancel() }
     }
 
@@ -93,6 +103,9 @@ final class SceneCoordinator: NSObject {
     }
 
     func start() {
+        // The window shows its root at once, empty until the first screen fills it, as the mail screens wait for the
+        // conversation read to be read off the main actor (`showMailbox`).
+        window.rootViewController = drafts
         observeSharedAccounts()
         observeSyncedSettings()
         followOwnLists()
@@ -174,6 +187,10 @@ final class SceneCoordinator: NSObject {
     func enter(_ next: Screen) {
         let before = screen
         screen = next
+        if case .starting = before, let filled {
+            self.filled = nil
+            filled()
+        }
         // Whatever replaces a message window waiting out its undo ends the wait.
         if case .leaving(let waiting) = before { waiting.cancel() }
         switch next {
@@ -188,9 +205,9 @@ final class SceneCoordinator: NSObject {
 
     /// Fills the window with `screen`, fading over whatever showed before.
     func show(_ screen: UIViewController) {
-        guard window.rootViewController != nil else {
+        guard drafts.content != nil else {
             drafts.content = screen
-            window.rootViewController = drafts
+            if window.rootViewController == nil { window.rootViewController = drafts }
             return
         }
         UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve) {
@@ -215,23 +232,23 @@ final class SceneCoordinator: NSObject {
     /// mailboxes beside the list in a wide window or behind it in a narrow one, down to a narrow window back at the
     /// mailboxes; or the conversation alone, in a message window.
     func showMailbox() {
-        navigator.leaveScreens()
-        navigator.send(.accounts(model.accounts.map(\.id)))
-        // A restored or handed-off thread may be gone from this device, or not on it yet. A message window without it
-        // shows the viewer.
-        if let thread = shown.reading?.thread, (try? model.database.thread(thread)) == nil {
-            navigator.send(.missing(thread))
-        }
-        switch shown.layout {
-        case .viewer: showViewer()
-        case .message: showMessage()
+        builtFor = Appearance(model)
+        // A restored or handed-off thread may be gone from this device, or not on it yet, which the navigator finds
+        // off the main actor before anything is built. A message window without it shows the viewer.
+        navigator.rebuild(for: model.accounts.map(\.id)) { [weak self] in
+            guard let self else { return }
+            switch shown.layout {
+            case .viewer: showViewer()
+            case .message: showMessage()
+            }
         }
     }
 
-    /// The thread `shown` opens, alone. One whose account is gone leaves the viewer in its place.
+    /// The thread `shown` opens, alone, from the row the navigator found for it. One whose account is gone leaves the
+    /// viewer in its place.
     private func showMessage() {
         guard let reading = shown.reading else { return showViewer() }
-        guard let reader = reader(for: reading) else {
+        guard let row = navigator.navigation.foundRow, let reader = reader(for: row, in: reading.mailbox) else {
             navigator.send(.missing(reading.thread))
             return showViewer()
         }
@@ -251,9 +268,7 @@ final class SceneCoordinator: NSObject {
             making: MailScreens.Makers(
                 mailboxes: { [unowned self] in mailboxesViewController(style: $0) },
                 list: { [unowned self] in listViewController(for: $0) },
-                reader: { [unowned self] reading, row in
-                    row.map { reader(for: $0, in: reading.mailbox) } ?? reader(for: reading)
-                }))
+                reader: { [unowned self] reading, row in reader(for: row, in: reading.mailbox) }))
     }
 
     private func mailboxesViewController(style: MailboxesViewController.Style) -> MailboxesViewController {
@@ -267,6 +282,7 @@ final class SceneCoordinator: NSObject {
             actions: actions)
         // The lists ask the latest one for the rows ⌘1 to ⌘9 reach, as the window is rebuilt for another width.
         self.sidebar = sidebar
+        sidebar.namesChanged = { [weak self] in self?.retitle() }
         return MailboxesViewController(
             viewModel: sidebar, style: style,
             syncFooter: SyncFooterSource(health: model.health, accounts: model.accounts) { [weak self] notice in
@@ -295,12 +311,6 @@ final class SceneCoordinator: NSObject {
             SnoozedViewModel(
                 accounts: model.accounts, threads: { database.snoozedThreads() }, actions: actions,
                 navigate: { [weak self] in self?.handle($0) }))
-    }
-
-    /// A reader for `reading`, or nil when its conversation is gone.
-    func reader(for reading: Reading) -> ThreadViewController? {
-        guard let thread = try? model.database.thread(reading.thread) else { return nil }
-        return reader(for: thread, in: reading.mailbox)
     }
 
     /// A reader for `thread` as a list holds it, opened from `mailbox`, or nil when its account is gone.
@@ -341,7 +351,7 @@ final class SceneCoordinator: NSObject {
 
     private func mailboxViewController(for mailbox: Mailbox) -> MailboxViewController {
         let model = model
-        let labels = labels(naming: mailbox)
+        let name = listName(of: mailbox)
         let search = ThreadSearch(
             local: { model.database.search($0, including: $1) }, remote: { try await model.search($0, after: $1) })
         let results = SearchResultsController(
@@ -351,7 +361,8 @@ final class SceneCoordinator: NSObject {
         let list = MailboxViewController(
             viewModel: MailboxViewModel(
                 mailbox: mailbox,
-                title: mailbox.listTitle(labels: labels, accounts: model.accounts),
+                title: name.title,
+                naming: name.naming,
                 accounts: model.accounts,
                 source: source(for: mailbox),
                 woken: mailbox.labelID == SystemLabel.inbox ? { model.database.wokenThreads() } : nil,
@@ -453,6 +464,6 @@ extension SceneCoordinator {
     func publishActivity() {
         window.windowScene?.userActivity = activity
         window.windowScene?.userActivity?.becomeCurrent()
-        window.windowScene?.title = showsMail ? title(of: shown) : nil
+        retitle()
     }
 }

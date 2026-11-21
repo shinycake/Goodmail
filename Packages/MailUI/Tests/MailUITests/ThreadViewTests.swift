@@ -334,3 +334,57 @@ extension ThreadViewModelTests {
         #expect(draft.attachments == [file])
     }
 }
+
+/// A conversation with nothing to show says why over the reader: deleted, or out of reach with Try Again (R10).
+@MainActor
+@Suite(.timeLimit(.minutes(1)))
+struct ThreadUnavailableTests {
+    private struct Offline: Error {}
+
+    private func reader(load: @escaping () async throws -> Void) -> ThreadViewController {
+        let model = ThreadViewModel(
+            thread: ThreadSummary(
+                id: .init(accountID: AccountID(rawValue: "a"), threadID: "t"), subject: "Plan", snippet: "",
+                sender: Contact(name: nil, address: "x@example.com"), date: .now, isUnread: false, messageCount: 1,
+                labelIDs: []),
+            mailbox: .inbox, accountEmail: "me@example.com", accountColor: .blue,
+            messages: { AsyncThrowingStream { $0.finish() } }, load: load, attachmentData: { _, _ in Data() },
+            source: { _ in Data() })
+        return ThreadViewController(viewModel: model, openURL: { _ in })
+    }
+
+    @Test func oneTheServiceNoLongerHasIsNoLongerAvailable() async throws {
+        let reader = reader(load: { throw ProviderError.notFound })
+        await reader.viewModel.observe()
+        #expect(reader.viewModel.content == .unavailable(.gone))
+        reader.loadViewIfNeeded()
+        reader.showContent()
+        let shown = try #require(reader.contentUnavailableConfiguration as? UIContentUnavailableConfiguration)
+        #expect(shown.text == "This Conversation Is No Longer Available")
+        #expect(shown.button.title == nil, "nothing to try again")
+    }
+
+    @Test func oneOutOfReachOffersTryAgain() async throws {
+        let reader = reader(load: { throw Offline() })
+        await reader.viewModel.observe()
+        #expect(reader.viewModel.content == .unavailable(.unreachable))
+        reader.loadViewIfNeeded()
+        reader.showContent()
+        let shown = try #require(reader.contentUnavailableConfiguration as? UIContentUnavailableConfiguration)
+        #expect(shown.button.title == "Try Again")
+    }
+
+    @Test func aFetchThatStoresNothingSaysSoRatherThanStayingBlank() async {
+        let reader = reader(load: {})
+        await reader.viewModel.observe()
+        #expect(reader.viewModel.content == .unavailable(.gone))
+    }
+
+    @Test func aConversationStillLoadingShowsNoEmptyState() {
+        let reader = reader(load: {})
+        reader.loadViewIfNeeded()
+        reader.showContent()
+        #expect(reader.viewModel.content == .loading)
+        #expect(reader.contentUnavailableConfiguration == nil)
+    }
+}

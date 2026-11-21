@@ -67,6 +67,8 @@ public final class MailboxesViewModel {
     @ObservationIgnored private let directoryStream: () -> AsyncThrowingStream<MailboxDirectory, any Error>
     @ObservationIgnored private let smartDirectoryStream: () -> AsyncThrowingStream<SmartMailboxDirectory, any Error>
     @ObservationIgnored let navigate: (Route) -> Void
+    /// Told when the labels or smart mailboxes, which name lists, change, as the window's title names its list.
+    @ObservationIgnored public var namesChanged: (() -> Void)?
     @ObservationIgnored let accounts: [Account]
     /// Carries out what a drop on a row asks for, as the menus' actions do; `nil` where mail can't be changed.
     @ObservationIgnored let actions: MailActions?
@@ -186,14 +188,22 @@ public final class MailboxesViewModel {
     public func observe() async {
         async let smart: Void = followSmartMailboxes()
         do {
-            for try await directory in directoryStream() { self.directory = directory }
+            for try await directory in directoryStream() {
+                let renamed = directory.labels != self.directory.labels
+                self.directory = directory
+                if renamed { namesChanged?() }
+            }
         } catch {}
         await smart
     }
 
     private func followSmartMailboxes() async {
         do {
-            for try await directory in smartDirectoryStream() { smartDirectory = directory }
+            for try await directory in smartDirectoryStream() {
+                let renamed = directory.mailboxes != smartDirectory.mailboxes
+                smartDirectory = directory
+                if renamed { namesChanged?() }
+            }
         } catch {}
     }
 

@@ -1,0 +1,91 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Check your connection and try again." : {
+      "comment" : "Under the title over a conversation whose messages couldn't be fetched",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check your connection and try again."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כדאי לבדוק את החיבור ולנסות שוב."
+          }
+        }
+      }
+    },
+    "Couldn’t Load This Conversation" : {
+      "comment" : "Title over a conversation whose messages couldn't be fetched",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t Load This Conversation"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן לטעון את השיחה"
+          }
+        }
+      }
+    },
+    "It may have been deleted." : {
+      "comment" : "Under the title over a conversation that is no longer available",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It may have been deleted."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ייתכן שהיא נמחקה."
+          }
+        }
+      }
+    },
+    "This Conversation Is No Longer Available" : {
+      "comment" : "Title over a conversation that was deleted while open, or before it could be opened",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Conversation Is No Longer Available"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השיחה הזו כבר לא זמינה"
+          }
+        }
+      }
+    },
+    "Try Again" : {
+      "comment" : "Fetches a conversation's messages again",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try Again"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ניסיון חוזר"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

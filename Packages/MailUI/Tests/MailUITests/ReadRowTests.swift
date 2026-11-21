@@ -5,7 +5,7 @@ import Testing
 @testable import MailUI
 
 /// The window says which row is read (`markReading`), and the list holds it at once, listed or not, so the filter
-/// keeps it and a row that comes back shows as read (R11).
+/// keeps it for the rest of the visit and a row that comes back shows as read (R11).
 @MainActor
 @Suite(.timeLimit(.minutes(1)))
 struct ReadRowTests {
@@ -50,9 +50,9 @@ struct ReadRowTests {
         // Undo: the window reads t1 again before the store brings it back.
         list.markReading(t1)
         #expect(list.selection == .reading(t1), "the pick moves at once, listed or not")
-        #expect(list.rows == [t0, t3], "t2, read and no longer open, leaves")
+        #expect(list.rows == [t0, t2, t3], "t2, read on this visit, stays listed, as in Mail")
         feed.yield(threads(ids, unread: [t0, t3]))
-        while list.rows != [t0, t1, t3] { await Task.yield() }
+        while list.rows != ids { await Task.yield() }
         #expect(list.selection == .reading(t1), "its row is back, and shows as read")
         feed.finish()
         await observing.value

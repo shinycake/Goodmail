@@ -65,14 +65,24 @@ public final class MailboxViewModel {
     public let mailbox: Mailbox
     /// Whether this is a Trash, of every account or of one, which Delete Forever can empty.
     var isTrash: Bool { mailbox.labelID == SystemLabel.trash }
-    public let title: String
+    /// The list's name, which a label's list learns off the main actor once it is built (`naming`).
+    public private(set) var title: String
+    /// Names the list from the store off the main actor, as a label's list needs its label's name; `nil` when it
+    /// knows its name already.
+    public typealias Naming = @concurrent @Sendable () async -> String?
+    @ObservationIgnored private let naming: Naming?
     /// The category the list shows, or `nil` when the mailbox isn't split into categories.
     public var category: InboxCategory? {
         guard case .categorised(_, let selected) = source else { return nil }
         return selected
     }
+    /// What the list is filtered by, and what was read under it on this visit, which stays listed (`isShown`).
+    var visit: FilterVisit
     /// What the list is filtered by. Only `setFilter` changes it.
-    public internal(set) var filter: ListFilter
+    public internal(set) var filter: ListFilter {
+        get { visit.filter }
+        set { visit.filter(by: newValue, reading: reading) }
+    }
     /// How many threads the filter leaves out of what the store listed, so an empty list can tell a filter that hides
     /// everything from a mailbox with nothing in it.
     public private(set) var hiddenByFilter = 0
@@ -116,6 +126,7 @@ public final class MailboxViewModel {
     public init(
         mailbox: Mailbox = .inbox,
         title: String? = nil,
+        naming: Naming? = nil,
         accounts: [Account],
         source: MailboxSource,
         woken: (() -> AsyncThrowingStream<[ThreadSummary.ID: Date], any Error>)? = nil,
@@ -144,6 +155,7 @@ public final class MailboxViewModel {
         self.interaction = interaction
         self.mailbox = mailbox
         self.title = title ?? mailbox.listTitle(labels: [], accounts: accounts)
+        self.naming = naming
         composingAccount = mailbox.accountID ?? accounts.first?.id
         theme = Theme(accountID: mailbox.accountID, among: accounts, combined: combinedTheme)
         self.accounts = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0) })
@@ -152,7 +164,7 @@ public final class MailboxViewModel {
         self.source = source
         wokenThreads = woken
         pinnedThreads = pins
-        self.filter = filter
+        visit = FilterVisit(filter)
         self.didChangeFilter = didChangeFilter
         self.attachmentThreads = attachmentThreads
         self.sidebar = sidebar
@@ -170,10 +182,17 @@ public final class MailboxViewModel {
         async let woken: Void = followWoken()
         async let pins: Void = followPins()
         async let attachments: Void = followAttachments()
+        async let named: Void = followName()
         await followSource()
         await woken
         await pins
         await attachments
+        await named
+    }
+
+    private func followName() async {
+        guard let naming, let name = await naming() else { return }
+        title = name
     }
 
     private func followSource() async {
@@ -197,6 +216,7 @@ public final class MailboxViewModel {
     public func select(_ category: InboxCategory) {
         guard case .categorised(let categories, let selected) = source, category != selected else { return }
         source = .categorised(categories, selected: category)
+        visit.restart(reading: reading)
         categories.didSelect(category)
     }
 
@@ -324,6 +344,7 @@ public final class MailboxViewModel {
         let old = selection
         guard new != old else { return }
         selection = new
+        if case .reading(let id) = new { visit.read(id) }
         guard revealing else { return }
         switch new {
         case .reading(let id): navigate(.thread(id, in: mailbox))

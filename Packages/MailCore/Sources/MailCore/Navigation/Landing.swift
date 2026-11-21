@@ -17,11 +17,10 @@ public enum Landing: Equatable, Sendable {
     ) -> Landing {
         guard setting == .next else { return .list }
         let place = rows.contains(anchor) ? rows : trail
-        guard let index = place.firstIndex(of: anchor) else { return .list }
         let staying = Set(rows).subtracting(putAway)
         let next =
-            place[place.index(after: index)...].first(where: staying.contains)
-            ?? place[..<index].last(where: staying.contains)
+            WindowNavigation.Step.next.neighbor(of: anchor, in: place, listed: staying)
+            ?? WindowNavigation.Step.previous.neighbor(of: anchor, in: place, listed: staying)
         return next.map(Landing.thread) ?? .list
     }
 }

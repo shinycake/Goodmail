@@ -42,7 +42,7 @@ extension SceneCoordinator {
     }
 
     /// The reader on show: the viewer's, or alone in a message window.
-    private var readerOnShow: ThreadViewController? {
+    var readerOnShow: ThreadViewController? {
         switch screen {
         case .message(let content, _):
             (content as? UINavigationController)?.viewControllers.first as? ThreadViewController
@@ -86,13 +86,32 @@ extension SceneCoordinator {
     }
 }
 
+/// As the window changes width, the one list and the one reader move to the arrangement coming: into the stack before
+/// the split view collapses to it, and back into the columns before it expands, so it shows them as they were, scroll,
+/// search and Select mode, the reader's place and anything typed (D8). The did-hooks catch a change no will-hook told
+/// of, as the first layout in a window.
 extension SceneCoordinator: UISplitViewControllerDelegate {
-    // The arrangement the window changes to catches up with what shows, keeping its screens where they still fit.
+    func splitViewController(
+        _ svc: UISplitViewController,
+        topColumnForCollapsingToProposedTopColumn proposedTopColumn: UISplitViewController.Column
+    ) -> UISplitViewController.Column {
+        navigator.arrangementChanged(to: .stack)
+        return proposedTopColumn
+    }
+
+    func splitViewController(
+        _ svc: UISplitViewController,
+        displayModeForExpandingToProposedDisplayMode proposedDisplayMode: UISplitViewController.DisplayMode
+    ) -> UISplitViewController.DisplayMode {
+        navigator.arrangementChanged(to: .columns)
+        return proposedDisplayMode
+    }
+
     func splitViewControllerDidCollapse(_ splitViewController: UISplitViewController) {
-        navigator.arrangementChanged()
+        navigator.arrangementChanged(to: .stack)
     }
 
     func splitViewControllerDidExpand(_ splitViewController: UISplitViewController) {
-        navigator.arrangementChanged()
+        navigator.arrangementChanged(to: .columns)
     }
 }

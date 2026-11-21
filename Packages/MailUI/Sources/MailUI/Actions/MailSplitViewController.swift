@@ -20,6 +20,8 @@ public final class MailSplitViewController: UISplitViewController {
     private(set) lazy var inboxZeroSkyView = makeInboxZeroSkyView()
     /// Names each column's toolbar buttons and their keys on a desktop window.
     private let toolTips = BarToolTips()
+    /// Next and Previous Conversation, from the window's navigation (`WindowNavigator`).
+    public var steps: ConversationSteps?
 
     public init(actions: MailActions) {
         self.actions = actions

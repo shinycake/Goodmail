@@ -117,6 +117,13 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         let handedOff =
             restoredViewer
             ? services.routes.filled(.viewer(reading: nil)).flatMap(coordinator.arriveBeforeShowing) : nil
+        // Once it shows, which waits for the conversation read to be read off the main actor, what was held meanwhile
+        // goes where it belongs: a message window hands it on, and one whose conversation went shows the viewer
+        // instead, which takes it.
+        coordinator.filled = { [weak coordinator] in
+            guard let coordinator, let arrival = services.routes.filled(coordinator.holds) else { return }
+            coordinator.arrive(arrival)
+        }
         coordinator.start()
         coordinator.window.makeKeyAndVisible()
         coordinator.navigator.cameOnScreen()
@@ -126,9 +133,6 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Messages open into a web view whose content process takes a while to start; start one now.
         MessageWebViewPool.shared.warmUp()
         if let handedOff { coordinator.arrive(handedOff) }
-        // A message window hands on what was held once it shows; one whose conversation went shows the viewer
-        // instead, which takes it.
-        if !restoredViewer, let arrival = services.routes.filled(coordinator.holds) { coordinator.arrive(arrival) }
     }
 
     /// Fills the window with the one message it holds.

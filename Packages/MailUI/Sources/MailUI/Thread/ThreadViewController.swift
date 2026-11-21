@@ -1,4 +1,4 @@
-import MailCore
+public import MailCore
 public import QuickLook
 public import UIKit
 
@@ -6,6 +6,8 @@ public import UIKit
 /// matter now. Renders `ThreadViewModel` through Observation (ADR-011).
 public final class ThreadViewController: UIViewController {
     let viewModel: ThreadViewModel
+    /// The conversation's row as this reader last read it, which names a window showing it without a store read.
+    public var conversation: ThreadSummary { viewModel.thread }
     private let openURL: (URL) -> Void
     private let starItem = UIBarButtonItem()
     /// Reply, or Edit Draft while the newest message is an unsent draft.
@@ -33,15 +35,28 @@ public final class ThreadViewController: UIViewController {
     /// The classic letter just sent and where scrolling to it left the view, until its body takes its height.
     private var followedLetter: FollowedLetter?
     let layoutItem = UIBarButtonItem()
+    /// The chevrons to the conversations above and below, in a narrow window's bar (`steps`).
+    private let chevrons = StepChevrons()
+    /// Next and Previous Conversation, which a reader pushed in a narrow window offers as chevrons in its bar, as Mail
+    /// does; `nil` beside the list, where the list shows the way.
+    public var steps: ConversationSteps? {
+        didSet {
+            chevrons.steps = steps
+            guard isViewLoaded else { return }
+            placeShareItem()
+        }
+    }
     /// The window's toolbar over the letter on a desktop window, as last laid out; `nil` where the bar at the bottom
     /// holds the controls.
     var windowToolbar: WindowToolbar?
     /// The chat's message field and folded mail actions, in place of the toolbar while the chat layout shows.
-    private let composer = ChatComposerBar()
+    let composer = ChatComposerBar()
     /// Letters keep a readable width; chat bubbles reach nearly to the edges.
     private var readableWidth: [NSLayoutConstraint] = []
     private var chatWidth: [NSLayoutConstraint] = []
     private var observation: Task<Void, Never>?
+    /// A fetch asked for again from Try Again, which a newer one replaces; leaving the reader cancels it.
+    private var fetchingAgain: Task<Void, Never>?
     /// The layout the reader last scrolled to the focused message in; switching layouts scrolls there again.
     private var focusedLayout: ConversationLayout?
     private var previewURL: URL?
@@ -76,8 +91,10 @@ public final class ThreadViewController: UIViewController {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("Programmatic UI only") }
 
-    deinit {
+    isolated deinit {
+        composer.finish()
         observation?.cancel()
+        fetchingAgain?.cancel()
         unsubscribing?.cancel()
     }
 
@@ -159,15 +176,29 @@ public final class ThreadViewController: UIViewController {
         }
     }
 
+    /// Where the chevrons lead may have changed, with the window's navigation: they look again, and nothing else does.
+    func stepsMoved() {
+        chevrons.refresh()
+    }
+
+    /// Fetches the conversation again, as Try Again asks.
+    func loadAgain() {
+        fetchingAgain?.cancel()
+        fetchingAgain = Task { [viewModel] in await viewModel.load() }
+    }
+
     /// Moves VoiceOver to the subject once this reader is on screen, for a reader the window puts in another's
     /// place by itself, as after Archive or Undo, which UIKit doesn't announce as it does a push.
     public func announceWhenShown() {
         announcesOnAppear = true
     }
 
-    public override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        if isMovingFromParent || isBeingDismissed { composer.finish() }
+    /// The reader is let go: the chat's composer folds its tray and stops preparing attachments. Whoever holds the
+    /// reader calls it as it drops it (`MailScreens`), and it runs as the reader goes in any case; leaving its
+    /// navigation controller isn't leaving, as the reader moves between a wide window's columns and a narrow one's
+    /// stack with what is typed and being attached (D8).
+    public func leave() {
+        composer.finish()
     }
 
     /// Letters keep the toolbar; the chat's composer takes its place. The toolbar belongs to the stack, and each
@@ -334,7 +365,10 @@ public final class ThreadViewController: UIViewController {
     private func placeShareItem() {
         if usesWindowToolbar { return placeWindowToolbar() }
         let regular = traitCollection.horizontalSizeClass == .regular
-        navigationItem.rightBarButtonItems = regular ? [layoutItem, shareItem] : [layoutItem]
+        // The chevrons sit at the trailing end, the one below after the one above, in every language, in a capsule of
+        // their own as in Mail.
+        let stepping = steps == nil ? [] : [chevrons.down, chevrons.up, .fixedSpace(0)]
+        navigationItem.rightBarButtonItems = stepping + (regular ? [layoutItem, shareItem] : [layoutItem])
         var items = (toolbarItems ?? []).filter { $0 !== shareItem }
         if !regular, let reply = items.indices.last { items.insert(shareItem, at: reply - 1) }
         toolbarItems = items
@@ -352,6 +386,7 @@ public final class ThreadViewController: UIViewController {
             toolbarItems = items
         }
         updateWindowToolbar()
+        showContent()
         let messages = viewModel.messages
         metadata.text = [viewModel.accountEmail, Self.countText(messages.count)]
             .filter { !$0.isEmpty }.joined(separator: " · ")

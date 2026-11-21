@@ -236,6 +236,8 @@ public final class MailboxViewController: UIViewController {
     /// Called by UIKit whenever an observed view-model property changes.
     public override func updateProperties() {
         super.updateProperties()
+        // A label's list learns its name once it is read off the main actor; Select mode titles itself.
+        if !isEditing { title = viewModel.title }
         applySections(viewModel.sections)
         showPick()
         showReadRow()

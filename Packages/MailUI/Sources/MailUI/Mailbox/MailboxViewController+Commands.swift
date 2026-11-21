@@ -27,7 +27,8 @@ extension MailboxViewController: CommandScreen {
                 search.searchBar.becomeFirstResponder()
             })
         case .previousThread, .nextThread:
-            return .offering(step(by: command == .nextThread ? 1 : -1))
+            // The window steps through the list (`ConversationSteps`); not while Select mode picks rows.
+            return isEditing ? .unavailable : .notHere
         case .openInNewWindow:
             guard UIApplication.shared.supportsMultipleScenes, !isEditing, let id = selectedIDs.first else {
                 return .unavailable
@@ -41,24 +42,6 @@ extension MailboxViewController: CommandScreen {
             return .ready(perform: { [weak self] in self?.perform(.deleteForever, on: ids) })
         default:
             return .notHere
-        }
-    }
-
-    /// Opens the thread `offset` rows from the open one, selecting its row, or `nil` past either end or while
-    /// selecting several.
-    private func step(by offset: Int) -> (() -> Void)? {
-        guard !isEditing, let target = viewModel.thread(offset, from: selectedIDs.first),
-            let indexPath = dataSource.indexPath(for: target)
-        else { return nil }
-        return { [weak self] in
-            guard let self else { return }
-            guard !picksWithPointer else {
-                collectionView.scrollToItem(at: indexPath, at: .centeredVertically, animated: true)
-                return viewModel.click(target, .plain)
-            }
-            collectionView.selectItem(at: indexPath, animated: true, scrollPosition: .centeredVertically)
-            reportTouchPick()
-            viewModel.open(target)
         }
     }
 }

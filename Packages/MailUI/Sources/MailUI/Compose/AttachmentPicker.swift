@@ -76,7 +76,7 @@ final class AttachmentPicker: NSObject {
     }
 
     /// Queues a capture to be prepared off the main actor and attached after the ones taken before it.
-    private func attach(_ make: @escaping CapturedAttachment.Preparation) {
+    func attach(_ make: @escaping CapturedAttachment.Preparation) {
         captures.continuation.yield(make)
     }
 
