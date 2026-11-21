@@ -141,6 +141,9 @@ public final class MailboxViewController: UIViewController {
         installSearch()
         // Each bar gets its own item: one item in two bars has one view, which the hidden bar can take.
         windowCompose = picksWithPointer ? windowComposeItem() : nil
+        filterButton.press = picksWithPointer ? .opensChoices : .toggles
+        // A Mac toolbar's controls are plain glyphs and text, so the category reads in the label color there.
+        categoryButton?.configuration?.baseForegroundColor = picksWithPointer ? .label : nil
         let compose = composeItem()
         navigationItem.rightBarButtonItems = browsingTrailingItems
         // New Message is the last to go into More when the toolbar runs short, as in a bar down iPhone Duo's side.
