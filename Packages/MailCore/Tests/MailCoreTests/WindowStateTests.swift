@@ -50,7 +50,7 @@ struct WindowStateTests {
         let restored = try roundTrip(state)
         #expect(restored.reading?.mailbox == .allMail)
         #expect(restored.list == .mailbox(.inbox))
-        #expect(restored.columns == WindowState.Columns(list: .mailbox(.inbox), detail: .reader(state.reading!)))
+        #expect(restored.reading == state.reading)
     }
 
     @Test func aNewWindowIsUnfiltered() {

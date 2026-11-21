@@ -53,11 +53,6 @@ extension SceneCoordinator {
         }
     }
 
-    /// Search began or ended in the list, so the rows the reader would go on in changed (R9).
-    func searchToggled(_ on: Bool) {
-        navigator.send(.searching(on))
-    }
-
     /// Follows the labels and smart mailboxes here for as long as the window lives, off the main actor, so a list gone
     /// from the device gives way to the Inbox (`WindowState.keeping(_:lists:)`): one restored after it was deleted, one
     /// deleted while the window shows it, here or on another device, and one handed off that never syncs here

@@ -1,12 +1,11 @@
 /// Where a route from outside the window takes it: the window is uncovered first (R3), a conversation shows in a list
 /// that holds it (R4), and one that is gone is said to be (R10).
 extension WindowNavigation {
-    /// Goes where `route`, from outside, asks, uncovering the window first. Search ends with it, so a conversation
+    /// Goes where `route`, from outside, asks, uncovering the window first, which ends search, so a conversation
     /// opened now is opened from the list's own rows. Settings, which comes up over whatever is up, uncovers nothing:
     /// dismissing an open Settings only to show it again would lose its page.
     mutating func arrive(at route: Route, in context: Context) -> [Effect] {
         if case .settings = route { return go(to: route, from: .outside, in: context) }
-        searching = false
         return [.uncover] + go(to: route, from: .outside, in: context)
     }
 

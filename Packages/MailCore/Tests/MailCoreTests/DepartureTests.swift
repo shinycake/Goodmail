@@ -48,7 +48,7 @@ struct DepartureTests {
 
     @Test(arguments: [
         WindowNavigation.Event.route(.mailbox(.starred)), .back(to: .list), .filter(.on([.unread])),
-        .category(.social), .searching(true), .route(.search(SearchQuery(terms: []))),
+        .category(.social), .route(.search(SearchQuery(terms: []))),
         .accounts([]), .handedOff(WindowState(), accounts: [AccountID(rawValue: "a")]),
     ])
     func anyOtherMoveBringsBackOnlyTheRow(move: WindowNavigation.Event) {

@@ -13,6 +13,17 @@ struct ListSelectionTests {
 
     // MARK: Clicks
 
+    @Test func arrowsFromARowThatLeftMoveFromWhereItWas() {
+        // c was clicked in an Unread smart mailbox, and left it once read.
+        let left = [a, b, d, e]
+        #expect(ListSelection.reading(c).moving(1, extending: false, in: left, trail: rows) == .reading(d))
+        #expect(ListSelection.reading(c).moving(-1, extending: false, in: left, trail: rows) == .reading(b))
+        #expect(
+            ListSelection.reading(e).moving(1, extending: false, in: [a, b], trail: rows) == .reading(e),
+            "nothing below stays put rather than jumping to the top")
+        #expect(ListSelection.reading(c).moving(1, extending: false, in: left) == .reading(a), "unplaced, the top")
+    }
+
     @Test func aPlainClickReadsTheRow() {
         #expect(ListSelection.none.clicking(b, .plain, in: rows) == .reading(b))
         #expect(ListSelection.reading(a).clicking(b, .plain, in: rows) == .reading(b))

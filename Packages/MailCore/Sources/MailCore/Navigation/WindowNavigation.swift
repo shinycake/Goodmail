@@ -2,7 +2,7 @@
 /// (`handle(_:in:)`). Routes, a conversation found or missing, Back, a change the reader asks of mail, Undo, other
 /// accounts and lists, and Handoff are each an `Event`; the transition changes `state` and says what the window does
 /// beyond showing it (`Effect`), such as looking a conversation up, presenting a screen or beginning search. The
-/// window's screens then show `state` as it is (`stack`, `columns`), so nothing on screen keeps its own idea of what is
+/// window's screens then show `state` as it is (`stack`, or `list` and `reading` side by side), so nothing on screen keeps its own idea of what is
 /// read.
 ///
 /// It also keeps what the window must remember to move as the reader expects: the conversation opened and the rows it
@@ -17,7 +17,6 @@ public struct WindowNavigation: Equatable, Sendable {
             guard state != oldValue else { return }
             departure = nil
             pending = nil
-            if state.list != oldValue.list { searching = false }
         }
     }
     /// The conversation read, as it was opened.
@@ -26,9 +25,6 @@ public struct WindowNavigation: Equatable, Sendable {
     var departure: Departure?
     /// The conversation a lookup is under way for, where the route reads it, and where the route came from.
     public internal(set) var pending: Awaited?
-    /// Whether search shows its results over the list, so a conversation opened from them is told from one opened from
-    /// the list's own rows.
-    var searching = false
     /// When a list the state names, missing from the device, counts as gone.
     var listCheck: WindowState.ListCheck
 
@@ -76,9 +72,9 @@ public struct WindowNavigation: Equatable, Sendable {
         /// The window comes up for `route`, from outside, over the state it restored, before any screen is built: a
         /// restored conversation the route doesn't open closes at once, so its reader isn't built under the new one.
         case launched(for: Route)
-        /// The conversation a `.lookUp` asked for, as `summary`, from a list showing `rows`. It counts only while that
-        /// lookup is the one under way.
-        case found(ThreadSummary, rows: [ThreadSummary.ID])
+        /// The conversation a `.lookUp` asked for, as `summary`, from a list showing `rows`, search's results over it
+        /// while `searching`. It counts only while that lookup is the one under way.
+        case found(ThreadSummary, rows: [ThreadSummary.ID], searching: Bool = false)
         /// The conversation isn't on the device: the one a `.lookUp` asked for, which then opens nothing, or the one
         /// read, as one restored that was deleted meanwhile or whose reader can't be made, which closes. A message
         /// window becomes a viewer.
@@ -105,8 +101,6 @@ public struct WindowNavigation: Equatable, Sendable {
         case category(InboxCategory)
         /// The list is filtered by `filter`.
         case filter(ListFilter)
-        /// Search began (`true`) or ended over the list, so the rows the reader goes on in changed.
-        case searching(Bool)
         /// Next or Previous Conversation, through `front`, the list on show.
         case step(Step, front: Front?)
 
@@ -117,8 +111,7 @@ public struct WindowNavigation: Equatable, Sendable {
             switch self {
             case .changed, .undone, .step: true
             case .route, .launched, .found, .restored, .missing, .unreachable, .back, .accounts, .lists, .handedOff,
-                .category,
-                .filter, .searching:
+                .category, .filter:
                 false
             }
         }
@@ -165,8 +158,8 @@ public struct WindowNavigation: Equatable, Sendable {
             return arrive(at: route, in: context)
         case .launched(let route):
             return launch(for: route, in: context)
-        case .found(let summary, let rows):
-            open(summary, from: rows, in: context)
+        case .found(let summary, let rows, let searching):
+            open(summary, from: rows, searching: searching, in: context)
         case .restored(let summary):
             restore(summary)
         case .missing(let thread):
@@ -188,7 +181,11 @@ public struct WindowNavigation: Equatable, Sendable {
             // Only the viewer shows its list; a message window keeps reading where it was opened.
             guard state.layout == .viewer, let kept = listCheck.next(state, accounts: accounts, lists: lists)
             else { return [] }
+            // An arrival looked up meanwhile, as at a cold launch over a list since deleted, still shows once found,
+            // in a list that holds it.
+            let arrival = pending.flatMap { $0.source == .outside ? $0 : nil }
             show(kept)
+            if let arrival { pending = arrival }
         case .handedOff(let handed, let accounts):
             showHandedOff(handed, accounts: accounts)
             // Handoff comes from outside, so it uncovers what it shows.
@@ -200,9 +197,6 @@ public struct WindowNavigation: Equatable, Sendable {
             state = next
         case .filter(let filter):
             state.filter = filter
-        case .searching(let on):
-            searching = on
-            departure = nil
         case .step(let step, let front):
             take(step, in: front)
         }
@@ -216,9 +210,18 @@ public struct WindowNavigation: Equatable, Sendable {
         return opened.row
     }
 
-    /// The list a conversation opens from, as it shows now: its own rows, or search's over them.
-    var source: Opened.From {
+    /// The list a conversation opens from, as it shows now: its own rows, or search's over them while `searching`.
+    func source(searching: Bool) -> Opened.From {
         Opened.From(list: state.list, searching: searching)
+    }
+
+    /// The rows `thread` was opened from, while it is the one opened and `front` is the list it was opened from as it
+    /// shows now, which place it once its row has left; empty otherwise, as for rows another list or search showed.
+    func trail(of thread: ThreadSummary.ID, in front: Front?) -> [ThreadSummary.ID] {
+        guard let opened, opened.thread == thread, opened.from == source(searching: front?.searching ?? false) else {
+            return []
+        }
+        return opened.rows
     }
 
     /// Shows `next`, which differs from what shows by what is gone from the device: another list closes the reader,
@@ -229,11 +232,14 @@ public struct WindowNavigation: Equatable, Sendable {
         state = next
     }
 
-    /// The conversation read is on the device as `summary`. Its trail, the rows it was opened from, stays.
+    /// The conversation read is on the device as `summary`. Where it was opened from, and its trail, stay.
     private mutating func restore(_ summary: ThreadSummary) {
         guard state.reading?.thread == summary.id else { return }
-        let trail = opened.flatMap { $0.thread == summary.id ? $0 : nil }
-        opened = Opened(thread: summary.id, from: trail?.from ?? source, rows: trail?.rows ?? [], row: summary)
+        guard let opened, opened.thread == summary.id else {
+            opened = Opened(thread: summary.id, from: source(searching: false), rows: [], row: summary)
+            return
+        }
+        self.opened = Opened(thread: summary.id, from: opened.from, rows: opened.rows, row: summary)
     }
 
     /// `thread` isn't on the device. The one read closes; one a route from inside asked for opens nothing, and one an

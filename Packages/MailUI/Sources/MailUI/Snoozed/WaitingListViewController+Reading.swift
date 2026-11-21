@@ -9,6 +9,8 @@ extension WaitingListViewController: ThreadSequence where Model == SnoozedViewMo
 
     public var pointerPick: [ThreadSummary.ID] { [] }
 
+    public var frontSearching: Bool { false }
+
     public func summary(of thread: ThreadSummary.ID) -> ThreadSummary? {
         viewModel.listed.first { $0.id == thread }
     }

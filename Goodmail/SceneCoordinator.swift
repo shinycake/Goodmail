@@ -179,11 +179,12 @@ final class SceneCoordinator: NSObject {
 
     /// The mail screens, while the window shows them.
     var split: MailSplitViewController? {
-        guard case .mailbox(let split, _, _) = screen else { return nil }
-        return split
+        guard case .mailbox = screen else { return nil }
+        return navigator.screens?.split
     }
 
-    /// Moves the window to `next`, filling it with that screen unless only the mail screens' sheet changed.
+    /// Moves the window to `next`, filling it with that screen unless only the mail screens' sheet changed. The one
+    /// place the window leaves the mail screens: any other screen lets them go, with what they follow.
     func enter(_ next: Screen) {
         let before = screen
         screen = next
@@ -194,10 +195,13 @@ final class SceneCoordinator: NSObject {
         // Whatever replaces a message window waiting out its undo ends the wait.
         if case .leaving(let waiting) = before { waiting.cancel() }
         switch next {
-        case .starting, .leaving: break
-        case .welcome(let content), .offer(let content), .message(let content, _): show(content)
-        case .mailbox(let split, _, _):
-            if case .mailbox(let shown, _, _) = before, shown === split { return }
+        case .starting, .leaving:
+            navigator.leaveScreens()
+        case .welcome(let content), .offer(let content), .message(let content, _):
+            navigator.leaveScreens()
+            show(content)
+        case .mailbox:
+            guard let split = navigator.screens?.split, drafts.content !== split else { break }
             show(split)
         }
         publishActivity()
@@ -260,8 +264,7 @@ final class SceneCoordinator: NSObject {
         split.delegate = self
         // The sheet over the old screens stays up over the rebuilt ones.
         var cover = Cover.none
-        if case .mailbox(_, _, let shownCover) = screen { cover = shownCover }
-        enter(.mailbox(split, accounts: model.accounts.map(\.id), cover: cover))
+        if case .mailbox(_, let shownCover) = screen { cover = shownCover }
         // Unowned: the coordinator owns the navigator, which owns the screens and these makers.
         navigator.show(
             in: split,
@@ -269,6 +272,9 @@ final class SceneCoordinator: NSObject {
                 mailboxes: { [unowned self] in mailboxesViewController(style: $0) },
                 list: { [unowned self] in listViewController(for: $0) },
                 reader: { [unowned self] reading, row in reader(for: row, in: reading.mailbox) }))
+        enter(.mailbox(accounts: model.accounts.map(\.id), cover: cover))
+        // What waited for the window follows now that the screens fill it.
+        navigator.cameOnScreen()
     }
 
     private func mailboxesViewController(style: MailboxesViewController.Style) -> MailboxesViewController {
@@ -385,7 +391,6 @@ final class SceneCoordinator: NSObject {
                 health: model.health
             ),
             searchResults: results, draftsDock: drafts.dock)
-        list.searchToggled = { [weak self] in self?.searchToggled($0) }
         return list
     }
 

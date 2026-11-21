@@ -11,6 +11,8 @@ extension MailboxViewController: ThreadSequence {
         return results
     }
 
+    public var frontSearching: Bool { frontList !== self }
+
     public var frontRows: [ThreadSummary.ID] { frontList.viewModel.rows }
 
     public var frontMailbox: Mailbox { frontList.viewModel.mailbox }

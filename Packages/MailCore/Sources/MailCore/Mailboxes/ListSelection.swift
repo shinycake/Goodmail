@@ -67,10 +67,18 @@ public enum ListSelection: Hashable, Sendable {
         }
     }
 
-    /// After ↓ (`offset` 1) or ↑ (-1), with ⇧ when `extending`. Stops at either end of the list.
-    public func moving(_ offset: Int, extending: Bool, in rows: [ThreadSummary.ID]) -> ListSelection {
+    /// After ↓ (`offset` 1) or ↑ (-1), with ⇧ when `extending`. Stops at either end of the list. A conversation read
+    /// whose row has left since, as a read one leaves an Unread smart mailbox, moves from where it was in `trail`, the
+    /// rows as they were when it was picked, as Next and Previous Conversation do.
+    public func moving(
+        _ offset: Int, extending: Bool, in rows: [ThreadSummary.ID], trail: [ThreadSummary.ID] = []
+    ) -> ListSelection {
         let indices = ids(in: rows).compactMap(rows.firstIndex(of:))
         guard let top = indices.min(), let bottom = indices.max() else {
+            if case .reading(let read) = self, trail.contains(read) {
+                let step: WindowNavigation.Step = offset > 0 ? .next : .previous
+                return step.neighbor(of: read, in: trail, listed: Set(rows)).map(ListSelection.reading) ?? self
+            }
             return rows.first.map(ListSelection.reading) ?? .none
         }
         func clamped(_ index: Int) -> Int { min(max(index, 0), rows.count - 1) }

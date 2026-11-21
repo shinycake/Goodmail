@@ -37,6 +37,7 @@ struct WindowNavigatorTests {
         var frontRows: [ThreadSummary.ID] { rows.map(\.id) }
         var frontMailbox: Mailbox { .inbox }
         var pointerPick: [ThreadSummary.ID] { [] }
+        var frontSearching: Bool { false }
         func summary(of thread: ThreadSummary.ID) -> ThreadSummary? { rows.first { $0.id == thread } }
         func mark(reading thread: ThreadSummary.ID?) { marked = thread }
     }
@@ -256,6 +257,22 @@ struct WindowNavigatorTests {
         onScreen = true
         navigator.cameOnScreen()
         #expect(presented == [.compose(Self.draft)], "the newest arrival wins")
+    }
+
+    @Test(.timeLimit(.minutes(1)))
+    func aScreenAskedForMeanwhileKeepsAnArrivalsLookup() async {
+        let store = Store()
+        let navigator = navigator(store: store)
+        var onScreen = false
+        navigator.isOnScreen = { onScreen }
+        navigator.present = { _ in }
+        // An alert's conversation the list doesn't hold, then a sheet the window asks for before it is on screen.
+        navigator.send(.route(.thread(Self.id("z"), in: .inbox), from: .outside))
+        navigator.send(.route(.compose(Self.draft)))
+        onScreen = true
+        navigator.cameOnScreen()
+        #expect(await reads(navigator, "z"), "the arrival still opens")
+        #expect(await store.asked == [Self.id("z")])
     }
 
     private static let draft = Draft(accountID: account)
