@@ -119,11 +119,14 @@ struct MailScreensTests {
 
     /// On screen, a move takes the reader out of one navigation controller and into another, which UIKit reports as
     /// leaving it: the chat's attachments must go on being taken all the same.
-    @Test(.timeLimit(.minutes(1)))
+    @Test(
+        .timeLimit(.minutes(1)),
+        // The package's tests run without a host app, which leaves no scene to put a window in.
+        .enabled("it needs a window scene") { await MainActor.run { !UIApplication.shared.connectedScenes.isEmpty } })
     func aReaderMovedOnScreenStillTakesAttachments() async throws {
         let state = WindowState(place: .list(reading: a))
         let screens = screens(state, in: .columns)
-        // The test host's own scene, for appearance callbacks as a real window has them.
+        // A window in the test host's scene, for appearance callbacks as a real window has them.
         let scene = try #require(UIApplication.shared.connectedScenes.first as? UIWindowScene)
         let window = UIWindow(windowScene: scene)
         window.rootViewController = screens.split

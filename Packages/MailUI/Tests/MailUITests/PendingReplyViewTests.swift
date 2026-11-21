@@ -15,12 +15,47 @@ struct PendingReplyViewTests {
     private let start = Date(timeIntervalSince1970: 1_800_000_000)
 
     private struct Streams {
-        let messages = AsyncThrowingStream<[Message], any Error>.makeStream()
-        let queue = AsyncThrowingStream<[OutgoingMessage], any Error>.makeStream()
+        let messages = Feed<[Message]>()
+        let queue = Feed<[OutgoingMessage]>()
 
         func finish() {
-            messages.continuation.finish()
-            queue.continuation.finish()
+            messages.finish()
+            queue.finish()
+        }
+    }
+
+    /// A store observation: each subscriber gets its own stream that starts with the latest value, as the reader
+    /// subscribes again to learn what a finished fetch left.
+    private final class Feed<Element: Sendable>: Sendable {
+        private struct State {
+            var latest: Element?
+            var subscribers: [AsyncThrowingStream<Element, any Error>.Continuation] = []
+            var isFinished = false
+        }
+        private let state = Mutex(State())
+
+        func stream() -> AsyncThrowingStream<Element, any Error> {
+            let (stream, continuation) = AsyncThrowingStream<Element, any Error>.makeStream()
+            state.withLock { state in
+                if let latest = state.latest { continuation.yield(latest) }
+                if state.isFinished { continuation.finish() } else { state.subscribers.append(continuation) }
+            }
+            return stream
+        }
+
+        func yield(_ element: Element) {
+            state.withLock { state in
+                state.latest = element
+                for subscriber in state.subscribers { subscriber.yield(element) }
+            }
+        }
+
+        func finish() {
+            state.withLock { state in
+                state.isFinished = true
+                for subscriber in state.subscribers { subscriber.finish() }
+                state.subscribers = []
+            }
         }
     }
 
@@ -35,7 +70,7 @@ struct PendingReplyViewTests {
                 id: .init(accountID: account, threadID: "t"), subject: "Plan", snippet: "", sender: dana,
                 date: start, isUnread: false, messageCount: 1, labelIDs: []),
             mailbox: .inbox, accountEmail: "me@example.com", accountColor: .blue,
-            messages: { streams.messages.stream }, outgoing: { streams.queue.stream }, load: {},
+            messages: { streams.messages.stream() }, outgoing: { streams.queue.stream() }, load: {},
             attachmentData: attachmentData, source: { _ in Data() },
             attachmentsDirectory: FileManager.default.temporaryDirectory.appending(path: "Pending-\(UUID())"),
             now: now, layout: .classic)
@@ -67,8 +102,8 @@ struct PendingReplyViewTests {
         let clock = Mutex(start)
         let model = model(streams, now: { clock.withLock { $0 } })
         let observing = Task { await model.observe() }
-        streams.messages.continuation.yield([message("1")])
-        streams.queue.continuation.yield([reply()])
+        streams.messages.yield([message("1")])
+        streams.queue.yield([reply()])
 
         try await until { model.replies.map { $0.delivery } == [ChatTranscript.Delivery.sent] }
         clock.withLock { $0 = start.addingTimeInterval(PendingReply.overdueAfter) }
@@ -84,14 +119,14 @@ struct PendingReplyViewTests {
         let observing = Task { await model.observe() }
         let first = message("1")
         let reply = reply()
-        streams.messages.continuation.yield([first])
-        streams.queue.continuation.yield([reply])
+        streams.messages.yield([first])
+        streams.queue.yield([reply])
         try await until { model.replies.count == 1 }
 
         // The copy syncs as the queue lets the reply go, so the two updates race.
         let copy = message("2", internetID: "<\(reply.headerID)>")
-        streams.messages.continuation.yield([first, copy])
-        streams.queue.continuation.yield([])
+        streams.messages.yield([first, copy])
+        streams.queue.yield([])
         try await until { model.messages.count == 2 && model.replies.isEmpty }
 
         #expect(model.expanded.contains(copy.id), "it doesn't fold into a row")
@@ -104,7 +139,7 @@ struct PendingReplyViewTests {
         let model = model(streams, now: { start })
         let observing = Task { await model.observe() }
         let file = DraftAttachment(filename: "plan.txt", mimeType: "text/plain", data: Data("plan".utf8))
-        streams.queue.continuation.yield([reply(files: [file])])
+        streams.queue.yield([reply(files: [file])])
         try await until { model.replies.count == 1 }
 
         let letter = try #require(model.replies.first?.letter)

@@ -111,8 +111,9 @@ struct ListPickTests {
         await show(ids, unread: [ids[0], ids[2], ids[3]], in: list, through: feed)
         #expect(list.selection == .reading(ids[1]), "it reads on, and the next isn't opened and read in turn")
         read(ids[2])
-        await show(ids, unread: [ids[0], ids[3]], in: list, through: feed, showing: [ids[0], ids[2], ids[3]])
-        #expect(list.hiddenByFilter == 1, "the one read before leaves once another is read")
+        await show(ids, unread: [ids[0], ids[3]], in: list, through: feed)
+        #expect(list.selection == .reading(ids[2]))
+        #expect(list.hiddenByFilter == 0, "the one read before stays for the visit, so Previous goes back to it")
         feed.finish()
         await observing.value
     }
