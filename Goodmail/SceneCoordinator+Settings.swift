@@ -10,7 +10,7 @@ extension SceneCoordinator {
     /// Accounts and preferences, open at `page`, over the mail screens with nothing else over them. Asking again while
     /// it's up does nothing.
     func showSettings(at page: SettingsPage) {
-        guard case .mailbox(let split, let accounts, .none) = screen, let presenter = topViewController() else {
+        guard case .mailbox(let accounts, .none) = screen, let presenter = topViewController() else {
             return
         }
         // A presenter off screen would drop the sheet and leave the cover saying Settings is up; the navigation
@@ -20,15 +20,15 @@ extension SceneCoordinator {
         let viewModel = model.settingsViewModel(
             signIn: accountSignIn, transfer: transferActions,
             closed: { [weak self, model] in self?.settingsClosed(changed: Appearance(model) != before) })
-        enter(.mailbox(split, accounts: accounts, cover: .settings(page)))
+        enter(.mailbox(accounts: accounts, cover: .settings(page)))
         presenter.present(SettingsScreen.make(model: viewModel, at: page), animated: true)
     }
 
     /// Settings is gone. The mail screens are rebuilt where the reader was when what they show changed meanwhile,
     /// in Settings or by another device, and the offer that waited for Settings comes up.
     private func settingsClosed(changed: Bool) {
-        guard case .mailbox(let split, let accounts, .settings) = screen else { return }
-        enter(.mailbox(split, accounts: accounts, cover: .none))
+        guard case .mailbox(let accounts, .settings) = screen else { return }
+        enter(.mailbox(accounts: accounts, cover: .none))
         model.shareSettingsNow()
         followSettings(changed: changed, builtFor: accounts)
     }

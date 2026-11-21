@@ -44,7 +44,7 @@ struct WindowNavigationPutAwayTests {
 
         var back = reading(b)
         _ = asking(&back, .action(.archive), of: [b], on: b, setting: .list)
-        #expect(back.state.stack == [.mailboxes, .list(.mailbox(.inbox))])
+        #expect(back.state.stack == [.mailboxes, .list])
     }
 
     @Test func theNextIsReadWhereTheListOnShowReadsItsRows() {
@@ -113,17 +113,18 @@ struct WindowNavigationPutAwayTests {
     @Test func theRowsOfAnotherListAreNeverItsTrail() {
         // Opened from the search results, which listed b; search ended, and the list doesn't list b.
         var window = WindowNavigation(showing: WindowState())
-        _ = window.handle(.searching(true), in: context())
-        window.open(b, in: .allMail, from: rows, context())
-        _ = window.handle(.searching(false), in: context())
+        _ = window.handle(.route(.thread(b.id, in: .allMail)), in: context())
+        _ = window.handle(.found(b, rows: rows, searching: true), in: context())
         _ = asking(&window, .snooze, of: [b], on: b, rows: [a.id, c.id])
         #expect(window.state.reading == nil, "the results' rows don't place it in the list")
 
         var searched = WindowNavigation(showing: WindowState())
-        _ = searched.handle(.searching(true), in: context())
-        searched.open(b, in: .allMail, from: rows, context())
-        _ = asking(&searched, .snooze, of: [b], on: b, rows: [a.id, c.id])
-        #expect(searched.state.reading == Reading(c.id, in: .inbox), "the results it was opened from place it")
+        _ = searched.handle(.route(.thread(b.id, in: .allMail)), in: context())
+        _ = searched.handle(.found(b, rows: rows, searching: true), in: context())
+        let results = WindowNavigation.Front(rows: [a.id, c.id], mailbox: .allMail, searching: true)
+        _ = searched.handle(
+            .changed(MailChange(.snooze, on: [b.id]), reader: reader(b, in: .allMail), front: results), in: context())
+        #expect(searched.state.reading == Reading(c.id, in: .allMail), "the results it was opened from place it")
     }
 
     @Test func puttingAwayEveryPointerPickReadsTheRowAfterThem() {

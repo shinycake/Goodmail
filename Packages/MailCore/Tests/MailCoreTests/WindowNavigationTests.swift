@@ -37,7 +37,7 @@ struct WindowNavigationTests {
         window.open(c, in: .inbox, from: rows, stack)
         #expect(window.state.reading == Reading(c.id, in: .inbox))
         #expect(
-            window.state.stack == [.mailboxes, .list(.mailbox(.inbox)), .reader(Reading(c.id, in: .inbox))],
+            window.state.stack == [.mailboxes, .list, .reader(Reading(c.id, in: .inbox))],
             "one reader, so Back goes to the list (R1)")
     }
 
@@ -134,7 +134,7 @@ struct WindowNavigationTests {
     @Test func aNarrowWindowAtTheMailboxesOpensTheListUnderTheConversation() {
         var window = WindowNavigation(showing: WindowState(place: .mailboxes))
         window.open(a, in: .inbox, from: rows, stack)
-        #expect(window.state.stack == [.mailboxes, .list(.mailbox(.inbox)), .reader(Reading(a.id, in: .inbox))])
+        #expect(window.state.stack == [.mailboxes, .list, .reader(Reading(a.id, in: .inbox))])
     }
 
     // MARK: Lists
@@ -142,13 +142,13 @@ struct WindowNavigationTests {
     @Test func aMailboxClosesTheReaderInAStack() {
         var window = reading(b, in: stack)
         #expect(window.handle(.route(.mailbox(.starred)), in: stack) == [])
-        #expect(window.state.stack == [.mailboxes, .list(.mailbox(.starred))])
+        #expect(window.state.stack == [.mailboxes, .list])
     }
 
     @Test func aMailboxClosesTheReaderInColumnsToo() {
         var window = reading(b, in: columns)
         #expect(window.handle(.route(.mailbox(.starred)), in: columns) == [.showList])
-        #expect(window.state.columns == .init(list: .mailbox(.starred), detail: .nothing), "as Mail does")
+        #expect(window.state.list == .mailbox(.starred) && window.state.reading == nil, "as Mail does")
     }
 
     @Test(arguments: [WindowNavigation.Arrangement.stack, .columns])
@@ -212,7 +212,7 @@ struct WindowNavigationTests {
     @Test func searchFromTheMailboxesOpensTheList() {
         var window = WindowNavigation(showing: WindowState(list: .mailbox(.sent), place: .mailboxes))
         _ = window.handle(.route(.search(SearchQuery(terms: []))), in: stack)
-        #expect(window.state.stack == [.mailboxes, .list(.mailbox(.sent))])
+        #expect(window.state.stack == [.mailboxes, .list])
     }
 
     // MARK: Back
@@ -220,7 +220,7 @@ struct WindowNavigationTests {
     @Test func backFromTheReaderGoesToTheList() {
         var window = reading(b, in: stack)
         #expect(window.handle(.back(to: .list), in: stack) == [])
-        #expect(window.state.stack == [.mailboxes, .list(.mailbox(.inbox))])
+        #expect(window.state.stack == [.mailboxes, .list])
         #expect(window.foundRow == nil)
     }
 
@@ -228,7 +228,7 @@ struct WindowNavigationTests {
         var window = WindowNavigation(showing: WindowState(list: .mailbox(.starred)))
         _ = window.handle(.back(to: .mailboxes), in: stack)
         #expect(window.state.stack == [.mailboxes])
-        #expect(window.state.columns.list == .mailbox(.starred))
+        #expect(window.state.list == .mailbox(.starred))
     }
 
     // MARK: Picked rows
@@ -236,7 +236,7 @@ struct WindowNavigationTests {
     @Test func aPickedCountClosesTheReaderBesideTheList() {
         var window = reading(b, in: columns)
         #expect(window.handle(.route(.selection(count: 3)), in: columns) == [.showPicked(3)])
-        #expect(window.state.columns.detail == .nothing)
+        #expect(window.state.reading == nil)
     }
 
     @Test func aNarrowWindowShowsItsOwnPick() {
@@ -292,6 +292,18 @@ struct WindowNavigationTests {
         let none = WindowState.OwnLists(labels: [], smartMailboxes: [])
         _ = window.handle(.lists(none, accounts: accounts), in: columns)
         #expect(window.state == WindowState(), "another list, so nothing read beside it")
+    }
+
+    @Test func anArrivalLookedUpOverADeletedListStillShowsOnceFound() {
+        // A cold launch restored a label deleted meanwhile, and came up for an alert's conversation.
+        let label = Mailbox(labelID: "Label_1", accountID: AccountID(rawValue: "a"))
+        var window = WindowNavigation(showing: WindowState(list: .mailbox(label)))
+        #expect(window.handle(.launched(for: .thread(c.id, in: .inbox)), in: stack) == [.lookUp(c.id)])
+        _ = window.handle(.lists(.init(labels: [], smartMailboxes: []), accounts: accounts), in: stack)
+        #expect(window.state.list == .mailbox(.inbox), "the list gives way")
+        #expect(window.pending?.reading.thread == c.id, "and the arrival still waits")
+        _ = window.handle(.found(c, rows: []), in: stack)
+        #expect(window.state.reading?.thread == c.id, "shown in a list that holds it")
     }
 
     @Test func aConversationReadInADeletedLabelReadsOnInAllMail() {

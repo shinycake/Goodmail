@@ -1,7 +1,7 @@
 public import MailCore
 public import UIKit
 
-/// A viewer window's screens, kept showing what its navigation says (`WindowState.stack` and `.columns`): the split
+/// A viewer window's screens, kept showing what its navigation says (`WindowState.stack`, or its `list` and `reading` side by side): the split
 /// view's columns when the window is wide, its one stack when it is narrow. Each change is made in one go, and a screen
 /// whose entry is unchanged stays the same screen, so the list keeps its scroll, search and Select mode, and the reader
 /// its place, its layout and anything typed, across every transition that leaves them be. Back on the stack is

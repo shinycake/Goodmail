@@ -58,6 +58,21 @@ struct ReadRowTests {
         await observing.value
     }
 
+    @Test func downFromAClickedRowThatLeftTheUnreadBoxReadsTheRowBelow() async {
+        let (list, feed) = list(.desktop, filter: .none)
+        let observing = Task { await list.observe() }
+        feed.yield(threads(ids, unread: Set(ids)))
+        while list.rows != ids { await Task.yield() }
+        list.click(ids[1], .plain)
+        // An Unread smart mailbox lists only unread mail, so the row leaves once it is read.
+        feed.yield(threads([ids[0], ids[2], ids[3]], unread: [ids[0], ids[2], ids[3]]))
+        while list.rows.count != 3 { await Task.yield() }
+        list.move(1, extending: false)
+        #expect(list.selection == .reading(ids[2]), "the row below, not the top")
+        feed.finish()
+        await observing.value
+    }
+
     @Test func markingNoneLeavesSeveralPicked() async {
         let (list, feed) = list(.desktop)
         let observing = Task { await list.observe() }

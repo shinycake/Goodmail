@@ -83,7 +83,7 @@ struct ArrivalTests {
         #expect(window.state.list == .mailbox(.inbox), "another account's Inbox doesn't hold it")
         #expect(window.state.reading == Reading(alert.id, in: .inbox))
         #expect(
-            window.state.stack == [.mailboxes, .list(.mailbox(.inbox)), .reader(Reading(alert.id, in: .inbox))])
+            window.state.stack == [.mailboxes, .list, .reader(Reading(alert.id, in: .inbox))])
     }
 
     @Test(
@@ -151,7 +151,7 @@ struct ArrivalTests {
         let alert = row("b")
         arrive(at: alert, in: .inbox, listing: [], &window)
         #expect(
-            window.state.stack == [.mailboxes, .list(.mailbox(.inbox)), .reader(Reading(alert.id, in: .inbox))],
+            window.state.stack == [.mailboxes, .list, .reader(Reading(alert.id, in: .inbox))],
             "back from the mailboxes, Back goes to the list")
     }
 
@@ -162,7 +162,7 @@ struct ArrivalTests {
         _ = window.handle(.route(.thread(a.id, in: .inbox)), in: stack)
         _ = window.handle(.found(a, rows: [a.id, alert.id]), in: stack)
         arrive(at: alert, in: .inbox, listing: [a.id, alert.id], &window)
-        #expect(window.state.stack == [.mailboxes, .list(.mailbox(.inbox)), .reader(Reading(alert.id, in: .inbox))])
+        #expect(window.state.stack == [.mailboxes, .list, .reader(Reading(alert.id, in: .inbox))])
         #expect(window.foundRow == alert)
     }
 
@@ -171,7 +171,9 @@ struct ArrivalTests {
         let alert = row("b")
         let c = row("c")
         var window = WindowNavigation(showing: WindowState())
-        _ = window.handle(.searching(true), in: stack)
+        // Reading c from search's results when the alert comes.
+        _ = window.handle(.route(.thread(c.id, in: .allMail)), in: stack)
+        _ = window.handle(.found(c, rows: [c.id], searching: true), in: stack)
         arrive(at: alert, in: .inbox, listing: [a.id, alert.id, c.id], &window)
         let change = MailChange(.action(.archive), on: [alert.id])
         let reader = WindowNavigation.Reader(alert, mailbox: .inbox, labels: alert.labelIDs)
@@ -264,7 +266,7 @@ struct ArrivalTests {
         #expect(window.handle(.launched(for: .thread(alert.id, in: .inbox)), in: stack) == [.lookUp(alert.id)])
         #expect(window.state.reading == nil, "no reader is built for the restored one under the new one")
         _ = window.handle(.found(alert, rows: []), in: stack)
-        #expect(window.state.stack == [.mailboxes, .list(.mailbox(.inbox)), .reader(Reading(alert.id, in: .inbox))])
+        #expect(window.state.stack == [.mailboxes, .list, .reader(Reading(alert.id, in: .inbox))])
     }
 
     @Test func aColdLaunchForTheRestoredConversationKeepsIt() {

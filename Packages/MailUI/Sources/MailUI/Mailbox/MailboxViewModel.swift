@@ -118,6 +118,9 @@ public final class MailboxViewModel {
     /// The sidebar's model, which ⌘1 to ⌘9 and ⌃⌘1 to ⌃⌘9 ask for the rows; `nil` where this list has none beside it.
     @ObservationIgnored let sidebar: () -> MailboxesViewModel?
     @ObservationIgnored var holdingAttachments: Set<ThreadSummary.ID> = []
+    /// The rows as they were when the conversation read was picked, which place it once its row leaves (`move`).
+    /// It counts only while that conversation is the one read.
+    @ObservationIgnored var readFrom: (thread: ThreadSummary.ID, rows: [ThreadSummary.ID])?
     @ObservationIgnored private let readAheadAction: (ThreadFetcher.Request) -> Void
     @ObservationIgnored private var mayHaveOlder = true
     @ObservationIgnored private let now: () -> Date
@@ -344,7 +347,11 @@ public final class MailboxViewModel {
         let old = selection
         guard new != old else { return }
         selection = new
-        if case .reading(let id) = new { visit.read(id) }
+        if case .reading(let id) = new {
+            visit.read(id)
+            let rows = rows
+            if rows.contains(id) { readFrom = (id, rows) }
+        }
         guard revealing else { return }
         switch new {
         case .reading(let id): navigate(.thread(id, in: mailbox))

@@ -11,6 +11,9 @@ public protocol ThreadSequence: AnyObject {
     var frontMailbox: Mailbox { get }
     /// The rows picked with a pointer, several of them and none read, top to bottom; empty otherwise.
     var pointerPick: [ThreadSummary.ID] { get }
+    /// Whether `frontRows` are search's results over the list rather than its own rows, so a conversation opened from
+    /// one goes on in the rows it was opened from only while they show.
+    var frontSearching: Bool { get }
     /// The row of `thread` as the list holds it, so the window opens it without reading the store; `nil` when the
     /// list doesn't hold it.
     func summary(of thread: ThreadSummary.ID) -> ThreadSummary?
@@ -22,6 +25,7 @@ public protocol ThreadSequence: AnyObject {
 extension ThreadSequence {
     /// The list as the window's navigation reads it.
     public var navigationFront: WindowNavigation.Front {
-        WindowNavigation.Front(rows: frontRows, pointerPick: pointerPick, mailbox: frontMailbox)
+        WindowNavigation.Front(
+            rows: frontRows, pointerPick: pointerPick, mailbox: frontMailbox, searching: frontSearching)
     }
 }

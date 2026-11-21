@@ -87,15 +87,12 @@ extension MailboxViewController {
 
 extension MailboxViewController: UISearchControllerDelegate {
     /// Search results cover the Inbox Zero scene, so its planes stop flying over them.
-    /// Also tells the window the rows on show changed (`searchToggled`).
     public func willPresentSearchController(_ searchController: UISearchController) {
         lendInboxZero()
-        searchToggled?(true)
     }
 
     public func didDismissSearchController(_ searchController: UISearchController) {
         lendInboxZero()
-        searchToggled?(false)
     }
 }
 

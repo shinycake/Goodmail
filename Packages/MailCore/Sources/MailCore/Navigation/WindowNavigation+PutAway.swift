@@ -31,11 +31,16 @@ extension WindowNavigation {
         public var pointerPick: [ThreadSummary.ID]
         /// Where a conversation opened from these rows is read: search results and smart mailboxes read in All Mail.
         public var mailbox: Mailbox
+        /// Whether these are search's results over the list, rather than its own rows.
+        public var searching: Bool
 
-        public init(rows: [ThreadSummary.ID], pointerPick: [ThreadSummary.ID] = [], mailbox: Mailbox) {
+        public init(
+            rows: [ThreadSummary.ID], pointerPick: [ThreadSummary.ID] = [], mailbox: Mailbox, searching: Bool = false
+        ) {
             self.rows = rows
             self.pointerPick = pointerPick
             self.mailbox = mailbox
+            self.searching = searching
         }
     }
 
@@ -43,6 +48,8 @@ extension WindowNavigation {
     struct Departure: Equatable, Sendable {
         let change: MailChange
         let left: Reader
+        /// The list it was read in, which Undo reads it in again.
+        let from: Opened.From
     }
 
     /// The reader asked `change` of some conversations. Only a change to the conversation on show moves the reader;
@@ -66,13 +73,14 @@ extension WindowNavigation {
             landing = .list
         case .putAway:
             // The rows it was opened from, unless that was another list's.
-            let rows = opened.flatMap { $0.thread == reader.thread && $0.from == source ? $0.rows : nil } ?? []
             landing = Landing.after(
-                putAway: Set(change.threads), anchor: reader.thread, trail: rows, rows: front?.rows ?? [],
+                putAway: Set(change.threads), anchor: reader.thread, trail: trail(of: reader.thread, in: front),
+                rows: front?.rows ?? [],
                 setting: context.afterRemoval)
         }
+        let from = source(searching: front?.searching ?? false)
         land(on: landing, front: front)
-        departure = Departure(change: change, left: reader)
+        departure = Departure(change: change, left: reader, from: from)
         return []
     }
 
@@ -81,7 +89,7 @@ extension WindowNavigation {
     mutating func undid(_ change: MailChange, rows: [ThreadSummary.ID]) {
         guard let departure, departure.change == change else { return }
         self.departure = nil
-        opened = Opened(thread: departure.left.thread, from: source, rows: rows, row: departure.left.summary)
+        opened = Opened(thread: departure.left.thread, from: departure.from, rows: rows, row: departure.left.summary)
         state.read(departure.left.reading)
     }
 
@@ -104,7 +112,7 @@ extension WindowNavigation {
             state.closeReader()
             return
         }
-        opened = Opened(thread: next, from: source, rows: front.rows, row: nil)
+        opened = Opened(thread: next, from: source(searching: front.searching), rows: front.rows, row: nil)
         state.read(Reading(next, in: front.mailbox))
     }
 }

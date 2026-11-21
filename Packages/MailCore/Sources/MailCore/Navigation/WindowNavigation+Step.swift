@@ -31,15 +31,15 @@ extension WindowNavigation {
         let rows = front.rows
         guard let anchor = state.reading?.thread else { return step == .next ? rows.first : nil }
         // A row that left is placed by the rows it was opened from, unless that was another list's.
-        let trail = opened.flatMap { $0.thread == anchor && $0.from == source ? $0.rows : nil } ?? []
-        return step.neighbor(of: anchor, in: rows.contains(anchor) ? rows : trail, listed: Set(rows))
+        return step.neighbor(
+            of: anchor, in: rows.contains(anchor) ? rows : trail(of: anchor, in: front), listed: Set(rows))
     }
 
     /// Reads the conversation `step` reaches in `front`, if there is one, in the place of the one read (R1). Undo's way
     /// back ends with it, as with any other move.
     mutating func take(_ step: Step, in front: Front?) {
         guard let front, let next = conversation(step, in: front) else { return }
-        opened = Opened(thread: next, from: source, rows: front.rows, row: nil)
+        opened = Opened(thread: next, from: source(searching: front.searching), rows: front.rows, row: nil)
         state.read(Reading(next, in: front.mailbox))
     }
 }

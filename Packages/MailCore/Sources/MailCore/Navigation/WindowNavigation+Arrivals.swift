@@ -61,12 +61,14 @@ extension WindowNavigation {
     /// Reads `summary`, opened from a list showing `rows`, in the place of any conversation read before (R1), when it
     /// is what the lookup under way asked for; an answer for one the window has moved on from opens nothing. One from
     /// inside reads over the list as it is (R5); one from outside shows in a list that holds it (R4).
-    mutating func open(_ summary: ThreadSummary, from rows: [ThreadSummary.ID], in context: Context) {
+    mutating func open(
+        _ summary: ThreadSummary, from rows: [ThreadSummary.ID], searching: Bool, in context: Context
+    ) {
         guard let pending, pending.reading.thread == summary.id else { return }
         self.pending = nil
         switch pending.source {
         case .window:
-            opened = Opened(thread: summary.id, from: source, rows: rows, row: summary)
+            opened = Opened(thread: summary.id, from: source(searching: searching), rows: rows, row: summary)
             state.read(pending.reading)
         case .outside:
             reveal(summary, routedTo: pending.reading.mailbox, from: rows, in: context)

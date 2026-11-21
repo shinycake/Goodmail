@@ -6,8 +6,9 @@ public import Observation
 @Observable
 public final class SnoozedViewModel: WaitingListModel {
     public private(set) var content = WaitingContent<ThreadSummary.ID>.loading
-    /// The snoozed conversations as listed, soonest back first, for the window to read on through them.
-    @ObservationIgnored private(set) var listed: [ThreadSummary] = []
+    /// The snoozed conversations as listed, soonest back first, for the window to read on through them. Observed, so
+    /// the reader's chevrons follow it (`StepChevrons`).
+    private(set) var listed: [ThreadSummary] = []
 
     @ObservationIgnored private let threads: () -> AsyncThrowingStream<[SnoozedThread], any Error>
     @ObservationIgnored private let accounts: [Account]

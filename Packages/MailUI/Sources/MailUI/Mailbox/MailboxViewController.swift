@@ -17,8 +17,6 @@ public final class MailboxViewController: UIViewController {
     /// Drags rows onto mailboxes and out of the window. The list's drag delegate, which it doesn't keep.
     private var drag: ConversationDrag?
     let searchResults: SearchResultsController?
-    /// Told as search begins or ends from the field, which changes the rows a conversation opened here goes on in.
-    public var searchToggled: ((Bool) -> Void)?
     /// A search asked for before the list was in a window, as from a Home Screen quick action at launch, which begins
     /// once the list appears (`beginSearch`). `nil` once begun.
     var searchToBegin: SearchQuery?
