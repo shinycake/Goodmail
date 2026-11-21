@@ -152,7 +152,7 @@ public enum ICloudSignInScreen {
         signIn: @escaping (_ email: String, _ appPassword: String) async throws -> Void,
         finished: @escaping (_ added: Bool) -> Void
     ) -> UIViewController {
-        let screen = ArrivalBlockingHost(
+        let screen = UIHostingController(
             rootView: NavigationStack { ICloudSignInView(email: email, signIn: signIn, finished: finished) })
         screen.isModalInPresentation = true
         return screen

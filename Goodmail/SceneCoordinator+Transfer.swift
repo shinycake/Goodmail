@@ -4,13 +4,12 @@ import UIKit
 
 /// The window's side of moving accounts between devices by QR code (`TransferScreens`).
 extension SceneCoordinator {
-    /// A link opened in this window: a transfer code the Camera app scanned, or a `mailto:` link.
-    func open(_ link: URL) {
-        if TransferInvitation(url: link) != nil {
-            receiveTransfer(code: link)
-        } else {
-            compose(mailto: link)
-        }
+    /// Where a link opened from outside goes: a transfer code the Camera app scanned, or a `mailto:` link, from the
+    /// first account. Without an account a `mailto:` link has nothing to send from, so it goes nowhere.
+    func route(forLink link: URL) -> Route? {
+        if TransferInvitation(url: link) != nil { return .receiveTransfer(code: link) }
+        guard let account = model.accounts.first?.id, let draft = Draft(mailto: link, from: account) else { return nil }
+        return .compose(draft)
     }
 
     /// The Settings and Welcome entry points; `nil` in synthetic mailboxes, which have no sign-ins to move.

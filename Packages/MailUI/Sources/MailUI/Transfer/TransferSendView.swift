@@ -223,6 +223,6 @@ private struct TransferChoice: View {
 /// The screen, for UIKit to present.
 public enum TransferSendScreen {
     public static func make(model: TransferSending) -> UIViewController {
-        ArrivalBlockingHost(rootView: NavigationStack { TransferSendView(model: model) })
+        UIHostingController(rootView: NavigationStack { TransferSendView(model: model) })
     }
 }

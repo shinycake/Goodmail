@@ -7,38 +7,27 @@ import UIKit
 extension SceneCoordinator {
     /// Takes `arrival` while the window is up.
     func arrive(_ arrival: Arrival) {
-        switch arrival {
-        case .route(let route): handle(route, from: .outside)
-        case .link(let link): open(link)
-        case .quickAction(let action): route(for: action).map { handle($0, from: .outside) }
-        case .handoff(let state): showHandedOff(state)
-        }
+        if case .handoff(let state) = arrival { return showHandedOff(state) }
+        route(for: arrival).map { handle($0, from: .outside) }
     }
 
-    /// Applies what `arrival` changes of what the window shows to the state it restored, before its screens are first
-    /// built (`WindowNavigation.Event.launched`), and returns what is left for once the window is visible: a screen
-    /// to present, search, which begins in a list on screen, a link, or Handoff, which builds the screens itself.
-    /// `nil` when nothing is left.
+    /// Applies `arrival` to the state the window restored, before its screens are first built
+    /// (`WindowNavigation.Event.launched`): what it presents or begins waits in the navigation for the window to be on
+    /// screen. Returns Handoff, which builds the screens itself once they are, and `nil` otherwise.
     func arriveBeforeShowing(_ arrival: Arrival) -> Arrival? {
-        let route: Route? =
-            switch arrival {
-            case .route(let route): route
-            case .quickAction(let action): self.route(for: action)
-            case .link, .handoff: nil
-            }
-        guard let route, Self.movesBeforeShowing(route) else { return arrival }
-        navigator.send(.launched(for: route))
+        if case .handoff = arrival { return arrival }
+        route(for: arrival).map { navigator.send(.launched(for: $0)) }
         return nil
     }
 
-    /// Whether `route` only moves what the window shows, so it applies before anything is built.
-    private static func movesBeforeShowing(_ route: Route) -> Bool {
-        switch route {
-        case .thread, .mailbox, .scheduled, .snoozed, .smartMailbox:
-            true
-        case .search, .selection, .compose, .draft, .answer, .changeLabels, .move, .newSmartMailbox,
-            .editSmartMailbox, .settings, .signInAgain, .newWindow:
-            false
+    /// Where `arrival`, other than Handoff, goes: a link opens a transfer code or a `mailto:` message, and a quick
+    /// action its route. `nil` for one that goes nowhere, as a `mailto:` link with no account to send from.
+    private func route(for arrival: Arrival) -> Route? {
+        switch arrival {
+        case .route(let route): route
+        case .quickAction(let action): route(for: action)
+        case .link(let link): route(forLink: link)
+        case .handoff: nil
         }
     }
 
@@ -53,14 +42,14 @@ extension SceneCoordinator {
     }
 
     /// Clears what covers the window for an arrival from outside (R3), then calls `next`. Search and Select mode end
-    /// in the list. Unless an alert, a sign-in, a transfer or the accounts offer is up (`Uncovering.blocks`), whose
-    /// answer the arrival waits beneath, Settings and the sheets that only read or pick are dismissed, as their Close
-    /// buttons do, and the message being written goes down to the drafts pill, kept.
+    /// in the list. Only screens known to be safe to close are dismissed, as their Close buttons do
+    /// (`ArrivalCover`), and the message being written goes down to the drafts pill, kept. Anything else, as an
+    /// alert, a sign-in, a transfer or the accounts offer, stays: the arrival waits beneath its answer.
     func uncover(then next: @escaping () -> Void) {
         (navigator.screens?.list as? MailboxViewController)?.endSearchAndSelection()
         let root = window.rootViewController ?? drafts
-        let presented = Uncovering.presented(over: root)
-        guard !Uncovering.blocks(presented) else { return next() }
+        let presented = ArrivalCover.presented(over: root)
+        guard !WebAuthentication.isSigningIn(in: window), ArrivalCover.dismissible(presented) else { return next() }
         guard !presented.isEmpty else { return drafts.uncover(then: next) }
         root.dismiss(animated: true) { [weak self] in
             guard let self else { return }

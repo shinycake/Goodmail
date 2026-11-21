@@ -16,6 +16,8 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         case settings(SettingsWindowCoordinator)
         /// The database couldn't open; the window says so.
         case unavailable
+        /// A second Settings window, which closes as the open one comes forward.
+        case closing
     }
 
     /// What a window holds, from the activity it opens or is restored with.
@@ -57,14 +59,18 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     ) {
         guard let windowScene = scene as? UIWindowScene else { return }
         let launch = Self.launch
-        guard let kind = Kind.of(session, opening: Array(connectionOptions.userActivities)) else { return }
+        let arrival =
+            connectionOptions.urlContexts.first.map { Arrival.link($0.url) }
+            ?? connectionOptions.shortcutItem?.quickAction.map(Arrival.quickAction)
+        guard let kind = Kind.of(session, opening: Array(connectionOptions.userActivities)) else {
+            state = .closing
+            // A window that won't fill hands on what the system opened it for.
+            if let arrival { launch.routes.arrive(arrival) }
+            return
+        }
         // What the system opened the window for waits for it with whatever else arrived from outside, the newest
         // winning.
-        if let arrival = connectionOptions.urlContexts.first.map({ Arrival.link($0.url) })
-            ?? connectionOptions.shortcutItem?.quickAction.map(Arrival.quickAction)
-        {
-            launch.routes.hold(arrival)
-        }
+        if let arrival { launch.routes.hold(arrival) }
         if let services = launch.running {
             return fill(windowScene, with: kind, services: services)
         }
@@ -89,16 +95,12 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             connect(windowScene, to: services, restoring: restoring, lists: lists)
         case .compose(let shown):
             compose(shown, in: windowScene, with: services)
-            forwardHeldArrival(of: services)
+            // What was held for it goes to a mail window (D13).
+            services.routes.filled(.otherWork)
         case .settings(let page):
             showSettings(at: page, in: windowScene, with: services)
-            forwardHeldArrival(of: services)
+            services.routes.filled(.otherWork)
         }
-    }
-
-    /// The window that filled holds no mail screens: what was held for it goes to a mail window (D13).
-    private func forwardHeldArrival(of services: AppServices) {
-        if let held = services.routes.takeArrival() { services.routes.arrive(held) }
     }
 
     private func connect(
@@ -108,17 +110,25 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         let coordinator = SceneCoordinator(
             windowScene: windowScene, model: services.model, restoring: restoring, lists: lists)
         state = .running(coordinator)
-        // An arrival that moves the window applies to what it restored before anything is built, so no restored
-        // conversation is built under the arrival's; a screen to present waits for the window to be visible.
-        let toPresent = services.routes.takeArrival().flatMap(coordinator.arriveBeforeShowing)
+        // A viewer applies what was held for it to what it restored before anything is built, so no restored
+        // conversation is built under the arrival's; a screen to present waits in its navigation for the window to be
+        // on screen. A message window takes nothing: once it shows, what was held is chosen for again.
+        let restoredViewer = coordinator.shown.layout == .viewer
+        let handedOff =
+            restoredViewer
+            ? services.routes.filled(.viewer(reading: nil)).flatMap(coordinator.arriveBeforeShowing) : nil
         coordinator.start()
         coordinator.window.makeKeyAndVisible()
+        coordinator.navigator.cameOnScreen()
         ViewerWindowSize.fit(windowScene, isNew: restoring == nil)
         window?.isHidden = true
         window = coordinator.window
         // Messages open into a web view whose content process takes a while to start; start one now.
         MessageWebViewPool.shared.warmUp()
-        if let toPresent { coordinator.arrive(toPresent) }
+        if let handedOff { coordinator.arrive(handedOff) }
+        // A message window hands on what was held once it shows; one whose conversation went shows the viewer
+        // instead, which takes it.
+        if !restoredViewer, let arrival = services.routes.filled(coordinator.holds) { coordinator.arrive(arrival) }
     }
 
     /// Fills the window with the one message it holds.
@@ -149,14 +159,15 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     /// Takes `arrival`, which the system gave this window, or holds it while the database opens. A window without the
-    /// mail screens hands it on.
+    /// mail screens, a message window among them, hands it to the window it belongs in (D13).
     @discardableResult
     private func arrive(_ arrival: Arrival) -> Bool {
         let routes = Self.launch.routes
         switch state {
-        case .running(let coordinator): coordinator.arrive(arrival)
+        case .running(let coordinator):
+            if case .message = coordinator.holds { routes.arrive(arrival) } else { coordinator.arrive(arrival) }
         case .opening: routes.hold(arrival)
-        case .composing, .settings: routes.arrive(arrival)
+        case .composing, .settings, .closing: routes.arrive(arrival)
         case .notConnected, .unavailable: return false
         }
         return true
@@ -208,7 +219,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         case .running(let coordinator): coordinator.activity
         case .composing(let coordinator): coordinator.activity
         case .settings(let coordinator): coordinator.activity
-        case .notConnected, .opening, .unavailable: nil
+        case .notConnected, .opening, .unavailable, .closing: nil
         }
     }
 
@@ -220,7 +231,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         case .running(let coordinator): coordinator.close()
         case .composing(let coordinator): coordinator.close()
         case .settings(let coordinator): coordinator.close()
-        case .notConnected, .opening, .unavailable: break
+        case .notConnected, .opening, .unavailable, .closing: break
         }
     }
 
@@ -235,7 +246,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         switch state {
         case .notConnected, .opening: .opening
         case .running(let coordinator): coordinator.holds
-        case .composing, .settings: .otherWork
+        case .composing, .settings, .closing: .otherWork
         case .unavailable: .noMail
         }
     }

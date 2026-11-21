@@ -282,7 +282,7 @@ public enum SettingsScreen {
     /// Tells the model the screen closed only when the screen itself is dismissed. The root view also goes off
     /// screen when an account or Add Account is pushed over it, and treating that as closing rebuilt the mail
     /// screens under the open sheet, which took Settings down with them.
-    private final class Controller: UIHostingController<Root> {
+    private final class Controller: UIHostingController<Root>, ArrivalDismissible {
         private let model: SettingsViewModel
 
         init(model: SettingsViewModel, page: SettingsPage) {

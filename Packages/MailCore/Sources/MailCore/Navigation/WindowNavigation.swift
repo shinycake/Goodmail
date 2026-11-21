@@ -83,6 +83,9 @@ public struct WindowNavigation: Equatable, Sendable {
         /// read, as one restored that was deleted meanwhile or whose reader can't be made, which closes. A message
         /// window becomes a viewer.
         case missing(ThreadSummary.ID)
+        /// The conversation a `.lookUp` asked for isn't on the device, and its service couldn't be asked, as offline.
+        /// It opens nothing; for an arrival the window shows the Inbox and says so.
+        case unreachable(ThreadSummary.ID)
         /// The reader went back by the stack's Back button or its edge swipe.
         case back(to: Back)
         /// The reader asked `change` of some conversations, with `reader` on show and `front` the list on show.
@@ -107,8 +110,8 @@ public struct WindowNavigation: Equatable, Sendable {
         public var movesByItself: Bool {
             switch self {
             case .changed, .undone: true
-            case .route, .launched, .found, .missing, .back, .accounts, .lists, .handedOff, .category, .filter,
-                .searching:
+            case .route, .launched, .found, .missing, .unreachable, .back, .accounts, .lists, .handedOff, .category,
+                .filter, .searching:
                 false
             }
         }
@@ -142,6 +145,8 @@ public struct WindowNavigation: Equatable, Sendable {
     public enum Notice: Equatable, Sendable {
         /// The conversation an arrival asked for isn't on the device, nor with its service.
         case conversationGone
+        /// The conversation an arrival asked for isn't on the device yet, and its service can't be reached now.
+        case conversationUnreachable
     }
 
     /// Moves the window for `event`, and says what it does beyond showing `state`.
@@ -157,6 +162,8 @@ public struct WindowNavigation: Equatable, Sendable {
             open(summary, from: rows, in: context)
         case .missing(let thread):
             return missed(thread, in: context)
+        case .unreachable(let thread):
+            return unreached(thread, in: context)
         case .back(let back):
             goBack(to: back)
         case .changed(let change, let reader, let front):
@@ -216,10 +223,19 @@ public struct WindowNavigation: Equatable, Sendable {
     private mutating func missed(_ thread: ThreadSummary.ID, in context: Context) -> [Effect] {
         if let pending, pending.reading.thread == thread {
             self.pending = nil
-            if pending.source == .outside { return gone(in: context) }
+            if pending.source == .outside { return showInbox(saying: .conversationGone, in: context) }
         }
         if state.reading?.thread == thread { state.closeReader() }
         return []
+    }
+
+    /// `thread` isn't on the device and its service couldn't be asked. One a route from inside asked for opens
+    /// nothing; one an arrival asked for is said to be out of reach, over the Inbox (R10).
+    private mutating func unreached(_ thread: ThreadSummary.ID, in context: Context) -> [Effect] {
+        guard let pending, pending.reading.thread == thread else { return [] }
+        self.pending = nil
+        guard pending.source == .outside else { return [] }
+        return showInbox(saying: .conversationUnreachable, in: context)
     }
 
     /// Back went to `back`: the list stays for a window that widens.

@@ -51,10 +51,10 @@ struct WindowNavigatorTests {
             self.holding = holding
         }
 
-        func row(_ id: ThreadSummary.ID) async -> ThreadSummary? {
+        func row(_ id: ThreadSummary.ID) async -> ConversationLookup.Answer {
             asked.append(id)
             if holding.contains(id) { await withCheckedContinuation { held[id] = $0 } }
-            return WindowNavigatorTests.row(id)
+            return .found(WindowNavigatorTests.row(id))
         }
 
         func isHolding(_ id: ThreadSummary.ID) -> Bool { held[id] != nil }
@@ -159,4 +159,85 @@ struct WindowNavigatorTests {
         #expect(next.viewModel.thread.id == Self.id("b"))
         #expect(next.announcesOnAppear, "after Archive, VoiceOver goes to the next")
     }
+
+    // MARK: Waiting for the window
+
+    /// An uncover hook that finishes only when told to, as a dismissal animates.
+    private final class Uncovers {
+        private(set) var calls = 0
+        private var finish: (() -> Void)?
+
+        func hook(_ then: @escaping () -> Void) {
+            calls += 1
+            finish = then
+        }
+
+        func finishOne() {
+            let finishing = finish
+            finish = nil
+            finishing?()
+        }
+    }
+
+    @Test func twoArrivalsDuringOneUncoveringUncoverOnceAndOpenOnlyTheNewest() async {
+        let store = Store()
+        let navigator = navigator(store: store)
+        let uncovers = Uncovers()
+        navigator.uncover = uncovers.hook
+        var presented: [Presentation] = []
+        navigator.present = { presented.append($0) }
+        navigator.send(.route(.compose(Self.draft), from: .outside))
+        navigator.send(.route(.thread(Self.id("y"), in: .inbox), from: .outside))
+        navigator.send(.route(.thread(Self.id("z"), in: .inbox), from: .outside))
+        #expect(uncovers.calls == 1, "the dismissal under way clears for the newer ones too")
+        #expect(presented.isEmpty && navigator.state.reading == nil, "nothing happens over what is still covering")
+        uncovers.finishOne()
+        #expect(await reads(navigator, "z"))
+        #expect(await store.asked == [Self.id("z")], "only the newest is looked up")
+        #expect(presented.isEmpty, "the composer the first asked for was replaced")
+    }
+
+    @Test func aRouteFromInsideDuringAnUncoveringDropsWhatWaited() {
+        let navigator = navigator(store: Store())
+        let uncovers = Uncovers()
+        navigator.uncover = uncovers.hook
+        var presented: [Presentation] = []
+        navigator.present = { presented.append($0) }
+        navigator.send(.route(.compose(Self.draft), from: .outside))
+        navigator.send(.route(.mailbox(.starred)))
+        uncovers.finishOne()
+        #expect(presented.isEmpty)
+        #expect(navigator.state.list == .mailbox(.starred))
+    }
+
+    @Test func aScreenWaitsForTheWindowToComeOnScreen() {
+        let navigator = navigator(store: Store())
+        var onScreen = false
+        navigator.isOnScreen = { onScreen }
+        var presented: [Presentation] = []
+        navigator.present = { presented.append($0) }
+        navigator.send(.launched(for: .settings(.main)))
+        navigator.cameOnScreen()
+        #expect(presented.isEmpty, "Settings presented now would be dropped (D14)")
+        onScreen = true
+        navigator.cameOnScreen()
+        #expect(presented == [.settings(.main)])
+        navigator.cameOnScreen()
+        #expect(presented == [.settings(.main)], "once")
+    }
+
+    @Test func aNewerRouteReplacesAScreenWaitingForTheWindow() {
+        let navigator = navigator(store: Store())
+        var onScreen = false
+        navigator.isOnScreen = { onScreen }
+        var presented: [Presentation] = []
+        navigator.present = { presented.append($0) }
+        navigator.send(.launched(for: .settings(.main)))
+        navigator.send(.route(.compose(Self.draft), from: .outside))
+        onScreen = true
+        navigator.cameOnScreen()
+        #expect(presented == [.compose(Self.draft)], "the newest arrival wins")
+    }
+
+    private static let draft = Draft(accountID: account)
 }

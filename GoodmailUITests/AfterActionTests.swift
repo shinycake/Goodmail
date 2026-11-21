@@ -88,9 +88,10 @@ final class AfterActionTests: XCTestCase {
     @MainActor
     func testAnAlertOverAnOpenReaderTakesItsPlace() {
         // t19 is in the first account's Inbox, as "Weekend plans" (`SyntheticMailbox`).
-        let app = launch(extra: ["-GoodmailTestArrivalThread", "synthetic-1/t19", "-GoodmailTestArrivalAfter", "12"])
+        let app = launch(extra: ["-GoodmailTestArrivalThread", "synthetic-1/t19"])
         let rows = subjects(ofFirst: 3, in: app).filter { $0 != "Weekend plans" }
         open(rows[0], in: app)
+        postTestTrigger("arrival")
         XCTAssertTrue(
             waitUntil(timeout: 30) { app.staticTexts["thread.subject"].label == "Weekend plans" },
             "the alert's conversation replaces the one open")

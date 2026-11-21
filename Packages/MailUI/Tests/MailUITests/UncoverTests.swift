@@ -1,29 +1,39 @@
-import SwiftUI
 import Testing
 import UIKit
 
 @testable import MailUI
 
-/// An arrival from outside clears the sheets that only read or pick, and leaves everything up while an alert, a
-/// sign-in, a transfer or the accounts offer is among them (R3).
+/// An arrival from outside clears Settings and the sheets that only read or pick, and leaves everything up while
+/// anything else is among them: an alert, a sign-in, a transfer, the accounts offer, or a screen nobody marked (R3).
 @MainActor
 struct UncoverTests {
     @Test func anAlertOnTopBlocks() {
         let alert = UIAlertController(title: "Delete Forever?", message: nil, preferredStyle: .alert)
-        #expect(Uncovering.blocks([UINavigationController(), alert]), "the alert's sheet stays with it")
-        #expect(Uncovering.blocks([alert]))
+        let picker = UINavigationController(
+            rootViewController: LaterPickerViewController(title: "Snooze", actionTitle: "Snooze", initial: nil) { _ in }
+        )
+        #expect(!ArrivalCover.dismissible([picker, alert]), "the picker stays with the alert over it")
+        #expect(!ArrivalCover.dismissible([alert]))
     }
 
     @Test func aPickerDoesnt() {
-        let picker = UINavigationController(rootViewController: UIViewController())
-        #expect(!Uncovering.blocks([picker]))
-        #expect(!Uncovering.blocks([UIActivityViewController(activityItems: ["x"], applicationActivities: nil)]))
-        #expect(!Uncovering.blocks([]))
+        let picker = UINavigationController(
+            rootViewController: LaterPickerViewController(title: "Snooze", actionTitle: "Snooze", initial: nil) { _ in }
+        )
+        #expect(ArrivalCover.dismissible([picker]))
+        #expect(ArrivalCover.dismissible([UIActivityViewController(activityItems: ["x"], applicationActivities: nil)]))
+        #expect(ArrivalCover.dismissible([]))
     }
 
-    @Test func aSignInOrTransferBlocks() {
-        let signIn = ICloudSignInScreen.make(signIn: { _, _ in }, finished: { _ in })
-        #expect(Uncovering.blocks([UINavigationController(), signIn]))
-        #expect(Uncovering.blocks([ArrivalBlockingHost(rootView: Text(verbatim: "Transfer"))]))
+    @Test func aTransferOrTheAccountsOfferBlocks() {
+        let sending = TransferSending(accounts: [], unlock: { true }, host: { fatalError("not hosted") })
+        #expect(!ArrivalCover.dismissible([TransferSendScreen.make(model: sending)]))
+        let offer = SharedAccountsOffer(accounts: [], add: { _, _ in }, decline: { _ in })
+        #expect(!ArrivalCover.dismissible([SharedAccountsOfferScreen.make(offer: offer)]))
+    }
+
+    @Test func aScreenNobodyMarkedBlocks() {
+        #expect(!ArrivalCover.dismissible([UINavigationController(rootViewController: UIViewController())]))
+        #expect(!ArrivalCover.dismissible([UIViewController()]))
     }
 }

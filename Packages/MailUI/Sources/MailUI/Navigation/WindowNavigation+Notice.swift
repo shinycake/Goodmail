@@ -10,6 +10,13 @@ extension WindowNavigation.Notice {
                 localized: "That conversation is no longer available.", table: "Navigation", bundle: .module,
                 comment: "Toast when a tapped alert, Spotlight result or Shortcut opens a conversation that was deleted"
             )
+        case .conversationUnreachable:
+            String(
+                localized: "That conversation couldn't be opened. Check your connection and try again.",
+                table: "Navigation", bundle: .module,
+                comment:
+                    "Toast when a tapped alert, Spotlight result or Shortcut opens a conversation not yet on this device while the server can't be reached"
+            )
         }
     }
 }
