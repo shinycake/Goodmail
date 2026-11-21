@@ -11,6 +11,9 @@ public final class SearchResultsController: UIViewController, UISearchResultsUpd
     private let contacts: (String) -> [Contact]
     private let suggestions = SearchSuggestionsViewController()
     private var suggestionsHeight: NSLayoutConstraint!
+    /// Holds the suggestions to half the column while results show under them, so a short column, as a phone's on its
+    /// side, still shows a whole result; the suggestions scroll in what they get.
+    private var suggestionsShareColumn: NSLayoutConstraint!
     private weak var searchController: UISearchController?
     /// Opens the smart mailbox editor on what the field asks for.
     private let saveAsSmartMailbox: (SearchQuery) -> Void
@@ -67,7 +70,11 @@ public final class SearchResultsController: UIViewController, UISearchResultsUpd
         view.addSubview(list.view)
         view.addSubview(suggestionsView)
         suggestionsHeight = suggestionsView.heightAnchor.constraint(equalToConstant: 0)
+        suggestionsHeight.priority = .defaultHigh
+        let column = view.safeAreaLayoutGuide.heightAnchor
+        suggestionsShareColumn = suggestionsView.heightAnchor.constraint(lessThanOrEqualTo: column, multiplier: 0.5)
         NSLayoutConstraint.activate([
+            suggestionsView.heightAnchor.constraint(lessThanOrEqualTo: column),
             suggestionsView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             suggestionsView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             suggestionsView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
@@ -119,7 +126,8 @@ public final class SearchResultsController: UIViewController, UISearchResultsUpd
             canSave: SmartMailboxDraft(query: query) != nil)
         // While nothing is asked, the suggestions stand alone; otherwise they sit above the results.
         list.view.isHidden = query.isEmpty
-        suggestionsHeight.constant = min(suggestions.contentHeight, view.safeAreaLayoutGuide.layoutFrame.height)
+        suggestionsShareColumn.isActive = !query.isEmpty
+        suggestionsHeight.constant = suggestions.contentHeight
         searchController.showsSearchResultsController = true
     }
 

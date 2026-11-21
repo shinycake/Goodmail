@@ -15,35 +15,8 @@ final class RotationTests: XCTestCase {
 
     @MainActor
     func testTurningMidReadKeepsTheSearchTheReaderAndItsAttachments() throws {
-        XCUIDevice.shared.orientation = .portrait
-        let app = XCUIApplication()
-        app.launchArguments = [
-            "-GoodmailSyntheticThreads", "40", "-GoodmailSyntheticArrivalEvery", "3600", "-conversationLayout", "chat",
-            "-AppleLanguages", "(en)", "-AppleLocale", "en_US",
-        ]
-        app.launch()
-        XCTAssertTrue(app.collectionViews["mailbox"].cells.firstMatch.waitForExistence(timeout: 15))
+        let (app, field, subject) = try openSearchResult(language: "en")
         let window = app.windows.firstMatch
-        try XCTSkipUnless(window.horizontalSizeClass == .compact, "a window narrow upright")
-
-        let field = app.searchFields.firstMatch
-        if !field.exists {
-            let search = app.buttons["Search"].firstMatch
-            XCTAssertTrue(search.waitForExistence(timeout: 5))
-            search.tap()
-        }
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
-        field.typeText("plans")
-        let result = app.cells.containing(NSPredicate(format: "label CONTAINS 'Weekend plans'")).firstMatch
-        XCTAssertTrue(result.waitForExistence(timeout: 15), "search finds it")
-        // The synthetic conversations have no messages for a service to bring, so the reader opens on its subject,
-        // its bar's title, and says it couldn't load them; its reply bar is what the turn must keep.
-        let subject = app.navigationBars["Weekend plans"]
-        XCTAssertTrue(
-            retry({ Self.results().first(where: \.isHittable)?.tap() }, until: { subject.exists }, timeout: 10),
-            "the conversation opens")
-        XCTAssertTrue(
-            waitUntil { Self.results().allSatisfy { !$0.isHittable } }, "narrow, the reader covers the results")
 
         XCUIDevice.shared.orientation = .landscapeLeft
         guard waitUntil(timeout: 5, { window.horizontalSizeClass == .regular }) else {
@@ -61,6 +34,79 @@ final class RotationTests: XCTestCase {
         attach(app, "rotation-portrait")
     }
 
+    /// On a phone on its side the list's column is short, and the toolbar under it, with New Message and the accounts'
+    /// status, must not sit on the one result it has room for, in either reading direction.
+    @MainActor
+    func testTurningMidSearchLeavesAResultClearOfTheToolbar() throws {
+        for language in ["en", "he"] {
+            let (app, _, _) = try openSearchResult(language: language)
+            XCUIDevice.shared.orientation = .landscapeLeft
+            guard waitUntil(timeout: 5, { app.windows.firstMatch.horizontalSizeClass == .regular }) else {
+                throw XCTSkip("this device stays narrow on its side, so the arrangement never changes")
+            }
+            let clear = waitUntil { Self.aResultClearsTheToolbar(in: app) }
+            attach(app, "landscape-search-\(language)")
+            XCTAssertTrue(clear, "a result clears the toolbar in \(language)")
+            app.terminate()
+            XCUIDevice.shared.orientation = .portrait
+        }
+    }
+
+    /// Launches upright in `language`, searches for "plans" and opens the result over the list, returning the search
+    /// field and the reader's bar, whose title is the conversation's subject.
+    @MainActor
+    private func openSearchResult(language: String) throws -> (XCUIApplication, XCUIElement, XCUIElement) {
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-GoodmailSyntheticThreads", "40", "-GoodmailSyntheticArrivalEvery", "3600", "-conversationLayout", "chat",
+            "-AppleLanguages", "(\(language))", "-AppleLocale", language == "he" ? "he_IL" : "en_US",
+        ]
+        app.launch()
+        XCTAssertTrue(app.collectionViews["mailbox"].cells.firstMatch.waitForExistence(timeout: 15))
+        try XCTSkipUnless(app.windows.firstMatch.horizontalSizeClass == .compact, "a window narrow upright")
+
+        let field = app.searchFields.firstMatch
+        if !field.exists {
+            let search = app.buttons.matching(NSPredicate(format: "label IN {'Search', 'חיפוש'}")).firstMatch
+            XCTAssertTrue(search.waitForExistence(timeout: 5))
+            search.tap()
+        }
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("plans")
+        let result = app.cells.containing(NSPredicate(format: "label CONTAINS 'Weekend plans'")).firstMatch
+        XCTAssertTrue(result.waitForExistence(timeout: 15), "search finds it")
+        // The synthetic conversations have no messages for a service to bring, so the reader opens on its subject,
+        // its bar's title, and says it couldn't load them; its reply bar is what a turn must keep.
+        let subject = app.navigationBars["Weekend plans"]
+        XCTAssertTrue(
+            retry({ Self.results().first(where: \.isHittable)?.tap() }, until: { subject.exists }, timeout: 10),
+            "the conversation opens")
+        XCTAssertTrue(
+            waitUntil { Self.results().allSatisfy { !$0.isHittable } }, "narrow, the reader covers the results")
+        return (app, field, subject)
+    }
+
+    /// Whether a result lies wholly on screen with none of the toolbar's buttons over it. Hittable isn't enough: it
+    /// probes only the row's middle, which a button at the row's end leaves clear.
+    @MainActor
+    private static func aResultClearsTheToolbar(in app: XCUIApplication) -> Bool {
+        // One snapshot, since the toolbars' buttons come and go as the columns settle.
+        guard let snapshot = try? app.snapshot() else { return false }
+        let window = app.windows.firstMatch.frame
+        let buttons = toolbarButtons(in: snapshot, inToolbar: false)
+        return results().contains { row in
+            window.contains(row.frame) && !buttons.contains { $0.intersects(row.frame) }
+        }
+    }
+
+    @MainActor
+    private static func toolbarButtons(in snapshot: any XCUIElementSnapshot, inToolbar: Bool) -> [CGRect] {
+        let inToolbar = inToolbar || snapshot.elementType == .toolbar
+        let own = inToolbar && snapshot.elementType == .button ? [snapshot.frame] : []
+        return own + snapshot.children.flatMap { toolbarButtons(in: $0, inToolbar: inToolbar) }
+    }
+
     /// The reader and the search as they were: beside each other in columns, the reader over the results on the stack.
     @MainActor
     private func expectKept(
@@ -69,12 +115,9 @@ final class RotationTests: XCTestCase {
         XCTAssertTrue(waitUntil { subject.exists }, "the reader stays")
         if besideEachOther {
             XCTAssertTrue(waitUntil { field.exists && field.value as? String == "plans" }, "the search stays as typed")
-            // On a phone on its side the column is short, and the bottom bar's buttons may float over the one row it
-            // has room for, so it's on screen rather than hittable.
-            let window = XCUIApplication().windows.firstMatch.frame
             XCTAssertTrue(
-                waitUntil { Self.results().contains { window.contains(CGPoint(x: $0.frame.midX, y: $0.frame.midY)) } },
-                "and its results show beside the reader")
+                waitUntil { Self.aResultClearsTheToolbar(in: XCUIApplication()) },
+                "and a result shows beside the reader, clear of the toolbar")
         } else {
             XCTAssertTrue(
                 waitUntil { Self.results().allSatisfy { !$0.isHittable } }, "the reader covers the results again")
@@ -115,7 +158,8 @@ final class RotationTests: XCTestCase {
 
     @MainActor
     private func attach(_ app: XCUIApplication, _ name: String) {
-        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        // The window's own, since the app's screenshot comes out cropped to a square on a phone on its side.
+        let screenshot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
         screenshot.name = name
         screenshot.lifetime = .keepAlways
         add(screenshot)

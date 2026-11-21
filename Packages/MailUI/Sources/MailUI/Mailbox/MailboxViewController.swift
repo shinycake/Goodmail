@@ -151,8 +151,20 @@ public final class MailboxViewController: UIViewController {
         ]
         browsingEnds = [draftsPill?.item, compose].compactMap(\.self)
         toolbarItems = browsingToolbarItems
+        registerForTraitChanges([UITraitVerticalSizeClass.self]) { (list: MailboxViewController, _) in
+            list.placeToolbar(searching: list.search?.isActive == true, animated: false)
+        }
 
         observation = Task { [viewModel] in await viewModel.observe() }
+    }
+
+    /// Shows this list's toolbar, or hides it: a desktop window's list has none, and a search in a column too short for
+    /// both, as a phone's on its side, takes the toolbar's room for its results, as Mail does. Only while this list is
+    /// the screen on top, since the screen pushed over it owns the toolbar then.
+    func placeToolbar(searching: Bool, animated: Bool) {
+        guard let navigationController, navigationController.topViewController === self else { return }
+        let crowded = searching && traitCollection.verticalSizeClass == .compact
+        navigationController.setToolbarHidden(picksWithPointer || crowded, animated: animated)
     }
 
     public override func viewDidLayoutSubviews() {
@@ -180,7 +192,7 @@ public final class MailboxViewController: UIViewController {
             }
             reportTouchPick()
         }
-        navigationController?.setToolbarHidden(picksWithPointer, animated: animated)
+        placeToolbar(searching: search?.isActive == true, animated: animated)
         navigationController?.navigationBar.prefersLargeTitles = true
         if !isEditing { navigationItem.leftBarButtonItems = browsingLeadingItems }
         wear(viewModel.theme)

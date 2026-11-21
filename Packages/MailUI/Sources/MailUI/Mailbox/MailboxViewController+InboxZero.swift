@@ -85,9 +85,15 @@ extension MailboxViewController {
 }
 
 extension MailboxViewController: UISearchControllerDelegate {
-    /// Search results cover the Inbox Zero scene, so its planes stop flying over them.
+    /// Search results cover the Inbox Zero scene, so its planes stop flying over them, and in a short column take the
+    /// toolbar's room.
     public func willPresentSearchController(_ searchController: UISearchController) {
         lendInboxZero()
+        placeToolbar(searching: true, animated: true)
+    }
+
+    public func willDismissSearchController(_ searchController: UISearchController) {
+        placeToolbar(searching: false, animated: true)
     }
 
     public func didDismissSearchController(_ searchController: UISearchController) {
