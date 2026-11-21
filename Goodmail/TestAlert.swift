@@ -7,20 +7,23 @@
 
     /// Launch with `-GoodmailTestAlertFrom "PayPal <service@paypal.com>"` to get a new-mail alert from that sender
     /// ten seconds later, built as a pushed one is, so its picture and subject can be checked on a simulator, where
-    /// no push arrives. `-GoodmailTestAlertSubject` sets the subject.
+    /// no push arrives. `-GoodmailTestAlertSubject` sets the subject. `-GoodmailTestAlertThread synthetic-1/t19` makes
+    /// it an alert for that conversation, so tapping it opens it as a pushed alert's tap does.
     enum TestAlert {
         static func scheduleIfRequested(model: AppModel) {
             let defaults = UserDefaults.standard
             guard let from = defaults.string(forKey: "GoodmailTestAlertFrom"), let account = model.accounts.first
             else { return }
             let subject = defaults.string(forKey: "GoodmailTestAlertSubject") ?? "Your October statement is ready"
+            let thread = defaults.string(forKey: "GoodmailTestAlertThread").flatMap(ThreadSummary.ID.init(testName:))
             // Keeps running after the tester goes to the Home screen, where the banner shows.
             let background = UIApplication.shared.beginBackgroundTask(withName: "Test alert")
             let directory = (SharedContainer.directoryURL ?? URL.cachesDirectory).appending(path: "SenderPictures")
             let pictures = SenderPictureSources(directory: directory, database: model.database)
             Task { @concurrent in
                 do {
-                    try await post(from: Contact(parsing: from), subject: subject, in: account, pictures: pictures)
+                    try await post(
+                        from: Contact(parsing: from), subject: subject, in: account, thread: thread, pictures: pictures)
                 } catch {
                     print("Test alert failed: \(error)")
                 }
@@ -29,7 +32,8 @@
         }
 
         private static func post(
-            from sender: Contact, subject: String, in account: Account, pictures: SenderPictureSources
+            from sender: Contact, subject: String, in account: Account, thread id: ThreadSummary.ID?,
+            pictures: SenderPictureSources
         )
             async throws
         {
@@ -37,7 +41,7 @@
             _ = try await center.requestAuthorization(options: [.alert, .sound, .badge])
             try await Task.sleep(for: .seconds(10))
             let thread = ThreadSummary(
-                id: ThreadSummary.ID(accountID: account.id, threadID: "test-alert-\(UUID().uuidString)"),
+                id: id ?? ThreadSummary.ID(accountID: account.id, threadID: "test-alert-\(UUID().uuidString)"),
                 subject: subject, snippet: "A test alert from Goodmail, built the way a pushed one is.",
                 sender: sender, date: .now, isUnread: true, messageCount: 1, labelIDs: ["INBOX"])
             let picture = await pictures.picture(for: sender.address)

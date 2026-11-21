@@ -17,7 +17,15 @@ extension WindowNavigation {
         let row: ThreadSummary?
     }
 
-    mutating func go(to route: Route, in context: Context) -> [Effect] {
+    /// The conversation a lookup is under way for: where the route reads it, and where the route came from, which
+    /// decides where it shows once found.
+    public struct Awaited: Equatable, Sendable {
+        public let reading: Reading
+        public let source: RouteSource
+    }
+
+    /// Goes where `route`, from `source`, asks.
+    mutating func go(to route: Route, from source: RouteSource = .window, in context: Context) -> [Effect] {
         if let presentation = Presentation(route) { return [.present(presentation)] }
         switch route {
         case .thread(let thread, let mailbox):
@@ -26,7 +34,7 @@ extension WindowNavigation {
                 pending = nil
                 return []
             }
-            pending = Reading(thread, in: mailbox)
+            pending = Awaited(reading: Reading(thread, in: mailbox), source: source)
             return [.lookUp(thread)]
         case .mailbox(let mailbox):
             return show(.mailbox(mailbox), in: context)
@@ -51,17 +59,23 @@ extension WindowNavigation {
     }
 
     /// Reads `summary`, opened from a list showing `rows`, in the place of any conversation read before (R1), when it
-    /// is what the lookup under way asked for; an answer for one the window has moved on from opens nothing.
-    mutating func open(_ summary: ThreadSummary, from rows: [ThreadSummary.ID]) {
-        guard let pending, pending.thread == summary.id else { return }
+    /// is what the lookup under way asked for; an answer for one the window has moved on from opens nothing. One from
+    /// inside reads over the list as it is (R5); one from outside shows in a list that holds it (R4).
+    mutating func open(_ summary: ThreadSummary, from rows: [ThreadSummary.ID], in context: Context) {
+        guard let pending, pending.reading.thread == summary.id else { return }
         self.pending = nil
-        opened = Opened(thread: summary.id, from: source, rows: rows, row: summary)
-        state.read(pending)
+        switch pending.source {
+        case .window:
+            opened = Opened(thread: summary.id, from: source, rows: rows, row: summary)
+            state.read(pending.reading)
+        case .outside:
+            reveal(summary, routedTo: pending.reading.mailbox, from: rows, in: context)
+        }
     }
 
     /// Shows `list` beside the mailboxes, with nothing read, in either arrangement, as Mail does. The category and
     /// filter stay. A wide window shows the list's column.
-    private mutating func show(_ list: WindowState.List, in context: Context) -> [Effect] {
+    mutating func show(_ list: WindowState.List, in context: Context) -> [Effect] {
         guard state.layout == .viewer else { return [] }
         // A list asked for again ends a lookup under way too.
         pending = nil

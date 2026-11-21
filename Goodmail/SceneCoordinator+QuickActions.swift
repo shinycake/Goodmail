@@ -1,21 +1,20 @@
 import MailCore
 
 extension SceneCoordinator {
-    /// Goes where a Home Screen quick action asks. One naming an account that is gone does nothing.
-    func perform(_ action: QuickAction) {
+    /// Where a Home Screen quick action goes. One naming an account that is gone, or a new message with no account to
+    /// send from, goes nowhere.
+    func route(for action: QuickAction) -> Route? {
         switch action {
         case .newMessage:
-            guard let account = model.accounts.first else { return }
-            handle(.compose(Draft(accountID: account.id)))
+            model.accounts.first.map { .compose(Draft(accountID: $0.id)) }
         case .search:
-            handle(.search(SearchQuery(terms: [])))
+            .search(SearchQuery(terms: []))
         case .unread:
-            handle(.search(SearchQuery(terms: [.unread])))
+            .search(SearchQuery(terms: [.unread]))
         case .draft(let id):
-            handle(.draft(id))
+            .draft(id)
         case .inbox(let id):
-            guard model.accounts.contains(where: { $0.id == id }) else { return }
-            handle(.mailbox(Mailbox(labelID: SystemLabel.inbox, accountID: id)))
+            model.accounts.contains { $0.id == id } ? .mailbox(Mailbox(labelID: SystemLabel.inbox, accountID: id)) : nil
         }
     }
 }

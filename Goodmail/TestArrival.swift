@@ -4,20 +4,34 @@
 
     /// Launch with `-GoodmailTestArrivalThread synthetic-1/t19` to have the app open that conversation a few seconds
     /// later as a tapped new-mail alert does (`PushCoordinator`), so the UI tests can check what an alert does to a
-    /// window already reading another. `-GoodmailTestArrivalAfter` sets the seconds, 8 unless given.
+    /// window already reading another. `-GoodmailTestArrivalAfter` sets the seconds, 8 unless given; 0 opens it as the
+    /// database opens, before the window has filled, as an alert that launches the app does. A thread that isn't in
+    /// the synthetic mailboxes arrives as one that is gone.
     enum TestArrival {
         static func scheduleIfRequested(routes: IntentRoutes) {
             let defaults = UserDefaults.standard
             guard let name = defaults.string(forKey: "GoodmailTestArrivalThread") else { return }
-            let parts = name.split(separator: "/", maxSplits: 1).map(String.init)
-            guard parts.count == 2 else { return print("Test arrival needs account/thread, not \(name)") }
-            let thread = ThreadSummary.ID(accountID: AccountID(rawValue: parts[0]), threadID: parts[1])
-            let delay = defaults.integer(forKey: "GoodmailTestArrivalAfter")
+            guard let thread = ThreadSummary.ID(testName: name) else {
+                return print("Test arrival needs account/thread, not \(name)")
+            }
+            let delay =
+                defaults.object(forKey: "GoodmailTestArrivalAfter") == nil
+                ? 8 : defaults.integer(forKey: "GoodmailTestArrivalAfter")
+            guard delay > 0 else { return routes.open(.thread(thread, in: .inbox)) }
             // A debug launch option: nothing awaits or cancels it, and it ends once it has opened the conversation.
             Task {
-                try? await Task.sleep(for: .seconds(delay > 0 ? delay : 8))
+                try? await Task.sleep(for: .seconds(delay))
                 routes.open(.thread(thread, in: .inbox))
             }
+        }
+    }
+
+    extension ThreadSummary.ID {
+        /// The thread a launch argument names as `account/thread`, as `synthetic-1/t19`.
+        init?(testName name: String) {
+            let parts = name.split(separator: "/", maxSplits: 1).map(String.init)
+            guard parts.count == 2 else { return nil }
+            self.init(accountID: AccountID(rawValue: parts[0]), threadID: parts[1])
         }
     }
 #endif

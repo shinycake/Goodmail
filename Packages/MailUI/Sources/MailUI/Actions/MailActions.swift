@@ -7,15 +7,16 @@ public import Observation
 /// own actor, never on the main actor, one after another in the order they were asked for.
 @Observable
 public final class MailActions {
-    /// A confirmation with an Undo button, for actions that take a thread out of view.
+    /// A confirmation with an Undo button, for actions that take a thread out of view, or a notice with none.
     public struct Toast: Equatable, Identifiable {
         public let id = UUID()
         public let message: String
-        let undo: Undo
+        /// What its Undo button takes back; `nil` for a notice, which has no button.
+        let undo: Undo?
         /// When the toast goes, and with it the chance to undo from it.
         public let ends: ContinuousClock.Instant
 
-        init(message: String, undo: Undo, lasting duration: Duration) {
+        init(message: String, undo: Undo?, lasting duration: Duration) {
             self.message = message
             self.undo = undo
             ends = .now + duration
@@ -248,6 +249,12 @@ public final class MailActions {
 
     public func dismissToast() {
         toast = nil
+    }
+
+    /// Says `notice` in the toast, with no Undo, for as long as a confirmation stays. What the last Undo takes back
+    /// stays, for a shake.
+    public func say(_ notice: String) {
+        show(Toast(message: notice, undo: nil, lasting: readingTime))
     }
 
     /// How long a toast stays when nothing else bounds it, longer while VoiceOver or Switch Control runs. An undo-send

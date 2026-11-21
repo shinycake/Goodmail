@@ -184,6 +184,7 @@ public final class MailScreens: NSObject {
             if closed, showing == .announced { SystemAccessibility.post(.screenChanged, argument: list.screen.view) }
         }
         mark(list.screen, reading: columns.reader?.entry, unlessSameAs: before)
+        showCategory(of: state, in: list.screen)
         return readable
     }
 
@@ -233,7 +234,10 @@ public final class MailScreens: NSObject {
             reader.announceWhenShown()
         }
         setStack(screens, animated: moving, replacingReader: replacingReader)
-        if let list = arranged.list { mark(list.screen, reading: arranged.reader?.entry, unlessSameAs: before) }
+        if let list = arranged.list {
+            mark(list.screen, reading: arranged.reader?.entry, unlessSameAs: before)
+            showCategory(of: state, in: list.screen)
+        }
         return readable
     }
 
@@ -272,6 +276,11 @@ public final class MailScreens: NSObject {
         if let made = reused(made, for: reading) { return made }
         let row = row.flatMap { $0.id == reading.thread ? $0 : nil } ?? front?.summary(of: reading.thread)
         return makers.reader(reading, row).map { Made(entry: reading, screen: $0) }
+    }
+
+    /// Has an Inbox `list` show the category `state` names, which an arrival from outside can change under it (R4).
+    private func showCategory(of state: WindowState, in list: UIViewController) {
+        (list as? MailboxViewController)?.showCategory(state.category)
     }
 
     /// Tells `list` which conversation is read, when the list or what is read changed since `before`.
