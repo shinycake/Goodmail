@@ -29,6 +29,9 @@ extension ComposeViewController: CommandScreen {
                 formatting.quoteLevel > RichText.QuoteLevel.none
                     ? { [weak self] in self?.applyFormatting(.quote(.decrease)) } : nil
             }
+        // Zoom In and Zoom Out hold Format > Font's keys for Bigger and Smaller, which they do here.
+        case .zoomIn: return formatting { _ in { [weak self] in self?.bodyView.increaseSize(nil) } }
+        case .zoomOut: return formatting { _ in { [weak self] in self?.bodyView.decreaseSize(nil) } }
         default: return .notHere
         }
     }

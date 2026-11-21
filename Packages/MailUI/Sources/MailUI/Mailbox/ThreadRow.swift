@@ -34,13 +34,18 @@ final class ThreadRowContentView: UIView, UIContentView {
             oldValue?.removeFromSuperview()
             date.isHidden = quickActions != nil
             quickSlot.isHidden = quickActions == nil
-            backgroundColor = quickActions == nil ? nil : UIColor.label.withAlphaComponent(0.05)
+            backgroundColor = quickActions == nil ? nil : .tertiarySystemFill
             guard let quickActions else { return }
             quickActions.translatesAutoresizingMaskIntoConstraints = false
             quickSlot.addSubview(quickActions)
+            // Centered on the sender's line, but never past the row's edges, where the separators run.
+            let centered = quickActions.centerYAnchor.constraint(equalTo: quickSlot.centerYAnchor)
+            centered.priority = .defaultHigh
             NSLayoutConstraint.activate([
                 quickActions.trailingAnchor.constraint(equalTo: quickSlot.trailingAnchor),
-                quickActions.centerYAnchor.constraint(equalTo: quickSlot.centerYAnchor),
+                centered,
+                quickActions.topAnchor.constraint(greaterThanOrEqualTo: topAnchor, constant: 2),
+                quickActions.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -2),
                 quickSlot.widthAnchor.constraint(equalTo: quickActions.widthAnchor),
             ])
         }

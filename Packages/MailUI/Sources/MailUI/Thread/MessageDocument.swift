@@ -20,6 +20,13 @@ nonisolated enum MessageDocument {
             + "</body></html>"
     }
 
+    /// The document at the reader's `zoom`, which the script reads from the head as it lays the page out, so a letter
+    /// opens at its size rather than growing to it.
+    static func zoomed(_ html: String, by zoom: ReaderZoom) -> String {
+        guard !zoom.isStandard else { return html }
+        return inject(head: #"<meta name="goodmail-zoom" content="\#(zoom.factor)">"#, into: html)
+    }
+
     /// Loads only what the message carries itself: `cid:` parts and `data:` URLs. Inline styles stay, so the
     /// sender's layout and ours both apply. Our script runs in its own content world, which the policy doesn't touch.
     static let remoteContentPolicy =
@@ -81,6 +88,7 @@ nonisolated enum MessageDocument {
         body { margin: 0; overflow-wrap: anywhere; }\
         img { max-width: 100%; height: auto; }\
         :where(body) { font: -apple-system-body; line-height: 1.4; }\
+        :where(html.goodmail-sized body) { font-family: system-ui; font-size: var(--goodmail-body-size); }\
         :where(a) { color: light-dark(#0066cc, #409cff); }\
         details.goodmail-fold > summary { list-style: none; display: inline-block; margin: -3px 0; \
         margin-inline-start: -11px; padding: 0 10px; border: 11px solid transparent; background-clip: padding-box; \
@@ -94,6 +102,7 @@ nonisolated enum MessageDocument {
     private static let plainStyle = """
         <style>\
         body { font: -apple-system-body; line-height: 1.45; }\
+        html.goodmail-sized body { font-family: system-ui; font-size: var(--goodmail-body-size); }\
         blockquote.goodmail-quote { margin: 0; padding-inline-start: 10px; border-inline-start: 2px solid \
         rgba(120,120,128,0.4); color: light-dark(#636366, #a1a1a6); }\
         </style>

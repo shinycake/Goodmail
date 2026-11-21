@@ -312,7 +312,7 @@ final class ChatLetterBubble: UIControl {
 }
 
 /// A file the message carries, as a glass capsule that opens it.
-final class ChatAttachmentBubble: UIButton {
+final class ChatAttachmentBubble: ConfiguredButton {
     func configure(_ attachment: Attachment, voice: String) {
         configuration = AttachmentListView.configuration(for: attachment)
         accessibilityLabel = "\(voice), \(attachment.filename), \(AttachmentListView.sizeText(attachment.size))"

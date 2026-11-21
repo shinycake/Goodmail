@@ -52,7 +52,6 @@ extension SystemMenuItem {
         case .newWindow: .newItem
         case .close: .close
         case .find, .findNext, .findPrevious: .find
-        case .biggerText, .smallerText: .font
         }
     }
 
@@ -65,15 +64,13 @@ extension SystemMenuItem {
         case .find: #selector(UIResponder.find(_:))
         case .findNext: #selector(UIResponder.findNext(_:))
         case .findPrevious: #selector(UIResponder.findPrevious(_:))
-        case .biggerText: #selector(UIResponder.increaseSize(_:))
-        case .smallerText: #selector(UIResponder.decreaseSize(_:))
         case .newWindow, .close: nil
         }
     }
 
     /// Whether the command's own item, without keys, sits in its place too: the system's item says Find and Replace,
-    /// not Search Mail, and Bigger and Smaller, not Zoom In and Zoom Out. The others say what the command does.
-    public var keepsCommandItem: Bool { [.findAndReplace, .biggerText, .smallerText].contains(self) }
+    /// not Search Mail. The others say what the command does.
+    public var keepsCommandItem: Bool { self == .findAndReplace }
 
     /// The item whose action is `action`.
     public init?(action: Selector) {
@@ -84,5 +81,31 @@ extension SystemMenuItem {
     /// The command that rides on the item.
     public var command: MailCommand? {
         MailCommand.allCases.first { $0.keys == .system(self) }
+    }
+}
+
+extension UICommand {
+    /// Shows in the menu what `command` would do now: enabled, titled and checked as its screen says when it's ready,
+    /// otherwise dimmed, under the title a refusal gives or the command's own. A number past the sidebar's last row
+    /// has nothing to name, so its item goes from the menu.
+    public func show(_ answer: CommandAnswer, as command: MailCommand) {
+        var hidden = false
+        switch answer {
+        case .ready(_, let title, let isOn):
+            self.title = title ?? command.title
+            state = isOn ? .on : .off
+        case .unavailable:
+            self.title = command.title
+            state = .off
+        case .refused(let title):
+            self.title = title
+            state = .off
+        case .notHere:
+            self.title = command.title
+            state = .off
+            hidden = command.rowShortcut != nil
+        }
+        if case .ready = answer { attributes.remove(.disabled) } else { attributes.insert(.disabled) }
+        if hidden { attributes.insert(.hidden) } else { attributes.remove(.hidden) }
     }
 }

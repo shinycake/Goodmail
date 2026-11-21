@@ -49,7 +49,7 @@ final class ComposeAttachmentsView: UIStackView {
 /// One file's capsule, as wide as its name and size on a line each. A configured button measures its text against
 /// the width it already has, and a new one has none, so on its own it settles a character wide with the name
 /// wrapping letter by letter. The stack still holds it to the fields' width, where the name truncates in the middle.
-private final class AttachmentChip: UIButton {
+private final class AttachmentChip: ConfiguredButton {
     override var intrinsicContentSize: CGSize {
         sizeThatFits(CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude))
     }

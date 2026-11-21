@@ -42,7 +42,7 @@ extension SceneCoordinator {
         if model.accounts.isEmpty {
             showWelcome()
         } else if changed || accounts != model.accounts.map(\.id) {
-            showMailboxKeepingPlace()
+            showMailbox()
         }
         offerSharedAccounts()
     }

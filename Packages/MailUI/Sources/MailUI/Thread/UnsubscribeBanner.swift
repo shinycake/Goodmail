@@ -8,7 +8,7 @@ final class UnsubscribeBanner: UIView {
 
     private let symbol = UIImageView()
     private let label = UILabel()
-    private let button = UIButton(configuration: .tinted())
+    private let button = ConfiguredButton(configuration: .tinted())
     private let spinner = UIActivityIndicatorView(style: .medium)
     private let row = UIStackView()
 

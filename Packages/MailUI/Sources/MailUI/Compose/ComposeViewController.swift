@@ -15,7 +15,7 @@ public final class ComposeViewController: UIViewController {
     let formattingBar = FormattingBar()
     /// The characters the edit being typed puts in, until its layout is settled.
     var typedRange: NSRange?
-    private let quoteButton = UIButton(configuration: .gray())
+    private let quoteButton = ConfiguredButton(configuration: .gray())
     private let quoteLabel = UILabel()
     var ccRow: UIView!
     var bccRow: UIView!
@@ -32,7 +32,7 @@ public final class ComposeViewController: UIViewController {
     lazy var intake = ContentIntake(
         room: { [unowned self] in viewModel.attachmentRoom }, receive: { [unowned self] in receive($0) })
     private let sendItem = UIBarButtonItem()
-    private let fromButton = UIButton(configuration: .plain())
+    private let fromButton = ConfiguredButton(configuration: .plain())
     /// Takes files from Photos, Files, the camera and the scanner.
     lazy var picker = AttachmentPicker { [weak self] in self?.add($0) }
     /// Keeps the composer while it is minimized, moves it on and off the screen, and hears when it is done.
@@ -228,18 +228,25 @@ public final class ComposeViewController: UIViewController {
             ? String(localized: "Reply", table: "Compose", bundle: .module, comment: "Composer title for a reply")
             : String(localized: "New Message", table: "Compose", bundle: .module, comment: "Composer title")
         navigationItem.leftBarButtonItems = [closeItem(), ownWindowItem()].compactMap(\.self)
-        sendItem.image = UIImage(systemName: "arrow.up")
-        sendItem.style = .prominent
-        sendItem.accessibilityLabel = String(
-            localized: "Send", table: "Compose", bundle: .module, comment: "Sends the message")
-        sendItem.primaryAction = UIAction(
-            title: String(localized: "Send", table: "Compose", bundle: .module, comment: "Sends the message"),
-            image: UIImage(systemName: "arrow.up")
-        ) { [weak self] _ in self?.send() }
-        // Touching and holding Send offers to send later.
-        sendItem.menu = UIMenu(children: [
-            UIDeferredMenuElement.uncached { [weak self] completion in completion(self?.sendLaterItems() ?? []) }
-        ])
+        let send = String(localized: "Send", table: "Compose", bundle: .module, comment: "Sends the message")
+        sendItem.accessibilityLabel = send
+        // In a Mac window of its own, Send is a plain glyph among the toolbar's, as in Mail, and Send Later is in the
+        // Message menu: a menu on the item would split it in two. Elsewhere it is the prominent arrow, and touching
+        // and holding it offers to send later.
+        if host?.closesWithWindow == true {
+            sendItem.primaryAction = UIAction(title: send, image: UIImage(systemName: "paperplane")) { [weak self] _ in
+                self?.send()
+            }
+            BarToolTips.set(sendItem, MailCommand.send.toolTip)
+        } else {
+            sendItem.style = .prominent
+            sendItem.primaryAction = UIAction(title: send, image: UIImage(systemName: "arrow.up")) { [weak self] _ in
+                self?.send()
+            }
+            sendItem.menu = UIMenu(children: [
+                UIDeferredMenuElement.uncached { [weak self] completion in completion(self?.sendLaterItems() ?? []) }
+            ])
+        }
         navigationItem.rightBarButtonItems = [sendItem, attachItem()]
     }
 
@@ -297,7 +304,7 @@ public final class ComposeViewController: UIViewController {
                 attributes.foregroundColor = .secondaryLabel
                 return attributes
             }
-            let button = UIButton(
+            let button = ConfiguredButton(
                 configuration: configuration,
                 primaryAction: UIAction { [weak self, weak field] _ in
                     guard let self, let field else { return }
@@ -339,7 +346,7 @@ public final class ComposeViewController: UIViewController {
 
     /// Shows Cc and Bcc, at the end of the To line until it's used.
     private func ccToggle() -> UIView {
-        let toggle = UIButton(configuration: .plain())
+        let toggle = ConfiguredButton(configuration: .plain())
         toggle.configuration?.title = String(
             localized: "Cc/Bcc", table: "Compose", bundle: .module, comment: "Shows Cc and Bcc")
         toggle.configuration?.contentInsets = .zero

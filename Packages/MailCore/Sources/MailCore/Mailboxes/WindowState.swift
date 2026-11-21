@@ -1,8 +1,7 @@
 /// What one window shows: the list beside the mailboxes, the Inbox's category and filter, and where the window is
-/// (`Place`): back at the mailboxes, at the list with the conversation it reads, or one conversation alone. The scene
-/// coordinator keeps it in step as the reader moves, rebuilds either arrangement from it when the window changes width
-/// (`stack`, `columns`), and saves it so the system can restore the window or hand it off to another device
-/// (`WindowState+Coding`).
+/// (`Place`): back at the mailboxes, at the list with the conversation it reads, or one conversation alone. Only the
+/// window's navigation moves it (`WindowNavigation`); the screens show it in either arrangement (`stack`, `columns`), and
+/// the window saves it so the system can restore it or hand it off to another device (`WindowState+Coding`).
 public struct WindowState: Equatable, Sendable {
     /// The list beside the mailboxes. It says nothing of what is read, which is `place`'s.
     public enum List: Hashable, Sendable {

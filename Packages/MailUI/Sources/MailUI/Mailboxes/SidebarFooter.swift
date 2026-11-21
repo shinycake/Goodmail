@@ -21,7 +21,7 @@ public struct SyncFooterSource {
 /// The quiet line under a desktop sidebar: how mail is coming in, and New Label at its end. A problem's line is a
 /// button that asks about it, with its fix.
 final class SidebarFooterView: UIView {
-    private let line = UIButton(configuration: .plain())
+    private let line = ConfiguredButton(configuration: .plain())
     private let newLabel: UIButton?
     var onProblem: ((AccountProblemNotice) -> Void)?
     private var shown = SyncStatus.quiet
@@ -31,7 +31,7 @@ final class SidebarFooterView: UIView {
             var configuration = UIButton.Configuration.plain()
             configuration.image = item.image
             configuration.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(textStyle: .subheadline)
-            let button = UIButton(configuration: configuration, primaryAction: item.primaryAction)
+            let button = ConfiguredButton(configuration: configuration, primaryAction: item.primaryAction)
             button.menu = item.menu
             button.showsMenuAsPrimaryAction = item.menu != nil
             button.toolTip = item.title

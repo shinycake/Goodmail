@@ -1,0 +1,32 @@
+#!/usr/bin/env python3
+"""Fail when MailUI makes a plain UIButton.
+
+Under the Mac idiom a UIButton takes the Mac's own look, an accent-colored push button that ignores most of its
+configuration, unless its behavioral style is the iPad's. ConfiguredButton sets that once, so every button MailUI
+makes, or subclasses, is a ConfiguredButton. A UIButton named only as a type, as a property or a parameter, is fine.
+"""
+
+import pathlib
+import re
+import subprocess
+import sys
+
+MADE = re.compile(r"(?<![\w.])UIButton\s*\(|\bclass\s+\w+\s*:\s*UIButton\b")
+
+out = subprocess.run(
+    ["git", "ls-files", "Packages/MailUI/Sources/*.swift"], capture_output=True, text=True, check=True
+).stdout
+problems = []
+for name in out.splitlines():
+    path = pathlib.Path(name)
+    if path.name == "ConfiguredButton.swift" or not path.is_file():
+        continue
+    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        if not line.lstrip().startswith("//") and MADE.search(line):
+            problems.append(f"{path}:{number}: {line.strip()}")
+if problems:
+    print("✘ MailUI makes a plain UIButton, which a Mac draws as an accent push button. Use ConfiguredButton:")
+    for problem in problems:
+        print(f"  {problem}")
+    sys.exit(1)
+print("Every MailUI button is a ConfiguredButton.")

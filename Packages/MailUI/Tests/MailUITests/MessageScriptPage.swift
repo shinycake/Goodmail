@@ -1,4 +1,5 @@
 import MailCore
+import Testing
 import WebKit
 
 @testable import MailUI
@@ -9,13 +10,14 @@ struct MessageScriptPage {
     let view: WKWebView
     /// The height the script first reported, which sizes the card.
     let reportedHeight: Double
+    private let reports: Reports
 
     /// Returns once the script has reported, which it does after every pass over the page. The view starts as tall as
     /// `height`; the reader's starts 1 point tall and grows to what the script reports. A view out of a window
     /// follows the system's appearance, so a test that needs one forces it in the page, as the PDF does.
     static func load(
         _ body: MessageBody, palette: MessagePalette, height: Double = 600, appearance: ForcedAppearance? = nil,
-        foldLabel: String = "Show Quoted Text"
+        foldLabel: String = "Show Quoted Text", zoom: ReaderZoom = .standard
     ) async -> MessageScriptPage {
         let forced = { (text: String) in appearance.map { $0.apply(to: text) } ?? text }
         let view = WKWebView(frame: CGRect(x: 0, y: 0, width: 360, height: height))
@@ -27,26 +29,48 @@ struct MessageScriptPage {
                 forMainFrameOnly: true))
         let reports = Reports()
         contents.add(reports, name: MessageScript.handlerName)
-        let document = MessageDocument.html(for: body, palette: palette, allowsRemoteContent: false)
+        let document = MessageDocument.zoomed(
+            MessageDocument.html(for: body, palette: palette, allowsRemoteContent: false), by: zoom)
         view.loadHTMLString(
             forced(MessageDocument.inject(head: appearance?.rootStyle ?? "", into: document)), baseURL: nil)
-        return MessageScriptPage(view: view, reportedHeight: await reports.first())
+        return MessageScriptPage(view: view, reportedHeight: await reports.next(), reports: reports)
+    }
+
+    /// Zooms the loaded page as the reader does, and returns the height the script reports for it.
+    func zoom(to zoom: ReaderZoom) async throws -> Double {
+        _ = try await view.evaluateJavaScript(MessageScript.zoom(to: zoom))
+        return await reports.next()
+    }
+
+    /// How wide a word set in the letter's own text draws, as the reader sees it.
+    func wordWidth() async throws -> Double {
+        let measure = """
+            (() => { const word = document.createElement('span'); word.textContent = 'Thursday';
+            document.body.append(word); const width = word.getBoundingClientRect().width; word.remove(); return width; })()
+            """
+        return try #require(try await view.evaluateJavaScript(measure) as? Double)
     }
 }
 
 /// The heights the message script reports, in order.
 @MainActor
 private final class Reports: NSObject, WKScriptMessageHandler {
-    private let stream: AsyncStream<Double>
     private let continuation: AsyncStream<Double>.Continuation
+    private var reports: AsyncStream<Double>.Iterator
 
     override init() {
-        (stream, continuation) = AsyncStream.makeStream()
+        let (stream, continuation) = AsyncStream<Double>.makeStream()
+        self.continuation = continuation
+        reports = stream.makeAsyncIterator()
     }
 
-    func first() async -> Double {
-        var reports = stream.makeAsyncIterator()
-        return await reports.next() ?? 0
+    /// The next height the script reports.
+    /// The stream's iterator shares the stream's buffer, so a copy moves it on for the next call too.
+    func next() async -> Double {
+        var iterator = reports
+        let height = await iterator.next(isolation: #isolation) ?? 0
+        reports = iterator
+        return height
     }
 
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
