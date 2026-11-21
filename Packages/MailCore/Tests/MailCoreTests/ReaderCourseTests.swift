@@ -16,18 +16,34 @@ struct ReaderCourseTests {
     }
 
     private func facts(
-        reading thread: ThreadSummary.ID?, rows: [ThreadSummary.ID]? = nil, pick: [ThreadSummary.ID] = [],
-        state: WindowState = WindowState(), setting: AfterRemoval = .next
+        reading thread: ThreadSummary.ID?, in mailbox: Mailbox = .inbox, rows: [ThreadSummary.ID]? = nil,
+        pick: [ThreadSummary.ID] = [], listedIn front: Mailbox = .inbox, layout: WindowState.Layout = .viewer,
+        setting: AfterRemoval = .next
     ) -> ReaderCourse.Facts {
         ReaderCourse.Facts(
-            reader: thread.map { reading($0) }, rows: rows ?? self.rows, pointerPick: pick, state: state,
+            reader: thread.map { reading($0, in: mailbox) },
+            front: ReaderCourse.Front(rows: rows ?? self.rows, pointerPick: pick, mailbox: front), layout: layout,
             setting: setting)
     }
 
     @Test func archivingTheOpenConversationReadsTheNextAtOnce() {
         var course = ReaderCourse()
-        #expect(course.asked(MailChange(.action(.archive), on: [b]), facts(reading: b)) == .opens(c))
+        #expect(
+            course.asked(MailChange(.action(.archive), on: [b]), facts(reading: b))
+                == .opens(ReaderCourse.Opening(c, in: .inbox)))
         #expect(course.asked(MailChange(.action(.archive), on: [b]), facts(reading: b, setting: .list)) == .closes)
+    }
+
+    @Test func theNextIsReadWhereTheListOnShowReadsItsRows() {
+        var course = ReaderCourse()
+        // Opened from an alert in the Inbox, and listed by the search results over it, which read in All Mail.
+        let fromSearch = facts(reading: b, in: .inbox, listedIn: .allMail)
+        #expect(
+            course.asked(MailChange(.action(.archive), on: [b]), fromSearch)
+                == .opens(ReaderCourse.Opening(c, in: .allMail)))
+        let picked = facts(reading: nil, pick: [a], listedIn: .starred)
+        #expect(
+            course.asked(MailChange(.action(.trash), on: [a]), picked) == .opens(ReaderCourse.Opening(b, in: .starred)))
     }
 
     @Test func changesToOtherConversationsLeaveTheReaderWhereItIs() {
@@ -43,28 +59,50 @@ struct ReaderCourseTests {
 
     @Test func aMessageWindowLeavesForWhatTakesItsConversation() {
         var course = ReaderCourse()
-        let window = facts(reading: b, rows: [], state: WindowState().opening(b, in: .inbox, as: .message))
+        let window = ReaderCourse.Facts(reader: reading(b), front: nil, layout: .message, setting: .next)
         #expect(course.asked(MailChange(.action(.trash), on: [b]), window) == .leavesWindow)
         #expect(course.asked(MailChange(.action(.markRead(false)), on: [b]), window) == .leavesWindow)
         #expect(course.asked(MailChange(.action(.star(true)), on: [b]), window) == .stays)
+    }
+
+    @Test func aWindowWithNoListGoesBackToNothing() {
+        var course = ReaderCourse()
+        let alone = ReaderCourse.Facts(reader: reading(b), front: nil, layout: .viewer, setting: .next)
+        #expect(course.asked(MailChange(.action(.archive), on: [b]), alone) == .closes)
     }
 
     @Test func aConversationWhoseRowLeftSinceItOpenedGoesOnFromWhereItWas() {
         var course = ReaderCourse()
         course.opened(b, from: rows)
         // Read in an Unread smart mailbox, its row left as it was read.
-        #expect(course.asked(MailChange(.snooze, on: [b]), facts(reading: b, rows: [a, c])) == .opens(c))
+        #expect(
+            course.asked(MailChange(.snooze, on: [b]), facts(reading: b, rows: [a, c]))
+                == .opens(ReaderCourse.Opening(c, in: .inbox)))
         course.opened(a, from: [a, c])
         #expect(
             course.asked(MailChange(.snooze, on: [b]), facts(reading: b, rows: [a, c])) == .closes,
             "the trail is the open conversation's, not one opened before it")
     }
 
+    @Test func theConversationItOpensGoesOnFromTheRowsItOpenedFrom() {
+        var course = ReaderCourse()
+        course.opened(a, from: rows)
+        #expect(
+            course.asked(MailChange(.snooze, on: [a]), facts(reading: a)) == .opens(ReaderCourse.Opening(b, in: .inbox))
+        )
+        // Read in an Unread smart mailbox, b's row left as it was read, and a's with it.
+        #expect(
+            course.asked(MailChange(.snooze, on: [b]), facts(reading: b, rows: [c]))
+                == .opens(ReaderCourse.Opening(c, in: .inbox)))
+    }
+
     @Test func puttingAwayEveryPointerPickReadsTheRowAfterThem() {
         var course = ReaderCourse()
         let rows = rows + [Self.row("d")]
         let picked = facts(reading: nil, rows: rows, pick: [a, b])
-        #expect(course.asked(MailChange(.action(.trash), on: [a, b]), picked) == .opens(c))
+        #expect(
+            course.asked(MailChange(.action(.trash), on: [a, b]), picked)
+                == .opens(ReaderCourse.Opening(c, in: .inbox)))
         #expect(course.asked(MailChange(.action(.trash), on: [a]), picked) == .stays, "some of them stay")
         #expect(course.asked(MailChange(.action(.star(true)), on: [a, b]), picked) == .stays)
         #expect(

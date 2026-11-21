@@ -2,7 +2,8 @@
 /// window's one place for it, so the reader never leaves a conversation because sync or another device changed it.
 ///
 /// It remembers the list as it showed when the open conversation opened, so a conversation whose row has left since
-/// still has a next one, and the conversation the reader last left, so Undo can bring the reader back to it.
+/// still has a next one, and the conversation the reader last left, so Undo can bring the reader back to it until the
+/// window moves on by any other way.
 public struct ReaderCourse: Sendable {
     /// The conversation on show, and how its reader sees it now.
     public struct Reader: Equatable, Sendable {
@@ -19,27 +20,49 @@ public struct ReaderCourse: Sendable {
         }
     }
 
+    /// The list the window reads conversations from, as it shows now: the narrow stack's, or the one beside the
+    /// reader, or the search results over either.
+    public struct Front: Equatable, Sendable {
+        /// Its rows, top to bottom.
+        public var rows: [ThreadSummary.ID]
+        /// The rows picked with a pointer beside no conversation, several of them, top to bottom; empty otherwise.
+        public var pointerPick: [ThreadSummary.ID]
+        /// Where a conversation opened from these rows is read: search results and smart mailboxes read in All Mail.
+        public var mailbox: Mailbox
+
+        public init(rows: [ThreadSummary.ID], pointerPick: [ThreadSummary.ID] = [], mailbox: Mailbox) {
+            self.rows = rows
+            self.pointerPick = pointerPick
+            self.mailbox = mailbox
+        }
+    }
+
     /// What the window knows as the change is asked.
     public struct Facts: Sendable {
         /// The conversation on show; `nil` with none.
         public var reader: Reader?
-        /// The rows of the list the conversation was opened from, top to bottom, as it shows now.
-        public var rows: [ThreadSummary.ID]
-        /// The rows picked with a pointer beside no conversation, several of them, top to bottom; empty otherwise.
-        public var pointerPick: [ThreadSummary.ID]
-        /// What the window shows. A message window has no list to go back to or on in.
-        public var state: WindowState
+        /// The list on show; `nil` for a window that shows none, as a message window.
+        public var front: Front?
+        /// A message window has no list to go back to or on in.
+        public var layout: WindowState.Layout
         public var setting: AfterRemoval
 
-        public init(
-            reader: Reader?, rows: [ThreadSummary.ID], pointerPick: [ThreadSummary.ID], state: WindowState,
-            setting: AfterRemoval
-        ) {
+        public init(reader: Reader?, front: Front?, layout: WindowState.Layout, setting: AfterRemoval) {
             self.reader = reader
-            self.rows = rows
-            self.pointerPick = pointerPick
-            self.state = state
+            self.front = front
+            self.layout = layout
             self.setting = setting
+        }
+    }
+
+    /// A conversation to read, and where it is read.
+    public struct Opening: Equatable, Sendable {
+        public var thread: ThreadSummary.ID
+        public var mailbox: Mailbox
+
+        public init(_ thread: ThreadSummary.ID, in mailbox: Mailbox) {
+            self.thread = thread
+            self.mailbox = mailbox
         }
     }
 
@@ -48,8 +71,8 @@ public struct ReaderCourse: Sendable {
         case stays
         /// Back to the list, with nothing open.
         case closes
-        /// Reads this conversation of the same list in the reader's place.
-        case opens(ThreadSummary.ID)
+        /// Reads this conversation of the list on show in the reader's place.
+        case opens(Opening)
         /// A message window, which shows nothing else, goes once the change can't be undone (ADR-035).
         case leavesWindow
     }
@@ -60,23 +83,29 @@ public struct ReaderCourse: Sendable {
         let rows: [ThreadSummary.ID]
     }
 
-    /// The conversation the reader last left, and the window as leaving it left the window (R9).
+    /// The conversation the reader last left, by `change` (R9).
     private struct Departure: Sendable {
         let change: MailChange
-        let thread: ThreadSummary.ID
-        let mailbox: Mailbox
-        let landed: WindowState
+        let left: Opening
     }
 
     private var trail: Trail?
-    /// Only until the next change the reader asks: Undo then takes back that one instead.
+    /// Until the window moves on by any other way: Undo then brings back only the row.
     private var departure: Departure?
 
     public init() {}
 
-    /// `thread` opened from a list showing `rows`.
+    /// The window opened `thread` from a list showing `rows`, by a tap, a click, an alert or a link: anything but
+    /// this course.
     public mutating func opened(_ thread: ThreadSummary.ID, from rows: [ThreadSummary.ID]) {
         trail = Trail(thread: thread, rows: rows)
+        departure = nil
+    }
+
+    /// The window moved on by itself in any other way: the reader closed, several were picked, another list or
+    /// search showed. Undo no longer has a place to bring the reader back to.
+    public mutating func navigated() {
+        departure = nil
     }
 
     /// The reader asked `change` of some conversations. Only a change to the conversation on show moves the reader;
@@ -91,7 +120,7 @@ public struct ReaderCourse: Sendable {
         case .stays:
             return .stays
         // A message window keeps its own undo, in its place until the toast goes (ADR-035).
-        case _ where facts.state.layout == .message:
+        case _ where facts.layout == .message:
             return .leavesWindow
         case .setAside:
             landing = .list
@@ -99,36 +128,28 @@ public struct ReaderCourse: Sendable {
             let rows = trail.flatMap { $0.thread == reader.thread ? $0.rows : nil } ?? []
             landing = self.landing(after: change, from: reader.thread, trail: rows, facts)
         }
-        var landed = facts.state
-        let move: Move
-        switch landing {
-        case .thread(let next):
-            landed.setThread(next)
-            move = .opens(next)
-        case .list:
-            landed.setThread(nil)
-            move = .closes
-        }
-        departure = Departure(change: change, thread: reader.thread, mailbox: reader.mailbox, landed: landed)
-        return move
+        departure = Departure(change: change, left: Opening(reader.thread, in: reader.mailbox))
+        guard case .thread(let next) = landing, let front = facts.front else { return .closes }
+        trail = Trail(thread: next, rows: front.rows)
+        return .opens(Opening(next, in: front.mailbox))
     }
 
-    /// Undo took `change` back. The conversation it took the reader from, to read again, while the window shows what
-    /// it showed after leaving it: anywhere else, only its row comes back (R9).
-    public mutating func undone(_ change: MailChange, in state: WindowState) -> (
-        thread: ThreadSummary.ID, mailbox: Mailbox
-    )? {
+    /// Undo took `change` back. The conversation it took the reader from, to read again, unless the window has moved
+    /// on since by any other way: then only its row comes back (R9).
+    public mutating func undone(_ change: MailChange) -> Opening? {
         guard let departure, departure.change == change else { return nil }
         self.departure = nil
-        return departure.landed == state ? (departure.thread, departure.mailbox) : nil
+        return departure.left
     }
 
-    private func afterPick(_ change: MailChange, _ facts: Facts) -> Move {
-        guard let anchor = facts.pointerPick.first, Set(facts.pointerPick).isSubset(of: change.threads),
-            ReaderExit.exit(after: change.request) == .putAway
+    private mutating func afterPick(_ change: MailChange, _ facts: Facts) -> Move {
+        guard let front = facts.front, let anchor = front.pointerPick.first,
+            Set(front.pointerPick).isSubset(of: change.threads), ReaderExit.exit(after: change.request) == .putAway
         else { return .stays }
         switch landing(after: change, from: anchor, trail: [], facts) {
-        case .thread(let next): return .opens(next)
+        case .thread(let next):
+            trail = Trail(thread: next, rows: front.rows)
+            return .opens(Opening(next, in: front.mailbox))
         // Nothing is open to close: the rows leave, and the pick with them.
         case .list: return .stays
         }
@@ -138,6 +159,7 @@ public struct ReaderCourse: Sendable {
         after change: MailChange, from anchor: ThreadSummary.ID, trail: [ThreadSummary.ID], _ facts: Facts
     ) -> Landing {
         Landing.after(
-            putAway: Set(change.threads), anchor: anchor, trail: trail, rows: facts.rows, setting: facts.setting)
+            putAway: Set(change.threads), anchor: anchor, trail: trail, rows: facts.front?.rows ?? [],
+            setting: facts.setting)
     }
 }

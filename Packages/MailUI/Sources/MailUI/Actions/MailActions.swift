@@ -65,10 +65,10 @@ public final class MailActions {
     }
 
     public func perform(_ action: ThreadAction, on threads: [ThreadSummary.ID]) {
-        let change = MailChange(.action(action), on: threads)
-        changed?(change)
         feedback(.performing(action))
-        apply(change, confirmation: Self.confirmation(for: action, count: threads.count)) {
+        apply(
+            MailChange(.action(action), on: threads), confirmation: Self.confirmation(for: action, count: threads.count)
+        ) {
             try await $0.perform(action, on: threads)
         }
     }
@@ -77,11 +77,9 @@ public final class MailActions {
     public func move(
         _ threads: [ThreadSummary.ID], to destination: MoveDestination, named name: String, from mailbox: Mailbox
     ) {
-        let change = MailChange(.move(destination, from: mailbox), on: threads)
-        changed?(change)
         feedback(.putAway)
         apply(
-            change,
+            MailChange(.move(destination, from: mailbox), on: threads),
             confirmation: String(
                 localized: "\(threads.count) moved to \(name)", table: "Actions", bundle: .module,
                 comment: "Toast after moving threads; the second value is the mailbox or label they went to")
@@ -90,11 +88,9 @@ public final class MailActions {
 
     /// Takes the threads out of the Inbox until `date`, with a toast to take that back.
     public func snooze(_ threads: [ThreadSummary.ID], until date: Date) {
-        let change = MailChange(.snooze, on: threads)
-        changed?(change)
         feedback(.putAway)
         apply(
-            change,
+            MailChange(.snooze, on: threads),
             confirmation: String(
                 localized: "Snoozed until \(ScheduledTime.text(for: date))", table: "Actions", bundle: .module,
                 comment: "Toast after snoozing threads, with when they come back")
@@ -109,11 +105,9 @@ public final class MailActions {
 
     /// Puts snoozed threads back in the Inbox now, with a toast to snooze them again.
     public func unsnooze(_ threads: [ThreadSummary.ID]) {
-        let change = MailChange(.unsnooze, on: threads)
-        changed?(change)
         feedback(.change)
         apply(
-            change,
+            MailChange(.unsnooze, on: threads),
             confirmation: String(
                 localized: "\(threads.count) moved to Inbox", table: "Actions", bundle: .module,
                 comment: "Toast after putting snoozed threads back in the Inbox")
@@ -215,12 +209,14 @@ public final class MailActions {
         await chain.settled()
     }
 
-    /// Makes one undoable change, `asked` by the reader as the window was told, keeps it as the last one, and
-    /// confirms it with `confirmation` when there is one.
+    /// Makes one undoable change, `asked` by the reader, keeps it as the last one, and confirms it with
+    /// `confirmation` when there is one. The window hears of what was asked at once, before it applies, so it moves
+    /// its reader in the same step (`changed`); `nil` for a change that moves no reader, as a pin.
     func apply(
         _ asked: MailChange?, confirmation: String?,
         _ change: @escaping (MailCommands) async throws -> MailCommands.Undo
     ) {
+        if let asked { changed?(asked) }
         run { [self] commands in
             let applied = try await change(commands)
             guard !applied.isEmpty else { return }

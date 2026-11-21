@@ -14,7 +14,10 @@ extension ThreadViewModel {
     }
 
     func senderAnswer(to command: MailCommand) -> CommandAnswer? {
-        senders?.answer(to: command, for: [thread.id], from: sender, in: actions)
+        guard let senders, let actions else { return nil }
+        let sender = sender
+        return actions.senderAnswer(
+            to: command, for: [thread.id], from: sender, conversationsFrom: sender, with: senders)
     }
 }
 
@@ -23,8 +26,11 @@ extension ThreadViewModel {
 extension ThreadViewController: SenderMenuOffering {
     func senderMenu(for contact: Contact) -> UIMenu? {
         let model = viewModel
-        guard let senders = model.senders else { return nil }
-        return senders.menuSection(
-            for: [model.thread.id], from: SenderAddress(of: contact, notFrom: model.ownAddresses), in: model.actions)
+        guard let senders = model.senders, let actions = model.actions else { return nil }
+        // Anyone who wrote in the conversation, whom Block Sender's rule trashes it for only if they wrote its
+        // newest mail from someone else.
+        return actions.senderMenuSection(
+            for: [model.thread.id], from: SenderAddress(of: contact, notFrom: model.ownAddresses),
+            conversationsFrom: model.sender, with: senders)
     }
 }

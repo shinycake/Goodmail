@@ -54,7 +54,8 @@ public enum ListSelection: Hashable, Sendable {
         case .plain:
             return .reading(row)
         case .toggle:
-            var ids = ids
+            // Only listed rows: a conversation still read after its row left isn't picked along.
+            var ids = Set(ids(in: rows))
             guard ids.remove(row) == nil else {
                 return .picked(ids, anchor: anchor.flatMap { ids.contains($0) ? $0 : nil })
             }
@@ -107,16 +108,15 @@ public enum ListSelection: Hashable, Sendable {
 
     // MARK: Rows leaving
 
-    /// After the list's rows became `rows`: rows that left are dropped and nothing else moves, so the reader stays on a
-    /// conversation whatever takes its row away (R6). Several stay several however few are left: Select mode stays on
-    /// until Done.
+    /// After the list's rows became `rows`: picked rows that left are dropped and nothing else moves, so the reader
+    /// stays on a conversation whatever takes its row away (R6). The conversation being read stays read while its row
+    /// is gone, since the reader still shows it: its row is marked again when it comes back, as after Undo. Several
+    /// stay several however few are left: Select mode stays on until Done.
     public func keeping(_ rows: [ThreadSummary.ID]) -> ListSelection {
         let present = Set(rows)
         switch self {
-        case .none:
-            return .none
-        case .reading(let id):
-            return present.contains(id) ? self : .none
+        case .none, .reading:
+            return self
         case .several(let ids, let anchor):
             return .several(ids.intersection(present), anchor: anchor.flatMap { present.contains($0) ? $0 : nil })
         }

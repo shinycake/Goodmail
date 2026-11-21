@@ -47,9 +47,20 @@ extension MailboxViewModel {
         pick(new, revealing: false)
     }
 
-    /// Marks `id` as the thread open beside the list, as one opened before the list was built, without opening it again.
-    func markReading(_ id: ThreadSummary.ID) {
-        pick(.reading(id), revealing: false)
+    /// Marks `id` as the conversation the window reads, or with `nil` that it reads none, without opening anything.
+    /// It holds at once, listed or not: the filter keeps the row while it is read (`isShown`), so a row that comes
+    /// back, as after Undo, lists again and shows as read. With `nil`, several picked stay picked.
+    func markReading(_ id: ThreadSummary.ID?) {
+        let new: ListSelection
+        switch (id, selection) {
+        case (let id?, _): new = .reading(id)
+        case (nil, .reading): new = .none
+        case (nil, .none), (nil, .several): return
+        }
+        guard new != selection else { return }
+        pick(new, revealing: false)
+        // Under a filter, the row read before may leave and this one may come back.
+        if filter.isOn { regroup() }
     }
 
     // MARK: Rows leaving

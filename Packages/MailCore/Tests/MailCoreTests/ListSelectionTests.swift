@@ -22,6 +22,9 @@ struct ListSelectionTests {
     @Test func commandClickAddsARowToTheOneBeingRead() {
         #expect(ListSelection.reading(a).clicking(c, .toggle, in: rows) == .several([a, c], anchor: c))
         #expect(ListSelection.none.clicking(c, .toggle, in: rows) == .reading(c), "nothing to add to")
+        #expect(
+            ListSelection.reading(a).clicking(c, .toggle, in: [b, c]) == .reading(c),
+            "one still read after its row left isn't picked along, where Delete would take it unseen")
     }
 
     @Test func commandClickTakesARowAwayAndOneLeftIsRead() {
@@ -112,7 +115,9 @@ struct ListSelectionTests {
     // MARK: Rows leaving
 
     @Test func keepingDropsGoneRowsWithoutMoving() {
-        #expect(ListSelection.reading(b).keeping([a, c]) == .none)
+        #expect(
+            ListSelection.reading(b).keeping([a, c]) == .reading(b),
+            "the conversation being read stays read while its row is gone, so it is marked again when it comes back")
         #expect(ListSelection.reading(b).keeping([a, b]) == .reading(b))
         // On touch Select mode stays on with one row or none.
         #expect(ListSelection.several([b, c], anchor: c).keeping([a, b]) == .several([b], anchor: nil))

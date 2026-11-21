@@ -7,7 +7,8 @@ public struct MailChange: Equatable, Sendable {
         case move(MoveDestination, from: Mailbox)
         case snooze
         case unsnooze
-        /// Block Sender, whose rule then takes the conversations to Trash.
+        /// Block Sender, whose rule then takes the conversations to Trash. Asked only of the conversations the rule
+        /// trashes: one whose newest mail from someone else is from another person stays where it is.
         case block
     }
 

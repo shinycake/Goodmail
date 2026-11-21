@@ -50,11 +50,13 @@ public final class WaitingListViewController<Model: WaitingListModel>: UIViewCon
         case rows
     }
 
-    private let viewModel: Model
+    let viewModel: Model
     private let style: WaitingListStyle
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Section, WaitingRow<Model.ID>>!
     private var observation: Task<Void, Never>?
+    /// The row the window reads, which shows selected while it is listed (`markRead`).
+    private var read: Model.ID?
 
     public init(viewModel: Model, style: WaitingListStyle) {
         self.viewModel = viewModel
@@ -110,6 +112,23 @@ public final class WaitingListViewController<Model: WaitingListModel>: UIViewCon
             snapshot.appendItems(rows)
         }
         dataSource.apply(snapshot, animatingDifferences: collectionView.window != nil)
+        showRead()
+    }
+
+    /// Shows `id` as the row the window reads, or with `nil` none, now and as the rows change.
+    func markRead(_ id: Model.ID?) {
+        read = id
+        showRead()
+    }
+
+    private func showRead() {
+        guard isViewLoaded else { return }
+        let row = dataSource.snapshot().itemIdentifiers.first { $0.id == read }.flatMap(dataSource.indexPath(for:))
+        for selected in collectionView.indexPathsForSelectedItems ?? [] where selected != row {
+            collectionView.deselectItem(at: selected, animated: true)
+        }
+        guard let row, collectionView.indexPathsForSelectedItems?.contains(row) != true else { return }
+        collectionView.selectItem(at: row, animated: false, scrollPosition: [])
     }
 
     private var nothingWaiting: UIContentUnavailableConfiguration {

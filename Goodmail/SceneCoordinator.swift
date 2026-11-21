@@ -36,10 +36,11 @@ final class SceneCoordinator: NSObject {
     private let windowID = UUID().uuidString
     /// What the mail screens show, kept so either arrangement can be rebuilt when the window changes width, and
     /// saved for the system to restore the window or hand it off (`activity`).
-    var shown: WindowState {
+    private(set) var shown: WindowState {
         didSet { if shown != oldValue { publishActivity() } }
     }
-    /// Where the reader goes after the reader asks a change of mail here (`readerAsked`).
+    /// Where the reader goes after the reader asks a change of mail here, and where Undo brings it back
+    /// (`SceneCoordinator+ReaderCourse`).
     var course = ReaderCourse()
 
     /// The mailboxes' model of the arrangement built last, which the lists ask for the rows ⌘1 to ⌘9 reach.
@@ -313,11 +314,22 @@ final class SceneCoordinator: NSObject {
         split?.viewController(for: column) as? UINavigationController
     }
 
+    /// Opens `thread` from the shown list, or with `nil` closes it: the one way the open conversation changes outside
+    /// this file.
+    func setOpenThread(_ thread: ThreadSummary.ID?) {
+        shown.setThread(thread)
+    }
+
     /// A reader for the thread, opened from `mailbox`, or nil when it is gone.
     func reader(for id: ThreadSummary.ID, in mailbox: Mailbox) -> ThreadViewController? {
-        guard let thread = try? model.database.thread(id),
-            let account = model.accounts.first(where: { $0.id == id.accountID })
-        else { return nil }
+        guard let thread = try? model.database.thread(id) else { return nil }
+        return reader(for: thread, in: mailbox)
+    }
+
+    /// A reader for `thread` as a list holds it, opened from `mailbox`, or nil when its account is gone.
+    func reader(for thread: ThreadSummary, in mailbox: Mailbox) -> ThreadViewController? {
+        let id = thread.id
+        guard let account = model.accounts.first(where: { $0.id == id.accountID }) else { return nil }
         let model = model
         let viewModel = ThreadViewModel(
             thread: thread,
@@ -368,7 +380,10 @@ final class SceneCoordinator: NSObject {
                 woken: mailbox.labelID == SystemLabel.inbox ? { model.database.wokenThreads() } : nil,
                 pins: { model.database.pinnedThreads() },
                 filter: shown.filter,
-                didChangeFilter: { [weak self] in self?.shown.filter = $0 },
+                didChangeFilter: { [weak self] in
+                    self?.shown.filter = $0
+                    self?.windowMoved()
+                },
                 attachmentThreads: { model.database.threadsHoldingAttachments() },
                 sidebar: { [weak self] in self?.sidebar },
                 refresh: { try await model.syncAll() },
@@ -401,7 +416,10 @@ final class SceneCoordinator: NSObject {
         let categories = InboxCategories(
             threads: { database.threads(in: mailbox, category: $0, unsorted: unsorted) },
             unreadCounts: { database.categoryUnreadCounts(in: mailbox, unsorted: unsorted) },
-            didSelect: { [weak self] in self?.shown.category = $0 })
+            didSelect: { [weak self] in
+                self?.shown.category = $0
+                self?.windowMoved()
+            })
         return .categorised(categories, selected: shown.category)
     }
 
@@ -428,19 +446,12 @@ final class SceneCoordinator: NSObject {
         case .editSmartMailbox(let id):
             smartMailboxFlow.edit(id)
         case .thread(let id, let mailbox):
-            guard let split, let reader = reader(for: id, in: mailbox) else { return }
-            course.opened(id, from: frontSequence?.frontRows ?? [])
-            shown.setThread(id)
-            if split.isCollapsed {
-                navigation(for: .compact)?.pushViewController(reader, animated: true)
-            } else {
-                navigation(for: .secondary)?.setViewControllers([reader], animated: false)
-                split.show(.secondary)
-            }
+            openReader(id, in: mailbox)
         case .selection(let count):
             // Only beside the list: a narrow window shows the list alone, which shows its own pick.
             guard let split, !split.isCollapsed, let pane = navigation(for: .secondary) else { return }
             shown.setThread(nil)
+            windowMoved()
             if let noThread = pane.topViewController as? NoThreadViewController {
                 noThread.selectedCount = count
             } else {
@@ -546,6 +557,7 @@ extension SceneCoordinator {
     private func show(_ list: WindowState.List) {
         guard let split else { return }
         shown = WindowState(list: list, category: shown.category, filter: shown.filter)
+        windowMoved()
         let controller = shownListViewController()
         if split.isCollapsed, let stack = navigation(for: .compact) {
             // The list takes the place of any list or thread over the mailboxes, so the stack stays the one list
@@ -572,6 +584,7 @@ extension SceneCoordinator {
         }
         if shownList() == nil { show(.mailbox(.inbox, thread: nil)) }
         guard let list = shownList() else { return }
+        windowMoved()
         if split.isCollapsed {
             navigation(for: .compact)?.popToViewController(list, animated: false)
         } else {
@@ -595,11 +608,10 @@ extension SceneCoordinator: UISplitViewControllerDelegate, UINavigationControlle
     func navigationController(
         _ navigationController: UINavigationController, didShow viewController: UIViewController, animated: Bool
     ) {
-        if !navigationController.viewControllers.contains(where: { $0 is ThreadViewController }) {
-            shown.setThread(nil)
-        }
+        if !navigationController.viewControllers.contains(where: { $0 is ThreadViewController }) { readerPopped() }
         if navigationController.viewControllers.count == 1 {
             shown = WindowState(category: shown.category, filter: shown.filter, depth: .mailboxes)
+            windowMoved()
         }
     }
 }

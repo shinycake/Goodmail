@@ -71,7 +71,7 @@ struct ListPickTests {
         await show([ids[1], ids[2], ids[3]], in: list, through: feed)
         #expect(list.selection == .reading(ids[1]), "another row leaving keeps the one read")
         await show([ids[2], ids[3]], in: list, through: feed)
-        #expect(list.selection == .none, "its own row leaving opens nothing in its place")
+        #expect(list.selection == .reading(ids[1]), "its own row leaving opens nothing in its place: it is still read")
         #expect(routes.all == [.thread(ids[1], in: .inbox)])
         feed.finish()
         await observing.value
@@ -126,7 +126,7 @@ struct ListPickTests {
         #expect(list.selection == .several([ids[2]], anchor: nil))
         list.picked([ids[1]], selecting: false)
         await show([ids[0], ids[3]], in: list, through: feed)
-        #expect(list.selection == .none, "the window moves the reader; the list doesn't move on")
+        #expect(list.selection == .reading(ids[1]), "the window moves the reader; the list doesn't move on")
         #expect(routes.all.isEmpty)
         feed.finish()
         await observing.value

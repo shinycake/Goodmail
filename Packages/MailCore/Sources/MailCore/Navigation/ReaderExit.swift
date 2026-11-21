@@ -27,6 +27,8 @@ public enum ReaderExit: Equatable, Sendable {
     /// change puts it away only when it takes it out of the mailbox it is read in.
     public static func exit(after request: MailChange.Request) -> ReaderExit? {
         switch request {
+        // Block Sender is told only of the conversations its rule trashes whole: those whose newest mail from
+        // someone else is from the sender (`MailActions.block`).
         case .move, .snooze, .block:
             return .putAway
         case .unsnooze:

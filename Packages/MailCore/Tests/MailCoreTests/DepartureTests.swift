@@ -1,8 +1,8 @@
 import MailCore
 import Testing
 
-/// Undo brings the reader back to the conversation an action took it from, while the window still shows where that
-/// left it; anywhere else only the row comes back (R9).
+/// Undo brings the reader back to the conversation an action took it from, until the window moves on by any other
+/// way; after that only the row comes back (R9).
 struct DepartureTests {
     private static func row(_ name: String) -> ThreadSummary.ID {
         ThreadSummary.ID(accountID: AccountID(rawValue: "a"), threadID: name)
@@ -10,82 +10,75 @@ struct DepartureTests {
 
     private let a = row("a"), b = row("b"), c = row("c")
     private let archiveB = MailChange(.action(.archive), on: [row("b")])
+    private var backToB: ReaderCourse.Opening { ReaderCourse.Opening(b, in: .inbox) }
 
-    /// The Inbox, reading `thread`.
-    private func inbox(reading thread: ThreadSummary.ID?) -> WindowState {
-        var state = WindowState()
-        state.setThread(thread)
-        return state
-    }
-
-    private func facts(reading thread: ThreadSummary.ID, in state: WindowState, setting: AfterRemoval = .next)
+    private func facts(
+        reading thread: ThreadSummary.ID?, layout: WindowState.Layout = .viewer, setting: AfterRemoval = .next
+    )
         -> ReaderCourse.Facts
     {
         ReaderCourse.Facts(
-            reader: ReaderCourse.Reader(thread: thread, mailbox: .inbox, labels: [SystemLabel.inbox]),
-            rows: [a, b, c], pointerPick: [], state: state, setting: setting)
+            reader: thread.map { ReaderCourse.Reader(thread: $0, mailbox: .inbox, labels: [SystemLabel.inbox]) },
+            front: ReaderCourse.Front(rows: [a, b, c], mailbox: .inbox), layout: layout, setting: setting)
     }
 
-    /// The course after the reader archived `b` from an Inbox listing `a`, `b`, `c`, and the window as that left it.
-    private func archivedB(setting: AfterRemoval) -> (ReaderCourse, WindowState) {
+    /// The course after the reader opened `b` from an Inbox listing `a`, `b`, `c` and archived it.
+    private func archivedB(setting: AfterRemoval = .next) -> ReaderCourse {
         var course = ReaderCourse()
-        let move = course.asked(archiveB, facts(reading: b, in: inbox(reading: b), setting: setting))
-        return (course, move == .opens(c) ? inbox(reading: c) : inbox(reading: nil))
+        course.opened(b, from: [a, b, c])
+        _ = course.asked(archiveB, facts(reading: b, setting: setting))
+        return course
     }
 
     @Test(arguments: AfterRemoval.allCases)
-    func undoWhereTheActionLeftTheWindowReadsTheConversationAgain(setting: AfterRemoval) {
-        var (course, landed) = archivedB(setting: setting)
-        let back = course.undone(archiveB, in: landed)
-        #expect(back?.thread == b)
-        #expect(back?.mailbox == .inbox)
-        let again = course.undone(archiveB, in: landed)
-        #expect(again == nil, "once")
+    func undoRightAfterReadsTheConversationAgain(setting: AfterRemoval) {
+        var course = archivedB(setting: setting)
+        #expect(course.undone(archiveB) == backToB)
+        #expect(course.undone(archiveB) == nil, "once")
     }
 
-    @Test func undoAfterMovingOnBringsBackOnlyTheRow() {
-        var (course, _) = archivedB(setting: .next)
-        let afterOpeningAnother = course.undone(archiveB, in: inbox(reading: a))
-        #expect(afterOpeningAnother == nil)
-        (course, _) = archivedB(setting: .list)
-        let afterGoingElsewhere = course.undone(archiveB, in: WindowState(list: .mailbox(.starred, thread: nil)))
-        #expect(afterGoingElsewhere == nil)
+    @Test func undoAfterOpeningAnotherAndComingBackBringsBackOnlyTheRow() {
+        var course = archivedB()
+        // It landed on c; the reader opened a, then c again, so the window shows what the archive left.
+        course.opened(a, from: [a, c])
+        course.opened(c, from: [a, c])
+        #expect(course.undone(archiveB) == nil)
     }
 
-    @Test func anotherChangeSinceLeavesNothingToReturnTo() {
-        var (course, landed) = archivedB(setting: .next)
+    @Test func undoAfterPickingSeveralSinceBringsBackOnlyTheRow() {
+        var course = archivedB()
+        course.navigated()
+        #expect(course.undone(archiveB) == nil, "Undo doesn't replace a Mac's count of picked rows")
+    }
+
+    @Test func undoAfterGoingBackOrToAnotherListBringsBackOnlyTheRow() {
+        var course = archivedB(setting: .list)
+        course.navigated()
+        #expect(course.undone(archiveB) == nil)
+    }
+
+    @Test func readingOnWhereTheArchiveLandedKeepsTheWayBack() {
+        var course = archivedB()
         let star = MailChange(.action(.star(true)), on: [c])
-        let move = course.asked(star, facts(reading: c, in: landed))
-        #expect(move == .stays)
-        let afterTheStar = course.undone(star, in: landed)
-        #expect(afterTheStar == nil, "the star took nobody anywhere")
-        let afterTheArchive = course.undone(archiveB, in: landed)
-        #expect(afterTheArchive == nil, "Undo takes back the star, not the archive")
-    }
-
-    @Test func undoOfAnotherChangeLeavesTheDepartureForItsOwn() {
-        var (course, landed) = archivedB(setting: .next)
-        let other = course.undone(MailChange(.action(.archive), on: [a]), in: landed)
-        #expect(other == nil)
-        let own = course.undone(archiveB, in: landed)
-        #expect(own?.thread == b)
+        // A change is asked only of the conversation on show, which is where the archive landed.
+        _ = course.undone(MailChange(.action(.archive), on: [a]))
+        #expect(course.undone(archiveB) == backToB, "an Undo for another change leaves this one's way back")
+        course = archivedB()
+        #expect(course.asked(star, facts(reading: c)) == .stays)
+        #expect(course.undone(star) == nil, "the star took nobody anywhere")
+        #expect(course.undone(archiveB) == nil, "Undo takes back the star, not the archive")
     }
 
     @Test func markAsUnreadReturnsOnUndoToo() {
         var course = ReaderCourse()
         let unread = MailChange(.action(.markRead(false)), on: [b])
-        let move = course.asked(unread, facts(reading: b, in: inbox(reading: b)))
-        #expect(move == .closes)
-        let back = course.undone(unread, in: inbox(reading: nil))
-        #expect(back?.thread == b)
+        #expect(course.asked(unread, facts(reading: b)) == .closes)
+        #expect(course.undone(unread) == backToB)
     }
 
     @Test func aMessageWindowKeepsItsOwnUndo() {
         var course = ReaderCourse()
-        let window = WindowState().opening(b, in: .inbox, as: .message)
-        let move = course.asked(archiveB, facts(reading: b, in: window))
-        #expect(move == .leavesWindow)
-        let back = course.undone(archiveB, in: window)
-        #expect(back == nil)
+        #expect(course.asked(archiveB, facts(reading: b, layout: .message)) == .leavesWindow)
+        #expect(course.undone(archiveB) == nil)
     }
 }

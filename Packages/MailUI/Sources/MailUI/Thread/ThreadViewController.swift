@@ -92,6 +92,7 @@ public final class ThreadViewController: UIViewController {
         subject.adjustsFontForContentSizeCategory = true
         subject.numberOfLines = 0
         subject.accessibilityTraits = .header
+        subject.accessibilityIdentifier = "thread.subject"
         metadata.font = .preferredFont(forTextStyle: .subheadline)
         metadata.textColor = .secondaryLabel
         metadata.adjustsFontForContentSizeCategory = true
@@ -254,7 +255,8 @@ public final class ThreadViewController: UIViewController {
         }
     }
 
-    /// Archive, Trash, Snooze, Mute and Unread close the reader through the view model, which leaves the thread once.
+    /// Archive, Trash, Snooze, Mute and Unread go through the window's actions, which tell the window to move the
+    /// reader on.
     private func configureToolbar() {
         func item(_ action: ThreadAction) -> UIBarButtonItem {
             UIBarButtonItem(
@@ -413,6 +415,12 @@ public final class ThreadViewController: UIViewController {
             }
         }
         present(alert, animated: true)
+    }
+
+    /// What VoiceOver lands on as this reader takes another's place: the subject, or the screen itself where the
+    /// chat shows the subject in the bar instead.
+    public var spokenLanding: Any {
+        viewModel.layout == .chat ? view as Any : subject
     }
 
     /// The subject as the reader shows it, with a placeholder for none.
