@@ -79,9 +79,13 @@ final class SelectionToolbarTests: XCTestCase {
     /// Opens a mailbox from the mailboxes behind the list.
     @MainActor
     private func open(_ identifier: String, in app: XCUIApplication) {
-        let cell = app.collectionViews["mailboxes"].cells[identifier].firstMatch
+        let mailboxes = app.collectionViews["mailboxes"]
+        let cell = mailboxes.cells[identifier].firstMatch
         // On a phone the mailboxes are behind the list; on iPad the sidebar already shows them.
-        if !cell.isHittable { app.navigationBars.buttons.element(boundBy: 0).tap() }
+        if !(cell.exists && cell.isHittable) { app.buttons["mailboxesSidebar"].tap() }
+        XCTAssertTrue(mailboxes.waitForExistence(timeout: 5))
+        // A phone's mailboxes run past the screen, and the list makes the cells below it only as they scroll in.
+        for _ in 0..<4 where !(cell.exists && cell.isHittable) { mailboxes.swipeUp() }
         XCTAssertTrue(cell.waitForExistence(timeout: 5))
         cell.tap()
         XCTAssertTrue(app.collectionViews["mailbox"].cells.firstMatch.waitForExistence(timeout: 15))
