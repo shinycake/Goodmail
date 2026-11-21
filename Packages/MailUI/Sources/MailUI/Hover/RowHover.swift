@@ -1,8 +1,8 @@
 import MailCore
 import UIKit
 
-/// Shows quick actions on the row a desktop window's pointer rests on: the row tints and the buttons take the time's
-/// place (`ThreadRowContentView.quickActions`). One hover recognizer on the list follows the pointer, so no row has
+/// Shows quick actions on the row a desktop window's pointer rests on: the row tints and a capsule of buttons floats over
+/// its trailing end (`ThreadRowContentView.quickActions`). One hover recognizer on the list follows the pointer, so no row has
 /// to track it. The list says what each row offers (`actions`) and when a change in the list may have altered it
 /// (`refresh()`).
 final class RowHover: NSObject {

@@ -11,10 +11,7 @@ struct HoverActionsViewTests {
         HoverAction(face: HoverAction.Face(title: "\(choice)", symbol: "archivebox", choice: choice), run: {})
     }
 
-    private func buttons(_ view: HoverActionsView) -> [HoverActionButton] {
-        view.contentView.subviews.compactMap { $0 as? UIStackView }.flatMap(\.arrangedSubviews)
-            .compactMap { $0 as? HoverActionButton }
-    }
+    private func buttons(_ view: HoverActionsView) -> [HoverActionButton] { view.shownButtons }
 
     @Test func aButtonRestsInTheSecondaryLabelColor() {
         for button in buttons(HoverActionsView(actions: actions)) {
@@ -39,6 +36,7 @@ struct HoverActionsViewTests {
 
     @Test func buttonsAreEvenlySpaced() throws {
         let view = HoverActionsView(actions: actions)
+        view.frame.size = view.intrinsicContentSize
         view.layoutIfNeeded()
         let frames = buttons(view).map(\.frame)
         let gaps = zip(frames, frames.dropFirst()).map { $1.minX - $0.maxX }

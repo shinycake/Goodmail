@@ -37,10 +37,24 @@ struct HoverAction {
         let color: UIColor
 
         init(title: String, symbol: String, choice: SwipeChoice) {
+            self.init(
+                title: title, symbol: symbol, tooltip: Self.tooltip(title: title, command: choice.command),
+                color: choice.color)
+        }
+
+        private init(title: String, symbol: String, tooltip: String, color: UIColor) {
             self.title = title
             self.symbol = symbol
-            tooltip = Self.tooltip(title: title, command: choice.command)
-            color = choice.color
+            self.tooltip = tooltip
+            self.color = color
+        }
+
+        /// The button that ends a capsule too narrow for every action, and opens a menu of the rest.
+        static var more: Face {
+            let title = String(
+                localized: "More Actions", table: "Mailbox", bundle: .module,
+                comment: "Hover button on a mailbox row that opens the quick actions with no room in the row")
+            return Face(title: title, symbol: "ellipsis", tooltip: title, color: .label)
         }
 
         /// The action's name with the command's keys, as "Archive ⌃⌘A"; the name alone for a command without keys.

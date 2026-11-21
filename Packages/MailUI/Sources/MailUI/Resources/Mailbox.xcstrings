@@ -360,6 +360,17 @@
         }
       }
     },
+    "More Actions" : {
+      "comment" : "Hover button on a mailbox row that opens the quick actions with no room in the row",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פעולות נוספות"
+          }
+        }
+      }
+    },
     "Move to…" : {
       "comment" : "Action: move threads to another mailbox",
       "localizations" : {
