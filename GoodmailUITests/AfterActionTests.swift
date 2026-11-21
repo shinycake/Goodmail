@@ -41,7 +41,9 @@ final class AfterActionTests: XCTestCase {
         open(rows[0], in: app)
         tapReaderAction("Archive", in: app)
         XCTAssertTrue(app.scrollViews["thread"].waitForNonExistence(timeout: 5), "nothing is left to read")
-        XCTAssertTrue(app.collectionViews["mailbox"].isHittable, "the list shows")
+        // Its row stays, out of the Inbox but still under the label. The list's own frame runs under the iPad's
+        // sidebar and is empty in the middle, so ask its row.
+        XCTAssertTrue(app.collectionViews["mailbox"].cells.firstMatch.isHittable, "the list shows")
         attach(app, "after-archive-only")
     }
 
@@ -156,18 +158,18 @@ final class AfterActionTests: XCTestCase {
         return app
     }
 
-    /// The subjects of the list's first `count` conversations, top to bottom, skipping the section headers.
+    /// The subjects of the list's first `count` conversations, top to bottom, skipping the section headers. It reads
+    /// one snapshot of the list: cells bound by index re-resolve on every query, so asking each for its descendants
+    /// mixes up rows.
     @MainActor
     private func subjects(
         ofFirst count: Int, in app: XCUIApplication, list: String = "mailbox", line: UInt = #line
     ) -> [String] {
-        let cells = app.collectionViews[list].cells
+        let rows = app.collectionViews[list]
         var found: [String] = []
         XCTAssertTrue(
             waitUntil {
-                found = cells.allElementsBoundByIndex.compactMap { cell in
-                    Self.syntheticSubjects.first { cell.label.contains($0) || shows($0, in: cell) }
-                }
+                found = (try? rows.snapshot()).map(Self.rowSubjects) ?? []
                 return found.count >= count
             }, "the list shows \(count) conversations", line: line)
         let first = Array(found.prefix(count))
@@ -175,9 +177,16 @@ final class AfterActionTests: XCTestCase {
         return first
     }
 
-    @MainActor
-    private func shows(_ subject: String, in cell: XCUIElement) -> Bool {
-        cell.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", subject)).firstMatch.exists
+    /// The subject each conversation row in `list` shows, top to bottom.
+    private static func rowSubjects(in list: any XCUIElementSnapshot) -> [String] {
+        list.children.filter { $0.elementType == .cell }.sorted { $0.frame.minY < $1.frame.minY }.compactMap { cell in
+            let labels = labels(in: cell)
+            return syntheticSubjects.first { subject in labels.contains { $0.contains(subject) } }
+        }
+    }
+
+    private static func labels(in snapshot: any XCUIElementSnapshot) -> [String] {
+        [snapshot.label] + snapshot.children.flatMap(labels)
     }
 
     /// Opens the conversation whose row shows `subject`.
@@ -214,8 +223,12 @@ final class AfterActionTests: XCTestCase {
     /// Opens a mailbox from the mailboxes behind the list on a phone, or in the iPad's sidebar.
     @MainActor
     private func openMailbox(_ identifier: String, in app: XCUIApplication, list: String = "mailbox") {
-        let cell = app.collectionViews["mailboxes"].cells[identifier].firstMatch
-        if !cell.isHittable { app.navigationBars.buttons.element(boundBy: 0).tap() }
+        let mailboxes = app.collectionViews["mailboxes"]
+        let cell = mailboxes.cells[identifier].firstMatch
+        if !(cell.exists && cell.isHittable) { app.buttons["mailboxesSidebar"].tap() }
+        XCTAssertTrue(mailboxes.waitForExistence(timeout: 5))
+        // A phone's mailboxes run past the screen, and the list makes the cells below it only as they scroll in.
+        for _ in 0..<4 where !(cell.exists && cell.isHittable) { mailboxes.swipeUp() }
         XCTAssertTrue(cell.waitForExistence(timeout: 5))
         cell.tap()
         XCTAssertTrue(app.collectionViews[list].cells.firstMatch.waitForExistence(timeout: 15))
