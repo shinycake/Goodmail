@@ -29,10 +29,8 @@ struct ReaderZoomModelTests {
     }
 
     @Test func theSizeStaysOnTheDevice() throws {
-        let keys = try Preferences.syncedSettings.flatMap { family -> [String] in
-            let scope = try family.local().scope
-            return [ReaderZoomModel.key].filter { scope.covers($0) }
-        }
-        #expect(keys.isEmpty)
+        // The lists sync their own items, whatever their key; the defaults that sync are the values named here.
+        let values = Preferences.syncedSettings.compactMap { $0 as? DefaultsValues }
+        #expect(try values.allSatisfy { try !$0.local().scope.covers(ReaderZoomModel.key) })
     }
 }

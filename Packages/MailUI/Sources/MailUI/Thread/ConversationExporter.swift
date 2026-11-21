@@ -45,17 +45,20 @@ final class ConversationExporter {
     }
 
     /// The toolbar's Share button: a menu of the formats, then Print, for the conversation `conversation` returns
-    /// when one is chosen. When the toolbar is full it moves into the toolbar's More menu as a submenu.
-    func shareItem(conversation: @escaping () -> Conversation?) -> UIBarButtonItem {
+    /// when one is chosen. When the toolbar is full it moves into the toolbar's More menu as a submenu. The share
+    /// sheet and the print panel point from the item `anchor` returns, the button that shows the menu.
+    func shareItem(
+        anchor: @escaping () -> UIBarButtonItem?, conversation: @escaping () -> Conversation?
+    ) -> UIBarButtonItem {
         let item = UIBarButtonItem(
             title: String(
                 localized: "Share", table: "Print", bundle: .module,
                 comment: "Toolbar menu: share or print the conversation"),
             image: UIImage(systemName: "square.and.arrow.up"))
         func action(_ title: String, _ symbol: String, _ destination: Destination) -> UIAction {
-            UIAction(title: title, image: UIImage(systemName: symbol)) { [weak self, weak item] _ in
-                guard let item, let conversation = conversation() else { return }
-                self?.export(conversation, to: destination, anchor: item)
+            UIAction(title: title, image: UIImage(systemName: symbol)) { [weak self] _ in
+                guard let anchor = anchor(), let conversation = conversation() else { return }
+                self?.export(conversation, to: destination, anchor: anchor)
             }
         }
         let formats = ExportFormat.allCases.map { action($0.title, $0.symbol, .share($0)) }

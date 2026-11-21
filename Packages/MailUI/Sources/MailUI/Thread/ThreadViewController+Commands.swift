@@ -50,7 +50,7 @@ extension ThreadViewController: CommandScreen {
         guard !viewModel.messages.isEmpty else { return .unavailable }
         return .ready(perform: { [weak self] in
             guard let self else { return }
-            exporter.export(exportedConversation, to: destination, anchor: shareItem)
+            exporter.export(exportedConversation, to: destination, anchor: exportAnchor)
         })
     }
 }

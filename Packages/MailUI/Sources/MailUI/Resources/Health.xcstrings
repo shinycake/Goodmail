@@ -78,6 +78,17 @@
         }
       }
     },
+    "Checking for mail…" : {
+      "comment" : "Sidebar footer: a sync is under way",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בודק אם יש דואר…"
+          }
+        }
+      }
+    },
     "Not Now" : {
       "comment" : "Button: closes the account problems without fixing them",
       "localizations" : {
@@ -195,6 +206,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "עדכון סיסמה"
+          }
+        }
+      }
+    },
+    "Updated %@" : {
+      "comment" : "Sidebar footer: when mail last came in, as 'Updated 5 minutes ago'",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עודכן %@"
+          }
+        }
+      }
+    },
+    "Updated just now" : {
+      "comment" : "Sidebar footer: mail came in less than a minute ago",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עודכן עכשיו"
           }
         }
       }

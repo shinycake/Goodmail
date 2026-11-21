@@ -97,6 +97,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         coordinator.start()
         if let route = services.routes.takeWaiting() { coordinator.handle(route) }
         coordinator.window.makeKeyAndVisible()
+        ViewerWindowSize.fit(windowScene, isNew: restoring == nil)
         window?.isHidden = true
         window = coordinator.window
         // Messages open into a web view whose content process takes a while to start; start one now.

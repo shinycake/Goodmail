@@ -312,6 +312,8 @@ final class AppModel {
     /// once all are done, the first failure is thrown. With `prefetch`, each account that synced then starts
     /// fetching bodies in the background (ADR-007); a background refresh leaves that to the next time the app is open.
     func syncAll(prefetch: Bool = true) async throws {
+        health.syncStarted()
+        defer { health.syncEnded() }
         // An account whose login is gone from the Keychain has no provider, which is its failure to sync.
         let engines = accounts.map { account in (account.id, Result { try engine(for: account.id) }) }
         let outboxes = outboxes

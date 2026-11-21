@@ -11,6 +11,8 @@ extension AppModel {
     /// (`markingInboxSeen`), so new mail the sync stores still alerts.
     @discardableResult
     func syncChanged(_ id: AccountID, markingInboxSeen: Bool = true) async -> Bool {
+        health.syncStarted()
+        defer { health.syncEnded() }
         let outcome = await Result {
             let engine = try engine(for: id)
             await outboxes.flush(id)

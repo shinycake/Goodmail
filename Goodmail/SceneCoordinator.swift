@@ -237,7 +237,11 @@ final class SceneCoordinator: NSObject {
             labelEditor: { model.labelEditor(for: $0) }, actions: actions)
         // The lists ask the latest one for the rows ⌘1 to ⌘9 reach, as the window is rebuilt for another width.
         self.sidebar = sidebar
-        let mailboxes = MailboxesViewController(viewModel: sidebar, style: style)
+        let mailboxes = MailboxesViewController(
+            viewModel: sidebar, style: style,
+            syncFooter: SyncFooterSource(health: model.health, accounts: model.accounts) { [weak self] notice in
+                await self?.fix(notice)
+            })
         mailboxes.selected = shown.destination
         return mailboxes
     }

@@ -77,6 +77,8 @@ public final class MailboxViewController: UIViewController {
     private let categoryItem: UIBarButtonItem?
     /// The filter button in the navigation bar, while the list can be filtered.
     lazy var filterButton = FilterButton { [weak self] in self?.setFilter($0) }
+    /// New Message at the top of the list on a desktop window, whose list has no toolbar at the bottom.
+    private var windowCompose: UIBarButtonItem?
 
     /// `searchResults`, when given, adds search to the navigation bar. `empty` is what an empty list shows: by
     /// default the mailbox's symbol and "No Mail". `display` is how its rows look. `draftsDock`, when given, puts the
@@ -137,11 +139,10 @@ public final class MailboxViewController: UIViewController {
         configurePointerPicking()
         configureHover()
         installSearch()
+        // Each bar gets its own item: one item in two bars has one view, which the hidden bar can take.
+        windowCompose = picksWithPointer ? windowComposeItem() : nil
+        let compose = composeItem()
         navigationItem.rightBarButtonItems = browsingTrailingItems
-        let compose = UIBarButtonItem(
-            title: String(localized: "New Message", table: "Mailbox", bundle: .module, comment: "Composer title"),
-            image: UIImage(systemName: "square.and.pencil"),
-            primaryAction: UIAction { [weak self] _ in self?.viewModel.compose() })
         // New Message is the last to go into More when the toolbar runs short, as in a bar down iPhone Duo's side.
         compose.visibilityPriority = .high
         draftsPill = draftsDock?.makePill(for: self)
@@ -178,7 +179,7 @@ public final class MailboxViewController: UIViewController {
             }
             reportTouchPick()
         }
-        navigationController?.setToolbarHidden(false, animated: animated)
+        navigationController?.setToolbarHidden(picksWithPointer, animated: animated)
         navigationController?.navigationBar.prefersLargeTitles = true
         if !isEditing { navigationItem.leftBarButtonItems = browsingLeadingItems }
         wear(viewModel.theme)
@@ -210,7 +211,9 @@ public final class MailboxViewController: UIViewController {
             localized: "Search Mail", table: "Mailbox", bundle: .module, comment: "Placeholder of the search field")
         self.search = search
         navigationItem.searchController = search
-        navigationItem.preferredSearchBarPlacement = .integratedButton
+        // A desktop window keeps the field open at the end of the window's toolbar, over the letter, as Mail does.
+        navigationItem.preferredSearchBarPlacement = picksWithPointer ? .integrated : .integratedButton
+        navigationItem.searchBarPlacementAllowsExternalIntegration = picksWithPointer
         // In the navigation bar on every device, at the corner beside Select. The toolbar's leading end is the drafts pill's. Set
         // once, before the first layout, so rotating or collapsing can't move the button between bars.
         navigationItem.searchBarPlacementAllowsToolbarIntegration = false
@@ -222,8 +225,9 @@ public final class MailboxViewController: UIViewController {
     /// by hand among these items, the search button's pressed glass outlived its morph into the field and hung under
     /// the field's leading end as a blank capsule until the field took focus.
     private var browsingTrailingItems: [UIBarButtonItem] {
-        (viewModel.actions == nil || picksWithPointer ? [] : [select.item])
-            + (viewModel.offersFilter ? [filterButton.item] : [])
+        // A desktop window picks with the pointer, so New Message stands where Select would.
+        let lead = windowCompose.map { [$0] } ?? (viewModel.actions == nil ? [] : [select.item])
+        return lead + (viewModel.offersFilter ? [filterButton.item] : [])
     }
 
     /// Called by UIKit whenever an observed view-model property changes.

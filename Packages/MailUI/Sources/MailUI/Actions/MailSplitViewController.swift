@@ -18,6 +18,8 @@ public final class MailSplitViewController: UISplitViewController {
     /// Where an empty Inbox's paper planes fly in this window, and the view drawing them over the columns.
     let inboxZeroSky = InboxZeroSky()
     private(set) lazy var inboxZeroSkyView = makeInboxZeroSkyView()
+    /// Names each column's toolbar buttons and their keys on a desktop window.
+    private let toolTips = BarToolTips()
 
     public init(actions: MailActions) {
         self.actions = actions
@@ -62,6 +64,11 @@ public final class MailSplitViewController: UISplitViewController {
         super.viewDidLayoutSubviews()
         placeInboxZeroSky()
         placeToast()
+        if traitCollection.interactionStyle == .desktop {
+            for column in [Column.primary, .supplementary, .secondary] {
+                (viewController(for: column) as? UINavigationController).map { toolTips.install(on: $0.navigationBar) }
+            }
+        }
     }
 
     private func placeToast() {

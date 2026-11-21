@@ -9,8 +9,8 @@ public final class MailboxesViewController: UIViewController {
         case sidebar
     }
 
-    private let viewModel: MailboxesViewModel
-    private let style: Style
+    let viewModel: MailboxesViewModel
+    let style: Style
     /// What is shown beside the sidebar, kept selected in it.
     public var selected: MailboxesViewModel.Destination? {
         didSet { selectShownMailbox() }
@@ -18,16 +18,30 @@ public final class MailboxesViewController: UIViewController {
     private(set) var collectionView: UICollectionView!
     /// The faint doodles behind the list, which a sidebar goes without.
     private(set) var doodles: MailboxesDoodlesModel?
-    private var dataSource: UICollectionViewDiffableDataSource<MailboxesViewModel.Section, MailboxesViewModel.Item>!
+    private(set) var dataSource: UICollectionViewDiffableDataSource<MailboxesViewModel.Section, SidebarRow>!
+    /// Which sections the reader folded in a sidebar, kept on this device.
+    let foldedSections: FoldedSections
+    /// Each section's unread threads, which its header shows while folded.
+    var sectionUnread: [MailboxesViewModel.Section: Int] = [:]
+    /// How mail is coming in, for a desktop sidebar's footer.
+    let syncFooter: SyncFooterSource?
+    /// The footer under a desktop sidebar, in place of its toolbar.
+    var footer: SidebarFooterView?
     private var observation: Task<Void, Never>?
     /// Takes dragged conversations onto the rows. The list's drop delegate, which it doesn't keep.
     private var mailDrop: SidebarDrop?
     /// Each account's label changes, made when first needed.
     private var labelFlows: [AccountID: LabelEditFlow] = [:]
 
-    public init(viewModel: MailboxesViewModel, style: Style = .list) {
+    /// `syncFooter` is what a desktop sidebar says under its rows about mail coming in.
+    public init(
+        viewModel: MailboxesViewModel, style: Style = .list, foldedSections: FoldedSections = FoldedSections(),
+        syncFooter: SyncFooterSource? = nil
+    ) {
         self.viewModel = viewModel
         self.style = style
+        self.foldedSections = foldedSections
+        self.syncFooter = syncFooter
         super.init(nibName: nil, bundle: nil)
         title = Self.title
         navigationItem.largeTitleDisplayMode = .always
@@ -46,22 +60,15 @@ public final class MailboxesViewController: UIViewController {
 
     public override func viewDidLoad() {
         super.viewDidLoad()
-        var list = UICollectionLayoutListConfiguration(appearance: style == .sidebar ? .sidebar : .insetGrouped)
-        list.headerMode = .supplementary
-        // The list's sections would paint over the doodles behind it, which paint the grouped background themselves.
-        if style == .list { list.backgroundColor = .clear }
-        list.trailingSwipeActionsConfigurationProvider = { [weak self] indexPath in
-            self?.swipeActions(at: indexPath)
-        }
-        collectionView = UICollectionView(
-            frame: view.bounds, collectionViewLayout: UICollectionViewCompositionalLayout.list(using: list))
+        collectionView = UICollectionView(frame: view.bounds, collectionViewLayout: makeLayout())
         collectionView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         collectionView.accessibilityIdentifier = "mailboxes"
         collectionView.delegate = self
         view.addSubview(collectionView)
         configureDataSource()
         let mailDrop = SidebarDrop(
-            viewModel: viewModel, destination: { [weak self] in self?.dataSource.itemIdentifier(for: $0)?.destination })
+            viewModel: viewModel,
+            destination: { [weak self] in self?.dataSource.itemIdentifier(for: $0)?.item?.destination })
         self.mailDrop = mailDrop
         collectionView.dropDelegate = mailDrop
         if style == .list {
@@ -93,8 +100,9 @@ public final class MailboxesViewController: UIViewController {
                 collectionView.deselectItem(at: indexPath, animated: animated)
             }
         }
-        navigationController?.setToolbarHidden(false, animated: animated)
+        navigationController?.setToolbarHidden(showsFooter, animated: animated)
         navigationController?.navigationBar.prefersLargeTitles = true
+        installFooter()
         wear(viewModel.theme)
     }
 
@@ -111,7 +119,7 @@ public final class MailboxesViewController: UIViewController {
         // Only a change of sections, as an account added, replaces the rows; otherwise each section's rows are
         // diffed in place, keeping what the reader folded.
         if dataSource.snapshot().sectionIdentifiers != sections {
-            var snapshot = NSDiffableDataSourceSnapshot<MailboxesViewModel.Section, MailboxesViewModel.Item>()
+            var snapshot = NSDiffableDataSourceSnapshot<MailboxesViewModel.Section, SidebarRow>()
             snapshot.appendSections(sections)
             dataSource.apply(snapshot, animatingDifferences: false)
         }
@@ -119,44 +127,50 @@ public final class MailboxesViewController: UIViewController {
         for group in groups {
             dataSource.apply(sectionSnapshot(of: group), to: group.section, animatingDifferences: animated)
         }
+        updateFoldedCounts(groups)
+        if let footer, let syncFooter { footer.show(syncFooter.status) }
         selectShownMailbox()
     }
 
     /// The group's rows with their nested labels, unfolded unless the reader folded them (`MailboxesViewModel.folded`).
+    /// In a sidebar they hang under the section's header row, which folds them all, as the reader last left it.
     private func sectionSnapshot(
         of group: MailboxesViewModel.Group
-    ) -> NSDiffableDataSourceSectionSnapshot<MailboxesViewModel.Item> {
-        var section = NSDiffableDataSourceSectionSnapshot<MailboxesViewModel.Item>()
-        func append(_ items: [MailboxesViewModel.Item], to parent: MailboxesViewModel.Item?) {
-            section.append(items, to: parent)
+    ) -> NSDiffableDataSourceSectionSnapshot<SidebarRow> {
+        var section = NSDiffableDataSourceSectionSnapshot<SidebarRow>()
+        func append(_ items: [MailboxesViewModel.Item], to parent: SidebarRow?) {
+            section.append(items.map(SidebarRow.mailbox), to: parent)
             for item in items {
                 guard let children = group.children[item.destination] else { continue }
-                append(children, to: item)
-                if !viewModel.folded.contains(item.destination) { section.expand([item]) }
+                append(children, to: .mailbox(item))
+                if !viewModel.folded.contains(item.destination) { section.expand([.mailbox(item)]) }
             }
         }
-        append(group.items, to: nil)
+        if foldsSections(group.section) {
+            let header = SidebarRow.header(group.section)
+            section.append([header])
+            append(group.items, to: header)
+            if !foldedSections.isFolded(group.section) { section.expand([header]) }
+        } else {
+            append(group.items, to: nil)
+        }
         return section
     }
 
     /// Folds or unfolds a parent's labels, as tapping a folder that is no label does.
-    private func toggle(_ item: MailboxesViewModel.Item, at indexPath: IndexPath) {
+    func toggle(_ row: SidebarRow, at indexPath: IndexPath) {
         guard let sectionID = dataSource.sectionIdentifier(for: indexPath.section) else { return }
         var section = dataSource.snapshot(for: sectionID)
-        if section.isExpanded(item) {
-            section.collapse([item])
-            viewModel.folded.insert(item.destination)
-        } else {
-            section.expand([item])
-            viewModel.folded.remove(item.destination)
-        }
+        let folds = section.isExpanded(row)
+        if folds { section.collapse([row]) } else { section.expand([row]) }
+        remember(row, folded: folds)
         dataSource.apply(section, to: sectionID, animatingDifferences: true)
     }
 
     private func selectShownMailbox() {
         guard style == .sidebar, let dataSource else { return }
-        let item = dataSource.snapshot().itemIdentifiers.first { $0.destination == selected }
-        guard let indexPath = item.flatMap(dataSource.indexPath(for:)) else { return }
+        let row = dataSource.snapshot().itemIdentifiers.first { $0.item?.destination == selected }
+        guard let indexPath = row.flatMap(dataSource.indexPath(for:)) else { return }
         collectionView.selectItem(at: indexPath, animated: false, scrollPosition: [])
     }
 
@@ -167,7 +181,7 @@ public final class MailboxesViewController: UIViewController {
 
     private func configureDataSource() {
         let style = style
-        let row = UICollectionView.CellRegistration<UICollectionViewListCell, MailboxesViewModel.Item> {
+        let mailboxRow = UICollectionView.CellRegistration<UICollectionViewListCell, MailboxesViewModel.Item> {
             [weak self] cell, indexPath, item in
             let isParent = item.isParent
             let theme = self?.theme(at: indexPath)
@@ -228,39 +242,25 @@ public final class MailboxesViewController: UIViewController {
         let header = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(
             elementKind: UICollectionView.elementKindSectionHeader
         ) { [weak self] header, _, indexPath in
-            // A sidebar list's header takes the sidebar's look by itself (iOS 18).
-            var content = UIListContentConfiguration.header()
-            switch self?.dataSource.sectionIdentifier(for: indexPath.section) {
-            case .mailboxes, nil: break
-            case .labels:
-                content.text = String(
-                    localized: "Labels", table: "Mailboxes", bundle: .module, comment: "Header above the user's labels")
-            case .account(let account):
-                // The service's logo beside the account's name; its color is on its mailboxes' icons below.
-                content.text = account.title
-                // An address wraps, rather than clips, in a sidebar at the largest text sizes.
-                content.textProperties.numberOfLines = 0
-                content.image = account.service.markImage
-                // The same box for a logo and a symbol, so every account's address starts at one edge.
-                content.imageProperties.maximumSize = CGSize(width: 18, height: 18)
-                content.imageProperties.reservedLayoutSize = CGSize(width: 18, height: 18)
-            }
-            header.contentConfiguration = content
+            let section = self?.dataSource.sectionIdentifier(for: indexPath.section)
+            header.contentConfiguration = section.map(Self.headerContent) ?? UIListContentConfiguration.header()
         }
+        let headerRow = foldingHeaderRegistration()
         dataSource = UICollectionViewDiffableDataSource(collectionView: collectionView) {
-            collectionView, indexPath, item in
-            collectionView.dequeueConfiguredReusableCell(using: row, for: indexPath, item: item)
-        }
-        // Rows folded with their disclosure button, which the model keeps for the rows on show.
-        dataSource.sectionSnapshotHandlers.willExpandItem = { [weak self] item in
-            self?.viewModel.folded.remove(item.destination)
-        }
-        dataSource.sectionSnapshotHandlers.willCollapseItem = { [weak self] item in
-            self?.viewModel.folded.insert(item.destination)
+            collectionView, indexPath, row in
+            switch row {
+            case .header(let section):
+                collectionView.dequeueConfiguredReusableCell(using: headerRow, for: indexPath, item: section)
+            case .mailbox(let item):
+                collectionView.dequeueConfiguredReusableCell(using: mailboxRow, for: indexPath, item: item)
+            }
         }
         dataSource.supplementaryViewProvider = { collectionView, _, indexPath in
             collectionView.dequeueConfiguredReusableSupplementary(using: header, for: indexPath)
         }
+        // Rows and sections folded with their disclosure button.
+        dataSource.sectionSnapshotHandlers.willExpandItem = { [weak self] row in self?.remember(row, folded: false) }
+        dataSource.sectionSnapshotHandlers.willCollapseItem = { [weak self] row in self?.remember(row, folded: true) }
     }
 }
 
@@ -274,18 +274,23 @@ extension MailboxesViewController: UICollectionViewDelegate {
     }
 
     public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        guard let item = dataSource.itemIdentifier(for: indexPath) else { return }
+        guard let item = dataSource.itemIdentifier(for: indexPath)?.item else { return }
         viewModel.open(item.destination)
     }
 
-    /// A folder that is no label opens nothing: a tap folds or unfolds it, and the sidebar keeps the shown mailbox
-    /// selected.
+    /// A section's header and a folder that is no label open nothing: a click folds or unfolds it, and the sidebar
+    /// keeps the shown mailbox selected.
     public func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
-        guard let item = dataSource.itemIdentifier(for: indexPath), case .folder = item.destination else {
-            return true
+        guard let row = dataSource.itemIdentifier(for: indexPath) else { return false }
+        switch row {
+        case .header:
+            toggle(row, at: indexPath)
+            return false
+        case .mailbox(let item):
+            guard case .folder = item.destination else { return true }
+            toggle(row, at: indexPath)
+            return false
         }
-        toggle(item, at: indexPath)
-        return false
     }
 
     /// Rename and Delete on a user label, or on a folder that only holds labels.
@@ -354,7 +359,7 @@ extension MailboxesViewController {
     /// What can change the label at a row, or the labels in a folder that is no label; `nil` for the standard
     /// mailboxes.
     private func labelEdits(at indexPath: IndexPath) -> LabelEdits? {
-        guard let item = dataSource.itemIdentifier(for: indexPath) else { return nil }
+        guard let item = dataSource.itemIdentifier(for: indexPath)?.item else { return nil }
         if let group = viewModel.labelGroup(at: item.destination), let flow = labelFlow(for: group.accountID) {
             return LabelEdits(
                 target: .folder, rename: { flow.rename(group) },
@@ -377,7 +382,7 @@ extension MailboxesViewController {
 
     /// Delete, then Rename, swiped in from a user label's trailing edge. Each goes on in its alert; Delete reports
     /// itself undone, since the row stays until the service has deleted the label.
-    private func swipeActions(at indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+    func swipeActions(at indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         guard let edits = labelEdits(at: indexPath) else { return nil }
         let delete = UIContextualAction(style: .destructive, title: LabelEdits.swipeDeleteTitle) { _, _, done in
             edits.delete()
@@ -395,7 +400,7 @@ extension MailboxesViewController {
 
 extension MailboxesViewController {
     /// New Label in the toolbar: straight to its name with one account, or a menu of accounts first with several.
-    private func newLabelItem() -> UIBarButtonItem? {
+    func newLabelItem() -> UIBarButtonItem? {
         let accounts = viewModel.labelAccounts
         guard let first = accounts.first else { return nil }
         let title = String(

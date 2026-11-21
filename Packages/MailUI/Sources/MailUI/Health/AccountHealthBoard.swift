@@ -8,6 +8,10 @@ public import Observation
 public final class AccountHealthBoard {
     public private(set) var health: [AccountID: AccountHealth] = [:]
     public private(set) var alerts: [AccountID: AlertHealth] = [:]
+    /// How many syncs are under way now, across the accounts.
+    public private(set) var syncsUnderWay = 0
+    /// When a sync of any account last worked.
+    public private(set) var lastUpdated: Date?
     @ObservationIgnored private let now: () -> Date
 
     public init(now: @escaping () -> Date = Date.init) {
@@ -16,9 +20,20 @@ public final class AccountHealthBoard {
 
     /// Tells the board how a sync of `id` ended.
     public func record(_ outcome: Result<Void, any Error>, for id: AccountID) {
+        if case .success = outcome { lastUpdated = now() }
         let after = (health[id] ?? .healthy).after(outcome, at: now())
         // Syncs end every 30 seconds; only a change should redraw what shows the board.
         if health[id] != after { health[id] = after }
+    }
+
+    /// Tells the board a sync began; each one ends with `syncEnded`.
+    public func syncStarted() {
+        syncsUnderWay += 1
+    }
+
+    public func syncEnded() {
+        assert(syncsUnderWay > 0, "a sync ended that never started")
+        syncsUnderWay -= 1
     }
 
     /// Tells the board how registering `id` for alerts with the relay ended.

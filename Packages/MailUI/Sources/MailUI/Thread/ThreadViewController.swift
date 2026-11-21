@@ -10,11 +10,7 @@ public final class ThreadViewController: UIViewController {
     private let starItem = UIBarButtonItem()
     /// Reply, or Edit Draft while the newest message is an unsent draft.
     private var replyItem = UIBarButtonItem()
-    private lazy var editDraftItem = UIBarButtonItem(
-        title: String(
-            localized: "Edit Draft", table: "Thread", bundle: .module, comment: "Opens a saved draft to finish it"),
-        image: UIImage(systemName: "square.and.pencil"),
-        primaryAction: UIAction { [weak self] _ in self?.viewModel.editDraft() })
+    private lazy var editDraftItem = makeEditDraftItem()
     let scrollView = UIScrollView()
     let stack = UIStackView()
     private let subject = UILabel()
@@ -34,7 +30,10 @@ public final class ThreadViewController: UIViewController {
     private var shownReplies: Set<Draft.ID> = []
     /// The classic letter just sent and where scrolling to it left the view, until its body takes its height.
     private var followedLetter: FollowedLetter?
-    private let layoutItem = UIBarButtonItem()
+    let layoutItem = UIBarButtonItem()
+    /// The window's toolbar over the letter on a desktop window, as last laid out; `nil` where the bar at the bottom
+    /// holds the controls.
+    var windowToolbar: WindowToolbar?
     /// The chat's message field and folded mail actions, in place of the toolbar while the chat layout shows.
     private let composer = ChatComposerBar()
     /// Letters keep a readable width; chat bubbles reach nearly to the edges.
@@ -56,7 +55,11 @@ public final class ThreadViewController: UIViewController {
     let downloads = DownloadsSaver()
     /// The Share menu: the conversation as files to share, or printed.
     lazy var exporter = ConversationExporter(presenter: self)
-    lazy var shareItem = exporter.shareItem { [weak self] in self?.exportedConversation }
+    lazy var shareItem = exporter.shareItem(
+        anchor: { [weak self] in self?.exportAnchor }, conversation: { [weak self] in self?.exportedConversation })
+    /// Where the share sheet and the print panel point from: Share, or More on a desktop window, whose toolbar holds
+    /// Share in that menu and so has no Share button to point from.
+    var exportAnchor: UIBarButtonItem { windowToolbar?.more ?? shareItem }
 
     public init(
         viewModel: ThreadViewModel, openURL: @escaping (URL) -> Void, unsubscribeOffer: UnsubscribeOffer? = nil
@@ -105,7 +108,9 @@ public final class ThreadViewController: UIViewController {
         configureToolbar()
         layoutItem.primaryAction = UIAction { [weak self] _ in self?.viewModel.switchLayout() }
         placeShareItem()
-        registerForTraitChanges([UITraitHorizontalSizeClass.self]) { (self: Self, _) in self.placeShareItem() }
+        registerForTraitChanges([UITraitHorizontalSizeClass.self, InteractionStyleTrait.self]) { (self: Self, _) in
+            self.placeShareItem()
+        }
         stack.translatesAutoresizingMaskIntoConstraints = false
         scrollView.addSubview(stack)
 
@@ -158,7 +163,7 @@ public final class ThreadViewController: UIViewController {
     /// New Message and selection actions.
     private func showToolbar(animated: Bool) {
         guard let navigationController, navigationController.topViewController === self else { return }
-        navigationController.setToolbarHidden(viewModel.layout == .chat, animated: animated)
+        navigationController.setToolbarHidden(viewModel.layout == .chat || usesWindowToolbar, animated: animated)
     }
 
     /// Keeps the conversation's end clear of the composer, which rides on top of the keyboard.
@@ -274,16 +279,8 @@ public final class ThreadViewController: UIViewController {
         // Answering is the last to go into More when the toolbar runs short, as in a bar down iPhone Duo's side.
         replyItem.visibilityPriority = .high
         editDraftItem.visibilityPriority = .high
-        let deleteForever = UIBarButtonItem(
-            title: ThreadAction.deleteForever.title, image: UIImage(systemName: ThreadAction.deleteForever.symbol),
-            primaryAction: UIAction { [weak self] _ in
-                let alert = UIAlertController.deleteForever(.threads(1)) { [weak self] in
-                    self?.viewModel.perform(.deleteForever)
-                }
-                self?.present(alert, animated: true)
-            })
         toolbarItems = [
-            item(.archive), viewModel.isInTrash ? deleteForever : item(.trash),
+            item(.archive), viewModel.isInTrash ? deleteForeverItem() : item(.trash),
             .snooze(from: self) { [weak self] in self?.viewModel.snooze(until: $0) }, .flexibleSpace(),
             item(.markRead(false)), starItem,
             .organize(
@@ -297,9 +294,31 @@ public final class ThreadViewController: UIViewController {
         ]
     }
 
+    /// Edit Draft, in Reply's place while the newest message is an unsent draft.
+    func makeEditDraftItem() -> UIBarButtonItem {
+        UIBarButtonItem(
+            title: String(
+                localized: "Edit Draft", table: "Thread", bundle: .module, comment: "Opens a saved draft to finish it"),
+            image: UIImage(systemName: "square.and.pencil"),
+            primaryAction: UIAction { [weak self] _ in self?.viewModel.editDraft() })
+    }
+
+    /// Delete Forever, which asks first, in Trash's place in Trash.
+    func deleteForeverItem() -> UIBarButtonItem {
+        UIBarButtonItem(
+            title: ThreadAction.deleteForever.title, image: UIImage(systemName: ThreadAction.deleteForever.symbol),
+            primaryAction: UIAction { [weak self] _ in
+                let alert = UIAlertController.deleteForever(.threads(1)) { [weak self] in
+                    self?.viewModel.perform(.deleteForever)
+                }
+                self?.present(alert, animated: true)
+            })
+    }
+
     /// Share sits beside the layout switch in a regular-width window, where the toolbar has no More menu to take
     /// what doesn't fit and dropped it, and in the toolbar on a phone, where More holds it when the bar runs short.
     private func placeShareItem() {
+        if usesWindowToolbar { return placeWindowToolbar() }
         let regular = traitCollection.horizontalSizeClass == .regular
         navigationItem.rightBarButtonItems = regular ? [layoutItem, shareItem] : [layoutItem]
         var items = (toolbarItems ?? []).filter { $0 !== shareItem }
@@ -318,6 +337,7 @@ public final class ThreadViewController: UIViewController {
             items[last] = answer
             toolbarItems = items
         }
+        updateWindowToolbar()
         let messages = viewModel.messages
         metadata.text = [viewModel.accountEmail, Self.countText(messages.count)]
             .filter { !$0.isEmpty }.joined(separator: " · ")
