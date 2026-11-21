@@ -65,7 +65,8 @@ extension WindowNavigation {
         case .setAside:
             landing = .list
         case .putAway:
-            let rows = trail.flatMap { $0.thread == reader.thread ? $0.rows : nil } ?? []
+            // The rows it was opened from, unless that was another list's.
+            let rows = opened.flatMap { $0.thread == reader.thread && $0.from == source ? $0.rows : nil } ?? []
             landing = Landing.after(
                 putAway: Set(change.threads), anchor: reader.thread, trail: rows, rows: front?.rows ?? [],
                 setting: context.afterRemoval)
@@ -80,9 +81,8 @@ extension WindowNavigation {
     mutating func undid(_ change: MailChange, rows: [ThreadSummary.ID]) {
         guard let departure, departure.change == change else { return }
         self.departure = nil
+        opened = Opened(thread: departure.left.thread, from: source, rows: rows, row: departure.left.summary)
         state.read(departure.left.reading)
-        found = departure.left.summary
-        trail = Trail(thread: departure.left.thread, rows: rows)
     }
 
     /// Nothing open, every row picked with a pointer put away: the row after them opens. With nothing to go on to, the
@@ -97,14 +97,14 @@ extension WindowNavigation {
         land(on: landing, front: front)
     }
 
-    /// The reader's own course went to `landing`, in the list `front`, keeping what Undo needs.
+    /// The reader's own course went to `landing`, in the list `front`. The caller records the way back afterwards,
+    /// since moving ends any before it.
     private mutating func land(on landing: Landing, front: Front?) {
-        found = nil
         guard case .thread(let next) = landing, let front else {
             state.closeReader()
             return
         }
+        opened = Opened(thread: next, from: source, rows: front.rows, row: nil)
         state.read(Reading(next, in: front.mailbox))
-        trail = Trail(thread: next, rows: front.rows)
     }
 }

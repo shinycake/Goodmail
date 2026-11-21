@@ -15,7 +15,7 @@ public final class ThreadViewController: UIViewController {
     let stack = UIStackView()
     private let subject = UILabel()
     /// Whether VoiceOver moves to the subject the next time this reader appears (`announceWhenShown`).
-    private var announcesOnAppear = false
+    private(set) var announcesOnAppear = false
     private let metadata = UILabel()
     private var cards: [Message.ID: MessageCardView] = [:]
     /// The classic layout's letters for my replies on their way.

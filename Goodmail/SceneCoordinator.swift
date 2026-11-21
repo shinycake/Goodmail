@@ -61,7 +61,13 @@ final class SceneCoordinator: NSObject {
         window.traitOverrides.senderPictures = model.senderPictures
         navigator = WindowNavigator(
             showing: window.interactionStyle.laying(out: restoring?.keeping(model.accounts.map(\.id)) ?? WindowState()),
-            checking: lists, lookUp: { [database = model.database] in try? database.thread($0) })
+            checking: lists,
+            context: { [weak window] in
+                WindowNavigation.Context(
+                    arrangement: WindowNavigation.Arrangement(window?.windowScene?.traitCollection ?? .current),
+                    afterRemoval: Preferences.afterRemoval)
+            },
+            lookUp: { [database = model.database] in try? database.thread($0) })
         super.init()
         window.windowAnswer = { [weak self] in self?.windowAnswer(to: $0) ?? .notHere }
         actions.reopen = { [weak self] draft in self?.handle(.compose(draft)) }
@@ -368,7 +374,7 @@ final class SceneCoordinator: NSObject {
                 health: model.health
             ),
             searchResults: results, draftsDock: drafts.dock)
-        list.searchToggled = { [weak self] in self?.searchToggled() }
+        list.searchToggled = { [weak self] in self?.searchToggled($0) }
         return list
     }
 

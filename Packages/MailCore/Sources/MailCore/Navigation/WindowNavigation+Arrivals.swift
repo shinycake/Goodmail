@@ -1,18 +1,33 @@
 /// Where a route asked of the window takes it (R1, R2, R5): a conversation in the place of the one read, another list,
 /// search, a count of picked rows, or a screen presented over the window, which moves nothing.
 extension WindowNavigation {
-    /// The rows a conversation was opened from, kept for as long as it is read.
-    struct Trail: Equatable, Sendable {
+    /// The conversation read, as it was opened: from which list, the rows it listed then, and the row itself when the
+    /// window had it. Replaced whole each time a conversation opens, and counted only while the window reads that
+    /// conversation from that list, so where the reader goes after it never follows another list's rows.
+    struct Opened: Equatable, Sendable {
+        /// A list a conversation opens from: a list's own rows, or search's over them.
+        struct From: Equatable, Sendable {
+            let list: WindowState.List
+            let searching: Bool
+        }
+
         let thread: ThreadSummary.ID
+        let from: From
         let rows: [ThreadSummary.ID]
+        let row: ThreadSummary?
     }
 
     mutating func go(to route: Route, in context: Context) -> [Effect] {
+        if let presentation = Presentation(route) { return [.present(presentation)] }
         switch route {
         case .thread(let thread, let mailbox):
             // The one read already changes nothing (R2), and a message window reads only its own.
-            guard state.layout == .viewer, state.reading?.thread != thread else { return [] }
-            return [.lookUp(thread, in: mailbox)]
+            guard state.layout == .viewer, state.reading?.thread != thread else {
+                pending = nil
+                return []
+            }
+            pending = Reading(thread, in: mailbox)
+            return [.lookUp(thread)]
         case .mailbox(let mailbox):
             return show(.mailbox(mailbox), in: context)
         case .scheduled:
@@ -26,39 +41,37 @@ extension WindowNavigation {
         case .selection(let count):
             // Only beside the list: a narrow window shows the list alone, which shows its own pick.
             guard state.layout == .viewer, context.arrangement == .columns else { return [] }
-            move { $0.closeReader() }
+            state.closeReader()
             return [.showPicked(count)]
-        case .newWindow, .compose, .draft, .answer, .changeLabels, .move, .newSmartMailbox, .editSmartMailbox,
-            .settings, .signInAgain:
-            return [.present(route)]
+        case .compose, .draft, .answer, .changeLabels, .move, .newSmartMailbox, .editSmartMailbox, .settings,
+            .signInAgain, .newWindow:
+            // Presented above.
+            return []
         }
     }
 
-    /// Reads `summary` in `mailbox`, opened from a list showing `rows`, in the place of any conversation read before
-    /// (R1). The one read already stays as it is (R2).
-    mutating func open(_ summary: ThreadSummary, in mailbox: Mailbox, from rows: [ThreadSummary.ID]) {
-        guard state.layout == .viewer, state.reading?.thread != summary.id else { return }
-        move { $0.read(Reading(summary.id, in: mailbox)) }
-        found = summary
-        trail = Trail(thread: summary.id, rows: rows)
+    /// Reads `summary`, opened from a list showing `rows`, in the place of any conversation read before (R1), when it
+    /// is what the lookup under way asked for; an answer for one the window has moved on from opens nothing.
+    mutating func open(_ summary: ThreadSummary, from rows: [ThreadSummary.ID]) {
+        guard let pending, pending.thread == summary.id else { return }
+        self.pending = nil
+        opened = Opened(thread: summary.id, from: source, rows: rows, row: summary)
+        state.read(pending)
     }
 
-    /// Shows `list` beside the mailboxes. A narrow window shows the list alone, closing the reader over it; a wide one
-    /// keeps the conversation read beside it, and shows the list's column. The category and filter stay.
+    /// Shows `list` beside the mailboxes, with nothing read, in either arrangement, as Mail does. The category and
+    /// filter stay. A wide window shows the list's column.
     private mutating func show(_ list: WindowState.List, in context: Context) -> [Effect] {
         guard state.layout == .viewer else { return [] }
-        move { state in
-            state.list = list
-            switch context.arrangement {
-            case .stack: state.place = .list(reading: nil)
-            case .columns: state.place = .list(reading: state.reading)
-            }
-        }
+        // A list asked for again ends a lookup under way too.
+        pending = nil
+        state.list = list
+        state.place = .list(reading: nil)
         return context.arrangement == .columns ? [.showList] : []
     }
 
     /// Begins search over the list shown when it is a mailbox's, else over the Inbox's, shown as `show(_:in:)` shows
-    /// a list; in place of another list, the Inbox shows alone. The rows the reader goes on in change either way.
+    /// a list.
     private mutating func search(_ query: SearchQuery, in context: Context) -> [Effect] {
         guard state.layout == .viewer else { return [] }
         let list: WindowState.List =
@@ -66,7 +79,6 @@ extension WindowNavigation {
             case .mailbox: state.list
             case .scheduled, .snoozed, .smart: .mailbox(.inbox)
             }
-        if list != state.list { move { $0.closeReader() } }
         let shown = show(list, in: context)
         departure = nil
         return shown + [.beginSearch(query)]
