@@ -29,4 +29,9 @@ struct WindowScreensTests {
         state.read(reading)
         #expect(state.columns == WindowState.Columns(list: .scheduled, detail: .reader(reading)))
     }
+
+    @Test func aMessageWindowShowsItsConversationAlone() {
+        let message = WindowState(list: .mailbox(label)).opening(reading, as: .message)
+        #expect(message.stack == [.reader(reading)])
+    }
 }

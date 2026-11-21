@@ -6,7 +6,7 @@ public import Foundation
 /// key reads its conversation where its list reads, as older builds did.
 ///
 /// A state saved before windows had a filter reads as unfiltered; one saved with a list title still reads, the key
-/// ignored; one saved before layouts is a viewer.
+/// ignored; one saved before layouts is a viewer. A window back at the mailboxes saves as its list.
 extension WindowState: Codable {
     private enum CodingKeys: String, CodingKey {
         case list, category, filter, layout, readingMailbox
@@ -38,14 +38,20 @@ extension WindowState: Codable {
             case .snoozed: .snoozed
             case .smart: .smart(try held.decode(SmartMailbox.ID.self, forKey: .value))
             }
+        let mailbox = try container.decodeIfPresent(Mailbox.self, forKey: .readingMailbox) ?? list.readingMailbox
+        let reading = try held.decodeIfPresent(ThreadSummary.ID.self, forKey: .thread).flatMap { thread in
+            mailbox.map { Reading(thread, in: $0) }
+        }
+        let layout = try container.decodeIfPresent(Layout.self, forKey: .layout) ?? .viewer
+        let place: Place =
+            switch (layout, reading) {
+            case (.message, let reading?): .message(reading)
+            // A message window reading nothing, as one saved without its thread, opens as the viewer.
+            case (.message, nil), (.viewer, _): .list(reading: reading)
+            }
         self.init(
             list: list, category: try container.decode(InboxCategory.self, forKey: .category),
-            filter: try container.decodeIfPresent(ListFilter.self, forKey: .filter) ?? .none)
-        let mailbox = try container.decodeIfPresent(Mailbox.self, forKey: .readingMailbox) ?? list.readingMailbox
-        if let thread = try held.decodeIfPresent(ThreadSummary.ID.self, forKey: .thread), let mailbox {
-            read(Reading(thread, in: mailbox))
-        }
-        self = laidOut(as: try container.decodeIfPresent(Layout.self, forKey: .layout) ?? .viewer)
+            filter: try container.decodeIfPresent(ListFilter.self, forKey: .filter) ?? .none, place: place)
     }
 
     public func encode(to encoder: any Encoder) throws {

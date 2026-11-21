@@ -40,7 +40,7 @@ struct WindowStateTitleTests {
     }
 
     @Test func aNarrowWindowBackAtTheMailboxesIsNamedMailboxes() {
-        let state = WindowState(depth: .mailboxes)
+        let state = WindowState(place: .mailboxes)
         #expect(state.windowTitle(subject: nil, labels: [], accounts: [account]) == MailboxesViewController.title)
     }
 

@@ -12,7 +12,7 @@ extension WindowState {
         if reading != nil, let subject {
             return subject.isEmpty ? ThreadRowMetrics.noSubject : subject
         }
-        if depth == .mailboxes { return MailboxesViewController.title }
+        if place == .mailboxes { return MailboxesViewController.title }
         return switch list {
         case .mailbox(let mailbox): mailbox.listTitle(labels: labels, accounts: accounts)
         case .scheduled:

@@ -11,9 +11,12 @@ struct WindowStateTests {
         _ list: WindowState.List, _ reading: Reading, category: InboxCategory = .primary,
         layout: WindowState.Layout = .viewer
     ) -> WindowState {
-        var state = WindowState(list: list, category: category)
-        state.read(reading)
-        return state.laidOut(as: layout)
+        let place: WindowState.Place =
+            switch layout {
+            case .viewer: .list(reading: reading)
+            case .message: .message(reading)
+            }
+        return WindowState(list: list, category: category, place: place)
     }
 
     private func roundTrip(_ state: WindowState) throws -> WindowState {
@@ -154,7 +157,7 @@ struct WindowStateTests {
     }
 
     @Test func aNarrowWindowBackAtTheMailboxesOpensOnItsListWhenRestored() throws {
-        let back = WindowState(list: .scheduled, depth: .mailboxes)
+        let back = WindowState(list: .scheduled, place: .mailboxes)
         #expect(try roundTrip(back) == WindowState(list: .scheduled))
     }
 
@@ -163,7 +166,7 @@ struct WindowStateTests {
         var state = reading(.mailbox(label), Reading(thread, in: label), category: .updates, layout: .message)
         state.filter = .on([.unread])
         state.backToMailboxes()
-        #expect(state.depth == .mailboxes)
+        #expect(state.place == .mailboxes)
         #expect(state.reading == nil)
         #expect(state.layout == .viewer)
         #expect(state.list == .mailbox(label))
@@ -172,17 +175,17 @@ struct WindowStateTests {
     }
 
     @Test func readingAConversationLeavesTheMailboxes() {
-        var state = WindowState(depth: .mailboxes)
+        var state = WindowState(place: .mailboxes)
         state.closeReader()
-        #expect(state.depth == .mailboxes)
+        #expect(state.place == .mailboxes)
         state.read(Reading(thread, in: .inbox))
-        #expect(state.depth == .list)
+        #expect(state.place == .list(reading: Reading(thread, in: .inbox)))
     }
 
     @Test func aGoneAccountKeepsTheWindowAtTheMailboxes() {
         let label = Mailbox(labelID: "Label_7", accountID: home)
-        let state = WindowState(list: .mailbox(label), depth: .mailboxes)
-        #expect(state.keeping([work]) == WindowState(depth: .mailboxes))
+        let state = WindowState(list: .mailbox(label), place: .mailboxes)
+        #expect(state.keeping([work]) == WindowState(place: .mailboxes))
     }
 
     @Test func savedDataThatIsntAWindowStateIsRefused() {
@@ -225,9 +228,6 @@ struct WindowStateTests {
         let accountInbox = WindowState(list: .mailbox(Mailbox(labelID: SystemLabel.inbox, accountID: work)))
         #expect(accountInbox.keeping([work], lists: gone) == accountInbox, "standard mailboxes are never gone")
         #expect(WindowState(list: .snoozed).keeping([work], lists: gone) == WindowState(list: .snoozed))
-        #expect(
-            WindowState(list: .mailbox(receipts), depth: .mailboxes).keeping([work], lists: gone)
-                == WindowState(depth: .mailboxes))
     }
 
     @Test func aConversationOpenedInANewWindowKeepsTheListItWasOpenedFrom() {
@@ -275,11 +275,72 @@ struct WindowStateTests {
         #expect(gone.layout == .viewer)
         #expect(gone.reading == nil)
 
-        #expect(WindowState().laidOut(as: .message).layout == .viewer)
+        #expect(WindowState().asMessage == nil, "nothing read makes no message window")
 
         var saved = try #require(JSONSerialization.jsonObject(with: WindowState().saved()) as? [String: Any])
         saved["layout"] = "message"
         #expect(try WindowState(saved: JSONSerialization.data(withJSONObject: saved)).layout == .viewer)
+    }
+
+    @Test func aDeletedListWhileBackAtTheMailboxesGivesWayToTheInboxStillAtTheMailboxes() {
+        let receipts = Mailbox(labelID: "Label_7", accountID: work)
+        let gone = WindowState.OwnLists(labels: [], smartMailboxes: [])
+        for list in [WindowState.List.mailbox(receipts), .smart(SmartMailbox.ID(rawValue: "vips"))] {
+            let back = WindowState(list: list, category: .updates, place: .mailboxes)
+            #expect(
+                back.keeping([work], lists: gone) == WindowState(category: .updates, place: .mailboxes),
+                "no list is pushed over the mailboxes")
+        }
+    }
+
+    @Test func aMessageWindowBecomesAViewerReadingTheSameConversation() {
+        let message = reading(.mailbox(.inbox), Reading(thread, in: .allMail), layout: .message)
+        #expect(message.asViewer == reading(.mailbox(.inbox), Reading(thread, in: .allMail)))
+        #expect(message.asViewer.asMessage == message, "and back, with the list kept")
+        #expect(WindowState(place: .mailboxes).asViewer == WindowState(place: .mailboxes))
+    }
+}
+
+/// When a list a window shows but the device lacks counts as gone: at once for a state saved here, and for one
+/// handed off only once the lists here have changed since and still lack it.
+struct ListCheckTests {
+    private let work = AccountID(rawValue: "work")
+    private var receipts: Mailbox { Mailbox(labelID: "Label_7", accountID: work) }
+    private let none = WindowState.OwnLists(labels: [], smartMailboxes: [])
+    private var other: WindowState.OwnLists {
+        WindowState.OwnLists(labels: [Mailbox(labelID: "Label_9", accountID: work)], smartMailboxes: [])
+    }
+
+    @Test func aSavedStateGivesWayAtOnce() {
+        var check = WindowState.ListCheck.saved
+        #expect(check.next(WindowState(list: .mailbox(receipts)), accounts: [work], lists: none) == WindowState())
+        #expect(check == .saved)
+    }
+
+    @Test func aHandedOffStateWaitsForTheListsToChangeAndGivesWayIfStillMissing() {
+        let state = WindowState(list: .mailbox(receipts))
+        var check = WindowState.ListCheck.handedOff
+        #expect(check.next(state, accounts: [work], lists: none) == nil, "shown as it is")
+        #expect(check == .waiting(since: none))
+        #expect(check.next(state, accounts: [work], lists: none) == nil, "nothing changed yet")
+        #expect(check.next(state, accounts: [work], lists: other) == WindowState(), "synced, and still missing")
+        #expect(check == .saved)
+    }
+
+    @Test func aHandedOffListThatArrivesStays() {
+        let state = WindowState(list: .mailbox(receipts))
+        var check = WindowState.ListCheck.handedOff
+        _ = check.next(state, accounts: [work], lists: none)
+        let synced = WindowState.OwnLists(labels: [receipts], smartMailboxes: [])
+        #expect(check.next(state, accounts: [work], lists: synced) == nil)
+        #expect(check == .saved, "a later deletion gives way at once")
+        #expect(check.next(state, accounts: [work], lists: none) == WindowState())
+    }
+
+    @Test func aHandedOffStateWithItsListsHereIsCheckedFromThen() {
+        var check = WindowState.ListCheck.handedOff
+        #expect(check.next(WindowState(), accounts: [work], lists: none) == nil)
+        #expect(check == .saved)
     }
 }
 

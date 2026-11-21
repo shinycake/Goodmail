@@ -19,21 +19,30 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     /// What a window holds, from the activity it opens or is restored with.
     private enum Kind {
-        /// The mail screens, or one conversation, showing what the window last showed, if it was saved.
-        case mail(restoring: WindowState?)
+        /// The mail screens, or one conversation, showing what the window last showed, if it was saved, or what
+        /// another device or window handed it. `lists` says when a list it names, missing here, counts as gone.
+        case mail(restoring: WindowState?, lists: WindowState.ListCheck)
         case compose(ComposeWindow)
         /// The one Settings window, open at `page`.
         case settings(at: SettingsPage)
 
         /// What `session` holds, or `nil` for a second Settings window, which closes as the open one comes forward.
-        static func of(_ session: UISceneSession, opening activities: [NSUserActivity]) -> Kind? {
+        /// `handed` are the activities the window opens with, as a handoff from another device or a window opened
+        /// from another, which win over what it showed when it was last saved.
+        static func of(_ session: UISceneSession, opening handed: [NSUserActivity]) -> Kind? {
+            let activities = handed + [session.stateRestorationActivity].compactMap(\.self)
             if let composing = activities.lazy.compactMap(ComposeWindow.init).first {
                 return .compose(composing)
             }
             if activities.contains(where: SettingsWindow.opens) {
                 return SettingsWindowCoordinator.connecting(session).map(Kind.settings(at:))
             }
-            return .mail(restoring: activities.lazy.compactMap(WindowState.init).first)
+            // A state handed over may name a list this device hasn't synced yet; one saved here named lists it had.
+            if let state = handed.lazy.compactMap(WindowState.init).first {
+                return .mail(restoring: state, lists: .handedOff)
+            }
+            return .mail(
+                restoring: session.stateRestorationActivity.flatMap(WindowState.init), lists: .saved)
         }
     }
 
@@ -56,9 +65,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = scene as? UIWindowScene else { return }
         // Unsafe because `delegate` is unowned. Safe: UIKit keeps the app delegate for the life of the process.
         let launch = (unsafe UIApplication.shared.delegate as! AppDelegate).launch
-        // A handoff from another device wins over what this window showed when it was last saved.
-        let activities = connectionOptions.userActivities + [session.stateRestorationActivity].compactMap(\.self)
-        guard let kind = Kind.of(session, opening: activities) else { return }
+        guard let kind = Kind.of(session, opening: Array(connectionOptions.userActivities)) else { return }
         let arrival =
             connectionOptions.urlContexts.first.map { Arrival.link($0.url) }
             ?? connectionOptions.shortcutItem?.quickAction.map(Arrival.quickAction)
@@ -83,18 +90,20 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     /// Fills the window with what it holds, once the database is open.
     private func fill(_ windowScene: UIWindowScene, with kind: Kind, services: AppServices, arrival: Arrival?) {
         switch kind {
-        case .mail(let restoring): connect(windowScene, to: services, restoring: restoring, arrival: arrival)
+        case .mail(let restoring, let lists):
+            connect(windowScene, to: services, restoring: restoring, lists: lists, arrival: arrival)
         case .compose(let shown): compose(shown, in: windowScene, with: services)
         case .settings(let page): showSettings(at: page, in: windowScene, with: services)
         }
     }
 
     private func connect(
-        _ windowScene: UIWindowScene, to services: AppServices, restoring: WindowState?, arrival: Arrival?
+        _ windowScene: UIWindowScene, to services: AppServices, restoring: WindowState?,
+        lists: WindowState.ListCheck, arrival: Arrival?
     ) {
         let coordinator = SceneCoordinator(windowScene: windowScene, model: services.model, restoring: restoring)
         state = .running(coordinator)
-        coordinator.start()
+        coordinator.start(checkingLists: lists)
         if let route = services.routes.takeWaiting() { coordinator.handle(route) }
         coordinator.window.makeKeyAndVisible()
         ViewerWindowSize.fit(windowScene, isNew: restoring == nil)

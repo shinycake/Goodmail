@@ -1,5 +1,5 @@
 /// What each of a viewer's arrangements shows for a state, as plain values the scene coordinator builds its screens
-/// from: a narrow window's one stack, or a wide window's columns. A message window shows `reading` alone.
+/// from: a narrow window's one stack, or a wide window's columns.
 extension WindowState {
     /// One screen of a narrow window's stack.
     public enum ScreenEntry: Hashable, Sendable {
@@ -27,11 +27,12 @@ extension WindowState {
     }
 
     /// A narrow window's stack, bottom to top: the mailboxes, then the list unless the window is back at them, then
-    /// the conversation read over it.
+    /// the conversation read over it. A message window's is its conversation alone.
     public var stack: [ScreenEntry] {
-        switch depth {
+        switch place {
         case .mailboxes: [.mailboxes]
-        case .list: [.mailboxes, .list(list)] + (reading.map { [.reader($0)] } ?? [])
+        case .list(let reading): [.mailboxes, .list(list)] + (reading.map { [.reader($0)] } ?? [])
+        case .message(let reading): [.reader(reading)]
         }
     }
 

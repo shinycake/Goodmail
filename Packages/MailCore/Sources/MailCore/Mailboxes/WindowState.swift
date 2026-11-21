@@ -1,12 +1,10 @@
-/// What one window shows: the list beside the mailboxes, the conversation it reads and where, the Inbox's category,
-/// and whether the window is the whole viewer or that one conversation alone. The scene coordinator keeps it in step
-/// as the reader moves, rebuilds either arrangement from it when the window changes width (`stack`, `columns`), and
-/// saves it so the system can restore the window or hand it off to another device (`WindowState+Coding`).
-///
-/// A message window always reads a conversation, and a narrow window back at the mailboxes reads none: the methods
-/// that change what is read keep both true.
+/// What one window shows: the list beside the mailboxes, the Inbox's category and filter, and where the window is
+/// (`Place`): back at the mailboxes, at the list with the conversation it reads, or one conversation alone. The scene
+/// coordinator keeps it in step as the reader moves, rebuilds either arrangement from it when the window changes width
+/// (`stack`, `columns`), and saves it so the system can restore the window or hand it off to another device
+/// (`WindowState+Coding`).
 public struct WindowState: Equatable, Sendable {
-    /// The list beside the mailboxes. It says nothing of what is read, which is `reading`'s.
+    /// The list beside the mailboxes. It says nothing of what is read, which is `place`'s.
     public enum List: Hashable, Sendable {
         /// The list is titled when it is built, from the labels and accounts then, so a renamed label or account
         /// shows its new name.
@@ -29,6 +27,26 @@ public struct WindowState: Equatable, Sendable {
         }
     }
 
+    /// Where the window is, and the conversation it reads there. A message window always reads one, and a narrow
+    /// window back at the mailboxes reads none.
+    public enum Place: Hashable, Sendable {
+        /// A narrow window back at the mailboxes, reading nothing. The list stays for when the window widens. Not
+        /// saved: a restored or handed-off window opens on its list.
+        case mailboxes
+        /// The viewer: the mailboxes, the list and the conversation read from it, if one is, as many of them as the
+        /// window's width holds.
+        case list(reading: Reading?)
+        /// A conversation alone, as one opened in a window of its own on the Mac. The list is kept for titles and for
+        /// the viewer the window becomes once the conversation closes, and isn't shown.
+        case message(Reading)
+    }
+
+    /// What a window lays out around what it shows: the whole viewer, or one conversation alone (`Place.message`).
+    public enum Layout: String, Equatable, Codable, Sendable {
+        case viewer
+        case message
+    }
+
     /// The `NSUserActivity` type a window's state travels as, declared in the app's `NSUserActivityTypes`.
     public static let activityType = "com.idanbirman.goodmail.window"
     /// The activity's `userInfo` key for `saved()`.
@@ -39,57 +57,54 @@ public struct WindowState: Equatable, Sendable {
     public var category: InboxCategory
     /// What the list is filtered by. It stays when the window moves to another mailbox, as the category does.
     public var filter = ListFilter.none
-    /// How far a narrow window's one stack goes. Not saved: a restored or handed-off window opens on its list.
-    public private(set) var depth = Depth.list
-    /// The conversation the window reads, and where; `nil` with none open.
-    public private(set) var reading: Reading?
-    /// What the window lays out.
-    public private(set) var layout = Layout.viewer
-
-    /// What a window lays out around what it shows.
-    public enum Layout: String, Equatable, Codable, Sendable {
-        /// The mailboxes, the list and the open conversation, as many of them as the window's width holds.
-        case viewer
-        /// The open conversation alone, as one opened in a window of its own on the Mac. Its list is kept for titles
-        /// and for the viewer it becomes once the conversation closes, and isn't shown.
-        case message
-    }
-
-    /// How far a narrow window's one stack goes. A wide window shows the mailboxes and the list side by side.
-    public enum Depth: Equatable, Sendable {
-        /// The list, and the conversation read over it.
-        case list
-        /// Back at the mailboxes, reading nothing, the list under them kept for a window that widens.
-        case mailboxes
-    }
+    public var place: Place
 
     public init(
         list: List = .mailbox(.inbox), category: InboxCategory = .primary, filter: ListFilter = .none,
-        depth: Depth = .list
+        place: Place = .list(reading: nil)
     ) {
         self.list = list
         self.category = category
         self.filter = filter
-        self.depth = depth
+        self.place = place
     }
 
-    /// Reads `reading` over the list, in place of any conversation read before. A conversation reads over the list, so
-    /// a narrow window is no longer back at the mailboxes.
+    /// The conversation the window reads, and where; `nil` with none open.
+    public var reading: Reading? {
+        switch place {
+        case .mailboxes: nil
+        case .list(let reading): reading
+        case .message(let reading): reading
+        }
+    }
+
+    public var layout: Layout {
+        switch place {
+        case .mailboxes, .list: .viewer
+        case .message: .message
+        }
+    }
+
+    /// Reads `reading` in place of any conversation read before: alone in a message window, else over the list, so a
+    /// narrow window is no longer back at the mailboxes.
     public mutating func read(_ reading: Reading) {
-        self.reading = reading
-        depth = .list
+        switch place {
+        case .mailboxes, .list: place = .list(reading: reading)
+        case .message: place = .message(reading)
+        }
     }
 
     /// Reads nothing. A message window, which shows only its conversation, becomes a viewer.
     public mutating func closeReader() {
-        reading = nil
-        layout = .viewer
+        switch place {
+        case .mailboxes: break
+        case .list, .message: place = .list(reading: nil)
+        }
     }
 
     /// A narrow window is back at the mailboxes: it reads nothing, and keeps its list for when it widens.
     public mutating func backToMailboxes() {
-        closeReader()
-        depth = .mailboxes
+        place = .mailboxes
     }
 
     /// A new window that reads `reading`. It keeps this window's list when that is where the conversation reads; one
@@ -98,14 +113,26 @@ public struct WindowState: Equatable, Sendable {
     public func opening(_ reading: Reading, as layout: Layout = .viewer) -> WindowState {
         var opened = self
         if list.readingMailbox != reading.mailbox { opened.list = .mailbox(reading.mailbox) }
-        opened.read(reading)
-        return opened.laidOut(as: layout)
+        opened.place =
+            switch layout {
+            case .viewer: .list(reading: reading)
+            case .message: .message(reading)
+            }
+        return opened
     }
 
-    /// This state laid out as `layout`, or as a viewer when it asks for a message window reading nothing.
-    public func laidOut(as layout: Layout) -> WindowState {
-        var laidOut = self
-        laidOut.layout = reading == nil ? .viewer : layout
-        return laidOut
+    /// This state as the whole viewer: a message window's conversation reads over its list.
+    public var asViewer: WindowState {
+        var viewer = self
+        if case .message(let reading) = place { viewer.place = .list(reading: reading) }
+        return viewer
+    }
+
+    /// This state as a message window reading its conversation alone; `nil` when it reads none.
+    public var asMessage: WindowState? {
+        guard let reading else { return nil }
+        var message = self
+        message.place = .message(reading)
+        return message
     }
 }

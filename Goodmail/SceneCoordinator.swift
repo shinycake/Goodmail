@@ -22,7 +22,7 @@ final class SceneCoordinator: NSObject {
     private var signingInAgain: Task<Void, Never>?
     /// An answer or a draft to finish, waiting for the message it starts from, which a newer one replaces.
     private var answering: Task<Void, Never>?
-    /// The look-up of the labels and smart mailboxes here, for a rebuilt window whose own list may be gone.
+    /// Follows the labels and smart mailboxes here, so a list gone from the device gives way (`followOwnLists`).
     var listsCheck: Task<Void, Never>?
     /// Failed sends already shown, so each is offered once per launch.
     private var shownFailures: Set<Draft.ID> = []
@@ -88,9 +88,11 @@ final class SceneCoordinator: NSObject {
         model.minimizedDrafts.close(windowID)
     }
 
-    func start() {
+    /// `lists` says when a list the restored or handed-off state names, missing here, counts as gone.
+    func start(checkingLists lists: WindowState.ListCheck) {
         observeSharedAccounts()
         observeSyncedSettings()
+        followOwnLists(lists)
         if model.accounts.isEmpty {
             // A new device whose reader has accounts on another one, or a reinstall, offers those first.
             if model.accountOffer == nil { showWelcome() } else { offerSharedAccounts() }
@@ -217,13 +219,12 @@ final class SceneCoordinator: NSObject {
         case .viewer: showViewer()
         case .message: showMessage()
         }
-        fallBackFromGoneList()
     }
 
     /// The thread `shown` opens, alone. One whose account is gone leaves the viewer in its place.
     private func showMessage() {
         guard let reading = shown.reading, let reader = reader(for: reading) else {
-            move { $0 = $0.laidOut(as: .viewer) }
+            move { $0.closeReader() }
             return showViewer()
         }
         enter(.message(UINavigationController(rootViewController: reader), accounts: model.accounts.map(\.id)))
@@ -296,7 +297,7 @@ final class SceneCoordinator: NSObject {
         split.setViewController(stack, for: .compact)
     }
 
-    private func listViewController(for list: WindowState.List) -> UIViewController {
+    func listViewController(for list: WindowState.List) -> UIViewController {
         switch list {
         case .mailbox(let mailbox): mailboxViewController(for: mailbox)
         case .scheduled: scheduledViewController()
@@ -612,7 +613,7 @@ extension SceneCoordinator: UISplitViewControllerDelegate, UINavigationControlle
         _ navigationController: UINavigationController, didShow viewController: UIViewController, animated: Bool
     ) {
         if !navigationController.viewControllers.contains(where: { $0 is ThreadViewController }) { readerPopped() }
-        if navigationController.viewControllers.count == 1, shown.depth != .mailboxes {
+        if navigationController.viewControllers.count == 1, shown.place != .mailboxes {
             move { $0.backToMailboxes() }
         }
     }
@@ -644,11 +645,5 @@ extension SceneCoordinator {
     /// narrow window that was back at the mailboxes rather than in a list.
     func showMailboxKeepingPlace() {
         showMailbox(shown.keeping(model.accounts.map(\.id)))
-    }
-
-    /// Shows what another device handed off, in this window, laid out as this window is: a viewer stays a viewer.
-    func showHandedOff(_ state: WindowState) {
-        guard !model.accounts.isEmpty else { return }
-        showMailbox(state.keeping(model.accounts.map(\.id)).laidOut(as: shown.layout))
     }
 }
