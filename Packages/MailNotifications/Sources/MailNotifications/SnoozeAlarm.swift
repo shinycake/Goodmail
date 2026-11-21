@@ -25,9 +25,11 @@ public enum SnoozeAlarm {
         public var isEmpty: Bool { remove.isEmpty && add.isEmpty }
     }
 
-    /// The changes from the alarms `scheduled` to one for each thread `snoozed`, at its wake time. An alarm whose time
-    /// came by `now` is left to go off, though its thread may already have woken and left the snoozes.
-    public static func changes(snoozed: [SnoozedThread], scheduled: [Scheduled], now: Date) -> Changes {
+    /// The changes from the alarms `scheduled` to one for each thread `snoozed` that this device alerts for
+    /// (`SnoozeKeeper.alerts`), at its wake time. An alarm whose time came by `now` is left to go off, though its
+    /// thread may already have woken and left the snoozes.
+    public static func changes(snoozed all: [SnoozedThread], scheduled: [Scheduled], now: Date) -> Changes {
+        let snoozed = all.filter(\.keeper.alerts)
         let wanted = Dictionary(snoozed.map { ($0.thread.id, $0.wakeAt) }, uniquingKeysWith: { first, _ in first })
         let held = Dictionary(scheduled.map { ($0.thread, $0.wakeAt) }, uniquingKeysWith: { first, _ in first })
         return Changes(

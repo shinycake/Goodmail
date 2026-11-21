@@ -85,7 +85,7 @@ struct SnoozeTests {
 
         try await commands.undo(undo)
         #expect(try await inbox() == ["t2"])
-        #expect(try database.snoozes(of: [id("t1")]) == [id("t1"): .asleep(until: wakeAt)])
+        #expect(try database.snoozes(of: [id("t1")]) == [id("t1"): .asleep(until: wakeAt, keeper: .thisDevice)])
     }
 
     @Test(arguments: [ThreadAction.trash, .reportSpam])

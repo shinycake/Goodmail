@@ -134,7 +134,8 @@ public actor MailCommands {
         let before = try store.snoozes(of: threads)
         var undo = try perform(.archive, on: threads)
         undo.snoozes = Dictionary(uniqueKeysWithValues: threads.map { ($0, before[$0]) })
-        try store.setSnoozes(Dictionary(uniqueKeysWithValues: threads.map { ($0, .asleep(until: date)) }))
+        try store.setSnoozes(
+            Dictionary(uniqueKeysWithValues: threads.map { ($0, .asleep(until: date, keeper: .thisDevice)) }))
         return undo
     }
 
@@ -148,8 +149,8 @@ public actor MailCommands {
         return undo
     }
 
-    /// Pins the threads to the top of their lists, or with `pinned` false unpins them. Only the device keeps pins,
-    /// so nothing is queued for the provider. Threads already as asked are left out of the undo.
+    /// Pins the threads to the top of their lists, or with `pinned` false unpins them. No service has pins: the
+    /// reader's devices share them (ADR-037), so nothing is queued for the provider. Threads already as asked are left out of the undo.
     @discardableResult
     public func pin(_ threads: [ThreadSummary.ID], _ pinned: Bool) throws -> Undo {
         let before = try store.pins(among: threads)

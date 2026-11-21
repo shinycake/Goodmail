@@ -57,7 +57,7 @@ struct FactsStoreTests {
         try store("t", minutesAgo: 1, body: "Hi", labels: ["INBOX", "Label_1"])
         let id = ThreadSummary.ID(accountID: account, threadID: "t")
         try database.setPins([id: true])
-        try database.setSnoozes([id: .asleep(until: now.addingTimeInterval(3600))])
+        try database.setSnoozes([id: .asleep(until: now.addingTimeInterval(3600), keeper: .thisDevice)])
         let facts = try #require(try database.messageFacts(inThreads: [id], mailboxNames: names).first)
         #expect(facts.local.isPinned)
         #expect(facts.date(.snoozedUntil) == now.addingTimeInterval(3600))

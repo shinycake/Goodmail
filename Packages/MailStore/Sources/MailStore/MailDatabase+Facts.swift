@@ -106,7 +106,7 @@ private struct FactsLookup {
                 ThreadSummary.ID(accountID: AccountID(rawValue: row["accountID"]), threadID: row["threadID"])
             })
         var snoozes: [ThreadSummary.ID: SnoozeState] = [:]
-        for row in try Row.fetchAll(db, sql: "SELECT accountID, threadID, wakeAt, wokeAt FROM snooze") {
+        for row in try Row.fetchAll(db, sql: "SELECT accountID, threadID, wakeAt, wokeAt, keeper FROM snooze") {
             let id = ThreadSummary.ID(accountID: AccountID(rawValue: row["accountID"]), threadID: row["threadID"])
             snoozes[id] = MailDatabase.state(row)
         }

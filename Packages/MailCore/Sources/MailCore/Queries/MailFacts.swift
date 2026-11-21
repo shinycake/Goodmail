@@ -162,7 +162,7 @@ public struct MailFacts: Equatable, Sendable {
         switch field {
         case .date: envelope.date
         case .snoozedUntil:
-            if case .asleep(let until) = local.snooze { until } else { nil }
+            if case .asleep(let until, _) = local.snooze { until } else { nil }
         }
     }
 

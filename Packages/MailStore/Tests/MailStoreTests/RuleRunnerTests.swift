@@ -89,7 +89,8 @@ struct RuleRunnerTests {
         let alerts = try await runner(at: Self.thursdayNight + 120).run(for: account.id).alerts
 
         let wake = Self.thursdayNight + 120 + 14 * 86_400
-        #expect(try database.snoozes(of: [id("t1"), id("few")]) == [id("t1"): .asleep(until: wake)])
+        #expect(
+            try database.snoozes(of: [id("t1"), id("few")]) == [id("t1"): .asleep(until: wake, keeper: .thisDevice)])
         #expect(try database.thread(id("t1"))?.labelIDs.contains(SystemLabel.inbox) == false)
         #expect(alerts.map(\.keyword) == ["Snoozed Dana"])
         #expect(alerts.first?.thread == id("t1"))

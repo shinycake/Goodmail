@@ -11,7 +11,7 @@ public actor SettingsSync {
     private let now: @Sendable () -> Date
     private var ledger: SettingsLedger?
 
-    /// How long a removal is remembered. A device away for longer may share a removed setting again.
+    /// How long a removal is remembered unless its group says otherwise (`SettingsFamily.removalMemory`).
     public static let removalMemory: TimeInterval = 180 * 24 * 60 * 60
 
     public init(
@@ -37,7 +37,7 @@ public actor SettingsSync {
                 guard let shared = try SharedFamily.decode(try cloud.data(for: key)) else { continue }
                 let merge = SettingsMerge(
                     local: try family.local(), ledger: ledger.families[family.name] ?? [:], shared: shared.entries,
-                    now: stamp, keepingRemovals: Self.removalMemory)
+                    now: stamp, keepingRemovals: family.removalMemory)
                 if !merge.apply.isEmpty {
                     try family.apply(merge.apply)
                     pass.changed.insert(family.name)

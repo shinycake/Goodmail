@@ -63,6 +63,8 @@ final class AppModel {
     let settingsSync: SettingsSync?
     /// The pass sharing what the reader just changed, while one runs (`shareSettingsNow`).
     var settingsShare: Task<Void, Never>?
+    /// Keeps pins, snoozes and device mutes the same on the reader's other devices (ADR-037); `nil` keeps them here.
+    let mailStateSync: SettingsSync?
 
     nonisolated enum MailChange: Sendable {
         /// A sync finished, of every account or of one whose server reported a change.
@@ -72,15 +74,16 @@ final class AppModel {
     }
 
     /// `pushRelay` is where accounts subscribe to push; `nil` keeps alerts off, as in synthetic mailboxes. `sharing`
-    /// is where accounts are shared with the reader's other devices, and `settingsSync` keeps settings in step with
-    /// them.
+    /// is where accounts are shared with the reader's other devices, and `settingsSync` and `mailStateSync` keep
+    /// settings and mail state in step with them.
     init(
         database: MailDatabase, pushRelay: URL? = PushConfiguration.relayURL, sharing: AccountSharing? = nil,
-        settingsSync: SettingsSync? = nil
+        settingsSync: SettingsSync? = nil, mailStateSync: SettingsSync? = nil
     ) throws {
         self.database = database
         self.sharing = sharing
         self.settingsSync = settingsSync
+        self.mailStateSync = mailStateSync
         senderPictures = .cached(with: database)
         minimizedDrafts = MinimizedDrafts(database: database)
         accounts = try database.accounts()
@@ -132,7 +135,7 @@ final class AppModel {
         return try AppModel(
             database: database,
             sharing: AccountSharing(shared: Keychain.iCloud, device: Keychain(), signInKey: Providers.signInKey),
-            settingsSync: .synced(database))
+            settingsSync: .synced(database), mailStateSync: .mailState(database))
     }
 
     /// Off the main actor: opening migrates the database and fills in what older builds left out, which can take a
@@ -312,8 +315,12 @@ final class AppModel {
         // An account whose login is gone from the Keychain has no provider, which is its failure to sync.
         let engines = accounts.map { account in (account.id, Result { try engine(for: account.id) }) }
         let outboxes = outboxes
-        // Snoozed threads whose time came, queued before the replay below so the server hears of them now.
-        try await commands.wakeSnoozed()
+        // Snoozed threads whose time came, queued before the replay below so the server hears of them now. What the
+        // other devices pinned, snoozed, woke or muted is taken up first, so a thread one of them woke isn't woken
+        // twice, and a wake made here is shared at once so the others don't wake it too.
+        await syncMailState()
+        let woken = try await commands.wakeSnoozed()
+        if !woken.isEmpty { await syncMailState() }
         // Messages whose undo window closed while the app was away.
         for account in accounts { await senders.deliver(account.id, at: .now) }
         let outcomes = await withTaskGroup(of: (AccountID, Result<Void, any Error>).self) { group in

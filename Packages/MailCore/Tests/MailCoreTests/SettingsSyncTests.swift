@@ -124,10 +124,12 @@ final class MemoryLedger: SettingsLedgerStore {
 
 final class MemoryFamily: SettingsFamily {
     let name: String
+    let removalMemory: TimeInterval
     let values = Mutex<[String: Data]>([:])
 
-    init(name: String = "prefs") {
+    init(name: String = "prefs", removalMemory: TimeInterval = SettingsSync.removalMemory) {
         self.name = name
+        self.removalMemory = removalMemory
     }
 
     func local() throws -> LocalSettings { LocalSettings(values.withLock { $0 }) }

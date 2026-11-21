@@ -13,14 +13,17 @@ extension AppModel {
     nonisolated static let settingsDidSync = Notification.Name("GoodmailSettingsDidSync")
     nonisolated static let changedSettingsKey = "changed"
 
-    /// Shares what the reader just changed without waiting for the next round, as Settings closes or the app leaves
-    /// the foreground. It runs as background work, so leaving the app straight after doesn't cut it short, and after
-    /// any pass asked for before it.
+    /// Shares what the reader just changed, settings and mail state, without waiting for the next round, as Settings
+    /// closes or the app leaves the foreground. It runs as background work, so leaving the app straight after doesn't
+    /// cut it short, and after any pass asked for before it.
     func shareSettingsNow() {
         let previous = settingsShare
         settingsShare = Task {
             await previous?.value
-            await BackgroundDatabaseWork.shared.run("Sharing settings") { await syncSettings() }
+            await BackgroundDatabaseWork.shared.run("Sharing settings") {
+                await syncSettings()
+                await syncMailState()
+            }
         }
     }
 

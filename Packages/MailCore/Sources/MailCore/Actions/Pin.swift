@@ -1,7 +1,7 @@
 import Foundation
 
-/// The persistence pinning needs. A pin keeps a thread at the top of every list it is in, on this device only: no
-/// service has pins. `MailStore` implements it.
+/// The persistence pinning needs. A pin keeps a thread at the top of every list it is in. No service has pins, so
+/// the reader's devices share them (ADR-037). `MailStore` implements it.
 public protocol PinStore: Sendable {
     /// The pinned threads among `threads`.
     func pins(among threads: [ThreadSummary.ID]) throws -> Set<ThreadSummary.ID>

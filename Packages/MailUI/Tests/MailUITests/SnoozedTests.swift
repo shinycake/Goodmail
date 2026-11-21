@@ -17,7 +17,7 @@ struct SnoozedTests {
                 id: ThreadSummary.ID(accountID: account.id, threadID: subject), subject: subject, snippet: "",
                 sender: Contact(name: "Dana", address: "dana@example.com"), date: .now, isUnread: false,
                 messageCount: 1, labelIDs: []),
-            wakeAt: wakeAt)
+            wakeAt: wakeAt, keeper: .thisDevice)
     }
 
     @Test func rowsShowTheSenderAndSubjectAndOpenInAllMail() async {

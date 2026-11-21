@@ -9,6 +9,8 @@ extension AppModel {
     /// suspend the app before it gets a turn. Returns whether the sync went through.
     func syncHandledElsewhere(_ target: NewMailFetch.Target) async -> Bool {
         guard let account = target.account(among: accounts) else { return false }
+        // What brought the push may be a pin, snooze or mute made on another device, as a mute's archive.
+        await syncMailState()
         let synced = await syncChanged(account.id, markingInboxSeen: false)
         await HandledAlerts.dismiss(in: database)
         return synced

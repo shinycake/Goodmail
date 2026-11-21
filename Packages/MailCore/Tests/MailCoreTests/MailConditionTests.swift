@@ -117,7 +117,7 @@ struct MailConditionTests {
         #expect(MailCondition.flag(.forward, true).matches(Self.message(subject: "Fwd: lunch")))
         #expect(MailCondition.flag(.archived, true).matches(Self.message(labels: ["Label_7"])))
         var pinned = Self.message()
-        pinned.local = MailFacts.Local(isPinned: true, snooze: .asleep(until: Self.thursdayNight))
+        pinned.local = MailFacts.Local(isPinned: true, snooze: .asleep(until: Self.thursdayNight, keeper: .thisDevice))
         #expect(MailCondition.flag(.pinned, true).matches(pinned))
         #expect(MailCondition.flag(.snoozed, true).matches(pinned))
         #expect(MailCondition.date(.snoozedUntil, .before(.distantFuture)).matches(pinned))

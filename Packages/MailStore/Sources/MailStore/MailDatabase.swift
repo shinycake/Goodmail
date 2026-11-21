@@ -376,6 +376,12 @@ public final class MailDatabase: Sendable {
             // filler read as Latin-1.
             try repairSnippets(db)
         }
+        migrator.registerMigration("v34-snooze-keeper") { db in
+            // Which device answers for an asleep thread's wake (SnoozeKeeper, ADR-037); none once it woke. Every
+            // snooze until now was made on this device.
+            try db.alter(table: "snooze") { table in table.add(column: "keeper", .text) }
+            try db.execute(sql: "UPDATE snooze SET keeper = 'thisDevice' WHERE wakeAt IS NOT NULL")
+        }
         return migrator
     }
 }

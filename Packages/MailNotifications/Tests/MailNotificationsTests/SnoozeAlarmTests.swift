@@ -9,13 +9,13 @@ struct SnoozeAlarmTests {
     private let account = Account(id: AccountID(rawValue: "a1"), email: "me@example.com", color: .teal, service: .gmail)
     private let now = Date(timeIntervalSince1970: 1_800_000_000)
 
-    private func snoozed(_ id: String, hours: Double) -> SnoozedThread {
+    private func snoozed(_ id: String, hours: Double, keeper: SnoozeKeeper = .thisDevice) -> SnoozedThread {
         SnoozedThread(
             thread: ThreadSummary(
                 id: ThreadSummary.ID(accountID: account.id, threadID: id), subject: "Lunch?",
                 snippet: "Tomorrow at one", sender: Contact(name: "Dana Levi", address: "dana@example.com"),
                 date: now, isUnread: false, messageCount: 1, labelIDs: []),
-            wakeAt: now.addingTimeInterval(hours * 3600))
+            wakeAt: now.addingTimeInterval(hours * 3600), keeper: keeper)
     }
 
     private func scheduled(_ thread: SnoozedThread) -> SnoozeAlarm.Scheduled {
@@ -40,6 +40,16 @@ struct SnoozeAlarmTests {
         let gone = snoozed("t1", hours: 2)
         let changes = SnoozeAlarm.changes(snoozed: [], scheduled: [scheduled(gone)], now: now)
         #expect(changes == SnoozeAlarm.Changes(remove: [gone.thread.id], add: []))
+    }
+
+    @Test func onlyTheDeviceThatSnoozedTheThreadAlerts() {
+        let elsewhere = snoozed("t1", hours: 2, keeper: .otherDevice)
+        #expect(SnoozeAlarm.changes(snoozed: [elsewhere], scheduled: [], now: now).isEmpty)
+        // Snoozed again on another device: this one's alarm is taken back.
+        let held = snoozed("t1", hours: 2)
+        #expect(
+            SnoozeAlarm.changes(snoozed: [elsewhere], scheduled: [scheduled(held)], now: now)
+                == SnoozeAlarm.Changes(remove: [held.thread.id], add: []))
     }
 
     @Test func anAlarmWhoseTimeCameIsLeftToGoOff() {

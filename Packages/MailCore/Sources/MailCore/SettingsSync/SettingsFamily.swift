@@ -12,6 +12,13 @@ public protocol SettingsFamily: Sendable {
 
     /// Takes up what the other devices changed.
     func apply(_ changes: [String: SettingChange]) throws
+
+    /// How long a removal is remembered. A device away for longer may share a removed setting again.
+    var removalMemory: TimeInterval { get }
+}
+
+extension SettingsFamily {
+    public var removalMemory: TimeInterval { SettingsSync.removalMemory }
 }
 
 /// A group's settings on this device, and which of the shared ones it could hold: settings of an account this device
@@ -23,11 +30,15 @@ public struct LocalSettings: Equatable, Sendable {
     public enum Scope: Equatable, Sendable {
         case everything
         case only(Set<String>)
+        /// The threads of these accounts, each named by `ThreadSummary.ID.syncedElement`.
+        case threads(of: Set<AccountID>)
 
         public func covers(_ element: String) -> Bool {
             switch self {
             case .everything: true
             case .only(let elements): elements.contains(element)
+            case .threads(let accounts):
+                ThreadSummary.ID(syncedElement: element).map { accounts.contains($0.accountID) } ?? false
             }
         }
     }
