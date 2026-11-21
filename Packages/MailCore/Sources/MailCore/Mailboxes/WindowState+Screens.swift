@@ -1,5 +1,5 @@
-/// What each of a viewer's arrangements shows for a state, as plain values the scene coordinator builds its screens
-/// from: a narrow window's one stack, or a wide window's columns.
+/// What each of a viewer's arrangements shows for a state, as plain values the window's screens are kept in step with:
+/// a narrow window's one stack, or a wide window's columns.
 extension WindowState {
     /// One screen of a narrow window's stack.
     public enum ScreenEntry: Hashable, Sendable {

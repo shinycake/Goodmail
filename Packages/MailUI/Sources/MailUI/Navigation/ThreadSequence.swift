@@ -20,8 +20,8 @@ public protocol ThreadSequence: AnyObject {
 }
 
 extension ThreadSequence {
-    /// The list as the window's course reads it.
-    public var courseFront: ReaderCourse.Front {
-        ReaderCourse.Front(rows: frontRows, pointerPick: pointerPick, mailbox: frontMailbox)
+    /// The list as the window's navigation reads it.
+    public var navigationFront: WindowNavigation.Front {
+        WindowNavigation.Front(rows: frontRows, pointerPick: pointerPick, mailbox: frontMailbox)
     }
 }

@@ -101,9 +101,10 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         _ windowScene: UIWindowScene, to services: AppServices, restoring: WindowState?,
         lists: WindowState.ListCheck, arrival: Arrival?
     ) {
-        let coordinator = SceneCoordinator(windowScene: windowScene, model: services.model, restoring: restoring)
+        let coordinator = SceneCoordinator(
+            windowScene: windowScene, model: services.model, restoring: restoring, lists: lists)
         state = .running(coordinator)
-        coordinator.start(checkingLists: lists)
+        coordinator.start()
         if let route = services.routes.takeWaiting() { coordinator.handle(route) }
         coordinator.window.makeKeyAndVisible()
         ViewerWindowSize.fit(windowScene, isNew: restoring == nil)

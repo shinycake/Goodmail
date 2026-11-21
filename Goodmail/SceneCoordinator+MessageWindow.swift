@@ -17,7 +17,7 @@ extension SceneCoordinator {
                     // Anything that took the window elsewhere meanwhile ended the wait.
                     guard let self, case .leaving = screen else { return }
                     switch outcome {
-                    case .undone: showMailbox(shown)
+                    case .undone: showMailbox()
                     case .ended, .nothingToUndo: closeWindow()
                     }
                 }))
