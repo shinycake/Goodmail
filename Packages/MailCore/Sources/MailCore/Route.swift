@@ -1,3 +1,5 @@
+public import Foundation
+
 /// Every place the app can navigate to (ADR-011). Notifications, intents, Spotlight and the UI all produce these,
 /// and the scene coordinator is the only thing that acts on them.
 public enum Route: Hashable, Sendable {
@@ -38,6 +40,8 @@ public enum Route: Hashable, Sendable {
     case settings(SettingsPage)
     /// The account's sign-in, again, after its service turned the stored one down: its web page, or its password.
     case signInAgain(AccountID)
+    /// Accounts from another device, received with `code`, the link another device shows as a QR code.
+    case receiveTransfer(code: URL)
 }
 
 /// Where Settings opens.

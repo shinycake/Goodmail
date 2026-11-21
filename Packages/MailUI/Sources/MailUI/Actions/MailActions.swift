@@ -7,23 +7,37 @@ public import Observation
 /// own actor, never on the main actor, one after another in the order they were asked for.
 @Observable
 public final class MailActions {
-    /// A confirmation with an Undo button, for actions that take a thread out of view.
+    /// A confirmation with an Undo button, for actions that take a thread out of view, or a notice with none.
     public struct Toast: Equatable, Identifiable {
+        /// What a toast is for.
+        enum Kind: Equatable {
+            /// Confirms what was done, with an Undo button that takes `Undo` back.
+            case confirmation(Undo)
+            /// Tells the reader something, with no button.
+            case notice
+        }
+
         public let id = UUID()
         public let message: String
-        let undo: Undo
+        let kind: Kind
         /// When the toast goes, and with it the chance to undo from it.
         public let ends: ContinuousClock.Instant
 
-        init(message: String, undo: Undo, lasting duration: Duration) {
+        init(message: String, _ kind: Kind, lasting duration: Duration) {
             self.message = message
-            self.undo = undo
+            self.kind = kind
             ends = .now + duration
+        }
+
+        /// Whether it offers Undo.
+        var offersUndo: Bool {
+            if case .confirmation = kind { true } else { false }
         }
     }
 
     enum Undo: Equatable {
-        case actions(MailCommands.Undo)
+        /// Takes back what `change`, the change the reader asked, did; `nil` for one the window isn't told of, as a pin.
+        case actions(MailCommands.Undo, change: MailChange?)
         /// Takes a message back during its undo-send window.
         case send(Draft.ID)
     }
@@ -32,8 +46,16 @@ public final class MailActions {
     @ObservationIgnored public var reopen: ((Draft) -> Void)?
     /// Plays the tap for an action the reader took, as soon as they take it.
     @ObservationIgnored var feedback: (Haptic) -> Void = { _ in }
+    /// Told of each change the reader asks of conversations in this window, as they ask it and before it applies, so
+    /// the window moves its reader at once and for nothing else (R6, R7).
+    @ObservationIgnored public var changed: ((MailChange) -> Void)?
+    /// Told when Undo has taken back a change `changed` told of, so the window can bring the reader back to where it
+    /// was (R9).
+    @ObservationIgnored public var undone: ((MailChange) -> Void)?
 
     public private(set) var toast: Toast?
+    /// A notice said while a confirmation showed, which waits for it to go rather than take its Undo away.
+    @ObservationIgnored private var waitingNotice: String?
     /// A failure to apply or undo an action locally.
     public private(set) var error: (any Error)?
     @ObservationIgnored private let commands: MailCommands
@@ -58,8 +80,10 @@ public final class MailActions {
     }
 
     public func perform(_ action: ThreadAction, on threads: [ThreadSummary.ID]) {
-        feedback(.performing(action))
-        apply(confirmation: Self.confirmation(for: action, count: threads.count)) {
+        apply(
+            .action(action), on: threads, feedback: .performing(action),
+            confirmation: Self.confirmation(for: action, count: threads.count)
+        ) {
             try await $0.perform(action, on: threads)
         }
     }
@@ -68,8 +92,8 @@ public final class MailActions {
     public func move(
         _ threads: [ThreadSummary.ID], to destination: MoveDestination, named name: String, from mailbox: Mailbox
     ) {
-        feedback(.putAway)
         apply(
+            .move(destination, from: mailbox), on: threads, feedback: .putAway,
             confirmation: String(
                 localized: "\(threads.count) moved to \(name)", table: "Actions", bundle: .module,
                 comment: "Toast after moving threads; the second value is the mailbox or label they went to")
@@ -78,8 +102,8 @@ public final class MailActions {
 
     /// Takes the threads out of the Inbox until `date`, with a toast to take that back.
     public func snooze(_ threads: [ThreadSummary.ID], until date: Date) {
-        feedback(.putAway)
         apply(
+            .snooze, on: threads, feedback: .putAway,
             confirmation: String(
                 localized: "Snoozed until \(ScheduledTime.text(for: date))", table: "Actions", bundle: .module,
                 comment: "Toast after snoozing threads, with when they come back")
@@ -88,14 +112,13 @@ public final class MailActions {
 
     /// Pins the threads to the top of their lists, or unpins them. They stay in view, so no toast; a shake undoes it.
     public func pin(_ threads: [ThreadSummary.ID], _ pinned: Bool) {
-        feedback(.change)
-        apply(confirmation: nil) { try await $0.pin(threads, pinned) }
+        apply(nil, on: threads, feedback: .change, confirmation: nil) { try await $0.pin(threads, pinned) }
     }
 
     /// Puts snoozed threads back in the Inbox now, with a toast to snooze them again.
     public func unsnooze(_ threads: [ThreadSummary.ID]) {
-        feedback(.change)
         apply(
+            .unsnooze, on: threads, feedback: .change,
             confirmation: String(
                 localized: "\(threads.count) moved to Inbox", table: "Actions", bundle: .module,
                 comment: "Toast after putting snoozed threads back in the Inbox")
@@ -113,11 +136,12 @@ public final class MailActions {
         run { [self] commands in
             guard let undo = lastUndo else { return }
             lastUndo = nil
-            toast = nil
+            endToast()
             feedback(.undone)
             switch undo {
-            case .actions(let undo):
+            case .actions(let undo, let change):
                 try await commands.undo(undo)
+                if let change { undone?(change) }
             case .send(let id):
                 takenBack.insert(id)
                 if let draft = try await commands.cancelSend(id) { reopen?(draft) }
@@ -155,11 +179,14 @@ public final class MailActions {
                         message: String(
                             localized: "Sent", table: "Actions", bundle: .module,
                             comment: "Toast with Undo after sending a message, while it can still be taken back"),
-                        undo: .send(draft.id), lasting: delay))
+                        .confirmation(.send(draft.id)), lasting: delay))
             case .at(let date):
                 try await commands.schedule(draft, at: date)
                 lastUndo = .send(draft.id)
-                show(Toast(message: Self.scheduledConfirmation(for: date), undo: .send(draft.id), lasting: readingTime))
+                show(
+                    Toast(
+                        message: Self.scheduledConfirmation(for: date), .confirmation(.send(draft.id)),
+                        lasting: readingTime))
             }
         }
     }
@@ -196,16 +223,25 @@ public final class MailActions {
         await chain.settled()
     }
 
-    /// Makes one undoable change, keeps it as the last one, and confirms it with `confirmation` when there is one.
+    /// Makes one undoable change the reader asked of `threads`, plays its `feedback`, keeps it as the last one, and
+    /// confirms it with `confirmation` when there is one. The window hears of `request` at once, before it applies,
+    /// so it moves its reader in the same step (`changed`); `nil` for a change that moves no reader, as a pin. Asked
+    /// of no threads, as Delete with nothing listed picked, it does nothing at all.
     func apply(
+        _ request: MailChange.Request?, on threads: [ThreadSummary.ID], feedback haptic: Haptic,
         confirmation: String?, _ change: @escaping (MailCommands) async throws -> MailCommands.Undo
     ) {
+        guard !threads.isEmpty else { return }
+        feedback(haptic)
+        let asked = request.map { MailChange($0, on: threads) }
+        if let asked { changed?(asked) }
         run { [self] commands in
-            let undo = try await change(commands)
-            guard !undo.isEmpty else { return }
-            lastUndo = .actions(undo)
+            let applied = try await change(commands)
+            guard !applied.isEmpty else { return }
+            let undo = Undo.actions(applied, change: asked)
+            lastUndo = undo
             if let confirmation {
-                show(Toast(message: confirmation, undo: .actions(undo), lasting: readingTime))
+                show(Toast(message: confirmation, .confirmation(undo), lasting: readingTime))
             }
         }
     }
@@ -229,7 +265,25 @@ public final class MailActions {
     }
 
     public func dismissToast() {
+        endToast()
+    }
+
+    /// Says `notice` in the toast, with no Undo, for as long as a confirmation stays. A confirmation showing keeps its
+    /// Undo: the notice follows once it goes. What the last Undo takes back stays, for a shake.
+    public func say(_ notice: String) {
+        if toast?.offersUndo == true {
+            waitingNotice = notice
+            return
+        }
+        show(Toast(message: notice, .notice, lasting: readingTime))
+    }
+
+    /// The toast goes; a notice that waited for it comes up.
+    private func endToast() {
         toast = nil
+        guard let notice = waitingNotice else { return }
+        waitingNotice = nil
+        say(notice)
     }
 
     /// How long a toast stays when nothing else bounds it, longer while VoiceOver or Switch Control runs. An undo-send
@@ -242,7 +296,7 @@ public final class MailActions {
         self.toast = toast
         Task {
             try? await Task.sleep(until: toast.ends, clock: .continuous)
-            if self.toast?.id == toast.id { self.toast = nil }
+            if self.toast?.id == toast.id { endToast() }
         }
     }
 

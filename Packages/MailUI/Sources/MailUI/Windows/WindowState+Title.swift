@@ -9,12 +9,12 @@ extension WindowState {
     public func windowTitle(
         subject: String?, labels: [MailboxDirectory.Label], accounts: [Account], smartMailbox: SmartMailbox? = nil
     ) -> String {
-        if openThread != nil, let subject {
+        if reading != nil, let subject {
             return subject.isEmpty ? ThreadRowMetrics.noSubject : subject
         }
-        if depth == .mailboxes { return MailboxesViewController.title }
+        if place == .mailboxes { return MailboxesViewController.title }
         return switch list {
-        case .mailbox(let mailbox, _): mailbox.listTitle(labels: labels, accounts: accounts)
+        case .mailbox(let mailbox): mailbox.listTitle(labels: labels, accounts: accounts)
         case .scheduled:
             String(
                 localized: "Scheduled", table: "Mailboxes", bundle: .module,

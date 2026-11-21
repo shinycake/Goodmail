@@ -22,14 +22,14 @@ extension SceneCoordinator {
             return
         case .welcome:
             if !model.accounts.isEmpty { showMailbox() }
-        case .mailbox(_, _, .settings):
+        case .mailbox(_, .settings):
             // Closing Settings follows whatever changed meanwhile, and makes the offer.
             return
-        case .mailbox(_, let accounts, _), .message(_, let accounts):
+        case .mailbox(let accounts, _), .message(_, let accounts):
             if model.accounts.isEmpty {
                 showWelcome()
             } else if accounts != model.accounts.map(\.id) {
-                showMailboxKeepingPlace()
+                showMailbox()
             }
         }
         offerSharedAccounts()
@@ -52,11 +52,11 @@ extension SceneCoordinator {
                 model.accounts.isEmpty ? showWelcome() : showMailbox()
             }
             enter(.offer(sheet))
-        case .mailbox(let split, let accounts, .none) where window.isKeyWindow:
+        case .mailbox(let accounts, .none) where window.isKeyWindow:
             // Not Now is the way out, so the choice is remembered.
             sheet.isModalInPresentation = true
             offer.onFinished = { [weak self] in self?.offerAnswered() }
-            enter(.mailbox(split, accounts: accounts, cover: .offer(sheet)))
+            enter(.mailbox(accounts: accounts, cover: .offer(sheet)))
             topViewController()?.present(sheet, animated: true)
         case .offer, .mailbox, .message, .leaving:
             return
@@ -65,7 +65,7 @@ extension SceneCoordinator {
 
     /// The sheet over the mail screens was answered and closes itself.
     private func offerAnswered() {
-        guard case .mailbox(let split, let accounts, .offer) = screen else { return }
-        enter(.mailbox(split, accounts: accounts, cover: .none))
+        guard case .mailbox(let accounts, .offer) = screen else { return }
+        enter(.mailbox(accounts: accounts, cover: .none))
     }
 }

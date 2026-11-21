@@ -26,10 +26,13 @@ public struct Mailbox: Hashable, Codable, Sendable {
     /// Whether `thread` belongs here, judged by its labels.
     public func contains(_ thread: ThreadSummary) -> Bool {
         if let accountID, thread.id.accountID != accountID { return false }
-        guard let labelID else {
-            return !thread.labelIDs.contains(SystemLabel.spam) && !thread.labelIDs.contains(SystemLabel.trash)
-        }
-        return thread.labelIDs.contains(labelID)
+        return contains(labels: thread.labelIDs)
+    }
+
+    /// Whether a conversation of this mailbox's account carrying `labels` belongs here.
+    public func contains(labels: Set<String>) -> Bool {
+        guard let labelID else { return !labels.contains(SystemLabel.spam) && !labels.contains(SystemLabel.trash) }
+        return labels.contains(labelID)
     }
 }
 

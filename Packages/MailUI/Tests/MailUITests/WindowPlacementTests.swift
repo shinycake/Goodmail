@@ -23,9 +23,10 @@ import Testing
     }
 
     @Test func `a touch window is always a viewer, even restoring a Mac's message window`() {
-        let message = WindowState().opening(thread, in: .inbox, as: .message)
+        let message = WindowState().opening(Reading(thread, in: .inbox), as: .message)
         #expect(InteractionStyle.touch.laying(out: message).layout == .viewer)
-        #expect(InteractionStyle.touch.laying(out: message).openThread?.id == thread, "the thread stays open")
+        #expect(
+            InteractionStyle.touch.laying(out: message).reading == Reading(thread, in: .inbox), "the thread stays open")
         #expect(InteractionStyle.desktop.laying(out: message) == message)
     }
 }

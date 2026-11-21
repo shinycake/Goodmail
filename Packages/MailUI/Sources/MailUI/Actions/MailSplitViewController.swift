@@ -20,6 +20,8 @@ public final class MailSplitViewController: UISplitViewController {
     private(set) lazy var inboxZeroSkyView = makeInboxZeroSkyView()
     /// Names each column's toolbar buttons and their keys on a desktop window.
     private let toolTips = BarToolTips()
+    /// Next and Previous Conversation, from the window's navigation (`WindowNavigator`).
+    public var steps: ConversationSteps?
 
     public init(actions: MailActions) {
         self.actions = actions
@@ -162,7 +164,7 @@ public final class MailSplitViewController: UISplitViewController {
     /// VoiceOver's two-finger double tap undoes while the toast shows, wherever VoiceOver is, as the play/pause of
     /// the Magic Tap does in Phone and Music.
     public override func accessibilityPerformMagicTap() -> Bool {
-        guard actions.toast != nil else { return false }
+        guard actions.toast?.offersUndo == true else { return false }
         actions.undoLast()
         return true
     }
@@ -175,7 +177,7 @@ public final class MailSplitViewController: UISplitViewController {
         shownToast = current?.id
         if current == nil { tellFloors(toastHeight: 0) }
         if let current {
-            toast.show(current.message)
+            toast.show(current.message, offeringUndo: current.offersUndo)
             placeToast()
             view.layoutIfNeeded()
             toast.transform = Motion.entrance(CGAffineTransform(translationX: 0, y: 20).scaledBy(x: 0.9, y: 0.9))

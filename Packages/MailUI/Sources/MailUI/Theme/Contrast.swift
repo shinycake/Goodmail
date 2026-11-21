@@ -1,6 +1,6 @@
 import UIKit
 
-extension UIColor {
+nonisolated extension UIColor {
     /// The WCAG 2 contrast ratio between this color and `other`, from 1 (none) to 21 (black on white), both as
     /// resolved for `traits`.
     func contrastRatio(with other: UIColor, in traits: UITraitCollection) -> CGFloat {

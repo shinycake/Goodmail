@@ -152,6 +152,7 @@ struct AppServices {
         #if DEBUG
             TestDelivery.scheduleIfRequested(model: model)
             TestAlert.scheduleIfRequested(model: model)
+            TestArrival.scheduleIfRequested(routes: routes)
             SyntheticMailbox.deliverArrivalsIfRequested(to: model.database)
             TestMailTools.runIfRequested(model: model)
         #endif

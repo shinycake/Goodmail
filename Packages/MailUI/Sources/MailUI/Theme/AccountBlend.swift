@@ -30,7 +30,7 @@ public struct AccountBlend: Equatable {
     }
 
     /// The minimum contrast against the background for a control's tint (WCAG 2, non-text and large text).
-    static let legibleContrast: CGFloat = 3
+    nonisolated static let legibleContrast: CGFloat = 3
 
     /// The tint for controls, which take one color: per trait collection, the first account color that stands
     /// out from the background by `legibleContrast`, or the one that stands out most when none does. A gradient
@@ -38,11 +38,16 @@ public struct AccountBlend: Equatable {
     /// in dark mode. The system tint when there are no accounts.
     public var tint: UIColor {
         guard colors.count > 1 else { return colors.first?.uiColor ?? .tintColor }
-        let colors = colors.map(\.uiColor)
-        return UIColor { traits in
+        return Self.legibleTint(among: colors.map(\.uiColor))
+    }
+
+    /// Nonisolated, because SwiftUI resolves a dynamic color on its own render thread, where a provider bound to
+    /// the main actor traps.
+    nonisolated private static func legibleTint(among colors: [UIColor]) -> UIColor {
+        UIColor { traits in
             let contrasts = colors.map { (color: $0, ratio: $0.contrastRatio(with: .systemBackground, in: traits)) }
             let legible =
-                contrasts.first { $0.ratio >= Self.legibleContrast } ?? contrasts.max { $0.ratio < $1.ratio }
+                contrasts.first { $0.ratio >= legibleContrast } ?? contrasts.max { $0.ratio < $1.ratio }
             return (legible?.color ?? .tintColor).resolvedColor(with: traits)
         }
     }

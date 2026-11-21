@@ -47,7 +47,7 @@ extension InteractionStyle {
     /// from a Mac opens as the viewer on touch, with its thread open.
     public func laying(out state: WindowState) -> WindowState {
         switch self {
-        case .touch: state.laidOut(as: .viewer)
+        case .touch: state.asViewer
         case .desktop: state
         }
     }

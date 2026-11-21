@@ -21,7 +21,7 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
     }
 
     private var tray = Tray.folded
-    private var attachments: [DraftAttachment] = []
+    private(set) var attachments: [DraftAttachment] = []
     private let container = UIVisualEffectView(effect: UIGlassContainerEffect())
     private let actionsGlass = UIVisualEffectView()
     private let actionsRow = UIStackView()
@@ -35,7 +35,7 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
     /// Plain, on the field's glass beside Send, like Send it doesn't stack glass on glass.
     private let expandButton = ConfiguredButton(configuration: .plain())
     private let attachmentsView = ComposeAttachmentsView()
-    private lazy var picker = AttachmentPicker { [weak self] in self?.attach($0) }
+    private(set) lazy var picker = AttachmentPicker { [weak self] in self?.attach($0) }
     /// Takes in what is dragged in from other apps or pasted: words where the caret is, files attached.
     private(set) lazy var intake = ContentIntake(
         room: { [unowned self] in attachments.room },
@@ -158,7 +158,7 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
         }
     }
 
-    /// Folds the tray and stops preparing attachments: the reader is leaving.
+    /// Folds the tray and stops preparing attachments: the reader is let go (`ThreadViewController.leave`).
     func finish() {
         setTray(.folded, animated: false)
         picker.finish()

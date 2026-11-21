@@ -27,7 +27,8 @@ public protocol CommandScreen: UIViewController {
 }
 
 /// Finds which screen answers each command: a presented screen, as the composer, alone, since it covers the rest;
-/// otherwise the shown screens from the front, the thread before its list before the mailboxes.
+/// otherwise the shown screens from the front, the thread before its list before the mailboxes, then the mail screens
+/// around them.
 @MainActor
 public enum CommandRouting {
     /// The frontmost answer other than `.notHere` among the screens on show, or `.notHere` when none has the command.
@@ -56,17 +57,19 @@ public enum CommandRouting {
         return shown(in: top)
     }
 
-    /// The screens `controller` shows, frontmost first.
+    /// The screens `controller` shows, frontmost first. A split view that answers commands itself does so after its
+    /// columns, as the window's mail screens answer Next and Previous Conversation.
     private static func shown(in controller: UIViewController) -> [any CommandScreen] {
         switch controller {
+        case let split as UISplitViewController:
+            let columns: [UISplitViewController.Column] =
+                split.isCollapsed ? [.compact] : [.secondary, .supplementary, .primary]
+            let itself = (split as? any CommandScreen).map { [$0] } ?? []
+            return columns.compactMap(split.viewController(for:)).flatMap(shown(in:)) + itself
         case let screen as any CommandScreen:
             return [screen]
         case let navigation as UINavigationController:
             return navigation.topViewController.map(shown(in:)) ?? []
-        case let split as UISplitViewController:
-            let columns: [UISplitViewController.Column] =
-                split.isCollapsed ? [.compact] : [.secondary, .supplementary, .primary]
-            return columns.compactMap(split.viewController(for:)).flatMap(shown(in:))
         default:
             return controller.children.reversed().flatMap(shown(in:))
         }

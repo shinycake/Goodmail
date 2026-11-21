@@ -65,14 +65,24 @@ public final class MailboxViewModel {
     public let mailbox: Mailbox
     /// Whether this is a Trash, of every account or of one, which Delete Forever can empty.
     var isTrash: Bool { mailbox.labelID == SystemLabel.trash }
-    public let title: String
+    /// The list's name, which a label's list learns off the main actor once it is built (`naming`).
+    public private(set) var title: String
+    /// Names the list from the store off the main actor, as a label's list needs its label's name; `nil` when it
+    /// knows its name already.
+    public typealias Naming = @concurrent @Sendable () async -> String?
+    @ObservationIgnored private let naming: Naming?
     /// The category the list shows, or `nil` when the mailbox isn't split into categories.
     public var category: InboxCategory? {
         guard case .categorised(_, let selected) = source else { return nil }
         return selected
     }
+    /// What the list is filtered by, and what was read under it on this visit, which stays listed (`isShown`).
+    var visit: FilterVisit
     /// What the list is filtered by. Only `setFilter` changes it.
-    public internal(set) var filter: ListFilter
+    public internal(set) var filter: ListFilter {
+        get { visit.filter }
+        set { visit.filter(by: newValue, reading: reading) }
+    }
     /// How many threads the filter leaves out of what the store listed, so an empty list can tell a filter that hides
     /// everything from a mailbox with nothing in it.
     public private(set) var hiddenByFilter = 0
@@ -80,7 +90,7 @@ public final class MailboxViewModel {
     var offersFilter: Bool { didChangeFilter != nil }
     /// What the list has picked. Only `pick` changes it; the ways to pick are in `MailboxViewModel+Selection`.
     public private(set) var selection = ListSelection.none
-    /// How the list's window is driven, which decides where the pick goes when its rows leave the list.
+    /// How the list's window is driven: whether a pick opens what it reads (`pick`).
     let interaction: InteractionStyle
     /// Unread threads per category, for the menu; categories with none are left out.
     public private(set) var categoryUnreadCounts: [InboxCategory: Int] = [:]
@@ -108,6 +118,9 @@ public final class MailboxViewModel {
     /// The sidebar's model, which ⌘1 to ⌘9 and ⌃⌘1 to ⌃⌘9 ask for the rows; `nil` where this list has none beside it.
     @ObservationIgnored let sidebar: () -> MailboxesViewModel?
     @ObservationIgnored var holdingAttachments: Set<ThreadSummary.ID> = []
+    /// The rows as they were when the conversation read was picked, which place it once its row leaves (`move`).
+    /// It counts only while that conversation is the one read.
+    @ObservationIgnored var readFrom: (thread: ThreadSummary.ID, rows: [ThreadSummary.ID])?
     @ObservationIgnored private let readAheadAction: (ThreadFetcher.Request) -> Void
     @ObservationIgnored private var mayHaveOlder = true
     @ObservationIgnored private let now: () -> Date
@@ -116,6 +129,7 @@ public final class MailboxViewModel {
     public init(
         mailbox: Mailbox = .inbox,
         title: String? = nil,
+        naming: Naming? = nil,
         accounts: [Account],
         source: MailboxSource,
         woken: (() -> AsyncThrowingStream<[ThreadSummary.ID: Date], any Error>)? = nil,
@@ -144,6 +158,7 @@ public final class MailboxViewModel {
         self.interaction = interaction
         self.mailbox = mailbox
         self.title = title ?? mailbox.listTitle(labels: [], accounts: accounts)
+        self.naming = naming
         composingAccount = mailbox.accountID ?? accounts.first?.id
         theme = Theme(accountID: mailbox.accountID, among: accounts, combined: combinedTheme)
         self.accounts = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0) })
@@ -152,7 +167,7 @@ public final class MailboxViewModel {
         self.source = source
         wokenThreads = woken
         pinnedThreads = pins
-        self.filter = filter
+        visit = FilterVisit(filter)
         self.didChangeFilter = didChangeFilter
         self.attachmentThreads = attachmentThreads
         self.sidebar = sidebar
@@ -170,10 +185,17 @@ public final class MailboxViewModel {
         async let woken: Void = followWoken()
         async let pins: Void = followPins()
         async let attachments: Void = followAttachments()
+        async let named: Void = followName()
         await followSource()
         await woken
         await pins
         await attachments
+        await named
+    }
+
+    private func followName() async {
+        guard let naming, let name = await naming() else { return }
+        title = name
     }
 
     private func followSource() async {
@@ -197,6 +219,7 @@ public final class MailboxViewModel {
     public func select(_ category: InboxCategory) {
         guard case .categorised(let categories, let selected) = source, category != selected else { return }
         source = .categorised(categories, selected: category)
+        visit.restart(reading: reading)
         categories.didSelect(category)
     }
 
@@ -265,7 +288,6 @@ public final class MailboxViewModel {
         let back = unpinned.compactMap { thread in woken[thread.id].map { (thread, $0) } }
             .sorted { $0.1 > $1.1 }.map(\.0)
         let rest = unpinned.filter { woken[$0.id] == nil }
-        let shown = rows
         let leading = [
             Section(
                 id: .pinned,
@@ -282,7 +304,7 @@ public final class MailboxViewModel {
             + TimeSection.group(rest, by: \.date, now: now, calendar: calendar).map {
                 Section(id: .time($0.section), title: $0.section.title(now: now, calendar: calendar), threads: $0.items)
             }
-        pickAfterRowsChanged(from: shown)
+        pickAfterRowsChanged()
     }
 
     /// Below this many threads, the list fetches older ones without waiting for a scroll.
@@ -325,6 +347,11 @@ public final class MailboxViewModel {
         let old = selection
         guard new != old else { return }
         selection = new
+        if case .reading(let id) = new {
+            visit.read(id)
+            let rows = rows
+            if rows.contains(id) { readFrom = (id, rows) }
+        }
         guard revealing else { return }
         switch new {
         case .reading(let id): navigate(.thread(id, in: mailbox))
@@ -360,7 +387,8 @@ public final class MailboxViewModel {
     /// The window `id` opens in when its row is dragged out of the list: this list, on the category it shows, with
     /// the thread open.
     func newWindow(for id: ThreadSummary.ID) -> WindowState {
-        WindowState(list: .mailbox(mailbox, thread: id), category: category ?? .primary, filter: filter)
+        WindowState(list: .mailbox(mailbox), category: category ?? .primary, filter: filter)
+            .opening(Reading(id, in: mailbox))
     }
 
     /// What a swipe button does: act on the thread at once, or ask until when to snooze it.

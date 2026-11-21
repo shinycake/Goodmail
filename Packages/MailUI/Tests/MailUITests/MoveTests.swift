@@ -5,7 +5,7 @@ import Testing
 @testable import MailUI
 
 /// Threads' labels in memory, changed by the actions queued on them.
-private final class LabelStore: MailCommands.Store, @unchecked Sendable {
+final class LabelStore: MailCommands.Store, @unchecked Sendable {
     var labels: [String: Set<String>]
     var queued: [OutboxIntent] = []
 
@@ -136,63 +136,17 @@ struct MoveViewModelTests {
         #expect(routes == [.thread(id("t"), in: label), .move([id("t")], from: label)])
     }
 
-    @Test func theReaderNoticesWhenTheThreadLeavesItsMailbox() async {
+    @Test func theReaderAsksToMoveFromWhereItIsRead() {
         let thread = ThreadSummary(
             id: id("t"), subject: "Plan", snippet: "", sender: Contact(name: nil, address: "a@example.com"),
             date: .now, isUnread: false, messageCount: 1, labelIDs: ["Label_1"])
-        func message(_ labels: Set<String>) -> Message {
-            Message(
-                id: Message.ID(accountID: work, messageID: "m"), threadID: "t", from: thread.sender, subject: "Plan",
-                date: .now, labelIDs: labels, body: MessageBody(plain: ""))
-        }
         var routes: [Route] = []
-        var closes = 0
         let model = ThreadViewModel(
             thread: thread, mailbox: Mailbox(labelID: "Label_1", accountID: work), accountEmail: "me@example.com",
-            accountColor: .blue,
-            messages: {
-                AsyncThrowingStream {
-                    $0.yield([message(["Label_1"])])
-                    $0.yield([message(["Label_1", "STARRED"])])
-                    $0.yield([message(["Label_2"])])
-                    $0.yield([message(["Label_3"])])
-                    $0.finish()
-                }
-            }, load: {}, attachmentData: { _, _ in Data() }, source: { _ in Data() }, navigate: { routes.append($0) },
-            close: { closes += 1 })
+            accountColor: .blue, messages: { AsyncThrowingStream { $0.finish() } }, load: {},
+            attachmentData: { _, _ in Data() }, source: { _ in Data() }, navigate: { routes.append($0) })
         model.move()
         #expect(routes == [.move([id("t")], from: Mailbox(labelID: "Label_1", accountID: work))])
-        await model.observe()
-        #expect(model.presence == .left)
-        #expect(closes == 1, "The reader closes once, however many updates follow")
-        model.perform(.archive)
-        #expect(closes == 1)
-    }
-
-    @Test func leavingActionsCloseTheReaderOnceAndOthersDont() {
-        var closes = 0
-        let thread = ThreadSummary(
-            id: id("t"), subject: "Plan", snippet: "", sender: Contact(name: nil, address: "a@example.com"),
-            date: .now, isUnread: false, messageCount: 1, labelIDs: ["INBOX"])
-        func reader() -> ThreadViewModel {
-            ThreadViewModel(
-                thread: thread, mailbox: .inbox, accountEmail: "me@example.com", accountColor: .blue,
-
-                messages: { AsyncThrowingStream { $0.finish() } }, load: {}, attachmentData: { _, _ in Data() },
-                source: { _ in Data() },
-                close: { closes += 1 })
-        }
-        let starring = reader()
-        starring.perform(.star(true))
-        #expect(starring.presence == .reading)
-        #expect(closes == 0)
-        for action in [ThreadAction.archive, .trash, .reportSpam, .markRead(false)] {
-            let model = reader()
-            model.perform(action)
-            model.perform(action)
-            #expect(model.presence == .left)
-        }
-        #expect(closes == 4)
     }
 
     @Test(arguments: [(Mailbox.inbox, false), (Mailbox.trash, true)])

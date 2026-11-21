@@ -12,9 +12,9 @@ extension SceneCoordinator {
         /// The other devices' accounts, offered in place of the welcome screen. What follows waits for the reader's
         /// answer.
         case offer(UIViewController)
-        /// The mail screens, built for `accounts` so a change another device made rebuilds them, and the sheet over
-        /// them that the coordinator answers for.
-        case mailbox(MailSplitViewController, accounts: [AccountID], cover: Cover)
+        /// The mail screens the navigator holds (`WindowNavigator.screens`), built for `accounts` so a change another
+        /// device made rebuilds them, and the sheet over them that the coordinator answers for.
+        case mailbox(accounts: [AccountID], cover: Cover)
         /// One conversation alone, in a window of its own (`WindowState.Layout.message`): the reader, built for
         /// `accounts` like the mail screens.
         case message(UIViewController, accounts: [AccountID])
@@ -27,7 +27,7 @@ extension SceneCoordinator {
     /// or beside it. `nil` while the window shows no mail, or something covers it.
     var uncoveredMail: [AccountID]? {
         switch screen {
-        case .mailbox(_, let accounts, .none), .message(_, let accounts): accounts
+        case .mailbox(let accounts, .none), .message(_, let accounts): accounts
         case .starting, .welcome, .offer, .mailbox, .leaving: nil
         }
     }

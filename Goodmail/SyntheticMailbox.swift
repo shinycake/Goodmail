@@ -67,7 +67,21 @@
                 )
             }
             try database.upsert(threads)
+            try snoozeIfRequested(threads, in: database, now: now)
             return try model(of: database)
+        }
+
+        /// With `-GoodmailSyntheticSnoozed YES` as well, the two conversations out of every mailbox but All Mail are
+        /// snoozed, a day and two days ahead, so Snoozed has rows to read through.
+        private static func snoozeIfRequested(_ threads: [ThreadSummary], in database: MailDatabase, now: Date) throws {
+            guard UserDefaults.standard.bool(forKey: "GoodmailSyntheticSnoozed") else { return }
+            let archived = threads.filter(\.labelIDs.isEmpty).prefix(2)
+            var snoozes: [ThreadSummary.ID: SnoozeState?] = [:]
+            for (day, thread) in archived.enumerated() {
+                snoozes[thread.id] = .asleep(
+                    until: now.addingTimeInterval(Double(day + 1) * 86_400), keeper: .thisDevice)
+            }
+            try database.setSnoozes(snoozes)
         }
 
         /// With `-GoodmailSyntheticArrivalEvery 2` as well, a new thread lands at the top of the Inbox that many

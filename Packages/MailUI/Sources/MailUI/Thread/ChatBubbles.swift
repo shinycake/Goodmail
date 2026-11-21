@@ -320,7 +320,7 @@ final class ChatAttachmentBubble: ConfiguredButton {
     }
 }
 
-extension UIColor {
+nonisolated extension UIColor {
     /// Black or white, whichever reads better on this color, in each appearance.
     var readableInk: UIColor {
         UIColor { traits in

@@ -6,6 +6,9 @@ public import Observation
 @Observable
 public final class SnoozedViewModel: WaitingListModel {
     public private(set) var content = WaitingContent<ThreadSummary.ID>.loading
+    /// The snoozed conversations as listed, soonest back first, for the window to read on through them. Observed, so
+    /// the reader's chevrons follow it (`StepChevrons`).
+    private(set) var listed: [ThreadSummary] = []
 
     @ObservationIgnored private let threads: () -> AsyncThrowingStream<[SnoozedThread], any Error>
     @ObservationIgnored private let accounts: [Account]
@@ -25,13 +28,19 @@ public final class SnoozedViewModel: WaitingListModel {
     /// Follows the store until the calling task is cancelled. A failure leaves the last list in place.
     public func observe() async {
         do {
-            for try await threads in threads() { content = .loaded(threads.map(row(for:))) }
+            for try await threads in threads() {
+                listed = threads.map(\.thread)
+                content = .loaded(threads.map(row(for:)))
+            }
         } catch {}
     }
 
+    /// Where a snoozed conversation is read: out of the Inbox, so in All Mail.
+    static let readingMailbox = Mailbox.allMail
+
     /// Reads the thread; it stays snoozed.
     public func open(_ id: ThreadSummary.ID) {
-        navigate(.thread(id, in: .allMail))
+        navigate(.thread(id, in: Self.readingMailbox))
     }
 
     /// Puts the thread back in the Inbox now.

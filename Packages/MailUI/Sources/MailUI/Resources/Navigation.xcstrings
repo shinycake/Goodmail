@@ -1,0 +1,40 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "That conversation couldn't be opened. Check your connection and try again." : {
+      "comment" : "Toast when a tapped alert, Spotlight result or Shortcut opens a conversation not yet on this device while the server can't be reached",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That conversation couldn't be opened. Check your connection and try again."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן היה לפתוח את השיחה. כדאי לבדוק את החיבור ולנסות שוב."
+          }
+        }
+      }
+    },
+    "That conversation is no longer available." : {
+      "comment" : "Toast when a tapped alert, Spotlight result or Shortcut opens a conversation that was deleted",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That conversation is no longer available."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "השיחה הזו כבר לא זמינה."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

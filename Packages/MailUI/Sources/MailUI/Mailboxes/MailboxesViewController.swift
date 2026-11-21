@@ -49,6 +49,9 @@ public final class MailboxesViewController: UIViewController {
         super.init(nibName: nil, bundle: nil)
         title = Self.title
         navigationItem.largeTitleDisplayMode = .always
+        // From the start, not once the view loads: a narrow window's mailboxes sit under the list unseen, and the
+        // window's title still names a label or smart mailbox from what they follow (`namesChanged`).
+        observation = Task { [viewModel] in await viewModel.observe() }
     }
 
     @available(*, unavailable)
@@ -94,7 +97,6 @@ public final class MailboxesViewController: UIViewController {
         // As a sidebar beside the list, New Message is the list's alone, so the window has one.
         let ownCompose = style == .list ? [compose] : []
         toolbarItems = [settings, .flexibleSpace()] + [newLabelItem()].compactMap(\.self) + ownCompose
-        observation = Task { [viewModel] in await viewModel.observe() }
     }
 
     public override func viewWillAppear(_ animated: Bool) {

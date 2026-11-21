@@ -41,6 +41,27 @@ struct ThemeTests {
         #expect(AccountBlend(colors).tint.resolvedColor(with: light) == best?.resolvedColor(with: light))
     }
 
+    /// SwiftUI resolves a glass tint on its own render thread, so the tint's provider can't need the main actor.
+    @Test func blendTintResolvesOffTheMainActor() async {
+        let tint = AccountBlend([.yellow, .blue]).tint
+        let resolved = await Self.resolve(tint, in: UITraitCollection(userInterfaceStyle: .dark))
+        #expect(resolved == UIColor.systemYellow.resolvedColor(with: UITraitCollection(userInterfaceStyle: .dark)))
+    }
+
+    /// The other dynamic colors SwiftUI may resolve off the main thread.
+    @Test(arguments: [
+        UIColor(RGBColor(red: 10, green: 10, blue: 40)).legibleOnBackground, UIColor.systemYellow.readableInk,
+        .draftCard,
+    ])
+    func dynamicColorsResolveOffTheMainActor(color: UIColor) async {
+        let dark = UITraitCollection(userInterfaceStyle: .dark)
+        #expect(await Self.resolve(color, in: dark) == color.resolvedColor(with: dark))
+    }
+
+    @concurrent private static func resolve(_ color: UIColor, in traits: UITraitCollection) async -> UIColor {
+        color.resolvedColor(with: traits)
+    }
+
     @Test func contrastRatioRunsFromOneToTwentyOne() {
         let traits = UITraitCollection(userInterfaceStyle: .light)
         #expect(abs(UIColor.black.contrastRatio(with: .white, in: traits) - 21) < 0.01)

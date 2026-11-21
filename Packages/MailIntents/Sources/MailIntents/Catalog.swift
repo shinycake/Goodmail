@@ -119,12 +119,3 @@ struct Catalog {
         }
     }
 }
-
-extension Mailbox {
-    /// The one standard mailbox a message carrying `labels` is in: Trash and Spam hold it alone, then Drafts, the
-    /// Inbox and Sent, or else All Mail.
-    static func holding(_ labels: Set<String>) -> Mailbox {
-        let order = [SystemLabel.trash, SystemLabel.spam, SystemLabel.draft, SystemLabel.inbox, SystemLabel.sent]
-        return order.first(where: labels.contains).map { Mailbox(labelID: $0) } ?? .allMail
-    }
-}

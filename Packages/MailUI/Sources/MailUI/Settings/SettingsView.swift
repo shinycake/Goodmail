@@ -97,6 +97,15 @@ struct SettingsView: View {
                         "Layout", tableName: "Settings", bundle: .module,
                         comment: "Setting for how a conversation reads")
                 }
+                Picker(selection: $model.afterRemoval) {
+                    ForEach(AfterRemoval.allCases, id: \.self) { choice in
+                        Text(choice.title).tag(choice)
+                    }
+                } label: {
+                    Text(
+                        "After Archive or Delete", tableName: "Settings", bundle: .module,
+                        comment: "Setting for what opens after the conversation being read is archived or deleted")
+                }
             } header: {
                 Text(
                     "Conversations", tableName: "Settings", bundle: .module,
@@ -104,9 +113,14 @@ struct SettingsView: View {
                 )
                 .headerDoodle(.plane, size: 20, tint: 2)
             } footer: {
-                Text(
-                    "Chat shows each message's new words as bubbles. Switch one conversation from its toolbar.",
-                    tableName: "Settings", bundle: .module, comment: "Explains the conversation layout setting")
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(
+                        "Chat shows each message's new words as bubbles. Switch one conversation from its toolbar.",
+                        tableName: "Settings", bundle: .module, comment: "Explains the conversation layout setting")
+                    Text(
+                        "What opens after you archive, delete, move, snooze or mute the conversation you're reading. Next is the one below it in the list.",
+                        tableName: "Settings", bundle: .module, comment: "Explains the After Archive or Delete setting")
+                }
             }
 
             RemoteImagesSection()
@@ -268,7 +282,7 @@ public enum SettingsScreen {
     /// Tells the model the screen closed only when the screen itself is dismissed. The root view also goes off
     /// screen when an account or Add Account is pushed over it, and treating that as closing rebuilt the mail
     /// screens under the open sheet, which took Settings down with them.
-    private final class Controller: UIHostingController<Root> {
+    private final class Controller: UIHostingController<Root>, ArrivalDismissible {
         private let model: SettingsViewModel
 
         init(model: SettingsViewModel, page: SettingsPage) {

@@ -12,22 +12,16 @@ public final class ThreadViewModel {
     /// The account's other addresses, which answers to mail sent to one go from.
     public let accountAliases: [Contact]
     public let accountColor: AccountColor
-    public private(set) var messages: [Message] = []
+    /// What the reader has to show: nothing yet while it is fetched, its messages, or why it has none.
+    public private(set) var content = ConversationContent.loading
+    /// Its messages, while there are any to show.
+    public var messages: [Message] { content.messages }
     /// Messages shown as cards; the rest are one-line rows in the timeline.
     public private(set) var expanded: Set<Message.ID> = []
     /// Messages whose remote content the reader loaded once.
     private var loadedOnce: Set<Message.ID> = []
     /// The rules that load remote images without asking, as of opening the thread and trusting from it.
     private var trustRules: [ImageTrustRule]
-    public private(set) var isLoading = false
-    public private(set) var loadError: (any Error)?
-    /// Whether the reader is still on the thread. It leaves once, when an action or a move takes the thread out of
-    /// `mailbox`, and closes then.
-    public enum Presence: Equatable, Sendable {
-        case reading
-        case left
-    }
-    public private(set) var presence: Presence = .reading
     /// How this conversation reads. It opens in the reader's chosen layout, and the toolbar switches it.
     public private(set) var layout: ConversationLayout
     /// The messages as chat bubbles, with my replies still on their way at the end, worked out off the main actor
@@ -59,11 +53,11 @@ public final class ThreadViewModel {
     @ObservationIgnored let attachmentData: (Attachment, Message.ID) async throws -> Data
     /// A message's raw RFC 5322 source, for sharing it as an `.eml` file or `.mbox` archive.
     @ObservationIgnored let source: (Message.ID) async throws -> Data
-    @ObservationIgnored private let actions: MailActions?
+    /// The window's actions, which tell it of each change asked here, so the window moves the reader (R7).
+    @ObservationIgnored let actions: MailActions?
     /// Apply Rules, Block Sender and VIPs, where the app offers them.
     @ObservationIgnored let senders: SenderRules?
     @ObservationIgnored private let navigate: (Route) -> Void
-    @ObservationIgnored private let close: () -> Void
     @ObservationIgnored private var hasMarkedRead = false
     @ObservationIgnored private let attachmentsDirectory: URL
     @ObservationIgnored private let now: () -> Date
@@ -89,7 +83,6 @@ public final class ThreadViewModel {
         actions: MailActions? = nil,
         senders: SenderRules? = nil,
         navigate: @escaping (Route) -> Void = { _ in },
-        close: @escaping () -> Void = {},
         attachmentsDirectory: URL = FileManager.default.temporaryDirectory.appending(path: "Attachments"),
         now: @escaping () -> Date = Date.init,
         calendar: Calendar = .autoupdatingCurrent,
@@ -103,7 +96,6 @@ public final class ThreadViewModel {
         self.actions = actions
         self.senders = senders
         self.navigate = navigate
-        self.close = close
         self.attachmentsDirectory = attachmentsDirectory
         self.thread = thread
         self.mailbox = mailbox
@@ -121,7 +113,8 @@ public final class ThreadViewModel {
     }
 
     /// Shows the cached messages at once, then fetches the latest; follows the store until cancelled. Opening a
-    /// thread reads it.
+    /// thread reads it. The reader stays whatever the store says of the thread: only the window moves it, for what
+    /// the reader asked here (R6).
     public func observe() async {
         if thread.isUnread, !hasMarkedRead {
             hasMarkedRead = true
@@ -136,14 +129,10 @@ public final class ThreadViewModel {
                 if expanded.isEmpty { expanded = Self.initiallyExpanded(messages) }
                 received = messages
                 await updateTranscript()
-                if !messages.isEmpty, mailbox.contains(thread) {
-                    var now = thread
-                    now.labelIDs = messages.reduce(into: []) { $0.formUnion($1.labelIDs) }
-                    if !mailbox.contains(now) { leave() }
-                }
             }
         } catch {
-            loadError = error
+            // The store couldn't be read: as a fetch that failed, it says so only with nothing to show.
+            content.fetched(.failed)
         }
         await loading
         await pinning
@@ -192,7 +181,7 @@ public final class ThreadViewModel {
         guard request == transcriptRequest else { return }
         expanded.formUnion(syncedCopies)
         syncedCopies = []
-        self.messages = messages
+        content.received(messages)
         self.transcript = transcript
         replies = pending.replies
     }
@@ -203,15 +192,28 @@ public final class ThreadViewModel {
         } catch {}
     }
 
+    /// Fetches the latest from the service, which the store then brings (`content`).
     public func load() async {
-        isLoading = true
-        defer { isLoading = false }
+        content.refetching()
         do {
             try await loadAction()
-            loadError = nil
+            content.fetched(.done(stored: await stores()))
+        } catch ProviderError.notFound {
+            content.fetched(.notFound)
+        } catch is CancellationError {
+            // The reader went away; what it showed doesn't matter.
         } catch {
-            loadError = error
+            content.fetched(.failed)
         }
+    }
+
+    /// Whether the store holds any of the conversation's messages now, as a fetch that just finished left it. A store
+    /// that can't be read says nothing new, so what the reader has decides.
+    private func stores() async -> Bool {
+        do {
+            for try await messages in stream() { return !messages.isEmpty }
+        } catch {}
+        return !received.isEmpty
     }
 
     /// Reading the bodies for their new words parses every message, so it stays off the main actor.
@@ -276,21 +278,23 @@ public final class ThreadViewModel {
         messages.contains { $0.labelIDs.contains(SystemLabel.starred) }
     }
 
+    /// The thread's labels as its messages carry them now, or as its row did while they load.
+    public var labels: Set<String> {
+        messages.isEmpty ? thread.labelIDs : messages.reduce(into: []) { $0.formUnion($1.labelIDs) }
+    }
+
     /// Mute or Unmute for the thread as it stands now, when it applies.
     public var muteAction: ThreadAction? {
-        let labels = messages.reduce(into: Set<String>()) { $0.formUnion($1.labelIDs) }
-        return ThreadAction.muting([messages.isEmpty ? thread.labelIDs : labels])
+        ThreadAction.muting([labels])
     }
 
     /// Whether the thread was opened from Trash, so its toolbar deletes it forever instead of trashing it. Its labels
     /// can't say: a thread whose reply came in to the Inbox after its earlier messages were trashed carries Trash too.
     public var isInTrash: Bool { ThreadPlace(thread, in: mailbox) == .trash }
 
-    /// Applies an action to the whole thread. Archive, Trash, Delete Forever, Spam and Mute take it out of the
-    /// mailbox, and Unread puts it back for later, so the reader leaves after them.
+    /// Applies an action to the whole thread. The window decides from it where the reader goes (`MailActions.changed`).
     public func perform(_ action: ThreadAction) {
         actions?.perform(action, on: [thread.id])
-        if [.archive, .trash, .deleteForever, .reportSpam, .mute, .markRead(false)].contains(action) { leave() }
     }
 
     /// Pins the thread to the top of its lists, or with `pinned` false unpins it. The reader stays.
@@ -298,17 +302,9 @@ public final class ThreadViewModel {
         actions?.pin([thread.id], pinned)
     }
 
-    /// Takes the thread out of the Inbox until `date`, and leaves it.
+    /// Takes the thread out of the Inbox until `date`.
     public func snooze(until date: Date) {
         actions?.snooze([thread.id], until: date)
-        leave()
-    }
-
-    /// The one transition out of the thread: the reader closes the first time, and never again.
-    private func leave() {
-        guard presence == .reading else { return }
-        presence = .left
-        close()
     }
 
     /// Opens the label picker for this thread.

@@ -111,5 +111,5 @@ public enum Preferences {
     nonisolated static let showsAvatarsKey = "showsAvatars"
     nonisolated static let unsortedInboxKey = "unsortedInboxAccounts"
     nonisolated static let combinedThemeColorKey = "combinedThemeColor"
-    private static let defaults = UserDefaults.standard
+    static let defaults = UserDefaults.standard
 }

@@ -3,7 +3,7 @@
 ///
 /// The transitions are pure: each takes the list's rows, top to bottom, and returns the next value. The pointer ones
 /// never leave `several` holding one row or none, which reads that row or nothing instead. Select mode on touch may
-/// hold any number, since it stays on until Done.
+/// hold any number, since it stays on until Done, and so may a pointer's several once rows leave from under it.
 public enum ListSelection: Hashable, Sendable {
     case none
     /// One conversation, shown in the reader.
@@ -54,7 +54,8 @@ public enum ListSelection: Hashable, Sendable {
         case .plain:
             return .reading(row)
         case .toggle:
-            var ids = ids
+            // Only listed rows: a conversation still read after its row left isn't picked along.
+            var ids = Set(ids(in: rows))
             guard ids.remove(row) == nil else {
                 return .picked(ids, anchor: anchor.flatMap { ids.contains($0) ? $0 : nil })
             }
@@ -66,10 +67,18 @@ public enum ListSelection: Hashable, Sendable {
         }
     }
 
-    /// After ↓ (`offset` 1) or ↑ (-1), with ⇧ when `extending`. Stops at either end of the list.
-    public func moving(_ offset: Int, extending: Bool, in rows: [ThreadSummary.ID]) -> ListSelection {
+    /// After ↓ (`offset` 1) or ↑ (-1), with ⇧ when `extending`. Stops at either end of the list. A conversation read
+    /// whose row has left since, as a read one leaves an Unread smart mailbox, moves from where it was in `trail`, the
+    /// rows as they were when it was picked, as Next and Previous Conversation do.
+    public func moving(
+        _ offset: Int, extending: Bool, in rows: [ThreadSummary.ID], trail: [ThreadSummary.ID] = []
+    ) -> ListSelection {
         let indices = ids(in: rows).compactMap(rows.firstIndex(of:))
         guard let top = indices.min(), let bottom = indices.max() else {
+            if case .reading(let read) = self, trail.contains(read) {
+                let step: WindowNavigation.Step = offset > 0 ? .next : .previous
+                return step.neighbor(of: read, in: trail, listed: Set(rows)).map(ListSelection.reading) ?? self
+            }
             return rows.first.map(ListSelection.reading) ?? .none
         }
         func clamped(_ index: Int) -> Int { min(max(index, 0), rows.count - 1) }
@@ -107,31 +116,15 @@ public enum ListSelection: Hashable, Sendable {
 
     // MARK: Rows leaving
 
-    /// After the list went from `old` to `new` rows, with a pointer: picked rows that left are dropped, and when none
-    /// is left the row after the first that left is read, or the one before when they were last, so Delete can be
-    /// pressed again and again. Rows that were never listed, as a thread opened from a notification, stay picked.
-    public func following(removalFrom old: [ThreadSummary.ID], to new: [ThreadSummary.ID]) -> ListSelection {
-        let present = Set(new)
-        let listed = Set(old)
-        let ids = ids
-        let gone = ids.filter { listed.contains($0) && !present.contains($0) }
-        guard !gone.isEmpty else { return self }
-        let kept = ids.subtracting(gone)
-        guard kept.isEmpty else { return .picked(kept, anchor: anchor.flatMap { kept.contains($0) ? $0 : nil }) }
-        guard let start = old.firstIndex(where: gone.contains) else { return .none }
-        let next = old[start...].first(where: present.contains) ?? old[..<start].last(where: present.contains)
-        return next.map(ListSelection.reading) ?? .none
-    }
-
-    /// After the list's rows became `rows`, on touch: rows that left are dropped and nothing else moves. Select mode
-    /// stays on however few are left.
+    /// After the list's rows became `rows`: picked rows that left are dropped and nothing else moves, so the reader
+    /// stays on a conversation whatever takes its row away (R6). The conversation being read stays read while its row
+    /// is gone, since the reader still shows it: its row is marked again when it comes back, as after Undo. Several
+    /// stay several however few are left: Select mode stays on until Done.
     public func keeping(_ rows: [ThreadSummary.ID]) -> ListSelection {
         let present = Set(rows)
         switch self {
-        case .none:
-            return .none
-        case .reading(let id):
-            return present.contains(id) ? self : .none
+        case .none, .reading:
+            return self
         case .several(let ids, let anchor):
             return .several(ids.intersection(present), anchor: anchor.flatMap { present.contains($0) ? $0 : nil })
         }

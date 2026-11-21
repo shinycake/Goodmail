@@ -17,9 +17,6 @@ public final class MailboxViewController: UIViewController {
     /// Drags rows onto mailboxes and out of the window. The list's drag delegate, which it doesn't keep.
     private var drag: ConversationDrag?
     let searchResults: SearchResultsController?
-    /// The thread open beside a list built after it opened, as when the window widens back into columns, which the
-    /// list marks as selected once its row arrives (`markOpenThread`). `nil` once marked.
-    public var threadToMark: ThreadSummary.ID?
     /// A search asked for before the list was in a window, as from a Home Screen quick action at launch, which begins
     /// once the list appears (`beginSearch`). `nil` once begun.
     var searchToBegin: SearchQuery?
@@ -175,8 +172,9 @@ public final class MailboxViewController: UIViewController {
 
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        // Touch leaves the open thread's row as the reader comes back to the list; a desktop window keeps its pick.
-        if !picksWithPointer {
+        // Touch leaves the open thread's row as the reader comes back to the list in a narrow window; beside the
+        // reader, as a wide window shows the list again, and in a desktop window, the row stays marked.
+        if !picksWithPointer, splitViewController?.isCollapsed != false {
             for indexPath in collectionView.indexPathsForSelectedItems ?? [] {
                 collectionView.deselectItem(at: indexPath, animated: animated)
             }
@@ -236,8 +234,11 @@ public final class MailboxViewController: UIViewController {
     /// Called by UIKit whenever an observed view-model property changes.
     public override func updateProperties() {
         super.updateProperties()
+        // A label's list learns its name once it is read off the main actor; Select mode titles itself.
+        if !isEditing { title = viewModel.title }
         applySections(viewModel.sections)
         showPick()
+        showReadRow()
         updateEmptyState()
         if problemsItem.show(viewModel.problems) { toolbarEndsChanged() }
         showFilter()
@@ -437,6 +438,7 @@ public final class MailboxViewController: UIViewController {
         }
         snapshot.reconfigureItems(changed)
         if dissolveDeleted(leaving: threads) { return }
+        let opening = threadsByID.isEmpty
         threadsByID = threads
         let retitled = sectionTitles.update(to: sections)
         dataSource.apply(snapshot, animatingDifferences: view.window != nil)
@@ -450,7 +452,8 @@ public final class MailboxViewController: UIViewController {
         }
         swipes.rowsDidChange()
         hover?.refresh()
-        markOpenThread()
+        // A list built while a conversation is open, as when the window widens, opens on its row.
+        if opening { revealReadRow() }
         // Selected threads may have left the list.
         if isEditing { updateSelectionChrome() }
     }

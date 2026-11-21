@@ -231,7 +231,7 @@ extension ThreadAction {
     var isDestructive: Bool { [.trash, .deleteForever, .spam].contains(kind) }
 }
 
-/// The glass capsule along the bottom after an action that hides threads: what happened, and Undo.
+/// The glass capsule along the bottom after an action that hides threads: what happened, and Undo; or a notice alone.
 final class UndoToastView: UIView {
     var onUndo: (() -> Void)?
     private let label = UILabel()
@@ -274,8 +274,10 @@ final class UndoToastView: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("Programmatic UI only") }
 
-    func show(_ message: String) {
+    /// Says `message`, with Undo beside it unless it is a notice that offers none.
+    func show(_ message: String, offeringUndo: Bool) {
         label.text = message
         accessibilityLabel = message
+        undoButton.isHidden = !offeringUndo
     }
 }
