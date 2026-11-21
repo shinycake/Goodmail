@@ -92,13 +92,7 @@ extension MailboxViewController {
 
     /// Whether `key` does anything now.
     private func answers(_ key: ListKey) -> Bool {
-        switch (key, viewModel.selection) {
-        case (.up, _), (.down, _), (.extendUp, _), (.extendDown, _): !viewModel.rows.isEmpty
-        case (.drop, .several): true
-        case (.openWindow, .reading): UIApplication.shared.supportsMultipleScenes
-        case (.delete, .reading), (.delete, .several): viewModel.actions != nil
-        case (.drop, _), (.openWindow, _), (.delete, _): false
-        }
+        viewModel.answers(key, opensWindows: UIApplication.shared.supportsMultipleScenes)
     }
 
     @objc private func press(_ command: UIKeyCommand) {

@@ -10,7 +10,9 @@ struct DepartureTests {
 
     private let a = row("a"), b = row("b"), c = row("c")
     private let archiveB = MailChange(.action(.archive), on: [row("b")])
-    private var backToB: ReaderCourse.Opening { ReaderCourse.Opening(b, in: .inbox) }
+    private var backToB: ReaderCourse.Reader {
+        ReaderCourse.Reader(readerRow(b), mailbox: .inbox, labels: [SystemLabel.inbox])
+    }
 
     private func facts(
         reading thread: ThreadSummary.ID?, layout: WindowState.Layout = .viewer, setting: AfterRemoval = .next
@@ -18,7 +20,7 @@ struct DepartureTests {
         -> ReaderCourse.Facts
     {
         ReaderCourse.Facts(
-            reader: thread.map { ReaderCourse.Reader(thread: $0, mailbox: .inbox, labels: [SystemLabel.inbox]) },
+            reader: thread.map { ReaderCourse.Reader(readerRow($0), mailbox: .inbox, labels: [SystemLabel.inbox]) },
             front: ReaderCourse.Front(rows: [a, b, c], mailbox: .inbox), layout: layout, setting: setting)
     }
 

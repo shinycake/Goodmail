@@ -22,13 +22,14 @@ struct ReadRowTests {
         }
     }
 
-    private func list(_ interaction: InteractionStyle) -> (
+    private func list(_ interaction: InteractionStyle, filter: ListFilter = .on([.unread])) -> (
         MailboxViewModel, AsyncThrowingStream<[ThreadSummary], any Error>.Continuation
     ) {
         let (stream, feed) = AsyncThrowingStream<[ThreadSummary], any Error>.makeStream()
         let list = MailboxViewModel(
-            accounts: [account], source: .flat { stream }, filter: .on([.unread]), didChangeFilter: { _ in },
-            refresh: {}, interaction: interaction, now: { now })
+            accounts: [account], source: .flat { stream }, filter: filter, didChangeFilter: { _ in },
+            refresh: {}, actions: MailActions(commands: MailCommands(store: NoStore(), replay: { _ in })),
+            interaction: interaction, now: { now })
         return (list, feed)
     }
 
@@ -69,6 +70,25 @@ struct ReadRowTests {
         list.markReading(ids[3])
         list.markReading(nil)
         #expect(list.selection == .none)
+        feed.finish()
+        await observing.value
+    }
+
+    @Test func deleteAndReturnLeaveAConversationWhoseRowLeftToTheReader() async {
+        let (list, feed) = list(.desktop, filter: .none)
+        let observing = Task { await list.observe() }
+        feed.yield(threads(ids, unread: []))
+        while list.rows != ids { await Task.yield() }
+        list.click(ids[1], .plain)
+        #expect(list.answers(.delete, opensWindows: true))
+        #expect(list.answers(.openWindow, opensWindows: true))
+        // Archived on another device: the reader stays on it, and its row goes.
+        feed.yield(threads([ids[0], ids[2], ids[3]], unread: []))
+        while list.rows.count != 3 { await Task.yield() }
+        #expect(list.selection == .reading(ids[1]))
+        #expect(!list.answers(.delete, opensWindows: true), "Delete goes on to the reader's Trash")
+        #expect(!list.answers(.openWindow, opensWindows: true))
+        #expect(list.answers(.down, opensWindows: true))
         feed.finish()
         await observing.value
     }

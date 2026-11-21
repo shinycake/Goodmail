@@ -1,3 +1,4 @@
+import Foundation
 import MailCore
 import Testing
 
@@ -12,7 +13,7 @@ struct ReaderCourseTests {
     private var rows: [ThreadSummary.ID] { [a, b, c] }
 
     private func reading(_ thread: ThreadSummary.ID, in mailbox: Mailbox = .inbox) -> ReaderCourse.Reader {
-        ReaderCourse.Reader(thread: thread, mailbox: mailbox, labels: [SystemLabel.inbox])
+        ReaderCourse.Reader(readerRow(thread), mailbox: mailbox, labels: [SystemLabel.inbox])
     }
 
     private func facts(
@@ -111,4 +112,11 @@ struct ReaderCourseTests {
                 == .stays, "nothing is open to close")
         #expect(course.asked(MailChange(.action(.trash), on: [a]), facts(reading: nil)) == .stays)
     }
+}
+
+/// A row of `id`, as a reader opens it.
+func readerRow(_ id: ThreadSummary.ID) -> ThreadSummary {
+    ThreadSummary(
+        id: id, subject: id.threadID, snippet: "", sender: Contact(name: nil, address: "x@example.com"),
+        date: .distantPast, isUnread: false, messageCount: 1, labelIDs: [SystemLabel.inbox])
 }

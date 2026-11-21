@@ -22,6 +22,10 @@ struct MailActionsChangeTests {
         var all: [MailChange] = []
     }
 
+    private final class Taps {
+        var all: [Haptic] = []
+    }
+
     @Test func eachChangeIsToldAsItIsAsked() async {
         let (actions, changes) = actions()
         let date = Date(timeIntervalSince1970: 1_800_000_000)
@@ -66,5 +70,20 @@ struct MailActionsChangeTests {
         actions.undoLast()
         await actions.settled()
         #expect(undone.all.count == 1, "a pin leaves the reader where it is, so its undo moves nothing")
+    }
+
+    @Test func aChangeAskedOfNothingDoesNothing() async {
+        let (actions, changes) = actions()
+        let taps = Taps()
+        actions.feedback = { taps.all.append($0) }
+        actions.perform(.trash, on: [])
+        actions.move([], to: .archive, named: "Archive", from: .inbox)
+        actions.snooze([], until: .distantFuture)
+        actions.unsnooze([])
+        actions.pin([], true)
+        actions.addLabel("Label_1", named: "Work", to: [])
+        await actions.settled()
+        #expect(changes.all.isEmpty, "the window keeps its way back for Undo")
+        #expect(taps.all.isEmpty, "no tap for nothing done")
     }
 }

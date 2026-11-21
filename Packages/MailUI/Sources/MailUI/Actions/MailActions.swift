@@ -65,9 +65,9 @@ public final class MailActions {
     }
 
     public func perform(_ action: ThreadAction, on threads: [ThreadSummary.ID]) {
-        feedback(.performing(action))
         apply(
-            MailChange(.action(action), on: threads), confirmation: Self.confirmation(for: action, count: threads.count)
+            .action(action), on: threads, feedback: .performing(action),
+            confirmation: Self.confirmation(for: action, count: threads.count)
         ) {
             try await $0.perform(action, on: threads)
         }
@@ -77,9 +77,8 @@ public final class MailActions {
     public func move(
         _ threads: [ThreadSummary.ID], to destination: MoveDestination, named name: String, from mailbox: Mailbox
     ) {
-        feedback(.putAway)
         apply(
-            MailChange(.move(destination, from: mailbox), on: threads),
+            .move(destination, from: mailbox), on: threads, feedback: .putAway,
             confirmation: String(
                 localized: "\(threads.count) moved to \(name)", table: "Actions", bundle: .module,
                 comment: "Toast after moving threads; the second value is the mailbox or label they went to")
@@ -88,9 +87,8 @@ public final class MailActions {
 
     /// Takes the threads out of the Inbox until `date`, with a toast to take that back.
     public func snooze(_ threads: [ThreadSummary.ID], until date: Date) {
-        feedback(.putAway)
         apply(
-            MailChange(.snooze, on: threads),
+            .snooze, on: threads, feedback: .putAway,
             confirmation: String(
                 localized: "Snoozed until \(ScheduledTime.text(for: date))", table: "Actions", bundle: .module,
                 comment: "Toast after snoozing threads, with when they come back")
@@ -99,15 +97,13 @@ public final class MailActions {
 
     /// Pins the threads to the top of their lists, or unpins them. They stay in view, so no toast; a shake undoes it.
     public func pin(_ threads: [ThreadSummary.ID], _ pinned: Bool) {
-        feedback(.change)
-        apply(nil, confirmation: nil) { try await $0.pin(threads, pinned) }
+        apply(nil, on: threads, feedback: .change, confirmation: nil) { try await $0.pin(threads, pinned) }
     }
 
     /// Puts snoozed threads back in the Inbox now, with a toast to snooze them again.
     public func unsnooze(_ threads: [ThreadSummary.ID]) {
-        feedback(.change)
         apply(
-            MailChange(.unsnooze, on: threads),
+            .unsnooze, on: threads, feedback: .change,
             confirmation: String(
                 localized: "\(threads.count) moved to Inbox", table: "Actions", bundle: .module,
                 comment: "Toast after putting snoozed threads back in the Inbox")
@@ -209,13 +205,17 @@ public final class MailActions {
         await chain.settled()
     }
 
-    /// Makes one undoable change, `asked` by the reader, keeps it as the last one, and confirms it with
-    /// `confirmation` when there is one. The window hears of what was asked at once, before it applies, so it moves
-    /// its reader in the same step (`changed`); `nil` for a change that moves no reader, as a pin.
+    /// Makes one undoable change the reader asked of `threads`, plays its `feedback`, keeps it as the last one, and
+    /// confirms it with `confirmation` when there is one. The window hears of `request` at once, before it applies,
+    /// so it moves its reader in the same step (`changed`); `nil` for a change that moves no reader, as a pin. Asked
+    /// of no threads, as Delete with nothing listed picked, it does nothing at all.
     func apply(
-        _ asked: MailChange?, confirmation: String?,
-        _ change: @escaping (MailCommands) async throws -> MailCommands.Undo
+        _ request: MailChange.Request?, on threads: [ThreadSummary.ID], feedback haptic: Haptic,
+        confirmation: String?, _ change: @escaping (MailCommands) async throws -> MailCommands.Undo
     ) {
+        guard !threads.isEmpty else { return }
+        feedback(haptic)
+        let asked = request.map { MailChange($0, on: threads) }
         if let asked { changed?(asked) }
         run { [self] commands in
             let applied = try await change(commands)

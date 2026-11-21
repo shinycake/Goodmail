@@ -4,6 +4,6 @@ extension ThreadViewController {
     /// The conversation on show, where it is read and its labels now, for the window to decide where the reader goes
     /// after a change the reader asks of it.
     public var reading: ReaderCourse.Reader {
-        ReaderCourse.Reader(thread: viewModel.thread.id, mailbox: viewModel.mailbox, labels: viewModel.labels)
+        ReaderCourse.Reader(viewModel.thread, mailbox: viewModel.mailbox, labels: viewModel.labels)
     }
 }

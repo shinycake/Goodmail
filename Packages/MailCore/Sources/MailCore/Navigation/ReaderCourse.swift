@@ -7,14 +7,17 @@
 public struct ReaderCourse: Sendable {
     /// The conversation on show, and how its reader sees it now.
     public struct Reader: Equatable, Sendable {
-        public var thread: ThreadSummary.ID
+        /// Its row as the reader opened it, which Undo opens it again from without reading the store.
+        public var summary: ThreadSummary
         /// Where it is read, which a label change can take it out of.
         public var mailbox: Mailbox
         /// Its labels before the change applies.
         public var labels: Set<String>
 
-        public init(thread: ThreadSummary.ID, mailbox: Mailbox, labels: Set<String>) {
-            self.thread = thread
+        public var thread: ThreadSummary.ID { summary.id }
+
+        public init(_ summary: ThreadSummary, mailbox: Mailbox, labels: Set<String>) {
+            self.summary = summary
             self.mailbox = mailbox
             self.labels = labels
         }
@@ -86,7 +89,7 @@ public struct ReaderCourse: Sendable {
     /// The conversation the reader last left, by `change` (R9).
     private struct Departure: Sendable {
         let change: MailChange
-        let left: Opening
+        let left: Reader
     }
 
     private var trail: Trail?
@@ -128,15 +131,15 @@ public struct ReaderCourse: Sendable {
             let rows = trail.flatMap { $0.thread == reader.thread ? $0.rows : nil } ?? []
             landing = self.landing(after: change, from: reader.thread, trail: rows, facts)
         }
-        departure = Departure(change: change, left: Opening(reader.thread, in: reader.mailbox))
+        departure = Departure(change: change, left: reader)
         guard case .thread(let next) = landing, let front = facts.front else { return .closes }
         trail = Trail(thread: next, rows: front.rows)
         return .opens(Opening(next, in: front.mailbox))
     }
 
-    /// Undo took `change` back. The conversation it took the reader from, to read again, unless the window has moved
-    /// on since by any other way: then only its row comes back (R9).
-    public mutating func undone(_ change: MailChange) -> Opening? {
+    /// Undo took `change` back. The conversation it took the reader from, as the reader read it, to read again,
+    /// unless the window has moved on since by any other way: then only its row comes back (R9).
+    public mutating func undone(_ change: MailChange) -> Reader? {
         guard let departure, departure.change == change else { return nil }
         self.departure = nil
         return departure.left

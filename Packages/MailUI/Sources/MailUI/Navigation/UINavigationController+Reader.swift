@@ -1,12 +1,17 @@
-import MailCore
+public import MailCore
 public import UIKit
 
 extension UINavigationController {
+    /// How `place(_:)` would take a reader now.
+    public var readerPlacement: ReaderStack {
+        ReaderStack(readers: viewControllers.map { $0 is ThreadViewController })
+    }
+
     /// Shows `reader` on this narrow stack: pushed over the list when no reader is on show, or in the place of the one
     /// that is, with a short cross-fade (none under Reduce Motion), so the stack never holds two and Back goes to the
     /// list (R1).
     public func place(_ reader: ThreadViewController) {
-        switch ReaderStack(readers: viewControllers.map { $0 is ThreadViewController }) {
+        switch readerPlacement {
         case .push:
             pushViewController(reader, animated: view.window != nil)
         case .replace(let keeping):

@@ -5,9 +5,8 @@ extension MailActions {
     /// Gives threads a label and leaves them where they are, called `name` in the toast, which undoes it.
     func addLabel(_ labelID: String, named name: String, to threads: [ThreadSummary.ID]) {
         let action = ThreadAction.modifyLabels(add: [labelID], remove: [])
-        feedback(.change)
         apply(
-            MailChange(.action(action), on: threads),
+            .action(action), on: threads, feedback: .change,
             confirmation: String(
                 localized: "\(threads.count) labeled \(name)", table: "Actions", bundle: .module,
                 comment: "Toast after giving threads a label; the second value is the label's name")

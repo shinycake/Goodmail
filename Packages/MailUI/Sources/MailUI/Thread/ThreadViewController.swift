@@ -14,6 +14,8 @@ public final class ThreadViewController: UIViewController {
     let scrollView = UIScrollView()
     let stack = UIStackView()
     private let subject = UILabel()
+    /// Whether VoiceOver moves to the subject the next time this reader appears (`announceWhenShown`).
+    private var announcesOnAppear = false
     private let metadata = UILabel()
     private var cards: [Message.ID: MessageCardView] = [:]
     /// The classic layout's letters for my replies on their way.
@@ -151,6 +153,16 @@ public final class ThreadViewController: UIViewController {
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         showToolbar(animated: animated)
+        if announcesOnAppear {
+            announcesOnAppear = false
+            SystemAccessibility.post(.screenChanged, argument: spokenLanding)
+        }
+    }
+
+    /// Moves VoiceOver to the subject once this reader is on screen, for a reader the window puts in another's
+    /// place by itself, as after Archive or Undo, which UIKit doesn't announce as it does a push.
+    public func announceWhenShown() {
+        announcesOnAppear = true
     }
 
     public override func viewWillDisappear(_ animated: Bool) {
@@ -419,7 +431,7 @@ public final class ThreadViewController: UIViewController {
 
     /// What VoiceOver lands on as this reader takes another's place: the subject, or the screen itself where the
     /// chat shows the subject in the bar instead.
-    public var spokenLanding: Any {
+    private var spokenLanding: Any {
         viewModel.layout == .chat ? view as Any : subject
     }
 

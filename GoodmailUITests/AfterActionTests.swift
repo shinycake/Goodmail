@@ -2,7 +2,8 @@ import XCTest
 
 /// After the reader archives the conversation they're reading, the window goes on as Settings says (R7): the one
 /// below in the list, else the one above, else the list; or the list, set to Return to the List. Undo brings the
-/// archived one back into the reader (R9), and Mark as Unread goes back to the list (R8). On iPhone and iPad.
+/// archived one back into the reader (R9), and Mark as Unread goes back to the list (R8). A tapped alert over an open
+/// reader takes its place (R1). On iPhone and iPad.
 final class AfterActionTests: XCTestCase {
     override func setUp() {
         continueAfterFailure = false
@@ -83,6 +84,55 @@ final class AfterActionTests: XCTestCase {
         attach(app, "after-mark-unread")
     }
 
+    /// A tapped alert for another conversation takes the open reader's place, and one Back still reaches the list.
+    @MainActor
+    func testAnAlertOverAnOpenReaderTakesItsPlace() {
+        // t19 is in the first account's Inbox, as "Weekend plans" (`SyntheticMailbox`).
+        let app = launch(extra: ["-GoodmailTestArrivalThread", "synthetic-1/t19", "-GoodmailTestArrivalAfter", "12"])
+        let rows = subjects(ofFirst: 3, in: app).filter { $0 != "Weekend plans" }
+        open(rows[0], in: app)
+        XCTAssertTrue(
+            waitUntil(timeout: 30) { app.staticTexts["thread.subject"].label == "Weekend plans" },
+            "the alert's conversation replaces the one open")
+        attach(app, "after-alert-over-reader")
+        assertBackGoesToTheList(in: app)
+    }
+
+    /// Read from Snoozed, an archived conversation goes on to the next snoozed one.
+    @MainActor
+    func testArchivingFromSnoozedShowsTheNextSnoozed() {
+        let app = launch(extra: ["-GoodmailSyntheticSnoozed", "YES"])
+        openMailbox("mailbox.snoozed", in: app, list: "snoozed")
+        let rows = subjects(ofFirst: 2, in: app, list: "snoozed")
+        open(rows[0], in: app, list: "snoozed")
+        tapReaderAction("Archive", in: app)
+        XCTAssertTrue(reads(rows[1], in: app), "the next snoozed conversation takes the reader's place")
+        attach(app, "after-archive-snoozed")
+    }
+
+    /// Under the Unread filter, Undo brings the archived conversation back into the reader and its row back into the
+    /// list, though reading it marked it read.
+    @MainActor
+    func testUndoUnderTheUnreadFilterListsTheRowAgain() {
+        let app = launch()
+        let filter = app.buttons["listFilter"]
+        XCTAssertTrue(filter.waitForExistence(timeout: 5))
+        filter.tap()
+        let rows = subjects(ofFirst: 2, in: app)
+        open(rows[0], in: app)
+        tapReaderAction("Archive", in: app)
+        XCTAssertTrue(reads(rows[1], in: app))
+        let undo = app.buttons["Undo"]
+        XCTAssertTrue(undo.waitForExistence(timeout: 5))
+        undo.tap()
+        XCTAssertTrue(reads(rows[0], in: app), "Undo reads it again")
+        if UIDevice.current.userInterfaceIdiom == .phone { app.navigationBars.buttons.element(boundBy: 0).tap() }
+        XCTAssertTrue(
+            app.collectionViews["mailbox"].cells.containing(NSPredicate(format: "label CONTAINS %@", rows[0]))
+                .firstMatch.waitForExistence(timeout: 5), "its row is listed again, read")
+        attach(app, "after-undo-unread")
+    }
+
     // MARK: Helpers
 
     /// The synthetic mailboxes' subjects (`SyntheticMailbox`), which tell their rows apart.
@@ -94,12 +144,13 @@ final class AfterActionTests: XCTestCase {
     /// The synthetic mailboxes, seeded fresh each launch, with nothing arriving during the test. `afterRemoval` sets
     /// After Archive or Delete.
     @MainActor
-    private func launch(afterRemoval: String = "next") -> XCUIApplication {
+    private func launch(afterRemoval: String = "next", extra: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = [
-            "-GoodmailSyntheticThreads", "40", "-GoodmailSyntheticArrivalEvery", "3600",
-            "-AppleLanguages", "(en)", "-AppleLocale", "en_US", "-afterRemoval", afterRemoval,
-        ]
+        app.launchArguments =
+            [
+                "-GoodmailSyntheticThreads", "40", "-GoodmailSyntheticArrivalEvery", "3600",
+                "-AppleLanguages", "(en)", "-AppleLocale", "en_US", "-afterRemoval", afterRemoval,
+            ] + extra
         app.launch()
         XCTAssertTrue(app.collectionViews["mailbox"].cells.firstMatch.waitForExistence(timeout: 15))
         return app
@@ -107,8 +158,10 @@ final class AfterActionTests: XCTestCase {
 
     /// The subjects of the list's first `count` conversations, top to bottom, skipping the section headers.
     @MainActor
-    private func subjects(ofFirst count: Int, in app: XCUIApplication, line: UInt = #line) -> [String] {
-        let cells = app.collectionViews["mailbox"].cells
+    private func subjects(
+        ofFirst count: Int, in app: XCUIApplication, list: String = "mailbox", line: UInt = #line
+    ) -> [String] {
+        let cells = app.collectionViews[list].cells
         var found: [String] = []
         XCTAssertTrue(
             waitUntil {
@@ -129,8 +182,8 @@ final class AfterActionTests: XCTestCase {
 
     /// Opens the conversation whose row shows `subject`.
     @MainActor
-    private func open(_ subject: String, in app: XCUIApplication, line: UInt = #line) {
-        let row = app.collectionViews["mailbox"].cells.containing(NSPredicate(format: "label CONTAINS %@", subject))
+    private func open(_ subject: String, in app: XCUIApplication, list: String = "mailbox", line: UInt = #line) {
+        let row = app.collectionViews[list].cells.containing(NSPredicate(format: "label CONTAINS %@", subject))
             .firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 10), line: line)
         XCTAssertTrue(
@@ -160,12 +213,12 @@ final class AfterActionTests: XCTestCase {
 
     /// Opens a mailbox from the mailboxes behind the list on a phone, or in the iPad's sidebar.
     @MainActor
-    private func openMailbox(_ identifier: String, in app: XCUIApplication) {
+    private func openMailbox(_ identifier: String, in app: XCUIApplication, list: String = "mailbox") {
         let cell = app.collectionViews["mailboxes"].cells[identifier].firstMatch
         if !cell.isHittable { app.navigationBars.buttons.element(boundBy: 0).tap() }
         XCTAssertTrue(cell.waitForExistence(timeout: 5))
         cell.tap()
-        XCTAssertTrue(app.collectionViews["mailbox"].cells.firstMatch.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.collectionViews[list].cells.firstMatch.waitForExistence(timeout: 15))
     }
 
     /// On a phone, the reader that took another's place still goes back to the list, not to the one it replaced.
