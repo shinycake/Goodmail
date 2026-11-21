@@ -105,8 +105,27 @@ struct WindowNavigationStepTests {
         #expect(window.state.reading?.thread == a.id, "Undo brings back only the row once the reader moved on (R9)")
     }
 
-    @Test func aStepIsAnnounced() {
-        #expect(WindowNavigation.Event.step(.next, front: nil).movesByItself)
+    @Test func underUnreadPreviousGoesBackToTheConversationJustRead() {
+        // a, b and c are unread; reading one marks it read, which the filter no longer admits.
+        var visit = FilterVisit(.on([.unread]))
+        var unread: Set<ThreadSummary.ID> = Set(rows)
+        func listed() -> WindowNavigation.Front {
+            front(rows.filter { id in visit.shows(id) { unread.contains(id) } })
+        }
+        func read(_ id: ThreadSummary.ID) {
+            visit.read(id)
+            unread.remove(id)
+        }
+        var window = reading(b)
+        read(b.id)
+        _ = step(&window, .next, through: listed())
+        #expect(window.state.reading?.thread == c.id)
+        read(c.id)
+        #expect(listed().rows == rows, "what was read here stays listed")
+        #expect(window.conversation(.previous, in: listed()) == b.id)
+        _ = step(&window, .previous, through: listed())
+        _ = step(&window, .previous, through: listed())
+        #expect(window.state.reading?.thread == a.id, "and Previous isn't dimmed short of the top")
     }
 }
 

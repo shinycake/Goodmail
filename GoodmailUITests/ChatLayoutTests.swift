@@ -47,6 +47,29 @@ final class ChatLayoutTests: XCTestCase {
         attach(app, "chat-letter-open")
     }
 
+    /// A reader pushed on an iPhone's stack keeps room in its bar for the chat's title beside its own capsule of up and
+    /// down chevrons and the layout switch, at the default text size and the largest, in English and in Hebrew. The
+    /// screenshots are for checking a 375-point-wide phone by eye.
+    @MainActor
+    func testThePushedChatReadersBarHasRoomForItsTitle() throws {
+        try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .phone, "a pushed reader is iPhone's")
+        for (language, locale, subject) in [("en", "en_US", "Saturday?"), ("he", "he_IL", "ארוחת שישי")] {
+            for size in [nil, "UICTContentSizeCategoryAccessibilityXXXL"] {
+                let app = launch(language: language, locale: locale, size: size)
+                open(subject, in: app)
+                let bar = app.navigationBars.firstMatch
+                let down = bar.buttons["thread.next"]
+                let up = bar.buttons["thread.previous"]
+                XCTAssertTrue(down.waitForExistence(timeout: 5))
+                XCTAssertFalse(down.frame.intersects(up.frame), "up and down are two buttons")
+                let back = bar.buttons.element(boundBy: 0)
+                XCTAssertFalse(back.frame.intersects(up.frame), "the chevrons leave Back its room")
+                attach(app, "chat-bar-\(language)-\(size == nil ? "default" : "ax5")")
+                app.terminate()
+            }
+        }
+    }
+
     @MainActor
     private func open(_ subject: String, in app: XCUIApplication) {
         let row = app.collectionViews["mailbox"].cells.containing(NSPredicate(format: "label CONTAINS %@", subject))
@@ -74,14 +97,15 @@ final class ChatLayoutTests: XCTestCase {
     }
 
     @MainActor
-    private func launch(language: String, locale: String) -> XCUIApplication {
+    private func launch(language: String, locale: String, size: String? = nil) -> XCUIApplication {
         let corpus = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .appending(path: "TestMail").path(percentEncoded: false)
         let app = XCUIApplication()
-        app.launchArguments = [
-            "-GoodmailSyntheticThreads", "20", "-GoodmailSyntheticCorpus", corpus, "-conversationLayout", "chat",
-            "-AppleLanguages", "(\(language))", "-AppleLocale", locale,
-        ]
+        app.launchArguments =
+            [
+                "-GoodmailSyntheticThreads", "20", "-GoodmailSyntheticCorpus", corpus, "-conversationLayout", "chat",
+                "-AppleLanguages", "(\(language))", "-AppleLocale", locale,
+            ] + (size.map { ["-UIPreferredContentSizeCategoryName", $0] } ?? [])
         app.launch()
         XCTAssertTrue(app.collectionViews["mailbox"].cells.firstMatch.waitForExistence(timeout: 15))
         return app

@@ -71,8 +71,13 @@ public final class MailboxViewModel {
         guard case .categorised(_, let selected) = source else { return nil }
         return selected
     }
+    /// What the list is filtered by, and what was read under it on this visit, which stays listed (`isShown`).
+    var visit: FilterVisit
     /// What the list is filtered by. Only `setFilter` changes it.
-    public internal(set) var filter: ListFilter
+    public internal(set) var filter: ListFilter {
+        get { visit.filter }
+        set { visit.filter(by: newValue, reading: reading) }
+    }
     /// How many threads the filter leaves out of what the store listed, so an empty list can tell a filter that hides
     /// everything from a mailbox with nothing in it.
     public private(set) var hiddenByFilter = 0
@@ -152,7 +157,7 @@ public final class MailboxViewModel {
         self.source = source
         wokenThreads = woken
         pinnedThreads = pins
-        self.filter = filter
+        visit = FilterVisit(filter)
         self.didChangeFilter = didChangeFilter
         self.attachmentThreads = attachmentThreads
         self.sidebar = sidebar
@@ -197,6 +202,7 @@ public final class MailboxViewModel {
     public func select(_ category: InboxCategory) {
         guard case .categorised(let categories, let selected) = source, category != selected else { return }
         source = .categorised(categories, selected: category)
+        visit.restart(reading: reading)
         categories.didSelect(category)
     }
 
@@ -324,6 +330,7 @@ public final class MailboxViewModel {
         let old = selection
         guard new != old else { return }
         selection = new
+        if case .reading(let id) = new { visit.read(id) }
         guard revealing else { return }
         switch new {
         case .reading(let id): navigate(.thread(id, in: mailbox))

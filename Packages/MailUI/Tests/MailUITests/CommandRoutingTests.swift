@@ -76,6 +76,22 @@ struct CommandRoutingTests {
         }
     }
 
+    @Test("A list in Select mode, which dims Next and Previous, stops the window stepping past it")
+    func selectModeStopsTheSplitStepping() {
+        let selecting = StubScreen(answering: [.newMessage], unavailable: [.nextThread, .previousThread])
+        var taken: [WindowNavigation.Step] = []
+        let root = StepsSplit(steps: ConversationSteps(leads: { _ in true }, take: { taken.append($0) }))
+        root.setViewController(UINavigationController(rootViewController: selecting), for: .compact)
+        for command in [MailCommand.nextThread, .previousThread] {
+            guard case .unavailable = CommandRouting.answer(to: command, in: root) else {
+                Issue.record("\(command) should be dimmed while rows are being picked")
+                continue
+            }
+            perform(command, in: root)
+        }
+        #expect(taken.isEmpty)
+    }
+
     @Test("A presented screen hides the screens behind it")
     func presentedAnswersAlone() {
         let composer = StubScreen(answering: [.send])

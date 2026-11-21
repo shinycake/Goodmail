@@ -9,6 +9,18 @@ extension WindowNavigation {
         case next
         /// The row above.
         case previous
+
+        /// The row this way from `anchor` in `place`, the rows top to bottom as they place it, that is still `listed`:
+        /// the nearest below for Next, above for Previous. `nil` past the end, or when `place` doesn't hold `anchor`.
+        func neighbor(
+            of anchor: ThreadSummary.ID, in place: [ThreadSummary.ID], listed: Set<ThreadSummary.ID>
+        ) -> ThreadSummary.ID? {
+            guard let index = place.firstIndex(of: anchor) else { return nil }
+            switch self {
+            case .next: return place[place.index(after: index)...].first(where: listed.contains)
+            case .previous: return place[..<index].last(where: listed.contains)
+            }
+        }
     }
 
     /// The conversation `step` reads from the list `front`, or `nil` when there is none: past either end, while
@@ -18,19 +30,9 @@ extension WindowNavigation {
         guard state.layout == .viewer, let front, front.pointerPick.isEmpty else { return nil }
         let rows = front.rows
         guard let anchor = state.reading?.thread else { return step == .next ? rows.first : nil }
-        if let index = rows.firstIndex(of: anchor) {
-            let target = step == .next ? rows.index(after: index) : index - 1
-            return rows.indices.contains(target) ? rows[target] : nil
-        }
-        // Its row left: where it was among the rows it was opened from, to the nearest that is still listed.
-        guard let opened, opened.thread == anchor, opened.from == source,
-            let index = opened.rows.firstIndex(of: anchor)
-        else { return nil }
-        let listed = Set(rows)
-        switch step {
-        case .next: return opened.rows[opened.rows.index(after: index)...].first(where: listed.contains)
-        case .previous: return opened.rows[..<index].last(where: listed.contains)
-        }
+        // A row that left is placed by the rows it was opened from, unless that was another list's.
+        let trail = opened.flatMap { $0.thread == anchor && $0.from == source ? $0.rows : nil } ?? []
+        return step.neighbor(of: anchor, in: rows.contains(anchor) ? rows : trail, listed: Set(rows))
     }
 
     /// Reads the conversation `step` reaches in `front`, if there is one, in the place of the one read (R1). Undo's way
@@ -39,6 +41,5 @@ extension WindowNavigation {
         guard let front, let next = conversation(step, in: front) else { return }
         opened = Opened(thread: next, from: source, rows: front.rows, row: nil)
         state.read(Reading(next, in: front.mailbox))
-        departure = nil
     }
 }

@@ -7,6 +7,11 @@ extension MailboxViewModel {
     /// The threads' ids as the list shows them, across its sections, top to bottom.
     var rows: [ThreadSummary.ID] { sections.flatMap(\.threads).map(\.id) }
 
+    /// The conversation the window reads from this list, if any.
+    var reading: ThreadSummary.ID? {
+        if case .reading(let id) = selection { id } else { nil }
+    }
+
     /// The picked threads, in the list's order.
     var selectedIDs: [ThreadSummary.ID] { selection.ids(in: rows) }
 
@@ -48,7 +53,7 @@ extension MailboxViewModel {
     }
 
     /// Marks `id` as the conversation the window reads, or with `nil` that it reads none, without opening anything.
-    /// It holds at once, listed or not: the filter keeps the row while it is read (`isShown`), so a row that comes
+    /// It holds at once, listed or not: the filter keeps the row once it is read (`isShown`), so a row that comes
     /// back, as after Undo, lists again and shows as read. With `nil`, several picked stay picked.
     func markReading(_ id: ThreadSummary.ID?) {
         let new: ListSelection
@@ -59,7 +64,7 @@ extension MailboxViewModel {
         }
         guard new != selection else { return }
         pick(new, revealing: false)
-        // Under a filter, the row read before may leave and this one may come back.
+        // Under a filter, this one may come back.
         if filter.isOn { regroup() }
     }
 

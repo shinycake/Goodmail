@@ -140,7 +140,7 @@ public final class MailScreens: NSObject {
             arrangeColumns(state, showing: showing, replacing: previous)
         }
         // Where the reader's chevrons lead may have changed with the rest.
-        readerMade?.screen.setNeedsUpdateProperties()
+        readerMade?.screen.stepsMoved()
         if moved || list.screen !== before.list || readerMade?.entry != before.reading {
             (list.screen as? any ThreadSequence)?.mark(reading: readerMade?.entry.thread)
         }

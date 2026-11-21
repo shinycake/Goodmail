@@ -36,15 +36,14 @@ public final class ThreadViewController: UIViewController {
     private var followedLetter: FollowedLetter?
     let layoutItem = UIBarButtonItem()
     /// The chevrons to the conversations above and below, in a narrow window's bar (`steps`).
-    let previousItem = UIBarButtonItem()
-    let nextItem = UIBarButtonItem()
+    private let chevrons = StepChevrons()
     /// Next and Previous Conversation, which a reader pushed in a narrow window offers as chevrons in its bar, as Mail
     /// does; `nil` beside the list, where the list shows the way.
     public var steps: ConversationSteps? {
         didSet {
+            chevrons.steps = steps
             guard isViewLoaded else { return }
             placeShareItem()
-            setNeedsUpdateProperties()
         }
     }
     /// The window's toolbar over the letter on a desktop window, as last laid out; `nil` where the bar at the bottom
@@ -127,7 +126,7 @@ public final class ThreadViewController: UIViewController {
         stack.addArrangedSubview(header)
         configureToolbar()
         layoutItem.primaryAction = UIAction { [weak self] _ in self?.viewModel.switchLayout() }
-        configureStepItems()
+        view.addSubview(chevrons)
         placeShareItem()
         registerForTraitChanges([UITraitHorizontalSizeClass.self, InteractionStyleTrait.self]) { (self: Self, _) in
             self.placeShareItem()
@@ -175,6 +174,11 @@ public final class ThreadViewController: UIViewController {
             announcesOnAppear = false
             SystemAccessibility.post(.screenChanged, argument: spokenLanding)
         }
+    }
+
+    /// Where the chevrons lead may have changed, with the window's navigation: they look again, and nothing else does.
+    func stepsMoved() {
+        chevrons.setNeedsUpdateProperties()
     }
 
     /// Fetches the conversation again, as Try Again asks.
@@ -358,8 +362,9 @@ public final class ThreadViewController: UIViewController {
     private func placeShareItem() {
         if usesWindowToolbar { return placeWindowToolbar() }
         let regular = traitCollection.horizontalSizeClass == .regular
-        // The chevrons sit at the trailing end, the one below after the one above, in every language.
-        let stepping = steps == nil ? [] : [nextItem, previousItem]
+        // The chevrons sit at the trailing end, the one below after the one above, in every language, in a capsule of
+        // their own as in Mail.
+        let stepping = steps == nil ? [] : [chevrons.down, chevrons.up, .fixedSpace(0)]
         navigationItem.rightBarButtonItems = stepping + (regular ? [layoutItem, shareItem] : [layoutItem])
         var items = (toolbarItems ?? []).filter { $0 !== shareItem }
         if !regular, let reply = items.indices.last { items.insert(shareItem, at: reply - 1) }
@@ -378,7 +383,6 @@ public final class ThreadViewController: UIViewController {
             toolbarItems = items
         }
         updateWindowToolbar()
-        updateStepItems()
         showContent()
         let messages = viewModel.messages
         metadata.text = [viewModel.accountEmail, Self.countText(messages.count)]
