@@ -83,6 +83,9 @@ public struct WindowNavigation: Equatable, Sendable {
         /// read, as one restored that was deleted meanwhile or whose reader can't be made, which closes. A message
         /// window becomes a viewer.
         case missing(ThreadSummary.ID)
+        /// The conversation read is still on the device, as `summary`, as the window comes up or is rebuilt with what it
+        /// read: its reader is made from this row rather than a read of the store on the main actor.
+        case restored(ThreadSummary)
         /// The conversation a `.lookUp` asked for isn't on the device, and its service couldn't be asked, as offline.
         /// It opens nothing; for an arrival the window shows the Inbox and says so.
         case unreachable(ThreadSummary.ID)
@@ -113,7 +116,8 @@ public struct WindowNavigation: Equatable, Sendable {
         public var movesByItself: Bool {
             switch self {
             case .changed, .undone, .step: true
-            case .route, .launched, .found, .missing, .unreachable, .back, .accounts, .lists, .handedOff, .category,
+            case .route, .launched, .found, .restored, .missing, .unreachable, .back, .accounts, .lists, .handedOff,
+                .category,
                 .filter, .searching:
                 false
             }
@@ -163,6 +167,8 @@ public struct WindowNavigation: Equatable, Sendable {
             return launch(for: route, in: context)
         case .found(let summary, let rows):
             open(summary, from: rows, in: context)
+        case .restored(let summary):
+            restore(summary)
         case .missing(let thread):
             return missed(thread, in: context)
         case .unreachable(let thread):
@@ -221,6 +227,13 @@ public struct WindowNavigation: Equatable, Sendable {
         var next = next
         if next.list != state.list { next.closeReader() }
         state = next
+    }
+
+    /// The conversation read is on the device as `summary`. Its trail, the rows it was opened from, stays.
+    private mutating func restore(_ summary: ThreadSummary) {
+        guard state.reading?.thread == summary.id else { return }
+        let trail = opened.flatMap { $0.thread == summary.id ? $0 : nil }
+        opened = Opened(thread: summary.id, from: trail?.from ?? source, rows: trail?.rows ?? [], row: summary)
     }
 
     /// `thread` isn't on the device. The one read closes; one a route from inside asked for opens nothing, and one an

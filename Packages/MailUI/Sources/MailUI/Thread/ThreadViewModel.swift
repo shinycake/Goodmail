@@ -12,15 +12,16 @@ public final class ThreadViewModel {
     /// The account's other addresses, which answers to mail sent to one go from.
     public let accountAliases: [Contact]
     public let accountColor: AccountColor
-    public private(set) var messages: [Message] = []
+    /// What the reader has to show: nothing yet while it is fetched, its messages, or why it has none.
+    public private(set) var content = ConversationContent.loading
+    /// Its messages, while there are any to show.
+    public var messages: [Message] { content.messages }
     /// Messages shown as cards; the rest are one-line rows in the timeline.
     public private(set) var expanded: Set<Message.ID> = []
     /// Messages whose remote content the reader loaded once.
     private var loadedOnce: Set<Message.ID> = []
     /// The rules that load remote images without asking, as of opening the thread and trusting from it.
     private var trustRules: [ImageTrustRule]
-    public private(set) var isLoading = false
-    public private(set) var loadError: (any Error)?
     /// How this conversation reads. It opens in the reader's chosen layout, and the toolbar switches it.
     public private(set) var layout: ConversationLayout
     /// The messages as chat bubbles, with my replies still on their way at the end, worked out off the main actor
@@ -130,7 +131,8 @@ public final class ThreadViewModel {
                 await updateTranscript()
             }
         } catch {
-            loadError = error
+            // The store couldn't be read: as a fetch that failed, it says so only with nothing to show.
+            content.fetched(.failed)
         }
         await loading
         await pinning
@@ -179,7 +181,7 @@ public final class ThreadViewModel {
         guard request == transcriptRequest else { return }
         expanded.formUnion(syncedCopies)
         syncedCopies = []
-        self.messages = messages
+        content.received(messages)
         self.transcript = transcript
         replies = pending.replies
     }
@@ -190,14 +192,18 @@ public final class ThreadViewModel {
         } catch {}
     }
 
+    /// Fetches the latest from the service, which the store then brings (`content`).
     public func load() async {
-        isLoading = true
-        defer { isLoading = false }
+        content.refetching()
         do {
             try await loadAction()
-            loadError = nil
+            content.fetched(.done)
+        } catch ProviderError.notFound {
+            content.fetched(.notFound)
+        } catch is CancellationError {
+            // The reader went away; what it showed doesn't matter.
         } catch {
-            loadError = error
+            content.fetched(.failed)
         }
     }
 

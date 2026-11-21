@@ -109,3 +109,31 @@ struct WindowNavigationStepTests {
         #expect(WindowNavigation.Event.step(.next, front: nil).movesByItself)
     }
 }
+
+/// A window coming up or rebuilt with a conversation read makes its reader from the row the store has off the main
+/// actor (`Event.restored`), and keeps the rows it was opened from.
+struct WindowNavigationRestoreTests {
+    private let a = navigationRow("a"), b = navigationRow("b"), c = navigationRow("c")
+
+    @Test func theRestoredRowIsTheReadersAndTheTrailStays() {
+        let context = WindowNavigation.Context(arrangement: .stack)
+        var window = WindowNavigation(showing: WindowState())
+        window.open(a, in: .inbox, from: [a.id, b.id, c.id], context)
+        _ = window.handle(
+            .step(.next, front: WindowNavigation.Front(rows: [a.id, b.id, c.id], mailbox: .inbox)), in: context)
+        #expect(window.foundRow == nil, "the list's row")
+        let before = window.state
+        _ = window.handle(.restored(b), in: context)
+        #expect(window.foundRow == b)
+        #expect(window.state == before, "nothing moves")
+        #expect(window.conversation(.next, in: WindowNavigation.Front(rows: [a.id, c.id], mailbox: .inbox)) == c.id)
+    }
+
+    @Test func aRowForAnotherConversationIsIgnored() {
+        var window = WindowNavigation(showing: WindowState(place: .list(reading: Reading(a.id, in: .inbox))))
+        _ = window.handle(.restored(b), in: WindowNavigation.Context(arrangement: .stack))
+        #expect(window.foundRow == nil)
+        _ = window.handle(.restored(a), in: WindowNavigation.Context(arrangement: .stack))
+        #expect(window.foundRow == a)
+    }
+}

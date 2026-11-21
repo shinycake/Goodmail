@@ -12,6 +12,8 @@ public import MailCore
 public final class WindowNavigator {
     /// Finds a conversation's row, off the main actor.
     public typealias LookUp = @concurrent @Sendable (ThreadSummary.ID) async -> ConversationLookup.Answer
+    /// Reads a conversation's row from the store alone, off the main actor; `nil` when it isn't on the device.
+    public typealias Stored = @concurrent @Sendable (ThreadSummary.ID) async -> ThreadSummary?
 
     /// Effects waiting for the window.
     private enum Deferred: Equatable {
@@ -28,6 +30,9 @@ public final class WindowNavigator {
     /// The viewer's screens; `nil` while the window shows something else, as one conversation alone.
     public private(set) var screens: MailScreens?
     private let lookUp: LookUp
+    private let stored: Stored
+    /// The store read under way for the conversation read, before the screens are built for it (`rebuild`).
+    private var confirming: Task<Void, Never>?
     /// What the window knows now apart from what it shows: how it lays it out, from its width class, which holds
     /// before it is on screen, and the setting read at each change.
     private let context: () -> WindowNavigation.Context
@@ -50,15 +55,41 @@ public final class WindowNavigator {
 
     public init(
         showing state: WindowState, checking lists: WindowState.ListCheck,
-        context: @escaping () -> WindowNavigation.Context, lookUp: @escaping LookUp
+        context: @escaping () -> WindowNavigation.Context, lookUp: @escaping LookUp, stored: @escaping Stored
     ) {
         navigation = WindowNavigation(showing: state, checking: lists)
         self.context = context
         self.lookUp = lookUp
+        self.stored = stored
     }
 
     isolated deinit {
         arriving?.cancel()
+        confirming?.cancel()
+    }
+
+    /// Leaves the screens for new ones for `accounts`, then calls `build` once the conversation read, if any, is known
+    /// to be on the device, with its row for the reader, read off the main actor unless the screens on show had it.
+    /// One gone closes first. A newer rebuild replaces one waiting.
+    public func rebuild(for accounts: [AccountID], then build: @escaping () -> Void) {
+        let thread = state.reading?.thread
+        let known = thread.flatMap { thread in
+            screens?.reader.map(\.conversation).flatMap { $0.id == thread ? $0 : nil }
+                ?? screens?.front?.summary(of: thread)
+        }
+        confirming?.cancel()
+        confirming = nil
+        leaveScreens()
+        send(.accounts(accounts))
+        if let known { send(.restored(known)) }
+        guard let thread = state.reading?.thread, navigation.foundRow?.id != thread else { return build() }
+        confirming = Task { [weak self, stored] in
+            let row = await stored(thread)
+            guard !Task.isCancelled, let self else { return }
+            confirming = nil
+            if state.reading?.thread == thread { send(row.map(WindowNavigation.Event.restored) ?? .missing(thread)) }
+            build()
+        }
     }
 
     /// What the window shows.
@@ -90,10 +121,10 @@ public final class WindowNavigator {
         screens = nil
     }
 
-    /// The window changed width: the arrangement it shows now catches up.
-    public func arrangementChanged() {
+    /// The window changed width, or is about to, to `arrangement`: the list and the reader move there (D8).
+    public func arrangementChanged(to arrangement: WindowNavigation.Arrangement) {
         guard let screens else { return }
-        if !screens.show(state, row: navigation.foundRow, .resized, in: context().arrangement) { readerUnmade() }
+        if !screens.show(state, row: navigation.foundRow, .resized, in: arrangement) { readerUnmade() }
     }
 
     /// Moves the window for `event`.

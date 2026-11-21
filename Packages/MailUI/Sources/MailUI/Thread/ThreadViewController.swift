@@ -1,4 +1,4 @@
-import MailCore
+public import MailCore
 public import QuickLook
 public import UIKit
 
@@ -6,6 +6,8 @@ public import UIKit
 /// matter now. Renders `ThreadViewModel` through Observation (ADR-011).
 public final class ThreadViewController: UIViewController {
     let viewModel: ThreadViewModel
+    /// The conversation's row as this reader last read it, which names a window showing it without a store read.
+    public var conversation: ThreadSummary { viewModel.thread }
     private let openURL: (URL) -> Void
     private let starItem = UIBarButtonItem()
     /// Reply, or Edit Draft while the newest message is an unsent draft.
@@ -54,6 +56,8 @@ public final class ThreadViewController: UIViewController {
     private var readableWidth: [NSLayoutConstraint] = []
     private var chatWidth: [NSLayoutConstraint] = []
     private var observation: Task<Void, Never>?
+    /// A fetch asked for again from Try Again, which a newer one replaces; leaving the reader cancels it.
+    private var fetchingAgain: Task<Void, Never>?
     /// The layout the reader last scrolled to the focused message in; switching layouts scrolls there again.
     private var focusedLayout: ConversationLayout?
     private var previewURL: URL?
@@ -90,6 +94,7 @@ public final class ThreadViewController: UIViewController {
 
     deinit {
         observation?.cancel()
+        fetchingAgain?.cancel()
         unsubscribing?.cancel()
     }
 
@@ -170,6 +175,12 @@ public final class ThreadViewController: UIViewController {
             announcesOnAppear = false
             SystemAccessibility.post(.screenChanged, argument: spokenLanding)
         }
+    }
+
+    /// Fetches the conversation again, as Try Again asks.
+    func loadAgain() {
+        fetchingAgain?.cancel()
+        fetchingAgain = Task { [viewModel] in await viewModel.load() }
     }
 
     /// Moves VoiceOver to the subject once this reader is on screen, for a reader the window puts in another's
@@ -368,6 +379,7 @@ public final class ThreadViewController: UIViewController {
         }
         updateWindowToolbar()
         updateStepItems()
+        showContent()
         let messages = viewModel.messages
         metadata.text = [viewModel.accountEmail, Self.countText(messages.count)]
             .filter { !$0.isEmpty }.joined(separator: " · ")

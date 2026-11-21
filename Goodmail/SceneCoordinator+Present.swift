@@ -47,21 +47,37 @@ extension SceneCoordinator {
         }
     }
 
+    /// The label picker for `ids`, once their rows and their account's labels are read off the main actor. A newer one
+    /// replaces it.
     private func presentLabelPicker(for ids: [ThreadSummary.ID]) {
-        let threads = ids.compactMap { try? model.database.thread($0) }
-        guard let account = threads.first?.id.accountID,
-            let labels = try? model.database.labels(for: account),
-            let presenter = topViewController()
-        else { return }
-        let actions = actions
-        let picker = LabelPickerViewController(
-            labels: labels, threads: threads, editor: model.labelEditor(for: account)
-        ) { action in
-            actions.perform(action, on: ids)
+        pickingLabels?.cancel()
+        pickingLabels = Task { [weak self, database = model.database] in
+            let read = await Self.labelPicking(ids, in: database)
+            guard !Task.isCancelled, let self, let (threads, labels) = read,
+                let account = threads.first?.id.accountID, let presenter = topViewController()
+            else { return }
+            let actions = actions
+            let picker = LabelPickerViewController(
+                labels: labels, threads: threads, editor: model.labelEditor(for: account)
+            ) { action in
+                actions.perform(action, on: ids)
+            }
+            let navigation = UINavigationController(rootViewController: picker)
+            navigation.sheetPresentationController?.detents = [.medium(), .large()]
+            presenter.present(navigation, animated: true)
         }
-        let navigation = UINavigationController(rootViewController: picker)
-        navigation.sheetPresentationController?.detents = [.medium(), .large()]
-        presenter.present(navigation, animated: true)
+    }
+
+    /// The rows of `ids` on the device and their account's labels, or `nil` when none is or the labels can't be read.
+    @concurrent
+    private nonisolated static func labelPicking(_ ids: [ThreadSummary.ID], in database: MailDatabase) async -> (
+        [ThreadSummary], [MailLabel]
+    )? {
+        let threads = ids.compactMap { try? database.thread($0) }
+        guard let account = threads.first?.id.accountID, let labels = try? database.labels(for: account) else {
+            return nil
+        }
+        return (threads, labels)
     }
 
     /// The composer with `answer` to the thread's newest message, once it is fetched. A newer answer or draft

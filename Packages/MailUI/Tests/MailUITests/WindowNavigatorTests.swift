@@ -70,7 +70,7 @@ struct WindowNavigatorTests {
     private func navigator(store: Store) -> WindowNavigator {
         let navigator = WindowNavigator(
             showing: WindowState(), checking: .saved, context: { WindowNavigation.Context(arrangement: .stack) },
-            lookUp: { await store.row($0) })
+            lookUp: { await store.row($0) }, stored: { _ in nil })
         let split = MailSplitViewController(
             actions: MailActions(commands: MailCommands(store: NoStore(), replay: { _ in })))
         navigator.show(
@@ -82,7 +82,7 @@ struct WindowNavigatorTests {
                         style: style)
                 },
                 list: { [listed] _ in Listed(listed) },
-                reader: { reading, row in Self.reader(for: row ?? Self.row(reading.thread), in: reading.mailbox) }))
+                reader: { reading, row in Self.reader(for: row, in: reading.mailbox) }))
         return navigator
     }
 
