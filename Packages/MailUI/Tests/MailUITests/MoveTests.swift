@@ -5,7 +5,7 @@ import Testing
 @testable import MailUI
 
 /// Threads' labels in memory, changed by the actions queued on them.
-private final class LabelStore: MailCommands.Store, @unchecked Sendable {
+final class LabelStore: MailCommands.Store, @unchecked Sendable {
     var labels: [String: Set<String>]
     var queued: [OutboxIntent] = []
 

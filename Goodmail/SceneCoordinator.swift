@@ -63,11 +63,11 @@ final class SceneCoordinator: NSObject {
         super.init()
         window.windowAnswer = { [weak self] in self?.windowAnswer(to: $0) ?? .notHere }
         actions.reopen = { [weak self] draft in self?.handle(.compose(draft)) }
-        actions.changed = { [weak self] change in self?.readerAsked(change) }
         drafts.newMessage = { [weak self] account in self?.handle(.compose(Draft(accountID: account))) }
         drafts.newMessageHolding = { [weak self] in self?.compose(holding: $0) }
         drafts.canStartMessage = { [weak self] in self?.composingAccount != nil }
         drafts.keep = { [minimized = model.minimizedDrafts, window = windowID] in minimized.keep($0, for: window) }
+        followReaderChanges()
     }
 
     isolated deinit {

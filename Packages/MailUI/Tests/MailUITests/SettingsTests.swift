@@ -227,6 +227,24 @@ struct SettingsTests {
         #expect(Preferences.removalAnimation == .subtle)
     }
 
+    @Test func afterArchiveOrDeleteShowsTheNextUntilToldAndFollowsTheReader() throws {
+        let saved = Preferences.afterRemoval
+        defer { Preferences.afterRemoval = saved }
+        Preferences.defaults.removeObject(forKey: Preferences.afterRemovalKey)
+        let model = SettingsViewModel(
+            accounts: { [personal] }, signIn: { _ in true }, remove: { _, _ in }, update: { _ in }, closed: {})
+        #expect(model.afterRemoval == .next, "the next conversation opens, as in iOS Mail")
+
+        model.afterRemoval = .list
+        #expect(Preferences.afterRemoval == .list)
+        #expect(
+            Preferences.defaults.string(forKey: Preferences.afterRemovalKey) == "list", "stored by its name")
+        let values = Preferences.syncedSettings.compactMap { $0 as? DefaultsValues }
+        #expect(
+            try values.contains { try $0.local().scope.covers(Preferences.afterRemovalKey) },
+            "the choice follows the reader to their other devices")
+    }
+
     @Test(arguments: [
         (RemovalAnimation.playful, false, true),
         (.playful, true, false),

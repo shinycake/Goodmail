@@ -2,36 +2,42 @@ import MailCore
 import MailUI
 import UIKit
 
-/// Where the reader goes after the reader asks a change of mail in this window, and only then (R6–R8). The window's
-/// actions tell it of each change as it is asked, before it applies, and `ReaderCourse` decides from what shows now:
-/// what sync, other devices, alerts and other windows change only changes rows.
+/// Where the reader goes after the reader asks a change of mail in this window, and only then (R6–R9). The window's
+/// actions tell it of each change as it is asked, before it applies, and of each Undo, and `ReaderCourse` decides from
+/// what shows now: what sync, other devices, alerts and other windows change only changes rows.
 extension SceneCoordinator {
-    func readerAsked(_ change: MailChange) {
-        let reader = readerOnShow?.reading
+    /// Follows what the reader asks of the window's actions. Called once, as the window is made.
+    func followReaderChanges() {
+        actions.changed = { [weak self] change in self?.readerAsked(change) }
+        actions.undone = { [weak self] change in self?.readerUndid(change) }
+    }
+
+    private func readerAsked(_ change: MailChange) {
+        let onShow = readerOnShow?.reading
         let list = frontSequence
         let facts = ReaderCourse.Facts(
-            reader: reader, rows: list?.frontRows ?? [], pointerPick: list?.pointerPick ?? [], layout: shown.layout,
-            setting: afterRemoval)
+            reader: onShow, rows: list?.frontRows ?? [], pointerPick: list?.pointerPick ?? [], state: shown,
+            setting: Preferences.afterRemoval)
         switch course.asked(change, facts) {
         case .stays:
             break
         case .closes:
             closeReader()
         case .opens(let next):
-            guard let mailbox = reader?.mailbox ?? shown.readingMailbox else { return closeReader() }
-            read(next, in: mailbox)
+            // One gone from the device leaves the list instead.
+            guard let mailbox = onShow?.mailbox ?? shown.readingMailbox, let reader = reader(for: next, in: mailbox)
+            else { return closeReader() }
+            place(reader)
         case .leavesWindow:
             leaveMessage()
         }
     }
 
-    /// What the window shows after the conversation read is put away. Until it is a setting, a Mac window goes on to
-    /// the next, as Mail on the Mac does, and touch goes back to the list, as it always has.
-    private var afterRemoval: AfterRemoval {
-        switch window.interactionStyle {
-        case .desktop: .next
-        case .touch: .list
-        }
+    /// Undo took back what left a conversation: it opens again if the window still shows where that left it (R9).
+    private func readerUndid(_ change: MailChange) {
+        guard let left = course.undone(change, in: shown), let reader = reader(for: left.thread, in: left.mailbox)
+        else { return }
+        place(reader)
     }
 
     /// The list a conversation opens from, as the window shows it now: the narrow stack's, or the one beside the reader.
@@ -68,17 +74,17 @@ extension SceneCoordinator {
         }
     }
 
-    /// Reads `next`, of the same list, in the place of the reader on show, and marks its row. One gone from the device
-    /// leaves the list.
-    private func read(_ next: ThreadSummary.ID, in mailbox: Mailbox) {
-        guard let split, let reader = reader(for: next, in: mailbox) else { return closeReader() }
+    /// Shows `reader`, of a conversation of the list on show, in the place of the reader on show, and marks its row. A
+    /// narrow window fades one into the other.
+    private func place(_ reader: ThreadViewController) {
+        guard let split else { return }
+        let thread = reader.reading.thread
         let list = frontSequence
-        course.opened(next, from: list?.frontRows ?? [])
-        shown.setThread(next)
-        list?.mark(reading: next)
-        if split.isCollapsed, let stack = navigation(for: .compact) {
-            let under = stack.viewControllers.filter { !($0 is ThreadViewController) }
-            stack.setViewControllers(under + [reader], animated: false)
+        course.opened(thread, from: list?.frontRows ?? [])
+        shown.setThread(thread)
+        list?.mark(reading: thread)
+        if split.isCollapsed {
+            navigation(for: .compact)?.showReader(reader)
         } else {
             navigation(for: .secondary)?.setViewControllers([reader], animated: false)
         }

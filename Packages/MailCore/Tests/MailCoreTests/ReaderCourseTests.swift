@@ -17,33 +17,33 @@ struct ReaderCourseTests {
 
     private func facts(
         reading thread: ThreadSummary.ID?, rows: [ThreadSummary.ID]? = nil, pick: [ThreadSummary.ID] = [],
-        layout: WindowState.Layout = .viewer, setting: AfterRemoval = .next
+        state: WindowState = WindowState(), setting: AfterRemoval = .next
     ) -> ReaderCourse.Facts {
         ReaderCourse.Facts(
-            reader: thread.map { reading($0) }, rows: rows ?? self.rows, pointerPick: pick, layout: layout,
+            reader: thread.map { reading($0) }, rows: rows ?? self.rows, pointerPick: pick, state: state,
             setting: setting)
     }
 
     @Test func archivingTheOpenConversationReadsTheNextAtOnce() {
-        let course = ReaderCourse()
+        var course = ReaderCourse()
         #expect(course.asked(MailChange(.action(.archive), on: [b]), facts(reading: b)) == .opens(c))
         #expect(course.asked(MailChange(.action(.archive), on: [b]), facts(reading: b, setting: .list)) == .closes)
     }
 
     @Test func changesToOtherConversationsLeaveTheReaderWhereItIs() {
-        let course = ReaderCourse()
+        var course = ReaderCourse()
         #expect(course.asked(MailChange(.action(.archive), on: [a, c]), facts(reading: b)) == .stays)
         #expect(course.asked(MailChange(.action(.star(true)), on: [b]), facts(reading: b)) == .stays)
     }
 
     @Test func markAsUnreadGoesBackToTheList() {
-        let course = ReaderCourse()
+        var course = ReaderCourse()
         #expect(course.asked(MailChange(.action(.markRead(false)), on: [b]), facts(reading: b)) == .closes)
     }
 
     @Test func aMessageWindowLeavesForWhatTakesItsConversation() {
-        let course = ReaderCourse()
-        let window = facts(reading: b, rows: [], layout: .message)
+        var course = ReaderCourse()
+        let window = facts(reading: b, rows: [], state: WindowState().opening(b, in: .inbox, as: .message))
         #expect(course.asked(MailChange(.action(.trash), on: [b]), window) == .leavesWindow)
         #expect(course.asked(MailChange(.action(.markRead(false)), on: [b]), window) == .leavesWindow)
         #expect(course.asked(MailChange(.action(.star(true)), on: [b]), window) == .stays)
@@ -61,7 +61,7 @@ struct ReaderCourseTests {
     }
 
     @Test func puttingAwayEveryPointerPickReadsTheRowAfterThem() {
-        let course = ReaderCourse()
+        var course = ReaderCourse()
         let rows = rows + [Self.row("d")]
         let picked = facts(reading: nil, rows: rows, pick: [a, b])
         #expect(course.asked(MailChange(.action(.trash), on: [a, b]), picked) == .opens(c))

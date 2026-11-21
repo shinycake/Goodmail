@@ -23,7 +23,8 @@ public final class MailActions {
     }
 
     enum Undo: Equatable {
-        case actions(MailCommands.Undo)
+        /// Takes back what `change`, the change the reader asked, did; `nil` for one the window isn't told of, as a pin.
+        case actions(MailCommands.Undo, change: MailChange?)
         /// Takes a message back during its undo-send window.
         case send(Draft.ID)
     }
@@ -35,6 +36,9 @@ public final class MailActions {
     /// Told of each change the reader asks of conversations in this window, as they ask it and before it applies, so
     /// the window moves its reader at once and for nothing else (R6, R7).
     @ObservationIgnored public var changed: ((MailChange) -> Void)?
+    /// Told when Undo has taken back a change `changed` told of, so the window can bring the reader back to where it
+    /// was (R9).
+    @ObservationIgnored public var undone: ((MailChange) -> Void)?
 
     public private(set) var toast: Toast?
     /// A failure to apply or undo an action locally.
@@ -61,9 +65,10 @@ public final class MailActions {
     }
 
     public func perform(_ action: ThreadAction, on threads: [ThreadSummary.ID]) {
-        changed?(MailChange(.action(action), on: threads))
+        let change = MailChange(.action(action), on: threads)
+        changed?(change)
         feedback(.performing(action))
-        apply(confirmation: Self.confirmation(for: action, count: threads.count)) {
+        apply(change, confirmation: Self.confirmation(for: action, count: threads.count)) {
             try await $0.perform(action, on: threads)
         }
     }
@@ -72,9 +77,11 @@ public final class MailActions {
     public func move(
         _ threads: [ThreadSummary.ID], to destination: MoveDestination, named name: String, from mailbox: Mailbox
     ) {
-        changed?(MailChange(.move(destination, from: mailbox), on: threads))
+        let change = MailChange(.move(destination, from: mailbox), on: threads)
+        changed?(change)
         feedback(.putAway)
         apply(
+            change,
             confirmation: String(
                 localized: "\(threads.count) moved to \(name)", table: "Actions", bundle: .module,
                 comment: "Toast after moving threads; the second value is the mailbox or label they went to")
@@ -83,9 +90,11 @@ public final class MailActions {
 
     /// Takes the threads out of the Inbox until `date`, with a toast to take that back.
     public func snooze(_ threads: [ThreadSummary.ID], until date: Date) {
-        changed?(MailChange(.snooze, on: threads))
+        let change = MailChange(.snooze, on: threads)
+        changed?(change)
         feedback(.putAway)
         apply(
+            change,
             confirmation: String(
                 localized: "Snoozed until \(ScheduledTime.text(for: date))", table: "Actions", bundle: .module,
                 comment: "Toast after snoozing threads, with when they come back")
@@ -95,14 +104,16 @@ public final class MailActions {
     /// Pins the threads to the top of their lists, or unpins them. They stay in view, so no toast; a shake undoes it.
     public func pin(_ threads: [ThreadSummary.ID], _ pinned: Bool) {
         feedback(.change)
-        apply(confirmation: nil) { try await $0.pin(threads, pinned) }
+        apply(nil, confirmation: nil) { try await $0.pin(threads, pinned) }
     }
 
     /// Puts snoozed threads back in the Inbox now, with a toast to snooze them again.
     public func unsnooze(_ threads: [ThreadSummary.ID]) {
-        changed?(MailChange(.unsnooze, on: threads))
+        let change = MailChange(.unsnooze, on: threads)
+        changed?(change)
         feedback(.change)
         apply(
+            change,
             confirmation: String(
                 localized: "\(threads.count) moved to Inbox", table: "Actions", bundle: .module,
                 comment: "Toast after putting snoozed threads back in the Inbox")
@@ -123,8 +134,9 @@ public final class MailActions {
             toast = nil
             feedback(.undone)
             switch undo {
-            case .actions(let undo):
+            case .actions(let undo, let change):
                 try await commands.undo(undo)
+                if let change { undone?(change) }
             case .send(let id):
                 takenBack.insert(id)
                 if let draft = try await commands.cancelSend(id) { reopen?(draft) }
@@ -203,16 +215,19 @@ public final class MailActions {
         await chain.settled()
     }
 
-    /// Makes one undoable change, keeps it as the last one, and confirms it with `confirmation` when there is one.
+    /// Makes one undoable change, `asked` by the reader as the window was told, keeps it as the last one, and
+    /// confirms it with `confirmation` when there is one.
     func apply(
-        confirmation: String?, _ change: @escaping (MailCommands) async throws -> MailCommands.Undo
+        _ asked: MailChange?, confirmation: String?,
+        _ change: @escaping (MailCommands) async throws -> MailCommands.Undo
     ) {
         run { [self] commands in
-            let undo = try await change(commands)
-            guard !undo.isEmpty else { return }
-            lastUndo = .actions(undo)
+            let applied = try await change(commands)
+            guard !applied.isEmpty else { return }
+            let undo = Undo.actions(applied, change: asked)
+            lastUndo = undo
             if let confirmation {
-                show(Toast(message: confirmation, undo: .actions(undo), lasting: readingTime))
+                show(Toast(message: confirmation, undo: undo, lasting: readingTime))
             }
         }
     }

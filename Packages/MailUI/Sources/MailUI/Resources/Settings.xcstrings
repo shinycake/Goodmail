@@ -119,6 +119,17 @@
         }
       }
     },
+    "After Archive or Delete" : {
+      "comment" : "Setting for what opens after the conversation being read is archived or deleted",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אחרי העברה לארכיון או מחיקה"
+          }
+        }
+      }
+    },
     "Alert Me About" : {
       "comment" : "Label of an account's alert choice",
       "localizations" : {
@@ -477,6 +488,17 @@
         }
       }
     },
+    "Return to the List" : {
+      "comment" : "After Archive or Delete choice: back to the list, with nothing open",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חזרה לרשימה"
+          }
+        }
+      }
+    },
     "Settings" : {
       "comment" : "Title of the settings screen",
       "localizations" : {
@@ -484,6 +506,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "הגדרות"
+          }
+        }
+      }
+    },
+    "Show Next Conversation" : {
+      "comment" : "After Archive or Delete choice: the conversation below opens",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצגת השיחה הבאה"
           }
         }
       }
@@ -600,6 +633,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "תצוגות שמציגות את כל החשבונות, כמו תיבת הדואר המאוחדת, נצבעות במעבר בין צבעי החשבונות שלך. אפשר לכבות זאת ולבחור צבע אחד."
+          }
+        }
+      }
+    },
+    "What opens after you archive, delete, move, snooze or mute the conversation you're reading. Next is the one below it in the list." : {
+      "comment" : "Explains the After Archive or Delete setting",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מה נפתח אחרי שמעבירים לארכיון, מוחקים, מעבירים, שמים בנודניק או משתיקים את השיחה שקוראים. הבאה היא זו שמתחתיה ברשימה."
           }
         }
       }

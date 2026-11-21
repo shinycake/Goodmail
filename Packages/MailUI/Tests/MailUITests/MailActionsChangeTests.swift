@@ -22,7 +22,7 @@ struct MailActionsChangeTests {
         var all: [MailChange] = []
     }
 
-    @Test func eachChangeIsToldAsItIsAsked() {
+    @Test func eachChangeIsToldAsItIsAsked() async {
         let (actions, changes) = actions()
         let date = Date(timeIntervalSince1970: 1_800_000_000)
 
@@ -40,6 +40,7 @@ struct MailActionsChangeTests {
                 MailChange(.unsnooze, on: [thread]),
                 MailChange(.action(.modifyLabels(add: ["Label_2"], remove: [])), on: [thread]),
             ])
+        await actions.settled()
     }
 
     @Test func whatTheAppDoesByItselfOrLeavesInViewSaysNothing() async {
@@ -48,5 +49,22 @@ struct MailActionsChangeTests {
         actions.pin([thread], true)
         await actions.settled()
         #expect(changes.all.isEmpty)
+    }
+
+    @Test func undoTellsTheChangeItTookBackAndNothingForAPin() async {
+        let store = LabelStore(["t1": [SystemLabel.inbox]])
+        let actions = MailActions(commands: MailCommands(store: store, replay: { _ in }), toastDuration: .seconds(60))
+        let undone = Changes()
+        actions.undone = { undone.all.append($0) }
+
+        actions.perform(.archive, on: [thread])
+        actions.undoLast()
+        await actions.settled()
+        #expect(undone.all == [MailChange(.action(.archive), on: [thread])], "once it is taken back")
+
+        actions.pin([thread], true)
+        actions.undoLast()
+        await actions.settled()
+        #expect(undone.all.count == 1, "a pin leaves the reader where it is, so its undo moves nothing")
     }
 }

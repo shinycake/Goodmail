@@ -24,13 +24,18 @@ extension MailboxViewController: ThreadSequence {
     }
 
     /// Marks the row of the thread open beside the list once it is in the list, as a tap on the row would have, so a
-    /// list rebuilt as the window widens shows which thread the reader is in.
+    /// list rebuilt as the window widens shows which thread the reader is in. A row out of sight scrolls into the
+    /// middle.
     func markOpenThread() {
         guard let thread = threadToMark, isViewLoaded, !isEditing, let indexPath = dataSource.indexPath(for: thread)
         else { return }
         threadToMark = nil
-        if !picksWithPointer {
-            collectionView.selectItem(at: indexPath, animated: false, scrollPosition: .centeredVertically)
+        let scroll: UICollectionView.ScrollPosition =
+            collectionView.indexPathsForVisibleItems.contains(indexPath) ? [] : .centeredVertically
+        if picksWithPointer {
+            if !scroll.isEmpty { collectionView.scrollToItem(at: indexPath, at: scroll, animated: false) }
+        } else {
+            collectionView.selectItem(at: indexPath, animated: false, scrollPosition: scroll)
         }
         viewModel.markReading(thread)
     }

@@ -30,6 +30,10 @@ public final class SettingsViewModel {
     public var conversationLayout: ConversationLayout {
         didSet { Preferences.conversationLayout = conversationLayout }
     }
+    /// What opens after the conversation being read is archived, deleted, moved, snoozed or muted.
+    public var afterRemoval: AfterRemoval {
+        didSet { Preferences.afterRemoval = afterRemoval }
+    }
     /// How trashed, archived and deleted threads leave the list.
     public var removalAnimation: RemovalAnimation {
         didSet { Preferences.removalAnimation = removalAnimation }
@@ -100,6 +104,7 @@ public final class SettingsViewModel {
         swipeArrangement = Preferences.swipeArrangement
         swipeTints = Preferences.swipeTints
         conversationLayout = Preferences.conversationLayout
+        afterRemoval = Preferences.afterRemoval
         removalAnimation = Preferences.removalAnimation
         unsortedInboxAccounts = Preferences.unsortedInboxAccounts
         combinedTheme = Preferences.combinedTheme

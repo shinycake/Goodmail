@@ -190,6 +190,7 @@ extension ThreadViewModelTests {
         model.perform(.archive)
         model.snooze(until: .now + 3600)
         #expect(changes == [MailChange(.action(.archive), on: [thread.id]), MailChange(.snooze, on: [thread.id])])
+        await actions.settled()
     }
 }
 
