@@ -3,19 +3,12 @@ import MailUI
 import UIKit
 
 /// The commands every window answers alike when none of its screens has them, whatever it shows: New Viewer Window,
-/// New Message and Get Mail. Each window owns one, and with it the sync Get Mail starts, which ends with the window.
+/// New Message and Get Mail. Get Mail is the app's own sync (`AppModel.getMail`), so it outlives the window.
 final class EveryWindowCommands {
     private let model: AppModel
-    /// The sync Get Mail started, which another Get Mail joins rather than starting a second. Only `getMail()` changes
-    /// it.
-    private var syncing: Task<Void, Never>?
 
     init(model: AppModel) {
         self.model = model
-    }
-
-    isolated deinit {
-        syncing?.cancel()
     }
 
     /// What `command` does from the window on `scene`. `newMessage` starts a message from that window, `nil` where it
@@ -29,7 +22,7 @@ final class EveryWindowCommands {
             return .ready(perform: newMessage)
         case .getMail:
             guard !model.accounts.isEmpty else { return .unavailable }
-            return .ready(perform: { [weak self] in self?.getMail() })
+            return .ready(perform: { [model] in model.getMail() })
         default:
             return .notHere
         }
@@ -51,15 +44,6 @@ final class EveryWindowCommands {
         return { [weak mail] in
             guard let mail, let account = mail.composingAccount else { return }
             mail.compose(Draft(accountID: account))
-        }
-    }
-
-    /// Syncs every account now, as pull to refresh does; a failure shows on the health board.
-    private func getMail() {
-        guard syncing == nil else { return }
-        syncing = Task { [weak self, model] in
-            try? await model.syncAll()
-            self?.syncing = nil
         }
     }
 }

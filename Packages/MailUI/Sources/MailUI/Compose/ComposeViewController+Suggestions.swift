@@ -41,10 +41,23 @@ extension ComposeViewController {
         showHighlight(of: list)
     }
 
-    /// Return or Tab in `field` adds the highlighted person while people are offered under it. Returns whether it did.
-    func completeWithHighlighted(in field: RecipientField) -> Bool {
+    /// Which key asks to add someone from the list: Return only the person picked with Up or Down, so a typed
+    /// address that also matches someone else stays as typed; Tab the picked one or else the first.
+    enum CompletionKey {
+        case returnKey
+        case tab
+    }
+
+    /// Adds the person `key` asks for from the list under `field`. Returns whether it did.
+    func completeWithHighlighted(in field: RecipientField, by key: CompletionKey) -> Bool {
         guard case .shown(let list, let under) = suggesting, under === field else { return false }
-        edit(field) { $0.complete(with: list.choice) }
+        let person: Contact? =
+            switch key {
+            case .returnKey: list.picked
+            case .tab: list.tabChoice
+            }
+        guard let person else { return false }
+        edit(field) { $0.complete(with: person) }
         hideSuggestions()
         return true
     }
@@ -83,7 +96,7 @@ extension ComposeViewController {
 
     private func showHighlight(of list: SuggestionList) {
         for (index, row) in suggestionRows.arrangedSubviews.enumerated() {
-            (row as? UIButton)?.isSelected = index == list.highlighted
+            (row as? UIButton)?.isSelected = list.highlight == .on(index)
         }
     }
 

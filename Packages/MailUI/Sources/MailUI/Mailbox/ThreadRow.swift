@@ -36,11 +36,11 @@ final class ThreadRowContentView: UIView, UIContentView {
         return true
     }
 
-    /// The buttons that take the time's place in the row's upper trailing corner, and tint the row, while the pointer
-    /// rests on it; `nil` shows the time. The time and the muted mark fade out under them and back in after.
     /// Widens the time's place to the quick actions' width while they show.
     private var timeSlot: NSLayoutConstraint?
 
+    /// The buttons that take the time's place in the row's upper trailing corner, and tint the row, while the pointer
+    /// rests on it; `nil` shows the time. The time and the muted mark fade out under them and back in after.
     var quickActions: HoverActionsView? {
         didSet {
             guard quickActions !== oldValue else { return }

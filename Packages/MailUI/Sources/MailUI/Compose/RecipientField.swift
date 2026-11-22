@@ -12,7 +12,7 @@ final class RecipientField: UIView {
         case select(Int)
         case remove(Int)
         case move(DraggedRecipient, to: Recipients.Role, at: Int)
-        /// Return: adds the highlighted suggestion while people are offered, else makes tokens of what is typed, or
+        /// Return: adds the suggestion picked with Up or Down, else makes tokens of what is typed, or
         /// goes on to the next field when nothing is.
         case commit
         /// Up or Down while people are offered under the field: moves the highlight.

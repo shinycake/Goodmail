@@ -227,6 +227,9 @@ done < <(find "$BUILD_ROOT" -maxdepth 3 -name 'xcodebuild-*.log' -mmin "+$BUSY_M
 # needs it, and each bundle that is gone, such as one a hand-run rm deleted.
 while IFS= read -r bundle; do
     if [[ "$bundle" == *-Runner.app ]]; then
+        # Not one a test is using now: its build folder is busy, or a running process names it.
+        build=${bundle%%/Build/Products/*}
+        if named_by_a_process "$build" || changed_within "$build" "$BUSY_MINUTES"; then continue; fi
         forget_bundle "$bundle" "a UI test runner"
     elif [[ ! -e "$bundle" ]]; then
         forget_bundle "$bundle" "it's gone"

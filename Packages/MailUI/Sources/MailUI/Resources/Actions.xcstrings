@@ -132,7 +132,7 @@
       }
     },
     "%lld moved to Inbox" : {
-      "comment" : "Toast after putting snoozed threads back in the Inbox",
+      "comment" : "Toast after moving threads to the Inbox, out of Snoozed or Spam",
       "localizations" : {
         "en" : {
           "variations" : {

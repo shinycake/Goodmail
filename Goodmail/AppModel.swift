@@ -12,6 +12,8 @@ import UIKit
 /// The composition root, shared by every window: the database, the accounts, each account's sync engine, and the
 /// commands that change mail.
 final class AppModel {
+    /// The sync Get Mail started, while it runs. Only `getMail()` sets it.
+    private var gettingMail: Task<Void, Never>?
     let database: MailDatabase
     let commands: MailCommands
     /// Reads and answers conversations, for alert replies, the watch and the composer's quote.
@@ -310,6 +312,16 @@ final class AppModel {
         accounts = try await Self.offMain { [database] in
             try database.reorderAccounts(order)
             return try database.accounts()
+        }
+    }
+
+    /// Get Mail from any window: syncs every account in one task the app owns, which a second Get Mail joins and
+    /// which outlives the window that asked. A failure shows on the health board.
+    func getMail() {
+        guard gettingMail == nil else { return }
+        gettingMail = Task { [weak self] in
+            try? await self?.syncAll()
+            self?.gettingMail = nil
         }
     }
 

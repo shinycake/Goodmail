@@ -19,7 +19,10 @@ extension SceneCoordinator {
         case .newSmartMailbox:
             return newSmartMailboxAnswer()
         default:
-            let newMessage = composingAccount.map { account -> () -> Void in
+            // Not while something covers the mail screens, as a sheet over them on iPad, where a new message would
+            // open underneath it.
+            let account = uncoveredMail == nil ? nil : composingAccount
+            let newMessage = account.map { account -> () -> Void in
                 { [weak self] in self?.handle(.compose(Draft(accountID: account))) }
             }
             return everyWindow.answer(to: command, in: window.windowScene, newMessage: newMessage)

@@ -35,7 +35,7 @@ extension ComposeViewController {
             for other in [toField, ccField, bccField] { other.show(viewModel.recipients[other.role]) }
             updateSendEnabled()
         case .commit:
-            if completeWithHighlighted(in: field) { return }
+            if completeWithHighlighted(in: field, by: .returnKey) { return }
             let wasEmpty = viewModel.recipients[field.role].typed.isEmpty
             edit(field) { $0.commit() }
             hideSuggestions()
@@ -43,7 +43,7 @@ extension ComposeViewController {
         case .highlight(let step):
             moveHighlight(step, in: field)
         case .complete:
-            _ = completeWithHighlighted(in: field)
+            _ = completeWithHighlighted(in: field, by: .tab)
         case .endEditing:
             edit(field) {
                 $0.commit()

@@ -19,11 +19,10 @@ extension MailActions {
     public func waitOutUndo(showing: (Toast) -> Void) async -> UndoWait {
         await settled()
         guard let raised = toast, raised.offersUndo else { return .nothingToUndo }
-        let undoneBefore = undoneCount
         showing(raised)
         for await shown in Observations({ self.toast?.id }) where shown != raised.id { break }
         await settled()
-        // A sent message's undo goes with its toast, so ask whether an undo ran rather than whether one is left.
-        return undoneCount > undoneBefore ? .undone : .ended
+        // An undo leaves the offer taken; the toast running out leaves it offered, for a shake, or lapsed for a send.
+        return undoOffer == .taken ? .undone : .ended
     }
 }

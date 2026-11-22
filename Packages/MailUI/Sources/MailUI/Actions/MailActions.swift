@@ -59,12 +59,28 @@ public final class MailActions {
     /// A failure to apply or undo an action locally.
     public private(set) var error: (any Error)?
     @ObservationIgnored private let commands: MailCommands
-    /// What Undo takes back, which outlasts the toast: a shake or ⌘Z undoes it after the toast has gone.
-    @ObservationIgnored private(set) var lastUndo: Undo? {
+    /// Whether Undo can take something back, and how the last offer ended.
+    enum UndoOffer: Equatable {
+        /// Nothing done yet that Undo could take back.
+        case none
+        /// Undo takes this back, from the toast, a shake or ⌘Z, after the toast has gone too.
+        case offering(Undo)
+        /// The reader took the last one back.
+        case taken
+        /// A sent message went once its wait was over, so it can't be taken back any more.
+        case lapsed
+    }
+
+    /// The one place that says whether there is something to undo. Changes go through `undoLast`, `send` and `apply`.
+    @ObservationIgnored private(set) var undoOffer = UndoOffer.none {
         didSet { offerUndo() }
     }
-    /// How many undos have been applied, so a wait can tell an undo from a toast running out (`waitOutUndo`).
-    @ObservationIgnored private(set) var undoneCount = 0
+
+    /// What Undo would take back now.
+    var lastUndo: Undo? {
+        guard case .offering(let undo) = undoOffer else { return nil }
+        return undo
+    }
     /// The window's undo manager, where Edit > Undo and ⌘Z find the last undo (`offerUndo`).
     @ObservationIgnored public var undoManager: UndoManager? {
         didSet { offerUndo() }
@@ -129,7 +145,7 @@ public final class MailActions {
             .unsnooze, on: threads, feedback: .change,
             confirmation: String(
                 localized: "\(threads.count) moved to Inbox", table: "Actions", bundle: .module,
-                comment: "Toast after putting snoozed threads back in the Inbox")
+                comment: "Toast after moving threads to the Inbox, out of Snoozed or Spam")
         ) { try await $0.unsnooze(threads) }
     }
 
@@ -143,8 +159,7 @@ public final class MailActions {
     public func undoLast() {
         run { [self] commands in
             guard let undo = lastUndo else { return }
-            lastUndo = nil
-            undoneCount += 1
+            undoOffer = .taken
             endToast()
             feedback(.undone)
             switch undo {
@@ -182,7 +197,7 @@ public final class MailActions {
                 let delay = undoSendDelay()
                 try await commands.send(draft, after: delay)
                 guard delay > .zero else { return }
-                lastUndo = .send(draft.id)
+                undoOffer = .offering(.send(draft.id))
                 // Once the wait is over the message has gone, so Edit > Undo and a shake stop offering it back.
                 show(
                     Toast(
@@ -191,11 +206,11 @@ public final class MailActions {
                             comment: "Toast with Undo after sending a message, while it can still be taken back"),
                         .confirmation(.send(draft.id)), lasting: delay)
                 ) { [self] in
-                    if lastUndo == .send(draft.id) { lastUndo = nil }
+                    if undoOffer == .offering(.send(draft.id)) { undoOffer = .lapsed }
                 }
             case .at(let date):
                 try await commands.schedule(draft, at: date)
-                lastUndo = .send(draft.id)
+                undoOffer = .offering(.send(draft.id))
                 show(
                     Toast(
                         message: Self.scheduledConfirmation(for: date), .confirmation(.send(draft.id)),
@@ -252,7 +267,7 @@ public final class MailActions {
             let applied = try await change(commands)
             guard !applied.isEmpty else { return }
             let undo = Undo.actions(applied, change: asked)
-            lastUndo = undo
+            undoOffer = .offering(undo)
             if let confirmation {
                 show(Toast(message: confirmation, .confirmation(undo), lasting: readingTime))
             }
@@ -340,7 +355,7 @@ public final class MailActions {
         if action == .moveToInbox {
             return String(
                 localized: "\(count) moved to Inbox", table: "Actions", bundle: .module,
-                comment: "Toast after putting snoozed threads back in the Inbox")
+                comment: "Toast after moving threads to the Inbox, out of Snoozed or Spam")
         }
         if action == .untrash {
             return String(

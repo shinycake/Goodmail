@@ -183,10 +183,6 @@ public final class MailboxViewModel {
         self.calendar = calendar
     }
 
-    isolated deinit {
-        syncing?.cancel()
-    }
-
     /// Follows the store until the calling task is cancelled.
     public func observe() async {
         async let woken: Void = followWoken()
@@ -322,7 +318,8 @@ public final class MailboxViewModel {
         await sync().value
     }
 
-    /// Syncs now, for Get Mail and pull to refresh, in a task the list owns, which ends when the list goes.
+    /// Syncs now, for Get Mail and pull to refresh. The sync is every account's, not this list's, so it runs to its end
+    /// even when the reader picks another mailbox and this list goes.
     public func getMail() {
         _ = sync()
     }
