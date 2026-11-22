@@ -12,8 +12,13 @@ final class RecipientField: UIView {
         case select(Int)
         case remove(Int)
         case move(DraggedRecipient, to: Recipients.Role, at: Int)
-        /// Return: makes tokens of what is typed, or goes on to the next field when nothing is.
+        /// Return: adds the highlighted suggestion while people are offered, else makes tokens of what is typed, or
+        /// goes on to the next field when nothing is.
         case commit
+        /// Up or Down while people are offered under the field: moves the highlight.
+        case highlight(SuggestionList.Step)
+        /// Tab while people are offered under the field: adds the highlighted one.
+        case complete
         case endEditing
         /// Text dropped in from another app.
         case drop(String)
@@ -21,6 +26,11 @@ final class RecipientField: UIView {
 
     let role: Recipients.Role
     var onIntent: (Intent) -> Void = { _ in }
+    /// Whether people are offered under the field, which Up, Down and Tab then move through and pick from.
+    var offersSuggestions: () -> Bool {
+        get { textField.offersSuggestions }
+        set { textField.offersSuggestions = newValue }
+    }
     /// The field's own menu entries for a token: moving it to the other fields.
     var moveTargets: [(role: Recipients.Role, title: String)] = []
 
@@ -57,6 +67,13 @@ final class RecipientField: UIView {
         textField.accessibilityLabel = title
         textField.delegate = self
         textField.onDeleteWhenEmpty = { [weak self] in self?.onIntent(.deleteBackward) }
+        textField.onSuggestionKey = { [weak self] key in
+            switch key {
+            case .up: self?.onIntent(.highlight(.up))
+            case .down: self?.onIntent(.highlight(.down))
+            case .tab: self?.onIntent(.complete)
+            }
+        }
         textField.addAction(
             UIAction { [weak self] _ in self?.onIntent(.type(self?.textField.text ?? "")) }, for: .editingChanged)
         textField.addAction(UIAction { [weak self] _ in self?.onIntent(.endEditing) }, for: .editingDidEnd)

@@ -8,6 +8,7 @@ extension ComposeViewController {
         let field = RecipientField(role: role, title: role.label, accessory: accessory)
         field.moveTargets = Recipients.Role.allCases.filter { $0 != role }.map { ($0, $0.moveTitle) }
         field.show(viewModel.recipients[role])
+        field.offersSuggestions = { [weak self, weak field] in self?.isSuggesting(under: field) ?? false }
         field.onIntent = { [weak self, weak field] intent in
             guard let self, let field else { return }
             handle(intent, in: field)
@@ -34,10 +35,15 @@ extension ComposeViewController {
             for other in [toField, ccField, bccField] { other.show(viewModel.recipients[other.role]) }
             updateSendEnabled()
         case .commit:
+            if completeWithHighlighted(in: field) { return }
             let wasEmpty = viewModel.recipients[field.role].typed.isEmpty
             edit(field) { $0.commit() }
             hideSuggestions()
             if wasEmpty { next(after: field).becomeFirstResponder() }
+        case .highlight(let step):
+            moveHighlight(step, in: field)
+        case .complete:
+            _ = completeWithHighlighted(in: field)
         case .endEditing:
             edit(field) {
                 $0.commit()

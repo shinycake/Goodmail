@@ -29,6 +29,8 @@ public final class ComposeWindowController: UINavigationController, ComposerHost
 
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        // The window is the message's place to rest, as the sheet's card landing is: writing starts in its field.
+        composer?.didOpen()
         let first = onScreen
         onScreen = nil
         first?()

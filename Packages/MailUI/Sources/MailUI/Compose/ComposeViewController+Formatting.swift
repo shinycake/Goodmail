@@ -1,13 +1,16 @@
 import MailCore
 public import UIKit
 
-/// The body's formatting: the controls above the keyboard, the system's Format panel limited to what the message
-/// can carry, and each change applied as one undoable edit.
+/// The body's formatting: the controls above the keyboard or along the window's bottom, the system's Format panel
+/// limited to what the message can carry, and each change applied as one undoable edit.
 extension ComposeViewController {
     var bodyFont: UIFont { .preferredFont(forTextStyle: .body) }
 
     func configureFormatting() {
+        // Above the keyboard, as `formattingPlacement` starts, until the window's style says otherwise.
         bodyView.inputAccessoryView = formattingBar
+        placeFormattingBar()
+        registerForTraitChanges([InteractionStyleTrait.self]) { (self: Self, _) in self.placeFormattingBar() }
         // Styles and lists only: the bar's sizes and colors are the ones the HTML that is sent carries; the panel's
         // fonts and free sizes and colors would be lost. Mac Catalyst has no such panel, so the bar is all it has.
         #if !targetEnvironment(macCatalyst)

@@ -13,18 +13,22 @@ public final class ComposeViewController: UIViewController {
     let subjectField = UITextField()
     let bodyView = BodyTextView(usingTextLayoutManager: true)
     let formattingBar = FormattingBar()
+    /// Where `formattingBar` is now; `placeFormattingBar` moves it.
+    var formattingPlacement = FormattingBarPlacement.aboveKeyboard
     /// The characters the edit being typed puts in, until its layout is settled.
     var typedRange: NSRange?
     private let quoteButton = ConfiguredButton(configuration: .gray())
     private let quoteLabel = UILabel()
     var ccRow: UIView!
     var bccRow: UIView!
-    private var toRow: UIView!
-    private var fields: UIStackView!
+    var toRow: UIView!
+    var fields: UIStackView!
     /// People matching the recipient being typed, shown under its field.
-    private let suggestionList = UIStackView()
+    let suggestionRows = UIStackView()
+    /// Whether people are offered under a recipient field; `showSuggestions` and `hideSuggestions` change it.
+    var suggesting = Suggesting.hidden
     /// Looking up the people for the last keystroke; a newer keystroke replaces it.
-    private var suggestionLookup: Task<Void, Never>?
+    var suggestionLookup: Task<Void, Never>?
     let attachmentsView = ComposeAttachmentsView()
     /// Takes in what is dragged in from other apps or pasted: words where the caret is, files attached.
     /// Asks whether words dropped into the body go in as text or as a quote.
@@ -118,8 +122,8 @@ public final class ComposeViewController: UIViewController {
             attachmentsView.show(viewModel.attachments)
             updateSendEnabled()
         }
-        suggestionList.axis = .vertical
-        suggestionList.isHidden = true
+        suggestionRows.axis = .vertical
+        suggestionRows.isHidden = true
         if viewModel.draft.quote != nil { stack.addArrangedSubview(quoteSection()) }
         stack.translatesAutoresizingMaskIntoConstraints = false
         scrollView.addSubview(stack)
@@ -189,6 +193,12 @@ public final class ComposeViewController: UIViewController {
     /// Where the composer stands on screen, so the cursor is placed the first time and kept after minimizing.
     private var showing = Showing.notYet(then: []) {
         didSet { updateScrollBottom() }
+    }
+
+    /// Keeps the end of the message clear of `inset` points at the bottom of the composer.
+    func setScrollBottomInset(_ inset: CGFloat) {
+        scrollView.contentInset.bottom = inset
+        scrollView.verticalScrollIndicatorInsets.bottom = inset
     }
 
     /// The scroll view's bottom on the keyboard, or held on the safe area: one is active at a time
@@ -263,68 +273,6 @@ public final class ComposeViewController: UIViewController {
         field.font = .preferredFont(forTextStyle: .body)
         field.adjustsFontForContentSizeCategory = true
         field.addAction(UIAction { [weak self] _ in self?.fieldChanged() }, for: .editingChanged)
-    }
-
-    /// Looks up the people matching what is being typed in `field` and lists them right under it.
-    func showSuggestions(for field: RecipientField) {
-        suggestionLookup?.cancel()
-        let role = field.role
-        suggestionLookup = Task { [weak self, weak field] in
-            guard let self, let field else { return }
-            let contacts = await viewModel.suggestions(for: role)
-            guard !Task.isCancelled else { return }
-            list(contacts, under: field)
-        }
-    }
-
-    func hideSuggestions() {
-        suggestionLookup?.cancel()
-        suggestionList.isHidden = true
-    }
-
-    /// Shows `contacts` under `field`. A tap adds the recipient.
-    private func list(_ contacts: [Contact], under field: RecipientField) {
-        let shown = suggestionList.isHidden ? 0 : suggestionList.arrangedSubviews.count
-        for view in suggestionList.arrangedSubviews { view.removeFromSuperview() }
-        suggestionList.removeFromSuperview()
-        let row = [toField: toRow, ccField: ccRow, bccField: bccRow][field] ?? nil
-        guard !contacts.isEmpty, let row, let index = fields.arrangedSubviews.firstIndex(of: row) else {
-            suggestionList.isHidden = true
-            return
-        }
-        for contact in contacts {
-            var configuration = UIButton.Configuration.plain()
-            configuration.title = contact.name ?? contact.address
-            configuration.subtitle = contact.name == nil ? nil : contact.address
-            configuration.titleAlignment = .leading
-            configuration.baseForegroundColor = .label
-            configuration.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0)
-            configuration.subtitleTextAttributesTransformer = UIConfigurationTextAttributesTransformer {
-                var attributes = $0
-                attributes.foregroundColor = .secondaryLabel
-                return attributes
-            }
-            let button = ConfiguredButton(
-                configuration: configuration,
-                primaryAction: UIAction { [weak self, weak field] _ in
-                    guard let self, let field else { return }
-                    edit(field) { $0.complete(with: contact) }
-                    hideSuggestions()
-                })
-            button.contentHorizontalAlignment = .leading
-            suggestionList.addArrangedSubview(button)
-        }
-        fields.insertArrangedSubview(suggestionList, at: index + 1)
-        suggestionList.isHidden = false
-        // The list appears under the field without moving VoiceOver off it, so say how many there are, after the
-        // letter just typed is read and only when the number changes.
-        if contacts.count != shown {
-            SystemAccessibility.announce(
-                String(
-                    localized: "\(contacts.count) suggestions", table: "Compose", bundle: .module,
-                    comment: "VoiceOver: how many recipients are suggested under the field"),
-                queued: true)
-        }
     }
 
     /// A field's title before it, on one line.
