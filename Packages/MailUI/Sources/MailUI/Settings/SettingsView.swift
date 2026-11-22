@@ -69,6 +69,14 @@ struct SettingsView: View {
                 } label: {
                     Text(SwipeSettingsView.title)
                 }
+                // Only a Mac window shows buttons under the pointer; an iPad keeps its swipes.
+                if model.desktop != nil {
+                    NavigationLink {
+                        HoverSettingsView(model: model)
+                    } label: {
+                        Text(HoverSettingsView.title)
+                    }
+                }
             } header: {
                 Text(
                     "Mail List", tableName: "Settings", bundle: .module,

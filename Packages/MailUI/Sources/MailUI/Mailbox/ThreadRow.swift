@@ -25,9 +25,6 @@ final class ThreadRowContentView: UIView, UIContentView {
     private let mutedMark = UIImageView(image: UIImage(systemName: "bell.slash.fill"))
     private let subject = UILabel()
     private let preview = UILabel()
-    /// The sender, subject and preview, whose trailing end fades out under the quick actions.
-    private let text = UIStackView()
-    private let textFade = CAGradientLayer()
 
     /// What a press from VoiceOver or another assistive app does, where the list's clicks aren't the collection
     /// view's own selection; `nil` leaves the press to the collection view.
@@ -39,8 +36,8 @@ final class ThreadRowContentView: UIView, UIContentView {
         return true
     }
 
-    /// The buttons that float over the row's trailing end, and tint it, while the pointer rests on it; `nil` shows the
-    /// time. The time and the muted mark fade out under them and back in after.
+    /// The buttons that take the time's place in the row's upper trailing corner, and tint the row, while the pointer
+    /// rests on it; `nil` shows the time. The time and the muted mark fade out under them and back in after.
     var quickActions: HoverActionsView? {
         didSet {
             guard quickActions !== oldValue else { return }
@@ -48,13 +45,18 @@ final class ThreadRowContentView: UIView, UIContentView {
             if let quickActions {
                 quickActions.translatesAutoresizingMaskIntoConstraints = false
                 addSubview(quickActions)
+                // Centered on the time's line, and rising into the row's top margin rather than reaching the subject
+                // when it is taller than the line.
+                let centered = quickActions.centerYAnchor.constraint(equalTo: date.centerYAnchor)
+                centered.priority = .defaultHigh
                 NSLayoutConstraint.activate([
-                    quickActions.trailingAnchor.constraint(
-                        equalTo: trailingAnchor, constant: -ThreadRowMetrics.quickActionsInset),
-                    quickActions.centerYAnchor.constraint(equalTo: centerYAnchor),
+                    quickActions.trailingAnchor.constraint(equalTo: date.trailingAnchor),
+                    centered,
+                    quickActions.bottomAnchor.constraint(lessThanOrEqualTo: date.bottomAnchor),
+                    // The time's place grows to hold them, so the sender ends before them rather than under them.
+                    date.widthAnchor.constraint(greaterThanOrEqualTo: quickActions.widthAnchor),
                 ])
             }
-            setNeedsLayout()  // fits the buttons and fades the text, or takes the fade away
             // One row's buttons swapping for another set shows at once; coming and going cross-fades.
             guard (oldValue == nil) != (quickActions == nil) else {
                 oldValue?.removeFromSuperview()
@@ -73,34 +75,9 @@ final class ThreadRowContentView: UIView, UIContentView {
     }
 
     override func layoutSubviews() {
-        // The capsule fits its buttons to the room before the constraints place it.
-        quickActions?.room = (bounds.width * ThreadRowMetrics.quickActionsShare).rounded(.down)
+        // The time keeps to the trailing edge of its place while that place is widened for the quick actions.
+        date.textAlignment = effectiveUserInterfaceLayoutDirection == .rightToLeft ? .left : .right
         super.layoutSubviews()
-        fadeTextUnderQuickActions()
-    }
-
-    /// Fades the text out just before the capsule's leading edge, so letters don't run under it.
-    private func fadeTextUnderQuickActions() {
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        defer { CATransaction.commit() }
-        guard let quickActions, text.bounds.width > 0 else {
-            text.layer.mask = nil
-            return
-        }
-        let capsule = quickActions.convert(quickActions.bounds, to: text)
-        let leftToRight = effectiveUserInterfaceLayoutDirection == .leftToRight
-        // How far from the text's leading edge the fade ends, a little before the capsule.
-        let clear = (leftToRight ? capsule.minX : text.bounds.width - capsule.maxX) - 4
-        let width = text.bounds.width
-        let end = min(max(clear / width, 0), 1)
-        let start = min(max((clear - ThreadRowMetrics.textFadeLength) / width, 0), end)
-        textFade.frame = text.bounds
-        textFade.colors = [UIColor.black, .black, .clear, .clear].map(\.cgColor)
-        textFade.locations = [0, start, end, 1].map { NSNumber(value: Double($0)) }
-        textFade.startPoint = CGPoint(x: leftToRight ? 0 : 1, y: 0.5)
-        textFade.endPoint = CGPoint(x: leftToRight ? 1 : 0, y: 0.5)
-        text.layer.mask = textFade
     }
 
     var configuration: any UIContentConfiguration {
@@ -144,7 +121,8 @@ final class ThreadRowContentView: UIView, UIContentView {
         date.font = .preferredFont(forTextStyle: .footnote)
         date.textColor = .secondaryLabel
         date.setContentCompressionResistancePriority(.required, for: .horizontal)
-        date.setContentHuggingPriority(.required, for: .horizontal)
+        // Not required: the time's place widens for the quick actions. The sender hugs less and takes the rest.
+        date.setContentHuggingPriority(.defaultHigh, for: .horizontal)
         subject.font = Typography.subject
         preview.font = .preferredFont(forTextStyle: .subheadline)
         preview.textColor = .secondaryLabel
@@ -156,7 +134,7 @@ final class ThreadRowContentView: UIView, UIContentView {
         let header = UIStackView(arrangedSubviews: [sender, mutedMark, date])
         header.spacing = 8
         header.stacksVerticallyAtAccessibilitySizes()
-        for view in [header, subject, preview] { text.addArrangedSubview(view) }
+        let text = UIStackView(arrangedSubviews: [header, subject, preview])
         text.axis = .vertical
         text.spacing = 2
 
@@ -232,12 +210,6 @@ extension RowAccount {
 enum ThreadRowMetrics {
     static let insets = NSDirectionalEdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16)
     static let avatarSpacing: CGFloat = 12
-    /// Between the quick actions and the row's trailing edge.
-    static let quickActionsInset: CGFloat = 11
-    /// The most of the row's width the quick actions take.
-    static let quickActionsShare: CGFloat = 0.6
-    /// How long the text's fade is before the quick actions.
-    static let textFadeLength: CGFloat = 24
     /// Where separators start, so they line up with the text rather than the avatar.
     static func textLeadingInset(for display: RowDisplay) -> CGFloat {
         insets.leading + MonogramView.width(showingMonogram: display.showsAvatars) + avatarSpacing

@@ -16,6 +16,7 @@ extension Preferences {
                 keys: [
                     undoSendKey, unsortedInboxKey, previewLinesKey, showsAvatarsKey, conversationLayoutKey,
                     removalAnimationKey, combinedThemeColorKey, swipeLeftKey, swipeRightKey, swipeTintsKey,
+                    showsHoverActionsKey, hoverActionsKey,
                     showsDoodlesKey, afterRemovalKey,
                 ]),
             DefaultsList(name: "imageTrustRules", key: ImageTrustRules.standardKey, storage: .json),

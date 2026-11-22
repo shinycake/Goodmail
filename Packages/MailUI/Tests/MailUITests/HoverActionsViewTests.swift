@@ -11,7 +11,7 @@ struct HoverActionsViewTests {
         HoverAction(face: HoverAction.Face(title: "\(choice)", symbol: "archivebox", choice: choice), run: {})
     }
 
-    private func buttons(_ view: HoverActionsView) -> [HoverActionButton] { view.shownButtons }
+    private func buttons(_ view: HoverActionsView) -> [HoverActionButton] { view.buttons }
 
     @Test func aButtonRestsInTheSecondaryLabelColor() {
         for button in buttons(HoverActionsView(actions: actions)) {
@@ -42,5 +42,16 @@ struct HoverActionsViewTests {
         let gaps = zip(frames, frames.dropFirst()).map { $1.minX - $0.maxX }
         #expect(Set(gaps).count == 1)
         #expect(try #require(gaps.first) >= 0)
+    }
+
+    @Test func theCapsuleIsSmallAndHoldsEachButtonWhole() {
+        let view = HoverActionsView(actions: actions)
+        view.frame.size = view.intrinsicContentSize
+        view.layoutIfNeeded()
+        #expect(view.bounds.height <= 24)
+        for button in buttons(view) {
+            #expect(button.frame.size == CGSize(width: 20, height: 20))
+            #expect(view.bounds.contains(button.frame))
+        }
     }
 }

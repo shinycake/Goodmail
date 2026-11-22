@@ -1,0 +1,105 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Actions" : {
+      "comment" : "The hover actions, in order",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פעולות"
+          }
+        }
+      }
+    },
+    "Add %@" : {
+      "comment" : "Adds an action to the hover buttons",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הוספת %@"
+          }
+        }
+      }
+    },
+    "Hover Actions" : {
+      "comment" : "Title of the hover settings",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פעולות בריחוף"
+          }
+        }
+      }
+    },
+    "More Actions" : {
+      "comment" : "Actions the hover buttons could show, waiting to be added",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פעולות נוספות"
+          }
+        }
+      }
+    },
+    "None" : {
+      "comment" : "No hover actions are picked",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אין"
+          }
+        }
+      }
+    },
+    "Remove %@" : {
+      "comment" : "Takes an action off the hover buttons",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הסרת %@"
+          }
+        }
+      }
+    },
+    "Remove an action to add another." : {
+      "comment" : "Shown when three hover actions are picked, the most there can be",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כדי להוסיף פעולה, צריך להסיר אחת."
+          }
+        }
+      }
+    },
+    "Show Hover Actions" : {
+      "comment" : "Turns the buttons a row shows under the pointer on or off",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצגת פעולות בריחוף"
+          }
+        }
+      }
+    },
+    "Up to three actions show in the corner of the row under the pointer." : {
+      "comment" : "Explains the hover settings",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עד שלוש פעולות מופיעות בפינת השורה שמתחת לסמן."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

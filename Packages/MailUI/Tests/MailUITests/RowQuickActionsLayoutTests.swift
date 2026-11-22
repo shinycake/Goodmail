@@ -4,36 +4,36 @@ import UIKit
 
 @testable import MailUI
 
-/// Where a hovered row puts its quick actions: centered on the row near its trailing edge, every button whole, and More
-/// only when the row is too narrow for every action.
+/// Where a hovered row puts its quick actions: in the time's place in its upper trailing corner, clear of the sender,
+/// the subject and the preview, on either side in either direction.
 @MainActor
 struct RowQuickActionsLayoutTests {
-    private let choices: [SwipeChoice] = [.read, .star, .archive, .snooze, .trash, .spam]
+    private let subjectText = "Quarterly planning notes and the follow-ups from Tuesday's long review meeting"
+    private let senderText = "Dana Levi-Montalcini of the Planning and Operations Department"
 
-    private func row(width: CGFloat, direction: UISemanticContentAttribute = .unspecified)
-        -> (ThreadRowContentView, HoverActionsView)
+    private func row(width: CGFloat, direction: UISemanticContentAttribute) -> (ThreadRowContentView, HoverActionsView)
     {
         let row = ThreadRowContentView(
             configuration: ThreadRowConfiguration(
                 thread: ThreadSummary(
-                    id: ThreadSummary.ID(accountID: AccountID(rawValue: "a"), threadID: "t"),
-                    subject: "Quarterly planning notes and the follow-ups from Tuesday",
+                    id: ThreadSummary.ID(accountID: AccountID(rawValue: "a"), threadID: "t"), subject: subjectText,
                     snippet: "Here is everything we agreed on, and the owners for each item.",
-                    sender: Contact(name: "Dana Levi", address: "dana@example.com"), date: .now, isUnread: true,
+                    sender: Contact(name: senderText, address: "dana@example.com"), date: .now, isUnread: true,
                     messageCount: 1, labelIDs: ["INBOX"]),
-                dateText: "9:41", account: .implied(.teal)))
+                dateText: "9:41 AM", account: .implied(.teal)))
+        // An app in Hebrew lays every view out right to left.
+        force(direction, on: row)
         let height = row.systemLayoutSizeFitting(
             CGSize(width: width, height: 0), withHorizontalFittingPriority: .required,
             verticalFittingPriority: .fittingSizeLevel
         ).height
         row.frame = CGRect(x: 0, y: 0, width: width, height: height)
         let capsule = HoverActionsView(
-            actions: choices.map {
+            actions: HoverActions.standard.shown.map {
                 HoverAction(face: HoverAction.Face(title: "\($0)", symbol: "star", choice: $0), run: {})
             })
         row.quickActions = capsule
-        // An app in Hebrew lays every view out right to left.
-        force(direction, on: row)
+        force(direction, on: capsule)
         row.layoutIfNeeded()
         return (row, capsule)
     }
@@ -43,42 +43,30 @@ struct RowQuickActionsLayoutTests {
         for subview in view.subviews { force(direction, on: subview) }
     }
 
-    @Test(arguments: [CGFloat(200), 490, 900])
-    func noButtonIsClippedAtAnyWidth(_ width: CGFloat) {
-        let (row, capsule) = row(width: width)
+    private func label(showing text: String, in view: UIView) -> UILabel? {
+        if let label = view as? UILabel, label.attributedText?.string == text || label.text == text { return label }
+        return view.subviews.lazy.compactMap { label(showing: text, in: $0) }.first
+    }
+
+    @Test(arguments: [
+        (CGFloat(300), UISemanticContentAttribute.forceLeftToRight), (300, .forceRightToLeft),
+        (900, .forceLeftToRight), (900, .forceRightToLeft),
+    ])
+    func theActionsSitInTheUpperTrailingCornerClearOfTheText(width: CGFloat, direction: UISemanticContentAttribute)
+        throws
+    {
+        let (row, capsule) = row(width: width, direction: direction)
         let frame = capsule.convert(capsule.bounds, to: row)
-        #expect(frame.width <= width * 0.6 + 0.5, "at most about 60% of the row")
-        #expect(row.bounds.insetBy(dx: 0, dy: 1).contains(frame))
-        #expect(abs(frame.midY - row.bounds.midY) < 0.5, "centered on the row, not its first line")
-        #expect(abs(row.bounds.maxX - frame.maxX - ThreadRowMetrics.quickActionsInset) < 0.5)
-        for button in capsule.shownButtons {
-            #expect(button.frame.size == CGSize(width: 28, height: 28))
-            #expect(capsule.bounds.contains(button.frame), "a button whole inside the capsule")
+        let subject = try #require(label(showing: subjectText, in: row))
+        let sender = try #require(label(showing: senderText, in: row))
+        let inset = ThreadRowMetrics.insets.trailing
+        if direction == .forceRightToLeft {
+            #expect(abs(frame.minX - inset) < 0.5, "at the left edge's margin")
+        } else {
+            #expect(abs(row.bounds.maxX - frame.maxX - inset) < 0.5, "at the right edge's margin")
         }
-    }
-
-    @Test func moreShowsOnlyWhenTheRowIsTooNarrowForEveryAction() {
-        #expect(row(width: 200).1.fit.overflows)
-        #expect(row(width: 200).1.fit.shown < choices.count)
-        #expect(!row(width: 490).1.fit.overflows)
-        #expect(row(width: 490).1.shownButtons.count == choices.count)
-        #expect(!row(width: 900).1.fit.overflows)
-    }
-
-    @Test func inRightToLeftTheActionsSitAtTheLeftEdge() {
-        let (row, capsule) = row(width: 490, direction: .forceRightToLeft)
-        let frame = capsule.convert(capsule.bounds, to: row)
-        #expect(abs(frame.minX - ThreadRowMetrics.quickActionsInset) < 0.5)
-        let first = capsule.shownButtons[0].frame
-        #expect(first.maxX > capsule.bounds.midX, "the first action reads first, from the right")
-    }
-
-    @Test func theTextFadesUnderTheActionsAndComesBackAfter() throws {
-        let (row, _) = row(width: 490)
-        let text = try #require(row.subviews.first { $0.layer.mask != nil })
-        #expect(text is UIStackView)
-        row.quickActions = nil
-        row.layoutIfNeeded()
-        #expect(text.layer.mask == nil)
+        #expect(frame.midY < row.bounds.midY, "in the upper half")
+        #expect(frame.maxY <= subject.convert(subject.bounds, to: row).minY + 0.5, "above the subject")
+        #expect(!frame.intersects(sender.convert(sender.bounds, to: row)), "the sender ends before them")
     }
 }

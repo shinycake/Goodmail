@@ -26,6 +26,10 @@ public final class SettingsViewModel {
     public var swipeTints: SwipeTints {
         didSet { Preferences.swipeTints = swipeTints }
     }
+    /// The quick actions a desktop window's rows show under the pointer.
+    public var hoverActions: HoverActions {
+        didSet { Preferences.hoverActions = hoverActions }
+    }
     /// How conversations open.
     public var conversationLayout: ConversationLayout {
         didSet { Preferences.conversationLayout = conversationLayout }
@@ -103,6 +107,7 @@ public final class SettingsViewModel {
         rowDisplay = Preferences.rowDisplay
         swipeArrangement = Preferences.swipeArrangement
         swipeTints = Preferences.swipeTints
+        hoverActions = Preferences.hoverActions
         conversationLayout = Preferences.conversationLayout
         afterRemoval = Preferences.afterRemoval
         removalAnimation = Preferences.removalAnimation

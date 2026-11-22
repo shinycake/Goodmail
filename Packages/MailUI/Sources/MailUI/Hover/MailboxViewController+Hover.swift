@@ -1,8 +1,8 @@
 import MailCore
 import UIKit
 
-/// A desktop window's list shows quick actions under the pointer (`RowHover`): the swipe buttons of both sides, as the
-/// reader arranged them. A touch window, an iPad with a trackpad included, keeps its swipes alone.
+/// A desktop window's list shows quick actions under the pointer (`RowHover`): the ones picked in the hover settings
+/// (`HoverActions`). A touch window, an iPad with a trackpad included, keeps its swipes alone.
 extension MailboxViewController {
     func configureHover() {
         guard picksWithPointer else { return }
