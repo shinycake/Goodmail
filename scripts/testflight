@@ -12,6 +12,7 @@ cd "$(dirname "$0")/.."
 source scripts/build-paths
 BUILD_DIR="$BUILD_ROOT/testflight"
 APP=com.idanbirman.goodmail
+APP_ID=6834185190 # its App Store Connect ID, which listing uploads needs
 
 if [[ -n "$(git status --porcelain)" ]]; then
     echo "error: commit or stash your changes first, so the build matches a commit." >&2
@@ -20,14 +21,16 @@ fi
 
 source scripts/asc-signing # signing: the App Store Connect API key flags for xcodebuild
 
-next_build_number() {
-    asc builds next-build-number --app "$APP" --platform "$1" --output json |
-        python3 -c 'import json, sys; print(json.load(sys.stdin)["nextBuildNumber"])'
-}
-# Both platforms get the same number, so it has to be free on each.
-ios_next="$(next_build_number IOS)"
-mac_next="$(next_build_number MAC_OS)"
-build_number=$((ios_next > mac_next ? ios_next : mac_next))
+# The next build number: one above the highest build uploaded on either platform, so both get the same one. Only
+# finished uploads count. `asc builds next-build-number` also counts reservations that never uploaded, and an
+# app-store-connect export reserves its number even when it only exports, so a test export once made the next
+# number 10000.
+build_number="$(asc builds uploads list --app "$APP_ID" --paginate --output json | python3 -c '
+import json, sys
+done = [int(u["attributes"]["cfBundleVersion"]) for u in json.load(sys.stdin)["data"]
+        if u["attributes"]["state"]["state"] not in ("AWAITING_UPLOAD", "FAILED")
+        and u["attributes"]["cfBundleVersion"].isdigit()]
+print(max(done, default=0) + 1)')"
 echo "Archiving build $build_number of $(git rev-parse --short HEAD)"
 
 # archive_and_export NAME DESTINATION: a signed archive for DESTINATION, exported for App Store Connect
@@ -49,7 +52,11 @@ archive_and_export ios 'generic/platform=iOS'
 archive_and_export mac 'generic/platform=macOS,variant=Mac Catalyst'
 
 asc builds upload --app "$APP" --ipa "$BUILD_DIR/ios-export/Goodmail.ipa" --wait "$@"
-asc builds upload --app "$APP" --pkg "$BUILD_DIR/mac-export/Goodmail.pkg" --build-number "$build_number" --wait "$@"
+# A .pkg upload needs its version, which asc reads only from an .ipa.
+mac_version="$(/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:CFBundleShortVersionString' \
+    "$BUILD_DIR/mac.xcarchive/Info.plist")"
+asc builds upload --app "$APP" --pkg "$BUILD_DIR/mac-export/Goodmail.pkg" --version "$mac_version" \
+    --build-number "$build_number" --wait "$@"
 
 # The tag lets scripts/public-beta list what changed since the previous build in its What to Test notes.
 git tag -f "testflight/$build_number" HEAD
