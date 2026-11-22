@@ -14,6 +14,9 @@
 #   - all but the newest three check result bundles in each results folder, and leftover xcodebuild logs;
 #   - SwiftPM .build folders inside Goodmail worktrees, wherever they are, and Goodmail's folders in Xcode's own DerivedData, both after
 #     the same number of days.
+# Each app and extension in a folder it deletes is first taken out of LaunchServices and PlugInKit, so Launchpad,
+# Spotlight and the system's extension lists don't keep a broken copy. The sweep also takes out the UI test runners
+# built under BUILD_ROOT, which nobody opens by hand, and every bundle there that LaunchServices lists but is gone.
 # It never touches a booted simulator, a simulator whose name doesn't start with "Goodmail" (Apple's standard ones,
 # the dev "iPhone 18 Pro"), anything outside Goodmail, or a folder that changed in the last hour or that a running
 # process names on its command line (an xcodebuild -derivedDataPath, a swift --scratch-path).
@@ -55,6 +58,21 @@ fi
 freed_kb=0 folders=0 simulators=0
 verb() { ((dry_run)) && echo "would delete" || echo "deleted"; }
 human() { awk -v kb="$1" 'BEGIN { if (kb >= 1048576) printf "%.1f GB", kb / 1048576; else printf "%d MB", kb / 1024 }'; }
+LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+# Takes one app or extension out of LaunchServices, and an extension out of PlugInKit too. $2: why.
+forget_bundle() {
+    if ((!dry_run)); then
+        [[ "$1" != *.appex ]] || pluginkit -r "$1" 2>/dev/null || true
+        "$LSREGISTER" -u "$1" 2>/dev/null || true
+    fi
+    echo "$( ((dry_run)) && echo "would forget" || echo "forgot") $1 ($2)"
+}
+# The apps and extensions a build folder holds: its products, an archive's app, never its intermediates.
+bundles_in() {
+    find "$1" -maxdepth 8 \( -name Intermediates.noindex -o -name ModuleCache.noindex -o -name Index.noindex \
+        -o -name SourcePackages -o -name Logs -o -name checkouts \) -prune \
+        -o -type d \( -name '*.app' -o -name '*.appex' \) -print 2>/dev/null
+}
 changed_within() { [[ -n "$(find "$1" -mmin "-$2" -print -quit 2>/dev/null)" ]]; }
 named_by_a_process() { pgrep -f -- "$1" >/dev/null 2>&1; }
 # Worktrees can live on the external drive too, so a folder that is or holds a checkout is never build output.
@@ -74,6 +92,9 @@ remove_folder() {
         return 0
     fi
     kb=$(du -sk "$folder" 2>/dev/null | cut -f1)
+    while IFS= read -r bundle; do
+        forget_bundle "$bundle" "in $(basename "$folder")"
+    done < <(bundles_in "$folder")
     if ((!dry_run)); then
         # SwiftPM leaves some checkouts read-only.
         rm -rf "$folder" 2>/dev/null || { chmod -R u+w "$folder" && rm -rf "$folder"; }
@@ -201,6 +222,17 @@ while IFS= read -r log; do
     ((dry_run)) || rm -f "$log"
     echo "$(verb) $log"
 done < <(find "$BUILD_ROOT" -maxdepth 3 -name 'xcodebuild-*.log' -mmin "+$BUSY_MINUTES" 2>/dev/null)
+
+# What LaunchServices still lists from BUILD_ROOT: each UI test runner, which a test run registers again whenever it
+# needs it, and each bundle that is gone, such as one a hand-run rm deleted.
+while IFS= read -r bundle; do
+    if [[ "$bundle" == *-Runner.app ]]; then
+        forget_bundle "$bundle" "a UI test runner"
+    elif [[ ! -e "$bundle" ]]; then
+        forget_bundle "$bundle" "it's gone"
+    fi
+done < <("$LSREGISTER" -dump 2>/dev/null | sed -nE 's/^path: +(.*\.appex?)( \(0x[0-9a-f]+\))?$/\1/p' |
+    grep -F "$BUILD_ROOT/" | sort -u)
 
 # SwiftPM builds inside the worktrees (swift test, swift build), on whichever disk the worktree is on.
 for worktree in "${worktree_paths[@]}"; do
