@@ -4,7 +4,7 @@
 # public link always offers the newest build. It waits for App Store Connect to finish processing,
 # adds the build to the group, sets its What to Test notes and submits it for Beta App Review.
 #
-# Usage: scripts/public-beta [BUILD_NUMBER]   (default: the newest uploaded build)
+# Usage: scripts/public-beta [BUILD_NUMBER] [IOS|MAC_OS]   (default: the newest uploaded iOS build)
 #
 # Safe to rerun: a build already in the group or already submitted is left as it is. If Apple refuses
 # the submission while an older build is still in review, the script says so and exits 3. Run it
@@ -18,7 +18,7 @@ GROUP_ID=fb09d0a3-8c6e-442c-8bbf-743967cb3836 # its ID, so a slow group list can
 NOTES_LIMIT=3900 # Apple allows 4000 characters of What to Test.
 
 latest_build_number() {
-    asc builds list --app "$APP" --platform IOS --sort -uploadedDate --limit 1 --output json |
+    asc builds list --app "$APP" --platform "$PLATFORM" --sort -uploadedDate --limit 1 --output json |
         python3 -c 'import json, sys; print(json.load(sys.stdin)["data"][0]["attributes"]["version"])'
 }
 
@@ -40,6 +40,7 @@ what_to_test() {
     echo "Add an account, read and reply to a few threads, and try the swipe actions. If something breaks, take a screenshot in the app and send it through TestFlight."
 }
 
+PLATFORM="${2:-IOS}"
 build="${1:-$(latest_build_number)}"
 notes="$(what_to_test "$build" | cut -c 1-300)"
 if ((${#notes} > NOTES_LIMIT)); then
@@ -50,17 +51,17 @@ fi
 # group as "not found"), so a failed publish is retried before the script gives up.
 export ASC_TIMEOUT="${ASC_TIMEOUT:-90s}"
 for attempt in 1 2 3; do
-    echo "Putting build $build on the public beta ($GROUP), attempt $attempt"
-    if asc publish testflight --app "$APP" --build-number "$build" --group "$GROUP_ID" \
+    echo "Putting $PLATFORM build $build on the public beta ($GROUP), attempt $attempt"
+    if asc publish testflight --app "$APP" --platform "$PLATFORM" --build-number "$build" --group "$GROUP_ID" \
         --test-notes "$notes" --locale en-US --submit --confirm --timeout 90m --output table; then
         exit 0
     fi
-    pending="$(asc builds list --app "$APP" --platform IOS --beta-review-state WAITING_FOR_REVIEW,IN_REVIEW --output json |
+    pending="$(asc builds list --app "$APP" --platform "$PLATFORM" --beta-review-state WAITING_FOR_REVIEW,IN_REVIEW --output json |
         python3 -c 'import json, sys; print(" ".join(b["attributes"]["version"] for b in json.load(sys.stdin)["data"]))' ||
         true)"
     if [[ -n "$pending" && " $pending " != *" $build "* ]]; then
         echo "Build $build is in the $GROUP group, but Apple is still reviewing build $pending." >&2
-        echo "Run scripts/public-beta again once that review clears." >&2
+        echo "Run scripts/public-beta again once that review clears (scripts/public-beta $build $PLATFORM)." >&2
         exit 3
     fi
     ((attempt < 3)) && sleep $((attempt * 60))

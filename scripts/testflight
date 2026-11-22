@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Archive a signed Release build, upload it to TestFlight and put it on the public beta.
+# Archive signed Release builds for iOS and the Mac (Mac Catalyst), upload both to TestFlight with one build number,
+# and put each on the public beta.
 # The "Internal" TestFlight group has access to all builds, so its testers get each build once Apple processes it.
 # scripts/public-beta then adds the build to the external "Apple Review" group and submits it for Beta App Review,
 # so the public link always offers the newest build (docs/setup/testflight.md).
@@ -19,23 +20,43 @@ fi
 
 source scripts/asc-signing # signing: the App Store Connect API key flags for xcodebuild
 
-build_number="$(asc builds next-build-number --app "$APP" --platform IOS --output json | python3 -c 'import json, sys; print(json.load(sys.stdin)["nextBuildNumber"])')"
+next_build_number() {
+    asc builds next-build-number --app "$APP" --platform "$1" --output json |
+        python3 -c 'import json, sys; print(json.load(sys.stdin)["nextBuildNumber"])'
+}
+# Both platforms get the same number, so it has to be free on each.
+ios_next="$(next_build_number IOS)"
+mac_next="$(next_build_number MAC_OS)"
+build_number=$((ios_next > mac_next ? ios_next : mac_next))
 echo "Archiving build $build_number of $(git rev-parse --short HEAD)"
-rm -rf "$BUILD_DIR/Goodmail.xcarchive" "$BUILD_DIR/export"
-mkdir -p "$BUILD_DIR"
 
-xcodebuild archive -quiet -project Goodmail.xcodeproj -scheme Goodmail -configuration Release \
-    -destination 'generic/platform=iOS' -archivePath "$BUILD_DIR/Goodmail.xcarchive" \
-    -derivedDataPath "$BUILD_DIR/derived" -allowProvisioningUpdates ${signing[@]+"${signing[@]}"} \
-    CURRENT_PROJECT_VERSION="$build_number"
-xcodebuild -exportArchive -quiet -archivePath "$BUILD_DIR/Goodmail.xcarchive" \
-    -exportOptionsPlist Config/ExportOptions.plist -exportPath "$BUILD_DIR/export" -allowProvisioningUpdates \
-    ${signing[@]+"${signing[@]}"}
+# archive_and_export NAME DESTINATION: a signed archive for DESTINATION, exported for App Store Connect
+# into $BUILD_DIR/NAME-export (an .ipa for iOS, a .pkg for the Mac).
+archive_and_export() {
+    local name="$1" destination="$2"
+    rm -rf "$BUILD_DIR/$name.xcarchive" "$BUILD_DIR/$name-export"
+    mkdir -p "$BUILD_DIR"
+    xcodebuild archive -quiet -project Goodmail.xcodeproj -scheme Goodmail -configuration Release \
+        -destination "$destination" -archivePath "$BUILD_DIR/$name.xcarchive" \
+        -derivedDataPath "$BUILD_DIR/derived-$name" -allowProvisioningUpdates ${signing[@]+"${signing[@]}"} \
+        CURRENT_PROJECT_VERSION="$build_number"
+    xcodebuild -exportArchive -quiet -archivePath "$BUILD_DIR/$name.xcarchive" \
+        -exportOptionsPlist Config/ExportOptions.plist -exportPath "$BUILD_DIR/$name-export" \
+        -allowProvisioningUpdates ${signing[@]+"${signing[@]}"}
+}
 
-asc builds upload --app "$APP" --ipa "$BUILD_DIR/export/Goodmail.ipa" --wait "$@"
+archive_and_export ios 'generic/platform=iOS'
+archive_and_export mac 'generic/platform=macOS,variant=Mac Catalyst'
+
+asc builds upload --app "$APP" --ipa "$BUILD_DIR/ios-export/Goodmail.ipa" --wait "$@"
+asc builds upload --app "$APP" --pkg "$BUILD_DIR/mac-export/Goodmail.pkg" --build-number "$build_number" --wait "$@"
 
 # The tag lets scripts/public-beta list what changed since the previous build in its What to Test notes.
 git tag -f "testflight/$build_number" HEAD
 git push --quiet --force origin "refs/tags/testflight/$build_number" || echo "warning: could not push tag testflight/$build_number" >&2
 
-scripts/public-beta "$build_number"
+# Each platform goes on the public beta even when the other can't yet (exit 3: Apple is still reviewing an older build).
+status=0
+scripts/public-beta "$build_number" IOS || status=$?
+scripts/public-beta "$build_number" MAC_OS || { mac_status=$?; ((status != 0)) || status=$mac_status; }
+exit "$status"

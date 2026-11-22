@@ -13,7 +13,9 @@ On the Mac, from a clean checkout of the commit you want to ship:
 scripts/testflight
 ```
 
-It archives a signed Release build, uploads it with `asc` and waits for App Store Connect to process it. Then it tags the commit `testflight/<build number>`, pushes the tag, and runs `scripts/public-beta` for the new build. `asc auth status` must show an App Store Connect API key.
+It archives two signed Release builds of the same commit, one for iOS and one for the Mac (Mac Catalyst), and gives both the same build number: the next one that is free on both platforms. It exports the iOS archive as an `.ipa` and the Mac one as a `.pkg`, uploads both with `asc` and waits for App Store Connect to process them. Then it tags the commit `testflight/<build number>`, pushes the tag, and runs `scripts/public-beta` once for each platform. `asc auth status` must show an App Store Connect API key.
+
+The Mac upload needs a macOS platform on the app in App Store Connect, and its export signs with the cloud-managed Mac App Distribution and Mac Installer Distribution certificates, which automatic signing creates the first time.
 
 ## Signing with the API key
 
@@ -31,7 +33,7 @@ No build should reach TestFlight any other way. If one does, from Xcode's Organi
 
 ## What `scripts/public-beta` does
 
-`scripts/public-beta [BUILD_NUMBER]` takes the newest uploaded build when you don't name one. It calls `asc publish testflight`, which:
+`scripts/public-beta [BUILD_NUMBER] [IOS|MAC_OS]` takes the newest uploaded iOS build when you don't name one. Pass `MAC_OS` as the second argument for the Mac build. It calls `asc publish testflight`, which:
 
 1. waits until the build has finished processing,
 2. sets the build's What to Test notes in English,
