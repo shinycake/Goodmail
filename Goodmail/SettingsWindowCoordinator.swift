@@ -10,6 +10,8 @@ final class SettingsWindowCoordinator {
     private let settings: SettingsViewModel
     /// The pages shown over the first screen, which a page asked for while the window is open joins.
     private let pages: SettingsPages
+    /// New Viewer Window, New Message and Get Mail, with the sync Get Mail starts here.
+    private let everyWindow: EveryWindowCommands
 
     /// Whether the one Settings window is closed, asked for, or open, across the app's windows. Only `open(at:from:)`,
     /// `connecting(_:)` and `disconnected(_:)` change it.
@@ -18,6 +20,8 @@ final class SettingsWindowCoordinator {
     /// Opens at `page`, the one `connecting(_:)` gave.
     init(windowScene: UIWindowScene, model: AppModel, at page: SettingsPage) {
         pages = SettingsPages(at: page)
+        let everyWindow = EveryWindowCommands(model: model)
+        self.everyWindow = everyWindow
         // Settings has nothing a shake could undo, and a desktop window can't be shaken.
         let window = ShakeToUndoWindow(windowScene: windowScene, undo: {})
         self.window = window
@@ -29,7 +33,7 @@ final class SettingsWindowCoordinator {
                 let changed = Appearance(model) != before
                 for mail in MailWindows.all { mail.settingsWindowClosed(changed: changed) }
             })
-        window.windowAnswer = { [weak window] command in
+        window.windowAnswer = { [weak window, weak everyWindow] command in
             switch command {
             case .closeWindow:
                 guard let session = window?.windowScene?.session else { return .unavailable }
@@ -38,7 +42,12 @@ final class SettingsWindowCoordinator {
                 // Already open, and in front.
                 return .ready(perform: {})
             default:
-                return .notHere
+                guard let everyWindow else { return .notHere }
+                return everyWindow.answer(
+                    to: command, in: window?.windowScene,
+                    newMessage: window.flatMap {
+                        EveryWindowCommands.newMessageFromMail(placement: $0.interactionStyle.composePlacement)
+                    })
             }
         }
     }

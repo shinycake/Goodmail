@@ -17,8 +17,9 @@ final class SceneCoordinator: NSObject {
     let model: AppModel
     /// The window's actions, whose last one its undo toast offers to take back.
     let actions: MailActions
-    private var failures: Task<Void, Never>?
-    /// The launch check for a Gmail sign-in that can't delete forever, or signing an account in again.
+    /// New Viewer Window, New Message and Get Mail, with the sync Get Mail starts here.
+    let everyWindow: EveryWindowCommands
+    /// Signing an account in again.
     private var signingInAgain: Task<Void, Never>?
     /// An answer or a draft to finish, waiting for the message it starts from, which a newer one replaces.
     var answering: Task<Void, Never>?
@@ -32,8 +33,6 @@ final class SceneCoordinator: NSObject {
     var builtFor: Appearance?
     /// The label picker's threads and labels, read off the main actor before it opens; a newer one replaces it.
     var pickingLabels: Task<Void, Never>?
-    /// Failed sends already shown, so each is offered once per launch.
-    private var shownFailures: Set<Draft.ID> = []
     /// What fills the window. Only `enter(_:)` changes it.
     private(set) var screen = Screen.starting
     /// Follow each pass that brings this device's accounts and settings in step with the reader's other devices.
@@ -64,6 +63,7 @@ final class SceneCoordinator: NSObject {
         self.model = model
         let actions = MailActions(commands: model.commands)
         self.actions = actions
+        everyWindow = EveryWindowCommands(model: model)
         let window = ShakeToUndoWindow(windowScene: windowScene, undo: { actions.undoLast() })
         self.window = window
         // Edit > Undo and ⌘Z take back the window's last action, as a shake does.
@@ -91,7 +91,6 @@ final class SceneCoordinator: NSObject {
 
     isolated deinit {
         for observer in deviceObservers { NotificationCenter.default.removeObserver(observer) }
-        failures?.cancel()
         signingInAgain?.cancel()
         answering?.cancel()
         listsCheck?.cancel()
@@ -116,24 +115,14 @@ final class SceneCoordinator: NSObject {
             if model.accountOffer == nil { showWelcome() } else { offerSharedAccounts() }
         } else {
             showMailbox()
-            checkGmailSignIns()
             claimMinimizedDrafts()
-        }
-        failures = Task { [weak self, database = model.database] in
-            do {
-                for try await failed in database.failedMessages() {
-                    self?.showFailure(of: failed)
-                }
-            } catch {}
         }
     }
 
-    /// Offers the first failed send that hasn't been shown: edit it, try it again, or delete it.
-    private func showFailure(of failed: [OutgoingMessage]) {
-        guard let message = failed.first(where: { !shownFailures.contains($0.id) }),
-            let presenter = topViewController(), !(presenter is UIAlertController)
-        else { return }
-        shownFailures.insert(message.id)
+    /// Offers a failed send: edit it, try it again, or delete it. `false` when another alert is up, so it waits.
+    /// Which failed sends to offer, once a launch, is the app's (`LaunchAlerts`).
+    func offerFailure(of message: OutgoingMessage) -> Bool {
+        guard let presenter = topViewController(), !(presenter is UIAlertController) else { return false }
         let actions = actions
         let alert = SendFailureAlert.make(
             for: message,
@@ -141,23 +130,21 @@ final class SceneCoordinator: NSObject {
             retry: { actions.retrySend(message) },
             delete: { actions.discardSend(message) })
         presenter.present(alert, animated: true)
+        return true
     }
 
-    /// Once a launch, asks the first Gmail account whose sign-in can't delete forever to sign in again.
-    private func checkGmailSignIns() {
-        signingInAgain = Task { [weak self, model] in
-            guard let account = await model.gmailAccountsToSignInAgain().first,
-                let self, let presenter = topViewController(), !(presenter is UIAlertController)
-            else { return }
-            let alert = UIAlertController.signInAgainToDeleteForever(account.email) { [weak self] in
-                self?.signInAgain(account.id)
-            }
-            presenter.present(alert, animated: true)
+    /// Asks `account`, a Gmail account whose sign-in can't delete forever, to sign in again, unless another alert is
+    /// up. The app asks once a launch (`LaunchAlerts`).
+    func askToSignInAgain(_ account: Account) {
+        guard let presenter = topViewController(), !(presenter is UIAlertController) else { return }
+        let alert = UIAlertController.signInAgainToDeleteForever(account.email) { [weak self] in
+            self?.signInAgain(account.id)
         }
+        presenter.present(alert, animated: true)
     }
 
-    /// Signs `id` in again, its new sign-in replacing the old one and keeping the account. Replaces a launch check
-    /// or a sign-in already under way.
+    /// Signs `id` in again, its new sign-in replacing the old one and keeping the account. Replaces a sign-in already
+    /// under way.
     func signInAgain(_ id: AccountID) {
         guard let account = model.accounts.first(where: { $0.id == id }) else { return }
         signingInAgain?.cancel()
@@ -277,6 +264,7 @@ final class SceneCoordinator: NSObject {
         enter(.mailbox(accounts: model.accounts.map(\.id), cover: cover))
         // What waited for the window follows now that the screens fill it.
         navigator.cameOnScreen()
+        model.launchAlerts.viewerShowed()
     }
 
     private func mailboxesViewController(style: MailboxesViewController.Style) -> MailboxesViewController {

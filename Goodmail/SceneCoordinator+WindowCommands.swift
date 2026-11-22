@@ -4,8 +4,9 @@ import UIKit
 
 extension SceneCoordinator {
     /// What the window does for a menu bar command or shortcut that no screen has: Close Window where the device has
-    /// windows, Settings, over the mail screens or in its own window, and New Smart Mailbox. New Viewer Window is the
-    /// app's (`AppDelegate+Commands`).
+    /// windows, Settings, over the mail screens or in its own window, New Smart Mailbox, and what every window does
+    /// (`EveryWindowCommands`): New Viewer Window, New Message from the account on show, and Get Mail, as from a
+    /// message window or a list without a mailbox's commands.
     func windowAnswer(to command: MailCommand) -> CommandAnswer {
         switch command {
         case .closeWindow:
@@ -18,7 +19,10 @@ extension SceneCoordinator {
         case .newSmartMailbox:
             return newSmartMailboxAnswer()
         default:
-            return .notHere
+            let newMessage = composingAccount.map { account -> () -> Void in
+                { [weak self] in self?.handle(.compose(Draft(accountID: account))) }
+            }
+            return everyWindow.answer(to: command, in: window.windowScene, newMessage: newMessage)
         }
     }
 

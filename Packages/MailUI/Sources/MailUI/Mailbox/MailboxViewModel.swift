@@ -46,7 +46,10 @@ public final class MailboxViewModel {
     public private(set) var sections: [Section] = []
     /// Whether the store has answered at least once, so an empty list means an empty mailbox.
     public private(set) var hasLoaded = false
-    public private(set) var isRefreshing = false
+    /// Whether a sync the list asked for is under way.
+    public var isRefreshing: Bool { syncing != nil }
+    /// The sync the list asked for, which a second ask joins rather than starting another. Only `sync()` changes it.
+    private var syncing: Task<Void, Never>?
     /// Whether older threads are being fetched for the bottom of the list.
     public private(set) var isLoadingOlder = false
     /// The sync problems of this mailbox's accounts that need the reader, in the accounts' order.
@@ -178,6 +181,10 @@ public final class MailboxViewModel {
         readAheadAction = readAhead
         self.now = now
         self.calendar = calendar
+    }
+
+    isolated deinit {
+        syncing?.cancel()
     }
 
     /// Follows the store until the calling task is cancelled.
@@ -312,10 +319,23 @@ public final class MailboxViewModel {
 
     /// Syncs now. A failure is the health board's to tell, as the sync reports it there.
     public func refresh() async {
-        guard !isRefreshing else { return }
-        isRefreshing = true
-        defer { isRefreshing = false }
-        try? await refreshAction()
+        await sync().value
+    }
+
+    /// Syncs now, for Get Mail and pull to refresh, in a task the list owns, which ends when the list goes.
+    public func getMail() {
+        _ = sync()
+    }
+
+    /// The sync under way, or a new one.
+    private func sync() -> Task<Void, Never> {
+        if let syncing { return syncing }
+        let task = Task { [weak self, refreshAction] in
+            try? await refreshAction()
+            self?.syncing = nil
+        }
+        syncing = task
+        return task
     }
 
     /// What a notice's button does: the service's sign-in for a sign-in it turned down, a sync now for one that

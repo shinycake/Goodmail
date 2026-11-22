@@ -2,8 +2,8 @@ import MailCore
 import MailUI
 import UIKit
 
-/// New Viewer Window belongs to the app, not to a window: it opens a viewer from a compose or Settings window, and
-/// with no window open at all, as Mail's does. A menu command that no window answers travels up the responder chain
+/// New Viewer Window with no window open at all, as Mail's opens one. A window answers it itself while it has the focus
+/// (`EveryWindowCommands`), since it takes every menu command; one no window answers travels up the responder chain
 /// past the scene and the application to here. Where the menu bar has the system's own New Window, as on iPad, the
 /// command isn't in the menu bar, and iPhone opens no windows.
 extension AppDelegate {

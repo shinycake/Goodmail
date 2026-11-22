@@ -18,6 +18,8 @@ final class ComposeWindowCoordinator {
     private let shown: ComposeWindow
     private let actions: MailActions
     private let placement: ComposePlacement
+    /// New Viewer Window, New Message and Get Mail, with the sync Get Mail starts here.
+    private let everyWindow: EveryWindowCommands
     /// Whether the window holds its message yet. Only `start()`, `write(_:holding:)`, `offerUndo()`, `finish()` and
     /// `close()` change it.
     private var state = State.reading
@@ -47,6 +49,7 @@ final class ComposeWindowCoordinator {
         self.shown = shown
         let actions = MailActions(commands: model.commands)
         self.actions = actions
+        everyWindow = EveryWindowCommands(model: model)
         let window = ShakeToUndoWindow(windowScene: windowScene, undo: { actions.undoLast() })
         self.window = window
         // Edit > Undo and ⌘Z take back the window's last action, as a shake does.
@@ -211,7 +214,7 @@ final class ComposeWindowCoordinator {
 
     /// Close Window, from the menu bar or the keyboard, as closing the window from the system's controls does
     /// (`close()`). Settings, where it has a window of its own, which a message window can open as a mail window
-    /// does.
+    /// does, and what every window does (`EveryWindowCommands`).
     private func windowAnswer(to command: MailCommand) -> CommandAnswer {
         switch command {
         case .closeWindow:
@@ -225,7 +228,9 @@ final class ComposeWindowCoordinator {
                 SettingsWindowCoordinator.open(at: .main, from: self?.window.windowScene)
             })
         default:
-            return .notHere
+            return everyWindow.answer(
+                to: command, in: window.windowScene,
+                newMessage: EveryWindowCommands.newMessageFromMail(placement: placement))
         }
     }
 }

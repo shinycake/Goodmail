@@ -39,6 +39,10 @@ final class AppModel {
     let minimizedDrafts: MinimizedDrafts
     /// Apply Rules, Block Sender and VIPs, for every window (ADR-038).
     private(set) lazy var senderRules = SenderRules(service: senderRulesService())
+    /// The alerts shown once a launch in the front viewer, whichever windows open.
+    private(set) lazy var launchAlerts = LaunchAlerts(database: database) { [weak self] in
+        await self?.gmailAccountsToSignInAgain() ?? []
+    }
     private let senders: Senders
     /// Keeps each account's push subscription current; `nil` when the build names no push relay.
     let pushRegistrar: PushRegistrar?

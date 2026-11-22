@@ -197,6 +197,18 @@ struct MailboxTests {
         #expect(!viewModel.isRefreshing)
     }
 
+    @Test func getMailWhileASyncRunsJoinsItInsteadOfStartingAnother() async {
+        var syncs = 0
+        let viewModel = MailboxViewModel(
+            accounts: [], source: .flat { AsyncThrowingStream { $0.finish() } }, refresh: { syncs += 1 })
+        viewModel.getMail()
+        #expect(viewModel.isRefreshing)
+        viewModel.getMail()
+        await viewModel.refresh()
+        #expect(syncs == 1)
+        #expect(!viewModel.isRefreshing)
+    }
+
     @Test func loadingOlderStopsOnceTheProviderRunsOutAndRetriesAfterAFailure() async {
         struct Offline: Error {}
         var calls = 0

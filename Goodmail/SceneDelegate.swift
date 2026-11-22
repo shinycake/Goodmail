@@ -24,7 +24,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private enum Kind {
         /// The mail screens, or one conversation, showing what the window last showed, if it was saved, or what
         /// another device or window handed it. `lists` says when a list it names, missing here, counts as gone.
-        case mail(restoring: WindowState?, lists: WindowState.ListCheck)
+        /// `isNew` says the window wasn't saved at a previous launch, so the system has no frame to restore it at,
+        /// even when another window handed it what to show, as New Viewer Window and an arrival do.
+        case mail(restoring: WindowState?, lists: WindowState.ListCheck, isNew: Bool)
         case compose(ComposeWindow)
         /// The one Settings window, open at `page`.
         case settings(at: SettingsPage)
@@ -41,11 +43,12 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 return SettingsWindowCoordinator.connecting(session).map(Kind.settings(at:))
             }
             // A state handed over may name a list this device hasn't synced yet; one saved here named lists it had.
+            let isNew = session.stateRestorationActivity == nil
             if let state = handed.lazy.compactMap(WindowState.init).first {
-                return .mail(restoring: state, lists: .handedOff)
+                return .mail(restoring: state, lists: .handedOff, isNew: isNew)
             }
             return .mail(
-                restoring: session.stateRestorationActivity.flatMap(WindowState.init), lists: .saved)
+                restoring: session.stateRestorationActivity.flatMap(WindowState.init), lists: .saved, isNew: isNew)
         }
     }
 
@@ -91,8 +94,8 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     /// Fills the window with what it holds, once the database is open.
     private func fill(_ windowScene: UIWindowScene, with kind: Kind, services: AppServices) {
         switch kind {
-        case .mail(let restoring, let lists):
-            connect(windowScene, to: services, restoring: restoring, lists: lists)
+        case .mail(let restoring, let lists, let isNew):
+            connect(windowScene, to: services, restoring: restoring, lists: lists, isNew: isNew)
         case .compose(let shown):
             compose(shown, in: windowScene, with: services)
             // What was held for it goes to a mail window (D13).
@@ -105,7 +108,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     private func connect(
         _ windowScene: UIWindowScene, to services: AppServices, restoring: WindowState?,
-        lists: WindowState.ListCheck
+        lists: WindowState.ListCheck, isNew: Bool
     ) {
         let coordinator = SceneCoordinator(
             windowScene: windowScene, model: services.model, restoring: restoring, lists: lists)
@@ -127,7 +130,8 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         coordinator.start()
         coordinator.window.makeKeyAndVisible()
         coordinator.navigator.cameOnScreen()
-        ViewerWindowSize.fit(windowScene, isNew: restoring == nil)
+        // A message window opened from a list keeps the size the system gives it; only a new viewer opens wide.
+        ViewerWindowSize.fit(windowScene, isNew: isNew && coordinator.shown.layout == .viewer)
         window?.isHidden = true
         window = coordinator.window
         // Messages open into a web view whose content process takes a while to start; start one now.

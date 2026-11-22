@@ -123,10 +123,7 @@ public final class MailboxViewController: UIViewController {
         collectionView.allowsMultipleSelectionDuringEditing = true
         collectionView.refreshControl = UIRefreshControl(
             frame: .zero,
-            primaryAction: UIAction { [weak self] _ in
-                guard let self else { return }
-                Task { await self.viewModel.refresh() }
-            }
+            primaryAction: UIAction { [weak self] _ in self?.viewModel.getMail() }
         )
         view.addSubview(collectionView)
         if let inboxZero { installInboxZero(inboxZero) }

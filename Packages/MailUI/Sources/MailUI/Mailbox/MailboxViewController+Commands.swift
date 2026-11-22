@@ -18,7 +18,7 @@ extension MailboxViewController: CommandScreen {
             return .ready(perform: { [viewModel] in viewModel.compose() })
         case .getMail:
             // As pull to refresh: the view model owns the sync, and its failure shows on the health board.
-            return .ready(perform: { [viewModel] in Task { await viewModel.refresh() } })
+            return .ready(perform: { [viewModel] in viewModel.getMail() })
         case .search:
             guard let search else { return .unavailable }
             // Typing goes straight into the field, as after a tap on it.
