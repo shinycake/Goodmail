@@ -10,6 +10,7 @@ import UIKit
 struct RowQuickActionsLayoutTests {
     private let subjectText = "Quarterly planning notes and the follow-ups from Tuesday's long review meeting"
     private let senderText = "Dana Levi-Montalcini of the Planning and Operations Department"
+    private let previewText = "Here is everything we agreed on, and the owners for each item."
 
     private func row(width: CGFloat, direction: UISemanticContentAttribute) -> (ThreadRowContentView, HoverActionsView)
     {
@@ -17,7 +18,7 @@ struct RowQuickActionsLayoutTests {
             configuration: ThreadRowConfiguration(
                 thread: ThreadSummary(
                     id: ThreadSummary.ID(accountID: AccountID(rawValue: "a"), threadID: "t"), subject: subjectText,
-                    snippet: "Here is everything we agreed on, and the owners for each item.",
+                    snippet: previewText,
                     sender: Contact(name: senderText, address: "dana@example.com"), date: .now, isUnread: true,
                     messageCount: 1, labelIDs: ["INBOX"]),
                 dateText: "9:41 AM", account: .implied(.teal)))
@@ -36,6 +37,13 @@ struct RowQuickActionsLayoutTests {
         force(direction, on: capsule)
         row.layoutIfNeeded()
         return (row, capsule)
+    }
+
+    private func fittingHeight(of row: ThreadRowContentView) -> CGFloat {
+        row.systemLayoutSizeFitting(
+            CGSize(width: row.bounds.width, height: 0), withHorizontalFittingPriority: .required,
+            verticalFittingPriority: .fittingSizeLevel
+        ).height
     }
 
     private func force(_ direction: UISemanticContentAttribute, on view: UIView) {
@@ -68,5 +76,43 @@ struct RowQuickActionsLayoutTests {
         #expect(frame.midY < row.bounds.midY, "in the upper half")
         #expect(frame.maxY <= subject.convert(subject.bounds, to: row).minY + 0.5, "above the subject")
         #expect(!frame.intersects(sender.convert(sender.bounds, to: row)), "the sender ends before them")
+    }
+
+    /// The capsule floats over the corner: showing it, hiding it and laying the row out again move no text, and the
+    /// row asks for the same height, so the list never shifts under the pointer or on a click.
+    @Test(arguments: [
+        (CGFloat(300), UISemanticContentAttribute.forceLeftToRight), (300, .forceRightToLeft),
+        (900, .forceLeftToRight), (900, .forceRightToLeft),
+    ])
+    func theActionsChangeNeitherTheRowsHeightNorWhereItsTextSits(
+        width: CGFloat, direction: UISemanticContentAttribute
+    ) throws {
+        let (row, capsule) = row(width: width, direction: direction)
+        let subject = try #require(label(showing: subjectText, in: row))
+        let sender = try #require(label(showing: senderText, in: row))
+        let preview = try #require(label(showing: previewText, in: row))
+        func textFrames() -> [CGRect] { [subject, sender, preview].map { $0.convert($0.bounds, to: row) } }
+        row.quickActions = nil
+        row.layoutIfNeeded()
+        let height = fittingHeight(of: row)
+        let frames = textFrames()
+
+        row.quickActions = capsule
+        row.layoutIfNeeded()
+        #expect(fittingHeight(of: row) == height, "showing them")
+        #expect(textFrames().map(\.minY) == frames.map(\.minY), "showing them")
+        #expect(textFrames()[0] == frames[0], "the subject stays put")
+
+        // A click selects the row and lays the list out again, with the pointer still over it.
+        row.frame.size.height = fittingHeight(of: row)
+        row.setNeedsLayout()
+        row.layoutIfNeeded()
+        #expect(row.bounds.height == height, "laid out again")
+        #expect(textFrames().map(\.minY) == frames.map(\.minY), "laid out again")
+
+        row.quickActions = nil
+        row.layoutIfNeeded()
+        #expect(fittingHeight(of: row) == height, "hiding them")
+        #expect(textFrames().map(\.minY) == frames.map(\.minY), "hiding them")
     }
 }

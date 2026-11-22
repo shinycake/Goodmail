@@ -38,24 +38,24 @@ final class ThreadRowContentView: UIView, UIContentView {
 
     /// The buttons that take the time's place in the row's upper trailing corner, and tint the row, while the pointer
     /// rests on it; `nil` shows the time. The time and the muted mark fade out under them and back in after.
+    /// Widens the time's place to the quick actions' width while they show.
+    private var timeSlot: NSLayoutConstraint?
+
     var quickActions: HoverActionsView? {
         didSet {
             guard quickActions !== oldValue else { return }
             backgroundColor = quickActions == nil ? nil : .tertiarySystemFill
+            timeSlot?.isActive = false
+            timeSlot = nil
             if let quickActions {
-                quickActions.translatesAutoresizingMaskIntoConstraints = false
+                // Placed by hand in layoutSubviews, over the row: constraints tying it to the time could stretch the
+                // time's line to its height, and push the subject down while the pointer rests on the row.
                 addSubview(quickActions)
-                // Centered on the time's line, and rising into the row's top margin rather than reaching the subject
-                // when it is taller than the line.
-                let centered = quickActions.centerYAnchor.constraint(equalTo: date.centerYAnchor)
-                centered.priority = .defaultHigh
-                NSLayoutConstraint.activate([
-                    quickActions.trailingAnchor.constraint(equalTo: date.trailingAnchor),
-                    centered,
-                    quickActions.bottomAnchor.constraint(lessThanOrEqualTo: date.bottomAnchor),
-                    // The time's place grows to hold them, so the sender ends before them rather than under them.
-                    date.widthAnchor.constraint(greaterThanOrEqualTo: quickActions.widthAnchor),
-                ])
+                // The time's place grows to hold them, so the sender ends before them rather than under them.
+                timeSlot = date.widthAnchor.constraint(
+                    greaterThanOrEqualToConstant: quickActions.intrinsicContentSize.width)
+                timeSlot?.isActive = true
+                setNeedsLayout()
             }
             // One row's buttons swapping for another set shows at once; coming and going cross-fades.
             guard (oldValue == nil) != (quickActions == nil) else {
@@ -76,8 +76,21 @@ final class ThreadRowContentView: UIView, UIContentView {
 
     override func layoutSubviews() {
         // The time keeps to the trailing edge of its place while that place is widened for the quick actions.
-        date.textAlignment = effectiveUserInterfaceLayoutDirection == .rightToLeft ? .left : .right
+        let rightToLeft = effectiveUserInterfaceLayoutDirection == .rightToLeft
+        date.textAlignment = rightToLeft ? .left : .right
         super.layoutSubviews()
+        guard let quickActions else { return }
+        // The time sits in nested stacks, which place it only in their own passes, outermost first.
+        let stacks = sequence(first: date.superview) { $0?.superview }.prefix { $0 != nil && $0 !== self }
+        for stack in stacks.reversed() { stack?.layoutIfNeeded() }
+        // Centered on the time's line, at its trailing edge, and rising into the row's top margin rather than
+        // reaching the subject when it is taller than the line.
+        let time = date.convert(date.bounds, to: self)
+        let size = quickActions.intrinsicContentSize
+        quickActions.frame = CGRect(
+            x: rightToLeft ? time.minX : time.maxX - size.width,
+            y: max(min(time.midY - size.height / 2, time.maxY - size.height), 0),
+            width: size.width, height: size.height)
     }
 
     var configuration: any UIContentConfiguration {
