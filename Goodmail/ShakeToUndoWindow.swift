@@ -24,6 +24,10 @@ final class ShakeToUndoWindow: UIWindow {
         interactionStyle = InteractionStyle(idiom: windowScene.traitCollection.userInterfaceIdiom)
         super.init(windowScene: windowScene)
         traitOverrides.interactionStyle = interactionStyle
+        // A Mac window stays its scene's key window in front or behind; only its appearance follows the focus.
+        registerForTraitChanges([UITraitActiveAppearance.self]) { (window: ShakeToUndoWindow, _) in
+            if window.traitCollection.activeAppearance == .active { MailWindows.cameToFront(window) }
+        }
     }
 
     @available(*, unavailable)
@@ -102,6 +106,12 @@ final class ShakeToUndoWindow: UIWindow {
     private func perform(for command: MailCommand) -> (() -> Void)? {
         guard case .ready(let perform, _, _) = answer(to: command) else { return nil }
         return perform
+    }
+
+    /// Tells the app this is the window the reader is in, which on the Mac its scene can't (`MailWindows`).
+    override func becomeKey() {
+        super.becomeKey()
+        MailWindows.cameToFront(self)
     }
 
     override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {

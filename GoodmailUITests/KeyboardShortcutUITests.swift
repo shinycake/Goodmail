@@ -114,6 +114,7 @@ final class KeyboardShortcutUITests: XCTestCase {
         app.staticTexts["thread.subject"].label
     }
 
+    @MainActor
     private static func labels(in snapshot: any XCUIElementSnapshot) -> [String] {
         [snapshot.label] + snapshot.children.flatMap(labels)
     }

@@ -59,8 +59,14 @@ public final class MailActions {
     /// A failure to apply or undo an action locally.
     public private(set) var error: (any Error)?
     @ObservationIgnored private let commands: MailCommands
-    /// What Undo takes back, which outlasts the toast: a shake undoes it after the toast has gone.
-    @ObservationIgnored private(set) var lastUndo: Undo?
+    /// What Undo takes back, which outlasts the toast: a shake or ⌘Z undoes it after the toast has gone.
+    @ObservationIgnored private(set) var lastUndo: Undo? {
+        didSet { offerUndo() }
+    }
+    /// The window's undo manager, where Edit > Undo and ⌘Z find the last undo (`offerUndo`).
+    @ObservationIgnored public var undoManager: UndoManager? {
+        didSet { offerUndo() }
+    }
     /// Messages the writer took back out of the queue (undo, edit, delete), so a conversation tells a reply taken
     /// back from one that went. Each is added before the queue drops it.
     @ObservationIgnored private(set) var takenBack: Set<Draft.ID> = []

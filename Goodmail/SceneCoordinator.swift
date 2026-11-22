@@ -66,6 +66,8 @@ final class SceneCoordinator: NSObject {
         self.actions = actions
         let window = ShakeToUndoWindow(windowScene: windowScene, undo: { actions.undoLast() })
         self.window = window
+        // Edit > Undo and ⌘Z take back the window's last action, as a shake does.
+        actions.undoManager = window.undoManager
         window.traitOverrides.senderPictures = model.senderPictures
         navigator = WindowNavigator(
             showing: window.interactionStyle.laying(out: restoring?.keeping(model.accounts.map(\.id)) ?? WindowState()),

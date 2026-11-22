@@ -361,6 +361,17 @@
         }
       }
     },
+    "Move" : {
+      "comment" : "Edit > Undo after moving threads",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העברה"
+          }
+        }
+      }
+    },
     "Move Out of Trash" : {
       "comment" : "Action: restore a thread",
       "localizations" : {

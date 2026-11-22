@@ -179,6 +179,7 @@ final class AfterActionTests: XCTestCase {
     }
 
     /// The subject each conversation row in `list` shows, top to bottom.
+    @MainActor
     private static func rowSubjects(in list: any XCUIElementSnapshot) -> [String] {
         list.children.filter { $0.elementType == .cell }.sorted { $0.frame.minY < $1.frame.minY }.compactMap { cell in
             let labels = labels(in: cell)
@@ -186,6 +187,7 @@ final class AfterActionTests: XCTestCase {
         }
     }
 
+    @MainActor
     private static func labels(in snapshot: any XCUIElementSnapshot) -> [String] {
         [snapshot.label] + snapshot.children.flatMap(labels)
     }

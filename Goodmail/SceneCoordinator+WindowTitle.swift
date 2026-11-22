@@ -23,6 +23,9 @@ extension SceneCoordinator {
 
     /// Names the window again, as a label or smart mailbox it names was renamed.
     func retitle() {
+        // A message window waiting out its undo keeps the conversation's name: the reader is gone, but Undo brings it
+        // back there.
+        if case .leaving = screen { return }
         window.windowScene?.title = showsMail ? title(of: shown) : nil
     }
 
