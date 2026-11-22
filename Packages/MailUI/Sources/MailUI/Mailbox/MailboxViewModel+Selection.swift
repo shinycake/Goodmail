@@ -33,6 +33,12 @@ extension MailboxViewModel {
         pick(selection.selectingAll(in: rows), revealing: true)
     }
 
+    /// Undo brought back rows an action took from a pointer's pick: they are picked again, top to bottom, at once,
+    /// and those not listed yet stay picked as they come back (`ListSelection.dropping`).
+    func repick(_ ids: [ThreadSummary.ID]) {
+        pick(.picking(ids), revealing: true)
+    }
+
     /// Escape: several drop back to the row they grew from.
     func dropSelection() {
         pick(selection.dropped, revealing: true)
@@ -71,11 +77,11 @@ extension MailboxViewModel {
 
     // MARK: Rows leaving
 
-    /// After the rows changed: rows that left drop out of the pick, and nothing opens, whatever took them away. Where
+    /// After the rows changed from `before`: rows that left drop out of the pick, and nothing opens, whatever took them away. Where
     /// the reader goes after an action is the window's to say (`mark(reading:)`), and sync or another device never
     /// moves it (R6). A desktop window counts what is left of several beside the list, and nothing once none is.
-    func pickAfterRowsChanged() {
-        let kept = selection.keeping(rows)
+    func pickAfterRowsChanged(from before: [ThreadSummary.ID]) {
+        let kept = selection.dropping(Set(before).subtracting(rows))
         switch (interaction, kept) {
         case (.desktop, .several(let ids, _)): pick(ids.isEmpty ? .none : kept, revealing: true)
         case (.desktop, _), (.touch, _): pick(kept, revealing: false)

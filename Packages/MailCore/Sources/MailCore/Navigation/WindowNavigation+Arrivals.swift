@@ -49,6 +49,10 @@ extension WindowNavigation {
         case .selection(let count):
             // Only beside the list: a narrow window shows the list alone, which shows its own pick.
             guard state.layout == .viewer, context.arrangement == .columns else { return [] }
+            // Another pick moves the window on, though the reader may be closed already (R9). A pick of none doesn't:
+            // after a pick is put away the list reads the row after it, which a pick of none closes and so moves the
+            // window on anyway, or picks nothing, so none then is only the put-away rows leaving.
+            if count > 0 { departure = nil }
             state.closeReader()
             return [.showPicked(count)]
         case .compose, .draft, .answer, .changeLabels, .move, .newSmartMailbox, .editSmartMailbox, .settings,

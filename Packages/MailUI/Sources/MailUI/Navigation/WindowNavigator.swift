@@ -230,7 +230,7 @@ public final class WindowNavigator {
         switch effect {
         case .uncover, .lookUp, .leaveWindow: true
         case .present: isOnScreen()
-        case .beginSearch, .showList, .showPicked, .say: screens != nil && isOnScreen()
+        case .beginSearch, .showList, .showPicked, .repick, .say: screens != nil && isOnScreen()
         }
     }
 
@@ -249,6 +249,8 @@ public final class WindowNavigator {
             screens?.split.showList()
         case .showPicked(let count):
             screens?.showPicked(count)
+        case .repick(let rows):
+            screens?.front?.repick(rows)
         case .leaveWindow:
             leaveWindow()
         case .say(let notice):

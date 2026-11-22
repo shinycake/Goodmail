@@ -284,6 +284,7 @@ public final class MailboxViewModel {
     /// time.
     func regroup() {
         let now = now()
+        let before = rows
         let kept = listed.filter(isShown)
         hiddenByFilter = listed.count - kept.count
         let pinned = kept.filter { self.pinned.contains($0.id) }
@@ -307,7 +308,7 @@ public final class MailboxViewModel {
             + TimeSection.group(rest, by: \.date, now: now, calendar: calendar).map {
                 Section(id: .time($0.section), title: $0.section.title(now: now, calendar: calendar), threads: $0.items)
             }
-        pickAfterRowsChanged()
+        pickAfterRowsChanged(from: before)
     }
 
     /// Below this many threads, the list fetches older ones without waiting for a scroll.

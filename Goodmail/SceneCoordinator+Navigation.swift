@@ -38,7 +38,8 @@ extension SceneCoordinator {
     }
 
     private func readerUndid(_ change: MailChange) {
-        navigator.send(.undone(change, rows: navigator.screens?.front?.frontRows ?? []))
+        let front = navigator.screens?.front
+        navigator.send(.undone(change, rows: front?.frontRows ?? [], searching: front?.frontSearching ?? false))
     }
 
     /// The reader on show: the viewer's, or alone in a message window.

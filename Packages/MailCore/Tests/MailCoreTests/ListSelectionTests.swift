@@ -125,13 +125,21 @@ struct ListSelectionTests {
 
     // MARK: Rows leaving
 
-    @Test func keepingDropsGoneRowsWithoutMoving() {
+    @Test func droppingTakesOutTheRowsThatLeftWithoutMoving() {
         #expect(
-            ListSelection.reading(b).keeping([a, c]) == .reading(b),
+            ListSelection.reading(b).dropping([b]) == .reading(b),
             "the conversation being read stays read while its row is gone, so it is marked again when it comes back")
-        #expect(ListSelection.reading(b).keeping([a, b]) == .reading(b))
         // On touch Select mode stays on with one row or none.
-        #expect(ListSelection.several([b, c], anchor: c).keeping([a, b]) == .several([b], anchor: nil))
-        #expect(ListSelection.several([b], anchor: nil).keeping([a]) == .several([], anchor: nil))
+        #expect(ListSelection.several([b, c], anchor: c).dropping([c, d]) == .several([b], anchor: nil))
+        #expect(ListSelection.several([b], anchor: nil).dropping([b]) == .several([], anchor: nil))
+        #expect(
+            ListSelection.several([a, b], anchor: a).dropping([c]) == .several([a, b], anchor: a),
+            "picked rows not listed yet stay, as Undo's on their way back")
+    }
+
+    @Test func pickingTakesSeveralOrReadsOne() {
+        #expect(ListSelection.picking([b, a]) == .several([a, b], anchor: b))
+        #expect(ListSelection.picking([b]) == .reading(b))
+        #expect(ListSelection.picking([]) == ListSelection.none)
     }
 }

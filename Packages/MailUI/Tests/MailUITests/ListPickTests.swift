@@ -95,6 +95,39 @@ struct ListPickTests {
         await observing.value
     }
 
+    @Test func undoPicksTheRowsAgainOnceTheyAreBack() async {
+        let (list, feed, routes) = list(.desktop)
+        let observing = Task { await list.observe() }
+        // The pick was trashed: its rows left, and the list went on to the next.
+        await show([ids[2], ids[3]], in: list, through: feed)
+        list.click(ids[2], .plain)
+        list.repick([ids[0], ids[1]])
+        #expect(list.selection == .several([ids[0], ids[1]], anchor: ids[0]), "at once, before the rows come back")
+        await show([ids[1], ids[2], ids[3]], in: list, through: feed)
+        #expect(list.selection == .several([ids[0], ids[1]], anchor: ids[0]), "waits for the row not back yet")
+        await show(ids, in: list, through: feed)
+        await show([ids[0], ids[2], ids[3]], in: list, through: feed)
+        #expect(list.selection == .several([ids[0]], anchor: ids[0]), "once back, a row that leaves again drops out")
+        #expect(routes.all == [.thread(ids[2], in: .inbox), .selection(count: 2), .selection(count: 1)])
+        feed.finish()
+        await observing.value
+    }
+
+    @Test func anotherPickEndsTheWaitForUndosRows() async {
+        let (list, feed, _) = list(.desktop)
+        let observing = Task { await list.observe() }
+        await show([ids[2], ids[3]], in: list, through: feed)
+        list.repick([ids[0], ids[1]])
+        list.click(ids[3], .plain)
+        await show(ids, in: list, through: feed)
+        #expect(list.selection == .reading(ids[3]))
+        list.click(ids[2], .toggle)
+        await show([ids[2], ids[3]], in: list, through: feed)
+        #expect(list.selection == .several([ids[2], ids[3]], anchor: ids[2]))
+        feed.finish()
+        await observing.value
+    }
+
     @Test(arguments: [InteractionStyle.desktop, .touch])
     func theRowBeingReadStaysUnderTheUnreadFilterWhileItIsRead(interaction: InteractionStyle) async {
         let (list, feed, _) = list(interaction, filter: .on([.unread]))

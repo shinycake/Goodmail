@@ -44,12 +44,19 @@ extension WindowNavigation {
         }
     }
 
-    /// The conversation the reader last left, by `change` (R9).
+    /// What the reader last left, by `change` (R9).
     struct Departure: Equatable, Sendable {
         let change: MailChange
-        let left: Reader
-        /// The list it was read in, which Undo reads it in again.
-        let from: Opened.From
+        let target: Target
+
+        /// What Undo of `change` brings the reader back to.
+        enum Target: Equatable, Sendable {
+            /// The conversation on show, and the list it was read in, which Undo reads it in again.
+            case conversation(Reader, from: Opened.From)
+            /// Several rows picked with a pointer, top to bottom, which Undo picks again while the list they were
+            /// picked in is on show: the list's own rows, or search's over it.
+            case pick([ThreadSummary.ID], from: Opened.From)
+        }
     }
 
     /// The reader asked `change` of some conversations. Only a change to the conversation on show moves the reader;
@@ -80,29 +87,41 @@ extension WindowNavigation {
         }
         let from = source(searching: front?.searching ?? false)
         land(on: landing, front: front)
-        departure = Departure(change: change, left: reader, from: from)
+        // After landing, whose change of state ends any way back before it.
+        departure = Departure(change: change, target: .conversation(reader, from: from))
         return []
     }
 
-    /// Undo took back `change`. The conversation it took the reader from opens again, as the reader read it, unless
-    /// the window has moved on since by any other way: then only its row comes back (R9).
-    mutating func undid(_ change: MailChange, rows: [ThreadSummary.ID]) {
-        guard let departure, departure.change == change else { return }
+    /// Undo took back `change`. The conversation it took the reader from opens again, as the reader read it, or the
+    /// rows picked with a pointer are picked again, unless the window has moved on since by any other way: then only
+    /// the rows come back (R9).
+    mutating func undid(_ change: MailChange, rows: [ThreadSummary.ID], searching: Bool) -> [Effect] {
+        guard let departure, departure.change == change else { return [] }
         self.departure = nil
-        opened = Opened(thread: departure.left.thread, from: departure.from, rows: rows, row: departure.left.summary)
-        state.read(departure.left.reading)
+        switch departure.target {
+        case .conversation(let left, let from):
+            opened = Opened(thread: left.thread, from: from, rows: rows, row: left.summary)
+            state.read(left.reading)
+            return []
+        case .pick(let picked, let from):
+            guard from == source(searching: searching) else { return [] }
+            state.closeReader()
+            return [.repick(picked)]
+        }
     }
 
     /// Nothing open, every row picked with a pointer put away: the row after them opens. With nothing to go on to, the
-    /// rows leave, and the pick with them.
+    /// rows leave, and the pick with them. Either way Undo picks them again.
     private mutating func afterPick(_ change: MailChange, front: Front?, setting: AfterRemoval) {
         guard let front, let anchor = front.pointerPick.first, Set(front.pointerPick).isSubset(of: change.threads),
             ReaderExit.exit(after: change.request) == .putAway
         else { return }
         let landing = Landing.after(
             putAway: Set(change.threads), anchor: anchor, trail: [], rows: front.rows, setting: setting)
-        guard case .thread = landing else { return }
-        land(on: landing, front: front)
+        if case .thread = landing { land(on: landing, front: front) }
+        // After landing, whose change of state ends any way back before it.
+        departure = Departure(
+            change: change, target: .pick(front.pointerPick, from: source(searching: front.searching)))
     }
 
     /// The reader's own course went to `landing`, in the list `front`. The caller records the way back afterwards,

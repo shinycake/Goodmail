@@ -20,9 +20,14 @@ public protocol ThreadSequence: AnyObject {
     /// Shows `thread` as the one read, or with `nil` none, without opening anything. It holds at once, before the
     /// row is listed, so a row that comes back later, as after Undo, is marked then.
     func mark(reading thread: ThreadSummary.ID?)
+    /// Picks `rows` again, top to bottom, as Undo brings back rows an action took from a pointer's pick. Rows not
+    /// listed yet are picked as they come back. A list that picks no rows with a pointer does nothing.
+    func repick(_ rows: [ThreadSummary.ID])
 }
 
 extension ThreadSequence {
+    public func repick(_ rows: [ThreadSummary.ID]) {}
+
     /// The list as the window's navigation reads it.
     public var navigationFront: WindowNavigation.Front {
         WindowNavigation.Front(

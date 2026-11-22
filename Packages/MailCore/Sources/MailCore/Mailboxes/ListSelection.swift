@@ -116,18 +116,23 @@ public enum ListSelection: Hashable, Sendable {
 
     // MARK: Rows leaving
 
-    /// After the list's rows became `rows`: picked rows that left are dropped and nothing else moves, so the reader
-    /// stays on a conversation whatever takes its row away (R6). The conversation being read stays read while its row
-    /// is gone, since the reader still shows it: its row is marked again when it comes back, as after Undo. Several
-    /// stay several however few are left: Select mode stays on until Done.
-    public func keeping(_ rows: [ThreadSummary.ID]) -> ListSelection {
-        let present = Set(rows)
+    /// After `left`, rows that were listed, left the list: they are dropped and nothing else moves, so the reader stays
+    /// on a conversation whatever takes its row away (R6). The conversation being read stays read while its row is
+    /// gone, since the reader still shows it: its row is marked again when it comes back, as after Undo. Picked rows
+    /// that aren't listed yet stay picked until they come and go, as rows Undo brings back (`picking`). Several stay
+    /// several however few are left: Select mode stays on until Done.
+    public func dropping(_ left: Set<ThreadSummary.ID>) -> ListSelection {
         switch self {
         case .none, .reading:
             return self
         case .several(let ids, let anchor):
-            return .several(ids.intersection(present), anchor: anchor.flatMap { present.contains($0) ? $0 : nil })
+            return .several(ids.subtracting(left), anchor: anchor.flatMap { left.contains($0) ? nil : $0 })
         }
+    }
+
+    /// A pointer's pick of `rows`, top to bottom, anchored at the first: one is read, none is nothing.
+    public static func picking(_ rows: [ThreadSummary.ID]) -> ListSelection {
+        picked(Set(rows), anchor: rows.first)
     }
 
     // MARK: Helpers

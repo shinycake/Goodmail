@@ -6,8 +6,8 @@
 /// read.
 ///
 /// It also keeps what the window must remember to move as the reader expects: the conversation opened and the rows it
-/// was opened from, so one whose row has left since still has a next one (R7); the conversation the reader last left,
-/// so Undo can bring the reader back to it until the window moves on by any other way (R9); and the conversation a
+/// was opened from, so one whose row has left since still has a next one (R7); what the reader last left, a conversation
+/// or a pointer's pick, so Undo can bring the reader back to it until the window moves on by any other way (R9); and the conversation a
 /// lookup is under way for, whose answer counts only while the window hasn't moved since.
 public struct WindowNavigation: Equatable, Sendable {
     /// What the window shows. Any change to it ends Undo's way back and the lookup under way, so no transition can
@@ -21,7 +21,8 @@ public struct WindowNavigation: Equatable, Sendable {
     }
     /// The conversation read, as it was opened.
     var opened: Opened?
-    /// The conversation the reader last left by a change they asked, until the window moves on by any other way.
+    /// What the reader last left by a change they asked, a conversation or a pointer's pick, until the window moves on
+    /// by any other way.
     var departure: Departure?
     /// The conversation a lookup is under way for, where the route reads it, and where the route came from.
     public internal(set) var pending: Awaited?
@@ -89,8 +90,9 @@ public struct WindowNavigation: Equatable, Sendable {
         case back(to: Back)
         /// The reader asked `change` of some conversations, with `reader` on show and `front` the list on show.
         case changed(MailChange, reader: Reader?, front: Front?)
-        /// Undo took `change` back, with the list on show now listing `rows`.
-        case undone(MailChange, rows: [ThreadSummary.ID])
+        /// Undo took `change` back, with the list on show now listing `rows`, search's results over it while
+        /// `searching`.
+        case undone(MailChange, rows: [ThreadSummary.ID], searching: Bool = false)
         /// The accounts on the device are now `accounts`.
         case accounts([AccountID])
         /// The labels and smart mailboxes on the device are now `lists`, of `accounts`.
@@ -134,6 +136,9 @@ public struct WindowNavigation: Equatable, Sendable {
         case showList
         /// Counts the rows picked with a pointer beside the list: none, or several.
         case showPicked(Int)
+        /// Picks these rows of the list on show again, top to bottom, as Undo brings them back: several picked with a
+        /// pointer that an action put away.
+        case repick([ThreadSummary.ID])
         /// A message window, which shows nothing else, goes once the change that took its conversation can't be
         /// undone (ADR-035).
         case leaveWindow
@@ -170,8 +175,8 @@ public struct WindowNavigation: Equatable, Sendable {
             goBack(to: back)
         case .changed(let change, let reader, let front):
             return asked(change, reader: reader, front: front, in: context)
-        case .undone(let change, let rows):
-            undid(change, rows: rows)
+        case .undone(let change, let rows, let searching):
+            return undid(change, rows: rows, searching: searching)
         case .accounts(let accounts):
             // A lookup for an account that went is dropped; one for an account still here goes on, as one a window
             // coming up for an arrival started before its screens were built for the accounts (`launched`).

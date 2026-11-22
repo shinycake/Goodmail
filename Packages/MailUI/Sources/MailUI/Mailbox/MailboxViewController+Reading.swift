@@ -35,6 +35,11 @@ extension MailboxViewController: ThreadSequence {
         }
     }
 
+    public func repick(_ rows: [ThreadSummary.ID]) {
+        guard frontList.picksWithPointer else { return }
+        frontList.viewModel.repick(rows)
+    }
+
     private func markRead(_ thread: ThreadSummary.ID?) {
         // Select mode keeps its picks while it is on.
         guard !isEditing else { return }
