@@ -26,7 +26,7 @@ Simple, beautiful, lean, performant, robust. Bring stability and delight. The hi
 - **Platforms:** iPhone and iPad. Every window size, including resizable iPad windows and the foldable iPhone.
 - **Design:** Goodmail's own soul and style, in Apple's design language with vanilla SwiftUI/UIKit components, following the HIG. The only customization is a theme and per-account colors.
 - **Localization:** built on Apple tooling (String Catalogs, Xcode translation skills). English and Hebrew are polished at launch, and Hebrew is the reference for RTL. RTL support must be foundational, not retrofitted.
-- **Distribution:** personal use and TestFlight first, which means Google's OAuth Testing mode (up to 100 accounts).
+- **Distribution:** personal use and TestFlight first, with Google OAuth published "In production" but unverified (up to 100 accounts, an unverified-app warning at sign-in, ADR-009).
 
 ## Data and privacy
 

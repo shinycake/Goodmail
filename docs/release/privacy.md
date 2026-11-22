@@ -150,7 +150,7 @@ The registration PR must add the same entry to the app's manifest (`NSPrivacyCol
 **Also for App Store Connect**
 
 - A privacy policy URL is required, even for "Data Not Collected". It can be a short page made from this document.
-- Gmail's restricted scope (`https://mail.google.com/`, the full scope Delete Forever needs, ADR-019) needs Google's OAuth verification and a CASA security assessment before the app leaves Testing mode, beyond 100 users. That's separate from Apple's review.
+- Gmail's restricted scope (`https://mail.google.com/`, the full scope Delete Forever needs, ADR-019) needs Google's OAuth verification and a CASA security assessment before the app can go beyond 100 users or drop the unverified-app warning. It's published "In production" unverified (ADR-009). That's separate from Apple's review.
 
 ## Verify on a Mac
 

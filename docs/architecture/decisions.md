@@ -95,7 +95,7 @@ The owner decided these on 2026-10-20 after talking through the options. Each en
 - **Decision:** publish the OAuth consent screen as "In production" without verification.
 - **Why:** Testing mode expires refresh tokens after 7 days, which would force a weekly sign-in and break push.
 - **Accepted costs:** a one-time "unverified app" warning at sign-in, and a cap of 100 users.
-- **Timing (2026-10-20):** publishing needs a home page, a privacy policy and an authorized domain. The owner chose to proceed without any domain for now: the app stays in Testing (7-day refresh tokens, test users only) until a domain is bought. The push Worker uses its free `workers.dev` address, and a domain is needed only for publishing to production and for iCloud forward-to-push (post-v1). See [../setup/google-cloud.md](../setup/google-cloud.md).
+- **Timing:** on 2026-10-20 the app stayed in Testing (7-day refresh tokens, test users only) because the owner chose not to buy a domain yet. It was published to "In production" on 2026-11-22, still unverified and never submitted for verification. Accounts signed in before then sign in once more to get a token that doesn't expire. See [../setup/google-cloud.md](../setup/google-cloud.md).
 
 ## ADR-010: Sync tests run on scrubbed recorded fixtures
 

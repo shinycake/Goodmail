@@ -48,7 +48,7 @@ The facts every design must honor. Product decisions are in [../product-brief.md
   - `gmail.modify` is restricted, and covers everything except permanent delete.
   - `https://mail.google.com/` is restricted and also allows permanent delete. Goodmail uses it (ADR-019).
   - `gmail.settings.basic` covers settings; `openid email` returns an ID token.
-- **Testing-mode caveat** *(verify)*: in "Testing" publishing status, external-user refresh tokens **expire after 7 days**.
+- **Testing-mode caveat**: in "Testing" publishing status, external-user refresh tokens **expire after 7 days**.
   - Moving the app to "In production" while unverified avoids that, at the cost of an unverified-app warning and a 100-user cap.
   - This decides how TestFlight-first actually feels to users.
 
