@@ -78,6 +78,13 @@ public final class SettingsViewModel {
         didSet { Preferences.unsortedInboxAccounts = unsortedInboxAccounts }
     }
 
+    /// The choices on this screen that the mail screens are built from, as the reader has them now.
+    public var mailScreenChoices: MailScreenChoices {
+        MailScreenChoices(
+            accounts: accounts, unsortedInboxAccounts: unsortedInboxAccounts, rowDisplay: rowDisplay,
+            theme: combinedTheme)
+    }
+
     @ObservationIgnored private let remove: (AccountID, AccountRemoval) async throws -> Void
     @ObservationIgnored private let update: (Account) async throws -> Void
     @ObservationIgnored private let reorder: ([AccountID]) async throws -> Void

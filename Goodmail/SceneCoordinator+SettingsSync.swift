@@ -17,9 +17,7 @@ extension SceneCoordinator {
     }
 
     private func followSyncedSettings(_ changed: Set<String>) {
-        guard changed.contains(Preferences.syncedGroup), uncoveredMail != nil, Appearance(model) != builtFor else {
-            return
-        }
-        showMailbox()
+        guard changed.contains(Preferences.syncedGroup), uncoveredMail != nil, !model.accounts.isEmpty else { return }
+        followSettings()
     }
 }

@@ -3,8 +3,9 @@ import MailUI
 import UIKit
 
 /// The one Settings window, where Settings has a window of its own (`SettingsPlacement.ownWindow`): the same screens
-/// as the sheet over the mail screens on touch. Sign-ins and transfer codes show over this window. When it closes,
-/// every mail window follows what changed while it was up, as one does when the sheet closes.
+/// as the sheet over the mail screens on touch. Sign-ins and transfer codes show over this window. The mail windows
+/// beside it follow each change to what they show as it is made, as a Mac's settings apply at once, and the rest when
+/// it closes, as one does when the sheet closes.
 final class SettingsWindowCoordinator {
     let window: ShakeToUndoWindow
     private let settings: SettingsViewModel
@@ -12,6 +13,8 @@ final class SettingsWindowCoordinator {
     private let pages: SettingsPages
     /// New Viewer Window, New Message and Get Mail, with the sync Get Mail starts here.
     private let everyWindow: EveryWindowCommands
+    /// Follows Settings for as long as the window is open; `close()` ends it.
+    private var following: Task<Void, Never>?
 
     /// Whether the one Settings window is closed, asked for, or open, across the app's windows. Only `open(at:from:)`,
     /// `connecting(_:)` and `disconnected(_:)` change it.
@@ -25,13 +28,11 @@ final class SettingsWindowCoordinator {
         // Settings has nothing a shake could undo, and a desktop window can't be shaken.
         let window = ShakeToUndoWindow(windowScene: windowScene, undo: {})
         self.window = window
-        let before = Appearance(model)
         settings = model.settingsViewModel(
             signIn: AccountSignIn(model: model, window: window), transfer: Self.transfer(model, over: window),
             closed: {
                 model.shareSettingsNow()
-                let changed = Appearance(model) != before
-                for mail in MailWindows.all { mail.settingsWindowClosed(changed: changed) }
+                for mail in MailWindows.all { mail.settingsWindowClosed() }
             })
         window.windowAnswer = { [weak window, weak everyWindow] command in
             switch command {
@@ -53,6 +54,7 @@ final class SettingsWindowCoordinator {
     }
 
     func start() {
+        followChanges()
         window.rootViewController = SettingsScreen.window(model: settings, pages: pages)
         window.windowScene?.title = SettingsScreen.title
         // A settings window's size, rather than a mail window's.
@@ -65,7 +67,21 @@ final class SettingsWindowCoordinator {
 
     /// The window closed: Settings is gone.
     func close() {
+        following?.cancel()
+        following = nil
         settings.didClose()
+    }
+
+    /// Tells the mail windows each time the reader changes what they are built from (`MailScreenChoices`); each
+    /// rebuilds if it was built from something else. Other choices are read as they are used, so they apply without
+    /// it.
+    private func followChanges() {
+        following?.cancel()
+        following = Task { [settings] in
+            for await _ in Observations({ settings.mailScreenChoices }) {
+                for mail in MailWindows.all { mail.settingsWindowChanged() }
+            }
+        }
     }
 
     /// Shows `page` in the open window, over its first screen.
