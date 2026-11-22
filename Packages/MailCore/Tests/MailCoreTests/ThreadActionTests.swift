@@ -7,6 +7,7 @@ struct ThreadActionTests {
         #expect(ThreadAction.archive.outcome(for: ["INBOX", "UNREAD"]) == .labeled(["UNREAD"]))
         #expect(ThreadAction.trash.outcome(for: ["INBOX", "Label_1"]) == .labeled(["TRASH", "Label_1"]))
         #expect(ThreadAction.untrash.outcome(for: ["TRASH"]) == .labeled([]))
+        #expect(ThreadAction.trash.outcome(for: ["SPAM", "UNREAD"]) == .labeled(["TRASH", "UNREAD"]), "leaves Spam")
         #expect(ThreadAction.markRead(true).outcome(for: ["INBOX", "UNREAD"]) == .labeled(["INBOX"]))
         #expect(ThreadAction.reportSpam.outcome(for: ["INBOX"]) == .labeled(["SPAM"]))
     }
@@ -17,6 +18,7 @@ struct ThreadActionTests {
         #expect(ThreadAction.archive.inverse(given: ["Label_1"]) == [], "archiving archived mail changes nothing")
         #expect(ThreadAction.star(true).inverse(given: []) == [.modifyLabels(add: [], remove: ["STARRED"])])
         #expect(ThreadAction.trash.inverse(given: ["INBOX"]) == [.untrash, .modifyLabels(add: ["INBOX"], remove: [])])
+        #expect(ThreadAction.trash.inverse(given: ["SPAM"]) == [.untrash, .modifyLabels(add: ["SPAM"], remove: [])])
     }
 
     @Test func undoRestoresTheLabels() {

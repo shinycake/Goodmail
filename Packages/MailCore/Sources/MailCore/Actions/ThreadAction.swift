@@ -36,12 +36,13 @@ public enum ThreadAction: Codable, Equatable, Sendable {
         case deleted
     }
 
-    /// What a thread (or message) carrying `labels` is after this action. A thread is deleted forever whole while it
+    /// What a thread (or message) carrying `labels` is after this action. Trash and Spam each hold a thread on its own,
+    /// so trashing takes it out of Spam as well as the Inbox, as Gmail does. A thread is deleted forever whole while it
     /// carries Trash, even when some of its messages are elsewhere: the next fetch brings those back.
     public func outcome(for labels: Set<String>) -> Outcome {
         switch self {
         case .modifyLabels(let add, let remove): .labeled(labels.subtracting(remove).union(add))
-        case .trash: .labeled(labels.subtracting([SystemLabel.inbox]).union([SystemLabel.trash]))
+        case .trash: .labeled(labels.subtracting([SystemLabel.inbox, SystemLabel.spam]).union([SystemLabel.trash]))
         case .untrash: .labeled(labels.subtracting([SystemLabel.trash]))
         case .deleteForever: labels.contains(SystemLabel.trash) ? .deleted : .labeled(labels)
         }
