@@ -71,7 +71,8 @@ final class PlaneGameViewController: UIViewController {
             self, selector: #selector(sceneWillDeactivate), name: UIScene.willDeactivateNotification, object: scene)
         NotificationCenter.default.addObserver(
             self, selector: #selector(sceneDidActivate), name: UIScene.didActivateNotification, object: scene)
-        // A key let go while another window has the keyboard never reaches this one, so it stops counting as held.
+        // Another window or app in front pauses the game: on a Mac the scene stays active behind it, so the game would
+        // fly on unwatched. A key let go there never reaches this window either, and pausing lets go of every key.
         NotificationCenter.default.addObserver(
             self, selector: #selector(windowResignedKey), name: UIWindow.didResignKeyNotification, object: view.window)
         for name in [Notification.Name.GCKeyboardDidConnect, .GCKeyboardDidDisconnect] {
@@ -127,7 +128,7 @@ final class PlaneGameViewController: UIViewController {
     }
 
     @objc private func windowResignedKey() {
-        model.releaseKeys()
+        model.pause()
     }
 
     /// The hint names the keys when a hardware keyboard is connected, or the window is a desktop one.
