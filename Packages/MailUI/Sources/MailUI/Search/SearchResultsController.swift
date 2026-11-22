@@ -24,7 +24,8 @@ public final class SearchResultsController: UIViewController, UISearchResultsUpd
         search: ThreadSearch, accounts: [Account], navigate: @escaping (Route) -> Void,
         readAhead: @escaping (ThreadFetcher.Request) -> Void = { _ in },
         actions: MailActions?,
-        contacts: @escaping (String) -> [Contact] = { _ in [] }, recents: RecentSearches = RecentSearches()
+        contacts: @escaping (String) -> [Contact] = { _ in [] }, recents: RecentSearches = RecentSearches(),
+        interaction: InteractionStyle = .touch
     ) {
         self.search = search
         self.recents = recents
@@ -51,7 +52,9 @@ public final class SearchResultsController: UIViewController, UISearchResultsUpd
                 },
                 navigate: navigate,
                 readAhead: readAhead,
-                actions: actions),
+                actions: actions,
+                // A desktop window's results pick, hover and take keys as its mailboxes do.
+                interaction: interaction),
             empty: .search())
         super.init(nibName: nil, bundle: nil)
     }

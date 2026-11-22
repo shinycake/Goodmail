@@ -63,6 +63,8 @@ public final class MailActions {
     @ObservationIgnored private(set) var lastUndo: Undo? {
         didSet { offerUndo() }
     }
+    /// How many undos have been applied, so a wait can tell an undo from a toast running out (`waitOutUndo`).
+    @ObservationIgnored private(set) var undoneCount = 0
     /// The window's undo manager, where Edit > Undo and ⌘Z find the last undo (`offerUndo`).
     @ObservationIgnored public var undoManager: UndoManager? {
         didSet { offerUndo() }
@@ -142,6 +144,7 @@ public final class MailActions {
         run { [self] commands in
             guard let undo = lastUndo else { return }
             lastUndo = nil
+            undoneCount += 1
             endToast()
             feedback(.undone)
             switch undo {
@@ -180,12 +183,16 @@ public final class MailActions {
                 try await commands.send(draft, after: delay)
                 guard delay > .zero else { return }
                 lastUndo = .send(draft.id)
+                // Once the wait is over the message has gone, so Edit > Undo and a shake stop offering it back.
                 show(
                     Toast(
                         message: String(
                             localized: "Sent", table: "Actions", bundle: .module,
                             comment: "Toast with Undo after sending a message, while it can still be taken back"),
-                        .confirmation(.send(draft.id)), lasting: delay))
+                        .confirmation(.send(draft.id)), lasting: delay)
+                ) { [self] in
+                    if lastUndo == .send(draft.id) { lastUndo = nil }
+                }
             case .at(let date):
                 try await commands.schedule(draft, at: date)
                 lastUndo = .send(draft.id)
@@ -298,10 +305,12 @@ public final class MailActions {
         ToastTime.lasting(toastDuration, assistiveTechnologyRuns: SystemAccessibility.assistiveTechnologyRuns)
     }
 
-    private func show(_ toast: Toast) {
+    /// Shows `toast` until it ends, then runs `ended`, if given, whatever shows by then.
+    private func show(_ toast: Toast, then ended: (() -> Void)? = nil) {
         self.toast = toast
         Task {
             try? await Task.sleep(until: toast.ends, clock: .continuous)
+            ended?()
             if self.toast?.id == toast.id { endToast() }
         }
     }
@@ -326,6 +335,17 @@ public final class MailActions {
             return String(
                 localized: "\(count) reported as spam", table: "Actions", bundle: .module,
                 comment: "Toast after reporting spam")
+        }
+        // Out of Spam and out of the Trash: the row leaves, so say where it went and offer it back.
+        if action == .moveToInbox {
+            return String(
+                localized: "\(count) moved to Inbox", table: "Actions", bundle: .module,
+                comment: "Toast after putting snoozed threads back in the Inbox")
+        }
+        if action == .untrash {
+            return String(
+                localized: "\(count) restored", table: "Actions", bundle: .module,
+                comment: "Toast after taking threads out of the Trash")
         }
         return nil
     }

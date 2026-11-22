@@ -115,7 +115,7 @@ extension MailboxViewController {
             if case .reading(let id) = viewModel.selection { viewModel.openInNewWindow(id) }
         case .delete:
             // In Trash, Delete is for good and asks first; elsewhere it does what this Mac's setting says.
-            perform(DesktopPreferences.deleteKey.action(inTrash: viewModel.isTrash), on: viewModel.selectedIDs)
+            perform(DesktopPreferences.deleteKey.action(in: viewModel.mailbox), on: viewModel.selectedIDs)
         }
     }
 

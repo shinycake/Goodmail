@@ -295,6 +295,47 @@
         }
       }
     },
+    "%lld restored" : {
+      "comment" : "Toast after taking threads out of the Trash",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Restored"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld threads restored"
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "שוחזר"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld שרשורים שוחזרו"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "Archive" : {
       "comment" : "Action: archive a thread",
       "localizations" : {

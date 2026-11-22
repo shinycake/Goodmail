@@ -4,16 +4,21 @@ import Testing
 struct DesktopChoicesTests {
     @Test func deleteMovesToTrashByDefault() {
         #expect(DeleteKeyAction.standard == .trash)
-        #expect(DeleteKeyAction.trash.action(inTrash: false) == .trash)
+        #expect(DeleteKeyAction.trash.action(in: .inbox) == .trash)
     }
 
     @Test func deleteCanArchiveInstead() {
-        #expect(DeleteKeyAction.archive.action(inTrash: false) == .archive)
+        #expect(DeleteKeyAction.archive.action(in: .inbox) == .archive)
     }
 
     @Test(arguments: DeleteKeyAction.allCases)
     func deleteInTrashIsForGood(_ choice: DeleteKeyAction) {
-        #expect(choice.action(inTrash: true) == .deleteForever)
+        #expect(choice.action(in: .trash) == .deleteForever)
+    }
+
+    @Test(arguments: DeleteKeyAction.allCases)
+    func deleteInSpamTrashes(_ choice: DeleteKeyAction) {
+        #expect(choice.action(in: .spam) == .trash, "archiving spam would change nothing")
     }
 
     @Test func storedNamesAreStable() {

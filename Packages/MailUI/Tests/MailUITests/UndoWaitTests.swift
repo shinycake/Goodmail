@@ -1,3 +1,4 @@
+import Foundation
 import MailCore
 import Testing
 
@@ -44,5 +45,17 @@ struct UndoWaitTests {
         #expect(await actions.waitOutUndo { _ in } == .ended)
         #expect(actions.toast == nil)
         #expect(reopened.isEmpty)
+    }
+
+    @Test func `once the message has gone Edit Undo no longer offers it back`() async {
+        let actions = actions(undoSendDelay: .milliseconds(20))
+        let manager = UndoManager()
+        manager.groupsByEvent = false
+        actions.undoManager = manager
+        actions.send(draft)
+        await actions.settled()
+        #expect(manager.canUndo, "while it can still be taken back")
+        #expect(await actions.waitOutUndo { _ in } == .ended)
+        #expect(!manager.canUndo)
     }
 }

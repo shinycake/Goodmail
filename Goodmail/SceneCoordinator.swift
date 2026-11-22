@@ -365,7 +365,8 @@ final class SceneCoordinator: NSObject {
         let results = SearchResultsController(
             search: search, accounts: model.accounts, navigate: { [weak self] route in self?.handle(route) },
             readAhead: { model.readAhead($0) }, actions: actions,
-            contacts: { (try? model.database.contacts(matching: $0, limit: 3)) ?? [] })
+            contacts: { (try? model.database.contacts(matching: $0, limit: 3)) ?? [] },
+            interaction: window.interactionStyle)
         let list = MailboxViewController(
             viewModel: MailboxViewModel(
                 mailbox: mailbox,
