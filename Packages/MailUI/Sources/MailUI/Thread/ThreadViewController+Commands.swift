@@ -6,18 +6,27 @@ import UIKit
 extension ThreadViewController: CommandScreen {
     public func answer(to command: MailCommand) -> CommandAnswer {
         let model = viewModel
+        if let typed = typing.answer(to: command, send: { [composer] in composer.send() }) { return typed }
         if let answer = command.answer { return .ready(perform: { model.answer(answer) }) }
         if let answer = model.senderAnswer(to: command) { return answer }
+        let place = ThreadPlace(model.thread, in: model.mailbox)
         switch command {
-        case .archive: return .ready(perform: { model.perform(.archive) })
+        // What the place's Archive means, as its swipe does: back to the Inbox from Spam, out of Trash.
+        case .archive:
+            guard case .perform(let action) = SwipeChoice.archive.swipe(for: model.thread, at: place) else {
+                return .unavailable
+            }
+            return .ready(perform: { model.perform(action) }, title: action.title)
         // In Trash, the toolbar offers Delete Forever, which asks first; the keyboard leaves that to the button.
         case .trash: return model.isInTrash ? .unavailable : .ready(perform: { model.perform(.trash) })
         case .reportSpam:
-            guard ThreadPlace(model.thread, in: model.mailbox).canReportSpam else { return .unavailable }
+            guard place.canReportSpam else { return .unavailable }
             return .ready(perform: { model.perform(.reportSpam) })
         case .move: return .ready(perform: { model.move() })
         case .changeLabels: return .ready(perform: { model.changeLabels() })
         case .snooze:
+            // Snoozing takes a conversation out of the Inbox for a while; one in Spam or Trash isn't kept that way.
+            guard place != .spam, place != .trash else { return .unavailable }
             return .ready(perform: { [weak self] in
                 guard let self else { return }
                 LaterPickerViewController.presentSnooze(
@@ -44,6 +53,13 @@ extension ThreadViewController: CommandScreen {
             return readerAnswer(to: command)
         default: return .notHere
         }
+    }
+
+    /// What the keyboard types into in the reader now.
+    var typing: ReaderTyping {
+        if composer.isTyping { return .reply(sendable: composer.unsent != nil) }
+        if findBar.isTyping { return .find }
+        return .conversation
     }
 
     /// The Share menu's export of the conversation, once its messages are in.

@@ -8,6 +8,8 @@ final class ConversationFindBar: UIView {
     var onDone: (() -> Void)?
 
     private let field = UISearchTextField()
+    /// Whether the keyboard types into the find field.
+    var isTyping: Bool { field.isFirstResponder }
     private let status = UILabel()
     private let previous = ConfiguredButton(configuration: .plain())
     private let nextMatch = ConfiguredButton(configuration: .plain())

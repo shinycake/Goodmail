@@ -348,6 +348,21 @@ public final class ThreadViewModel {
         navigate(.compose(draft))
     }
 
+    /// Keeps a chat reply that was typed and never sent in Drafts as the reader goes, so nothing typed is lost.
+    public func keepChatReply(_ text: String, attachments: [DraftAttachment]) {
+        guard let reply = chatReply(text, attachments: attachments) else { return }
+        actions?.saveDraft(reply, .leaving)
+    }
+
+    /// Opens a link in a message: a `mailto:` link as a new message from this account, in Goodmail, and any other
+    /// link through `outside`.
+    public func open(_ link: URL, outside: (URL) -> Void) {
+        switch MessageLink(link, account: thread.id.accountID) {
+        case .compose(let draft): navigate(.compose(draft))
+        case .outside(let url): outside(url)
+        }
+    }
+
     /// Sends a reply that failed again.
     public func retry(_ id: Draft.ID) {
         guard let message = queued(id) else { return }

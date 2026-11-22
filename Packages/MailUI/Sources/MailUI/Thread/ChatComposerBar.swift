@@ -158,6 +158,22 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
         }
     }
 
+    /// What is typed and attached and not sent yet, or `nil` while there is nothing to send.
+    var unsent: (text: String, attachments: [DraftAttachment])? {
+        trimmedText.isEmpty && attachments.isEmpty ? nil : (trimmedText, attachments)
+    }
+
+    /// Whether the keyboard types into the reply field.
+    var isTyping: Bool { textView.isFirstResponder }
+
+    /// Hands over what is typed and attached and not sent, and empties the field: the reader keeps it as a draft as
+    /// it goes.
+    func takeUnsent() -> (text: String, attachments: [DraftAttachment])? {
+        guard let unsent else { return nil }
+        clear()
+        return unsent
+    }
+
     /// Folds the tray and stops preparing attachments: the reader is let go (`ThreadViewController.leave`).
     func finish() {
         setTray(.folded, animated: false)
@@ -355,7 +371,7 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
 
     private func updateSend() {
         placeholder.isHidden = !textView.text.isEmpty
-        sendButton.isEnabled = !trimmedText.isEmpty || !attachments.isEmpty
+        sendButton.isEnabled = unsent != nil
     }
 
     private func attach(_ attachment: DraftAttachment) {
@@ -383,7 +399,8 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
         onResize?()
     }
 
-    private func send(at time: SendTime = .now) {
+    /// Sends what was typed and attached, as Send does, when there is something to send.
+    func send(at time: SendTime = .now) {
         guard sendButton.isEnabled else { return }
         onSend?(trimmedText, attachments, time)
         clear()

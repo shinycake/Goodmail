@@ -82,7 +82,8 @@ public final class ThreadViewController: UIViewController {
         viewModel: ThreadViewModel, openURL: @escaping (URL) -> Void, unsubscribeOffer: UnsubscribeOffer? = nil
     ) {
         self.viewModel = viewModel
-        self.openURL = openURL
+        // A `mailto:` link in a message writes a new message here, rather than in another mail app.
+        self.openURL = { [weak viewModel] link in viewModel?.open(link, outside: openURL) }
         self.unsubscribeOffer = unsubscribeOffer
         super.init(nibName: nil, bundle: nil)
         navigationItem.largeTitleDisplayMode = .never
@@ -92,6 +93,7 @@ public final class ThreadViewController: UIViewController {
     required init?(coder: NSCoder) { fatalError("Programmatic UI only") }
 
     isolated deinit {
+        keepUnsentReply()
         composer.finish()
         observation?.cancel()
         fetchingAgain?.cancel()
@@ -198,7 +200,14 @@ public final class ThreadViewController: UIViewController {
     /// navigation controller isn't leaving, as the reader moves between a wide window's columns and a narrow one's
     /// stack with what is typed and being attached (D8).
     public func leave() {
+        keepUnsentReply()
         composer.finish()
+    }
+
+    /// A chat reply typed and never sent goes to Drafts rather than away with the reader.
+    private func keepUnsentReply() {
+        guard let reply = composer.takeUnsent() else { return }
+        viewModel.keepChatReply(reply.text, attachments: reply.attachments)
     }
 
     /// Letters keep the toolbar; the chat's composer takes its place. The toolbar belongs to the stack, and each
