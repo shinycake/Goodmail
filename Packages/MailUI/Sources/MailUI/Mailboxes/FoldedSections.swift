@@ -39,17 +39,19 @@ extension MailboxesViewModel.Section {
 
 extension MailboxesViewModel.Group {
     /// The unread threads in every row of the group, which its header shows while the group is folded. Snoozed and
-    /// Scheduled count what waits, not what is unread.
+    /// Scheduled count what waits, not what is unread. Starred is left out, as it mostly repeats the Inbox's and
+    /// labels' threads.
     public var unread: Int {
-        items.filter { !$0.countsWaiting }.map(\.nestedCount).reduce(0, +)
+        items.filter(\.addsToHeaderCount).map(\.nestedCount).reduce(0, +)
     }
 }
 
 extension MailboxesViewModel.Item {
-    fileprivate var countsWaiting: Bool {
+    fileprivate var addsToHeaderCount: Bool {
         switch destination {
-        case .scheduled, .snoozed: true
-        case .mailbox, .folder, .smart: false
+        case .mailbox(let mailbox): mailbox.labelID != SystemLabel.starred
+        case .scheduled, .snoozed: false
+        case .folder, .smart: true
         }
     }
 }

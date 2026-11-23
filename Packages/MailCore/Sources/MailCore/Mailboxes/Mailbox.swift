@@ -23,6 +23,11 @@ public struct Mailbox: Hashable, Codable, Sendable {
     /// The mailboxes every account has, in the order the mailbox list shows them.
     public static let standard: [Mailbox] = [.inbox, .starred, .sent, .drafts, .allMail, .spam, .trash]
 
+    /// One account's own standard mailboxes, in the same order.
+    public static func standard(of account: AccountID) -> [Mailbox] {
+        standard.map { Mailbox(labelID: $0.labelID, accountID: account) }
+    }
+
     /// Whether `thread` belongs here, judged by its labels.
     public func contains(_ thread: ThreadSummary) -> Bool {
         if let accountID, thread.id.accountID != accountID { return false }

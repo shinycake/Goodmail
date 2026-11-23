@@ -10,12 +10,18 @@ extension MailboxesViewModel {
     }
 
     /// The first nine rows the sidebar shows now, folded sections and labels left out (`foldedSections`, `folded`). With several accounts a row
-    /// that every account has, as its Inbox, is named with its account.
+    /// that every account has, as its Inbox, is named with its account. An account's own mailboxes past its Inbox take
+    /// no number, so the next accounts' Inboxes keep theirs, as the blended rows above reach the same places.
     var numberedRows: NumberedRows<NumberedRow> {
         NumberedRows(
             visible: visibleRows,
             isOpenable: { row in
-                if case .folder = row.destination { false } else { true }
+                switch row.destination {
+                case .folder: false
+                case .mailbox(let mailbox):
+                    mailbox.accountID == nil || !mailbox.isStandard || mailbox.labelID == SystemLabel.inbox
+                case .scheduled, .snoozed, .smart: true
+                }
             })
     }
 

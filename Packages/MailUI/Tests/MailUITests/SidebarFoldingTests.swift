@@ -44,12 +44,13 @@ struct SidebarFoldingTests {
         let clients = Mailbox(labelID: "Label_9", accountID: work.id)
         let big = Mailbox(labelID: "Label_10", accountID: work.id)
         let workInbox = Mailbox(labelID: SystemLabel.inbox, accountID: work.id)
+        let workStarred = Mailbox(labelID: SystemLabel.starred, accountID: work.id)
         let directory = MailboxDirectory(
             labels: [
                 MailboxDirectory.Label(mailbox: clients, name: "Clients", color: nil),
                 MailboxDirectory.Label(mailbox: big, name: "Clients/Big", color: nil),
             ],
-            unreadCounts: [.inbox: 9, workInbox: 3, clients: 1, big: 2],
+            unreadCounts: [.inbox: 9, workInbox: 3, workStarred: 2, clients: 1, big: 2],
             snoozedCount: 4)
         let viewModel = MailboxesViewModel(
             accounts: [home, work],
@@ -62,7 +63,9 @@ struct SidebarFoldingTests {
         await viewModel.observe()
 
         let groups = viewModel.groups
-        #expect(groups.first { $0.section == .account(work) }?.unread == 6, "the Inbox, a label and the one in it")
+        #expect(
+            groups.first { $0.section == .account(work) }?.unread == 6,
+            "the Inbox, a label and the one in it, not Starred again")
         #expect(groups.first { $0.section == .account(home) }?.unread == 0)
         #expect(groups.first { $0.section == .mailboxes }?.unread == 9, "snoozed threads aren't unread")
     }

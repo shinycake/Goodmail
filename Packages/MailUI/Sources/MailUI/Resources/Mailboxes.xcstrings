@@ -1,6 +1,17 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ · %@" : {
+      "comment" : "Window title of one account's standard mailbox among several accounts, as Trash · me@example.com",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · %@"
+          }
+        }
+      }
+    },
     "All Mail" : {
       "comment" : "Mailbox: every thread outside Spam and Trash",
       "localizations" : {

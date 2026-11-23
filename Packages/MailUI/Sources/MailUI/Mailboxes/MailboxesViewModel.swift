@@ -4,7 +4,7 @@ public import Observation
 
 /// The list of mailboxes, each with its unread count. With one account: the standard mailboxes, with Snoozed while
 /// a thread sleeps and Scheduled while a message waits, then the user's labels. With several: the standard mailboxes
-/// blending every account, then each account's own Inbox and labels.
+/// blending every account, then each account's own standard mailboxes and labels, as Apple Mail lists them.
 @Observable
 public final class MailboxesViewModel {
     /// Where a row leads.
@@ -28,7 +28,7 @@ public final class MailboxesViewModel {
         case smartMailboxes
         /// The only account's labels.
         case labels
-        /// One of several accounts: its Inbox, then its labels.
+        /// One of several accounts: its own standard mailboxes, then its labels.
         case account(Account)
     }
 
@@ -118,10 +118,10 @@ public final class MailboxesViewModel {
         }
         return [mailboxes, smartGroup].filter { !$0.items.isEmpty }
             + accounts.map { account in
-                let inbox = item(for: Mailbox(labelID: SystemLabel.inbox, accountID: account.id), color: nil)
+                let own = Mailbox.standard(of: account.id).map { item(for: $0, color: nil) }
                 let group = labelGroup(
                     .account(account), labels: directory.labels.filter { $0.mailbox.accountID == account.id })
-                return Group(section: group.section, items: [inbox] + group.items, children: group.children)
+                return Group(section: group.section, items: own + group.items, children: group.children)
             }
     }
 

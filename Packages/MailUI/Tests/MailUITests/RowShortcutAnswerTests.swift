@@ -121,10 +121,10 @@ struct RowShortcutAnswerTests {
         #expect(title == "Trash")
     }
 
-    @Test func amongSeveralAccountsARowIsNamedWithItsAccount() async {
+    @Test func amongSeveralAccountsEachInboxIsNumberedAndNamedWithItsAccount() async {
         let sidebar = await sidebar(accounts: [account, work])
-        let titles = sidebar.numberedRows.rows.map(\.title)
-        #expect(titles.contains("Inbox (\(account.title))"))
-        #expect(titles.contains("Inbox (\(work.title))"))
+        // An account's own Starred, Trash and the rest take no number: the blended rows above reach them.
+        #expect(
+            sidebar.numberedRows.rows.map(\.title).suffix(2) == ["Inbox (\(account.title))", "Inbox (\(work.title))"])
     }
 }

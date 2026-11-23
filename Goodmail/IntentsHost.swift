@@ -37,7 +37,7 @@
                     MailboxDirectory.Label(
                         mailbox: Mailbox(labelID: $0.id, accountID: account), name: $0.name, color: nil)
                 }
-            let standard = Mailbox.standard.map { Mailbox(labelID: $0.labelID, accountID: account) }
+            let standard = Mailbox.standard(of: account)
             return (standard + labels.map(\.mailbox)).map { NamedMailbox(mailbox: $0, name: $0.title(labels: labels)) }
         }
 

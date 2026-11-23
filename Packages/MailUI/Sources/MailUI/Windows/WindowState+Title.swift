@@ -14,7 +14,7 @@ extension WindowState {
         }
         if place == .mailboxes { return MailboxesViewController.title }
         return switch list {
-        case .mailbox(let mailbox): mailbox.listTitle(labels: labels, accounts: accounts)
+        case .mailbox(let mailbox): mailbox.windowListTitle(labels: labels, accounts: accounts)
         case .scheduled:
             String(
                 localized: "Scheduled", table: "Mailboxes", bundle: .module,

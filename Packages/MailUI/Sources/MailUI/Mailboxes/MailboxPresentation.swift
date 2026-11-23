@@ -36,12 +36,24 @@ extension Mailbox {
     }
 
     /// The title of this mailbox's list. One account's Inbox goes by the account's name, as in Apple Mail, so it reads
-    /// apart from the other accounts' Inboxes; any other list by `title(labels:)`.
+    /// apart from the other accounts' Inboxes; any other list by `title(labels:)`, as the large title has no room
+    /// for an address beside it.
     nonisolated public func listTitle(labels: [MailboxDirectory.Label], accounts: [Account]) -> String {
         if labelID == SystemLabel.inbox, let account = accounts.first(where: { $0.id == accountID }) {
             return account.title
         }
         return title(labels: labels)
+    }
+
+    /// What the system calls a window showing this mailbox's list: `listTitle`, with one account's other standard
+    /// mailboxes named with the account, as "Trash · me@example.com", so its window reads apart from the others'.
+    nonisolated func windowListTitle(labels: [MailboxDirectory.Label], accounts: [Account]) -> String {
+        let title = listTitle(labels: labels, accounts: accounts)
+        guard isStandard, labelID != SystemLabel.inbox, let account = accounts.first(where: { $0.id == accountID })
+        else { return title }
+        return String(
+            localized: "\(title) · \(account.title)", table: "Mailboxes", bundle: .module,
+            comment: "Window title of one account's standard mailbox among several accounts, as Trash · me@example.com")
     }
 
     var symbol: String {

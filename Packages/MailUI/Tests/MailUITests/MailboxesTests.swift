@@ -51,7 +51,7 @@ struct MailboxesTests {
         if case .compose(let draft) = routes.last { #expect(draft.accountID == account.id) } else { Issue.record() }
     }
 
-    @Test func severalAccountsListTheBlendedMailboxesThenEachAccountsInboxAndLabels() async {
+    @Test func severalAccountsListTheBlendedMailboxesThenEachAccountsOwnMailboxesAndLabels() async {
         let work = Account(id: AccountID(rawValue: "w"), email: "work@example.com", color: .orange, service: .gmail)
         let receipts = Mailbox(labelID: "Label_1", accountID: account.id)
         let clients = Mailbox(labelID: "Label_9", accountID: work.id)
@@ -77,10 +77,14 @@ struct MailboxesTests {
         #expect(groups.map(\.section) == [.mailboxes, .account(account), .account(work)])
         #expect(groups[0].items.map(\.destination) == Mailbox.standard.map { .mailbox($0) }, "every account's, blended")
         #expect(groups[0].items.first?.count == 5)
-        #expect(groups[1].items.map(\.destination) == [.mailbox(ownInbox), .mailbox(receipts)])
-        #expect(groups[1].items.map(\.count) == [2, 0])
-        #expect(groups[2].items.map(\.destination) == [.mailbox(workInbox), .mailbox(clients)])
-        #expect(groups[2].items.map(\.count) == [3, 1])
+        func own(_ account: Account) -> [MailboxesViewModel.Destination] {
+            Mailbox.standard.map { .mailbox(Mailbox(labelID: $0.labelID, accountID: account.id)) }
+        }
+        #expect(
+            groups[1].items.map(\.destination) == own(account) + [.mailbox(receipts)], "its own All Mail and Trash too")
+        #expect(groups[1].items.map(\.count) == [2, 0, 0, 0, 0, 0, 0, 0])
+        #expect(groups[2].items.map(\.destination) == own(work) + [.mailbox(clients)])
+        #expect(groups[2].items.map(\.count) == [3, 0, 0, 0, 0, 0, 0, 1])
         #expect(viewModel.theme == .gradient(AccountBlend([.teal, .orange])))
     }
 
@@ -176,6 +180,20 @@ struct MailboxesTests {
         #expect(Mailbox.inbox.listTitle(labels: [], accounts: [named]) == "Inbox", "every account's Inbox")
         let sent = Mailbox(labelID: SystemLabel.sent, accountID: account.id)
         #expect(sent.listTitle(labels: [], accounts: [named]) == "Sent")
+    }
+
+    @Test func oneAccountsOwnMailboxNamesItsWindowWithTheAccount() {
+        var named = account
+        named.nickname = "Personal"
+        let sent = Mailbox(labelID: SystemLabel.sent, accountID: account.id)
+        #expect(sent.windowListTitle(labels: [], accounts: [named]) == "Sent · Personal", "apart from the others' Sent")
+        let inbox = Mailbox(labelID: SystemLabel.inbox, accountID: account.id)
+        #expect(inbox.windowListTitle(labels: [], accounts: [named]) == "Personal")
+        #expect(Mailbox.sent.windowListTitle(labels: [], accounts: [named]) == "Sent", "every account's Sent")
+        let travel = Mailbox(labelID: "Label_7", accountID: account.id)
+        let labels = [MailboxDirectory.Label(mailbox: travel, name: "Travel", color: nil)]
+        #expect(
+            travel.windowListTitle(labels: labels, accounts: [named]) == "Travel", "a label is only ever one account's")
     }
 
     private func away(_ labels: Set<String>, in mailbox: Mailbox) -> [ThreadAction] {

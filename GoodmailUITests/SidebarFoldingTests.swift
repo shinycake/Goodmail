@@ -15,11 +15,14 @@ final class SidebarFoldingTests: XCTestCase {
         XCUIDevice.shared.orientation = .landscapeLeft
         var app = launch()
         try XCTSkipUnless(app.windows.firstMatch.horizontalSizeClass == .regular, "a narrow window has no sidebar")
-        let header = app.collectionViews["mailboxes"].cells["section.account.synthetic-2"]
-        let clients = app.collectionViews["mailboxes"].cells["mailbox.Label_3.synthetic-2"]
-        XCTAssertTrue(header.waitForExistence(timeout: 5))
+        let sidebar = app.collectionViews["mailboxes"]
+        let header = sidebar.cells["section.account.synthetic-2"]
+        let clients = sidebar.cells["mailbox.Label_3.synthetic-2"]
+        XCTAssertTrue(sidebar.waitForExistence(timeout: 5))
+        // The second account's section sits below every account's own mailboxes.
+        scroll(sidebar, toReveal: header)
         // An earlier run may have left it folded.
-        if !clients.exists { header.tap() }
+        if !scroll(sidebar, toReveal: clients) { header.tap() }
         XCTAssertTrue(clients.waitForExistence(timeout: 5))
 
         header.tap()
@@ -28,15 +31,27 @@ final class SidebarFoldingTests: XCTestCase {
 
         app.terminate()
         app = launch()
-        let headerAgain = app.collectionViews["mailboxes"].cells["section.account.synthetic-2"]
-        XCTAssertTrue(headerAgain.waitForExistence(timeout: 5))
-        XCTAssertFalse(app.collectionViews["mailboxes"].cells["mailbox.Label_3.synthetic-2"].exists, "still folded")
+        let sidebarAgain = app.collectionViews["mailboxes"]
+        let headerAgain = sidebarAgain.cells["section.account.synthetic-2"]
+        XCTAssertTrue(sidebarAgain.waitForExistence(timeout: 5))
+        XCTAssertTrue(scroll(sidebarAgain, toReveal: headerAgain))
+        XCTAssertFalse(
+            scroll(sidebarAgain, toReveal: sidebarAgain.cells["mailbox.Label_3.synthetic-2"]), "still folded")
 
         headerAgain.tap()
         XCTAssertTrue(
-            app.collectionViews["mailboxes"].cells["mailbox.Label_3.synthetic-2"].waitForExistence(timeout: 5),
-            "one click unfolds it")
+            scroll(sidebarAgain, toReveal: sidebarAgain.cells["mailbox.Label_3.synthetic-2"]), "one click unfolds it")
         attach(app, "sidebar-unfolded")
+    }
+
+    /// Swipes the sidebar up until `element` is on show, a few times at most. Returns whether it is.
+    @MainActor
+    @discardableResult
+    private func scroll(_ sidebar: XCUIElement, toReveal element: XCUIElement) -> Bool {
+        // Rows unfolding animate in.
+        if element.waitForExistence(timeout: 2) { return true }
+        for _ in 0..<4 where !element.exists { sidebar.swipeUp() }
+        return element.exists
     }
 
     @MainActor
