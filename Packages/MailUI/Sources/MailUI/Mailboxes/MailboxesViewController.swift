@@ -107,6 +107,9 @@ public final class MailboxesViewController: UIViewController {
             }
         }
         navigationController?.setToolbarHidden(showsFooter, animated: animated)
+        // The toolbar's Settings and New Label float over the rows as glass buttons of their own, without the frosted
+        // band a Mac draws under a toolbar. A footer is plain text, so it keeps the band to stay readable.
+        collectionView.bottomEdgeEffect.isHidden = !showsFooter
         navigationController?.navigationBar.prefersLargeTitles = true
         installFooter()
         wear(viewModel.theme)
