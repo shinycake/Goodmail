@@ -198,7 +198,7 @@ public actor Sender {
         -> Draft?
     {
         files.remove(id)
-        guard let went = try? await uploads.hasSent(messageID: message.headerID) else { return nil }
+        guard let went = try? await uploads.hasSent(message) else { return nil }
         let next = went ? nil : message.with(.failed(.unconfirmed))
         guard (try? store.update(message.id, from: .uploading(id), to: next)) == true, went else { return nil }
         await deleteSavedCopy(of: message.draft)

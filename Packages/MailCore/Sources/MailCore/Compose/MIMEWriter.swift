@@ -3,6 +3,9 @@ public import Foundation
 /// Writes a draft as an RFC 5322 message: UTF-8 throughout, `multipart/alternative` with plain text and HTML (inside
 /// `multipart/mixed` with the files, when there are any), and the threading headers replies need.
 public enum MIMEWriter {
+    /// The header that carries the message's own `Message-ID` again, for a service that replaces that one.
+    public static let sentIDHeader = "X-Goodmail-Message-ID"
+
     public static func message(
         for draft: Draft, from: Contact, date: Date, messageID: String,
         boundary: String = "goodmail-\(UUID().uuidString)"
@@ -11,6 +14,9 @@ public enum MIMEWriter {
             ("From", mailbox(from)),
             ("Date", rfc5322Date(date)),
             ("Message-ID", "<\(messageID)>"),
+            // Gmail's API sends under a Message-ID of its own and keeps this one, so a send whose answer was lost
+            // can still be found among the sent mail.
+            (sentIDHeader, "<\(messageID)>"),
         ]
         if !draft.to.isEmpty { headers.append(("To", draft.to.map(mailbox).joined(separator: ", "))) }
         if !draft.cc.isEmpty { headers.append(("Cc", draft.cc.map(mailbox).joined(separator: ", "))) }

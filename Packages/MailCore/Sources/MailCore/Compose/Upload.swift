@@ -85,8 +85,9 @@ public protocol UploadSending: Sendable {
     /// What the service's answer to a prepared send says happened.
     func answer(status: Int, body: Data) -> SendAnswer
 
-    /// Whether the account's sent mail holds a message with this `Message-ID` header (without the angle brackets).
-    func hasSent(messageID: String) async throws -> Bool
+    /// Whether the account's sent mail holds `message`: the one carrying its `Message-ID`, or, where the service sends
+    /// under a `Message-ID` of its own, the `X-Goodmail-Message-ID` that `MIMEWriter` writes beside it.
+    func hasSent(_ message: OutgoingMessage) async throws -> Bool
 }
 
 /// What a service's answer to a send upload says happened, and so what the send queue does next.

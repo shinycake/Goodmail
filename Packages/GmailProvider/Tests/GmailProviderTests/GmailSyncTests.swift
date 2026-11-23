@@ -139,17 +139,104 @@ struct GmailSyncTests {
         #expect(gmail.answer(status: 503, body: Data("busy".utf8)) == .unknown, "Gmail may have sent it already")
     }
 
+    /// A send whose answer was lost, sent with `00000000-0000-0000-0000-0000000000ab@goodmail.app` as its `Message-ID`.
+    private var lost: OutgoingMessage {
+        OutgoingMessage(
+            draft: Draft(
+                id: UUID(uuidString: "00000000-0000-0000-0000-0000000000AB")!, accountID: AccountID(rawValue: "a")),
+            sendAt: Date(timeIntervalSince1970: 1_791_800_000), delivery: .uploading(UploadID()))
+    }
+
+    private func query(of request: URLRequest?) throws -> [String: String?] {
+        let url = try #require(request?.url)
+        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        return Dictionary(items.map { ($0.name, $0.value) }, uniquingKeysWith: { first, _ in first })
+    }
+
     @Test func aSentMessageIsFoundByItsMessageIDAmongSentMail() async throws {
-        let (gmail, http) = try await client([
-            "/gmail/v1/users/me/messages": [.init(fixture: "messages-found"), .init(fixture: "messages-none")]
-        ])
-        #expect(try await gmail.hasSent(messageID: "abc@goodmail.app"))
-        #expect(try await gmail.hasSent(messageID: "abc@goodmail.app") == false)
-        let items = try #require(
-            URLComponents(url: http.requests.last!.url!, resolvingAgainstBaseURL: false)?.queryItems)
-        let fields = Dictionary(uniqueKeysWithValues: items.map { ($0.name, $0.value) })
-        #expect(fields["q"] == "rfc822msgid:abc@goodmail.app")
+        let (gmail, http) = try await client(["/gmail/v1/users/me/messages": [.init(fixture: "messages-found")]])
+        #expect(try await gmail.hasSent(lost))
+        let fields = try query(of: http.requests.last)
+        #expect(fields["q"] == "rfc822msgid:\(lost.headerID)")
         #expect(fields["labelIds"] == "SENT", "not the draft that carries the same Message-ID")
+    }
+
+    /// Gmail's API sends under a `Message-ID` of its own, so the one Goodmail wrote is found in its own header.
+    @Test func aSentMessageUnderGmailsOwnMessageIDIsFoundByGoodmailsHeader() async throws {
+        let (gmail, http) = try await client([
+            "/gmail/v1/users/me/messages": [.init(fixture: "messages-none"), .init(fixture: "messages-found")],
+            "/gmail/v1/users/me/messages/m9": [.init(fixture: "message-sent-id")],
+        ])
+        #expect(try await gmail.hasSent(lost))
+        let searches = http.requests.filter { $0.url?.path() == "/gmail/v1/users/me/messages" }
+        #expect(searches.count == 2, "by the Message-ID first")
+        let search = try query(of: searches.last)
+        #expect(search["labelIds"] == "SENT")
+        #expect(search["q"] == "after:\(1_791_800_000 - 900)", "sent since its time, give or take the clocks")
+        let metadata = try query(of: http.requests.last)
+        #expect(metadata["metadataHeaders"] == "X-Goodmail-Message-ID")
+    }
+
+    @Test func aSentMessageWithoutGoodmailsHeaderIsNotIt() async throws {
+        let (gmail, _) = try await client([
+            "/gmail/v1/users/me/messages": [.init(fixture: "messages-none"), .init(fixture: "messages-found")],
+            "/gmail/v1/users/me/messages/m9": [.init(fixture: "message-sent")],
+        ])
+        #expect(try await gmail.hasSent(lost) == false)
+    }
+
+    @Test func theLookbackSearchesWhatWentToTheFirstRecipient() {
+        var lost = lost
+        lost.draft.cc = [Contact(name: "Dana", address: "dana@example.com")]
+        #expect(
+            GmailClient.lookbackQuery(for: lost)
+                == "after:\(1_791_800_000 - 900) {to:dana@example.com cc:dana@example.com bcc:dana@example.com}")
+    }
+
+    /// Gmail lists newest first, over pages; the lost send, oldest, is found on the last.
+    @Test func theLostSendIsFoundAmongPagesOfLaterMail() async throws {
+        let (gmail, http) = try await client([
+            "/gmail/v1/users/me/messages": [
+                .init(fixture: "messages-none"), .init(fixture: "messages-sent-page1"),
+                .init(fixture: "messages-sent-page2"),
+            ],
+            "/gmail/v1/users/me/messages/m1": [.init(fixture: "message-sent-id")],
+            "/gmail/v1/users/me/messages/m2": [.init(fixture: "message-sent")],
+            "/gmail/v1/users/me/messages/m3": [.init(fixture: "message-sent")],
+        ])
+        #expect(try await gmail.hasSent(lost))
+        let secondPage = http.requests.filter { $0.url?.path() == "/gmail/v1/users/me/messages" }.last
+        #expect(try query(of: secondPage)["pageToken"] == "p2")
+    }
+
+    @Test func aMessageDeletedMeanwhileIsNotIt() async throws {
+        let (gmail, _) = try await client([
+            "/gmail/v1/users/me/messages": [.init(fixture: "messages-none"), .init(fixture: "messages-found")],
+            "/gmail/v1/users/me/messages/m9": [.init(fixture: "not-found", status: 404)],
+        ])
+        #expect(try await gmail.hasSent(lost) == false)
+    }
+
+    /// A message that couldn't be read may be the lost send, so the Sender asks again later rather than call it lost.
+    @Test func aMessageThatCantBeReadLeavesTheAnswerOpen() async throws {
+        let (gmail, _) = try await client([
+            "/gmail/v1/users/me/messages": [.init(fixture: "messages-none"), .init(fixture: "messages-found")],
+            "/gmail/v1/users/me/messages/m9": [.init(fixture: "insufficient-scope", status: 403)],
+        ])
+        await #expect(throws: (any Error).self) { try await gmail.hasSent(lost) }
+    }
+
+    @Test func aMatchCountsEvenWhenAnotherCantBeRead() async throws {
+        let (gmail, _) = try await client([
+            "/gmail/v1/users/me/messages": [
+                .init(fixture: "messages-none"), .init(fixture: "messages-sent-page1"),
+                .init(fixture: "messages-sent-page2"),
+            ],
+            "/gmail/v1/users/me/messages/m1": [.init(fixture: "insufficient-scope", status: 403)],
+            "/gmail/v1/users/me/messages/m2": [.init(fixture: "message-sent-id")],
+            "/gmail/v1/users/me/messages/m3": [.init(fixture: "message-sent")],
+        ])
+        #expect(try await gmail.hasSent(lost))
     }
 
     @Test func aNewDraftIsCreatedInItsThread() async throws {

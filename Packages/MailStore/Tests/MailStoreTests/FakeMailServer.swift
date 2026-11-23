@@ -285,10 +285,10 @@ extension FakeMailServer: UploadSending {
         }
     }
 
-    func hasSent(messageID: String) async throws -> Bool {
+    func hasSent(_ message: OutgoingMessage) async throws -> Bool {
         try state.withLock { state in
             if let failure = state.failLookup { throw failure }
-            return state.sent.contains { String(decoding: $0.raw, as: UTF8.self).contains("<\(messageID)>") }
+            return state.sent.contains { String(decoding: $0.raw, as: UTF8.self).contains("<\(message.headerID)>") }
         }
     }
 

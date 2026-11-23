@@ -217,18 +217,6 @@ public struct GmailClient: MailProvider, UploadSending {
         }
     }
 
-    public func hasSent(messageID: String) async throws -> Bool {
-        let list: GmailMessageList = try await get(
-            "users/me/messages",
-            query: [
-                URLQueryItem(name: "q", value: "rfc822msgid:\(messageID)"),
-                URLQueryItem(name: "labelIds", value: SystemLabel.sent),
-                URLQueryItem(name: "includeSpamTrash", value: "true"),
-                URLQueryItem(name: "maxResults", value: "1"),
-            ])
-        return !(list.messages ?? []).isEmpty
-    }
-
     @discardableResult
     public func saveDraft(_ raw: Data, inThread threadID: String?, replacing: Message.ID?) async throws -> Message.ID? {
         var draftID: String?
@@ -280,7 +268,7 @@ public struct GmailClient: MailProvider, UploadSending {
     /// past what the JSON endpoint takes.
     static let jsonSendLimit = 3_000_000
 
-    private func get<Response: Decodable>(_ path: String, query: [URLQueryItem] = []) async throws -> Response {
+    func get<Response: Decodable>(_ path: String, query: [URLQueryItem] = []) async throws -> Response {
         try await send(path, query: query)
     }
 
@@ -364,13 +352,14 @@ struct GmailSendMetadata: Encodable {
     let threadId: String?
 }
 
-/// One page of `messages.list`; only whether it holds any is read.
+/// One page of `messages.list`: the messages' IDs, newest first.
 struct GmailMessageList: Decodable {
     struct Ref: Decodable {
         let id: String
     }
 
     let messages: [Ref]?
+    let nextPageToken: String?
 }
 
 /// A draft to create or replace; Gmail fills in the rest.

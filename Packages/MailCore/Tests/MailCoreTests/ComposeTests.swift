@@ -252,6 +252,8 @@ struct MIMEWriterTests {
         #expect(headers.contains("Bcc: hidden@example.com"))
         #expect(headers.contains("In-Reply-To: <m2@example.com>"))
         #expect(headers.contains("References: <m1@example.com> <m2@example.com>"))
+        #expect(headers.contains("Message-ID: <id1@goodmail.app>"))
+        #expect(headers.contains("X-Goodmail-Message-ID: <id1@goodmail.app>"), "for a service that replaces the first")
         #expect(headers.contains("Content-Type: multipart/alternative; boundary=\"B\""))
     }
 
