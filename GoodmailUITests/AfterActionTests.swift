@@ -121,6 +121,9 @@ final class AfterActionTests: XCTestCase {
         let filter = app.buttons["listFilter"]
         XCTAssertTrue(filter.waitForExistence(timeout: 5))
         filter.tap()
+        let unread = app.buttons["Unread"]
+        XCTAssertTrue(unread.waitForExistence(timeout: 5), "a tap opens the filter's choices")
+        unread.tap()
         let rows = subjects(ofFirst: 2, in: app)
         open(rows[0], in: app)
         tapReaderAction("Archive", in: app)

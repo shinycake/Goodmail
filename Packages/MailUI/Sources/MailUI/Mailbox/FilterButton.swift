@@ -5,28 +5,23 @@ import UIKit
 /// bar wears.
 @MainActor
 final class FilterButton {
-    /// How the button answers a press.
-    enum Press {
-        /// A tap turns the filter on or off; holding it opens the choices.
-        case toggles
-        /// A click opens the choices, as a desktop toolbar's one-glyph pull-down: a button that also toggled would
-        /// show as a split button with a chevron of its own.
-        case opensChoices
+    /// How the button looks. Either way a tap or click opens the choices, as one glyph's pull-down.
+    enum Look {
+        /// A touch screen's bar: the circled glyph, filled and prominent while the filter is on.
+        case touch
+        /// A desktop toolbar's plain glyph, which only fills while the filter is on.
+        case desktop
     }
 
     let item = UIBarButtonItem()
-    /// How a press works. A desktop window's list sets `.opensChoices`.
-    var press = Press.toggles {
-        didSet { if press != oldValue { apply() } }
+    /// How the button looks. A desktop window's list sets `.desktop`.
+    var look = Look.touch {
+        didSet { if look != oldValue { apply() } }
     }
     private var filter = ListFilter.none
     private let change: (ListFilter) -> Void
-    private lazy var toggle = UIAction { [weak self] _ in
-        guard let self else { return }
-        self.change(filter.toggled())
-    }
 
-    /// `change` is told the filter the reader's tap or choice makes.
+    /// `change` is told the filter the reader's choice makes.
     init(change: @escaping (ListFilter) -> Void) {
         self.change = change
         item.title = String(localized: "Filter", table: "Mailbox", bundle: .module, comment: "Button: filters the list")
@@ -42,22 +37,21 @@ final class FilterButton {
     }
 
     private func apply() {
-        switch press {
-        case .toggles:
-            item.primaryAction = toggle
+        switch look {
+        case .touch:
             item.image = UIImage(
                 systemName: filter.isOn
                     ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
             item.style = filter.isOn ? .prominent : .plain
-        case .opensChoices:
-            // The menu alone makes a plain pull-down; while the filter is on, the glyph fills and takes the tint.
-            item.primaryAction = nil
+        case .desktop:
+            // A desktop toolbar shows plain glyphs: while the filter is on, the glyph fills and takes the tint.
             item.image = UIImage(
                 systemName: filter.isOn
                     ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease")
             item.style = .plain
         }
         item.accessibilityValue = filter.summary
+        // With no primary action, the menu opens on a tap rather than a long press.
         item.menu = menu
     }
 
