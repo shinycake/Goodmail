@@ -52,10 +52,11 @@ archive_and_export ios 'generic/platform=iOS'
 archive_and_export mac 'generic/platform=macOS,variant=Mac Catalyst'
 
 asc builds upload --app "$APP" --ipa "$BUILD_DIR/ios-export/Goodmail.ipa" --wait "$@"
-# A .pkg upload needs its version, which asc reads only from an .ipa.
+# A .pkg upload needs its version, which asc reads only from an .ipa, and the app's App Store Connect ID: given the
+# bundle ID, App Store Connect refuses to create the upload record.
 mac_version="$(/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:CFBundleShortVersionString' \
     "$BUILD_DIR/mac.xcarchive/Info.plist")"
-asc builds upload --app "$APP" --pkg "$BUILD_DIR/mac-export/Goodmail.pkg" --version "$mac_version" \
+asc builds upload --app "$APP_ID" --pkg "$BUILD_DIR/mac-export/Goodmail.pkg" --version "$mac_version" \
     --build-number "$build_number" --wait "$@"
 
 # The tag lets scripts/public-beta list what changed since the previous build in its What to Test notes.
