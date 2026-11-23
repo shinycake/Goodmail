@@ -26,7 +26,8 @@ extension SceneCoordinator {
                 MainActor.assumeIsolated { self?.navigator.cameOnScreen() }
             })
         // The window's actions tell it of each change as it is asked, before it applies, and of each Undo; what sync,
-        // other devices, alerts and other windows change only changes rows (R6).
+        // other devices, alerts and other windows change reaches the window only through the reader, once it takes the
+        // conversation out of where it is read (`ThreadViewModel.placed`).
         actions.changed = { [weak self] change in self?.readerAsked(change) }
         actions.undone = { [weak self] change in self?.readerUndid(change) }
     }

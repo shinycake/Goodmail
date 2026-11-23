@@ -329,6 +329,8 @@ final class SceneCoordinator: NSObject {
             actions: actions,
             senders: model.senderRules,
             navigate: { [weak self] route in self?.handle(route) },
+            storedLabels: { model.database.labels(ofThread: id) },
+            placed: { [weak self] in self?.navigator.send(.placed(id, inMailbox: $0)) },
             attachmentsDirectory: model.attachmentsDirectory
         )
         let unsubscriber = model.listUnsubscriber

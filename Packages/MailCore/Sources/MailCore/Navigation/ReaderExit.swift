@@ -18,8 +18,8 @@ public enum ReaderExit: Equatable, Sendable {
         switch action.outcome(for: labels) {
         case .deleted:
             return .putAway
-        case .labeled(let after):
-            return mailbox.contains(labels: labels) && !mailbox.contains(labels: after) ? .putAway : .stays
+        case .labeled:
+            return action.takesOut(of: mailbox, from: labels) ? .putAway : .stays
         }
     }
 
@@ -44,4 +44,12 @@ public enum ReaderExit: Equatable, Sendable {
 
     /// The actions that put a conversation away wherever it is read, even where its row stays, as Archive in All Mail.
     private static let puttingAway: [ThreadAction] = [.archive, .trash, .deleteForever, .reportSpam, .mute]
+}
+
+extension ThreadAction {
+    /// Whether this takes a conversation carrying `labels` out of `mailbox` and leaves it on the device.
+    func takesOut(of mailbox: Mailbox, from labels: Set<String>) -> Bool {
+        guard case .labeled(let after) = outcome(for: labels) else { return false }
+        return mailbox.contains(labels: labels) && !mailbox.contains(labels: after)
+    }
 }

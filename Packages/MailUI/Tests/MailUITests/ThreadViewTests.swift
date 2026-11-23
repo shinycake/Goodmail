@@ -161,31 +161,37 @@ extension ThreadViewModelTests {
         #expect(model.muteAction == .unmute)
     }
 
-    @Test func theReaderStaysWhateverTheStoreSaysAndAsksTheWindowForWhatItDoes() async {
-        let leaving = [["Label_1"], ["Label_2"], [SystemLabel.trash]].map { labels -> Message in
-            var message = message("1", unread: false, minutes: 1)
-            message.labelIDs = Set(labels)
-            return message
-        }
+    @Test func theStoreTellsTheWindowWhereTheThreadIsAndTheReaderAsksForWhatItDoes() async {
+        let message = message("1", unread: false, minutes: 1)
         let actions = MailActions(commands: MailCommands(store: NoStore(), replay: { _ in }))
         var changes: [MailChange] = []
         actions.changed = { changes.append($0) }
+        var placed: [Bool] = []
         let thread = ThreadSummary(
-            id: .init(accountID: account, threadID: "t"), subject: "Plan", snippet: "", sender: leaving[0].from,
+            id: .init(accountID: account, threadID: "t"), subject: "Plan", snippet: "", sender: message.from,
             date: .now, isUnread: false, messageCount: 1, labelIDs: ["Label_1"])
         let model = ThreadViewModel(
             thread: thread, mailbox: Mailbox(labelID: "Label_1"), accountEmail: "me@example.com",
             accountColor: .blue,
             messages: {
                 AsyncThrowingStream {
-                    // Another device moves it out, then trashes it.
-                    for messages in leaving { $0.yield([messages]) }
+                    $0.yield([message])
                     $0.finish()
                 }
-            }, load: {}, attachmentData: { _, _ in Data() }, source: { _ in Data() }, actions: actions)
+            }, load: {}, attachmentData: { _, _ in Data() }, source: { _ in Data() }, actions: actions,
+            storedLabels: {
+                AsyncThrowingStream {
+                    // Another device stars it, moves it out, trashes it, then it is gone from the device.
+                    for labels: Set<String>? in [["Label_1"], ["Label_1", "STARRED"], ["Label_2"], ["TRASH"], nil] {
+                        $0.yield(labels)
+                    }
+                    $0.finish()
+                }
+            },
+            placed: { placed.append($0) })
         await model.observe()
-        #expect(changes.isEmpty, "sync never moves the reader (R6)")
-        #expect(model.labels == [SystemLabel.trash], "the labels as its messages carry them now")
+        #expect(changes.isEmpty, "sync asks no change of the window")
+        #expect(placed == [true, false], "only where it is read changing is told, and a thread gone says nothing")
 
         model.perform(.archive)
         model.snooze(until: .now + 3600)

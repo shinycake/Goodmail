@@ -17,6 +17,7 @@ public struct WindowNavigation: Equatable, Sendable {
             guard state != oldValue else { return }
             departure = nil
             pending = nil
+            if let kept, state.reading?.thread != kept.thread { self.kept = nil }
         }
     }
     /// The conversation read, as it was opened.
@@ -26,6 +27,11 @@ public struct WindowNavigation: Equatable, Sendable {
     var departure: Departure?
     /// The conversation a lookup is under way for, where the route reads it, and where the route came from.
     public internal(set) var pending: Awaited?
+    /// The conversation read, while a change the reader asked took it out of the mailbox it is read in and left them
+    /// reading it, as unstarring in Starred (R8), so the store then showing it gone from there doesn't close it
+    /// (`Event.placed`). Only ever the conversation read: forgotten once the window reads another or none, and
+    /// once Undo takes the change back.
+    var kept: Kept?
     /// When a list the state names, missing from the device, counts as gone.
     var listCheck: WindowState.ListCheck
 
@@ -93,6 +99,12 @@ public struct WindowNavigation: Equatable, Sendable {
         /// Undo took `change` back, with the list on show now listing `rows`, search's results over it while
         /// `searching`.
         case undone(MailChange, rows: [ThreadSummary.ID], searching: Bool = false)
+        /// The store shows whether the mailbox `thread` is read in holds it, as its reader opens and each time that
+        /// changes. Taken out by a change from outside the window, as another device, an alert action or a rule, its
+        /// reader closes, so the list beside it never says that mailbox is empty while the reader still shows one of
+        /// its conversations; the reader's own change that kept them reading it keeps it (R8), until the store shows it
+        /// back. A message window, which shows nothing else, keeps it too.
+        case placed(ThreadSummary.ID, inMailbox: Bool)
         /// The accounts on the device are now `accounts`.
         case accounts([AccountID])
         /// The labels and smart mailboxes on the device are now `lists`, of `accounts`.
@@ -107,11 +119,12 @@ public struct WindowNavigation: Equatable, Sendable {
         case step(Step, front: Front?)
 
         /// Whether the window moves by itself for this, rather than as the reader moved it by a tap, a click or Back,
-        /// which VoiceOver follows on its own: after an action or Undo, or a step to the next or previous
-        /// conversation, which puts a reader in another's place, so VoiceOver is told of it.
+        /// which VoiceOver follows on its own: after an action or Undo, a step to the next or previous conversation,
+        /// which puts a reader in another's place, or the conversation read leaving from outside, so VoiceOver is
+        /// told of it.
         public var movesByItself: Bool {
             switch self {
-            case .changed, .undone, .step: true
+            case .changed, .undone, .step, .placed: true
             case .route, .launched, .found, .restored, .missing, .unreachable, .back, .accounts, .lists, .handedOff,
                 .category, .filter:
                 false
@@ -177,6 +190,8 @@ public struct WindowNavigation: Equatable, Sendable {
             return asked(change, reader: reader, front: front, in: context)
         case .undone(let change, let rows, let searching):
             return undid(change, rows: rows, searching: searching)
+        case .placed(let thread, let inMailbox):
+            placed(thread, inMailbox: inMailbox)
         case .accounts(let accounts):
             // A lookup for an account that went is dropped; one for an account still here goes on, as one a window
             // coming up for an arrival started before its screens were built for the accounts (`launched`).
@@ -235,6 +250,17 @@ public struct WindowNavigation: Equatable, Sendable {
         var next = next
         if next.list != state.list { next.closeReader() }
         state = next
+    }
+
+    /// The store shows whether the mailbox `thread` is read in holds it. Out of it, the reader closes, unless the
+    /// reader's own change kept them reading it there; back in it, nothing keeps it any more.
+    private mutating func placed(_ thread: ThreadSummary.ID, inMailbox: Bool) {
+        guard state.layout == .viewer, state.reading?.thread == thread else { return }
+        if inMailbox {
+            if kept?.thread == thread { kept = nil }
+        } else if kept?.thread != thread {
+            state.closeReader()
+        }
     }
 
     /// The conversation read is on the device as `summary`. Where it was opened from, and its trail, stay.

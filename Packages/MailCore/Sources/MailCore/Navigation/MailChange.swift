@@ -1,6 +1,7 @@
 /// What the reader asked of some conversations in a window: an action, a move, a snooze, or blocking their sender.
-/// The window hears of each as it is asked, before it applies, and decides from it alone whether its reader moves:
-/// what sync, other devices or other windows change only ever changes rows (R6).
+/// The window hears of each as it is asked, before it applies, and decides from it alone where its reader goes: what
+/// sync, other devices or other windows change only closes a reader whose conversation it takes out of where it is
+/// read (`WindowNavigation.Event.placed`).
 public struct MailChange: Equatable, Sendable {
     public enum Request: Equatable, Sendable {
         case action(ThreadAction)

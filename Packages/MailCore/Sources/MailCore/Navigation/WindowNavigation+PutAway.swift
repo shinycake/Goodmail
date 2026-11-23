@@ -1,5 +1,6 @@
-/// Where the reader goes when the reader asks a change of mail in the window, and only then (R6–R9): what sync,
-/// other devices or other windows change only ever changes rows. Putting the conversation on show away goes on as
+/// Where the reader goes when the reader asks a change of mail in the window (R6–R9): what sync, other devices or
+/// other windows change changes rows, and closes the reader only once its conversation leaves the mailbox it is read
+/// in (`Event.placed`). Putting the conversation on show away goes on as
 /// Settings says (`Landing`), and Undo brings the reader back to it while the window is still where the change left it.
 extension WindowNavigation {
     /// The conversation on show, and how its reader sees it now.
@@ -14,6 +15,12 @@ extension WindowNavigation {
         public var thread: ThreadSummary.ID { summary.id }
         /// What the window reads while it is on show.
         public var reading: Reading { Reading(thread, in: mailbox) }
+
+        /// Whether `request` takes the conversation out of the mailbox it is read in, by its labels.
+        func leaves(by request: MailChange.Request) -> Bool {
+            guard case .action(let action) = request else { return false }
+            return action.takesOut(of: mailbox, from: labels)
+        }
 
         public init(_ summary: ThreadSummary, mailbox: Mailbox, labels: Set<String>) {
             self.summary = summary
@@ -72,6 +79,7 @@ extension WindowNavigation {
         let landing: Landing
         switch ReaderExit.exit(after: change.request, labels: reader.labels, readIn: reader.mailbox) {
         case .stays:
+            if reader.leaves(by: change.request) { kept = Kept(thread: reader.thread, by: change) }
             return []
         // A message window keeps its own undo, in its place until the toast goes (ADR-035).
         case _ where state.layout == .message:
@@ -96,6 +104,8 @@ extension WindowNavigation {
     /// rows picked with a pointer are picked again, unless the window has moved on since by any other way: then only
     /// the rows come back (R9).
     mutating func undid(_ change: MailChange, rows: [ThreadSummary.ID], searching: Bool) -> [Effect] {
+        // Undone, the change no longer keeps the reader on a conversation it took out of where it is read.
+        if kept?.change == change { kept = nil }
         guard let departure, departure.change == change else { return [] }
         self.departure = nil
         switch departure.target {
@@ -133,5 +143,18 @@ extension WindowNavigation {
         }
         opened = Opened(thread: next, from: source(searching: front.searching), rows: front.rows, row: nil)
         state.read(Reading(next, in: front.mailbox))
+    }
+}
+
+extension WindowNavigation {
+    /// A conversation the reader goes on reading though their own `change` took it out of where it is read (R8).
+    struct Kept: Equatable, Sendable {
+        let thread: ThreadSummary.ID
+        let change: MailChange
+
+        init(thread: ThreadSummary.ID, by change: MailChange) {
+            self.thread = thread
+            self.change = change
+        }
     }
 }

@@ -58,6 +58,12 @@ public final class ThreadViewModel {
     /// Apply Rules, Block Sender and VIPs, where the app offers them.
     @ObservationIgnored let senders: SenderRules?
     @ObservationIgnored private let navigate: (Route) -> Void
+    /// The labels the store's row of the thread carries, `nil` while it isn't on the device.
+    @ObservationIgnored private let storedLabels: () -> AsyncThrowingStream<Set<String>?, any Error>
+    /// Told whether the mailbox the thread is read in holds it, as the reader opens and each time that changes, as when
+    /// another device, an alert action or a rule takes it out; the window decides whether the reader goes
+    /// (`WindowNavigation.Event.placed`).
+    @ObservationIgnored private let placed: (_ inMailbox: Bool) -> Void
     @ObservationIgnored private var hasMarkedRead = false
     @ObservationIgnored private let attachmentsDirectory: URL
     @ObservationIgnored private let now: () -> Date
@@ -83,6 +89,10 @@ public final class ThreadViewModel {
         actions: MailActions? = nil,
         senders: SenderRules? = nil,
         navigate: @escaping (Route) -> Void = { _ in },
+        storedLabels: @escaping () -> AsyncThrowingStream<Set<String>?, any Error> = {
+            AsyncThrowingStream { $0.finish() }
+        },
+        placed: @escaping (_ inMailbox: Bool) -> Void = { _ in },
         attachmentsDirectory: URL = FileManager.default.temporaryDirectory.appending(path: "Attachments"),
         now: @escaping () -> Date = Date.init,
         calendar: Calendar = .autoupdatingCurrent,
@@ -96,6 +106,8 @@ public final class ThreadViewModel {
         self.actions = actions
         self.senders = senders
         self.navigate = navigate
+        self.storedLabels = storedLabels
+        self.placed = placed
         self.attachmentsDirectory = attachmentsDirectory
         self.thread = thread
         self.mailbox = mailbox
@@ -113,8 +125,8 @@ public final class ThreadViewModel {
     }
 
     /// Shows the cached messages at once, then fetches the latest; follows the store until cancelled. Opening a
-    /// thread reads it. The reader stays whatever the store says of the thread: only the window moves it, for what
-    /// the reader asked here (R6).
+    /// thread reads it. Only the window moves the reader: for what the reader asked here (R6–R8), or once the store shows
+    /// the thread out of the mailbox it is read in (`placed`).
     public func observe() async {
         if thread.isUnread, !hasMarkedRead {
             hasMarkedRead = true
@@ -124,6 +136,7 @@ public final class ThreadViewModel {
         async let loading: Void = load()
         async let pinning: Void = followPins()
         async let sending: Void = followQueue()
+        async let placing: Void = followPlace()
         do {
             for try await messages in stream() {
                 if expanded.isEmpty { expanded = Self.initiallyExpanded(messages) }
@@ -137,6 +150,24 @@ public final class ThreadViewModel {
         await loading
         await pinning
         await sending
+        await placing
+    }
+
+    /// Tells the window whether the mailbox the thread is read in holds it, by the labels of its row, which sync keeps
+    /// up to date, rather than its messages', which change only when they are fetched again. Only changes are told, so
+    /// other changes to its labels never undo what the reader's own change kept (R8). A thread not on the device, as a
+    /// search result from the server, says nothing.
+    private func followPlace() async {
+        var told: Bool?
+        do {
+            for try await labels in storedLabels() {
+                guard let labels else { continue }
+                let inMailbox = mailbox.contains(labels: labels)
+                guard inMailbox != told else { continue }
+                told = inMailbox
+                placed(inMailbox)
+            }
+        } catch {}
     }
 
     /// Follows the replies queued in this conversation, so each shows as a bubble from the moment it is sent.
