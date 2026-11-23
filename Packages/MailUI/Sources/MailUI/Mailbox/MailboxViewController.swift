@@ -281,7 +281,8 @@ public final class MailboxViewController: UIViewController {
             !viewModel.hasLoaded || dataSource.snapshot().numberOfItems > 0
             ? nil
             : viewModel.isLoadingOlder
-                ? .loading : inboxZeroState() ?? .empty(pointingTo: viewModel.categoryWithUnread)
+                ? .loading
+                : filteredState() ?? inboxZeroState() ?? .empty(pointingTo: viewModel.categoryWithUnread)
         guard state != emptyState else { return }
         let previous = emptyState
         emptyState = state
