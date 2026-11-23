@@ -52,6 +52,10 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
     private lazy var row = UIStackView(arrangedSubviews: [trayButton, plusButton, fieldGlass])
 
     static let maxLines: CGFloat = 6
+    /// Send and Open in Composer, the circles inside the field.
+    private static let fieldButtonSide: CGFloat = 36
+    /// The space between the field's edge and its text or buttons.
+    private static let fieldInset: CGFloat = 4
 
     /// The bar is a toolbar: its symbols keep a toolbar's size in fixed circles, and at the accessibility sizes
     /// holding one shows it large in the Large Content Viewer instead, as the system bars do.
@@ -112,24 +116,25 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
             actionsRow.leadingAnchor.constraint(equalTo: actionsGlass.contentView.leadingAnchor, constant: 8),
             actionsRow.trailingAnchor.constraint(equalTo: actionsGlass.contentView.trailingAnchor, constant: -8),
 
-            textView.topAnchor.constraint(equalTo: field.topAnchor, constant: 4),
-            textView.bottomAnchor.constraint(equalTo: field.bottomAnchor, constant: -4),
+            textView.topAnchor.constraint(equalTo: field.topAnchor, constant: Self.fieldInset),
+            textView.bottomAnchor.constraint(equalTo: field.bottomAnchor, constant: -Self.fieldInset),
             textView.leadingAnchor.constraint(equalTo: field.leadingAnchor, constant: 12),
             textView.trailingAnchor.constraint(equalTo: expandButton.leadingAnchor),
             expandButton.trailingAnchor.constraint(equalTo: sendButton.leadingAnchor),
-            expandButton.bottomAnchor.constraint(equalTo: field.bottomAnchor, constant: -4),
+            expandButton.bottomAnchor.constraint(equalTo: field.bottomAnchor, constant: -Self.fieldInset),
             textHeight,
             placeholder.leadingAnchor.constraint(equalTo: textView.leadingAnchor, constant: 5),
             placeholder.trailingAnchor.constraint(lessThanOrEqualTo: textView.trailingAnchor),
             placeholder.centerYAnchor.constraint(equalTo: textView.centerYAnchor),
-            sendButton.trailingAnchor.constraint(equalTo: field.trailingAnchor, constant: -4),
-            sendButton.bottomAnchor.constraint(equalTo: field.bottomAnchor, constant: -4),
+            sendButton.trailingAnchor.constraint(equalTo: field.trailingAnchor, constant: -Self.fieldInset),
+            sendButton.bottomAnchor.constraint(equalTo: field.bottomAnchor, constant: -Self.fieldInset),
         ])
         // Holding a button at the accessibility sizes shows it in the Large Content Viewer.
         addInteraction(UILargeContentViewerInteraction())
         actionsGlass.alpha = 0
         actionsGlass.isHidden = true
         updateSend()
+        fitText()
         registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (bar: ChatComposerBar, _) in
             bar.fitText()
         }
@@ -233,7 +238,6 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
         textView.isScrollEnabled = false
         textView.delegate = self
         intake.accept(in: textView)
-        textView.textContainerInset = UIEdgeInsets(top: 7, left: 0, bottom: 7, right: 0)
         textView.accessibilityLabel = String(
             localized: "Message", table: "Thread", bundle: .module,
             comment: "The chat's reply field, and its placeholder")
@@ -289,8 +293,8 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
         sendButton.largeContentTitle = sendButton.accessibilityLabel
         sendButton.showsLargeContentViewer = true
         NSLayoutConstraint.activate([
-            sendButton.widthAnchor.constraint(equalToConstant: 36),
-            sendButton.heightAnchor.constraint(equalToConstant: 36),
+            sendButton.widthAnchor.constraint(equalToConstant: Self.fieldButtonSide),
+            sendButton.heightAnchor.constraint(equalToConstant: Self.fieldButtonSide),
         ])
         sendButton.addAction(UIAction { [weak self] _ in self?.send() }, for: .primaryActionTriggered)
 
@@ -305,8 +309,8 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
         expandButton.largeContentTitle = expandButton.accessibilityLabel
         expandButton.showsLargeContentViewer = true
         NSLayoutConstraint.activate([
-            expandButton.widthAnchor.constraint(equalToConstant: 36),
-            expandButton.heightAnchor.constraint(equalToConstant: 36),
+            expandButton.widthAnchor.constraint(equalToConstant: Self.fieldButtonSide),
+            expandButton.heightAnchor.constraint(equalToConstant: Self.fieldButtonSide),
         ])
         expandButton.addAction(UIAction { [weak self] _ in self?.expand() }, for: .primaryActionTriggered)
         // Holding Send offers later times, as the composer's Send Later does.
@@ -353,11 +357,17 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
     /// Grows the field with its text up to `maxLines`, then scrolls inside it.
     private func fitText() {
         let font = textView.font ?? Self.fieldFont
-        let insets = textView.textContainerInset.top + textView.textContainerInset.bottom
-        let maxHeight = (font.lineHeight * Self.maxLines + insets).rounded(.up)
+        // The field is never shorter than Send and Open in Composer, and one line sits in the middle of them: a fixed
+        // inset around the Mac's smaller body text would leave Send sticking out of the field. Rounding down keeps
+        // the iPhone's 7-point inset, and its field as tall as the + beside it.
+        let margin = max(7, ((Self.fieldButtonSide - font.lineHeight) / 2).rounded(.down))
+        if textView.textContainerInset.top != margin {
+            textView.textContainerInset = UIEdgeInsets(top: margin, left: 0, bottom: margin, right: 0)
+        }
+        let maxHeight = (font.lineHeight * Self.maxLines + margin * 2).rounded(.up)
         let width = max(textView.bounds.width, 1)
         let fitting = textView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude)).height
-        let height = min(max(fitting, font.lineHeight + insets), maxHeight)
+        let height = min(max(fitting, Self.fieldButtonSide), maxHeight)
         textView.isScrollEnabled = fitting > maxHeight
         guard textHeight.constant != height else { return }
         textHeight.constant = height
