@@ -40,8 +40,7 @@ final class ChatWordsBubble: UIView, UIContextMenuInteractionDelegate {
         self.shape = shape
         quoted = quote?.message
         applyShape()
-        let fill = mine ? accountColor : .systemGray5
-        let ink = mine ? fill.readableInk : .label
+        let (fill, ink) = ChatBubbleShape.colors(mine: mine, accountColor: accountColor, theirs: .systemGray5)
         backgroundColor = fill
         for view in stack.arrangedSubviews { view.removeFromSuperview() }
 
@@ -226,7 +225,8 @@ private final class InlineQuoteView: UIView {
     required init?(coder: NSCoder) { fatalError("Programmatic UI only") }
 }
 
-/// A message too long or too laid out for a bubble: its subject and first lines, which open the whole letter.
+/// A message too long or too laid out for a bubble: its subject and first lines, which open the whole letter. Mine
+/// fill with the account's color, as my words do, theirs with a neutral gray.
 final class ChatLetterBubble: UIControl {
     /// How much of the message reads in the bubble before "Open Message".
     static let lines = 12
@@ -237,14 +237,11 @@ final class ChatLetterBubble: UIControl {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        backgroundColor = .secondarySystemBackground
         subject.font = .preferredFont(forTextStyle: .headline)
         subject.numberOfLines = 2
         preview.font = .preferredFont(forTextStyle: .body)
-        preview.textColor = .label
         preview.numberOfLines = ChatLetterBubble.lines
         open.font = .preferredFont(forTextStyle: .subheadline).bold
-        open.textColor = .tintColor
         open.text = String(
             localized: "Open Message", table: "Thread", bundle: .module, comment: "Opens a long message from its bubble"
         )
@@ -277,9 +274,17 @@ final class ChatLetterBubble: UIControl {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("Programmatic UI only") }
 
-    func configure(subject: String, preview: String, shape: ChatBubbleShape, voice: String) {
+    func configure(
+        subject: String, preview: String, mine: Bool, shape: ChatBubbleShape, accountColor: UIColor, voice: String
+    ) {
         self.shape = shape
         applyShape()
+        let (fill, ink) = ChatBubbleShape.colors(
+            mine: mine, accountColor: accountColor, theirs: .secondarySystemBackground)
+        backgroundColor = fill
+        self.subject.textColor = ink
+        self.preview.textColor = ink
+        open.textColor = mine ? ink : .tintColor
         let title = subject.isEmpty ? ThreadRowMetrics.noSubject : subject
         self.subject.setSubjectText(title)
         self.preview.setContentText(Self.paragraphs(preview))

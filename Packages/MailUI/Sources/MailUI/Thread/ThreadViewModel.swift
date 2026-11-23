@@ -170,12 +170,12 @@ public final class ThreadViewModel {
         let request = transcriptRequest
         let messages = received
         transcriptDate = now()
-        // A reply's synced copy opens as its card did, rather than folding into a row. Kept until a request is
-        // shown, since `pending` forgets the reply now, before a newer request may overtake this one.
-        syncedCopies.formUnion(pending.copies(in: messages))
         pending.update(
             queue: queue, takenBack: actions?.takenBack ?? [], conversation: messages, accountEmail: accountEmail,
             now: transcriptDate)
+        // A reply's synced copy opens as its card did, rather than folding into a row. Kept until a transcript is
+        // shown, since a newer request may overtake this one, and `pending` won't report the copy again.
+        syncedCopies.formUnion(pending.copies)
         let transcript = await Self.transcript(
             of: messages, accountEmail: accountEmail, aliases: accountAliases, pending: pending.replies)
         guard request == transcriptRequest else { return }

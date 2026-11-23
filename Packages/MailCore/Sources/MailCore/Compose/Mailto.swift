@@ -29,7 +29,7 @@ extension Draft {
     /// Plain text as HTML, one block per line, as the composer writes it.
     static func html(fromPlain text: String) -> String {
         guard !text.isEmpty else { return "" }
-        return text.split(separator: "\n", omittingEmptySubsequences: false)
+        return text.textLines
             .map { $0.isEmpty ? "<br>" : "<div dir=\"auto\">\(HTMLText.escape(String($0)))</div>" }.joined()
     }
 }

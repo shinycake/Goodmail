@@ -92,7 +92,9 @@ final class ChatRunView: UIView {
                     segments: segments, quote: quote, mine: mine, shape: shape, accountColor: accountColor,
                     voice: voice)
             case (.letter(let subject, let preview), let view as ChatLetterBubble):
-                view.configure(subject: subject, preview: preview, shape: shape, voice: voice)
+                view.configure(
+                    subject: subject, preview: preview, mine: mine, shape: shape, accountColor: accountColor,
+                    voice: voice)
             case (.attachment(let attachment), let view as ChatAttachmentBubble):
                 view.configure(attachment, voice: voice)
             default:
@@ -163,6 +165,11 @@ struct ChatBubbleShape: Equatable {
 
     static let radius: CGFloat = 20
     static let joined: CGFloat = 6
+
+    /// A bubble's fill and the ink on it: mine in the account's color, theirs in a neutral `theirs`.
+    static func colors(mine: Bool, accountColor: UIColor, theirs: UIColor) -> (fill: UIColor, ink: UIColor) {
+        mine ? (accountColor, accountColor.readableInk) : (theirs, .label)
+    }
 
     /// Corners on the side the bubbles hang from tighten between bubbles of one run.
     func corners(in direction: UIUserInterfaceLayoutDirection) -> UICornerConfiguration {

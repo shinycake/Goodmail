@@ -151,6 +151,15 @@ struct DraftTests {
         #expect(quote.plain?.hasSuffix("> Ship it?\n>\n> Dana") == true)
     }
 
+    /// Mail as it comes off the wire ends its lines with CRLF, which Swift reads as one character, not a "\n".
+    @Test func aQuoteOfMailWithCRLFLinesQuotesEveryLine() throws {
+        var original = message(from: dana, to: [])
+        original.body = MessageBody(plain: "Ship it?\r\n\r\nDana\r\n")
+        let quote = try #require(Draft.reply(to: original, all: false, accountEmail: me, timeZone: utc).quote)
+        #expect(quote.plain?.hasSuffix("> Ship it?\n>\n> Dana\n>") == true)
+        #expect(quote.html?.contains("<div dir=\"auto\">Ship it?</div><br><div dir=\"auto\">Dana</div>") == true)
+    }
+
     @Test func reopeningASavedDraftRestoresItsRecipients() {
         let boss = Contact(name: "Boss", address: "boss@example.com")
         var saved = message(from: Contact(name: nil, address: me), to: [dana], cc: [avi])

@@ -10,21 +10,24 @@ struct PendingRepliesTests {
 
     private func outgoing(
         _ text: String, id: UUID = UUID(), purpose: OutgoingMessage.Purpose = .send, minutes: Double = 0,
-        delivery: OutgoingMessage.Delivery = .queued, attachments: [DraftAttachment] = []
+        delivery: OutgoingMessage.Delivery = .queued, attachments: [DraftAttachment] = [], answering: String? = nil
     ) -> OutgoingMessage {
         OutgoingMessage(
             draft: Draft(
                 id: id, accountID: account, to: [dana], body: MessageBody(plain: text), threadID: "t",
-                attachments: attachments),
+                references: answering.map { [$0] } ?? [], attachments: attachments),
             purpose: purpose, sendAt: start.addingTimeInterval(minutes * 60), delivery: delivery)
     }
 
-    private func synced(_ id: String, from: Contact, minutes: Double, internetID: String? = nil) -> Message {
+    private func synced(
+        _ id: String, from: Contact, minutes: Double, internetID: String? = nil, labels: Set<String> = [],
+        answering: String? = nil, text: String? = nil
+    ) -> Message {
         Message(
             id: Message.ID(accountID: account, messageID: id), threadID: "t", from: from,
             to: [from == me ? dana : me], subject: "Lunch", date: start.addingTimeInterval(minutes * 60),
-            snippet: "", labelIDs: [], body: MessageBody(plain: "Text \(id)"), attachments: [],
-            internetMessageID: internetID ?? "\(id)@example.com", references: [])
+            snippet: "", labelIDs: labels, body: MessageBody(plain: text ?? "Text \(id)"), attachments: [],
+            internetMessageID: internetID ?? "\(id)@example.com", references: answering.map { [$0] } ?? [])
     }
 
     private func updated(
@@ -95,6 +98,104 @@ struct PendingRepliesTests {
         #expect(updated(&pending, queue: [], conversation: [copy]).isEmpty)
     }
 
+    // MARK: A copy under a new Message-ID
+
+    /// Dana's question, and my answer's copy as Gmail's API files it: under a `Message-ID` of its own, with the history
+    /// it quotes below its words.
+    private func asked() -> Message { synced("q", from: dana, minutes: 0) }
+    private func copy(
+        _ id: String = "s", saying text: String = "Yes", minutes: Double = 1, from: Contact? = nil,
+        labels: Set<String>? = nil
+    ) -> Message {
+        synced(
+            id, from: from ?? me, minutes: minutes, internetID: "CA\(id)@mail.gmail.com",
+            labels: labels ?? [SystemLabel.sent], answering: "<q@example.com>",
+            text: "\(text)\n\nOn Monday, Dana <dana@example.com> wrote:\n> Text q")
+    }
+    private func answer(
+        _ text: String = "Yes", minutes: Double = 1, delivery: OutgoingMessage.Delivery = .uploading(UploadID())
+    ) -> OutgoingMessage {
+        outgoing(text, minutes: minutes, delivery: delivery, answering: "q@example.com")
+    }
+    private var later: Date { start.addingTimeInterval(10 * 60) }
+
+    @Test func aCopyUnderTheServersOwnMessageIDTakesItsRepliesPlace() {
+        let reply = answer()
+        var pending = PendingReplies()
+        _ = updated(&pending, queue: [reply], conversation: [asked()])
+        #expect(updated(&pending, queue: [], conversation: [asked()], now: later) == [.sent])
+        #expect(updated(&pending, queue: [], conversation: [asked(), copy()], now: later).isEmpty)
+        #expect(pending.copies == [copy().id], "the copy opens as the reply's card did")
+    }
+
+    @Test func aCopyThatSyncsBeforeItsUploadAnswersTakesItsPlace() {
+        var pending = PendingReplies()
+        _ = updated(&pending, queue: [answer()], conversation: [asked(), copy()], now: later)
+        #expect(pending.replies.isEmpty)
+        #expect(updated(&pending, queue: [], conversation: [asked(), copy()], now: later).isEmpty)
+    }
+
+    /// Only one that went, or that a transfer carries, can have a copy. The same words from my Mac aren't its copy.
+    @Test(arguments: [OutgoingMessage.Delivery.queued, .failed(.rejected)])
+    func aReplyStillHereHasNoCopy(delivery: OutgoingMessage.Delivery) {
+        var pending = PendingReplies()
+        #expect(
+            updated(&pending, queue: [answer(delivery: delivery)], conversation: [asked(), copy()], now: later).count
+                == 1)
+    }
+
+    @Test func otherWordsAreNotItsCopy() {
+        var pending = PendingReplies()
+        _ = updated(&pending, queue: [answer("Yes")])
+        #expect(updated(&pending, queue: [], conversation: [asked(), copy(saying: "No")], now: later) == [.sent])
+    }
+
+    @Test func myEarlierAnswerIsNotTheCopyOfANewOne() {
+        let earlier = copy("e", minutes: 1)
+        var pending = PendingReplies()
+        _ = updated(&pending, queue: [answer(minutes: 5)], conversation: [asked(), earlier])
+        #expect(updated(&pending, queue: [], conversation: [asked(), earlier], now: later) == [.sent])
+    }
+
+    @Test func neitherTheirAnswerNorMySavedDraftIsTheCopy() {
+        let reply = answer()
+        var pending = PendingReplies()
+        _ = updated(&pending, queue: [reply])
+        let theirs = copy("t", from: dana, labels: [])
+        let draft = synced(
+            "d", from: me, minutes: 1, internetID: reply.headerID, labels: [SystemLabel.draft],
+            answering: "q@example.com", text: "Yes")
+        #expect(updated(&pending, queue: [], conversation: [asked(), theirs, draft], now: later) == [.sent])
+    }
+
+    @Test func aCopyFromMyAddressNeedsNoSentLabel() {
+        var pending = PendingReplies()
+        _ = updated(&pending, queue: [answer()])
+        #expect(updated(&pending, queue: [], conversation: [asked(), copy(labels: [])], now: later).isEmpty)
+    }
+
+    /// The first answer's copy, once it took the first's place, stays its own as the second goes on.
+    @Test func aSecondAnswerToOneMessageWaitsForItsOwnCopy() {
+        let first = answer("Yes", minutes: 1)
+        let second = answer("And one more thing", minutes: 1.5)
+        var pending = PendingReplies()
+        _ = updated(&pending, queue: [first, second], conversation: [asked()], now: later)
+        let conversation = [asked(), copy("1", saying: "Yes", minutes: 1)]
+        _ = updated(&pending, queue: [second], conversation: conversation, now: later)
+        #expect(pending.replies.map(\.id) == [second.id])
+        _ = updated(&pending, queue: [], conversation: conversation, now: later)
+        #expect(pending.replies.map(\.id) == [second.id])
+    }
+
+    @Test func twoAnswersSayingTheSameEachTakeTheirOwnCopy() {
+        let first = answer("Yes", minutes: 1)
+        let second = answer("Yes", minutes: 2)
+        var pending = PendingReplies()
+        _ = updated(&pending, queue: [first, second], conversation: [asked()], now: later)
+        _ = updated(&pending, queue: [second], conversation: [asked(), copy("1", minutes: 1)], now: later)
+        #expect(pending.replies.map(\.id) == [second.id])
+    }
+
     @Test func aReplyTakenBackDisappears() {
         let reply = outgoing("Oops")
         var pending = PendingReplies()
@@ -153,7 +254,8 @@ struct PendingRepliesTests {
         _ = updated(&pending, queue: [reply])
         let copy = synced("s", from: me, minutes: 0, internetID: "<\(reply.headerID)>")
         let other = synced("o", from: dana, minutes: 0)
-        #expect(pending.copies(in: [other, copy]) == [copy.id])
+        _ = updated(&pending, queue: [], conversation: [other, copy])
+        #expect(pending.copies == [copy.id])
     }
 
     // MARK: In the transcript

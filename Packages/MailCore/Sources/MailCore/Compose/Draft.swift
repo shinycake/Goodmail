@@ -256,8 +256,7 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
             """
         let plain =
             attribution + "\n"
-            + (message.body.plain ?? "").split(separator: "\n", omittingEmptySubsequences: false)
-            .map { $0.isEmpty ? ">" : "> \($0)" }.joined(separator: "\n")
+            + (message.body.plain ?? "").textLines.map { $0.isEmpty ? ">" : "> \($0)" }.joined(separator: "\n")
         return MessageBody(html: html, plain: plain)
     }
 
@@ -287,7 +286,7 @@ public struct Draft: Identifiable, Hashable, Codable, Sendable {
     /// The original's HTML body, or its plain text as HTML, one block per line.
     private static func originalHTML(_ message: Message) -> String {
         if let html = message.body.html, !html.isEmpty { return HTMLText.bodyContent(of: html) }
-        return (message.body.plain ?? "").split(separator: "\n", omittingEmptySubsequences: false)
+        return (message.body.plain ?? "").textLines
             .map { $0.isEmpty ? "<br>" : "<div dir=\"auto\">\(HTMLText.escape(String($0)))</div>" }.joined()
     }
 }
@@ -368,7 +367,7 @@ public enum HTMLText {
 
     /// Plain text as HTML, each line its own `dir="auto"` block so Hebrew lines read right to left.
     public static func lines(_ text: String) -> String {
-        text.split(separator: "\n", omittingEmptySubsequences: false).map { line in
+        text.textLines.map { line in
             line.isEmpty ? "<div><br></div>" : "<div dir=\"auto\">\(escape(String(line)))</div>"
         }.joined()
     }
