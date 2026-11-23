@@ -71,6 +71,9 @@ public final class MailboxesViewController: UIViewController {
         collectionView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         collectionView.accessibilityIdentifier = "mailboxes"
         collectionView.delegate = self
+        // Settings and New Label float over the rows as glass buttons of their own, with no frosted band under them
+        // as a sidebar's toolbar gets on a Mac or an iPad.
+        collectionView.bottomEdgeEffect.isHidden = true
         view.addSubview(collectionView)
         configureDataSource()
         let mailDrop = SidebarDrop(
