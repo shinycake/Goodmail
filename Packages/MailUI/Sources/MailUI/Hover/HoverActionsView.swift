@@ -72,9 +72,12 @@ final class HoverActionButton: ConfiguredButton {
         face = action.face
         super.init(frame: .zero)
         var configuration = UIButton.Configuration.plain()
-        configuration.image = UIImage(systemName: face.symbol)
-        configuration.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(
-            pointSize: 11.5, weight: .medium)
+        // The image carries its size itself. Given only the preferred configuration, a button on the Mac sized the
+        // glyph at the body size, then squeezed it into the face's whole height, cut off at the capsule's edge. The
+        // preferred configuration stays so any image the button resolves later keeps the same size.
+        let glyph = UIImage.SymbolConfiguration(pointSize: 11.5, weight: .medium, scale: .medium)
+        configuration.image = UIImage(systemName: face.symbol, withConfiguration: glyph)
+        configuration.preferredSymbolConfigurationForImage = glyph
         configuration.contentInsets = .zero
         configuration.cornerStyle = .capsule
         configuration.baseForegroundColor = .secondaryLabel
