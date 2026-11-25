@@ -18,6 +18,7 @@ struct MailScreensTests {
     private final class Made {
         var lists = 0
         var readers = 0
+        var mailboxes: [MailboxesViewModel] = []
     }
 
     private func screens(
@@ -29,9 +30,10 @@ struct MailScreensTests {
             state, row: state.reading.map(Self.row), in: split, arrangement: arrangement,
             making: MailScreens.Makers(
                 mailboxes: { style in
-                    MailboxesViewController(
-                        viewModel: MailboxesViewModel(
-                            accounts: [], directory: { AsyncThrowingStream { $0.finish() } }, style: style))
+                    let mailboxes = MailboxesViewModel(
+                        accounts: [], directory: { AsyncThrowingStream { $0.finish() } }, style: style)
+                    made.mailboxes.append(mailboxes)
+                    return MailboxesViewController(viewModel: mailboxes)
                 },
                 list: { _ in
                     made.lists += 1
@@ -158,6 +160,18 @@ struct MailScreensTests {
         }
         for _ in 0..<50 { await Task.yield() }
         #expect(reader.composer.attachments.isEmpty, "what it was preparing has nowhere to go")
+    }
+
+    /// The window asks the screens for the mailboxes' model rather than keeping the last one made, which outlived the
+    /// screens it came with.
+    @Test func theMailboxesModelIsTheArrangementsOnShow() {
+        let made = Made()
+        let screens = screens(WindowState(), in: .columns, made: made)
+        #expect(made.mailboxes.count == 1 && screens.mailboxes === made.mailboxes.first, "the sidebar's")
+        show(WindowState(), on: screens, .resized, in: .stack)
+        #expect(made.mailboxes.count == 2 && screens.mailboxes === made.mailboxes.last, "the stack's own")
+        show(WindowState(), on: screens, .resized, in: .columns)
+        #expect(screens.mailboxes === made.mailboxes.first, "the sidebar's again")
     }
 
     @Test func aChangeWhileNarrowMovesWithTheScreensWhenTheWindowWidens() throws {

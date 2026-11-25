@@ -1,5 +1,6 @@
 import MailCore
 import MailStore
+import MailUI
 import OSLog
 
 /// Keeps each window's minimized messages in the database, so the bar comes back after the app is closed. One per
@@ -10,65 +11,86 @@ import OSLog
 /// order they were asked for.
 final class MinimizedDrafts {
     private let store: MinimizedDraftStore
-    /// The windows open now, whose drafts no other window takes.
-    private var open: Set<String> = []
     /// Counts the changes asked for, so a slower write never overwrites a newer one.
     private var version = 0
-    /// The last write asked for in each window. A newer one supersedes it.
-    private var writes: [String: Task<Void, Never>] = [:]
-    /// Reading back the drafts of a window opened since launch.
-    private var claims: [String: Task<Void, Never>] = [:]
+    /// Each window from when it is asked for, or opens, until it closes, with what was dropped for a message moving
+    /// into a window of its own and the read of a window's messages under way. Each window holds its own ticket to its
+    /// name, so a window closing never changes what another window of that name holds.
+    private var windows = MinimizedDraftWindows<SharedItems.Loaded, Task<Void, Never>>()
 
     init(database: MailDatabase) {
         store = MinimizedDraftStore(database: database)
     }
 
-    /// Hands `window` the drafts minimized in windows no longer open: after a launch, all of them.
-    func claim(for window: String, then restore: @escaping ([Draft]) -> Void) {
-        let sparing = open
-        open.insert(window)
-        claims[window] = Task { [store] in
-            let drafts = await BackgroundDatabaseWork.shared.run("Restoring minimized drafts") {
-                await Self.claim(from: store, for: window, sparing: sparing)
+    /// Hands `ticket`'s window the drafts minimized in windows no longer open, after a launch all of them, with what
+    /// was dropped for any of them, under the name of the window it was dropped for (`ComposeWindow.key`).
+    func claim(
+        for ticket: DraftWindowTicket, then restore: @escaping ([Draft], [String: SharedItems.Loaded]) -> Void
+    ) {
+        let replaced = windows.claim(ticket) { sparing in
+            Task { [weak self, store] in
+                let drafts = await BackgroundDatabaseWork.shared.run("Restoring minimized drafts") {
+                    await Self.claim(from: store, for: ticket.window, sparing: sparing)
+                }
+                guard let self, case .delivered(let dropped) = windows.finishedReading(ticket) else { return }
+                restore(drafts, dropped)
             }
-            guard !Task.isCancelled else { return }
-            restore(drafts)
         }
+        replaced?.cancel()
     }
 
-    /// Holds `window` open before it has connected, so no other window claims the message kept for it meanwhile, as a
-    /// message moving into a window of its own.
-    func reserve(_ window: String) {
-        open.insert(window)
+    /// Keeps `draft` under `ticket`'s name before its window has connected, as a message moving into a window of its
+    /// own, with what was dropped for it, `loaded`, which that window takes with it (`take(for:then:)`). No other
+    /// window claims the message meanwhile.
+    func reserve(_ ticket: DraftWindowTicket, keeping draft: Draft, holding loaded: SharedItems.Loaded?) {
+        windows.reserve(ticket, holding: loaded)?.cancel()
+        keep([draft], for: ticket)
     }
 
-    /// Hands `window` the messages kept for it alone, taking no other window's: a window that holds one message.
-    func take(for window: String, then restore: @escaping ([Draft]) -> Void) {
-        open.insert(window)
-        claims[window] = Task { [store] in
-            let drafts = await BackgroundDatabaseWork.shared.run("Reading a window's message") {
-                await Self.drafts(of: window, in: store)
+    /// The window `reserve(_:keeping:holding:)` asked for won't open: its message and what was held for it go.
+    func withdraw(_ ticket: DraftWindowTicket) {
+        keep([], for: ticket)
+        close(ticket)
+    }
+
+    /// Hands `ticket`'s window the messages kept under its name alone, taking no other window's, with what was dropped
+    /// for them when the window was reserved or before the system put it away: a window that holds one message.
+    func take(for ticket: DraftWindowTicket, then restore: @escaping ([Draft], SharedItems.Loaded?) -> Void) {
+        let replaced = windows.take(ticket) {
+            Task { [weak self, store] in
+                let drafts = await BackgroundDatabaseWork.shared.run("Reading a window's message") {
+                    await Self.drafts(of: ticket.window, in: store)
+                }
+                guard let self, case .delivered(let dropped) = windows.finishedReading(ticket) else { return }
+                restore(drafts, dropped[ticket.window])
             }
-            guard !Task.isCancelled else { return }
-            restore(drafts)
         }
+        replaced?.cancel()
     }
 
-    /// Makes `drafts` the minimized messages of `window`. The app keeps itself awake for a few seconds after it
+    /// Makes `drafts` the minimized messages under `ticket`'s name, unless another window holds that name now, as a
+    /// message window Undo Send reopened while this one closed. The app keeps itself awake for a few seconds after it
     /// leaves the screen, which covers the write made then.
-    func keep(_ drafts: [Draft], for window: String) {
+    func keep(_ drafts: [Draft], for ticket: DraftWindowTicket) {
+        guard windows.owns(ticket) else { return }
         version += 1
-        writes[window] = Task { @concurrent [store, version] in
-            await Self.keep(drafts, for: window, version: version, in: store)
+        // Unowned on purpose. Safe: nothing may cancel it, as a write cut short would lose the message as written, the
+        // one made as the app leaves the screen above all; the store applies only the newest `version` asked for, so
+        // one finishing late never undoes a later one; and it logs its own failure, with nothing to hand back.
+        Task { @concurrent [store, version] in
+            await Self.keep(drafts, for: ticket.window, version: version, in: store)
         }
     }
 
-    /// The window closed. Its drafts stay, for the next window to take.
-    func close(_ window: String) {
-        open.remove(window)
-        claims[window]?.cancel()
-        claims[window] = nil
-        writes[window] = nil
+    /// `ticket`'s window closed. Its drafts stay, for the next window to take; what was held for it goes, or, while
+    /// its read hadn't delivered it, waits for the window to come back (`discard(_:)`).
+    func close(_ ticket: DraftWindowTicket) {
+        windows.close(ticket)?.cancel()
+    }
+
+    /// The system discarded `ticket`'s window, which won't come back: what waited for it goes.
+    func discard(_ ticket: DraftWindowTicket) {
+        windows.discard(ticket)
     }
 
     @concurrent private static func claim(

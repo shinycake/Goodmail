@@ -25,10 +25,10 @@ extension SceneCoordinator {
         case .mailbox(_, .settings):
             // Closing Settings follows whatever changed meanwhile, and makes the offer.
             return
-        case .mailbox(let accounts, _), .message(_, let accounts):
+        case .mailbox(let built, _), .message(_, let built):
             if model.accounts.isEmpty {
                 showWelcome()
-            } else if accounts != model.accounts.map(\.id) {
+            } else if built.accounts.map(\.id) != model.accounts.map(\.id) {
                 showMailbox()
             }
         }
@@ -52,11 +52,11 @@ extension SceneCoordinator {
                 model.accounts.isEmpty ? showWelcome() : showMailbox()
             }
             enter(.offer(sheet))
-        case .mailbox(let accounts, .none) where window.isKeyWindow:
+        case .mailbox(let built, .none) where window.isKeyWindow:
             // Not Now is the way out, so the choice is remembered.
             sheet.isModalInPresentation = true
             offer.onFinished = { [weak self] in self?.offerAnswered() }
-            enter(.mailbox(accounts: accounts, cover: .offer(sheet)))
+            enter(.mailbox(built: built, cover: .offer(sheet)))
             topViewController()?.present(sheet, animated: true)
         case .offer, .mailbox, .message, .leaving:
             return
@@ -65,7 +65,7 @@ extension SceneCoordinator {
 
     /// The sheet over the mail screens was answered and closes itself.
     private func offerAnswered() {
-        guard case .mailbox(let accounts, .offer) = screen else { return }
-        enter(.mailbox(accounts: accounts, cover: .none))
+        guard case .mailbox(let built, .offer) = screen else { return }
+        enter(.mailbox(built: built, cover: .none))
     }
 }

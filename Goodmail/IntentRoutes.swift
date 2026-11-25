@@ -24,6 +24,12 @@ final class IntentRoutes {
         hold.hold(arrival)
     }
 
+    /// A window still coming up went away before it filled: what was held for it is dropped once no other window is
+    /// coming up (`ArrivalHold.windowGone`).
+    func windowGone() {
+        hold.windowGone(among: MailWindows.facing.map(\.facts))
+    }
+
     /// A window filled, holding `holds`. Returns what it takes itself, as a viewer takes what was held; what any
     /// other window was given goes to the window it belongs in, so a message, compose or Settings window drops nothing.
     @discardableResult

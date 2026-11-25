@@ -25,16 +25,10 @@ final class SceneCoordinator: NSObject {
     var answering: Task<Void, Never>?
     /// Follows the labels and smart mailboxes here, so a list gone from the device gives way (`followOwnLists`).
     var listsCheck: Task<Void, Never>?
-    /// Called once, as the window first fills with a screen, which the scene waits for to hand on an arrival held
-    /// for it (`SceneDelegate`).
-    var filled: (() -> Void)?
-    /// What the mail screens were last built with, so a setting synced from another device that changes none of it
-    /// leaves them be (D9).
-    var builtFor: Appearance?
     /// The label picker's threads and labels, read off the main actor before it opens; a newer one replaces it.
     var pickingLabels: Task<Void, Never>?
-    /// What fills the window. Only `enter(_:)` changes it.
-    private(set) var screen = Screen.starting
+    /// What fills the window. After `init`, only `enter(_:)` changes it.
+    private(set) var screen: Screen
     /// Follow each pass that brings this device's accounts and settings in step with the reader's other devices.
     var deviceObservers: [any NSObjectProtocol] = []
     /// The screen receiving accounts from another device, so a code the Camera app opens while it's up goes to it.
@@ -42,14 +36,14 @@ final class SceneCoordinator: NSObject {
     /// The window's root, which holds the mail screens and the messages minimized below them.
     let drafts = DraftShelfViewController()
     /// Names this window's minimized messages in the database. Fresh each launch, so the next one finds them unclaimed.
-    private let windowID = UUID().uuidString
+    private let windowID = DraftWindowTicket(window: UUID().uuidString)
     /// What the window shows and the one place it moves (`SceneCoordinator+Navigation`), which keeps the viewer's
     /// screens showing it. What it shows is saved for the system to restore the window or hand it off (`activity`).
     let navigator: WindowNavigator
     var shown: WindowState { navigator.state }
 
-    /// The mailboxes' model of the arrangement built last, which the lists ask for the rows ⌘1 to ⌘9 reach.
-    private(set) var sidebar: MailboxesViewModel?
+    /// The mailboxes' model on show, which the lists ask for the rows ⌘1 to ⌘9 reach; `nil` without the mail screens.
+    var sidebar: MailboxesViewModel? { navigator.screens?.mailboxes }
     /// Opens the smart mailbox editor and stores what it saves (ADR-039).
     private(set) lazy var smartMailboxFlow = SmartMailboxFlow(
         store: model.smartMailboxStore(), presenter: { [weak self] in self?.topViewController() })
@@ -58,9 +52,14 @@ final class SceneCoordinator: NSObject {
     var openThread: ThreadSummary.ID? { shown.reading?.thread }
 
     /// `restoring` is what the window showed when the system last saved it, or what another device handed off.
-    /// `lists` says when a list it names, missing here, counts as gone.
-    init(windowScene: UIWindowScene, model: AppModel, restoring: WindowState?, lists: WindowState.ListCheck) {
+    /// `lists` says when a list it names, missing here, counts as gone. `filled` is called once, as the window first
+    /// fills with a screen, which the scene waits for to hand on an arrival held for it (`SceneDelegate`).
+    init(
+        windowScene: UIWindowScene, model: AppModel, restoring: WindowState?, lists: WindowState.ListCheck,
+        filled: @escaping (SceneCoordinator) -> Void
+    ) {
         self.model = model
+        screen = .starting(filled: filled)
         let actions = MailActions(commands: model.commands)
         self.actions = actions
         everyWindow = EveryWindowCommands(model: model)
@@ -85,7 +84,7 @@ final class SceneCoordinator: NSObject {
         drafts.newMessage = { [weak self] account in self?.handle(.compose(Draft(accountID: account))) }
         drafts.newMessageHolding = { [weak self] in self?.compose(holding: $0) }
         drafts.canStartMessage = { [weak self] in self?.composingAccount != nil }
-        drafts.keep = { [minimized = model.minimizedDrafts, window = windowID] in minimized.keep($0, for: window) }
+        drafts.keep = { [minimized = model.minimizedDrafts, ticket = windowID] in minimized.keep($0, for: ticket) }
         followNavigation()
     }
 
@@ -151,15 +150,23 @@ final class SceneCoordinator: NSObject {
         signingInAgain = Task { [accountSignIn] in await accountSignIn.signIn(againTo: account) }
     }
 
-    /// Brings the messages minimized in windows that are gone back to the drafts pill. Where every message has a
-    /// window there is no pill: a window's message is read back by that window when the system restores it, and
-    /// autosave has it in Drafts.
+    /// Brings the messages minimized in windows that are gone back to the drafts pill, with what was dropped for a
+    /// message whose own window went away before reading it back, which goes in once its composer opens. Where every
+    /// message has a window there is no pill: a window's message is read back by that window when the system restores
+    /// it, and autosave has it in Drafts.
     private func claimMinimizedDrafts() {
         switch window.interactionStyle.composePlacement {
         case .sheet:
-            model.minimizedDrafts.claim(for: windowID) { [weak self] minimized in
+            model.minimizedDrafts.claim(for: windowID) { [weak self] minimized, dropped in
                 guard let self else { return }
-                drafts.restore(minimized.compactMap { self.composer(for: $0) })
+                drafts.restore(
+                    minimized.compactMap { draft in
+                        let composer = composer(for: draft)
+                        if let composer, let loaded = dropped[ComposeWindow(for: draft.id).key] {
+                            composer.whenOpen { [weak composer] in composer?.receive(loaded) }
+                        }
+                        return composer
+                    })
             }
         case .ownWindow:
             break
@@ -177,10 +184,7 @@ final class SceneCoordinator: NSObject {
     func enter(_ next: Screen) {
         let before = screen
         screen = next
-        if case .starting = before, let filled {
-            self.filled = nil
-            filled()
-        }
+        if case .starting(let filled) = before { filled(self) }
         // Whatever replaces a message window waiting out its undo ends the wait.
         if case .leaving(let waiting) = before { waiting.cancel() }
         switch next {
@@ -225,30 +229,33 @@ final class SceneCoordinator: NSObject {
     /// mailboxes beside the list in a wide window or behind it in a narrow one, down to a narrow window back at the
     /// mailboxes; or the conversation alone, in a message window.
     func showMailbox() {
-        builtFor = Appearance(model)
+        // The labels the screens on show have read name the new list, which is made before the new mailboxes have
+        // read theirs.
+        let known = sidebar?.directory.labels ?? []
         // A restored or handed-off thread may be gone from this device, or not on it yet, which the navigator finds
         // off the main actor before anything is built. A message window without it shows the viewer.
         navigator.rebuild(for: model.accounts.map(\.id)) { [weak self] in
             guard let self else { return }
             switch shown.layout {
-            case .viewer: showViewer()
-            case .message: showMessage()
+            case .viewer: showViewer(knowing: known)
+            case .message: showMessage(knowing: known)
             }
         }
     }
 
     /// The thread `shown` opens, alone, from the row the navigator found for it. One whose account is gone leaves the
     /// viewer in its place.
-    private func showMessage() {
-        guard let reading = shown.reading else { return showViewer() }
+    private func showMessage(knowing known: [MailboxDirectory.Label]) {
+        guard let reading = shown.reading else { return showViewer(knowing: known) }
         guard let row = navigator.navigation.foundRow, let reader = reader(for: row, in: reading.mailbox) else {
             navigator.send(.missing(reading.thread))
-            return showViewer()
+            return showViewer(knowing: known)
         }
-        enter(.message(UINavigationController(rootViewController: reader), accounts: model.accounts.map(\.id)))
+        enter(.message(UINavigationController(rootViewController: reader), built: Appearance(model)))
     }
 
-    private func showViewer() {
+    /// The viewer's screens, whose lists are named from `known` until the mailboxes have read the labels.
+    private func showViewer(knowing known: [MailboxDirectory.Label]) {
         let split = MailSplitViewController(actions: actions)
         split.delegate = self
         // The sheet over the old screens stays up over the rebuilt ones.
@@ -259,9 +266,9 @@ final class SceneCoordinator: NSObject {
             in: split,
             making: MailScreens.Makers(
                 mailboxes: { [unowned self] in mailboxesViewController(style: $0) },
-                list: { [unowned self] in listViewController(for: $0) },
+                list: { [unowned self] in listViewController(for: $0, knowing: known) },
                 reader: { [unowned self] reading, row in reader(for: row, in: reading.mailbox) }))
-        enter(.mailbox(accounts: model.accounts.map(\.id), cover: cover))
+        enter(.mailbox(built: Appearance(model), cover: cover))
         // What waited for the window follows now that the screens fill it.
         navigator.cameOnScreen()
         model.launchAlerts.viewerShowed()
@@ -276,8 +283,6 @@ final class SceneCoordinator: NSObject {
             navigate: { [weak self] route in self?.handle(route) },
             labelEditor: { model.labelEditor(for: $0) }, smartMailboxStore: model.smartMailboxStore(),
             actions: actions, style: style)
-        // The lists ask the latest one for the rows ⌘1 to ⌘9 reach, as the window is rebuilt for another width.
-        self.sidebar = sidebar
         sidebar.namesChanged = { [weak self] in self?.retitle() }
         return MailboxesViewController(
             viewModel: sidebar,
@@ -286,9 +291,9 @@ final class SceneCoordinator: NSObject {
             })
     }
 
-    func listViewController(for list: WindowState.List) -> UIViewController {
+    func listViewController(for list: WindowState.List, knowing known: [MailboxDirectory.Label]) -> UIViewController {
         switch list {
-        case .mailbox(let mailbox): mailboxViewController(for: mailbox)
+        case .mailbox(let mailbox): mailboxViewController(for: mailbox, knowing: known)
         case .scheduled: scheduledViewController()
         case .snoozed: snoozedViewController()
         case .smart(let id): smartMailboxViewController(for: id)
@@ -347,9 +352,11 @@ final class SceneCoordinator: NSObject {
         return reader
     }
 
-    private func mailboxViewController(for mailbox: Mailbox) -> MailboxViewController {
+    private func mailboxViewController(
+        for mailbox: Mailbox, knowing known: [MailboxDirectory.Label]
+    ) -> MailboxViewController {
         let model = model
-        let name = listName(of: mailbox)
+        let name = listName(of: mailbox, knowing: known)
         let search = ThreadSearch(
             local: { model.database.search($0, including: $1) }, remote: { try await model.search($0, after: $1) })
         let results = SearchResultsController(

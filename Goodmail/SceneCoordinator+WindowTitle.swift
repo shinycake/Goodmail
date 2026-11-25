@@ -29,11 +29,14 @@ extension SceneCoordinator {
         window.windowScene?.title = showsMail ? title(of: shown) : nil
     }
 
-    /// The name of `mailbox`'s list from what the sidebar holds. A label it hasn't named yet, as at a cold launch,
-    /// goes untitled rather than by its id until it is named from the store off the main actor.
-    func listName(of mailbox: Mailbox) -> (title: String, naming: MailboxViewModel.Naming?) {
+    /// The name of `mailbox`'s list from what the sidebar holds, or, while the screens are being built and have no
+    /// sidebar yet, from the labels `known` to the screens before them. A label neither has named, as at a cold
+    /// launch, goes untitled rather than by its id until it is named from the store off the main actor.
+    func listName(
+        of mailbox: Mailbox, knowing known: [MailboxDirectory.Label]
+    ) -> (title: String, naming: MailboxViewModel.Naming?) {
         let accounts = model.accounts
-        let known = (sidebar?.directory.labels ?? []).filter { $0.mailbox.accountID == mailbox.accountID }
+        let known = (sidebar?.directory.labels ?? known).filter { $0.mailbox.accountID == mailbox.accountID }
         let title = mailbox.listTitle(labels: known, accounts: accounts)
         guard let account = mailbox.accountID, let id = mailbox.labelID, title == id else { return (title, nil) }
         return (

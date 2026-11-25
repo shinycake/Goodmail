@@ -113,6 +113,13 @@ public final class MailScreens: NSObject {
         readerMade?.screen
     }
 
+    /// The mailboxes' model in the arrangement on show, or in the other one until this one has made its own, as a
+    /// narrow window showing a list before its mailboxes: for the rows ⌘1 to ⌘9 reach and the names of labels.
+    public var mailboxes: MailboxesViewModel? {
+        let shown = arrangement == .columns ? sidebar : stackMailboxes
+        return (shown ?? sidebar ?? stackMailboxes)?.viewModel
+    }
+
     /// Shows `state` in `arrangement`, with `row` the conversation read's when the window has it, moving the list and
     /// the reader there from the other arrangement. A reader that can't be made leaves the list showing, and the
     /// result says so, for the navigation to say it is gone.

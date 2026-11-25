@@ -18,6 +18,8 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         case unavailable
         /// A second Settings window, which closes as the open one comes forward.
         case closing
+        /// UIKit disconnected the scene while the database was still opening: it never fills.
+        case disconnected
     }
 
     /// What a window holds, from the activity it opens or is restored with.
@@ -61,6 +63,8 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         options connectionOptions: UIScene.ConnectionOptions
     ) {
         guard let windowScene = scene as? UIWindowScene else { return }
+        // What the session said of a window before is of one that has gone.
+        SessionRecord.clear(session)
         let launch = Self.launch
         let arrival =
             connectionOptions.urlContexts.first.map { Arrival.link($0.url) }
@@ -82,9 +86,11 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             Task {
                 do {
                     let services = try await launch.services()
-                    guard case .opening = state else { return }
+                    // The open ignores cancellation, so the scene disconnecting meanwhile is told apart here.
+                    guard !Task.isCancelled, case .opening = state else { return }
                     fill(windowScene, with: kind, services: services)
                 } catch {
+                    guard !Task.isCancelled, case .opening = state else { return }
                     show(LaunchViewController(failure: error), in: windowScene)
                     state = .unavailable
                 }
@@ -110,8 +116,15 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         _ windowScene: UIWindowScene, to services: AppServices, restoring: WindowState?,
         lists: WindowState.ListCheck, isNew: Bool
     ) {
+        // Once it shows, which waits for the conversation read to be read off the main actor, what was held meanwhile
+        // goes where it belongs: a message window hands it on, and one whose conversation went shows the viewer
+        // instead, which takes it.
         let coordinator = SceneCoordinator(
-            windowScene: windowScene, model: services.model, restoring: restoring, lists: lists)
+            windowScene: windowScene, model: services.model, restoring: restoring, lists: lists,
+            filled: { coordinator in
+                guard let arrival = services.routes.filled(coordinator.holds) else { return }
+                coordinator.arrive(arrival)
+            })
         state = .running(coordinator)
         // A viewer applies what was held for it to what it restored before anything is built, so no restored
         // conversation is built under the arrival's; a screen to present waits in its navigation for the window to be
@@ -120,13 +133,6 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         let handedOff =
             restoredViewer
             ? services.routes.filled(.viewer(reading: nil)).flatMap(coordinator.arriveBeforeShowing) : nil
-        // Once it shows, which waits for the conversation read to be read off the main actor, what was held meanwhile
-        // goes where it belongs: a message window hands it on, and one whose conversation went shows the viewer
-        // instead, which takes it.
-        coordinator.filled = { [weak coordinator] in
-            guard let coordinator, let arrival = services.routes.filled(coordinator.holds) else { return }
-            coordinator.arrive(arrival)
-        }
         coordinator.start()
         coordinator.window.makeKeyAndVisible()
         coordinator.navigator.cameOnScreen()
@@ -143,6 +149,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private func compose(_ shown: ComposeWindow, in windowScene: UIWindowScene, with services: AppServices) {
         let coordinator = ComposeWindowCoordinator(windowScene: windowScene, model: services.model, showing: shown)
         state = .composing(coordinator)
+        SessionRecord.set(.composing(coordinator.ticket), on: windowScene.session)
         coordinator.start()
         coordinator.window.makeKeyAndVisible()
         window?.isHidden = true
@@ -176,7 +183,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             if case .message = coordinator.holds { routes.arrive(arrival) } else { coordinator.arrive(arrival) }
         case .opening: routes.hold(arrival)
         case .composing, .settings, .closing: routes.arrive(arrival)
-        case .notConnected, .unavailable: return false
+        case .notConnected, .unavailable, .disconnected: return false
         }
         return true
     }
@@ -227,19 +234,25 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         case .running(let coordinator): coordinator.activity
         case .composing(let coordinator): coordinator.activity
         case .settings(let coordinator): coordinator.activity
-        case .notConnected, .opening, .unavailable, .closing: nil
+        case .notConnected, .opening, .unavailable, .closing, .disconnected: nil
         }
     }
 
     /// The window closed, or the system put it away: its minimized messages are free for another window to take, and
-    /// once it held Settings, Settings can open again.
+    /// once it held Settings, Settings can open again. One still waiting for the database never fills, so it takes no
+    /// window's messages for a window that is gone.
     func sceneDidDisconnect(_ scene: UIScene) {
         SettingsWindowCoordinator.disconnected(scene.session)
         switch state {
         case .running(let coordinator): coordinator.close()
         case .composing(let coordinator): coordinator.close()
         case .settings(let coordinator): coordinator.close()
-        case .notConnected, .opening, .unavailable, .closing: break
+        case .opening(let waiting):
+            waiting.cancel()
+            state = .disconnected
+            // What arrived for it stays until the system discards the session, as it may connect it again.
+            SessionRecord.set(.leftOpening, on: scene.session)
+        case .notConnected, .unavailable, .closing, .disconnected: break
         }
     }
 
@@ -254,7 +267,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         switch state {
         case .notConnected, .opening: .opening
         case .running(let coordinator): coordinator.holds
-        case .composing, .settings, .closing: .otherWork
+        case .composing, .settings, .closing, .disconnected: .otherWork
         case .unavailable: .noMail
         }
     }

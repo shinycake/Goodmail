@@ -71,13 +71,10 @@ extension SceneCoordinator {
     func openComposeWindow(for draft: Draft, holding loaded: SharedItems.Loaded? = nil) {
         let window = ComposeWindow(for: draft.id)
         let minimized = model.minimizedDrafts
-        minimized.reserve(window.key)
-        minimized.keep([draft], for: window.key)
-        ComposeWindowCoordinator.hold(loaded, for: window)
+        let reservation = DraftWindowTicket(window: window.key)
+        minimized.reserve(reservation, keeping: draft, holding: loaded)
         openWindow(for: window.activity) { [weak self] in
-            minimized.keep([], for: window.key)
-            minimized.close(window.key)
-            ComposeWindowCoordinator.hold(nil, for: window)
+            minimized.withdraw(reservation)
             self?.composeHere(draft, holding: loaded)
         }
     }

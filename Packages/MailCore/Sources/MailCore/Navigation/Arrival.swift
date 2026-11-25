@@ -104,6 +104,15 @@ public struct ArrivalHold: Equatable, Sendable {
         return arrive(arrival, among: windows, onMac: onMac, now: now)
     }
 
+    /// A window still coming up went away before it filled, leaving `windows`. With none of them coming up either,
+    /// what was held for the first window to fill is dropped: it came for a window the reader closed, and would
+    /// otherwise show long after in whatever window opens next. What is held for the viewer window asked for stays,
+    /// as that window may not have connected yet; it waits `newViewerWait` at most before an arrival asks again.
+    public mutating func windowGone(among windows: [WindowFacts]) {
+        guard case .forFirstWindow = held, !windows.contains(where: { $0.holds == .opening }) else { return }
+        held = .nothing
+    }
+
     /// The viewer window opened for what is held couldn't open: it is dropped.
     public mutating func newViewerFailed() {
         if case .forNewViewer = held { held = .nothing }

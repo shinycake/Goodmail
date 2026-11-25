@@ -16,6 +16,10 @@ final class ComposeWindowCoordinator {
     let window: ShakeToUndoWindow
     private let model: AppModel
     private let shown: ComposeWindow
+    /// This window's hold on its message's name, which another window of the same name, as one Undo Send reopens while
+    /// this one closes, doesn't share. Its scene session keeps it, for when the system discards the window
+    /// (`SessionRecord`).
+    let ticket: DraftWindowTicket
     private let actions: MailActions
     private let placement: ComposePlacement
     /// New Viewer Window, New Message and Get Mail, with the sync Get Mail starts here.
@@ -35,18 +39,10 @@ final class ComposeWindowCoordinator {
         case done
     }
 
-    /// What was dropped on a mail window for a message that opens in a window of its own, under the window's key, until
-    /// that window has its composer. Held in memory, as a drop on a mail window's composer is.
-    private static var dropped: [String: SharedItems.Loaded] = [:]
-
-    /// Holds `loaded` for the message window `shown` opens with, or, with `nil`, lets it go when the window won't open.
-    static func hold(_ loaded: SharedItems.Loaded?, for shown: ComposeWindow) {
-        dropped[shown.key] = loaded
-    }
-
     init(windowScene: UIWindowScene, model: AppModel, showing shown: ComposeWindow) {
         self.model = model
         self.shown = shown
+        ticket = DraftWindowTicket(window: shown.key)
         let actions = MailActions(commands: model.commands)
         self.actions = actions
         everyWindow = EveryWindowCommands(model: model)
@@ -63,10 +59,12 @@ final class ComposeWindowCoordinator {
     }
 
     func start() {
-        model.minimizedDrafts.take(for: shown.key) { [weak self] drafts in
+        // What was dropped on a mail window for the message comes with it, held in memory, as a drop on a mail
+        // window's composer is.
+        model.minimizedDrafts.take(for: ticket) { [weak self] drafts, loaded in
             guard let self, case .reading = state else { return }
             guard let draft = drafts.first else { return finish() }
-            write(draft, holding: Self.dropped.removeValue(forKey: shown.key))
+            write(draft, holding: loaded)
         }
     }
 
@@ -111,20 +109,20 @@ final class ComposeWindowCoordinator {
                 // Done with before the composer says it closed, so the window doesn't ask to close again.
                 state = .done
                 controller.composer?.dismissKeepingDraft()
-                model.minimizedDrafts.keep([], for: shown.key)
+                model.minimizedDrafts.keep([], for: ticket)
             case .sent(let waiting):
                 // Closed before the wait was over: the message goes, with nothing left to undo it.
                 state = .done
                 waiting.cancel()
             }
         }
-        model.minimizedDrafts.close(shown.key)
+        model.minimizedDrafts.close(ticket)
     }
 
     /// Keeps the message as written, under the window's name, and names the window after its subject as it is now.
     private func keepMessage() {
         guard case .writing(let controller) = state, let composer = controller.composer else { return }
-        model.minimizedDrafts.keep([composer.written], for: shown.key)
+        model.minimizedDrafts.keep([composer.written], for: ticket)
         nameWindow(after: composer)
     }
 
@@ -154,7 +152,7 @@ final class ComposeWindowCoordinator {
     private func offerUndo() {
         guard case .writing = state else { return }
         // Sent, so a window restored before Undo brings it back has no message to read back.
-        model.minimizedDrafts.keep([], for: shown.key)
+        model.minimizedDrafts.keep([], for: ticket)
         let actions = actions
         state = .sent(
             Task { [weak self] in
@@ -185,7 +183,7 @@ final class ComposeWindowCoordinator {
     private func finish() {
         if case .done = state { return }
         state = .done
-        model.minimizedDrafts.keep([], for: shown.key)
+        model.minimizedDrafts.keep([], for: ticket)
         closeWindow()
     }
 

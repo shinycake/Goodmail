@@ -16,6 +16,19 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         return true
     }
 
+    /// Windows the reader closed for good, which the system won't connect again. What was dropped for a message
+    /// window that went away before it read its message back waited for it (`MinimizedDrafts.close`), and what
+    /// arrived for a window that went away before it filled waited too (`ArrivalHold.windowGone`): both go now.
+    func application(_ application: UIApplication, didDiscardSceneSessions sessions: Set<UISceneSession>) {
+        for session in sessions {
+            switch SessionRecord.of(session) {
+            case .composing(let ticket): launch.running?.model.minimizedDrafts.discard(ticket)
+            case .leftOpening: launch.routes.windowGone()
+            case nil: break
+            }
+        }
+    }
+
     func application(
         _ application: UIApplication, handleEventsForBackgroundURLSession identifier: String,
         completionHandler: @escaping () -> Void

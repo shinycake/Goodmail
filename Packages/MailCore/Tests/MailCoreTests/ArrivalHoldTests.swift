@@ -23,6 +23,26 @@ struct ArrivalHoldTests {
         #expect(hold.filled(.viewer(reading: nil), among: [], onMac: true, now: start) == .none, "taken once")
     }
 
+    @Test func anArrivalForAWindowClosedBeforeItFilledIsDropped() {
+        var hold = ArrivalHold()
+        hold.hold(alert)
+        hold.windowGone(among: [WindowFacts(.opening)])
+        #expect(
+            hold.filled(.viewer(reading: nil), among: [], onMac: true, now: start) == .takeHere(alert),
+            "another is coming")
+        hold.hold(later)
+        hold.windowGone(among: [WindowFacts(.message)])
+        #expect(hold.filled(.viewer(reading: nil), among: [], onMac: true, now: start) == .none, "none is coming")
+    }
+
+    @Test func anArrivalForTheViewerAskedForOutlivesAnotherWindowGoing() {
+        var hold = ArrivalHold()
+        _ = hold.filled(.viewer(reading: nil), among: [], onMac: true, now: start)
+        #expect(hold.arrive(alert, among: [], onMac: true, now: start) == .openViewer)
+        hold.windowGone(among: [])
+        #expect(hold.filled(.viewer(reading: nil), among: [], onMac: true, now: start) == .takeHere(alert))
+    }
+
     @Test func aMessageWindowRestoredFirstLeavesItForTheViewerComingUp() {
         var hold = ArrivalHold()
         _ = hold.arrive(alert, among: [], onMac: true, now: start)

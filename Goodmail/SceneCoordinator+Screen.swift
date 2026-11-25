@@ -5,29 +5,30 @@ import UIKit
 extension SceneCoordinator {
     /// What fills a window.
     enum Screen {
-        /// Before `start()` chose.
-        case starting
+        /// Before `start()` chose. `filled` is called as the window leaves it, the first time it fills with a screen.
+        case starting(filled: (SceneCoordinator) -> Void)
         /// No account yet: what Goodmail is, and the services to sign in to.
         case welcome(UIViewController)
         /// The other devices' accounts, offered in place of the welcome screen. What follows waits for the reader's
         /// answer.
         case offer(UIViewController)
-        /// The mail screens the navigator holds (`WindowNavigator.screens`), built for `accounts` so a change another
-        /// device made rebuilds them, and the sheet over them that the coordinator answers for.
-        case mailbox(accounts: [AccountID], cover: Cover)
-        /// One conversation alone, in a window of its own (`WindowState.Layout.message`): the reader, built for
-        /// `accounts` like the mail screens.
-        case message(UIViewController, accounts: [AccountID])
+        /// The mail screens the navigator holds (`WindowNavigator.screens`), and the sheet over them that the
+        /// coordinator answers for. `built` is what they were built from, so a change another device or Settings made
+        /// to it rebuilds them, and one that changes none of it leaves them be (D9).
+        case mailbox(built: Appearance, cover: Cover)
+        /// One conversation alone, in a window of its own (`WindowState.Layout.message`): the reader, built from
+        /// `built` like the mail screens.
+        case message(UIViewController, built: Appearance)
         /// A message window whose thread an action took away, offering to undo it until its toast goes
         /// (`leaveMessage()`). Leaving this screen for any other ends `waiting`.
         case leaving(waiting: Task<Void, Never>)
     }
 
-    /// The accounts the mail on show is built for, while nothing covers it: what may rebuild it, or open Settings over
-    /// or beside it. `nil` while the window shows no mail, or something covers it.
-    var uncoveredMail: [AccountID]? {
+    /// What the mail on show was built from, while nothing covers it: what may rebuild it, or open Settings over or
+    /// beside it. `nil` while the window shows no mail, or something covers it.
+    var uncoveredMail: Appearance? {
         switch screen {
-        case .mailbox(let accounts, .none), .message(_, let accounts): accounts
+        case .mailbox(let built, .none), .message(_, let built): built
         case .starting, .welcome, .offer, .mailbox, .leaving: nil
         }
     }
