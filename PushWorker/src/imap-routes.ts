@@ -10,19 +10,15 @@ import {
   isQuotable,
   LoginRefused,
 } from "./imap";
+import { type LoginCheck, loginState } from "./imap-logins";
 import {
   canonicalLogin,
   findWatch,
   loginSealer,
-  loginState,
-  refusedAgain,
   removeWatch,
   renewWatch,
-  setLoginState,
   storeWatch,
   WATCH_LIFETIME_MS,
-  WATCHING,
-  type WatchState,
 } from "./imap-watches";
 import { BadRequest, DEVICE_TOKEN, readJson, watchTokenIn } from "./shared";
 
@@ -99,47 +95,59 @@ export async function registerWatch(
   const loginHash = await sealer.hash(canonicalLogin(login));
   const existing = await findWatch(env.DB, watchId);
   if (existing && !sameHash(existing.secretHash, secretHash)) return new Response(null, { status: 403 });
-  if (existing?.loginHash === loginHash && existing.state.kind === "watching") {
+  // By login, not by watch: a device whose registration failed makes a new watch ID for the same login.
+  const known = await loginState(env.DB, loginHash);
+  if (existing?.loginHash === loginHash && known.kind === "watching") {
     await renewWatch(env.DB, watchId, account, device, expiresAt);
     return new Response(null, { status: 204 });
   }
-  // By login, not by watch: a device whose registration failed makes a new watch ID for the same login.
-  const known = await loginState(env.DB, loginHash);
-  if (known?.kind === "refused" && now < known.refusedAt + RECHECK_AFTER_MS) return loginRefused();
+  if (known.kind === "refused" && now < known.refusedAt + RECHECK_AFTER_MS) return loginRefused();
 
   // Each check is a login at someone's server: a few a minute from one address is plenty for the app, and too few
   // to try passwords with.
   const address = request.headers.get("cf-connecting-ip") ?? "unknown";
   if (!(await env.IMAP_LOGIN_CHECKS.limit({ key: address })).success) return new Response(null, { status: 429 });
-  let checked: { state: WatchState; inbox: InboxStatus };
+  // A watch that was following this login keeps its place in the Inbox, so mail that arrived while the server refused
+  // the login alerts at the next STATUS; a new one starts where the Inbox is.
+  const kept = existing?.loginHash === loginHash ? existing.inbox : null;
+  let checked: { check: LoginCheck; inbox: InboxStatus | null };
   try {
-    checked = { state: WATCHING, inbox: await inboxStatus(login, open) };
+    const inbox = await inboxStatus(login, open);
+    checked = { check: "taken", inbox: kept ?? inbox };
   } catch (error) {
     if (!(error instanceof LoginRefused)) {
       console.warn(`IMAP check failed: ${error instanceof Error ? error.message : String(error)}`);
       return new Response(null, { status: 503 });
     }
-    // Kept, so the login is tried again later (`isDue`) and the next registrations are answered from here. A
-    // watch that was following this login keeps its place in the Inbox, for the mail that arrives meanwhile.
-    const refused = refusedAgain(known, now);
-    const inbox = existing?.loginHash === loginHash ? existing.inbox : { uidValidity: 0, uidNext: 0 };
-    checked = { state: refused, inbox };
-    console.warn(`IMAP login refused at registration (${refused.refusals} in a row): ${error.message}`);
+    // Kept, so the login is tried again later (`isDue`) and the next registrations are answered from here. A new
+    // watch starts wherever the Inbox is once the server takes the login.
+    console.warn(`IMAP login refused at registration: ${error.message}`);
+    checked = { check: "refused", inbox: kept };
   }
-  const stored = await storeWatch(env.DB, {
-    watchId,
-    secretHash,
-    account,
-    device,
-    login: await sealer.seal(canonicalLogin(login)),
-    loginHash,
-    ...checked,
-    expiresAt,
-  });
-  if (!stored) return new Response(null, { status: 403 });
-  // The server's answer holds for every device watching with this login.
-  await setLoginState(env.DB, loginHash, checked.state);
-  return checked.state.kind === "watching" ? new Response(null, { status: 204 }) : loginRefused();
+  // The server's answer holds for every device watching with this login, so it is the login's.
+  const stored = await storeWatch(
+    env.DB,
+    {
+      watchId,
+      secretHash,
+      account,
+      device,
+      login: await sealer.seal(canonicalLogin(login)),
+      loginHash,
+      inbox: checked.inbox,
+      expiresAt,
+    },
+    checked.check,
+    now,
+  );
+  switch (stored.kind) {
+    case "notYours":
+      return new Response(null, { status: 403 });
+    case "stored":
+      if (stored.state.kind === "watching") return new Response(null, { status: 204 });
+      console.warn(`IMAP login refused ${stored.state.refusals} times in a row`);
+      return loginRefused();
+  }
 }
 
 export async function unregisterWatch(request: Request, env: Env): Promise<Response> {

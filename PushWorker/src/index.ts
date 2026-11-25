@@ -4,7 +4,7 @@ import { guardDevice, issueChallenge, registerKey } from "./attest-routes";
 import { base64Decode } from "./encoding";
 import type { Env } from "./env";
 import { alertsFor, pruneAlerts } from "./fallback";
-import { TokenError, verifyIdToken, verifyPubSubToken } from "./google";
+import { KeysUnavailable, TokenError, verifyIdToken, verifyPubSubToken } from "./google";
 import { forgetGrant, grantsFor, storeGrant } from "./grant-routes";
 import { sendHandled } from "./handled";
 import { keepInboxesWatched } from "./inbox-holder";
@@ -101,6 +101,8 @@ export default {
       return new Response(null, { status: 404 });
     } catch (error) {
       if (error instanceof TokenError) return new Response(null, { status: 401 });
+      // Google can't be reached to check the token: the app and Pub/Sub both try again.
+      if (error instanceof KeysUnavailable) return new Response(null, { status: 503 });
       if (error instanceof BadRequest) return new Response(error.message, { status: 400 });
       throw error;
     }
@@ -171,12 +173,11 @@ async function pubSubPush(request: Request, env: Env, context: ExecutionContext)
     context.waitUntil(Promise.all(devices.map((device) => sendHandled(env, device, target))));
     return new Response(null, { status: 204 });
   }
-  const now = Date.now();
-  const slot = await claimPushSlot(env.DB, account, now);
-  if (slot === false) return new Response(null, { status: 204 });
+  const slot = await claimPushSlot(env.DB, account, Date.now());
+  if (!slot) return new Response(null, { status: 204 });
   const release = async () => {
     await releaseHistoryId(env.DB, claim);
-    await releasePushSlot(env.DB, account, now, slot);
+    await releasePushSlot(env.DB, slot);
   };
 
   // Pub/Sub's redelivery is the only retry, so an alert that reached no device gives its claim back and asks for it.
@@ -315,11 +316,16 @@ async function graphNotification(request: Request, url: URL, env: Env, context: 
           arrival = await outlookCheck.arrival(grants, env.OUTLOOK_CLIENT_ID, subscription.account, ids);
         }
         if (arrival.kind === "mail") {
-          // The alert's own catch-up takes down what was dealt with too.
-          await alertsFor(env, (work) => context.waitUntil(work)).send(subscription.device, arrival.newest, target);
-        } else if (changed) {
-          await sendHandled(env, subscription.device, target);
+          const outcome = await alertsFor(env, (work) => context.waitUntil(work))
+            .send(subscription.device, arrival.newest, target)
+            .catch((error: unknown): PushOutcome => {
+              console.warn(`Outlook alert failed: ${error instanceof Error ? error.message : String(error)}`);
+              return "failed";
+            });
+          // The alert's own catch-up takes down what was dealt with too, once it reached the device.
+          if (outcome !== "failed") return;
         }
+        if (changed) await sendHandled(env, subscription.device, target);
       }),
     ),
   );

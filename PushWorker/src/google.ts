@@ -5,10 +5,18 @@ const GOOGLE_ISSUERS = ["https://accounts.google.com", "accounts.google.com"];
 /** Allowed clock skew between Google and the Worker. */
 const LEEWAY_SECONDS = 60;
 const DEFAULT_MAX_AGE_SECONDS = 3600;
-/** A token with an unknown `kid` triggers a refetch (Google rotated keys), at most this often. */
+/**
+ * A token with an unknown `kid` triggers a refetch (Google rotated keys), at most this often; so does a fetch that
+ * failed.
+ */
 const MIN_REFETCH_MS = 30_000;
+/** While Google can't be reached, the keys it published last are trusted for this long past their max-age. */
+const MAX_STALE_MS = 86_400_000;
 
 export class TokenError extends Error {}
+
+/** No keys to check a token with: Google can't be reached and none it published lately are held. */
+export class KeysUnavailable extends Error {}
 
 export interface GoogleClaims {
   iss: string;
@@ -20,33 +28,89 @@ export interface GoogleClaims {
   email_verified?: boolean | string;
 }
 
+/** The keys one JWKS response published: fetched at `fetchedAt`, and good until `until` by its max-age. */
+interface Published {
+  keys: Map<string, CryptoKey>;
+  fetchedAt: number;
+  until: number;
+}
+
+/**
+ * Where the cache stands: no keys yet, the keys of the last fetch that worked, a fetch under way, or a fetch that
+ * failed and is tried again at `retryAt`. The last two keep the keys from before (`previous`), trusted while they are
+ * at most `MAX_STALE_MS` past their max-age.
+ */
+type KeySet =
+  | { kind: "empty" }
+  | { kind: "held"; published: Published }
+  | { kind: "refreshing"; previous: Published | undefined; done: Promise<void> }
+  | { kind: "failed"; previous: Published | undefined; retryAt: number };
+
 /** Google's signing keys, cached for as long as the JWKS response's `Cache-Control: max-age` allows. */
 export class GoogleKeys {
-  private keys = new Map<string, CryptoKey>();
-  private expiresAt = 0;
-  private lastFetchAt = Number.NEGATIVE_INFINITY;
-  private inFlight: Promise<void> | undefined;
+  private set: KeySet = { kind: "empty" };
 
   constructor(
     private readonly now: () => number = () => Date.now(),
     private readonly fetcher: (url: string) => Promise<Response> = (url) => fetch(url),
   ) {}
 
+  /**
+   * The key named `kid`, or undefined when Google doesn't publish it. Throws `KeysUnavailable` when the keys can't be
+   * had, so a good token is never called bad because Google couldn't be reached.
+   */
   async key(kid: string): Promise<CryptoKey | undefined> {
+    const set = this.set;
     const now = this.now();
-    const stale = now >= this.expiresAt;
-    const unknownKid = !this.keys.has(kid) && now - this.lastFetchAt >= MIN_REFETCH_MS;
-    if (stale || unknownKid) await this.refresh();
-    return this.keys.get(kid);
+    switch (set.kind) {
+      case "refreshing":
+        await set.done;
+        return this.lookup(kid);
+      case "failed":
+        if (now < set.retryAt) return this.lookup(kid);
+        break;
+      case "held": {
+        const { keys, fetchedAt, until } = set.published;
+        if (now < until && (keys.has(kid) || now - fetchedAt < MIN_REFETCH_MS)) return keys.get(kid);
+        break;
+      }
+      case "empty":
+        break;
+    }
+    await this.refresh();
+    return this.lookup(kid);
   }
 
+  /** The key as the cache stands: the last fetch's answer, or, after a failure, the keys from before while trusted. */
+  private lookup(kid: string): CryptoKey | undefined {
+    const set = this.set;
+    if (set.kind === "held") return set.published.keys.get(kid);
+    const previous = set.kind === "empty" ? undefined : set.previous;
+    const key = previous && this.now() < previous.until + MAX_STALE_MS ? previous.keys.get(kid) : undefined;
+    if (!key) throw new KeysUnavailable("Google's signing keys can't be fetched");
+    return key;
+  }
+
+  /** Fetches the keys once however many requests ask at a time: the one place the cache moves. Never rejects. */
   private refresh(): Promise<void> {
-    this.inFlight ??= this.load().finally(() => (this.inFlight = undefined));
-    return this.inFlight;
+    const set = this.set;
+    if (set.kind === "refreshing") return set.done;
+    const previous = set.kind === "held" ? set.published : set.kind === "failed" ? set.previous : undefined;
+    const done = this.load().then(
+      (published) => {
+        this.set = { kind: "held", published };
+      },
+      (error: unknown) => {
+        console.warn(`JWKS fetch failed: ${error instanceof Error ? error.message : String(error)}`);
+        this.set = { kind: "failed", previous, retryAt: this.now() + MIN_REFETCH_MS };
+      },
+    );
+    this.set = { kind: "refreshing", previous, done };
+    return done;
   }
 
-  private async load(): Promise<void> {
-    this.lastFetchAt = this.now();
+  private async load(): Promise<Published> {
+    const fetchedAt = this.now();
     const response = await this.fetcher(GOOGLE_JWKS_URL);
     if (!response.ok) throw new Error(`JWKS fetch failed with ${response.status}`);
     const body = (await response.json()) as { keys?: JsonWebKey[] };
@@ -58,8 +122,7 @@ export class GoogleKeys {
       keys.set(kid, await crypto.subtle.importKey("jwk", jwk, algorithm, false, ["verify"]));
     }
     const maxAge = /max-age=(\d+)/.exec(response.headers.get("cache-control") ?? "")?.[1];
-    this.keys = keys;
-    this.expiresAt = this.now() + Number(maxAge ?? DEFAULT_MAX_AGE_SECONDS) * 1000;
+    return { keys, fetchedAt, until: this.now() + Number(maxAge ?? DEFAULT_MAX_AGE_SECONDS) * 1000 };
   }
 }
 

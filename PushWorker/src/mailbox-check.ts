@@ -1,9 +1,7 @@
+import { AccessTokens, GrantChanged } from "./access-tokens";
 import { type AccessToken, GrantRevoked, inboxArrival, refreshAccessToken } from "./gmail";
 import type { GmailGrants } from "./grants";
 import { type Arrival, NONE, RETRY } from "./new-mail";
-
-/** Access tokens are reused until this close to expiry. */
-const TOKEN_MARGIN_MS = 60_000;
 
 /**
  * Reads what a Gmail notification brought, with the app's own token for the account (`new-mail.ts` decides what
@@ -12,43 +10,45 @@ const TOKEN_MARGIN_MS = 60_000;
  */
 export class MailboxCheck {
   /** Access tokens by account, shared by the requests this isolate serves. */
-  private readonly tokens = new Map<string, AccessToken>();
+  private readonly tokens: AccessTokens<AccessToken>;
 
-  constructor(private readonly now: () => number = () => Date.now()) {}
+  constructor(private readonly now: () => number = () => Date.now()) {
+    this.tokens = new AccessTokens(now);
+  }
 
   /** What arrived since `previousHistoryId`, or since the token was stored when this is the first notification. */
   async arrival(grants: GmailGrants, clientId: string, account: string, previousHistoryId: string | null): Promise<Arrival> {
     try {
-      const token = await this.token(grants, clientId, account);
-      if (!token) return NONE;
       const settings = await grants.settings(account);
+      const { signIn } = settings;
+      if (signIn === null) return NONE;
+      const token = await this.tokens.token(account, signIn, () => this.refresh(grants, clientId, account, signIn));
       const start = previousHistoryId ?? settings.historyId;
       if (start === null) return NONE;
       const arrival = await inboxArrival(token, start.replace(/^0+(?=\d)/, ""), settings.primaryOnly);
-      if (arrival.kind === "retry") this.tokens.delete(account);
+      if (arrival.kind === "retry") this.tokens.forget(account);
       return arrival;
     } catch (error) {
-      this.tokens.delete(account);
-      if (error instanceof GrantRevoked) {
-        await grants.remove(account);
-        return NONE;
-      }
+      this.tokens.forget(account);
+      if (error instanceof GrantRevoked) return NONE;
       console.warn(`Gmail check failed: ${String(error)}`);
       return RETRY;
     }
   }
 
   forget(account: string): void {
-    this.tokens.delete(account);
+    this.tokens.forget(account);
   }
 
-  private async token(grants: GmailGrants, clientId: string, account: string): Promise<AccessToken | undefined> {
-    const cached = this.tokens.get(account);
-    if (cached && cached.expiresAt - this.now() > TOKEN_MARGIN_MS) return cached;
-    const refreshToken = await grants.refreshToken(account);
-    if (!refreshToken) return undefined;
-    const token = await refreshAccessToken(refreshToken, clientId, this.now());
-    this.tokens.set(account, token);
-    return token;
+  /** Refreshes the token of the sign-in `signIn`; one Google refuses is forgotten, unless a new one replaced it. */
+  private async refresh(grants: GmailGrants, clientId: string, account: string, signIn: string): Promise<AccessToken> {
+    const grant = await grants.grant(account);
+    if (grant?.signIn !== signIn) throw new GrantChanged();
+    try {
+      return await refreshAccessToken(grant.refreshToken, clientId, this.now());
+    } catch (error) {
+      if (error instanceof GrantRevoked) await grants.revoke(account, signIn);
+      throw error;
+    }
   }
 }

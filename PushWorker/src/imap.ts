@@ -117,6 +117,8 @@ export async function watchInbox(
         }
         if (!/^\* PREAUTH\b/i.test(greeting)) await logIn(conversation, login);
         const inbox = new Inbox(conversation);
+        // Selected first when a watch follows, so the STATUS covers what arrived until it and the rounds what after.
+        if (Date.now() < deadline) await inbox.examine();
         await onStatus(await status(conversation), inbox.fresh);
         return inbox;
       })(),
@@ -145,11 +147,30 @@ async function status(conversation: Conversation): Promise<InboxStatus> {
 }
 
 /**
+ * What the server said about the selected mailbox since the round was last taken (`Conversation.takeRound`):
+ * nothing, new mail (with or without mail changing or leaving too), or only mail changing or leaving.
+ */
+type Round = { kind: "quiet" } | { kind: "arrived"; changedToo: boolean } | { kind: "changed" };
+
+/** Something the server said about the selected mailbox: it grew, or mail in it changed or left. */
+type Notice = "arrived" | "changed";
+
+const QUIET: Round = { kind: "quiet" };
+
+/** The round once the server said `notice` too: the one place a round moves. */
+function noticed(round: Round, notice: Notice): Round {
+  const changed = round.kind === "changed" || (round.kind === "arrived" && round.changedToo);
+  if (notice === "arrived") return { kind: "arrived", changedToo: changed };
+  return round.kind === "arrived" ? { kind: "arrived", changedToo: true } : { kind: "changed" };
+}
+
+/**
  * Selects the Inbox read-only and idles in it until `deadline`, starting IDLE again every `renewMs`, reading the
- * STATUS again whenever mail arrived (`Conversation.arrivals`). An arrival counts whenever the server says it: while
- * idling, or between two IDLE commands, where the server announces it only once and a wait for the next
- * announcement would miss it. Mail changing or leaving (`Conversation.changes`) calls `onHandled` once no more has
- * come for `settleMs`, so reading a dozen messages costs one push. Returns at once when the server doesn't take IDLE.
+ * STATUS again whenever mail arrived. An arrival counts whenever the server says it: while idling, or between two
+ * IDLE commands, where the server announces it only once and a wait for the next announcement would miss it. Mail
+ * changing or leaving calls `onHandled` once no more has come for `settleMs`, so reading a dozen messages costs one
+ * push; when mail arrived in the same round, `onHandled` follows its STATUS, since the new mail may bring no alert.
+ * Returns at once when the server doesn't take IDLE.
  */
 async function idle(
   inbox: Inbox,
@@ -160,12 +181,6 @@ async function idle(
 ): Promise<void> {
   await inbox.examine();
   const { conversation } = inbox;
-  let seen = { arrivals: conversation.arrivals, changes: conversation.changes };
-  /** What the server said since the last round was handled: nothing, new mail, or mail changing or leaving. */
-  const round = (): "quiet" | "arrived" | "changed" => {
-    if (conversation.arrivals !== seen.arrivals) return "arrived";
-    return conversation.changes !== seen.changes ? "changed" : "quiet";
-  };
   while (Date.now() < deadline) {
     let tag;
     try {
@@ -175,15 +190,26 @@ async function idle(
       throw error;
     }
     const renewal = Math.min(deadline, Date.now() + renewMs);
-    while (round() === "quiet" && (await conversation.lineBy(renewal)) !== undefined);
+    while (conversation.round.kind === "quiet" && (await conversation.lineBy(renewal)) !== undefined);
     // A change seldom comes alone: the rest of the burst comes before the push. New mail ends the wait at once.
-    while (round() === "changed" && (await conversation.lineBy(Math.min(renewal, Date.now() + settleMs))) !== undefined);
+    while (
+      conversation.round.kind === "changed" &&
+      (await conversation.lineBy(Math.min(renewal, Date.now() + settleMs))) !== undefined
+    );
     await conversation.finish(tag, "DONE");
-    const said = round();
-    // Before the STATUS or the push, so what the server says while they are under way starts the next round.
-    seen = { arrivals: conversation.arrivals, changes: conversation.changes };
-    if (said === "arrived") await onStatus(await status(conversation), inbox.fresh);
-    else if (said === "changed") await onHandled();
+    // Taken before the STATUS or the push, so what the server says while they are under way starts the next round.
+    const said = conversation.takeRound();
+    switch (said.kind) {
+      case "quiet":
+        break;
+      case "arrived":
+        await onStatus(await status(conversation), inbox.fresh);
+        if (said.changedToo) await onHandled();
+        break;
+      case "changed":
+        await onHandled();
+        break;
+    }
   }
 }
 
@@ -196,18 +222,17 @@ class Inbox {
   async examine(): Promise<void> {
     if (this.selection === "examined") return;
     await this.conversation.command("EXAMINE INBOX");
+    this.conversation.selected();
     this.selection = "examined";
   }
 
   readonly fresh: FreshMail = async (since) => {
     try {
       await this.examine();
-      // The reply's FETCH lines answer the relay, so they are no change in the Inbox.
-      const changes = this.conversation.changes;
+      // The reply's FETCH lines carry the headers, so they are no change in the Inbox (`answersCheck`).
       const untagged = await this.conversation.command(
         `UID FETCH ${since}:* (UID FLAGS BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)])`,
       );
-      this.conversation.changes = changes;
       // `since:*` always matches the newest message, even one below `since`.
       const found = parseFetch(untagged).filter(
         (message) =>
@@ -236,36 +261,47 @@ export interface FetchedHeaders {
  */
 export function parseFetch(lines: string[]): FetchedHeaders[] {
   const messages: FetchedHeaders[] = [];
-  let current: { items: string; headers: string[] } | undefined;
-  let inLiteral = false;
-  const close = () => {
-    if (!current) return;
-    const uid = Number(/\bUID (\d+)/i.exec(current.items)?.[1]);
-    const flags = /\bFLAGS \(([^)]*)\)/i.exec(current.items)?.[1]?.trim().split(/\s+/).filter(Boolean) ?? [];
-    const headers = unfold(current.headers);
-    const from = headers.get("from");
-    if (Number.isSafeInteger(uid) && from) {
-      messages.push({ uid, flags, from: decodeEncodedWords(from), subject: decodeEncodedWords(headers.get("subject") ?? "") });
-    }
-    current = undefined;
+  let reading: Reading = { kind: "between" };
+  const close = (message: Message) => {
+    const found = headersOf(message);
+    if (found) messages.push(found);
   };
   for (const line of lines) {
-    if (inLiteral) {
-      if (line === "") inLiteral = false;
-      else current?.headers.push(line);
+    if (reading.kind === "literal") {
+      if (line === "") reading = { kind: "items", message: reading.message };
+      else reading.message.headers.push(line);
       continue;
     }
     if (/^\* \d+ FETCH /i.test(line)) {
-      close();
-      current = { items: "", headers: [] };
+      if (reading.kind === "items") close(reading.message);
+      reading = { kind: "items", message: { items: "", headers: [] } };
     }
-    if (!current) continue;
+    if (reading.kind === "between") continue;
     const literal = /\{\d+\}$/.exec(line);
-    current.items += ` ${literal ? line.slice(0, literal.index) : line}`;
-    if (literal) inLiteral = true;
+    reading.message.items += ` ${literal ? line.slice(0, literal.index) : line}`;
+    if (literal) reading = { kind: "literal", message: reading.message };
   }
-  close();
+  if (reading.kind !== "between") close(reading.message);
   return messages;
+}
+
+/** One message of a FETCH response as read so far: its items, and its header lines. */
+interface Message {
+  items: string;
+  headers: string[];
+}
+
+/** Where `parseFetch` is: before the first message, in a message's items, or in its header literal. */
+type Reading = { kind: "between" } | { kind: "items" | "literal"; message: Message };
+
+/** The message's UID, flags and decoded headers, or undefined without a UID or a From header. */
+function headersOf(message: Message): FetchedHeaders | undefined {
+  const uid = Number(/\bUID (\d+)/i.exec(message.items)?.[1]);
+  const flags = /\bFLAGS \(([^)]*)\)/i.exec(message.items)?.[1]?.trim().split(/\s+/).filter(Boolean) ?? [];
+  const headers = unfold(message.headers);
+  const from = headers.get("from");
+  if (!Number.isSafeInteger(uid) || !from) return undefined;
+  return { uid, flags, from: decodeEncodedWords(from), subject: decodeEncodedWords(headers.get("subject") ?? "") };
 }
 
 /** Header lines, with continuation lines joined, by lowercased name; the first of a repeated name wins. */
@@ -339,6 +375,14 @@ class CommandFailed extends Error {
   }
 }
 
+/**
+ * Whether a `* n FETCH` line answers the new-mail check: it carries the headers the check asked for, which the server
+ * sends no one unasked. One with only flags, a UID or a MODSEQ is mail changing, as when another app reads it.
+ */
+function answersCheck(line: string): boolean {
+  return /\bBODY\[HEADER\.FIELDS\b/i.test(line);
+}
+
 /** Lines in and commands out over one socket. Commands are tagged in turn; untagged lines come back with the reply. */
 class Conversation {
   private readonly reader: ReadableStreamDefaultReader<Uint8Array>;
@@ -346,18 +390,19 @@ class Conversation {
   private readonly decoder = new TextDecoder();
   private buffered = "";
   private pending: Promise<ReadableStreamReadResult<Uint8Array>> | undefined;
-  /** How many messages the selected mailbox holds, as the server last said (RFC 3501 §7.3.1, §7.4.1). */
-  private size = 0;
   /**
-   * How many times the server said the selected mailbox grew, whichever command it said so during: a `* n EXISTS`
-   * above the count so far. A count the server only repeats, or one that fell with a `* n EXPUNGE`, is no arrival.
+   * The selected mailbox as the server last said (RFC 3501 §7.3.1, §7.4.1): how many messages it holds, and how many
+   * of them it held when the round began. New mail takes the numbers after those, so a FETCH above them is about
+   * mail that just arrived, as the flags some servers send with it, and no change.
    */
-  arrivals = 0;
+  private mailbox = { size: 0, before: 0 };
   /**
-   * How many times the server said mail in the selected mailbox changed or left: a `* n FETCH` (its flags, as when
-   * another app reads it) or a `* n EXPUNGE`. The new-mail check leaves out the replies to its own FETCH.
+   * What the server said about the selected mailbox since the round began, whichever command it said so during. New
+   * mail is a `* n EXISTS` above the count so far: a count the server only repeats, or one that fell with a
+   * `* n EXPUNGE`, is no arrival. Mail changing or leaving is a `* n EXPUNGE`, or a `* n FETCH` for mail that was
+   * there before the round (its flags, as when another app reads it) that isn't a reply to the new-mail check.
    */
-  changes = 0;
+  private said: Round = QUIET;
 
   /**
    * The server gets `replyMs` for each line of a reply. Tags carry on from `tagsSent` commands, as on the plain
@@ -370,6 +415,24 @@ class Conversation {
   ) {
     this.reader = socket.readable.getReader();
     this.writer = socket.writable.getWriter();
+  }
+
+  /** What the server said since the round was last taken. */
+  get round(): Round {
+    return this.said;
+  }
+
+  /** Hands over the round so far and starts the next one. */
+  takeRound(): Round {
+    const round = this.said;
+    this.said = QUIET;
+    this.mailbox = { ...this.mailbox, before: this.mailbox.size };
+    return round;
+  }
+
+  /** Starts the first round on a mailbox just selected: the size its reply said is no arrival. */
+  selected(): void {
+    this.takeRound();
   }
 
   /** The next line of a reply the server owes. One that doesn't come in time means the server has gone quiet. */
@@ -389,7 +452,7 @@ class Conversation {
       if (end >= 0) {
         const line = this.buffered.slice(0, end);
         this.buffered = this.buffered.slice(end + 2);
-        this.count(line);
+        this.notice(line);
         return line;
       }
       this.pending ??= this.reader.read();
@@ -404,14 +467,24 @@ class Conversation {
     }
   }
 
-  /** Keeps `size` and `arrivals` up to date with a line the server sent. */
-  private count(line: string): void {
-    if (/^\* \d+ (FETCH|EXPUNGE)\b/i.test(line)) this.changes++;
-    const [, number, change] = /^\* (\d+) (EXISTS|EXPUNGE)\b/i.exec(line) ?? [];
-    if (change?.toUpperCase() === "EXPUNGE") this.size = Math.max(0, this.size - 1);
-    if (change?.toUpperCase() !== "EXISTS") return;
-    if (Number(number) > this.size) this.arrivals++;
-    this.size = Number(number);
+  /** Keeps the mailbox and the round up to date with a line the server sent: the one place either moves. */
+  private notice(line: string): void {
+    const [, number, what] = /^\* (\d+) (EXISTS|EXPUNGE|FETCH)\b/i.exec(line) ?? [];
+    const sequence = Number(number);
+    const { size, before } = this.mailbox;
+    switch (what?.toUpperCase()) {
+      case "EXISTS":
+        if (sequence > size) this.said = noticed(this.said, "arrived");
+        this.mailbox = { size: sequence, before };
+        break;
+      case "EXPUNGE":
+        this.mailbox = { size: Math.max(0, size - 1), before: sequence <= before ? before - 1 : before };
+        this.said = noticed(this.said, "changed");
+        break;
+      case "FETCH":
+        if (sequence <= before && !answersCheck(line)) this.said = noticed(this.said, "changed");
+        break;
+    }
   }
 
   /** Sends `text` and reads to its tagged reply. Returns the untagged lines; throws `CommandFailed` for NO or BAD. */

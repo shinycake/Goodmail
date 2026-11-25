@@ -275,3 +275,17 @@ describe("Pub/Sub push with a grant", () => {
     expect(apnsPushes).toBe(0);
   });
 });
+
+describe("a revoked Gmail grant", () => {
+  it("is forgotten only while it is still the account's sign-in", async () => {
+    const { GmailGrants } = await import("../src/grants");
+    const grants = new GmailGrants(env.DB, testEnv.EMAIL_HMAC_SECRET);
+    await grants.store("account-1", "1//old", false, "10", 0);
+    const old = await grants.grant("account-1");
+    await grants.store("account-1", "1//new", false, "11", 1);
+    await grants.revoke("account-1", old!.signIn);
+    expect((await grants.grant("account-1"))?.refreshToken).toBe("1//new");
+    await grants.revoke("account-1", (await grants.grant("account-1"))!.signIn);
+    expect(await grants.grant("account-1")).toBeUndefined();
+  });
+});

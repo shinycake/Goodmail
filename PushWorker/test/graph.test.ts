@@ -18,6 +18,14 @@ let apnsStatus: number;
 /** The fake mailbox's messages by ID, as Graph answers `$select=subject,from,isRead,parentFolderId,receivedDateTime`. */
 let messages: Map<string, Record<string, unknown>>;
 let refreshes: string[];
+/** The refresh token Microsoft hands out for one refreshed with `token`. */
+let rotated: (token: string) => string;
+/** A refresh with this token that Microsoft answers only once `until` settles. */
+let slow: { token: string; until: Promise<void> } | undefined;
+/** Refresh tokens Microsoft no longer honors. */
+let revoked: Set<string>;
+/** Whether sending an alert to APNs fails before any answer, as on a network error. */
+let alertsThrow: boolean;
 
 const APP_TOKEN = "M.app-refresh-token";
 
@@ -44,13 +52,19 @@ beforeEach(async () => {
   apnsStatus = 200;
   messages = new Map([["m1", message()]]);
   refreshes = [];
+  rotated = () => "M.rotated";
+  slow = undefined;
+  revoked = new Set();
+  alertsThrow = false;
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const request = new Request(input, init);
     if (request.url === MICROSOFT_TOKEN_URL) {
       const token = String((await request.formData()).get("refresh_token"));
       refreshes.push(token);
       if (!token.startsWith("M.")) return Response.json({ error: "invalid_grant" }, { status: 400 });
-      return Response.json({ access_token: "eyJ.access", expires_in: 3599, refresh_token: "M.rotated" });
+      if (slow?.token === token) await slow.until;
+      if (revoked.has(token)) return Response.json({ error: "invalid_grant" }, { status: 400 });
+      return Response.json({ access_token: "eyJ.access", expires_in: 3599, refresh_token: rotated(token) });
     }
     if (request.url.startsWith(`${GRAPH_API}/me/mailFolders/inbox`)) return Response.json({ id: "inbox-id" });
     if (request.url.startsWith(`${GRAPH_API}/me/messages/`)) {
@@ -59,6 +73,7 @@ beforeEach(async () => {
       return found ? Response.json(found) : Response.json({ error: { code: "ErrorItemNotFound" } }, { status: 404 });
     }
     if (!request.url.includes("push.apple.com")) throw new Error(`unexpected fetch ${request.url}`);
+    if (alertsThrow && request.headers.get("apns-push-type") === "alert") throw new TypeError("Network connection lost");
     apnsCalls.push({ url: request.url, body: await request.json(), type: request.headers.get("apns-push-type") });
     return new Response(apnsStatus === 410 ? JSON.stringify({ reason: "Unregistered" }) : null, { status: apnsStatus });
   });
@@ -279,6 +294,20 @@ describe("Graph notifications", () => {
     expect(apnsCalls.map((call) => call.type)).toEqual(["alert"]);
   });
 
+  it("still tells the device to take down alerts when other mail changed and the new mail's alert didn't go out", async () => {
+    await subscribed();
+    apnsStatus = 500;
+    await notify(created("m1"), created("m2", CLIENT_STATE, "updated"));
+    expect(apnsCalls.map((call) => call.type)).toEqual(["alert", "background"]);
+  });
+
+  it("still tells the device to take down alerts when sending the new mail's alert threw", async () => {
+    await subscribed();
+    alertsThrow = true;
+    await notify(created("m1"), created("m2", CLIENT_STATE, "updated"));
+    expect(apnsCalls.map((call) => call.type)).toEqual(["background"]);
+  });
+
   it("sends nothing for an account whose token it doesn't hold, since it can't read the mail", async () => {
     await subscriptions("POST", registration());
     await notify(created("m1"));
@@ -292,6 +321,63 @@ describe("Graph notifications", () => {
     expect(refreshes).toEqual(["M.rotated"]);
     const { OutlookGrants } = await import("../src/outlook");
     expect((await new OutlookGrants(env.DB, testEnv.EMAIL_HMAC_SECRET).grant(ACCOUNT))?.refreshToken).toBe("M.rotated");
+  });
+
+  it("refreshes the account's token once for a batch that names each of its devices' subscriptions", async () => {
+    await subscribed();
+    const OTHER_DEVICE = "b".repeat(64);
+    await subscriptions("POST", registration({ subscriptionId: OTHER_SUBSCRIPTION, deviceToken: OTHER_DEVICE }));
+    await notify(created("m1"), { ...created("m1"), subscriptionId: OTHER_SUBSCRIPTION });
+    expect(refreshes).toEqual(["M.rotated"]);
+    expect(apnsCalls.map((call) => call.url.split("/").pop()).sort()).toEqual([DEVICE, OTHER_DEVICE]);
+  });
+
+  it("keeps a token the app sends while an older one is being refreshed", async () => {
+    rotated = (token) => `${token}+1`;
+    await subscribed();
+    const gate = Promise.withResolvers<void>();
+    slow = { token: `${APP_TOKEN}+1`, until: gate.promise };
+    const notified = notify(created("m1"));
+    await vi.waitUntil(() => refreshes.includes(`${APP_TOKEN}+1`));
+    // Signed in again while the notification's refresh was under way.
+    expect((await grant("M.signed-in-again")).status).toBe(204);
+    gate.resolve();
+    await notified;
+    const { OutlookGrants } = await import("../src/outlook");
+    const grants = new OutlookGrants(env.DB, testEnv.EMAIL_HMAC_SECRET);
+    expect((await grants.grant(ACCOUNT))?.refreshToken).toBe("M.signed-in-again+1");
+    expect(await grants.holds(ACCOUNT, "M.signed-in-again")).toBe(true);
+    // The next notification reads with the new sign-in, not an access token from the old one.
+    refreshes = [];
+    await notify(created("m1"));
+    expect(refreshes).toEqual(["M.signed-in-again+1"]);
+  });
+
+  it("keeps a new sign-in when Microsoft refuses the one it replaced", async () => {
+    rotated = (token) => `${token}+1`;
+    await subscribed();
+    const gate = Promise.withResolvers<void>();
+    slow = { token: `${APP_TOKEN}+1`, until: gate.promise };
+    revoked.add(`${APP_TOKEN}+1`);
+    const notified = notify(created("m1"));
+    await vi.waitUntil(() => refreshes.includes(`${APP_TOKEN}+1`));
+    expect((await grant("M.signed-in-again")).status).toBe(204);
+    gate.resolve();
+    await notified;
+    const { OutlookGrants } = await import("../src/outlook");
+    expect((await new OutlookGrants(env.DB, testEnv.EMAIL_HMAC_SECRET).grant(ACCOUNT))?.refreshToken).toBe(
+      "M.signed-in-again+1",
+    );
+  });
+
+  it("keeps the refresh token a parallel refresh stored first", async () => {
+    await subscribed();
+    const { OutlookGrants } = await import("../src/outlook");
+    const grants = new OutlookGrants(env.DB, testEnv.EMAIL_HMAC_SECRET);
+    const refreshed = await grants.grant(ACCOUNT);
+    await grants.rotate(ACCOUNT, refreshed!, "M.first");
+    await grants.rotate(ACCOUNT, refreshed!, "M.second");
+    expect((await grants.grant(ACCOUNT))?.refreshToken).toBe("M.first");
   });
 
   it("ignores a notification with the wrong clientState or an unknown subscription", async () => {

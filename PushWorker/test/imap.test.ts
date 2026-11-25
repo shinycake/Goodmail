@@ -112,9 +112,10 @@ describe("watchInbox", () => {
       { uidValidity: 7, uidNext: 101 },
     ]);
     const lines = server.sessions[0]?.lines ?? [];
+    // Selected before the first STATUS, so what the server says after the STATUS starts the first round.
     expect(lines.slice(1, 6)).toEqual([
-      "g2 STATUS INBOX (UIDNEXT UIDVALIDITY)",
-      "g3 EXAMINE INBOX",
+      "g2 EXAMINE INBOX",
+      "g3 STATUS INBOX (UIDNEXT UIDVALIDITY)",
       "g4 IDLE",
       "DONE",
       "g5 STATUS INBOX (UIDNEXT UIDVALIDITY)",
@@ -180,13 +181,17 @@ describe("watchInbox", () => {
     expect(statuses).toHaveLength(1);
   });
 
-  it("alerts at once for mail that arrives while a burst of changes settles, with no push for the changes", async () => {
+  it("alerts at once for mail that arrives while a burst of changes settles, then reports the changes too", async () => {
     statuses.length = 0;
-    let handled = 0;
+    const calls: string[] = [];
     const inbox = { uidValidity: 7, uidNext: 100 };
     const server = fakeImap(() => inboxServer(inbox));
-    const watching = watchInbox(ICLOUD, Date.now() + 4_500, record, server.connect, { settleMs: 3_000 }, async () => {
-      handled++;
+    const noting = async (status: InboxStatus) => {
+      statuses.push(status);
+      calls.push("status");
+    };
+    const watching = watchInbox(ICLOUD, Date.now() + 4_500, noting, server.connect, { settleMs: 3_000 }, async () => {
+      calls.push("handled");
     });
     await vi.waitUntil(() => server.sessions[0]?.lines.includes("g4 IDLE"));
     server.announce("* 2 FETCH (FLAGS (\\Seen))");
@@ -196,6 +201,129 @@ describe("watchInbox", () => {
     await vi.waitUntil(() => statuses.length === 2);
     expect(Date.now() - announced).toBeLessThan(1_000);
     await watching;
+    // The new mail may bring no alert (read already, or APNs failed), so the change still gets its push.
+    expect(calls).toEqual(["status", "status", "handled"]);
+  });
+
+  it("reports another app's change that the server announces during the new-mail check", async () => {
+    statuses.length = 0;
+    let handled = 0;
+    const inbox = { uidValidity: 7, uidNext: 100 };
+    const plain = inboxServer(inbox);
+    let fetches = 0;
+    const server = fakeImap(() => (tag, command) => {
+      const reply = plain(tag, command);
+      // RFC 3501 lets the server say what changed during any command: here a message read elsewhere, and one gone.
+      if (command.startsWith("UID FETCH") && ++fetches === 2) {
+        return ["* 1 FETCH (FLAGS (\\Seen))", "* 2 EXPUNGE", ...reply];
+      }
+      return reply;
+    });
+    const fetching = async (status: InboxStatus, fresh: (since: number) => Promise<unknown>) => {
+      statuses.push(status);
+      await fresh(status.uidNext - 1);
+    };
+    const watching = watchInbox(ICLOUD, Date.now() + 4_500, fetching, server.connect, { settleMs: 300 }, async () => {
+      handled++;
+    });
+    await vi.waitUntil(() => server.sessions[0]?.lines.includes("g5 IDLE"));
+    inbox.uidNext = 101;
+    server.announce("* 4 EXISTS");
+    await watching;
+    expect(statuses).toHaveLength(2);
+    expect(handled).toBe(1);
+  });
+
+  /** A watch whose every onStatus runs the new-mail check, as the relay's does, over a server whose FETCH replies `fetchReply` shapes. */
+  function fetchingWatch(fetchReply: (fetches: number, reply: string[]) => string[], onStatus?: (status: InboxStatus) => void) {
+    const inbox = { uidValidity: 7, uidNext: 100 };
+    const plain = inboxServer(inbox);
+    let fetches = 0;
+    let handled = 0;
+    const server = fakeImap(() => (tag, command) => {
+      const reply = plain(tag, command);
+      return command.startsWith("UID FETCH") ? fetchReply(++fetches, reply) : reply;
+    });
+    const fetching = async (status: InboxStatus, fresh: (since: number) => Promise<unknown>) => {
+      statuses.push(status);
+      onStatus?.(status);
+      await fresh(status.uidNext - 1);
+    };
+    const watching = watchInbox(ICLOUD, Date.now() + 4_500, fetching, server.connect, { settleMs: 300 }, async () => {
+      handled++;
+    });
+    return { inbox, server, watching, handled: () => handled };
+  }
+
+  it("reports a read elsewhere that the server names by UID during the new-mail check", async () => {
+    statuses.length = 0;
+    // Dovecot names the UID in an unsolicited FETCH, here one above what the check asked for.
+    const watch = fetchingWatch((fetches, reply) => (fetches === 2 ? ["* 2 FETCH (UID 150 FLAGS (\\Seen))", ...reply] : reply));
+    await vi.waitUntil(() => watch.server.sessions[0]?.lines.includes("g5 IDLE"));
+    watch.inbox.uidNext = 101;
+    watch.server.announce("* 4 EXISTS");
+    await watch.watching;
+    expect(statuses).toHaveLength(2);
+    expect(watch.handled()).toBe(1);
+  });
+
+  it("takes a reply to its own check as no change, wherever the server puts the UID", async () => {
+    statuses.length = 0;
+    const headers = "From: Dana <dana@example.com>\r\nSubject: Hi\r\n\r\n";
+    const watch = fetchingWatch((fetches, reply) => [
+      `* 3 FETCH (FLAGS () BODY[HEADER.FIELDS (FROM SUBJECT)] {${headers.length}}`,
+      "From: Dana <dana@example.com>",
+      "Subject: Hi",
+      "",
+      ` UID ${98 + fetches})`,
+      reply.at(-1)!,
+    ]);
+    await vi.waitUntil(() => watch.server.sessions[0]?.lines.includes("g5 IDLE"));
+    watch.inbox.uidNext = 101;
+    watch.server.announce("* 4 EXISTS");
+    await watch.watching;
+    expect(statuses).toHaveLength(2);
+    expect(watch.handled()).toBe(0);
+  });
+
+  it("reports a change the server names during the first new-mail check", async () => {
+    statuses.length = 0;
+    const watch = fetchingWatch((fetches, reply) => (fetches === 1 ? ["* 1 FETCH (FLAGS (\\Seen))", ...reply] : reply));
+    await watch.watching;
+    expect(watch.handled()).toBe(1);
+  });
+
+  it("reads the STATUS again for mail the server announces just after the first one", async () => {
+    statuses.length = 0;
+    let announced = false;
+    const watch = fetchingWatch(
+      (_, reply) => reply,
+      () => {
+        if (announced) return;
+        announced = true;
+        // Mail arriving while the relay looks up the devices to alert.
+        watch.inbox.uidNext = 101;
+        watch.server.announce("* 4 EXISTS");
+      },
+    );
+    await watch.watching;
+    expect(statuses.map((status) => status.uidNext)).toEqual([100, 101]);
+  });
+
+  it("takes the flags a server sends with new mail as no change", async () => {
+    statuses.length = 0;
+    let handled = 0;
+    const inbox = { uidValidity: 7, uidNext: 100 };
+    const server = fakeImap(() => inboxServer(inbox));
+    const watching = watchInbox(ICLOUD, Date.now() + 4_500, record, server.connect, { settleMs: 300 }, async () => {
+      handled++;
+    });
+    await vi.waitUntil(() => server.sessions[0]?.lines.includes("g4 IDLE"));
+    inbox.uidNext = 101;
+    server.announce("* 4 EXISTS");
+    server.announce("* 4 FETCH (FLAGS (\\Recent))");
+    await watching;
+    expect(statuses).toHaveLength(2);
     expect(handled).toBe(0);
   });
 

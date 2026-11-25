@@ -31,22 +31,29 @@ export class GmailGrants {
       .run();
   }
 
-  /** The account's Primary Only choice and the history ID its token was stored at. */
-  async settings(account: string): Promise<{ primaryOnly: boolean; historyId: string | null }> {
+  /**
+   * The account's sign-in (the hash of its token, which only a new token changes; null without a grant), its Primary
+   * Only choice and the history ID its token was stored at, without opening the token.
+   */
+  async settings(account: string): Promise<{ signIn: string | null; primaryOnly: boolean; historyId: string | null }> {
     const row = await this.db
-      .prepare("SELECT primary_only, history_id FROM gmail_grants WHERE account = ?1")
+      .prepare("SELECT token_hash, primary_only, history_id FROM gmail_grants WHERE account = ?1")
       .bind(account)
-      .first<{ primary_only: number; history_id: string | null }>();
-    return { primaryOnly: row?.primary_only === 1, historyId: row?.history_id ?? null };
+      .first<{ token_hash: string; primary_only: number; history_id: string | null }>();
+    return { signIn: row?.token_hash ?? null, primaryOnly: row?.primary_only === 1, historyId: row?.history_id ?? null };
   }
 
-  /** The account's refresh token, or undefined when it has no grant or the stored one can't be opened. */
-  async refreshToken(account: string): Promise<string | undefined> {
+  /**
+   * The account's refresh token, with the sign-in it comes from (its hash, which only a new token changes), or
+   * undefined when it has no grant or the stored one can't be opened.
+   */
+  async grant(account: string): Promise<{ refreshToken: string; signIn: string } | undefined> {
     const row = await this.db
-      .prepare("SELECT refresh_token FROM gmail_grants WHERE account = ?1")
+      .prepare("SELECT refresh_token, token_hash FROM gmail_grants WHERE account = ?1")
       .bind(account)
-      .first<{ refresh_token: string }>();
-    return row ? this.sealer.open(row.refresh_token) : undefined;
+      .first<{ refresh_token: string; token_hash: string }>();
+    const refreshToken = row ? await this.sealer.open(row.refresh_token) : undefined;
+    return row && refreshToken ? { refreshToken, signIn: row.token_hash } : undefined;
   }
 
   /**
@@ -63,5 +70,10 @@ export class GmailGrants {
 
   async remove(account: string): Promise<void> {
     await this.db.prepare("DELETE FROM gmail_grants WHERE account = ?1").bind(account).run();
+  }
+
+  /** Deletes the account's token Google refused, unless a new sign-in replaced it meanwhile. */
+  async revoke(account: string, signIn: string): Promise<void> {
+    await this.db.prepare("DELETE FROM gmail_grants WHERE account = ?1 AND token_hash = ?2").bind(account, signIn).run();
   }
 }

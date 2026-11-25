@@ -81,11 +81,18 @@ export async function releaseHistoryId(db: D1Database, claim: HistoryClaim): Pro
 /** Pushes for an account this soon after the last one are dropped: the device catches up on them from that one. */
 export const BURST_MS = 15_000;
 
+/** The account's push slot, taken at `pushedAt`, and the time it replaced, so a failed send can give it back. */
+export interface PushSlot {
+  account: string;
+  pushedAt: number;
+  previous: number | null;
+}
+
 /**
- * Takes the account's push slot, in one conditional write: false when another push went out less than `BURST_MS`
- * ago. Returns the time it replaced, for `releasePushSlot`.
+ * Takes the account's push slot, in one conditional write. Returns undefined when another push went out less than
+ * `BURST_MS` ago, so the caller drops this one.
  */
-export async function claimPushSlot(db: D1Database, account: string, now: number): Promise<number | null | false> {
+export async function claimPushSlot(db: D1Database, account: string, now: number): Promise<PushSlot | undefined> {
   const [before, write] = await db.batch<{ pushed_at: number }>([
     db.prepare("SELECT pushed_at FROM push_times WHERE account = ?1").bind(account),
     db
@@ -96,17 +103,17 @@ export async function claimPushSlot(db: D1Database, account: string, now: number
       )
       .bind(account, now, BURST_MS),
   ]);
-  if (write?.meta.changes !== 1) return false;
-  return before?.results[0]?.pushed_at ?? null;
+  if (write?.meta.changes !== 1) return undefined;
+  return { account, pushedAt: now, previous: before?.results[0]?.pushed_at ?? null };
 }
 
 /** Gives the slot back after a push that reached no device, so its redelivery isn't dropped as part of a burst. */
-export async function releasePushSlot(db: D1Database, account: string, now: number, previous: number | null) {
+export async function releasePushSlot(db: D1Database, slot: PushSlot) {
   const statement =
-    previous === null
-      ? db.prepare("DELETE FROM push_times WHERE account = ?1 AND pushed_at = ?2").bind(account, now)
+    slot.previous === null
+      ? db.prepare("DELETE FROM push_times WHERE account = ?1 AND pushed_at = ?2").bind(slot.account, slot.pushedAt)
       : db
           .prepare("UPDATE push_times SET pushed_at = ?3 WHERE account = ?1 AND pushed_at = ?2")
-          .bind(account, now, previous);
+          .bind(slot.account, slot.pushedAt, slot.previous);
   await statement.run();
 }

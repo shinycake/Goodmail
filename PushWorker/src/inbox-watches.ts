@@ -16,11 +16,8 @@ export interface HoldPace {
   restMs: number;
 }
 
-/** A login's latest watch: when it started, and whether it is still under way. */
-interface Watch {
-  startedAt: number;
-  active: boolean;
-}
+/** A login's latest watch, started at `startedAt`: still under way, or ended. */
+type Watch = { kind: "watching" | "ended"; startedAt: number };
 
 /**
  * The Inboxes being watched over connections that stay open, one per login: what the holder (inbox-holder.ts) keeps
@@ -47,9 +44,9 @@ export class InboxWatches {
     this.forgetAllBut(due);
     const lastStart = (login: WatchedLogin) => this.watches.get(login.loginHash)?.startedAt ?? 0;
     const rested = Date.now() - this.pace.restMs;
-    const active = [...this.watches.values()].filter((watch) => watch.active).length;
+    const active = [...this.watches.values()].filter((watch) => watch.kind === "watching").length;
     return due
-      .filter((login) => !this.watches.get(login.loginHash)?.active && lastStart(login) <= rested)
+      .filter((login) => this.watches.get(login.loginHash)?.kind !== "watching" && lastStart(login) <= rested)
       .sort((a, b) => lastStart(a) - lastStart(b))
       .slice(0, Math.max(0, MOST_AT_ONCE - active))
       .map((login) => this.watch(login, now));
@@ -59,19 +56,19 @@ export class InboxWatches {
   private forgetAllBut(due: WatchedLogin[]): void {
     const kept = new Set(due.map((login) => login.loginHash));
     for (const [loginHash, watch] of this.watches) {
-      if (!watch.active && !kept.has(loginHash)) this.watches.delete(loginHash);
+      if (watch.kind === "ended" && !kept.has(loginHash)) this.watches.delete(loginHash);
     }
   }
 
   private async watch(login: WatchedLogin, now: number): Promise<void> {
     const startedAt = Date.now();
-    this.watches.set(login.loginHash, { startedAt, active: true });
+    this.watches.set(login.loginHash, { kind: "watching", startedAt });
     try {
       await watchMailbox(this.env, this.alerts, login, now, startedAt + this.pace.watchMs, this.open);
     } catch (error) {
       console.warn(`An Inbox watch failed: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
-      this.watches.set(login.loginHash, { startedAt, active: false });
+      this.watches.set(login.loginHash, { kind: "ended", startedAt });
       console.log(`Inbox watch with login ${label(login.loginHash)} ended after ${Math.round((Date.now() - startedAt) / 1000)} s`);
     }
   }

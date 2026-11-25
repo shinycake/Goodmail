@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { GOOGLE_JWKS_URL, GoogleKeys, TokenError, verifyIdToken, verifyPubSubToken } from "../src/google";
+import { GOOGLE_JWKS_URL, GoogleKeys, KeysUnavailable, TokenError, verifyIdToken, verifyPubSubToken } from "../src/google";
 import { generateGoogleKey, idTokenClaims, jwksResponse, signGoogleToken, type TestGoogleKey } from "./keys";
 
 const CLIENT_ID = "ios-client.apps.googleusercontent.com";
@@ -147,6 +147,61 @@ describe("JWKS cache", () => {
     const rotated = await signGoogleToken(otherKey, idTokenClaims("a@gmail.com", CLIENT_ID, NOW));
     await expect(verifyIdToken(rotated, CLIENT_ID, keys, NOW)).resolves.toBe("a@gmail.com");
     expect(fetched).toHaveLength(2);
+  });
+
+  /** A key cache over a JWKS endpoint that fails while `down.now` is set. */
+  function flakyKeys() {
+    const down = { now: false };
+    const clock = { ms: NOW * 1000 };
+    const fetched: string[] = [];
+    const keys = new GoogleKeys(
+      () => clock.ms,
+      async (url) => {
+        fetched.push(url);
+        return down.now ? new Response(null, { status: 503 }) : jwksResponse([key], 600);
+      },
+    );
+    return { keys, fetched, clock, down };
+  }
+
+  it("fetches once for requests that need the keys at the same time", async () => {
+    const { keys, fetched } = keysServing(() => [key]);
+    const token = await signGoogleToken(key, idTokenClaims("a@gmail.com", CLIENT_ID, NOW));
+    await Promise.all([verifyIdToken(token, CLIENT_ID, keys, NOW), verifyIdToken(token, CLIENT_ID, keys, NOW)]);
+    expect(fetched).toHaveLength(1);
+  });
+
+  it("keeps using the keys it has while Google can't be reached, and asks again only after a pause", async () => {
+    const { keys, fetched, clock, down } = flakyKeys();
+    const token = await signGoogleToken(key, idTokenClaims("a@gmail.com", CLIENT_ID, NOW));
+    await verifyIdToken(token, CLIENT_ID, keys, NOW);
+    down.now = true;
+    clock.ms += 601_000;
+    await expect(verifyIdToken(token, CLIENT_ID, keys, NOW)).resolves.toBe("a@gmail.com");
+    await expect(verifyIdToken(token, CLIENT_ID, keys, NOW)).resolves.toBe("a@gmail.com");
+    expect(fetched).toHaveLength(2);
+    down.now = false;
+    clock.ms += 31_000;
+    await verifyIdToken(token, CLIENT_ID, keys, NOW);
+    expect(fetched).toHaveLength(3);
+  });
+
+  it("says the keys are unavailable, not that the token is bad, when it has none and Google can't be reached", async () => {
+    const { keys, fetched, down } = flakyKeys();
+    down.now = true;
+    const token = await signGoogleToken(key, idTokenClaims("a@gmail.com", CLIENT_ID, NOW));
+    await expect(verifyIdToken(token, CLIENT_ID, keys, NOW)).rejects.toBeInstanceOf(KeysUnavailable);
+    await expect(verifyIdToken(token, CLIENT_ID, keys, NOW)).rejects.toBeInstanceOf(KeysUnavailable);
+    expect(fetched).toHaveLength(1);
+  });
+
+  it("stops trusting old keys a day after they expired", async () => {
+    const { keys, clock, down } = flakyKeys();
+    const token = await signGoogleToken(key, idTokenClaims("a@gmail.com", CLIENT_ID, NOW));
+    await verifyIdToken(token, CLIENT_ID, keys, NOW);
+    down.now = true;
+    clock.ms += 600_000 + 86_400_000 + 1;
+    await expect(verifyIdToken(token, CLIENT_ID, keys, NOW)).rejects.toBeInstanceOf(KeysUnavailable);
   });
 
   it("doesn't refetch on every unknown key ID", async () => {

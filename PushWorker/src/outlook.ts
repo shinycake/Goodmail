@@ -1,3 +1,4 @@
+import { AccessTokens, GrantChanged } from "./access-tokens";
 import { type Arrival, NONE, newestOf, RETRY } from "./new-mail";
 import { Sealer } from "./sealing";
 
@@ -5,8 +6,6 @@ export const MICROSOFT_TOKEN_URL = "https://login.microsoftonline.com/common/oau
 export const GRAPH_API = "https://graph.microsoft.com/v1.0";
 /** Everything the app's sign-in was granted; the relay only reads mail with it. */
 const SCOPE = "https://graph.microsoft.com/.default offline_access";
-/** Access tokens are reused until this close to expiry. */
-const TOKEN_MARGIN_MS = 60_000;
 
 /** Microsoft refused the token (revoked, expired, or the password changed): forget it. */
 export class OutlookGrantRevoked extends Error {}
@@ -47,6 +46,16 @@ async function graph<T>(token: MicrosoftToken, path: string): Promise<{ status: 
   return { status: response.status, body: (await response.json()) as T };
 }
 
+/**
+ * An account's stored Outlook grant: its refresh token, as stored (`sealed`, which changes with each rotation), and the
+ * sign-in it comes from (`signIn`, the hash of the token the app sent, which only a new sign-in changes).
+ */
+export interface OutlookGrant {
+  refreshToken: string;
+  sealed: string;
+  signIn: string;
+}
+
 /** Each account's Outlook refresh token, sealed. */
 export class OutlookGrants {
   private readonly sealer: Sealer;
@@ -79,25 +88,42 @@ export class OutlookGrants {
       .run();
   }
 
-  async grant(account: string): Promise<{ refreshToken: string } | undefined> {
+  async grant(account: string): Promise<OutlookGrant | undefined> {
     const row = await this.db
-      .prepare("SELECT refresh_token FROM graph_grants WHERE account = ?1")
+      .prepare("SELECT refresh_token, token_hash FROM graph_grants WHERE account = ?1")
       .bind(account)
-      .first<{ refresh_token: string }>();
+      .first<{ refresh_token: string; token_hash: string }>();
     const refreshToken = row ? await this.sealer.open(row.refresh_token) : undefined;
-    return refreshToken ? { refreshToken } : undefined;
+    return row && refreshToken ? { refreshToken, sealed: row.refresh_token, signIn: row.token_hash } : undefined;
   }
 
-  /** Keeps the refresh token Microsoft handed out last. */
-  async rotate(account: string, refreshToken: string): Promise<void> {
+  /**
+   * Keeps the refresh token Microsoft handed out for `grant`'s, in one conditional write: one stored since, by a new
+   * sign-in or another refresh, is never overwritten with an older one's successor.
+   */
+  async rotate(account: string, grant: OutlookGrant, refreshToken: string): Promise<void> {
     await this.db
-      .prepare("UPDATE graph_grants SET refresh_token = ?2 WHERE account = ?1")
-      .bind(account, await this.sealer.seal(refreshToken))
+      .prepare("UPDATE graph_grants SET refresh_token = ?3 WHERE account = ?1 AND refresh_token = ?2")
+      .bind(account, grant.sealed, await this.sealer.seal(refreshToken))
       .run();
   }
 
   async remove(account: string): Promise<void> {
     await this.db.prepare("DELETE FROM graph_grants WHERE account = ?1").bind(account).run();
+  }
+
+  /** The account's sign-in, without opening its token: undefined without a grant. */
+  async signIn(account: string): Promise<string | undefined> {
+    const row = await this.db
+      .prepare("SELECT token_hash FROM graph_grants WHERE account = ?1")
+      .bind(account)
+      .first<{ token_hash: string }>();
+    return row?.token_hash;
+  }
+
+  /** Deletes the account's token Microsoft refused, unless a new sign-in replaced it meanwhile. */
+  async revoke(account: string, signIn: string): Promise<void> {
+    await this.db.prepare("DELETE FROM graph_grants WHERE account = ?1 AND token_hash = ?2").bind(account, signIn).run();
   }
 }
 
@@ -106,16 +132,18 @@ export class OutlookGrants {
  * still in the Inbox and unread (`new-mail.ts`). Without a token nothing alerts.
  */
 export class OutlookCheck {
-  private readonly tokens = new Map<string, MicrosoftToken>();
+  private readonly tokens: AccessTokens<MicrosoftToken>;
   private readonly inboxes = new Map<string, string>();
 
-  constructor(private readonly now: () => number = () => Date.now()) {}
+  constructor(private readonly now: () => number = () => Date.now()) {
+    this.tokens = new AccessTokens(now);
+  }
 
   async arrival(grants: OutlookGrants, clientId: string, account: string, messageIds: string[]): Promise<Arrival> {
     try {
-      const grant = await grants.grant(account);
-      if (!grant) return NONE;
-      const token = await this.token(grants, clientId, account, grant.refreshToken);
+      const signIn = await grants.signIn(account);
+      if (signIn === undefined) return NONE;
+      const token = await this.tokens.token(account, signIn, () => this.refresh(grants, clientId, account, signIn));
       const inbox = await this.inbox(token, account);
       const states = await Promise.all(
         messageIds.map(async (id) => {
@@ -147,27 +175,33 @@ export class OutlookCheck {
       if (states.includes("retry")) return RETRY;
       return newestOf(states.filter((state) => typeof state === "object"));
     } catch (error) {
-      this.tokens.delete(account);
-      if (error instanceof OutlookGrantRevoked) {
-        await grants.remove(account);
-        return NONE;
-      }
+      this.tokens.forget(account);
+      if (error instanceof OutlookGrantRevoked) return NONE;
       console.warn(`Outlook check failed: ${String(error)}`);
       return RETRY;
     }
   }
 
   forget(account: string): void {
-    this.tokens.delete(account);
+    this.tokens.forget(account);
     this.inboxes.delete(account);
   }
 
-  private async token(grants: OutlookGrants, clientId: string, account: string, refreshToken: string): Promise<MicrosoftToken> {
-    const cached = this.tokens.get(account);
-    if (cached && cached.expiresAt - this.now() > TOKEN_MARGIN_MS) return cached;
-    const token = await refreshOutlookToken(refreshToken, clientId, this.now());
-    if (token.refreshToken && token.refreshToken !== refreshToken) await grants.rotate(account, token.refreshToken);
-    this.tokens.set(account, token);
+  /**
+   * Refreshes the token of the sign-in `signIn`, keeping the refresh token Microsoft hands out; one Microsoft refuses
+   * is forgotten, unless a new sign-in replaced it.
+   */
+  private async refresh(grants: OutlookGrants, clientId: string, account: string, signIn: string): Promise<MicrosoftToken> {
+    const grant = await grants.grant(account);
+    if (grant?.signIn !== signIn) throw new GrantChanged();
+    let token: MicrosoftToken;
+    try {
+      token = await refreshOutlookToken(grant.refreshToken, clientId, this.now());
+    } catch (error) {
+      if (error instanceof OutlookGrantRevoked) await grants.revoke(account, signIn);
+      throw error;
+    }
+    if (token.refreshToken && token.refreshToken !== grant.refreshToken) await grants.rotate(account, grant, token.refreshToken);
     return token;
   }
 

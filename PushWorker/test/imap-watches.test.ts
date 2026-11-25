@@ -6,6 +6,7 @@ import { Alerts } from "../src/fallback";
 import type { Env } from "../src/index";
 import { InboxWatches } from "../src/inbox-watches";
 import { MOST_AT_ONCE, pollWatches } from "../src/imap-poll";
+import { loginState, recordRefusal } from "../src/imap-logins";
 import { findWatch, WATCH_LIFETIME_MS } from "../src/imap-watches";
 import { RECHECK_AFTER_MS, registerWatch, unregisterWatch } from "../src/imap-routes";
 import { fakeImap, inboxServer, type Reply } from "./fake-imap";
@@ -40,6 +41,7 @@ const alerts = () =>
 beforeEach(async () => {
   handledPushes.clear();
   await env.DB.prepare("DELETE FROM imap_watches").run();
+  await env.DB.prepare("DELETE FROM imap_logins").run();
   await env.DB.prepare("DELETE FROM devices").run();
   apnsCalls = [];
   apnsReplies = new Map();
@@ -92,6 +94,12 @@ async function registerAt(now: number): Promise<Response> {
   return registerWatch(request("POST", watchBody()), testEnv, now, imap.connect);
 }
 
+/** The state of the login a watch uses, which every watch with that login shares. */
+async function stateOf(watchId: string) {
+  const watch = await findWatch(env.DB, watchId);
+  return watch && loginState(env.DB, watch.loginHash);
+}
+
 const poll = (now = NOW) => pollWatches(testEnv, alerts(), now, imap.connect, 0);
 
 describe("registering a watch", () => {
@@ -103,10 +111,10 @@ describe("registering a watch", () => {
     expect(watch).toMatchObject({
       account: "account-1",
       device: { token: DEVICE, environment: "sandbox" },
-      state: { kind: "watching" },
       inbox: { uidValidity: 7, uidNext: 100 },
       expiresAt: NOW + WATCH_LIFETIME_MS,
     });
+    expect(await stateOf(WATCH_ID)).toEqual({ kind: "watching" });
     expect(watch?.login).not.toContain("abcd");
     expect(watch?.secretHash).not.toContain(SECRET);
   });
@@ -130,7 +138,7 @@ describe("registering a watch", () => {
     server = inboxServer({ uidValidity: 7, uidNext: 100 }, "refused");
     imap.sessions.length = 0;
     expect((await register()).status).toBe(424);
-    expect((await findWatch(env.DB, WATCH_ID))?.state).toEqual({ kind: "refused", refusals: 1, refusedAt: NOW });
+    expect((await stateOf(WATCH_ID))).toEqual({ kind: "refused", refusals: 1, refusedAt: NOW });
     expect((await register({ watchId: OTHER_WATCH_ID })).status).toBe(424);
     expect(imap.sessions).toHaveLength(1);
   });
@@ -141,10 +149,62 @@ describe("registering a watch", () => {
     imap.sessions.length = 0;
     expect((await registerAt(NOW + RECHECK_AFTER_MS)).status).toBe(424);
     expect(imap.sessions).toHaveLength(1);
-    expect((await findWatch(env.DB, WATCH_ID))?.state).toMatchObject({ kind: "refused", refusals: 2 });
+    expect((await stateOf(WATCH_ID))).toMatchObject({ kind: "refused", refusals: 2 });
     server = inboxServer({ uidValidity: 7, uidNext: 104 });
     expect((await registerAt(NOW + 2 * RECHECK_AFTER_MS)).status).toBe(204);
-    expect(await findWatch(env.DB, WATCH_ID)).toMatchObject({ state: { kind: "watching" }, inbox: { uidNext: 104 } });
+    expect(await findWatch(env.DB, WATCH_ID)).toMatchObject({ inbox: { uidNext: 104 } });
+    expect(await stateOf(WATCH_ID)).toEqual({ kind: "watching" });
+  });
+
+  it("counts a refusal at registration on top of one another check recorded meanwhile", async () => {
+    server = inboxServer({ uidValidity: 7, uidNext: 100 }, "refused");
+    await register();
+    const watch = await findWatch(env.DB, WATCH_ID);
+    // A cron check refuses the login while the registration below is checking it.
+    const plain = server;
+    let cron: Promise<unknown> | undefined;
+    server = (tag, command) => {
+      if (command.startsWith("LOGIN")) cron ??= recordRefusal(env.DB, watch!.loginHash, NOW + RECHECK_AFTER_MS);
+      return plain(tag, command);
+    };
+    expect((await registerAt(NOW + RECHECK_AFTER_MS)).status).toBe(424);
+    await cron;
+    expect(await stateOf(WATCH_ID)).toMatchObject({ kind: "refused", refusals: 3 });
+  });
+
+  it("starts a watch refused at registration wherever the Inbox is once the server takes the login, without alerting", async () => {
+    server = inboxServer({ uidValidity: 7, uidNext: 100 }, "refused");
+    await register();
+    expect((await findWatch(env.DB, WATCH_ID))?.inbox).toBeNull();
+    server = inboxServer({ uidValidity: 7, uidNext: 102 });
+    await poll(NOW + 5 * 60_000);
+    expect(apnsCalls).toHaveLength(0);
+    expect((await findWatch(env.DB, WATCH_ID))?.inbox).toEqual({ uidValidity: 7, uidNext: 102 });
+    expect(await stateOf(WATCH_ID)).toEqual({ kind: "watching" });
+  });
+
+  it("keeps a watch's place in the Inbox when a registration finds its refused login taken again", async () => {
+    await register();
+    server = inboxServer({ uidValidity: 7, uidNext: 100 }, "refused");
+    await poll();
+    server = inboxServer({ uidValidity: 7, uidNext: 102 });
+    expect((await registerAt(NOW + RECHECK_AFTER_MS)).status).toBe(204);
+    expect((await findWatch(env.DB, WATCH_ID))?.inbox).toEqual({ uidValidity: 7, uidNext: 100 });
+    await poll(NOW + RECHECK_AFTER_MS);
+    expect(apnsCalls).toHaveLength(1);
+  });
+
+  it("copies the login's state onto its watches too, so the build before the login table stays safe", async () => {
+    const columns = () =>
+      env.DB.prepare("SELECT state, refusals, refused_at FROM imap_watches WHERE watch_id = ?1").bind(WATCH_ID).first();
+    server = inboxServer({ uidValidity: 7, uidNext: 100 }, "refused");
+    await register();
+    expect(await columns()).toEqual({ state: "refused", refusals: 1, refused_at: NOW });
+    await poll(NOW + 5 * 60_000);
+    expect(await columns()).toEqual({ state: "refused", refusals: 2, refused_at: NOW + 5 * 60_000 });
+    server = inboxServer({ uidValidity: 7, uidNext: 100 });
+    await poll(NOW + 30 * 60_000);
+    expect(await columns()).toEqual({ state: "watching", refusals: 0, refused_at: 0 });
   });
 
   it("answers 503 when the server can't be reached, so the app tries again", async () => {
@@ -181,6 +241,38 @@ describe("registering a watch", () => {
     expect(await findWatch(env.DB, WATCH_ID)).toBeDefined();
     await remove(SECRET);
     expect(await findWatch(env.DB, WATCH_ID)).toBeUndefined();
+  });
+});
+
+describe("moving login states to their own table", () => {
+  it("gives each login the state its watches held, a refusal winning where they disagreed", async () => {
+    const migration = env.TEST_MIGRATIONS.find((found) => found.name.startsWith("0011"));
+    const copy = migration?.queries.find((query) => query.includes("INSERT INTO imap_logins"));
+    expect(copy).toBeDefined();
+    const row = (watchId: string, loginHash: string, state: string, refusals: number, refusedAt: number) =>
+      env.DB.prepare(
+        `INSERT INTO imap_watches (watch_id, secret_hash, account, device_token, environment, login, login_hash, state,
+           refusals, refused_at, uid_validity, uid_next, expires_at)
+         VALUES (?1, 's', 'a', 't', 'sandbox', 'l', ?2, ?3, ?4, ?5, 7, 100, ?6)`,
+      ).bind(watchId, loginHash, state, refusals, refusedAt, NOW + WATCH_LIFETIME_MS);
+    await env.DB.batch([
+      row("w1", "agreed", "watching", 0, 0),
+      row("w2", "split", "watching", 0, 0),
+      row("w3", "split", "refused", 2, NOW),
+      row("w4", "refused", "refused", 1, NOW - 1),
+    ]);
+    await env.DB.prepare(copy!).run();
+    expect(await loginState(env.DB, "agreed")).toEqual({ kind: "watching" });
+    expect(await loginState(env.DB, "split")).toEqual({ kind: "refused", refusals: 2, refusedAt: NOW });
+    expect(await loginState(env.DB, "refused")).toEqual({ kind: "refused", refusals: 1, refusedAt: NOW - 1 });
+  });
+
+  it("takes a login whose watches have no state yet as watching", async () => {
+    await register();
+    await env.DB.prepare("DELETE FROM imap_logins").run();
+    server = inboxServer({ uidValidity: 7, uidNext: 101 });
+    await poll();
+    expect(apnsCalls).toHaveLength(1);
   });
 });
 
@@ -228,7 +320,7 @@ describe("polling", () => {
     await vi.waitUntil(() => apnsCalls.length === 1);
     await run;
     expect(imap.sessions).toHaveLength(1);
-    expect((await findWatch(env.DB, WATCH_ID))?.inbox.uidNext).toBe(101);
+    expect((await findWatch(env.DB, WATCH_ID))?.inbox?.uidNext).toBe(101);
   });
 
   it("tells the device to take down alerts when mail is read or deleted in another app, without alerting", async () => {
@@ -270,7 +362,7 @@ describe("polling", () => {
     await poll();
     expect(apnsCalls).toHaveLength(0);
     expect(imap.sessions[0]?.lines).toContain("g4 UID FETCH 100:* (UID FLAGS BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)])");
-    expect((await findWatch(env.DB, WATCH_ID))?.inbox.uidNext).toBe(104);
+    expect((await findWatch(env.DB, WATCH_ID))?.inbox?.uidNext).toBe(104);
   });
 
   it("alerts with the newest email's decoded sender and subject", async () => {
@@ -289,7 +381,7 @@ describe("polling", () => {
     server = (tag, command) => (command.startsWith("UID FETCH") ? [`${tag} BAD no`] : plain(tag, command));
     await poll();
     expect(apnsCalls).toHaveLength(0);
-    expect((await findWatch(env.DB, WATCH_ID))?.inbox.uidNext).toBe(100);
+    expect((await findWatch(env.DB, WATCH_ID))?.inbox?.uidNext).toBe(100);
     server = plain;
     await poll();
     expect(apnsCalls).toHaveLength(1);
@@ -323,13 +415,13 @@ describe("polling", () => {
     await register();
     server = inboxServer({ uidValidity: 7, uidNext: 100 }, "refused");
     await poll();
-    expect((await findWatch(env.DB, WATCH_ID))?.state).toEqual({ kind: "refused", refusals: 1, refusedAt: NOW });
+    expect((await stateOf(WATCH_ID))).toEqual({ kind: "refused", refusals: 1, refusedAt: NOW });
     imap.sessions.length = 0;
     await poll(NOW + 60_000);
     expect(imap.sessions).toHaveLength(0);
     await poll(NOW + 5 * 60_000);
     expect(imap.sessions).toHaveLength(1);
-    expect((await findWatch(env.DB, WATCH_ID))?.state).toMatchObject({ kind: "refused", refusals: 2 });
+    expect((await stateOf(WATCH_ID))).toMatchObject({ kind: "refused", refusals: 2 });
     await poll(NOW + 10 * 60_000);
     expect(imap.sessions).toHaveLength(1);
     await poll(NOW + 20 * 60_000);
@@ -342,7 +434,8 @@ describe("polling", () => {
     await poll();
     server = inboxServer({ uidValidity: 7, uidNext: 102 });
     await poll(NOW + 5 * 60_000);
-    expect(await findWatch(env.DB, WATCH_ID)).toMatchObject({ state: { kind: "watching" }, inbox: { uidNext: 102 } });
+    expect(await findWatch(env.DB, WATCH_ID)).toMatchObject({ inbox: { uidNext: 102 } });
+    expect(await stateOf(WATCH_ID)).toEqual({ kind: "watching" });
     expect(apnsCalls).toHaveLength(1);
   });
 
@@ -351,11 +444,11 @@ describe("polling", () => {
     await register({ watchId: OTHER_WATCH_ID, deviceToken: OTHER_DEVICE });
     server = inboxServer({ uidValidity: 7, uidNext: 100 }, "refused");
     await poll();
-    expect((await findWatch(env.DB, OTHER_WATCH_ID))?.state.kind).toBe("refused");
+    expect((await stateOf(OTHER_WATCH_ID))?.kind).toBe("refused");
     server = inboxServer({ uidValidity: 7, uidNext: 100 });
     await poll(NOW + 5 * 60_000);
-    expect((await findWatch(env.DB, WATCH_ID))?.state.kind).toBe("watching");
-    expect((await findWatch(env.DB, OTHER_WATCH_ID))?.state.kind).toBe("watching");
+    expect((await stateOf(WATCH_ID))?.kind).toBe("watching");
+    expect((await stateOf(OTHER_WATCH_ID))?.kind).toBe("watching");
   });
 
   it("alerts on the next check when APNs failed", async () => {
@@ -363,11 +456,11 @@ describe("polling", () => {
     server = inboxServer({ uidValidity: 7, uidNext: 101 });
     apnsReplies.set(DEVICE, new Response(JSON.stringify({ reason: "InternalServerError" }), { status: 500 }));
     await poll();
-    expect((await findWatch(env.DB, WATCH_ID))?.inbox.uidNext).toBe(100);
+    expect((await findWatch(env.DB, WATCH_ID))?.inbox?.uidNext).toBe(100);
     apnsReplies.clear();
     await poll();
     expect(apnsCalls).toHaveLength(2);
-    expect((await findWatch(env.DB, WATCH_ID))?.inbox.uidNext).toBe(101);
+    expect((await findWatch(env.DB, WATCH_ID))?.inbox?.uidNext).toBe(101);
   });
 
   it("forgets a device APNs says is gone", async () => {
@@ -457,7 +550,7 @@ describe("holding the Inboxes", () => {
     server = inboxServer({ uidValidity: 7, uidNext: 100 }, "refused");
     const watches = holding(0);
     await Promise.all(await watches.start(NOW));
-    expect((await findWatch(env.DB, WATCH_ID))?.state).toEqual({ kind: "refused", refusals: 1, refusedAt: NOW });
+    expect((await stateOf(WATCH_ID))).toEqual({ kind: "refused", refusals: 1, refusedAt: NOW });
     expect(await watches.start(NOW + 60_000)).toHaveLength(0);
     const again = await watches.start(NOW + 5 * 60_000);
     expect(again).toHaveLength(1);

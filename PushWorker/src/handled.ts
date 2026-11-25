@@ -53,32 +53,48 @@ async function send(env: Env, device: Device, target: Target, signer: ApnsSigner
 export const HANDLED_GAP_MS = 20_000;
 
 /**
- * Spaces the quiet pushes to each device about each account, within this isolate: the first goes at once, and the changes in the next
- * `HANDLED_GAP_MS` go as one push at the end of it, so a burst of reads costs the device two wakes and the last change
- * is never left out. Another isolate may send its own; that only costs a wake.
+ * Where a device's quiet pushes about one account stand: the last went `at`, or one is queued to go at the end of the
+ * gap, carrying the newest change folded into it.
+ */
+type Spacing = { kind: "sent"; at: number } | { kind: "queued"; target: Target; flush: Promise<void> };
+
+/**
+ * Spaces the quiet pushes to each device about each account, within this isolate: the first goes at once, and the
+ * changes in the next `HANDLED_GAP_MS` go as one push at the end of it, carrying the newest, so a burst of reads costs
+ * the device two wakes and the last change is never left out. Another isolate may send its own; that only costs a
+ * wake.
  */
 export class HandledPushes {
-  /** When each device last got one for each account, and whether one is waiting to go after it. */
-  private readonly devices = new Map<string, { sentAt: number; waiting: boolean }>();
+  /** Each device's spacing for each account, by `key`. */
+  private readonly devices = new Map<string, Spacing>();
 
   constructor(
     private readonly now: () => number = () => Date.now(),
     private readonly wait: (ms: number) => Promise<void> = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   ) {}
 
-  /** Sends now, or once the gap since the last is up; resolves once the push went or was folded into a waiting one. */
+  /** Sends now, or once the gap since the last is up; resolves once the push that carries this change went. */
   async send(env: Env, device: Device, target: Target, signer: ApnsSigner = signerFor(env)): Promise<void> {
     const key = `${device.token} ${"accountID" in target ? target.accountID : target.account}`;
-    const last = this.devices.get(key);
+    const spacing = this.devices.get(key);
     const now = this.now();
-    if (last && now - last.sentAt < HANDLED_GAP_MS) {
-      if (last.waiting) return;
-      last.waiting = true;
-      await this.wait(last.sentAt + HANDLED_GAP_MS - now);
+    if (spacing?.kind === "queued") {
+      this.devices.set(key, { ...spacing, target: newer(spacing.target, target) });
+      return spacing.flush;
     }
-    this.devices.set(key, { sentAt: this.now(), waiting: false });
-    if (this.devices.size > 1_000) this.forgetOld();
-    await send(env, device, target, signer);
+    if (spacing === undefined || now - spacing.at >= HANDLED_GAP_MS) {
+      this.sent(key);
+      await send(env, device, target, signer);
+      return;
+    }
+    const flush = (async () => {
+      await this.wait(spacing.at + HANDLED_GAP_MS - now);
+      const queued = this.devices.get(key);
+      this.sent(key);
+      await send(env, device, queued?.kind === "queued" ? queued.target : target, signer);
+    })();
+    this.devices.set(key, { kind: "queued", target, flush });
+    return flush;
   }
 
   /** Forgets every device, as a test does between cases. */
@@ -86,12 +102,23 @@ export class HandledPushes {
     this.devices.clear();
   }
 
+  private sent(key: string): void {
+    this.devices.set(key, { kind: "sent", at: this.now() });
+    if (this.devices.size > 1_000) this.forgetOld();
+  }
+
   private forgetOld(): void {
     const now = this.now();
-    for (const [key, entry] of this.devices) {
-      if (!entry.waiting && now - entry.sentAt >= HANDLED_GAP_MS) this.devices.delete(key);
+    for (const [key, spacing] of this.devices) {
+      if (spacing.kind === "sent" && now - spacing.at >= HANDLED_GAP_MS) this.devices.delete(key);
     }
   }
+}
+
+/** The newer of two changes to one account: Gmail's by history ID, which can arrive out of order; else the later. */
+function newer(held: Target, next: Target): Target {
+  if ("historyId" in held && "historyId" in next && BigInt(held.historyId) > BigInt(next.historyId)) return held;
+  return next;
 }
 
 /** Shared by everything this isolate does. */
