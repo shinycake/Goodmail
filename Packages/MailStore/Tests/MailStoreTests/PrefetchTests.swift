@@ -1,9 +1,9 @@
 import Foundation
 import GRDB
-import MailCore
 import Synchronization
 import Testing
 
+@testable import MailCore
 @testable import MailStore
 
 /// Body prefetch against the real store and a fake server: it fetches the newest threads that lack bodies, no
@@ -277,6 +277,57 @@ struct PrefetchTests {
         #expect(server.messageRequests == ["t1"], "the second start joined the first run")
     }
 
+    @Test(.timeLimit(.minutes(1)))
+    func startingWhileACancelledRunWindsDownRunsAgain() async throws {
+        try seed("t1", hoursAgo: 1)
+        try seed("t2", hoursAgo: 2)
+        let gate = Gate()
+        let (arrivals, arrived) = AsyncStream<String>.makeStream()
+        server.onMessagesRequested { thread in
+            arrived.yield(thread)
+            if thread == "t1" { await gate.wait() }
+        }
+        let (finished, signal) = AsyncStream<Void>.makeStream()
+        let prefetcher = prefetcher { signal.yield() }
+        await prefetcher.start()
+        var requests = arrivals.makeAsyncIterator()
+        _ = await requests.next()
+        await prefetcher.cancel()
+        await prefetcher.start()
+        await gate.open()
+
+        var runs = finished.makeAsyncIterator()
+        await runs.next(isolation: #isolation)
+        await runs.next(isolation: #isolation)
+        #expect(try cached() == ["t1", "t2"], "the start after the cancel began a run of its own")
+    }
+
+    @Test(.timeLimit(.minutes(1)))
+    func cancellingAgainDropsAStartThatWaitedForTheRunToStop() async throws {
+        try seed("t1", hoursAgo: 1)
+        try seed("t2", hoursAgo: 2)
+        let gate = Gate()
+        let (arrivals, arrived) = AsyncStream<String>.makeStream()
+        server.onMessagesRequested { thread in
+            arrived.yield(thread)
+            await gate.wait()
+        }
+        let (finished, signal) = AsyncStream<Void>.makeStream()
+        let prefetcher = prefetcher { signal.yield() }
+        await prefetcher.start()
+        var requests = arrivals.makeAsyncIterator()
+        _ = await requests.next()
+        await prefetcher.cancel()
+        await prefetcher.start()
+        await prefetcher.cancel()
+        await gate.open()
+
+        var runs = finished.makeAsyncIterator()
+        await runs.next(isolation: #isolation)
+        #expect(await prefetcher.isIdle, "the second cancel took back the start before it")
+        #expect(server.messageRequests == ["t1"])
+    }
+
     @Test func cancelStopsARunBeforeItFetches() async throws {
         try seed("t1", hoursAgo: 1)
         let prefetcher = prefetcher()
@@ -301,5 +352,22 @@ private final class SteppingPath: NetworkPath {
     }
     var allowance: NetworkAllowance {
         remaining.withLock { $0.isEmpty ? rest : $0.removeFirst() }
+    }
+}
+
+/// Holds whoever waits until it opens.
+private actor Gate {
+    private var isOpen = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        if isOpen { return }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+
+    func open() {
+        isOpen = true
+        for waiter in waiters { waiter.resume() }
+        waiters.removeAll()
     }
 }

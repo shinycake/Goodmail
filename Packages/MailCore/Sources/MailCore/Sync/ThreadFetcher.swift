@@ -46,15 +46,15 @@ public actor ThreadFetcher {
     private let now: @Sendable () -> Date
     private struct Fetch {
         /// Tells this fetch from one that replaced it after it was cancelled.
-        let number: Int
+        let attempt: UUID
         let task: Task<Void, any Error>
         /// Why it runs now, which decides how its messages are stored when it finishes.
         var kind: Kind
     }
 
-    /// The fetch under way for each thread: a read ahead's failure is dropped, unless a load joined it.
+    /// The fetch under way for each thread: a read ahead's failure is dropped, unless a load joined it. A cancelled
+    /// fetch leaves at once, though its task may take a while to stop, so it holds neither its thread nor a slot.
     private var fetches: [ThreadSummary.ID: Fetch] = [:]
-    private var started = 0
     /// Rows in view waiting for a fetch, the latest last.
     private var waiting: [ThreadSummary.ID] = []
 
@@ -75,8 +75,7 @@ public actor ThreadFetcher {
     /// Fetches the thread's messages into the store as the reader's, or waits for the fetch already under way.
     /// Leaving doesn't stop a fetch others may be waiting on; it finishes and fills the cache.
     public func load(_ thread: ThreadSummary.ID) async throws {
-        // A read ahead cancelled when the app left the foreground may not have stopped yet; the reader gets a new one.
-        guard let running = fetches[thread], !running.task.isCancelled else {
+        guard let running = fetches[thread] else {
             return try await start(thread, as: .load).value
         }
         // The reader is waiting on it now, so leaving the foreground no longer cancels it, and it stores the messages
@@ -122,14 +121,23 @@ public actor ThreadFetcher {
     }
 
     /// Stops reading ahead, as when the app leaves the foreground. Fetches the reader opened go on.
+    ///
+    /// A cancelled fetch leaves `fetches` at once and its task is left to stop on its own. That is safe: once
+    /// cancelled it stores nothing, since it checks for cancellation on this actor just before it saves, and it can't
+    /// remove the fetch that replaced it, which has another `attempt`. What it costs is its one request: the task
+    /// ends when the provider answers, gives up, or stops on cancellation as URLSession requests do, and each time
+    /// the app leaves the foreground leaves at most one such request per thread.
     public func cancelReadAhead() {
         waiting.removeAll()
-        for (_, fetch) in fetches {
-            if case .readAhead = fetch.kind { fetch.task.cancel() }
+        for (thread, fetch) in fetches {
+            guard case .readAhead = fetch.kind else { continue }
+            fetch.task.cancel()
+            fetches[thread] = nil
         }
     }
 
-    /// Waits until no fetch is under way, as after reading ahead to see what was stored.
+    /// Waits until no fetch is under way, as after reading ahead to see what was stored. A cancelled fetch stores
+    /// nothing, so it isn't waited for.
     public func idle() async {
         while let fetch = fetches.values.first { _ = try? await fetch.task.value }
     }
@@ -151,26 +159,25 @@ public actor ThreadFetcher {
 
     @discardableResult
     private func start(_ thread: ThreadSummary.ID, as kind: Kind) -> Task<Void, any Error> {
-        started += 1
-        let number = started
+        let attempt = UUID()
         let task = Task {
             defer {
-                if fetches[thread]?.number == number { fetches[thread] = nil }
+                if fetches[thread]?.attempt == attempt { fetches[thread] = nil }
                 startWaiting()
             }
-            try await fetch(thread)
+            try await fetch(thread, attempt: attempt)
         }
-        fetches[thread] = Fetch(number: number, task: task, kind: kind)
+        fetches[thread] = Fetch(attempt: attempt, task: task, kind: kind)
         return task
     }
 
-    private func fetch(_ thread: ThreadSummary.ID) async throws {
+    private func fetch(_ thread: ThreadSummary.ID, attempt: UUID) async throws {
         let fetchedAt = now()
         let messages = try await provider(thread.accountID).messages(inThread: thread.threadID)
         try Task.checkCancellation()
         // Not cancelled, so this is still the thread's fetch; a load may have joined it meanwhile.
-        guard let kind = fetches[thread]?.kind else { return }
-        switch kind {
+        guard let fetch = fetches[thread], fetch.attempt == attempt else { return }
+        switch fetch.kind {
         case .load: try store.save(messages, inThread: thread, fetchedAt: fetchedAt, accessedAt: now())
         case .readAhead where messages.isEmpty: break
         case .readAhead: try store.savePrefetched(messages, inThread: thread, fetchedAt: fetchedAt)

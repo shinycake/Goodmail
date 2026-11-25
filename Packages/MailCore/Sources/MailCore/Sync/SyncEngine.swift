@@ -19,10 +19,10 @@ public actor SyncEngine {
     private var addressBookAttempt: Date?
     /// How long an address book is kept before it is fetched again.
     public static let addressBookAge: TimeInterval = 86_400
-    /// How many signature edits this engine has stored, so a sync can tell an edit overtook its read.
-    private var signatureEdits = 0
-    /// How many label reads this engine has started, so an older read never replaces the labels a newer one stored.
-    private var labelReads = 0
+    /// A sync's read of the signature is dropped when an edit overtook it.
+    private var signatureReads = OvertakingWrites()
+    /// An older read of the labels never replaces the labels a newer one stored.
+    private var labelReads = LatestRead()
 
     public init(
         accountID: AccountID,
@@ -83,24 +83,28 @@ public actor SyncEngine {
         return SearchPage(ids: page.threads.map(\.id), next: page.nextPageToken.map { [accountID: $0] } ?? [:])
     }
 
-    /// The resync's queries, in order: Inbox first so the list fills quickly. The Inbox alone for its head.
-    static func stages(startedAt: Date, scope: SyncScope = .window(.handheld)) -> [ThreadQuery] {
+    /// What a resync lists, in order, from the one set of long-window labels its sweep then covers: Inbox first so
+    /// the list fills quickly, and the Inbox alone for its head.
+    static func plan(startedAt: Date, scope: SyncScope = .window(.handheld)) -> Resync.Plan {
         let window = scope.offlineWindow
+        let labels = OfflineWindow.longWindowLabels
         let long = startedAt.addingTimeInterval(-window.longWindow)
-        switch scope {
-        case .window:
-            return OfflineWindow.longWindowLabels.map { ThreadQuery(label: $0, since: long) }
-                + [ThreadQuery(since: startedAt.addingTimeInterval(-window.shortWindow))]
-        case .inboxHead:
-            return [ThreadQuery(label: "INBOX", since: long)]
-        }
+        let queries =
+            switch scope {
+            case .window:
+                labels.map { ThreadQuery(label: $0, since: long) }
+                    + [ThreadQuery(since: startedAt.addingTimeInterval(-window.shortWindow))]
+            case .inboxHead:
+                [ThreadQuery(label: SystemLabel.inbox, since: long)]
+            }
+        return Resync.Plan(queries: queries, sweeping: Set(labels))
     }
 
     /// Makes `text` the account's signature: at the service first when it keeps one, so a refused edit changes
     /// nothing, then on the device. Empty removes it.
     public func setSignature(_ text: String) async throws {
         if let service = provider as? any SendAsSyncing { try await service.setSignature(text) }
-        signatureEdits += 1
+        signatureReads.wrote()
         try store.apply(StoreChanges(accountID: accountID, signature: text))
     }
 
@@ -128,10 +132,9 @@ public actor SyncEngine {
 
     /// Reads and stores the account's labels, unless a newer read started meanwhile.
     func refreshLabels() async throws {
-        labelReads += 1
-        let read = labelReads
+        let ticket = labelReads.begin()
         let labels = try await provider.labels()
-        guard read == labelReads else { return }
+        guard labelReads.isLatest(ticket) else { return }
         try store.apply(StoreChanges(accountID: accountID, labels: labels))
     }
 
@@ -139,16 +142,15 @@ public actor SyncEngine {
         // A signature and aliases that can't be read never hold up mail; the last ones stay. A signature read before
         // an edit made meanwhile is older than the edit, so it's dropped, as are labels read before a label edit's
         // own read.
-        let editsBeforeRead = signatureEdits
-        labelReads += 1
-        let labelRead = labelReads
+        let signatureRead = signatureReads.read()
+        let labelRead = labelReads.begin()
         async let read = Self.sendAs(from: provider)
         let labels = try await provider.labels()
         let sendAs = await read
         try store.apply(
             StoreChanges(
-                accountID: accountID, labels: labelRead == labelReads ? labels : nil,
-                signature: signatureEdits == editsBeforeRead ? sendAs?.signature : nil, aliases: sendAs?.aliases))
+                accountID: accountID, labels: labelReads.isLatest(labelRead) ? labels : nil,
+                signature: signatureReads.isCurrent(signatureRead) ? sendAs?.signature : nil, aliases: sendAs?.aliases))
         if case .window = scope { try await refreshAddressBookIfOld() }
         switch try store.syncState(for: accountID) {
         case nil:
@@ -195,51 +197,43 @@ public actor SyncEngine {
             startedAt: startedAt,
             generation: Int(startedAt.timeIntervalSince1970)
         )
-        try store.apply(StoreChanges(accountID: accountID, state: .resyncing(resync)))
+        try store.apply(StoreChanges(accountID: accountID, progress: .resyncing(resync)))
         return resync
     }
 
     private func fillWindow(from start: Resync) async throws {
         var resync = start
-        let stages = Self.stages(startedAt: resync.startedAt, scope: scope)
-        while resync.stage < stages.count {
-            let fetchedAt = now()
-            let page = try await provider.threads(matching: stages[resync.stage], pageToken: resync.pageToken)
-            resync.stored += page.threads.count
-            if let next = page.nextPageToken, !isFull(resync) {
-                resync.pageToken = next
-            } else {
-                resync.stage += 1
-                resync.pageToken = nil
+        let sweeping: Set<String>
+        listing: while true {
+            switch resync.position {
+            case .unplanned:
+                // Planned here, not when it began, so a resync saved before its first page lists what this build
+                // lists.
+                resync.plan(Self.plan(startedAt: resync.startedAt, scope: scope))
+            case .listing(let query, let pageToken, _, _):
+                let fetchedAt = now()
+                let page = try await provider.threads(matching: query, pageToken: pageToken)
+                resync.record(page, limit: scope.resyncLimit)
+                try store.apply(
+                    StoreChanges(
+                        accountID: accountID, upserts: page.threads, progress: .resyncing(resync),
+                        fetchedAt: fetchedAt))
+            case .listed(let labels):
+                sweeping = labels
+                break listing
             }
-            try store.apply(
-                StoreChanges(
-                    accountID: accountID,
-                    upserts: page.threads,
-                    generation: resync.generation,
-                    state: .resyncing(resync),
-                    fetchedAt: fetchedAt
-                )
-            )
         }
 
+        // The labels the plan listed for the long window, not this build's, which may list others.
         let sweep = Sweep(
             generation: resync.generation,
             allMailSince: resync.startedAt.addingTimeInterval(-scope.offlineWindow.shortWindow),
             longWindowSince: resync.startedAt.addingTimeInterval(-scope.offlineWindow.longWindow),
-            longWindowLabels: Set(OfflineWindow.longWindowLabels)
+            longWindowLabels: sweeping
         )
-        try store.apply(StoreChanges(accountID: accountID, sweep: sweep, state: .current(cursor: resync.cursor)))
+        try store.apply(StoreChanges(accountID: accountID, progress: .resynced(sweep, cursor: resync.cursor)))
         // Catch what changed while the window was filling.
         try await syncChanges(since: resync.cursor)
-    }
-
-    /// Whether the resync holds as many threads as the scope keeps.
-    private func isFull(_ resync: Resync) -> Bool {
-        switch scope {
-        case .window: false
-        case .inboxHead(let limit): resync.stored >= limit
-        }
     }
 
     /// Returns the threads it stored.
@@ -256,7 +250,7 @@ public actor SyncEngine {
                 accountID: accountID,
                 upserts: fetch.found,
                 deletions: fetch.missing,
-                state: .current(cursor: changes.cursor),
+                progress: .current(cursor: changes.cursor),
                 fetchedAt: fetchedAt
             )
         )

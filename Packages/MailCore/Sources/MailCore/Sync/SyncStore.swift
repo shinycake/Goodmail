@@ -9,45 +9,6 @@ public enum SyncState: Codable, Equatable, Sendable {
     case current(cursor: String)
 }
 
-public struct Resync: Codable, Equatable, Sendable {
-    /// Taken before the first page, so changes made while resyncing are caught right after it.
-    public var cursor: String
-    public var startedAt: Date
-    /// Stamped on every thread this resync stores; threads in the window without it are gone (see `Sweep`).
-    public var generation: Int
-    public var stage: Int
-    public var pageToken: String?
-    /// How many threads it has stored so far, for a scope that stops at a number (`SyncScope.inboxHead`).
-    public var stored: Int
-
-    public init(
-        cursor: String, startedAt: Date, generation: Int, stage: Int = 0, pageToken: String? = nil, stored: Int = 0
-    ) {
-        self.cursor = cursor
-        self.startedAt = startedAt
-        self.generation = generation
-        self.stage = stage
-        self.pageToken = pageToken
-        self.stored = stored
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case cursor, startedAt, generation, stage, pageToken, stored
-    }
-
-    /// A resync saved before `stored` existed counts from nothing, which only a scope that stops at a number reads.
-    public init(from decoder: any Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.init(
-            cursor: try container.decode(String.self, forKey: .cursor),
-            startedAt: try container.decode(Date.self, forKey: .startedAt),
-            generation: try container.decode(Int.self, forKey: .generation),
-            stage: try container.decode(Int.self, forKey: .stage),
-            pageToken: try container.decodeIfPresent(String.self, forKey: .pageToken),
-            stored: try container.decodeIfPresent(Int.self, forKey: .stored) ?? 0)
-    }
-}
-
 /// Removes an account's threads that a finished resync covered but didn't see: deleted, or moved out of the
 /// window, while the cursor was expired. Threads outside the window are older mail fetched by backfill.
 public struct Sweep: Equatable, Sendable {
@@ -66,7 +27,25 @@ public struct Sweep: Equatable, Sendable {
     }
 }
 
-/// One atomic write for one account. Every field is optional work; `state` lands with the mail it covers.
+/// Where a write takes an account's sync, landing in the same transaction as the mail it covers.
+public enum SyncProgress: Sendable {
+    /// A page of a resync landed: its threads carry the resync's generation, and the resync goes on from here.
+    case resyncing(Resync)
+    /// The resync listed everything: `sweep` drops what it didn't see, and the account is current as of `cursor`.
+    case resynced(Sweep, cursor: String)
+    /// Up to date as of `cursor`; the next sync asks for changes since it.
+    case current(cursor: String)
+
+    /// The sync state saved with the write.
+    public var state: SyncState {
+        switch self {
+        case .resyncing(let resync): .resyncing(resync)
+        case .resynced(_, let cursor), .current(let cursor): .current(cursor: cursor)
+        }
+    }
+}
+
+/// One atomic write for one account. Every field is optional work; `progress` lands with the mail it covers.
 public struct StoreChanges: Sendable {
     public var accountID: AccountID
     public var upserts: [ThreadSummary] = []
@@ -79,10 +58,7 @@ public struct StoreChanges: Sendable {
     public var aliases: [Contact]?
     /// Replaces the account's address book.
     public var addressBook: AddressBook?
-    /// Stamped on `upserts` during a resync.
-    public var generation: Int?
-    public var sweep: Sweep?
-    public var state: SyncState?
+    public var progress: SyncProgress?
     /// When the fetch that produced `upserts` began. Actions sent after it aren't in them yet (ADR-008).
     public var fetchedAt: Date?
 
@@ -94,9 +70,7 @@ public struct StoreChanges: Sendable {
         signature: String? = nil,
         aliases: [Contact]? = nil,
         addressBook: AddressBook? = nil,
-        generation: Int? = nil,
-        sweep: Sweep? = nil,
-        state: SyncState? = nil,
+        progress: SyncProgress? = nil,
         fetchedAt: Date? = nil
     ) {
         self.accountID = accountID
@@ -106,9 +80,7 @@ public struct StoreChanges: Sendable {
         self.signature = signature
         self.aliases = aliases
         self.addressBook = addressBook
-        self.generation = generation
-        self.sweep = sweep
-        self.state = state
+        self.progress = progress
         self.fetchedAt = fetchedAt
     }
 }

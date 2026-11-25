@@ -87,7 +87,7 @@ struct NewMailFetchTests {
             .appending(path: "NewMailFetchTests-\(UUID().uuidString)").appending(path: "mail.sqlite")
         database = try MailDatabase(url: url)
         try database.save(account)
-        try database.apply(StoreChanges(accountID: account.id, state: .current(cursor: "1")))
+        try database.apply(StoreChanges(accountID: account.id, progress: .current(cursor: "1")))
     }
 
     private func fetch(_ provider: ChangedThreads) -> NewMailFetch {

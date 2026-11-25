@@ -2,8 +2,9 @@
 /// search, a count of picked rows, or a screen presented over the window, which moves nothing.
 extension WindowNavigation {
     /// The conversation read, as it was opened: from which list, the rows it listed then, and the row itself when the
-    /// window had it. Replaced whole each time a conversation opens, and counted only while the window reads that
-    /// conversation from that list, so where the reader goes after it never follows another list's rows.
+    /// window had it. Replaced whole each time a conversation opens, kept with the conversation read (`Course`), and
+    /// counted only while the window reads it from that list, so where the reader goes after it never follows another
+    /// list's rows.
     struct Opened: Equatable, Sendable {
         /// A list a conversation opens from: a list's own rows, or search's over them.
         struct From: Equatable, Sendable {
@@ -11,7 +12,6 @@ extension WindowNavigation {
             let searching: Bool
         }
 
-        let thread: ThreadSummary.ID
         let from: From
         let rows: [ThreadSummary.ID]
         let row: ThreadSummary?
@@ -31,10 +31,10 @@ extension WindowNavigation {
         case .thread(let thread, let mailbox):
             // The one read already changes nothing (R2), and a message window reads only its own.
             guard state.layout == .viewer, state.reading?.thread != thread else {
-                pending = nil
+                endLookUp()
                 return []
             }
-            pending = Awaited(reading: Reading(thread, in: mailbox), source: source)
+            beginLookUp(Awaited(reading: Reading(thread, in: mailbox), source: source))
             return [.lookUp(thread)]
         case .mailbox(let mailbox):
             return show(.mailbox(mailbox), in: context)
@@ -52,8 +52,8 @@ extension WindowNavigation {
             // Another pick moves the window on, though the reader may be closed already (R9). A pick of none doesn't:
             // after a pick is put away the list reads the row after it, which a pick of none closes and so moves the
             // window on anyway, or picks nothing, so none then is only the put-away rows leaving.
-            if count > 0 { departure = nil }
-            state.closeReader()
+            if count > 0 { endWayBack() }
+            move { $0.closeReader() }
             return [.showPicked(count)]
         case .compose, .draft, .answer, .changeLabels, .move, .newSmartMailbox, .editSmartMailbox, .settings,
             .signInAgain, .newWindow, .receiveTransfer:
@@ -69,11 +69,11 @@ extension WindowNavigation {
         _ summary: ThreadSummary, from rows: [ThreadSummary.ID], searching: Bool, in context: Context
     ) {
         guard let pending, pending.reading.thread == summary.id else { return }
-        self.pending = nil
+        endLookUp()
         switch pending.source {
         case .window:
-            opened = Opened(thread: summary.id, from: source(searching: searching), rows: rows, row: summary)
-            state.read(pending.reading)
+            let opening = Opened(from: source(searching: searching), rows: rows, row: summary)
+            move(opening: opening) { $0.read(pending.reading) }
         case .outside:
             reveal(summary, routedTo: pending.reading.mailbox, from: rows, in: context)
         }
@@ -84,9 +84,11 @@ extension WindowNavigation {
     mutating func show(_ list: WindowState.List, in context: Context) -> [Effect] {
         guard state.layout == .viewer else { return [] }
         // A list asked for again ends a lookup under way too.
-        pending = nil
-        state.list = list
-        state.place = .list(reading: nil)
+        endLookUp()
+        move {
+            $0.list = list
+            $0.place = .list(reading: nil)
+        }
         return context.arrangement == .columns ? [.showList] : []
     }
 
@@ -100,7 +102,7 @@ extension WindowNavigation {
             case .scheduled, .snoozed, .smart: .mailbox(.inbox)
             }
         let shown = show(list, in: context)
-        departure = nil
+        endWayBack()
         return shown + [.beginSearch(query)]
     }
 }

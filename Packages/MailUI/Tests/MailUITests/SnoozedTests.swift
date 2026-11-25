@@ -57,7 +57,6 @@ final class NoStore: MailCommands.Store, @unchecked Sendable {
     func enqueue(_ message: OutgoingMessage) throws {}
     func cancel(_ id: Draft.ID) throws -> OutgoingMessage? { nil }
     func dueMessages(for account: AccountID, by date: Date) throws -> [OutgoingMessage] { [] }
-    func nextSendDate(for account: AccountID) throws -> Date? { nil }
     func uploadingMessages(for account: AccountID) throws -> [OutgoingMessage] { [] }
     func update(_ id: Draft.ID, from expected: OutgoingMessage.Delivery, to message: OutgoingMessage?) throws -> Bool {
         false

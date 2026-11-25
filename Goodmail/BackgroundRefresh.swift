@@ -35,7 +35,8 @@ nonisolated struct BackgroundRefresh: Sendable {
         }
     }
 
-    func schedule() {
+    /// Asks for the next refresh. It reads the database for what falls due next, so it runs off the main actor.
+    @concurrent func schedule() async {
         let request = BGAppRefreshTaskRequest(identifier: Self.taskID)
         // A scheduled message or snoozed thread due sooner asks for the refresh by its time; iOS still decides when
         // it runs.
@@ -58,7 +59,7 @@ nonisolated struct BackgroundRefresh: Sendable {
         let completion = Completion(task)
         let sync = Task {
             guard let refresh = await waitForRefresh() else { return completion.finish(success: false) }
-            refresh.schedule()
+            await refresh.schedule()
             let success = await BackgroundDatabaseWork.shared.run("Background refresh") {
                 do {
                     try await refresh.model.syncAll(prefetch: false)

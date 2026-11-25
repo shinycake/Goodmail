@@ -2,8 +2,13 @@ public import Foundation
 import GRDB
 public import MailCore
 
+#if canImport(os)
+    import os
+#endif
+
 /// A message's delivery is two columns: `failure` holds a failed message's reason and `upload` an uploading one's
-/// attempt; a queued message has neither. Only `Delivery+Columns` below reads or writes them.
+/// attempt; a queued message has neither, and no message has both (`v37-delivery-checks`). Only the `Delivery`
+/// extension below reads or writes them, or says what matches them.
 extension MailDatabase: OutgoingStore {
     /// An account that isn't on the device, as after it was removed.
     public struct AccountMissing: Error, Equatable {
@@ -100,25 +105,18 @@ extension MailDatabase: OutgoingStore {
     public func dueMessages(for account: AccountID, by date: Date) throws -> [OutgoingMessage] {
         let queued = OutgoingMessage.Delivery.queued.condition
         return try pool.read { db in
-            try Self.outgoing(
+            try Self.readableOutgoing(
                 db, sql: "WHERE accountID = ? AND \(queued.sql) AND sendAt <= ? ORDER BY sendAt",
                 arguments: [account.rawValue] + queued.arguments + [date])
         }
     }
 
-    public func nextSendDate(for account: AccountID) throws -> Date? {
-        let queued = OutgoingMessage.Delivery.queued.condition
-        return try pool.read { db in
-            try Date.fetchOne(
-                db, sql: "SELECT MIN(sendAt) FROM outgoing WHERE accountID = ? AND \(queued.sql)",
-                arguments: [account.rawValue] + queued.arguments)
-        }
-    }
-
     public func uploadingMessages(for account: AccountID) throws -> [OutgoingMessage] {
         try pool.read { db in
-            try Self.outgoing(
-                db, sql: "WHERE accountID = ? AND upload IS NOT NULL ORDER BY sendAt", arguments: [account.rawValue])
+            try Self.readableOutgoing(
+                db,
+                sql: "WHERE accountID = ? AND \(OutgoingMessage.Delivery.Stage.uploading.condition) ORDER BY sendAt",
+                arguments: [account.rawValue])
         }
     }
 
@@ -152,15 +150,18 @@ extension MailDatabase: OutgoingStore {
 
     /// Messages that failed to send, in every account. Emits now and after every change.
     public func failedMessages() -> AsyncThrowingStream<[OutgoingMessage], any Error> {
-        observe { db in try Self.outgoing(db, sql: "WHERE failure IS NOT NULL ORDER BY sendAt", arguments: []) }
+        observe { db in
+            try Self.readableOutgoing(
+                db, sql: "WHERE \(OutgoingMessage.Delivery.Stage.failed.condition) ORDER BY sendAt", arguments: [])
+        }
     }
 
     /// Messages waiting for the time the writer picked, in every account, soonest first. Emits now and after every
     /// change.
     public func scheduledMessages() -> AsyncThrowingStream<[OutgoingMessage], any Error> {
         observe { db in
-            try Self.outgoing(
-                db, sql: "WHERE purpose = ? AND failure IS NULL AND upload IS NULL ORDER BY sendAt",
+            try Self.readableOutgoing(
+                db, sql: "WHERE purpose = ? AND \(OutgoingMessage.Delivery.Stage.queued.condition) ORDER BY sendAt",
                 arguments: [OutgoingMessage.Purpose.scheduledSend.rawValue])
         }
     }
@@ -171,15 +172,27 @@ extension MailDatabase: OutgoingStore {
     public func outgoingMessages(inThread thread: ThreadSummary.ID) -> AsyncThrowingStream<[OutgoingMessage], any Error>
     {
         observe { db in
-            try Self.outgoing(db, sql: "WHERE accountID = ? ORDER BY sendAt", arguments: [thread.accountID.rawValue])
-                .filter { $0.draft.threadID == thread.threadID }
+            try Self.readableOutgoing(
+                db, sql: "WHERE accountID = ? ORDER BY sendAt", arguments: [thread.accountID.rawValue]
+            )
+            .filter { $0.draft.threadID == thread.threadID }
         }
     }
 
-    /// The earliest time a waiting message falls due, in any account.
+    /// The earliest time a waiting message falls due, in any account. Skips rows that don't read, as the queue
+    /// does, so nothing asks to wake for one; it reads the rows soonest first and stops at the first that reads.
     public func nextSendDate() throws -> Date? {
         try pool.read { db in
-            try Date.fetchOne(db, sql: "SELECT MIN(sendAt) FROM outgoing WHERE failure IS NULL AND upload IS NULL")
+            let queued = try Row.fetchCursor(
+                db,
+                sql: """
+                    SELECT purpose, sendAt, failure, upload, draft FROM outgoing
+                    WHERE \(OutgoingMessage.Delivery.Stage.queued.condition) ORDER BY sendAt
+                    """)
+            while let row = try queued.next() {
+                if let message = Self.readable(row) { return message.sendAt }
+            }
+            return nil
         }
     }
 
@@ -199,27 +212,68 @@ extension MailDatabase: OutgoingStore {
         ]
     }
 
+    /// The messages the rows hold, or an error for the first that doesn't read, so a write that reads one back
+    /// rolls back rather than report it gone.
     private static func outgoing(_ db: Database, sql: String, arguments: StatementArguments) throws
         -> [OutgoingMessage]
     {
-        let decoder = JSONDecoder()
-        let rows = try Row.fetchAll(
-            db, sql: "SELECT purpose, sendAt, failure, upload, draft FROM outgoing \(sql)", arguments: arguments)
-        return try rows.map { row in
-            let draft: String = row["draft"]
-            // A purpose this build doesn't know is kept as a draft rather than sent.
-            let purpose: String = row["purpose"]
-            return OutgoingMessage(
-                draft: try decoder.decode(Draft.self, from: Data(draft.utf8)),
-                purpose: OutgoingMessage.Purpose(rawValue: purpose) ?? .saveDraft, sendAt: row["sendAt"],
-                delivery: try OutgoingMessage.Delivery(failure: row["failure"], upload: row["upload"]))
+        try rows(db, sql: sql, arguments: arguments).map { try message(in: $0) }
+    }
+
+    /// The messages the rows hold, for the lists and the queue. A row that doesn't read is left out and logged, so
+    /// the rest of its account's queue still goes, and stays where it is for a build that reads it.
+    private static func readableOutgoing(_ db: Database, sql: String, arguments: StatementArguments) throws
+        -> [OutgoingMessage]
+    {
+        try rows(db, sql: sql, arguments: arguments).compactMap(readable)
+    }
+
+    /// The message `row` holds, or `nil`, logged, when it doesn't read.
+    private static func readable(_ row: Row) -> OutgoingMessage? {
+        do {
+            return try message(in: row)
+        } catch {
+            #if canImport(os)
+                Logger(subsystem: "com.idanbirman.goodmail", category: "outgoing")
+                    .error("An outgoing message didn't read and was left out: \(error, privacy: .public)")
+            #endif
+            return nil
         }
+    }
+
+    private static func rows(_ db: Database, sql: String, arguments: StatementArguments) throws -> [Row] {
+        try Row.fetchAll(
+            db, sql: "SELECT purpose, sendAt, failure, upload, draft FROM outgoing \(sql)", arguments: arguments)
+    }
+
+    private static func message(in row: Row) throws -> OutgoingMessage {
+        let draft: String = row["draft"]
+        // A purpose this build doesn't know is kept as a draft rather than sent.
+        let purpose: String = row["purpose"]
+        return OutgoingMessage(
+            draft: try JSONDecoder().decode(Draft.self, from: Data(draft.utf8)),
+            purpose: OutgoingMessage.Purpose(rawValue: purpose) ?? .saveDraft, sendAt: row["sendAt"],
+            delivery: try OutgoingMessage.Delivery(failure: row["failure"], upload: row["upload"]))
     }
 }
 
-/// The delivery's columns, and the condition that matches it.
+/// The delivery's columns, and the conditions that match them.
 extension OutgoingMessage.Delivery {
     struct CorruptRow: Error {}
+
+    /// Each kind of delivery, whatever its upload or failure.
+    enum Stage {
+        case queued, uploading, failed
+
+        /// Matches every message of this kind.
+        var condition: String {
+            switch self {
+            case .queued: "failure IS NULL AND upload IS NULL"
+            case .uploading: "upload IS NOT NULL"
+            case .failed: "failure IS NOT NULL"
+            }
+        }
+    }
 
     init(failure: String?, upload: String?) throws {
         switch (failure, upload) {
@@ -244,9 +298,10 @@ extension OutgoingMessage.Delivery {
         }
     }
 
+    /// Matches this delivery alone.
     var condition: (sql: String, arguments: StatementArguments) {
         switch self {
-        case .queued: ("failure IS NULL AND upload IS NULL", [])
+        case .queued: (Stage.queued.condition, [])
         case .uploading(let id): ("upload = ?", [id.rawValue.uuidString])
         case .failed(let failure): ("failure = ?", [failure.rawValue])
         }

@@ -84,8 +84,6 @@ public protocol OutgoingStore: Sendable {
     func requeue(_ id: Draft.ID, as purpose: OutgoingMessage.Purpose, at date: Date) throws -> OutgoingMessage?
     /// Queued messages due by `date`, oldest first.
     func dueMessages(for account: AccountID, by date: Date) throws -> [OutgoingMessage]
-    /// The earliest time a queued message falls due.
-    func nextSendDate(for account: AccountID) throws -> Date?
     /// Messages handed to an upload whose outcome hasn't been taken in.
     func uploadingMessages(for account: AccountID) throws -> [OutgoingMessage]
     /// Replaces message `id` with `message`, or removes it when `message` is `nil`, only while its delivery is

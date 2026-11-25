@@ -32,14 +32,14 @@ extension WindowNavigation {
         guard let anchor = state.reading?.thread else { return step == .next ? rows.first : nil }
         // A row that left is placed by the rows it was opened from, unless that was another list's.
         return step.neighbor(
-            of: anchor, in: rows.contains(anchor) ? rows : trail(of: anchor, in: front), listed: Set(rows))
+            of: anchor, in: rows.contains(anchor) ? rows : trail(in: front), listed: Set(rows))
     }
 
     /// Reads the conversation `step` reaches in `front`, if there is one, in the place of the one read (R1). Undo's way
     /// back ends with it, as with any other move.
     mutating func take(_ step: Step, in front: Front?) {
         guard let front, let next = conversation(step, in: front) else { return }
-        opened = Opened(thread: next, from: source(searching: front.searching), rows: front.rows, row: nil)
-        state.read(Reading(next, in: front.mailbox))
+        let opening = Opened(from: source(searching: front.searching), rows: front.rows, row: nil)
+        move(opening: opening) { $0.read(Reading(next, in: front.mailbox)) }
     }
 }

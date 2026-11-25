@@ -384,6 +384,7 @@ public final class MailDatabase: Sendable {
         }
         migrator.registerMigration("v35-vips", migrate: createVIPs)
         migrator.registerMigration("v36-smart-mailboxes", migrate: createSmartMailboxes)
+        migrator.registerMigration("v37-delivery-checks", migrate: checkDeliveriesAndSnoozeKeepers)
         return migrator
     }
 }

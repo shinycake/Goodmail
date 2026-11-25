@@ -171,6 +171,50 @@ struct SyncEngineTests {
         #expect(try database.syncState(for: account.id).map { if case .current = $0 { true } else { false } } == true)
     }
 
+    @Test func aResumedResyncGoesOnWithTheQueryItSaved() async throws {
+        seed(thread("i1", daysAgo: 1), thread("starred", daysAgo: 2, labels: ["STARRED"]))
+        // Sent mail an earlier resync stored, beyond the short window, which this plan's long window doesn't cover.
+        let earlier = Resync(cursor: "0", startedAt: Self.now, generation: 0)
+        try database.apply(
+            StoreChanges(
+                accountID: account.id, upserts: [thread("sent-40d", daysAgo: 40, labels: ["SENT"])],
+                progress: .resyncing(earlier)))
+        // As saved by a build that listed only Starred for the long window.
+        let saved = ThreadQuery(label: "STARRED", since: Self.now.addingTimeInterval(-10 * 86_400))
+        let resync = Resync(
+            cursor: try await server.currentCursor(), startedAt: Self.now, generation: 1,
+            position: .listing(query: saved, pageToken: nil, next: [], sweeping: ["STARRED"]))
+        try database.apply(StoreChanges(accountID: account.id, progress: .resyncing(resync)))
+
+        try await engine().sync()
+        #expect(server.queries.map(\.query) == [saved], "nothing the plan didn't list, and the saved query as saved")
+        #expect(try allLocal() == ["starred", "sent-40d"], "the sweep covers only what the plan listed")
+        #expect(try database.syncState(for: account.id).map { if case .current = $0 { true } else { false } } == true)
+    }
+
+    @Test func aResyncSavedByStageListsAgainFromTheFirstQuery() async throws {
+        seed(
+            thread("i1", daysAgo: 1), thread("i2", daysAgo: 2), thread("i3", daysAgo: 3),
+            thread("sent", daysAgo: 4, labels: ["SENT"]))
+        // A build that numbered its queries saved this partway through its third, Starred.
+        let startedAt = Self.now.timeIntervalSinceReferenceDate
+        let json =
+            #"{"cursor":"\#(try await server.currentCursor())","startedAt":\#(startedAt),"generation":1,"#
+            + #""stage":2,"pageToken":"4"}"#
+        try await database.pool.write { db in
+            try db.execute(
+                sql: "INSERT INTO syncState (accountID, state) VALUES (?, ?)",
+                arguments: [account.id.rawValue, #"{"resyncing":{"_0":\#(json)}}"#])
+        }
+
+        try await engine().sync()
+        let first = try #require(server.queries.first)
+        #expect(first.query.label == "INBOX")
+        #expect(first.pageToken == nil, "the token belonged to another query")
+        #expect(try allLocal() == ["i1", "i2", "i3", "sent"])
+        #expect(try database.syncState(for: account.id).map { if case .current = $0 { true } else { false } } == true)
+    }
+
     @Test func changesDuringTheResyncAreCaughtRightAfterIt() async throws {
         seed(thread("a", daysAgo: 1))
         let engine = engine()

@@ -15,9 +15,11 @@ extension MailDatabase: SyncStore {
 
     public func apply(_ changes: StoreChanges) throws {
         let account = changes.accountID.rawValue
+        // Only a resync's pages stamp their threads, so its sweep can tell what it saw.
+        let generation: Int? = if case .resyncing(let resync) = changes.progress { resync.generation } else { nil }
         try write { db in
             for thread in changes.upserts {
-                try Self.upsert(thread, generation: changes.generation, in: db)
+                try Self.upsert(thread, generation: generation, in: db)
             }
             // A refetch may predate queued actions; keep showing them until they replay (ADR-008).
             try Self.reapplyPending(
@@ -56,11 +58,9 @@ extension MailDatabase: SyncStore {
                         ])
                 }
             }
-            if let sweep = changes.sweep {
-                try Self.sweep(sweep, account: account, in: db)
-            }
-            if let state = changes.state {
-                let json = String(decoding: try JSONEncoder().encode(state), as: UTF8.self)
+            if let progress = changes.progress {
+                if case .resynced(let sweep, _) = progress { try Self.sweep(sweep, account: account, in: db) }
+                let json = String(decoding: try JSONEncoder().encode(progress.state), as: UTF8.self)
                 try db.execute(
                     sql: "INSERT OR REPLACE INTO syncState (accountID, state) VALUES (?, ?)",
                     arguments: [account, json]

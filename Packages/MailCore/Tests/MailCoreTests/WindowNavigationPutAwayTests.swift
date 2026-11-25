@@ -96,9 +96,12 @@ struct WindowNavigationPutAwayTests {
         _ = asking(&window, .snooze, of: [b], on: b, rows: [a.id, c.id])
         #expect(window.state.reading == Reading(c.id, in: .inbox))
 
+        // A reader of b the window no longer reads, as when it went on to a meanwhile, neither takes a's trail nor
+        // moves the window.
         var later = reading(a, from: [a.id, c.id])
+        let before = later
         _ = asking(&later, .snooze, of: [b], on: b, rows: [a.id, c.id])
-        #expect(later.state.reading == nil, "the trail is the open conversation's, not one opened before it")
+        #expect(later == before, "a stays, with no way back to b")
     }
 
     @Test func theConversationItGoesOnToGoesOnFromTheRowsItOpenedFrom() {

@@ -90,7 +90,7 @@ struct SenderTests {
         try await commands().send(draft, after: .seconds(10))
         #expect(try await commands().cancelSend(draft.id) == draft)
         #expect(try await commands().cancelSend(draft.id) == nil)
-        #expect(try database.nextSendDate(for: account) == nil)
+        #expect(try database.dueMessages(for: account, by: .distantFuture).isEmpty)
     }
 
     @Test func refusedMessagesAreKeptForTheWriter() async throws {
@@ -255,7 +255,7 @@ struct SenderTests {
                             messageCount: 1, labelIDs: ["INBOX"])
                     ],
                     labels: [MailLabel(id: "INBOX", name: "INBOX", kind: .system)], signature: "Me",
-                    state: .current(cursor: "1")))
+                    progress: .current(cursor: "1")))
         }
         _ = try await commands().perform(.archive, on: [ThreadSummary.ID(accountID: account, threadID: "t1")])
         try await commands().send(draft(), after: .seconds(60))

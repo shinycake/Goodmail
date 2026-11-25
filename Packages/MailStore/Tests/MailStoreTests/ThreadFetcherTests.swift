@@ -209,6 +209,30 @@ struct ThreadFetcherTests {
         #expect(server.messageRequests.count == ThreadFetcher.visibleConcurrency, "the waiting row never starts")
     }
 
+    @Test(.timeLimit(.minutes(1)))
+    func rowsComingBackAfterLeavingTheForegroundAreFetchedAgain() async throws {
+        for index in 1...4 { try seed("t\(index)") }
+        let gate = Gate()
+        let (arrivals, arrived) = AsyncStream<String>.makeStream()
+        // The first fetches never answer, as on a connection the app left behind; later ones answer at once.
+        let held = Mutex(Set(["t1", "t2", "t3"]))
+        server.onMessagesRequested { thread in
+            arrived.yield(thread)
+            if held.withLock({ $0.remove(thread) }) != nil { await gate.wait() }
+        }
+        let fetcher = fetcher()
+        await fetcher.readAhead((1...3).map { id("t\($0)") }, because: .visible)
+        var iterator = arrivals.makeAsyncIterator()
+        for _ in 0..<ThreadFetcher.visibleConcurrency { _ = await iterator.next() }
+        await fetcher.cancelReadAhead()
+
+        await fetcher.readAhead([id("t1")], because: .touched)
+        await fetcher.readAhead([id("t4")], because: .visible)
+        await fetcher.idle()
+        #expect(try cached().keys.sorted() == ["t1", "t4"], "the cancelled fetches hold neither their rows nor slots")
+        await gate.open()
+    }
+
     @Test func aFetchTheReaderJoinedOutlivesLeavingTheForeground() async throws {
         try seed("t1")
         let gate = Gate()

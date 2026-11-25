@@ -14,4 +14,12 @@ public enum SyncScope: Equatable, Sendable {
         case .inboxHead: .handheld
         }
     }
+
+    /// How many threads a resync stores before it stops: all it lists, or the head's limit.
+    var resyncLimit: Int {
+        switch self {
+        case .window: .max
+        case .inboxHead(let limit): limit
+        }
+    }
 }

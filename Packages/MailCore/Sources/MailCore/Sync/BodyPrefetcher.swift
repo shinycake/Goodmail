@@ -32,7 +32,16 @@ public actor BodyPrefetcher {
     private let concurrency: Int
     private let now: @Sendable () -> Date
     private let didFinish: @Sendable () async -> Void
-    private var running: Task<Void, Never>?
+
+    /// The background run `start()` began, if any.
+    private enum Run {
+        case idle
+        case running(Task<Void, Never>)
+        /// Cancelled but not yet wound down; `restart` when `start()` came since, so a new run begins once it stops.
+        case stopping(Task<Void, Never>, restart: Bool)
+    }
+
+    private var current = Run.idle
 
     /// - Parameter didFinish: Called after each run that `start()` began, however it ended; the app trims the cache
     ///   there.
@@ -62,19 +71,50 @@ public actor BodyPrefetcher {
         self.didFinish = didFinish
     }
 
-    /// Runs in the background unless a run is already going.
+    /// Runs in the background unless a run is already going. While a cancelled run winds down, starts another once
+    /// it stops.
     public func start() {
-        guard running == nil else { return }
-        running = Task {
-            await run()
-            running = nil
-            await didFinish()
+        switch current {
+        case .idle: launch()
+        case .running: break
+        case .stopping(let task, _): current = .stopping(task, restart: true)
         }
     }
 
-    /// Stops the run in progress, if any. Fetches already under way are abandoned.
+    /// Stops the run in progress, if any, and any run a `start()` since the last cancel was waiting to begin.
+    /// Fetches already under way are abandoned.
     public func cancel() {
-        running?.cancel()
+        switch current {
+        case .idle: break
+        case .running(let task), .stopping(let task, _):
+            task.cancel()
+            current = .stopping(task, restart: false)
+        }
+    }
+
+    /// Whether no run is going or waiting to begin.
+    var isIdle: Bool {
+        if case .idle = current { true } else { false }
+    }
+
+    /// Only from `.idle`, so the task that finishes is always the one `current` holds.
+    private func launch() {
+        current = .running(
+            Task {
+                await run()
+                await finished()
+            })
+    }
+
+    private func finished() async {
+        let restart =
+            switch current {
+            case .idle, .running: false
+            case .stopping(_, let restart): restart
+            }
+        current = .idle
+        if restart { launch() }
+        await didFinish()
     }
 
     private enum Outcome {

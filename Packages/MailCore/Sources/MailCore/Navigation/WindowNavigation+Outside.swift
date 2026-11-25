@@ -13,7 +13,7 @@ extension WindowNavigation {
     /// yet built, so nothing is uncovered; a restored conversation the route doesn't open closes first, and a
     /// restored message window becomes a viewer for it.
     mutating func launch(for route: Route, in context: Context) -> [Effect] {
-        if case .thread(let thread, _) = route, state.reading?.thread != thread { state.closeReader() }
+        if case .thread(let thread, _) = route, state.reading?.thread != thread { move { $0.closeReader() } }
         return go(to: route, from: .outside, in: context)
     }
 
@@ -35,9 +35,9 @@ extension WindowNavigation {
         }
         next.read(Reading(summary.id, in: next.list.readingMailbox ?? .holding(summary.labelIDs)))
         let trail = next.list == state.list && next.category == state.category ? rows : []
-        opened = Opened(
-            thread: summary.id, from: Opened.From(list: next.list, searching: false), rows: trail, row: summary)
-        state = next
+        move(
+            to: next,
+            opening: Opened(from: Opened.From(list: next.list, searching: false), rows: trail, row: summary))
     }
 
     /// An arrival's conversation can't be shown (R10): the window shows the Inbox, reading nothing, and says why.

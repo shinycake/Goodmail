@@ -224,6 +224,19 @@ struct WindowNavigationTests {
         #expect(window.foundRow == nil)
     }
 
+    @Test func howAConversationWasOpenedGoesOnceNoneIsRead() {
+        var window = reading(b, in: stack)
+        _ = window.handle(.back(to: .list), in: stack)
+        // Handoff brings it back without opening it, so the window keeps nothing of how it was first opened.
+        let handed = WindowState(place: .list(reading: Reading(b.id, in: .inbox)))
+        _ = window.handle(.handedOff(handed, accounts: accounts), in: stack)
+        #expect(window.state.reading == Reading(b.id, in: .inbox))
+        #expect(window.foundRow == nil, "not the row found when it was first opened")
+        #expect(
+            window.conversation(.next, in: .init(rows: [c.id], mailbox: .inbox)) == nil,
+            "nor the rows it was first opened from")
+    }
+
     @Test func backToTheMailboxesKeepsTheListForAWiderWindow() {
         var window = WindowNavigation(showing: WindowState(list: .mailbox(.starred)))
         _ = window.handle(.back(to: .mailboxes), in: stack)

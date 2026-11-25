@@ -20,6 +20,11 @@ final class SyncScheduler {
     private var rounds: Task<Void, Never>?
     /// Mac: starts the watches and the rounds afresh each time the network comes back, for the life of the process.
     private var networkReturns: Task<Void, Never>?
+    /// Asks for the next background refresh on leaving the foreground. It reads the database as iOS may suspend the
+    /// app, so it runs inside `BackgroundDatabaseWork`, which keeps the app awake and the database usable until it
+    /// ends, and suspends the database under it if that time runs out (0xdead10cc). Each leave's waits for the one
+    /// before, so they never overlap and the last one asked is the one that stands.
+    private var scheduling: Task<Void, Never>?
 
     init(model: AppModel, presence: PresenceTracker) {
         self.model = model
@@ -61,7 +66,11 @@ final class SyncScheduler {
         watchers.stop()
         Task { [model] in await model.cancelPrefetch() }
         model.shareSettingsNow()
-        refresh.schedule()
+        let previous = scheduling
+        scheduling = Task { [refresh] in
+            await previous?.value
+            await BackgroundDatabaseWork.shared.run("Schedule refresh") { await refresh.schedule() }
+        }
     }
 
     /// Mac: the connections from before may be dead without knowing it yet.

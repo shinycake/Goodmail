@@ -79,12 +79,6 @@ final class PrivateQueue: OutgoingStore {
         }
     }
 
-    func nextSendDate(for account: AccountID) throws -> Date? {
-        held.withLock { held in
-            held.filter { $0.draft.accountID == account && $0.delivery == .queued }.map(\.sendAt).min()
-        }
-    }
-
     func uploadingMessages(for account: AccountID) throws -> [OutgoingMessage] {
         held.withLock { held in
             held.filter { message in

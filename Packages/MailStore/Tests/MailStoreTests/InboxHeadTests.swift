@@ -81,12 +81,26 @@ struct InboxHeadTests {
         #expect(server.queries.contains { $0.query.label == "SENT" }, "every stage still runs")
     }
 
-    @Test func aResyncSavedBeforeTheCountDecodesAsEmpty() throws {
-        let saved = Data(#"{"cursor":"7","startedAt":0,"generation":1,"stage":2,"pageToken":"50"}"#.utf8)
-        let resync = try JSONDecoder().decode(Resync.self, from: saved)
+    @Test(arguments: [
+        #"{"cursor":"7","startedAt":0,"generation":1,"stage":2,"pageToken":"50"}"#,
+        #"{"cursor":"7","startedAt":0,"generation":1,"stage":0,"pageToken":"50","stored":50}"#,
+    ])
+    func aResyncSavedByStageListsAgainFromTheStart(saved: String) throws {
+        let resync = try JSONDecoder().decode(Resync.self, from: Data(saved.utf8))
+        #expect(resync == Resync(cursor: "7", startedAt: Date(timeIntervalSinceReferenceDate: 0), generation: 1))
+        #expect(resync.position == .unplanned, "the stage numbered queries this build may list differently")
         #expect(resync.stored == 0)
-        #expect(resync.stage == 2)
-        #expect(resync.pageToken == "50")
+    }
+
+    @Test func aResyncKeepsItsPlaceThroughTheDatabase() throws {
+        let query = ThreadQuery(label: "INBOX", since: Self.now)
+        let resync = Resync(
+            cursor: "7", startedAt: Self.now, generation: 1,
+            position: .listing(
+                query: query, pageToken: "50", next: [ThreadQuery(since: Self.now)], sweeping: ["INBOX"]),
+            stored: 50)
+        try database.apply(StoreChanges(accountID: account.id, progress: .resyncing(resync)))
+        #expect(try database.syncState(for: account.id) == .resyncing(resync))
     }
 
     // MARK: Prune

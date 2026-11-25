@@ -77,7 +77,7 @@ public enum ProviderError: Error, Equatable {
     case rejected
 }
 
-public struct ThreadQuery: Equatable, Sendable {
+public struct ThreadQuery: Codable, Equatable, Sendable {
     public var label: String?
     /// Only threads with a message on or after this date.
     public var since: Date?

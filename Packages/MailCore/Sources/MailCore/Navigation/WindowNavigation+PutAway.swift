@@ -70,16 +70,17 @@ extension WindowNavigation {
     /// with none on show, putting away every row picked with a pointer reads the row after them, so Delete can be
     /// pressed again and again.
     mutating func asked(_ change: MailChange, reader: Reader?, front: Front?, in context: Context) -> [Effect] {
-        departure = nil
+        endWayBack()
         guard let reader else {
             afterPick(change, front: front, setting: context.afterRemoval)
             return []
         }
-        guard change.threads.contains(reader.thread) else { return [] }
+        // A reader that isn't the conversation the window reads, as one closing as the change came, moves nothing.
+        guard change.threads.contains(reader.thread), reader.thread == state.reading?.thread else { return [] }
         let landing: Landing
         switch ReaderExit.exit(after: change.request, labels: reader.labels, readIn: reader.mailbox) {
         case .stays:
-            if reader.leaves(by: change.request) { kept = Kept(thread: reader.thread, by: change) }
+            if reader.leaves(by: change.request) { keep(through: change) }
             return []
         // A message window keeps its own undo, in its place until the toast goes (ADR-035).
         case _ where state.layout == .message:
@@ -89,14 +90,12 @@ extension WindowNavigation {
         case .putAway:
             // The rows it was opened from, unless that was another list's.
             landing = Landing.after(
-                putAway: Set(change.threads), anchor: reader.thread, trail: trail(of: reader.thread, in: front),
+                putAway: Set(change.threads), anchor: reader.thread, trail: trail(in: front),
                 rows: front?.rows ?? [],
                 setting: context.afterRemoval)
         }
         let from = source(searching: front?.searching ?? false)
-        land(on: landing, front: front)
-        // After landing, whose change of state ends any way back before it.
-        departure = Departure(change: change, target: .conversation(reader, from: from))
+        land(on: landing, front: front, leaving: Departure(change: change, target: .conversation(reader, from: from)))
         return []
     }
 
@@ -105,17 +104,18 @@ extension WindowNavigation {
     /// the rows come back (R9).
     mutating func undid(_ change: MailChange, rows: [ThreadSummary.ID], searching: Bool) -> [Effect] {
         // Undone, the change no longer keeps the reader on a conversation it took out of where it is read.
-        if kept?.change == change { kept = nil }
+        if kept == change { release() }
         guard let departure, departure.change == change else { return [] }
-        self.departure = nil
+        endWayBack()
         switch departure.target {
         case .conversation(let left, let from):
-            opened = Opened(thread: left.thread, from: from, rows: rows, row: left.summary)
-            state.read(left.reading)
+            move(opening: Opened(from: from, rows: rows, row: left.summary)) {
+                $0.read(left.reading)
+            }
             return []
         case .pick(let picked, let from):
             guard from == source(searching: searching) else { return [] }
-            state.closeReader()
+            move { $0.closeReader() }
             return [.repick(picked)]
         }
     }
@@ -128,33 +128,23 @@ extension WindowNavigation {
         else { return }
         let landing = Landing.after(
             putAway: Set(change.threads), anchor: anchor, trail: [], rows: front.rows, setting: setting)
-        if case .thread = landing { land(on: landing, front: front) }
-        // After landing, whose change of state ends any way back before it.
-        departure = Departure(
+        let wayBack = Departure(
             change: change, target: .pick(front.pointerPick, from: source(searching: front.searching)))
+        // With nothing to go on to, the list stays as it is.
+        if case .thread = landing {
+            land(on: landing, front: front, leaving: wayBack)
+        } else {
+            leave(wayBack)
+        }
     }
 
-    /// The reader's own course went to `landing`, in the list `front`. The caller records the way back afterwards,
-    /// since moving ends any before it.
-    private mutating func land(on landing: Landing, front: Front?) {
+    /// The reader's own course went to `landing`, in the list `front`, leaving what Undo brings them back to.
+    private mutating func land(on landing: Landing, front: Front?, leaving wayBack: Departure) {
         guard case .thread(let next) = landing, let front else {
-            state.closeReader()
+            move(leaving: wayBack) { $0.closeReader() }
             return
         }
-        opened = Opened(thread: next, from: source(searching: front.searching), rows: front.rows, row: nil)
-        state.read(Reading(next, in: front.mailbox))
-    }
-}
-
-extension WindowNavigation {
-    /// A conversation the reader goes on reading though their own `change` took it out of where it is read (R8).
-    struct Kept: Equatable, Sendable {
-        let thread: ThreadSummary.ID
-        let change: MailChange
-
-        init(thread: ThreadSummary.ID, by change: MailChange) {
-            self.thread = thread
-            self.change = change
-        }
+        let opening = Opened(from: source(searching: front.searching), rows: front.rows, row: nil)
+        move(opening: opening, leaving: wayBack) { $0.read(Reading(next, in: front.mailbox)) }
     }
 }
