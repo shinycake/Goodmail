@@ -14,7 +14,8 @@ import { type Certificate, pemCertificate } from "./x509";
  * The app attests once per install: `POST /v1/attest/challenges` for a challenge, then `POST /v1/attest/keys` with
  * the key ID, the attestation and the challenge. After that each request to a device route carries three headers:
  * the key ID, the request time, and an assertion over `SHA-256("<method> <path>\n<time>\n" || body)`. The time
- * bounds a replay to `MAX_SKEW_MS`, and a replayed request can only repeat what the genuine app already asked for.
+ * bounds how old a request may be, and each assertion's counter is accepted once, so a captured request can't be
+ * sent again.
  */
 
 export const KEY_HEADER = "x-goodmail-attest-key";
@@ -28,6 +29,8 @@ const KEY_LIFETIME_MS = 180 * 24 * 60 * 60_000;
 const KEY_ID = /^[A-Za-z0-9+/]{43}=$/;
 const CHALLENGE = /^[A-Za-z0-9_-]{43}$/;
 const TIME = /^\d{13}$/;
+/** How far behind the key's newest assertion one may arrive and still be let through once (`useCounter`). */
+const REPLAY_WINDOW = 64;
 
 /** What `APP_ATTEST` in wrangler.toml asks: watch and log only, or refuse requests the genuine app didn't sign. */
 export type AttestMode = "observe" | "enforce";
@@ -147,14 +150,41 @@ export async function proveDevice(
       publicKey: new Uint8Array(key.public_key),
       appId: appId(env),
     });
-    await env.DB.prepare("UPDATE attest_keys SET counter = MAX(counter, ?2), last_used_at = ?3 WHERE key_id = ?1")
-      .bind(keyId, counter, now)
-      .run();
+    if (!(await useCounter(env, keyId, counter, now))) return { kind: "rejected", reason: "replayed assertion" };
     return { kind: "attested" };
   } catch (error) {
     if (!isMalformed(error)) throw error;
     return { kind: "rejected", reason: (error as Error).message };
   }
+}
+
+/**
+ * Spends `counter` for the key, or returns false when it was spent before or is too old to tell. The device counts
+ * its assertions up by one, but the app sends requests side by side, so one signed earlier can arrive later: each
+ * counter within `REPLAY_WINDOW` of the newest is accepted once, and anything older is refused. Recording the counter
+ * is one insert, so two copies of a request arriving at once can't both get through.
+ */
+async function useCounter(env: Env, keyId: string, counter: number, now: number): Promise<boolean> {
+  const spent = await env.DB.prepare(
+    `INSERT OR IGNORE INTO attest_assertions (key_id, counter)
+     SELECT key_id, ?2 FROM attest_keys WHERE key_id = ?1 AND ?2 > counter - ?3`,
+  )
+    .bind(keyId, counter, REPLAY_WINDOW)
+    .run();
+  if (spent.meta.changes !== 1) return false;
+  await env.DB.batch([
+    env.DB.prepare("UPDATE attest_keys SET counter = MAX(counter, ?2), last_used_at = ?3 WHERE key_id = ?1").bind(
+      keyId,
+      counter,
+      now,
+    ),
+    // Counters this far behind the newest are refused by the insert above, so they need no row.
+    env.DB.prepare(
+      `DELETE FROM attest_assertions
+       WHERE key_id = ?1 AND counter <= (SELECT counter FROM attest_keys WHERE key_id = ?1) - ?2`,
+    ).bind(keyId, REPLAY_WINDOW),
+  ]);
+  return true;
 }
 
 /** Anything but an explicit `observe` enforces, so a typo can't open the relay. */

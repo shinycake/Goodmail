@@ -17,7 +17,11 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await env.DB.batch([env.DB.prepare("DELETE FROM attest_keys"), env.DB.prepare("DELETE FROM attest_challenges")]);
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM attest_keys"),
+    env.DB.prepare("DELETE FROM attest_challenges"),
+    env.DB.prepare("DELETE FROM attest_assertions"),
+  ]);
 });
 
 function challengeRequest(address: string): Request {
@@ -153,6 +157,45 @@ describe("device routes when enforcing", () => {
     await attested(key);
     const request = await signed(key, "{}", Date.now() - 11 * 60_000);
     expect((await worker.fetch(request, enforcing, createExecutionContext())).status).toBe(401);
+  });
+
+  it("refuse a request replayed within the ten minutes", async () => {
+    const key = await fakeKey();
+    await attested(key);
+    const request = await signed(key, "{}");
+    const replay = request.clone();
+    expect((await worker.fetch(request, enforcing, createExecutionContext())).status).toBe(PASSED);
+    expect((await worker.fetch(replay, enforcing, createExecutionContext())).status).toBe(401);
+  });
+
+  it("let through requests the app signed in turn that arrive out of turn", async () => {
+    const key = await fakeKey();
+    await attested(key);
+    const first = await signed(key, "{}");
+    const second = await signed(key, "{}");
+    expect((await worker.fetch(second, enforcing, createExecutionContext())).status).toBe(PASSED);
+    expect((await worker.fetch(first, enforcing, createExecutionContext())).status).toBe(PASSED);
+    expect(await env.DB.prepare("SELECT counter FROM attest_keys").first("counter")).toBe(2);
+  });
+
+  it("refuse an assertion far older than the key's newest", async () => {
+    const key = await fakeKey();
+    await attested(key);
+    const old = await signed(key, "{}");
+    key.counter += 100;
+    expect((await worker.fetch(await signed(key, "{}"), enforcing, createExecutionContext())).status).toBe(PASSED);
+    expect((await worker.fetch(old, enforcing, createExecutionContext())).status).toBe(401);
+  });
+
+  it("forget the counters it no longer needs to tell a replay", async () => {
+    const key = await fakeKey();
+    await attested(key);
+    for (let sent = 0; sent < 3; sent += 1) {
+      await worker.fetch(await signed(key, "{}"), enforcing, createExecutionContext());
+    }
+    key.counter += 200;
+    await worker.fetch(await signed(key, "{}"), enforcing, createExecutionContext());
+    expect(await env.DB.prepare("SELECT COUNT(*) AS kept FROM attest_assertions").first("kept")).toBe(1);
   });
 
   it("guard every route only the app calls", async () => {
