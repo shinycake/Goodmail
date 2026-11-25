@@ -17,7 +17,9 @@ public final class ThreadViewModel {
     /// Its messages, while there are any to show.
     public var messages: [Message] { content.messages }
     /// Messages shown as cards; the rest are one-line rows in the timeline.
-    public private(set) var expanded: Set<Message.ID> = []
+    public var expanded: Set<Message.ID> { cards.ids }
+    /// Which messages are cards, decided once the conversation first shows its messages.
+    private var cards = OpenCards.unset
     /// Messages whose remote content the reader loaded once.
     private var loadedOnce: Set<Message.ID> = []
     /// The rules that load remote images without asking, as of opening the thread and trusting from it.
@@ -33,8 +35,6 @@ public final class ThreadViewModel {
     /// My replies on their way, as `transcript` last showed them, for the classic layout to show as letters.
     /// `pending` runs ahead of it while a transcript is being worked out.
     public private(set) var replies: [PendingReply] = []
-    /// Synced copies of replies that left `pending`, to open as cards once a transcript shows them.
-    @ObservationIgnored private var syncedCopies: Set<Message.ID> = []
     /// When `pending` was last worked out, which its deliveries hold for.
     @ObservationIgnored private var transcriptDate = Date.distantPast
     /// Whether the thread is pinned to the top of its lists.
@@ -47,8 +47,9 @@ public final class ThreadViewModel {
     /// worked out.
     @ObservationIgnored private var received: [Message] = []
     @ObservationIgnored private var queue: [OutgoingMessage] = []
-    /// Counts transcript requests, so one worked out for older messages or an older queue never replaces a newer one.
-    @ObservationIgnored private var transcriptRequest = 0
+    /// The transcript being worked out, so one worked out for older messages or an older queue never replaces a newer
+    /// one.
+    @ObservationIgnored private var transcriptWork = TranscriptWork.idle
     @ObservationIgnored private let loadAction: () async throws -> Void
     @ObservationIgnored let attachmentData: (Attachment, Message.ID) async throws -> Data
     /// A message's raw RFC 5322 source, for sharing it as an `.eml` file or `.mbox` archive.
@@ -64,7 +65,8 @@ public final class ThreadViewModel {
     /// another device, an alert action or a rule takes it out; the window decides whether the reader goes
     /// (`WindowNavigation.Event.placed`).
     @ObservationIgnored private let placed: (_ inMailbox: Bool) -> Void
-    @ObservationIgnored private var hasMarkedRead = false
+    /// Whether opening still owes the thread its read mark: an unread thread's first observation marks it, once.
+    @ObservationIgnored private var owesReadMark: Bool
     @ObservationIgnored private let attachmentsDirectory: URL
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let calendar: Calendar
@@ -100,6 +102,7 @@ public final class ThreadViewModel {
         imageTrust: ImageTrustRules = ImageTrustRules()
     ) {
         self.imageTrust = imageTrust
+        owesReadMark = thread.isUnread
         trustRules = imageTrust.all
         self.layout = layout
         transcript = ChatTranscript(messages: [], accountEmail: accountEmail, aliases: accountAliases)
@@ -128,8 +131,8 @@ public final class ThreadViewModel {
     /// thread reads it. Only the window moves the reader: for what the reader asked here (R6–R8), or once the store shows
     /// the thread out of the mailbox it is read in (`placed`).
     public func observe() async {
-        if thread.isUnread, !hasMarkedRead {
-            hasMarkedRead = true
+        if owesReadMark {
+            owesReadMark = false
             actions?.markOpened([thread.id])
         }
         // Children of the observation, so leaving the thread cancels the fetch and the pins with it.
@@ -139,7 +142,8 @@ public final class ThreadViewModel {
         async let placing: Void = followPlace()
         do {
             for try await messages in stream() {
-                if expanded.isEmpty { expanded = Self.initiallyExpanded(messages) }
+                // Before any transcript is worked out, which a later, already-read emission may overtake.
+                cards.arrived(messages)
                 received = messages
                 await updateTranscript()
             }
@@ -197,24 +201,21 @@ public final class ThreadViewModel {
     /// Works out the pending replies from what was received, then the transcript off the main actor, and shows
     /// them with the messages at once, unless a newer request overtook this one meanwhile.
     private func updateTranscript() async {
-        transcriptRequest += 1
-        let request = transcriptRequest
         let messages = received
         transcriptDate = now()
         pending.update(
             queue: queue, takenBack: actions?.takenBack ?? [], conversation: messages, accountEmail: accountEmail,
             now: transcriptDate)
-        // A reply's synced copy opens as its card did, rather than folding into a row. Kept until a transcript is
-        // shown, since a newer request may overtake this one, and `pending` won't report the copy again.
-        syncedCopies.formUnion(pending.copies)
+        // A reply's synced copy opens as its card did, rather than folding into a row.
+        let request = transcriptWork.start(copies: Set(pending.copies))
+        let replies = pending.replies
         let transcript = await Self.transcript(
-            of: messages, accountEmail: accountEmail, aliases: accountAliases, pending: pending.replies)
-        guard request == transcriptRequest else { return }
-        expanded.formUnion(syncedCopies)
-        syncedCopies = []
+            of: messages, accountEmail: accountEmail, aliases: accountAliases, pending: replies)
+        guard let copies = transcriptWork.finish(request) else { return }
+        cards.open(copies)
         content.received(messages)
         self.transcript = transcript
-        replies = pending.replies
+        self.replies = replies
     }
 
     private func followPins() async {
@@ -261,11 +262,7 @@ public final class ThreadViewModel {
     }
 
     public func toggle(_ id: Message.ID) {
-        if expanded.contains(id), expanded.count > 1 {
-            expanded.remove(id)
-        } else {
-            expanded.insert(id)
-        }
+        cards.toggle(id)
     }
 
     /// The messages that may load remote content: those the reader loaded once, and every one a trust rule matches.
@@ -457,11 +454,6 @@ public final class ThreadViewModel {
     /// The first message the view scrolls to: the first unread one, or the newest.
     public var firstFocused: Message.ID? {
         messages.first(where: \.isUnread)?.id ?? messages.last?.id
-    }
-
-    /// Unread messages and the newest open as cards; the rest of the history stays in the timeline.
-    static func initiallyExpanded(_ messages: [Message]) -> Set<Message.ID> {
-        Set(messages.filter(\.isUnread).map(\.id) + (messages.last.map { [$0.id] } ?? []))
     }
 
     func dateText(for message: Message) -> String {

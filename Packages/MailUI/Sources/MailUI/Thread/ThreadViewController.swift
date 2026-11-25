@@ -1,5 +1,4 @@
 public import MailCore
-public import QuickLook
 public import UIKit
 
 /// A conversation read as letters: the subject, a slim timeline of earlier messages, and cards for the ones that
@@ -46,9 +45,8 @@ public final class ThreadViewController: UIViewController {
             placeShareItem()
         }
     }
-    /// The window's toolbar over the letter on a desktop window, as last laid out; `nil` where the bar at the bottom
-    /// holds the controls.
-    var windowToolbar: WindowToolbar?
+    /// Where the reader's controls are, as last laid out (`placeShareItem`).
+    var bars = Bars.bottom
     /// The chat's message field and folded mail actions, in place of the toolbar while the chat layout shows.
     let composer = ChatComposerBar()
     /// Letters keep a readable width; chat bubbles reach nearly to the edges.
@@ -59,12 +57,11 @@ public final class ThreadViewController: UIViewController {
     private var fetchingAgain: Task<Void, Never>?
     /// The layout the reader last scrolled to the focused message in; switching layouts scrolls there again.
     private var focusedLayout: ConversationLayout?
-    private var previewURL: URL?
+    /// The attachment being opened in Quick Look.
+    private let previewer = AttachmentPreviewer()
     /// The way off the mailing list the conversation came from, shown under the subject while it applies.
     private let unsubscribeOffer: UnsubscribeOffer?
     private lazy var unsubscribeBanner = UnsubscribeBanner()
-    /// The reader's request to leave the list, cancelled if the reader leaves first.
-    private var unsubscribing: Task<Void, Never>?
     /// The glass pill that shows a hovered link's address, and the find bar under the top bar (desktop windows).
     let readerPill = ReaderPill()
     let findBar = ConversationFindBar()
@@ -76,7 +73,12 @@ public final class ThreadViewController: UIViewController {
         anchor: { [weak self] in self?.exportAnchor }, conversation: { [weak self] in self?.exportedConversation })
     /// Where the share sheet and the print panel point from: Share, or More on a desktop window, whose toolbar holds
     /// Share in that menu and so has no Share button to point from.
-    var exportAnchor: UIBarButtonItem { windowToolbar?.more ?? shareItem }
+    var exportAnchor: UIBarButtonItem {
+        switch bars {
+        case .bottom: shareItem
+        case .window(let toolbar): toolbar.more
+        }
+    }
 
     public init(
         viewModel: ThreadViewModel, openURL: @escaping (URL) -> Void, unsubscribeOffer: UnsubscribeOffer? = nil
@@ -97,7 +99,6 @@ public final class ThreadViewController: UIViewController {
         composer.finish()
         observation?.cancel()
         fetchingAgain?.cancel()
-        unsubscribing?.cancel()
     }
 
     public override func viewDidLoad() {
@@ -371,8 +372,12 @@ public final class ThreadViewController: UIViewController {
 
     /// Share sits beside the layout switch in a regular-width window, where the toolbar has no More menu to take
     /// what doesn't fit and dropped it, and in the toolbar on a phone, where More holds it when the bar runs short.
-    private func placeShareItem() {
-        if usesWindowToolbar { return placeWindowToolbar() }
+    func placeShareItem() {
+        if usesWindowToolbar {
+            bars = .window(placeWindowToolbar())
+            return
+        }
+        bars = .bottom
         let regular = traitCollection.horizontalSizeClass == .regular
         // The chevrons sit at the trailing end, the one below after the one above, in every language, in a capsule of
         // their own as in Mail.
@@ -464,11 +469,7 @@ public final class ThreadViewController: UIViewController {
 
     private func confirmUnsubscribe(_ offer: UnsubscribeOffer.Offer) {
         let alert = UIAlertController.unsubscribe(offer, accountEmail: viewModel.accountEmail) { [weak self] in
-            guard let self, let unsubscribeOffer, unsubscribing == nil else { return }
-            unsubscribing = Task { [weak self] in
-                await unsubscribeOffer.unsubscribe(offer)
-                self?.unsubscribing = nil
-            }
+            self?.unsubscribeOffer?.unsubscribe(offer)
         }
         present(alert, animated: true)
     }
@@ -628,27 +629,30 @@ public final class ThreadViewController: UIViewController {
     /// Downloads the file, with `loading` showing it on whatever the reader tapped, then previews it from the
     /// controller in front, which may be a letter's sheet.
     private func open(_ attachment: Attachment, in message: Message.ID, loading: @escaping (Bool) -> Void) {
-        loading(true)
-        Task {
-            defer { loading(false) }
-            do {
-                previewURL = try await viewModel.file(for: attachment, in: message)
-                let preview = QLPreviewController()
-                preview.dataSource = self
-                (presentedViewController ?? self).present(preview, animated: true)
-            } catch {
-                let alert = UIAlertController(
-                    title: String(
-                        localized: "Couldn’t Open Attachment", table: "Thread", bundle: .module,
-                        comment: "Alert title when an attachment fails to download"),
-                    message: error.localizedDescription, preferredStyle: .alert)
-                alert.addAction(
-                    UIAlertAction(
-                        title: String(localized: "OK", table: "Thread", bundle: .module, comment: "Dismiss"),
-                        style: .default))
-                (presentedViewController ?? self).present(alert, animated: true)
-            }
-        }
+        previewer.open(
+            attachment, in: message, file: { [viewModel] in try await viewModel.file(for: attachment, in: message) },
+            loading: loading,
+            finished: { [weak self] result in
+                guard let self else { return }
+                let shown: UIViewController =
+                    switch result {
+                    case .success(let file): FilePreviewController(file: file)
+                    case .failure(let error): Self.openFailure(error)
+                    }
+                (presentedViewController ?? self).present(shown, animated: true)
+            })
+    }
+
+    private static func openFailure(_ error: any Error) -> UIAlertController {
+        let alert = UIAlertController(
+            title: String(
+                localized: "Couldn’t Open Attachment", table: "Thread", bundle: .module,
+                comment: "Alert title when an attachment fails to download"),
+            message: error.localizedDescription, preferredStyle: .alert)
+        alert.addAction(
+            UIAlertAction(
+                title: String(localized: "OK", table: "Thread", bundle: .module, comment: "Dismiss"), style: .default))
+        return alert
     }
 
     /// Opens on the first unread message, or the newest, once the messages first arrive in each layout.
@@ -689,16 +693,6 @@ public final class ThreadViewController: UIViewController {
         return String(
             localized: "\(count) messages", table: "Thread", bundle: .module,
             comment: "How many messages a thread holds")
-    }
-}
-
-extension ThreadViewController: QLPreviewControllerDataSource {
-    public func numberOfPreviewItems(in controller: QLPreviewController) -> Int {
-        previewURL == nil ? 0 : 1
-    }
-
-    public func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> any QLPreviewItem {
-        (previewURL ?? URL(filePath: "/")) as NSURL
     }
 }
 

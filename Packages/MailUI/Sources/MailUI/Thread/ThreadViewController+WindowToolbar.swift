@@ -5,6 +5,12 @@ import UIKit
 /// bottom: what takes the conversation away, then how to answer it, then the layout and More, with search at the end
 /// (the list lends its field to this column). Each button names itself and its keys when the pointer rests on it.
 extension ThreadViewController {
+    /// Where the reader's controls are: the bar at the bottom, or the window's toolbar over the letter.
+    enum Bars {
+        case bottom
+        case window(WindowToolbar)
+    }
+
     /// The window's toolbar as laid out: whether Edit Draft has Reply's place, and More, which the share sheet points
     /// from since Share is in it.
     struct WindowToolbar {
@@ -14,7 +20,7 @@ extension ThreadViewController {
 
     var usesWindowToolbar: Bool { traitCollection.interactionStyle == .desktop }
 
-    func placeWindowToolbar() {
+    func placeWindowToolbar() -> WindowToolbar {
         let away = [
             commandItem(.archive, symbol: ThreadAction.archive.symbol) { [weak self] in
                 self?.viewModel.perform(.archive)
@@ -38,13 +44,13 @@ extension ThreadViewController {
             .fixedGroup(items: away), .fixedGroup(items: answers), .fixedGroup(items: [layoutItem]),
             .fixedGroup(items: [more]),
         ]
-        windowToolbar = WindowToolbar(answersDraft: answersDraft, more: more)
+        return WindowToolbar(answersDraft: answersDraft, more: more)
     }
 
     /// Edit Draft takes Reply's place while the newest message is an unsent draft.
     func updateWindowToolbar() {
-        guard usesWindowToolbar, windowToolbar?.answersDraft != (viewModel.draft != nil) else { return }
-        placeWindowToolbar()
+        guard case .window(let toolbar) = bars, toolbar.answersDraft != (viewModel.draft != nil) else { return }
+        placeShareItem()
     }
 
     private func commandItem(

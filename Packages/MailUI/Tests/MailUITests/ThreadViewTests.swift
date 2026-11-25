@@ -69,7 +69,7 @@ struct ThreadViewModelTests {
             message("1", unread: false, minutes: 1), message("2", unread: true, minutes: 2),
             message("3", unread: false, minutes: 3), message("4", unread: false, minutes: 4),
         ]
-        #expect(ThreadViewModel.initiallyExpanded(messages) == [messages[1].id, messages[3].id])
+        #expect(OpenCards.initial(messages) == [messages[1].id, messages[3].id])
     }
 
     @Test func theLastOpenCardCannotBeClosed() {

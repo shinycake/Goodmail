@@ -18,8 +18,12 @@ struct MessagePreviewTests {
         MessageWebView { _, _ in throw ProviderError.notFound }
     }
 
-    @Test func theNewWordsShowUntilTheBodyHasItsHeight() {
+    /// The page in the view until this message's commits is the one before it, whose height isn't this message's
+    /// (`BodyLoadTests` follows the load through).
+    @Test func theNewWordsShowUntilTheBodysOwnPageHasItsHeight() {
         let view = webView()
+        var laidOut = 0
+        view.onLayout = { _, _ in laidOut += 1 }
         view.show(
             .init(
                 message: message("m", plain: "Sounds good, see you then\n\nOn Monday, Dana wrote:\n> Lunch?"),
@@ -27,18 +31,13 @@ struct MessagePreviewTests {
         #expect(view.previewText == "Sounds good, see you then")
 
         view.handle(["height": 86.0, "hasRemote": false])
-        #expect(view.previewText == nil)
+        #expect(view.previewText == "Sounds good, see you then")
+        #expect(laidOut == 0)
     }
 
-    @Test func loadingRemoteImagesKeepsTheBodyThatShows() {
+    @Test func anotherMessageStartsFromItsWords() {
         let view = webView()
-        let shown = message("m", plain: "Sounds good")
-        view.show(.init(message: shown, allowsRemoteContent: false))
-        view.handle(["height": 24.0, "hasRemote": true])
-
-        view.show(.init(message: shown, allowsRemoteContent: true))
-        #expect(view.previewText == nil)
-
+        view.show(.init(message: message("m", plain: "Sounds good"), allowsRemoteContent: false))
         view.show(.init(message: message("n", plain: "Another one"), allowsRemoteContent: true))
         #expect(view.previewText == "Another one")
     }

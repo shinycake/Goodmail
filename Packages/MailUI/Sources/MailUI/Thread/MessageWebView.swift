@@ -26,12 +26,13 @@ final class MessageWebView: UIView {
     /// The reader's zoom this view last asked its page for. The page reports the zoom it is at with each height, so a
     /// request that reached it before its script ran is sent again.
     private var appliedZoom = ReaderZoomModel.shared.zoom
-    private var content: Content?
-    /// Applies the latest `show`. A newer one cancels it, so a slow first rule compile can't load stale content.
-    private var loading: Task<Void, Never>?
-    /// The load of the content shown now. Script messages count from its commit on, so a spare's blank body, still
-    /// loading when this view took it, can't report a height.
-    private var navigation: WKNavigation?
+    /// The content shown and its load. A newer `show` cancels one still preparing, so a slow first rule compile can't
+    /// load stale content, and script messages count only from the newest load's commit on.
+    private var body = BodyLoad<Content, WKNavigation>.blank {
+        didSet { preview.isHidden = previewText == nil }
+    }
+    /// The link under the pointer as this body last reported it, which a page that goes away never takes back.
+    private var hoveredLink: URL?
 
     /// `attachmentData` fetches a part a `cid:` URL names.
     init(attachmentData: @escaping (Attachment, Message.ID) async throws -> Data) {
@@ -52,6 +53,7 @@ final class MessageWebView: UIView {
         webView.scrollView.showsHorizontalScrollIndicator = false
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.navigationDelegate = self
+        messageHandler.onMessage = { [weak self] report in self?.handle(report) }
         preview.font = .preferredFont(forTextStyle: .body)
         preview.adjustsFontForContentSizeCategory = true
         preview.numberOfLines = 8
@@ -73,30 +75,45 @@ final class MessageWebView: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("Programmatic UI only") }
 
+    isolated deinit {
+        body.cancel()
+    }
+
     func show(_ content: Content) {
-        guard content != self.content else { return }
+        guard content != body.content else { return }
         // Loading remote images keeps the body that shows; only another message starts from its words.
-        if content.message.id != self.content?.message.id {
-            let words = ReplyText(body: content.message.body).text
-            preview.setContentText(words)
-            preview.isHidden = words.isEmpty
-        }
-        self.content = content
+        let sameMessage = content.message.id == body.content?.message.id
+        if !sameMessage { preview.setContentText(ReplyText(body: content.message.body).text) }
         cidHandler.message = content.message
-        loading?.cancel()
-        loading = Task {
+        // The page going away takes the link under the pointer with it, and it says nothing as it goes.
+        leaveLink()
+        body.show(content, sameMessage: sameMessage, work: prepare(content))
+    }
+
+    /// Builds the content's document and loads it.
+    private func prepare(_ content: Content) -> Task<Void, Never> {
+        Task { [weak self] in
             async let document = Self.document(
                 for: content.message.body, allowsRemoteContent: content.allowsRemoteContent)
             let blocker = content.allowsRemoteContent ? nil : await RemoteContentBlocker.shared.ruleList()
             let (html, palette) = await document
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, let self else { return }
             let rules = webView.configuration.userContentController
             rules.removeAllContentRuleLists()
             if let blocker { rules.add(blocker) }
             // A painted body is a sheet of its own on the card, so it gets the card's rounded corners.
             webView.layer.cornerRadius = palette == .painted ? 12 : 0
-            navigation = webView.loadHTMLString(MessageDocument.zoomed(html, by: appliedZoom), baseURL: nil)
+            guard let navigation = webView.loadHTMLString(MessageDocument.zoomed(html, by: appliedZoom), baseURL: nil)
+            else { return }
+            body.load(navigation)
         }
+    }
+
+    /// The load of the content shown failed or its page went: it loads once more.
+    private func reload() {
+        let now = ContinuousClock.now
+        guard let content = body.reloadable(at: now) else { return }
+        body.reload(work: prepare(content), at: now)
     }
 
     /// Picking the palette and building the document read the whole body, so they stay off the main actor.
@@ -110,22 +127,38 @@ final class MessageWebView: UIView {
     }
 
     /// The words that show while the body loads, or nil once it has its height.
-    var previewText: String? { preview.isHidden ? nil : preview.text }
+    var previewText: String? {
+        guard body.showsPreview, let words = preview.text, !words.isEmpty else { return nil }
+        return words
+    }
 
-    /// Takes what the script reports: the body's height, whether it blocked remote content, or a link under the pointer.
-    func handle(_ body: Any) {
-        switch MessageReport(body) {
+    /// Takes what the script reports: the body's height, whether it blocked remote content, or a link under the
+    /// pointer. Only the page of the content shown reports; what an older page says is about content no longer shown.
+    func handle(_ report: Any) {
+        switch MessageReport(report) {
         case .layout(let height, let hasRemote, let zoom):
+            guard let content = body.laidOut() else { return }
             heightConstraint.constant = max(1, height)
-            preview.isHidden = true
             if zoom != appliedZoom.factor { sendZoom() }
-            onLayout?(heightConstraint.constant, hasRemote && content?.allowsRemoteContent == false)
-        case .hover(let link):
+            onLayout?(heightConstraint.constant, hasRemote && !content.allowsRemoteContent)
+        case .hover(let link?):
             // A touch window's tap on a link would report a hover that never ends.
-            if traitCollection.interactionStyle == .desktop { onHoverLink?(link) }
+            guard body.reporting != nil, traitCollection.interactionStyle == .desktop else { return }
+            hoveredLink = link
+            onHoverLink?(link)
+        case .hover(nil):
+            // Leaving a link is true of any page, the one going too.
+            leaveLink()
         case nil:
             break
         }
+    }
+
+    /// The pointer left the link this body last reported, if any.
+    private func leaveLink() {
+        guard hoveredLink != nil else { return }
+        hoveredLink = nil
+        onHoverLink?(nil)
     }
 
     /// The reader's zoom is a setting of this device that every message view follows (`ReaderZoomModel`).
@@ -185,8 +218,23 @@ extension MessageWebView: WKNavigationDelegate {
         return .allow
     }
 
+    /// WebKit passes no navigation for a load it starts itself, which is never the body's.
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
-        guard navigation === self.navigation else { return }
-        messageHandler.onMessage = { [weak self] body in self?.handle(body) }
+        guard let navigation else { return }
+        body.commit(navigation)
+    }
+
+    /// The body's page never came: it loads once more rather than stay without a height.
+    func webView(
+        _ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: any Error
+    ) {
+        guard let navigation, body.awaits(navigation) else { return }
+        reload()
+    }
+
+    /// The content process went, and the page with it, as under memory pressure, taking any link under the pointer.
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        leaveLink()
+        reload()
     }
 }

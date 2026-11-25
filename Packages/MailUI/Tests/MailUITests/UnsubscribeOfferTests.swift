@@ -50,7 +50,8 @@ struct UnsubscribeOfferTests {
     @Test func unsubscribingIsRememberedForTheListsLaterMail() async throws {
         let messages = [message(from: list, unsubscribe: oneClick, at: 1)]
         let offer = offer()
-        await offer.unsubscribe(try #require(offer.offer(in: messages)))
+        offer.unsubscribe(try #require(offer.offer(in: messages)))
+        await offer.settled()
 
         #expect(offer.offer(in: messages)?.state == .unsubscribed)
         #expect(self.offer().offer(in: [message(from: list, unsubscribe: oneClick, at: 5)])?.state == .unsubscribed)
@@ -62,7 +63,8 @@ struct UnsubscribeOfferTests {
         let offer = offer(perform: { _ in .openPage(page) }, openURL: { opened.append($0) })
         let messages = [message(from: list, unsubscribe: .page(page), at: 1)]
 
-        await offer.unsubscribe(try #require(offer.offer(in: messages)))
+        offer.unsubscribe(try #require(offer.offer(in: messages)))
+        await offer.settled()
 
         #expect(opened == [page])
         #expect(offer.offer(in: messages)?.state == .pageOpened)
@@ -73,7 +75,8 @@ struct UnsubscribeOfferTests {
         let messages = [message(from: list, unsubscribe: .page(page), at: 1)]
         let offer = offer(perform: { _ in .openPage(page) })
 
-        await offer.unsubscribe(try #require(offer.offer(in: messages)))
+        offer.unsubscribe(try #require(offer.offer(in: messages)))
+        await offer.settled()
         #expect(!memory.contains(list.address, account: account))
         #expect(self.offer().offer(in: messages)?.state == .offered)
 
@@ -101,13 +104,61 @@ struct UnsubscribeOfferTests {
         })
         let messages = [message(from: list, unsubscribe: oneClick, at: 1)]
 
-        await offer.unsubscribe(try #require(offer.offer(in: messages)))
+        offer.unsubscribe(try #require(offer.offer(in: messages)))
+        await offer.settled()
         let failed = try #require(offer.offer(in: messages))
         #expect(failed.state == .failed)
         #expect(!memory.contains(list.address, account: account))
 
-        await offer.unsubscribe(failed)
+        offer.unsubscribe(failed)
+        await offer.settled()
         #expect(offer.offer(in: messages)?.state == .unsubscribed)
         #expect(attempts == 2)
+    }
+
+    /// The banner's offer is a snapshot: a second tap on it while the first request is out asks the list once.
+    @Test func askingAgainWhileTheRequestIsOutAsksOnce() async throws {
+        var attempts = 0
+        let offer = offer(perform: { _ in
+            attempts += 1
+            return .done
+        })
+        let messages = [message(from: list, unsubscribe: oneClick, at: 1)]
+        let shown = try #require(offer.offer(in: messages))
+
+        offer.unsubscribe(shown)
+        #expect(offer.offer(in: messages)?.state == .unsubscribing)
+        offer.unsubscribe(shown)
+        await offer.settled()
+
+        #expect(attempts == 1)
+        #expect(offer.offer(in: messages)?.state == .unsubscribed)
+        offer.unsubscribe(shown)
+        await offer.settled()
+        #expect(attempts == 1, "a list already left isn't asked again from an old snapshot")
+    }
+
+    @Test(.timeLimit(.minutes(1))) func theRequestStopsWhenTheOfferGoes() async throws {
+        let (started, starting) = AsyncStream<Void>.makeStream()
+        let (stopped, stopping) = AsyncStream<Bool>.makeStream()
+        var held: UnsubscribeOffer? = offer(perform: { _ in
+            starting.yield()
+            let slept: Void? = try? await Task.sleep(for: .seconds(60))
+            stopping.yield(slept == nil)
+            return .done
+        })
+        let messages = [message(from: list, unsubscribe: oneClick, at: 1)]
+        held?.unsubscribe(try #require(held?.offer(in: messages)))
+        for await _ in started { break }
+
+        held = nil
+
+        var cancelled = false
+        for await stop in stopped {
+            cancelled = stop
+            break
+        }
+        #expect(cancelled, "the reader that held the offer went, and its request with it")
+        #expect(!memory.contains(list.address, account: account))
     }
 }
