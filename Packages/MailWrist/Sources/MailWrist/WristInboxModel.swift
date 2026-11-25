@@ -71,6 +71,17 @@ public final class WristInboxModel {
         continuation.yield(Update(mailbox: mailbox, command: nil))
     }
 
+    /// The watch took back a reply it couldn't tell went: it shows as one that may not have gone.
+    public func couldntConfirm(_ command: WristCommand) {
+        mailbox.couldntConfirm(command)
+        continuation.yield(Update(mailbox: mailbox, command: nil))
+    }
+
+    /// Whether the reply `command`, among `undelivered`, may have gone after all.
+    public func mayHaveGone(_ command: WristCommand) -> Bool {
+        mailbox.unconfirmed.contains(command.id)
+    }
+
     public func receive(_ reading: WristSnapshot.Reading) {
         switch reading {
         case .newerVersion:
@@ -80,6 +91,15 @@ public final class WristInboxModel {
             mailbox.receive(snapshot, now: now())
             continuation.yield(Update(mailbox: mailbox, command: nil))
         }
+    }
+
+    /// The watch couldn't run `command` because the owner turned "Mail Without iPhone" off since it was made: the
+    /// iPhone runs it instead, as the same command, so it still runs once, unless a later change to its threads
+    /// already went to the iPhone (`WristMailbox.handToPhone`).
+    public func handToPhone(_ command: WristCommand) {
+        guard let phone = mailbox.handToPhone(command, now: now()) else { return }
+        if undoable?.id == command.id { undoable = phone }
+        continuation.yield(Update(mailbox: mailbox, command: phone))
     }
 
     /// Takes the watch's own newest snapshot and each account's source.

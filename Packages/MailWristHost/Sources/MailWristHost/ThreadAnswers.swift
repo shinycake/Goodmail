@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 public import MailCore
 public import MailStore
 
@@ -47,9 +47,12 @@ public struct ThreadAnswers: Sendable {
 
     /// Sends `text` as a reply to the newest message in the thread, signed as the composer signs it, with the
     /// conversation quoted below. Returns the reply as queued; `nil`, having done nothing, for an account that is gone
-    /// or a thread without messages.
+    /// or a thread without messages. `queuing` hears the reply's ID just before it is queued; throwing there queues
+    /// nothing. Throwing at all means nothing was queued.
     @discardableResult
-    @concurrent public func reply(to thread: ThreadSummary.ID, with text: String) async throws -> Draft? {
+    @concurrent public func reply(
+        to thread: ThreadSummary.ID, with text: String, queuing: @Sendable (Draft.ID) throws -> Void = { _ in }
+    ) async throws -> Draft? {
         guard let account = try database.accounts().first(where: { $0.id == thread.accountID }) else { return nil }
         guard let latest = try await fetchMessages(of: thread).last else { return nil }
         var plain = text
@@ -58,6 +61,7 @@ public struct ThreadAnswers: Sendable {
         }
         var draft = Draft.reply(to: latest, all: false, accountEmail: account.email, aliases: account.aliases)
         draft.body = MessageBody(html: HTMLText.lines(plain), plain: plain)
+        try queuing(draft.id)
         try await commands.send(draft, after: .zero)
         return draft
     }

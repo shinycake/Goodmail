@@ -109,12 +109,16 @@ public actor MailCommands {
         try store.remove(id)
     }
 
+    /// Applies `action` to `threads` at once and queues it for each account's provider, the intents marked with
+    /// `origin`, the change that made them, where the device keeps one (`OutboxIntent.origin`).
     @discardableResult
-    public func perform(_ action: ThreadAction, on threads: [ThreadSummary.ID]) throws -> Undo {
+    public func perform(_ action: ThreadAction, on threads: [ThreadSummary.ID], origin: UUID? = nil) throws -> Undo {
         var undo = Undo(intents: [:])
         for (account, ids) in Dictionary(grouping: threads, by: \.accountID) {
             let date = now()
-            let intents = ids.map { OutboxIntent(threadID: $0.threadID, action: action, createdAt: date) }
+            let intents = ids.map {
+                OutboxIntent(threadID: $0.threadID, action: action, createdAt: date, origin: origin)
+            }
             let before = try store.enqueue(intents, account: account)
             undo.intents[account] = ids.flatMap { id in
                 before[id.threadID].map { labels in
@@ -194,7 +198,16 @@ public actor Outbox {
     private let provider: @Sendable () throws -> any MailProvider
     private let store: any OutboxStore & SyncStore
     private let now: @Sendable () -> Date
-    private var running: Task<Void, any Error>?
+    /// Whether a drain runs. Only `flush` and `stopDraining` change it.
+    private var state = State.idle
+
+    private enum State {
+        case idle
+        /// The drain in progress, which every caller shares.
+        case draining(Task<Void, any Error>)
+        /// `stopDraining` ended the outbox: nothing drains any more.
+        case stopped
+    }
 
     public init(
         accountID: AccountID,
@@ -219,19 +232,36 @@ public actor Outbox {
 
     /// Sends everything queued. A thread that is gone, or an intent the provider refuses, drops it and takes the
     /// thread as the provider has it; any other failure stops the drain, leaving the rest queued for the next call.
-    /// Concurrent callers share the drain in progress.
+    /// Concurrent callers share the drain in progress, which runs on for the others when one of them is cancelled.
+    /// After `stopDraining`, it throws `CancellationError` and sends nothing.
     public func flush() async throws {
-        if let running { return try await running.value }
-        let task = Task { try await drain() }
-        running = task
-        defer { running = nil }
-        try await task.value
+        switch state {
+        case .draining(let running):
+            return try await running.value
+        case .stopped:
+            throw CancellationError()
+        case .idle:
+            let task = Task { try await drain() }
+            state = .draining(task)
+            defer { if case .draining(let current) = state, current == task { state = .idle } }
+            try await task.value
+        }
+    }
+
+    /// Ends the outbox, as the watch's ends when the owner turns "Mail Without iPhone" off (ADR-023): cancels the
+    /// drain in progress, which cancels the provider call under way and stops before the next intent, and refuses
+    /// every later one. What is still queued stays queued; an intent whose call was cut short may have reached the
+    /// provider anyway, as after a lost connection.
+    public func stopDraining() {
+        if case .draining(let running) = state { running.cancel() }
+        state = .stopped
     }
 
     private func drain() async throws {
         let provider = try self.provider()
-        // Re-read after each send: intents queued meanwhile go out in the same drain.
+        // Re-read after each send: intents queued meanwhile go out in the same drain. Only `stopDraining` cancels it.
         while let intent = try store.pendingIntents(for: accountID).first {
+            try Task.checkCancellation()
             do {
                 try await provider.perform(intent.action, onThread: intent.threadID)
                 try store.markSent(intent.id, at: now())

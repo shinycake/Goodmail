@@ -38,21 +38,26 @@ struct GoodmailWatchApp: App {
 /// Owns the link to the iPhone and the watch's own mail for the app's lifetime, from launch: the system can launch the app without a window
 /// to hand it what the iPhone sent.
 final class WatchAppDelegate: NSObject, WKApplicationDelegate {
-    let inbox = WristInboxModel()
+    let inbox: WristInboxModel
     let threads = WristThreads()
     let route = WristRoute()
     /// The Gmail and Outlook accounts the watch reads itself (ADR-023).
-    let own = OwnMail()
+    let own: OwnMail
     private let channel = WristChannel()
     /// The alerts the relay sends the watch itself (ADR-023).
     let alerts: OwnAlerts
     /// In the App Group, where the watch face's widget extension reads it.
-    let store = WristStore(directory: SharedContainer.directoryURL ?? .applicationSupportDirectory)
+    let store: WristStore
     /// Shows each snapshot the iPhone sends, stores and sends each change, and asks for each conversation opened.
     /// Ends with the app; nothing cancels it.
     private var following: Task<Void, Never>?
 
     override init() {
+        let inbox = WristInboxModel()
+        let store = WristStore(directory: SharedContainer.directoryURL ?? .applicationSupportDirectory)
+        self.inbox = inbox
+        self.store = store
+        own = OwnMail(inbox: inbox, store: store)
         alerts = OwnAlerts(channel: channel)
         super.init()
     }

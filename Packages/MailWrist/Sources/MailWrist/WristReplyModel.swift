@@ -31,17 +31,35 @@ public final class WristReplyModel {
         self.deliver = deliver
     }
 
-    /// Holds `text`, then sends it unless Undo took it back first. Blank text, or a reply already on its way, does
-    /// nothing.
-    public func send(_ text: String) async {
+    /// The reply being held, for whoever runs `release` while it is.
+    public var held: Held? {
+        guard case .holding(let held) = state else { return nil }
+        return held
+    }
+
+    /// Holds `text` for Undo; `release` sends it after. Blank text, or a reply already on its way, does nothing.
+    public func send(_ text: String) {
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, state == .writing else { return }
-        let held = Held(text: text)
-        state = .holding(held)
+        state = .holding(Held(text: text))
+    }
+
+    /// Waits out the moment `held` is held for, then sends it unless Undo took it back first. Cancelled, as when the
+    /// reader leaves the screen, it sends at once.
+    public func release(_ held: Held) async {
+        guard state == .holding(held) else { return }
         try? await hold()
         guard state == .holding(held) else { return }
-        state = .sent(text)
-        deliver(text)
+        state = .sent(held.text)
+        deliver(held.text)
+    }
+
+    /// Sends the held reply now, without waiting out its moment, as when the app goes to the background, where it
+    /// may be suspended or ended before the moment is over.
+    public func releaseNow() {
+        guard case .holding(let held) = state else { return }
+        state = .sent(held.text)
+        deliver(held.text)
     }
 
     /// Takes back the held reply, and returns its words to write again; `nil` when nothing is held.

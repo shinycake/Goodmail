@@ -435,6 +435,17 @@
         }
       }
     },
+    "Reply May Not Have Been Sent": {
+      "comment": "Alert: the watch couldn't tell whether a reply went",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ייתכן שהתשובה לא נשלחה"
+          }
+        }
+      }
+    },
     "Reply Not Sent": {
       "comment": "Alert: a reply from the watch failed",
       "localizations": {
@@ -750,6 +761,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "הדואר יופיע כאן אחרי שהאפליקציה ב‑iPhone תסתנכרן."
+          }
+        }
+      }
+    },
+    "Your watch couldn't tell whether “%@” went.": {
+      "comment": "Alert: the watch couldn't tell whether a reply went; the reply's words",
+      "localizations": {
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "השעון לא הצליח לברר אם התשובה „%@” נשלחה."
           }
         }
       }

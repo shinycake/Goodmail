@@ -28,8 +28,12 @@ final class OwnMail {
     private let chores: AsyncStream<Chore>
     private let choresIn: AsyncStream<Chore>.Continuation
 
-    init() {
-        opening = Task { await Self.openHost() }
+    /// - Parameters:
+    ///   - inbox: where the changes the host gives back when the switch goes off are taken back to.
+    ///   - store: where the mailbox is stored, before the host forgets what it gave back.
+    init(inbox: WristInboxModel, store: WristStore) {
+        let handBack = Self.takingBack(into: inbox, store: store)
+        opening = Task { await Self.openHost(store: store, handBack: handBack) }
         (commands, commandsIn) = AsyncStream.makeStream(of: WristCommand.self)
         (chores, choresIn) = AsyncStream.makeStream(of: Chore.self)
     }
@@ -70,10 +74,19 @@ final class OwnMail {
     func run(inbox: WristInboxModel, threads: WristThreads) async {
         guard let host = await opening.value else { return }
         await Self.prune(host)
-        threads.own = { id in try await host.conversation(id) }
         let server = WristServer(
-            applied: AppliedCommands.load(), execute: { try await host.execute($0) },
-            send: { snapshot in await Self.show(snapshot, sources: try? await host.sources(), in: inbox, threads) },
+            applied: AppliedCommands.load(),
+            execute: { command in
+                do {
+                    try await host.execute(command)
+                } catch WristOwnHost.Refusal.switchedOff {
+                    // The owner turned "Mail Without iPhone" off before it went: the iPhone runs it instead.
+                    await inbox.handToPhone(command)
+                }
+            },
+            send: { snapshot in
+                await Self.show(snapshot, sources: try? await host.sources(), from: host, in: inbox, threads)
+            },
             remember: AppliedCommands.save)
         async let following: Void = follow(inbox, threads: threads, host: host)
         async let feeding: Void = Self.feed(from: host, to: server)
@@ -83,13 +96,36 @@ final class OwnMail {
         _ = await (following, feeding, running, choring, footing)
     }
 
+    /// Takes back what the host gives up when "Mail Without iPhone" goes off, and stores the mailbox before returning,
+    /// so the host forgets it only once it is kept: the iPhone makes each change that hadn't gone, and each reply that
+    /// didn't go, or may not have, shows for the reader to send again. The mailbox is restored first, as the system
+    /// may have launched the app for an alert or a refresh, so storing it can't lose what was stored before.
+    private static func takingBack(into inbox: WristInboxModel, store: WristStore) -> WristOwnHost.Receiver {
+        { @MainActor handbacks in
+            if !inbox.isRestored { inbox.restore(await store.load()) }
+            for handback in handbacks {
+                switch handback {
+                case .run(let command): inbox.handToPhone(command)
+                case .undelivered(let command): inbox.couldntRun(command)
+                case .unconfirmed(let command): inbox.couldntConfirm(command)
+                }
+            }
+            try await store.save(inbox.mailbox)
+        }
+    }
+
     /// Keeps the list footer on how fresh the watch's own mail is.
     private static func showFreshness(of host: WristOwnHost, in inbox: WristInboxModel) async {
         for await freshness in host.freshnessUpdates { inbox.freshness = freshness }
     }
 
-    /// Opens the database in the app's own container, which only the watch app reads, and the host over it.
-    @concurrent private static func openHost() async -> WristOwnHost? {
+    /// Opens the database in the app's own container, which only the watch app reads, and the host over it, with the
+    /// owner's switch as the stored mailbox last had it, so nothing is served before the iPhone's snapshot is
+    /// followed when the switch was off.
+    @concurrent private static func openHost(store: WristStore, handBack: @escaping WristOwnHost.Receiver) async
+        -> WristOwnHost?
+    {
+        let independence = Following(await store.load())?.independence ?? .default
         let folder = URL.applicationSupportDirectory.appending(path: "OwnMail", directoryHint: .isDirectory)
         do {
             // MailDatabase protects its folder until the first unlock, so background checks can still open it.
@@ -99,9 +135,10 @@ final class OwnMail {
                 seedSignInsIfRequested(into: signIns)
             #endif
             let providers = WristProviders(signIns: signIns, index: database)
-            return WristOwnHost(
+            return await WristOwnHost(
                 database: database, signIns: signIns, provider: { try providers.provider(for: $0) },
-                uploads: folder.appending(path: "Uploads", directoryHint: .isDirectory))
+                uploads: folder.appending(path: "Uploads", directoryHint: .isDirectory), independence: independence,
+                handBack: handBack)
         } catch {
             log.error("Couldn't open the watch's own mail: \(error, privacy: .public)")
             return nil
@@ -119,7 +156,7 @@ final class OwnMail {
             } catch {
                 Self.log.error("Couldn't follow the iPhone's accounts: \(error, privacy: .public)")
             }
-            Self.resend(in: inbox, threads, sources: try? await host.sources())
+            Self.resend(in: inbox, threads, sources: try? await host.sources(), from: host)
             ask(.check)
         }
     }
@@ -135,7 +172,7 @@ final class OwnMail {
                 } catch {
                     Self.log.error("Couldn't check the watch's own mail: \(error, privacy: .public)")
                 }
-                Self.resend(in: inbox, threads, sources: try? await host.sources())
+                Self.resend(in: inbox, threads, sources: try? await host.sources(), from: host)
             case .prune:
                 await Self.prune(host)
             }
@@ -168,22 +205,26 @@ final class OwnMail {
         }
     }
 
-    /// Shows the watch's own `snapshot` with each account's `sources`, or the last sources when they can't be read.
+    /// Shows the watch's own `snapshot` from `host` with each account's `sources`, or the last sources when they
+    /// can't be read, and has the conversations of the direct accounts fetched from `host`.
     static func show(
-        _ snapshot: WristSnapshot, sources: [AccountID: WristAccountSource]?, in inbox: WristInboxModel,
-        _ threads: WristThreads
+        _ snapshot: WristSnapshot, sources: [AccountID: WristAccountSource]?, from host: WristOwnHost,
+        in inbox: WristInboxModel, _ threads: WristThreads
     ) {
         let sources = sources ?? inbox.mailbox.sources
         inbox.receiveOwn(snapshot, sources: sources)
-        threads.direct = Set(sources.filter { $0.value == .direct }.keys)
+        threads.readDirectly(Set(sources.filter { $0.value == .direct }.keys)) { id in
+            try await host.conversation(id)
+        }
     }
 
     /// Shows the last own snapshot again with new `sources`.
     private static func resend(
-        in inbox: WristInboxModel, _ threads: WristThreads, sources: [AccountID: WristAccountSource]?
+        in inbox: WristInboxModel, _ threads: WristThreads, sources: [AccountID: WristAccountSource]?,
+        from host: WristOwnHost
     ) {
         guard let own = inbox.mailbox.own else { return }
-        show(own, sources: sources, in: inbox, threads)
+        show(own, sources: sources, from: host, in: inbox, threads)
     }
 }
 

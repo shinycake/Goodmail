@@ -140,6 +140,36 @@ struct WristFeedsTests {
         #expect(mailbox.extras == nil)
     }
 
+    /// A mailbox as the build before `OwnInbox` stored it reads back whole, and is stored again in the same shape.
+    @Test func aMailboxStoredByTheLastBuildReadsAndStoresTheSame() throws {
+        let stored = Data(
+            #"{"own":{"accounts":[{"address":"me@gmail.com","color":"teal","id":"gmail","service":"gmail","unread":1}],"applied":[],"failed":[],"madeAt":821692800,"rows":[{"date":821692800,"id":{"accountID":"gmail","threadID":"g1"},"isPinned":false,"isUnread":true,"messageCount":1,"sender":{"address":"noa@x.com","name":"Noa"},"snippet":"","subject":"Lunch?"}],"version":1},"pending":[],"sources":["icloud",{"relayed":{"_0":{"service":{}}}},"gmail",{"direct":{}}],"undelivered":[]}"#
+                .utf8)
+
+        let mailbox = try JSONDecoder().decode(WristMailbox.self, from: stored)
+
+        #expect(mailbox.own?.rows.map(\.id) == [id(gmail, "g1")])
+        #expect(mailbox.sources == sources)
+        let again = try JSONEncoder().encode(mailbox)
+        #expect(try JSONDecoder().decode(WristMailbox.self, from: again) == mailbox)
+        let keys = { (data: Data) in try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any]).keys }
+        #expect(Set(try keys(again)) == Set(try keys(stored)))
+    }
+
+    /// The watch's own snapshot and its sources stay side by side in the stored mailbox, where builds before and after
+    /// read them.
+    @Test func aStoredMailboxKeepsTheOwnFeedsShape() throws {
+        var mailbox = WristMailbox()
+        mailbox.receiveOwn(snapshot([row(gmail, "g1", minutesAgo: 1)]), sources: sources, now: now)
+        let stored = try JSONEncoder().encode(mailbox)
+
+        let keys = try #require(try JSONSerialization.jsonObject(with: stored) as? [String: Any]).keys
+        #expect(Set(keys) == ["pending", "undelivered", "own", "sources"])
+        let read = try JSONDecoder().decode(WristMailbox.self, from: stored)
+        #expect(read.own == mailbox.own)
+        #expect(read.sources == sources)
+    }
+
     @Test func aMailboxWithBothFeedsReadsBack() throws {
         var mailbox = WristMailbox()
         mailbox.receive(snapshot([], extras: WristExtras(pinned: [id(gmail, "g1")])), now: now)

@@ -33,7 +33,7 @@ struct WristHandledAlertsTests {
     }
 
     private func mailbox(phone: WristSnapshot, own: WristSnapshot? = nil) -> WristMailbox {
-        WristMailbox(snapshot: phone, own: own, sources: sources)
+        WristMailbox(snapshot: phone, own: own.map { WristMailbox.OwnInbox(snapshot: $0, sources: sources) })
     }
 
     private func alert(_ payload: [String: String]) -> WristDeliveredAlert {

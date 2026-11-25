@@ -9,9 +9,8 @@ struct WristReplyView: View {
     @State private var reply: WristReplyModel
     /// The words being written, kept when Undo hands them back.
     @State private var draft = ""
-    /// The reply on its way; setting it starts the send, and leaving the screen sends it at once.
-    @State private var outgoing: String?
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
 
     init(thread: WristThread, inbox: WristInboxModel) {
         self.thread = thread
@@ -26,8 +25,15 @@ struct WristReplyView: View {
                     "Reply", tableName: "Wrist", bundle: .module,
                     comment: "Reply: the screen, its field and the button that opens it")
             )
-            .task(id: outgoing) {
-                if let outgoing { await reply.send(outgoing) }
+            // The held reply goes once its moment is over, or at once when the reader leaves the screen, which
+            // cancels the wait. Undo ends the hold, which cancels it too.
+            .task(id: reply.held) {
+                if let held = reply.held { await reply.release(held) }
+            }
+            // The app can be suspended once it is in the background, before the moment is over: the reply goes then.
+            // Inactive, as under a banner or with the wrist down in Always On, it keeps waiting, so Undo stays.
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .background { reply.releaseNow() }
             }
             .onChange(of: reply.state) { _, state in
                 if case .sent = state { dismiss() }
@@ -41,14 +47,11 @@ struct WristReplyView: View {
         switch reply.state {
         case .writing:
             WristReplyChoices(answers: WristQuickReplies.answers(for: thread), draft: $draft) { text in
-                outgoing = text
+                reply.send(text)
             }
         case .holding(let held):
             WristReplyHold(text: held.text) {
-                if let text = reply.undo() {
-                    draft = text
-                    outgoing = nil
-                }
+                if let text = reply.undo() { draft = text }
             }
         case .sent:
             Image(systemName: "checkmark.circle.fill")

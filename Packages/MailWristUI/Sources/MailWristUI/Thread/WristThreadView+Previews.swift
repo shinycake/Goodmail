@@ -17,8 +17,8 @@
         ) -> some View {
             let inbox = WristInboxModel()
             inbox.receive(.snapshot(sample))
-            let threads = WristThreads(patience: patience, own: own)
-            threads.direct = [direct.accountID]
+            let threads = WristThreads(
+                patience: patience, fetching: own.map { .own(fetch: $0, direct: [direct.accountID]) } ?? .phoneOnly)
             return NavigationStack { WristThreadView(id: id, threads: threads, inbox: inbox) }
         }
     }

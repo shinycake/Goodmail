@@ -71,14 +71,13 @@
             own.madeAt = .now
             own.rows = sample.rows.filter { $0.id.accountID == direct }
             inbox.receiveOwn(own, sources: sources)
-            threads.direct = [direct]
             switch self {
             case .updated, .needsIPhone: inbox.freshness = .current(checkedAt: .now.addingTimeInterval(-120))
             case .checking: inbox.freshness = .checking(lastChecked: .now.addingTimeInterval(-600))
             case .offline: inbox.freshness = .behind(.offline, lastChecked: .now.addingTimeInterval(-3_600))
             case .signIn: inbox.freshness = .behind(.signInFailed, lastChecked: nil)
             case .tryAgain:
-                threads.own = { _ in throw URLError(.notConnectedToInternet) }
+                threads.readDirectly([direct]) { _ in throw URLError(.notConnectedToInternet) }
                 if let row = sample.rows.first(where: { $0.id.accountID == direct }) { route.open(row.id) }
             case .phoneAway:
                 if let row = sample.rows.first(where: { $0.id.accountID != direct }) { route.open(row.id) }

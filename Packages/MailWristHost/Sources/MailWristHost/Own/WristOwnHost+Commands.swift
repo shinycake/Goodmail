@@ -1,3 +1,4 @@
+import Foundation
 import MailCore
 import MailStore
 public import MailWrist
@@ -10,6 +11,10 @@ extension WristOwnHost {
         case iPhoneCommand
         /// The reply couldn't be sent now. It was taken back, so it can't go later behind the reader's back.
         case replyNotSent
+        /// The owner turned "Mail Without iPhone" off before the command ran, or before a reply could be queued or
+        /// once it couldn't go. Nothing of it is left to go from the watch, so the iPhone runs it instead. A change
+        /// queued already is given back when the switch goes off (`Handback`).
+        case switchedOff
     }
 
     /// Makes a change the reader made on the watch to an account it reads itself: archive, trash, read and their
@@ -17,49 +22,118 @@ extension WristOwnHost {
     /// returns. A `WristServer` runs each command once, however often it arrives.
     public func execute(_ command: WristCommand) async throws {
         guard command.executor == .watch else { throw Refusal.iPhoneCommand }
-        serve()
-        let accounts = Set(command.threads.map(\.accountID))
+        guard let stretch = try await serve() else { throw Refusal.switchedOff }
         switch command.kind {
         case .pin, .snooze, .unsnooze:
             throw Refusal.iPhoneCommand
         case .reply(let text):
-            for thread in command.threads { try await reply(to: thread, with: text) }
+            try await make(command, in: stretch) { Task { try await reply(command, with: text) } }
         case .archive, .moveToInbox, .trash, .untrash, .markRead:
             guard let action = command.kind.threadAction else { return }
-            _ = try await commands.perform(action, on: command.threads)
             // Offline, the intents stay queued for the next sync or catch-up.
-            for account in accounts { try? await served[account]?.outbox.flush() }
+            try await make(command, in: stretch) {
+                Task { try await perform(action, on: command.threads, for: command.id) }
+            }
         }
     }
 
-    private func reply(to thread: ThreadSummary.ID, with text: String) async throws {
-        guard let draft = try await answers.reply(to: thread, with: text) else { return }
-        await deliver(thread.accountID)
+    /// Makes `command` in `stretch` through the task `change` starts, waiting for it. The command is kept in the
+    /// database first, until it settles, so that the switch going off gives it back if it didn't go, even after a
+    /// relaunch. The switch going off waits for the change, and it isn't cancelled: a change runs through once begun.
+    /// Throws `switchedOff` when the switch went off before a reply could be queued.
+    private func make(
+        _ command: WristCommand, in stretch: Stretch.ID, _ change: () -> Task<ChangeOutcome, any Error>
+    ) async throws {
+        try database.keepWatchChange(command.id, command: JSONEncoder().encode(command))
+        let changeID = UUID()
+        let task = change()
+        independence.track(Change(command: command.id, task: task), as: changeID, in: stretch)
+        let result = await task.result
+        independence.finishChange(changeID, in: stretch)
+        let current = independence.stretch?.id == stretch
+        switch result {
+        case .success(.went):
+            try database.removeWatchChange(command.id)
+        case .success(.queued), .success(.uploading):
+            // Kept: given back if the switch goes off before it settles.
+            break
+        case .success(.notSent):
+            try database.removeWatchChange(command.id)
+            throw current ? Refusal.replyNotSent : Refusal.switchedOff
+        case .failure(let cut as CutShort):
+            // Nothing was queued: the iPhone's to make once the switch is off, as when the shelf no longer had the
+            // account's provider.
+            try database.removeWatchChange(command.id)
+            throw current ? cut.error : Refusal.switchedOff
+        case .failure(let error):
+            // Kept: whatever it queued before it threw is given back if the switch goes off before it settles.
+            throw error
+        }
+    }
+
+    /// A reply failed before it was queued.
+    private struct CutShort: Error {
+        let error: any Error
+    }
+
+    /// Queues `action` on `threads`, each intent marked with the change `change`, and sends it.
+    private func perform(_ action: ThreadAction, on threads: [ThreadSummary.ID], for change: UUID) async throws
+        -> ChangeOutcome
+    {
+        _ = try await commands.perform(action, on: threads, origin: change)
+        var outcome = ChangeOutcome.went
+        for account in Set(threads.map(\.accountID)) {
+            do {
+                guard let served = independence.served[account] else {
+                    outcome = .queued
+                    continue
+                }
+                try await served.outbox.flush()
+            } catch {
+                outcome = .queued
+            }
+        }
+        return outcome
+    }
+
+    /// Sends `text` as a reply in each of `command`'s conversations; the reader replies to one at a time.
+    private func reply(_ command: WristCommand, with text: String) async throws -> ChangeOutcome {
+        var outcome = ChangeOutcome.went
+        for thread in command.threads {
+            switch try await reply(to: thread, with: text, for: command.id) {
+            case .went, .queued: continue
+            case .uploading: outcome = .uploading
+            case .notSent: return .notSent
+            }
+        }
+        return outcome
+    }
+
+    /// Sends `text` as a reply in `thread`, noting it with the change `change` before it is queued. One that couldn't
+    /// go is taken back.
+    private func reply(to thread: ThreadSummary.ID, with text: String, for change: UUID) async throws -> ChangeOutcome {
+        let draft: Draft?
+        do {
+            draft = try await answers.reply(to: thread, with: text) { [database] draft in
+                try database.addDraft(draft, toWatchChange: change)
+            }
+        } catch {
+            throw CutShort(error: error)
+        }
+        guard let draft else { return .went }
+        if let served = independence.served[thread.accountID] {
+            await Self.deliver(served, account: thread.accountID, uploads: uploads)
+        }
         for message in try await database.firstValue(of: database.outgoingMessages(inThread: thread))
         where message.draft.id == draft.id {
             switch message.delivery {
             case .queued, .failed:
                 try database.remove(draft.id)
-                throw Refusal.replyNotSent
+                return .notSent
             case .uploading:
-                // Whether it went is settled on the next flush, which asks the service before sending again.
-                return
+                return .uploading
             }
         }
-    }
-
-    /// Sends what the account has due, and takes in how its uploads ended.
-    func deliver(_ account: AccountID) async {
-        guard let served = served[account] else { return }
-        await served.sender.flush()
-        for (id, outcome) in uploads.takeOutcomes(of: account) { _ = await served.sender.complete(id, with: outcome) }
-    }
-
-    /// Sends every queued intent and message of the accounts the watch reads, before a sync reads them back.
-    func drainQueues() async {
-        for (account, served) in served {
-            try? await served.outbox.flush()
-            await deliver(account)
-        }
+        return .went
     }
 }

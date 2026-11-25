@@ -3,7 +3,7 @@ import MailWrist
 import SwiftUI
 
 extension View {
-    /// Tells the reader when a reply sent from the watch didn't go, one at a time, with Try Again.
+    /// Tells the reader when a reply sent from the watch didn't go, or may not have, one at a time, with Try Again.
     func wristUndeliveredAlert(_ model: WristInboxModel) -> some View {
         modifier(WristUndeliveredAlert(model: model))
     }
@@ -16,8 +16,13 @@ private struct WristUndeliveredAlert: ViewModifier {
 
     func body(content: Content) -> some View {
         content.alert(
-            Text(
-                "Reply Not Sent", tableName: "Wrist", bundle: .module, comment: "Alert: a reply from the watch failed"),
+            shown.map(model.mayHaveGone) == true
+                ? Text(
+                    "Reply May Not Have Been Sent", tableName: "Wrist", bundle: .module,
+                    comment: "Alert: the watch couldn't tell whether a reply went")
+                : Text(
+                    "Reply Not Sent", tableName: "Wrist", bundle: .module,
+                    comment: "Alert: a reply from the watch failed"),
             // Each button settles the reply it was shown with; the next one, if any, then shows. Dismissing does
             // nothing more, so it can't touch a reply the reader hasn't seen.
             isPresented: Binding(get: { shown != nil }, set: { _ in }),
@@ -35,9 +40,15 @@ private struct WristUndeliveredAlert: ViewModifier {
             }
         } message: { command in
             if case .reply(let text) = command.kind {
-                Text(
-                    "Your iPhone couldn't send “\(text)”.", tableName: "Wrist", bundle: .module,
-                    comment: "Alert: a reply from the watch failed; the reply's words")
+                if model.mayHaveGone(command) {
+                    Text(
+                        "Your watch couldn't tell whether “\(text)” went.", tableName: "Wrist", bundle: .module,
+                        comment: "Alert: the watch couldn't tell whether a reply went; the reply's words")
+                } else {
+                    Text(
+                        "Your iPhone couldn't send “\(text)”.", tableName: "Wrist", bundle: .module,
+                        comment: "Alert: a reply from the watch failed; the reply's words")
+                }
             }
         }
     }

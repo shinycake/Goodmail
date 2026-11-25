@@ -19,9 +19,7 @@ struct WristThreadView: View {
 
     /// Counts Try Again taps: each asks the iPhone again, with its own wait.
     @State private var attempt = 0
-    @State private var showsMore = false
-    /// Set by a snooze in the More sheet, to close the conversation once the sheet is gone.
-    @State private var snoozed = false
+    @State private var more = MoreSheet.closed
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -33,14 +31,14 @@ struct WristThreadView: View {
             }
             // Again once the watch reads the account itself, which it can decide only after an alert has opened
             // the conversation at launch.
-            .task(id: Load(attempt: attempt, direct: threads.direct.contains(id.accountID))) {
+            .task(id: Load(attempt: attempt, direct: threads.readsItself(id.accountID))) {
                 await threads.load(id)
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     if row != nil {
                         Button {
-                            showsMore = true
+                            more = .open
                         } label: {
                             Label {
                                 Text("More", tableName: "Wrist", bundle: .module, comment: "Opens Pin and Snooze")
@@ -54,10 +52,31 @@ struct WristThreadView: View {
             // A snooze takes the conversation away, so it closes too, once the sheet has: two dismissals in one
             // update can leave it open.
             .sheet(
-                isPresented: $showsMore, onDismiss: { if snoozed { dismiss() } },
+                isPresented: Binding(get: { more == .open }, set: { if !$0 { more.sheetClosed() } }),
+                onDismiss: { if more.sheetGone() { dismiss() } },
                 content: {
-                    if let row { WristMoreSheet(row: row, inbox: inbox) { snoozed = true } }
+                    if let row { WristMoreSheet(row: row, inbox: inbox) { more = .closingAfterSnooze } }
                 })
+    }
+
+    /// The More sheet, and whether the conversation closes once the sheet has gone.
+    private enum MoreSheet {
+        case closed
+        case open
+        /// A snooze took the conversation away: the sheet is closing, and the conversation closes after it.
+        case closingAfterSnooze
+
+        /// The sheet was closed without a snooze, as by a pin or a swipe.
+        mutating func sheetClosed() {
+            if self == .open { self = .closed }
+        }
+
+        /// The sheet has gone. Returns whether the conversation closes now, after a snooze.
+        mutating func sheetGone() -> Bool {
+            guard self == .closingAfterSnooze else { return false }
+            self = .closed
+            return true
+        }
     }
 
     /// The conversation's row as the Inbox shows it now, pinned or not, since the reader may have changed it here;

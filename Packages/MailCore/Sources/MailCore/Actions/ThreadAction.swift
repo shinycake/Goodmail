@@ -100,12 +100,21 @@ public struct OutboxIntent: Codable, Equatable, Identifiable, Sendable {
     public var threadID: String
     public var action: ThreadAction
     public var createdAt: Date
+    /// The change that queued it, where a device keeps one: the watch's, which it hands over when the owner turns
+    /// "Mail Without iPhone" off (ADR-023). `nil` everywhere else. Not part of its coding: the store keeps it beside
+    /// the intent, where it can be looked up.
+    public var origin: UUID?
 
-    public init(id: UUID = UUID(), threadID: String, action: ThreadAction, createdAt: Date) {
+    private enum CodingKeys: String, CodingKey {
+        case id, threadID, action, createdAt
+    }
+
+    public init(id: UUID = UUID(), threadID: String, action: ThreadAction, createdAt: Date, origin: UUID? = nil) {
         self.id = id
         self.threadID = threadID
         self.action = action
         self.createdAt = createdAt
+        self.origin = origin
     }
 }
 

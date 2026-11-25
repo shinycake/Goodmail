@@ -1,5 +1,6 @@
 import Foundation
 import MailWrist
+import MailWristHost
 import OSLog
 import UserNotifications
 
@@ -53,6 +54,9 @@ extension WatchAppDelegate {
         }
         do {
             try await own.perform(command, following: mailbox)
+        } catch WristOwnHost.Refusal.switchedOff {
+            // The owner turned "Mail Without iPhone" off since the alert came: the iPhone runs it instead.
+            inbox.handToPhone(command)
         } catch {
             OwnAlerts.log.error("Couldn't run an alert's action on the watch: \(error, privacy: .public)")
             // A reply that didn't go shows in the app to send again, rather than being lost.

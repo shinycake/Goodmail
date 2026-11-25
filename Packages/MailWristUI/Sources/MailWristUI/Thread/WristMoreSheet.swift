@@ -7,7 +7,8 @@ import SwiftUI
 struct WristMoreSheet: View {
     let row: WristRow
     let inbox: WristInboxModel
-    /// Called on a snooze, before the sheet closes, so the conversation it took away closes after.
+    /// Called on a snooze instead of closing the sheet: the conversation closes it, then itself, since the snooze
+    /// took it away.
     let snoozed: () -> Void
     @Environment(\.dismiss) private var dismiss
 
@@ -37,7 +38,6 @@ struct WristMoreSheet: View {
                     Button {
                         inbox.perform(.snooze(until: choice.date), on: [row])
                         snoozed()
-                        dismiss()
                     } label: {
                         WristLaterLabel(choice: choice)
                     }

@@ -23,18 +23,45 @@ public final class WristThreads {
     private let continuation: AsyncStream<ThreadSummary.ID>.Continuation
     /// How long to wait for the iPhone's answer before saying it didn't come. Throws when the wait is cancelled.
     private let patience: @Sendable () async throws -> Void
-    /// Fetches a conversation of an account the watch reads itself; `nil` until the watch's own mail has opened.
-    @ObservationIgnored public var own: (@Sendable (ThreadSummary.ID) async throws -> WristThreadReply)?
-    /// The accounts the watch reads itself, as it last decided.
-    public var direct: Set<AccountID> = []
+    /// Where conversations come from. Only `readDirectly` changes it.
+    public private(set) var fetching: Fetching
+
+    /// Where the watch fetches conversations from (ADR-023).
+    public enum Fetching: Sendable {
+        /// From the iPhone only, until the watch's own host has said which accounts it reads, or when it can't open.
+        case phoneOnly
+        /// The conversations of the `direct` accounts from the watch's own host with `fetch`; the rest from the
+        /// iPhone. They come together, since the host decides the accounts.
+        case own(fetch: @Sendable (ThreadSummary.ID) async throws -> WristThreadReply, direct: Set<AccountID>)
+    }
 
     public init(
         patience: @escaping @Sendable () async throws -> Void = { try await Task.sleep(for: .seconds(15)) },
-        own: (@Sendable (ThreadSummary.ID) async throws -> WristThreadReply)? = nil
+        fetching: Fetching = .phoneOnly
     ) {
         (requests, continuation) = AsyncStream.makeStream(of: ThreadSummary.ID.self)
         self.patience = patience
-        self.own = own
+        self.fetching = fetching
+    }
+
+    /// The watch's own host decided which accounts it reads itself: their conversations come from it, with `fetch`.
+    /// The same accounts again change nothing, so the screens showing them aren't redrawn for each snapshot: every
+    /// `fetch` asks the same host.
+    public func readDirectly(
+        _ accounts: Set<AccountID>, with fetch: @escaping @Sendable (ThreadSummary.ID) async throws -> WristThreadReply
+    ) {
+        if case .own(_, let direct) = fetching, direct == accounts { return }
+        fetching = .own(fetch: fetch, direct: accounts)
+    }
+
+    /// Whether the watch's own host fetches the conversations of `account`, rather than the iPhone.
+    public func readsItself(_ account: AccountID) -> Bool {
+        ownFetch(for: account) != nil
+    }
+
+    private func ownFetch(for account: AccountID) -> (@Sendable (ThreadSummary.ID) async throws -> WristThreadReply)? {
+        guard case .own(let fetch, let direct) = fetching, direct.contains(account) else { return nil }
+        return fetch
     }
 
     public func state(of id: ThreadSummary.ID) -> Loading {
@@ -46,7 +73,7 @@ public final class WristThreads {
     /// when the reader leaves the conversation or asks again.
     public func load(_ id: ThreadSummary.ID) async {
         if case .loaded = threads[id] {} else { threads[id] = .loading }
-        if let own, direct.contains(id.accountID) { return await fetch(id, with: own) }
+        if let own = ownFetch(for: id.accountID) { return await fetch(id, with: own) }
         continuation.yield(id)
         do {
             try await patience()

@@ -32,22 +32,22 @@ struct WristOwnHostTests {
         try shared.set(Data("token".utf8), for: OAuthClient.gmail.refreshTokenKey(gmail.id))
     }
 
-    private func host() -> WristOwnHost {
-        WristOwnHost(
+    private func host() async -> WristOwnHost {
+        await WristOwnHost(
             database: database, signIns: WristSignIns(device: MemoryKeychain(), shared: shared),
             provider: { [provider] _ in provider },
             uploads: FileManager.default.temporaryDirectory.appending(path: "Uploads-\(UUID().uuidString)"),
-            now: { Self.now })
+            now: { Self.now }, independence: .on, handBack: { _ in })
     }
 
     /// The threads of the watch's own Inbox snapshot.
     private func storedThreads() async throws -> [String] {
-        var snapshots = host().snapshots().makeAsyncIterator()
+        var snapshots = await host().snapshots().makeAsyncIterator()
         return try #require(try await snapshots.next()).rows.map(\.id.threadID)
     }
 
     @Test func aNewAccountIsFilledBeforeItTurnsDirect() async throws {
-        let host = host()
+        let host = await host()
         try await host.follow([gmail, icloud], independence: .on)
         #expect(try await host.sources() == [gmail.id: .relayed(.filling), icloud.id: .relayed(.service)])
 
@@ -58,7 +58,7 @@ struct WristOwnHostTests {
     }
 
     @Test func aRejectedSignInGoesBackToTheIPhone() async throws {
-        let host = host()
+        let host = await host()
         try await host.follow([gmail], independence: .on)
         try await host.sync()
         provider.fail(with: OAuthClient.Failure.tokenEndpoint(status: 400, error: "invalid_grant"))
@@ -69,7 +69,7 @@ struct WristOwnHostTests {
     }
 
     @Test func anAccountTheIPhoneRemovedIsDroppedWithItsMail() async throws {
-        let host = host()
+        let host = await host()
         try await host.follow([gmail], independence: .on)
         try await host.sync()
 
@@ -82,7 +82,7 @@ struct WristOwnHostTests {
     }
 
     @Test func thePruneDropsWhatLeftTheInboxBeforeAnySync() async throws {
-        let host = host()
+        let host = await host()
         try await host.follow([gmail], independence: .on)
         try database.upsert([
             ThreadSummary(
@@ -97,7 +97,7 @@ struct WristOwnHostTests {
     }
 
     @Test func theSwitchOffLeavesEveryAccountToTheIPhone() async throws {
-        let host = host()
+        let host = await host()
         try await host.follow([gmail, icloud], independence: .on)
         try await host.sync()
 
@@ -107,8 +107,57 @@ struct WristOwnHostTests {
         #expect(try await host.sources() == [gmail.id: .relayed(.switchedOff), icloud.id: .relayed(.service)])
     }
 
+    /// On again, an account waits for a fresh sync before the watch reads it itself, so rows from before the switch
+    /// went off never show as current; a sign-in the service turned down stays turned down.
+    @Test func theSwitchOnAgainWaitsForAFreshSync() async throws {
+        let host = await host()
+        try await host.follow([gmail, icloud], independence: .on)
+        try await host.sync()
+        try await host.follow([gmail, icloud], independence: .off)
+
+        try await host.follow([gmail, icloud], independence: .on)
+        #expect(try await host.sources() == [gmail.id: .relayed(.filling), icloud.id: .relayed(.service)])
+
+        try await host.sync()
+        #expect(try await host.sources() == [gmail.id: .direct, icloud.id: .relayed(.service)])
+    }
+
+    @Test func aRejectedSignInStaysRejectedAcrossTheSwitch() async throws {
+        let host = await host()
+        try await host.follow([gmail], independence: .on)
+        try await host.sync()
+        provider.fail(with: OAuthClient.Failure.tokenEndpoint(status: 400, error: "invalid_grant"))
+        try await host.sync()
+
+        try await host.follow([gmail], independence: .off)
+        try await host.follow([gmail], independence: .on)
+
+        #expect(try await host.sources() == [gmail.id: .relayed(.signInRejected)])
+    }
+
+    /// Off and on again while a check is stuck at the service: the new stretch waits for it to end before it checks,
+    /// rather than syncing the account twice at once.
+    @Test func aStretchOnWaitsForTheLastOnesCheck() async throws {
+        let host = await host()
+        try await host.follow([gmail], independence: .on)
+        let open = provider.holdChanges(ignoringCancellation: true)
+        async let first: Void = host.sync()
+        while provider.changeRequests == 0 { await Task.yield() }
+
+        try await host.follow([gmail], independence: .off)
+        try await host.follow([gmail], independence: .on)
+        async let second: Void = host.sync()
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(provider.changeRequests == 1, "the second check waits")
+
+        open.finish()
+        _ = try await (first, second)
+        #expect(provider.changeRequests == 2)
+        #expect(try await host.sources() == [gmail.id: .direct])
+    }
+
     @Test func nothingSyncsWhileSwitchedOff() async throws {
-        let host = host()
+        let host = await host()
         try await host.follow([gmail], independence: .off)
 
         try await host.sync()
@@ -118,7 +167,7 @@ struct WristOwnHostTests {
     }
 
     @Test func aSecondCatchUpJoinsTheOneRunning() async throws {
-        let host = host()
+        let host = await host()
         try await host.follow([gmail], independence: .on)
         try await host.sync()
         let before = provider.changeRequests
@@ -135,7 +184,7 @@ struct WristOwnHostTests {
     }
 
     @Test func aCancelledCatchUpKeepsWhatWasStoredAndTheAccountsHealth() async throws {
-        let host = host()
+        let host = await host()
         try await host.follow([gmail], independence: .on)
         try await host.sync()
         let before = provider.changeRequests

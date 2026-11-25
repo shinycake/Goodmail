@@ -252,6 +252,58 @@ struct OutboxTests {
         #expect(try database.pendingIntents(for: account.id).isEmpty)
     }
 
+    /// A caller cancelled while it waits on a drain another caller started leaves that drain running.
+    @Test func aCancelledJoinerLeavesTheDrainToTheOthers() async throws {
+        try seed(thread("t1"), thread("t2"))
+        try await commands().perform(.archive, on: [id("t1"), id("t2")])
+        let outbox = outbox()
+        let (entered, enter) = AsyncStream<Void>.makeStream()
+        let (gate, open) = AsyncStream<Void>.makeStream()
+        server.onPerform {
+            enter.yield()
+            for await _ in gate {}
+        }
+        let live = Task { try await outbox.flush() }
+        var performing = entered.makeAsyncIterator()
+        await performing.next()
+        let joiner = Task { try await outbox.flush() }
+        joiner.cancel()
+
+        server.onPerform(nil)
+        open.finish()
+
+        try await live.value
+        _ = await joiner.result
+        #expect(server.performed.map(\.threadID) == ["t1", "t2"])
+        #expect(try database.pendingIntents(for: account.id).isEmpty)
+    }
+
+    /// Stopping the outbox, as the watch does when the switch goes off, ends its drain before the next intent and
+    /// every drain after; what is left stays queued.
+    @Test func aStoppedOutboxSendsNothingMore() async throws {
+        try seed(thread("t1"), thread("t2"))
+        try await commands().perform(.archive, on: [id("t1"), id("t2")])
+        let outbox = outbox()
+        let (entered, enter) = AsyncStream<Void>.makeStream()
+        let (gate, open) = AsyncStream<Void>.makeStream()
+        server.onPerform {
+            enter.yield()
+            for await _ in gate {}
+        }
+        let flushing = Task { try await outbox.flush() }
+        var performing = entered.makeAsyncIterator()
+        await performing.next()
+
+        await outbox.stopDraining()
+        server.onPerform(nil)
+        open.finish()
+
+        await #expect(throws: CancellationError.self) { try await flushing.value }
+        await #expect(throws: CancellationError.self) { try await outbox.flush() }
+        #expect(server.performed.map(\.threadID) == ["t1"])
+        #expect(try database.pendingIntents(for: account.id).map(\.threadID) == ["t2"])
+    }
+
     @Test func aMoveFromALabelIsOneIntentAndUndoPutsItBack() async throws {
         var labelled = thread("t1")
         labelled.labelIDs = ["INBOX", "Label_1"]

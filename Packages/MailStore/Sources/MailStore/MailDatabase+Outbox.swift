@@ -23,10 +23,10 @@ extension MailDatabase: OutboxStore {
     /// Adds the intent to the end of the account's outbox.
     static func queue(_ intent: OutboxIntent, account: String, in db: Database) throws {
         try db.execute(
-            sql: "INSERT INTO outbox (id, accountID, threadID, intent) VALUES (?, ?, ?, ?)",
+            sql: "INSERT INTO outbox (id, accountID, threadID, intent, origin) VALUES (?, ?, ?, ?, ?)",
             arguments: [
                 intent.id.uuidString, account, intent.threadID,
-                String(decoding: try JSONEncoder().encode(intent), as: UTF8.self),
+                String(decoding: try JSONEncoder().encode(intent), as: UTF8.self), intent.origin?.uuidString,
             ]
         )
     }
@@ -71,7 +71,7 @@ extension MailDatabase: OutboxStore {
     private static func intents(account: String, unsentOnly: Bool, threadIDs: [String]?, in db: Database) throws
         -> [OutboxIntent]
     {
-        var sql = "SELECT intent FROM outbox WHERE accountID = ?"
+        var sql = "SELECT intent, origin FROM outbox WHERE accountID = ?"
         var arguments: StatementArguments = [account]
         if unsentOnly { sql += " AND sentAt IS NULL" }
         if let threadIDs {
@@ -79,8 +79,11 @@ extension MailDatabase: OutboxStore {
             arguments += StatementArguments(threadIDs)
         }
         let decoder = JSONDecoder()
-        return try String.fetchAll(db, sql: sql + " ORDER BY sequence", arguments: arguments)
-            .map { try decoder.decode(OutboxIntent.self, from: Data($0.utf8)) }
+        return try Row.fetchAll(db, sql: sql + " ORDER BY sequence", arguments: arguments).map { row in
+            var intent = try decoder.decode(OutboxIntent.self, from: Data((row["intent"] as String).utf8))
+            intent.origin = (row["origin"] as String?).flatMap(UUID.init(uuidString:))
+            return intent
+        }
     }
 
     /// Applies `action` to a stored thread's labels and its cached messages, or deletes the thread and its messages

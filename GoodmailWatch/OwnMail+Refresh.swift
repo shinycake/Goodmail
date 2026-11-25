@@ -25,7 +25,7 @@ extension OwnMail {
         await host.catchUp()
         do {
             if let snapshot = try await Self.latest(of: host) {
-                Self.show(snapshot, sources: try? await host.sources(), in: inbox, threads)
+                Self.show(snapshot, sources: try? await host.sources(), from: host, in: inbox, threads)
             }
             try await store.save(inbox.mailbox)
         } catch {

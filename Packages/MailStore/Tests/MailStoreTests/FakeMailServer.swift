@@ -43,6 +43,7 @@ final class FakeMailServer: SendAsSyncing {
         var messageRequests: [String] = []
         var failMessages: (any Error)?
         var onMessagesRequested: (@Sendable (String) async -> Void)?
+        var onPerform: (@Sendable () async -> Void)?
         var labels = [
             MailLabel(id: "INBOX", name: "INBOX", kind: .system),
             MailLabel(id: "Label_1", name: "Receipts", kind: .user),
@@ -185,7 +186,9 @@ final class FakeMailServer: SendAsSyncing {
 
 extension FakeMailServer {
     /// Applies an action as Gmail would, recording it in history; a missing thread is `notFound`.
+    /// Runs `onPerform` first, as a slow service would.
     func perform(_ action: ThreadAction, onThread threadID: String) async throws {
+        await state.withLock(\.onPerform)?()
         try state.withLock { state in
             state.performed.append((threadID, action))
             if let failure = state.failPerform { throw failure }
@@ -471,6 +474,10 @@ extension FakeMailServer {
 
     func onMessagesRequested(_ hook: (@Sendable (String) async -> Void)?) {
         state.withLock { $0.onMessagesRequested = hook }
+    }
+
+    func onPerform(_ hook: (@Sendable () async -> Void)?) {
+        state.withLock { $0.onPerform = hook }
     }
 
     func onLabelsRead(_ hook: (@Sendable () async -> Void)?) {

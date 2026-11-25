@@ -57,6 +57,15 @@ public actor Sender {
         return await task.value
     }
 
+    /// Settles uploads that ended unheard, as `flush` does first, without sending anything due: as when the watch
+    /// gives a reply back and needs to know first whether it went. Returns the drafts found to have gone.
+    @discardableResult
+    public func settle() async -> [Draft] {
+        if let running { _ = await running.value }
+        guard let provider = try? self.provider() else { return [] }
+        return await settleUploads(on: provider)
+    }
+
     /// Gets the provider ready for a message due soon, as by logging in while its undo window runs. Returns without
     /// waiting for that.
     public func prepare() async {

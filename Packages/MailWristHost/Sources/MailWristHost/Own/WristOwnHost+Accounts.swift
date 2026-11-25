@@ -14,12 +14,12 @@ extension WristOwnHost {
             try database.save(Account(id: account.id, email: account.address, color: account.color, service: service))
         }
         self.accounts = accounts
-        self.independence = independence
+        turn(independence)
         publishFreshness()
     }
 
     private func drop(_ account: Account) throws {
-        stopServing(account.id)
+        independence.stopServing(account.id)
         health[account.id] = nil
         try database.removeAccount(account.id)
         try signIns.forget(

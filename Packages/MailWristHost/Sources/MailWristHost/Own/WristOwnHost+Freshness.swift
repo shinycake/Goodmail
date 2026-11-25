@@ -15,27 +15,20 @@ extension WristOwnHost {
             }
         }
 
-        /// A check starts, beside any already running.
-        mutating func start() {
-            switch self {
-            case .idle(let date): self = .running(runs: 1, lastChecked: date)
-            case .running(let runs, let date): self = .running(runs: runs + 1, lastChecked: date)
-            }
-        }
-
-        /// A check ended, having worked for at least one account at `date`, or with `nil` when it didn't or was cut
-        /// short. A later date is never replaced by an earlier one.
-        mutating func end(workedAt date: Date?) {
-            let latest = [lastChecked, date].compactMap(\.self).max()
-            switch self {
-            case .running(let runs, _) where runs > 1: self = .running(runs: runs - 1, lastChecked: latest)
-            case .idle, .running: self = .idle(lastChecked: latest)
-            }
-        }
     }
 
-    /// What the list footer says about the mail the watch reads itself, or `nil` while it reads none.
+    /// Whether checks run now, and when one last worked, in the stretch the switch is on: idle and never checked
+    /// while it is off.
+    public var checking: Checking {
+        guard let stretch = independence.stretch else { return .idle(lastChecked: nil) }
+        if stretch.checks.isEmpty { return .idle(lastChecked: stretch.lastChecked) }
+        return .running(runs: stretch.checks.count, lastChecked: stretch.lastChecked)
+    }
+
+    /// What the list footer says about the mail the watch reads itself, or `nil` while it reads none, as while the
+    /// switch is off.
     public func freshness() -> WristFreshness? {
+        let served = independence.served
         guard !served.isEmpty else { return nil }
         let running = if case .running = checking { true } else { false }
         return WristFreshness(
