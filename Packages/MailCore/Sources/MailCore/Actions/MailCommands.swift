@@ -187,17 +187,18 @@ public actor MailCommands {
     }
 }
 
-/// Sends one account's queued intents to its provider, oldest first.
+/// Sends one account's queued intents to its provider, oldest first. One per account, so its drains never overlap.
 public actor Outbox {
     public nonisolated let accountID: AccountID
-    private let provider: any MailProvider
+    /// The account's provider, read as each drain begins, so a new sign-in serves the queue from then on.
+    private let provider: @Sendable () throws -> any MailProvider
     private let store: any OutboxStore & SyncStore
     private let now: @Sendable () -> Date
     private var running: Task<Void, any Error>?
 
     public init(
         accountID: AccountID,
-        provider: any MailProvider,
+        provider: @escaping @Sendable () throws -> any MailProvider,
         store: any OutboxStore & SyncStore,
         now: @escaping @Sendable () -> Date = { .now }
     ) {
@@ -205,6 +206,15 @@ public actor Outbox {
         self.provider = provider
         self.store = store
         self.now = now
+    }
+
+    public init(
+        accountID: AccountID,
+        provider: any MailProvider,
+        store: any OutboxStore & SyncStore,
+        now: @escaping @Sendable () -> Date = { .now }
+    ) {
+        self.init(accountID: accountID, provider: { provider }, store: store, now: now)
     }
 
     /// Sends everything queued. A thread that is gone, or an intent the provider refuses, drops it and takes the
@@ -219,6 +229,7 @@ public actor Outbox {
     }
 
     private func drain() async throws {
+        let provider = try self.provider()
         // Re-read after each send: intents queued meanwhile go out in the same drain.
         while let intent = try store.pendingIntents(for: accountID).first {
             do {
@@ -226,7 +237,7 @@ public actor Outbox {
                 try store.markSent(intent.id, at: now())
             } catch ProviderError.notFound, ProviderError.rejected {
                 // Deleted on the server, or refused for good: sending it again changes nothing (ADR-008).
-                try await drop(intent)
+                try await drop(intent, from: provider)
             }
         }
     }
@@ -234,7 +245,7 @@ public actor Outbox {
     /// Forgets the intent and undoes it locally by storing the thread as the provider has it, gone or not. No sync
     /// would: the provider didn't change the thread, so it's never listed as changed. Fetches first, so a failure
     /// leaves the intent queued; then forgets it before storing, so the fetch isn't overlaid with it again.
-    private func drop(_ intent: OutboxIntent) async throws {
+    private func drop(_ intent: OutboxIntent, from provider: any MailProvider) async throws {
         let fetchedAt = now()
         let fetch = try await provider.threads(withIDs: [intent.threadID])
         try store.removeIntent(intent.id)

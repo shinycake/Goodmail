@@ -38,6 +38,10 @@ public struct GmailClient: MailProvider, UploadSending {
         try await session.grants(GmailConfiguration.fullMailScope)
     }
 
+    public func endSession() async {
+        await session.end()
+    }
+
     public func labels() async throws -> [MailLabel] {
         let list: GmailLabelList = try await get("users/me/labels")
         return (list.labels ?? []).map(\.mailLabel)

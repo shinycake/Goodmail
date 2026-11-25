@@ -3,10 +3,12 @@ public import Foundation
 /// Delivers one account's queued messages, oldest first. Drafts are saved or deleted on the spot; a message to send
 /// is handed to an upload that outlives the app once its undo window closes, and leaves the queue when that
 /// upload's outcome comes back through `complete`. Every step is a compare-and-set on the message's delivery, so a
-/// relaunch, a late outcome or an undo racing the hand-off never sends a message twice.
+/// relaunch, a late outcome or an undo racing the hand-off never sends a message twice. One per account, so its
+/// drains never overlap.
 public actor Sender {
     public nonisolated let accountID: AccountID
-    private let provider: any MailProvider
+    /// The account's provider, read as each drain, outcome or preparation begins, so a new sign-in sends from then on.
+    private let provider: @Sendable () throws -> any MailProvider
     private let store: any OutgoingStore
     private let transport: any UploadTransport
     private let files: UploadFiles
@@ -16,7 +18,7 @@ public actor Sender {
     /// Upload bodies are kept under `uploads`, in a folder of the account's own.
     public init(
         accountID: AccountID,
-        provider: any MailProvider,
+        provider: @escaping @Sendable () throws -> any MailProvider,
         store: any OutgoingStore,
         transport: any UploadTransport,
         uploads: URL,
@@ -28,6 +30,19 @@ public actor Sender {
         self.transport = transport
         files = UploadFiles(directory: uploads.appending(path: accountID.rawValue, directoryHint: .isDirectory))
         self.now = now
+    }
+
+    public init(
+        accountID: AccountID,
+        provider: any MailProvider,
+        store: any OutgoingStore,
+        transport: any UploadTransport,
+        uploads: URL,
+        now: @escaping @Sendable () -> Date = { .now }
+    ) {
+        self.init(
+            accountID: accountID, provider: { provider }, store: store, transport: transport, uploads: uploads,
+            now: now)
     }
 
     /// Settles uploads that ended unheard, then hands off, saves or deletes what is due. A refused message is
@@ -45,7 +60,7 @@ public actor Sender {
     /// Gets the provider ready for a message due soon, as by logging in while its undo window runs. Returns without
     /// waiting for that.
     public func prepare() async {
-        guard case .direct(let direct) = provider.sending else { return }
+        guard case .direct(let direct) = try? provider().sending else { return }
         await direct.prepareToSend()
     }
 
@@ -55,9 +70,9 @@ public actor Sender {
         defer { files.remove(id) }
         guard let message = try? store.uploadingMessages(for: accountID).first(where: { $0.delivery == .uploading(id) })
         else { return nil }
-        guard case .upload(let uploads) = provider.sending else { return nil }
+        guard let provider = try? self.provider(), case .upload(let uploads) = provider.sending else { return nil }
         guard case .response(let status, let body) = outcome else {
-            return await settleUnanswered(message, id, with: uploads)
+            return await settleUnanswered(message, id, with: uploads, on: provider)
         }
         let next: OutgoingMessage?
         switch uploads.answer(status: status, body: body) {
@@ -73,10 +88,10 @@ public actor Sender {
         case .turnedAway:
             next = message.with(.queued)
         case .unknown:
-            return await settleUnanswered(message, id, with: uploads)
+            return await settleUnanswered(message, id, with: uploads, on: provider)
         }
         guard (try? store.update(message.id, from: .uploading(id), to: next)) == true, next == nil else { return nil }
-        await deleteSavedCopy(of: message.draft)
+        await deleteSavedCopy(of: message.draft, on: provider)
         return message.draft
     }
 
@@ -87,9 +102,11 @@ public actor Sender {
     }
 
     private func drain() async -> [Draft] {
-        var taken = await settleUploads()
+        // An account whose sign-in can't be read keeps its mail queued for the next flush.
+        guard let provider = try? self.provider() else { return [] }
+        var taken = await settleUploads(on: provider)
         while let message = (try? store.dueMessages(for: accountID, by: now()))?.first {
-            switch await attempt(message) {
+            switch await attempt(message, on: provider) {
             case .next: continue
             case .took(let draft): taken.append(draft)
             case .stop: return taken
@@ -98,10 +115,10 @@ public actor Sender {
         return taken
     }
 
-    private func attempt(_ message: OutgoingMessage) async -> Step {
+    private func attempt(_ message: OutgoingMessage, on provider: any MailProvider) async -> Step {
         let draft: Draft
         do {
-            draft = try await fetchingForwardedFiles(of: message.draft)
+            draft = try await fetchingForwardedFiles(of: message.draft, from: provider)
         } catch ProviderError.notFound {
             _ = try? store.update(message.id, from: .queued, to: message.with(.failed(.forwardedAttachmentMissing)))
             return .next
@@ -121,7 +138,7 @@ public actor Sender {
                     // Out of the queue first, so it shows as sent while its copy is filed and its draft removed.
                     _ = try? store.update(message.id, from: .queued, to: nil)
                     await direct.fileSent(raw, inThread: draft.threadID)
-                    await deleteSavedCopy(of: draft)
+                    await deleteSavedCopy(of: draft, on: provider)
                     return .took(message.draft)
                 case .upload(let uploads):
                     try await handOff(message, raw: raw, via: uploads)
@@ -176,13 +193,13 @@ public actor Sender {
 
     /// Resolves messages whose upload the transport no longer has and whose outcome never came, then clears
     /// files no upload needs. Returns the drafts found to have gone.
-    private func settleUploads() async -> [Draft] {
+    private func settleUploads(on provider: any MailProvider) async -> [Draft] {
         guard case .upload(let uploads) = provider.sending else { return [] }
         let active = await transport.activeUploads()
         var sent: [Draft] = []
         for message in (try? store.uploadingMessages(for: accountID)) ?? [] {
             guard case .uploading(let id) = message.delivery, !active.contains(id) else { continue }
-            if let draft = await settleUnanswered(message, id, with: uploads) { sent.append(draft) }
+            if let draft = await settleUnanswered(message, id, with: uploads, on: provider) { sent.append(draft) }
         }
         let uploading = ((try? store.uploadingMessages(for: accountID)) ?? []).compactMap { message in
             if case .uploading(let id) = message.delivery { id } else { nil }
@@ -194,14 +211,14 @@ public actor Sender {
     /// An upload that ended without an answer may still have delivered the message, so the provider is asked.
     /// Found: it went. Not found: it fails as unconfirmed, for the writer to send again, since sending it unasked
     /// could send it twice. Asking fails: it stays uploading, to ask on the next flush.
-    private func settleUnanswered(_ message: OutgoingMessage, _ id: UploadID, with uploads: any UploadSending) async
-        -> Draft?
-    {
+    private func settleUnanswered(
+        _ message: OutgoingMessage, _ id: UploadID, with uploads: any UploadSending, on provider: any MailProvider
+    ) async -> Draft? {
         files.remove(id)
         guard let went = try? await uploads.hasSent(message) else { return nil }
         let next = went ? nil : message.with(.failed(.unconfirmed))
         guard (try? store.update(message.id, from: .uploading(id), to: next)) == true, went else { return nil }
-        await deleteSavedCopy(of: message.draft)
+        await deleteSavedCopy(of: message.draft, on: provider)
         return message.draft
     }
 
@@ -211,13 +228,13 @@ public actor Sender {
     }
 
     /// A saved copy left behind is only a stale draft, not worth failing a sent message over.
-    private func deleteSavedCopy(of draft: Draft) async {
+    private func deleteSavedCopy(of draft: Draft, on provider: any MailProvider) async {
         guard let saved = try? savedCopy(of: draft) else { return }
         try? await provider.deleteDraft(saved)
         try? store.setSavedCopy(nil, of: draft.id)
     }
 
-    private func fetchingForwardedFiles(of draft: Draft) async throws -> Draft {
+    private func fetchingForwardedFiles(of draft: Draft, from provider: any MailProvider) async throws -> Draft {
         var draft = draft
         for index in draft.attachments.indices {
             switch draft.attachments[index].content {

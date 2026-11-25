@@ -113,6 +113,18 @@ struct GmailClientTests {
         await #expect(throws: OAuthSession.Failure.signedOut) { try await session.validAccessToken() }
     }
 
+    @Test func aClientWhoseSessionEndedAsksGmailForNothing() async throws {
+        let http = FixtureHTTPClient(Self.inboxReplies)
+        let client = GmailClient(session: try await signedIn(http), http: http)
+
+        await client.endSession()
+
+        await #expect(throws: OAuthSession.Failure.ended) {
+            try await client.threads(matching: ThreadQuery(label: "INBOX"), pageToken: nil)
+        }
+        #expect(http.requests.count == 1, "only the sign-in's exchange")
+    }
+
     @Test func muteIsOneThreadsModifyThatAddsTheMutedLabelAndLeavesTheInbox() async throws {
         let http = FixtureHTTPClient([
             "/token": [.init(fixture: "token-exchange")],

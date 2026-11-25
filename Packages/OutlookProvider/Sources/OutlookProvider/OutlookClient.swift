@@ -31,6 +31,10 @@ public struct OutlookClient: MailProvider {
         self.pageSize = pageSize
     }
 
+    public func endSession() async {
+        await graph.session.end()
+    }
+
     public func labels() async throws -> [MailLabel] {
         let directory = try await graph.folderDirectory()
         await folders.store(directory)

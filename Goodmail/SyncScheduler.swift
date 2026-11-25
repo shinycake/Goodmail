@@ -31,6 +31,8 @@ final class SyncScheduler {
     /// Call once, when the database has opened. That can be after the reader came to the app, so the rounds start
     /// at once then.
     func start() {
+        // Each sync of every account made their sessions: the watches follow at once, without waiting for it to end.
+        model.didMakeSessions = { [weak watchers] in watchers?.follow() }
         #if DEBUG
             TestRefresh.runIfRequested(refresh)
         #endif
@@ -88,8 +90,6 @@ final class SyncScheduler {
                         }
                         // Settings changed here or on the other devices, for the accounts here now.
                         await model.syncSettings()
-                        // Accounts added or removed meanwhile.
-                        watchers.follow()
                         do {
                             try await model.syncAll()
                             if shown { await model.markInboxSeen() }

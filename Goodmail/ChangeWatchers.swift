@@ -8,9 +8,16 @@ final class ChangeWatchers {
     private enum State {
         case stopped
         /// Each watched account's watch. One that ended by itself, as on a server that can't IDLE or after a
-        /// refused password, stays here. On iOS it isn't started again until the app next comes to the foreground; on
-        /// a Mac it tries again by itself after a wait (`WatchRestarts`), and at the next `restart()`.
-        case watching([AccountID: Task<Void, Never>])
+        /// refused password, stays here. On iOS it isn't started again until the app next comes to the foreground or
+        /// the account signs in afresh; on a Mac it tries again by itself after a wait (`WatchRestarts`), and at the
+        /// next `restart()`.
+        case watching([AccountID: Watch])
+    }
+
+    /// A watch, with the session whose provider it watches on.
+    private struct Watch {
+        let session: AccountSession
+        let task: Task<Void, Never>
     }
 
     private var state = State.stopped
@@ -31,17 +38,20 @@ final class ChangeWatchers {
         follow()
     }
 
-    /// Starts watching the accounts added since the last call, and stops watching the ones removed.
+    /// Starts watching the accounts whose sessions were made since the last call, as by their first sync, stops
+    /// watching the ones removed, and watches afresh the ones that signed in again meanwhile, as with a new password
+    /// or server. Makes no session itself, which would read the database and the Keychain here on the main actor.
     func follow() {
         guard case .watching(var watches) = state else { return }
-        let ids = Set(model.accounts.map(\.id))
-        for (id, watch) in watches where !ids.contains(id) {
-            watch.cancel()
+        let here = Set(model.accounts.map(\.id))
+        let sessions = model.providers.live.filter { here.contains($0.key) }
+        for (id, watch) in watches where sessions[id] !== watch.session {
+            watch.task.cancel()
             watches[id] = nil
         }
-        for id in ids where watches[id] == nil {
-            guard let provider = try? model.providers.provider(for: id) as? any ChangeWatching else { continue }
-            watches[id] = watch(id, with: provider)
+        for (id, session) in sessions where watches[id] == nil {
+            guard let provider = session.provider as? any ChangeWatching else { continue }
+            watches[id] = Watch(session: session, task: watch(id, with: provider))
         }
         state = .watching(watches)
     }
@@ -57,7 +67,7 @@ final class ChangeWatchers {
     /// Cancels every watch, which closes its connection.
     func stop() {
         if case .watching(let watches) = state {
-            for watch in watches.values { watch.cancel() }
+            for watch in watches.values { watch.task.cancel() }
         }
         state = .stopped
     }

@@ -1,6 +1,7 @@
 import Foundation
 import GRDB
 import MailCore
+import Synchronization
 import Testing
 
 @testable import MailStore
@@ -65,6 +66,24 @@ struct OutboxTests {
         #expect(try database.pendingIntents(for: account.id).isEmpty)
         try await outbox().flush()
         #expect(server.performed.count == 1, "a drained outbox sends nothing")
+    }
+
+    @Test func eachDrainGoesToTheProviderTheAccountHasThen() async throws {
+        let signedInAgain = FakeMailServer()
+        let current = Mutex<any MailProvider>(server)
+        let outbox = Outbox(
+            accountID: account.id, provider: { current.withLock { $0 } }, store: database, now: clock.next)
+        try seed(thread("t1"), thread("t2"))
+        signedInAgain.set("t2", thread("t2"))
+        try await commands().perform(.archive, on: [id("t1")])
+        try await outbox.flush()
+
+        current.withLock { $0 = signedInAgain }
+        try await commands().perform(.archive, on: [id("t2")])
+        try await outbox.flush()
+
+        #expect(server.performed.map(\.threadID) == ["t1"])
+        #expect(signedInAgain.performed.map(\.threadID) == ["t2"], "the new sign-in, on the same queue")
     }
 
     @Test func markingReadUpdatesTheFlagAndCachedMessages() async throws {

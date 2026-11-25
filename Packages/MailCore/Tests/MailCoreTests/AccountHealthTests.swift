@@ -64,6 +64,15 @@ struct AccountHealthTests {
         #expect(health.after(.failure(CancellationError()), at: later) == health)
     }
 
+    @Test(arguments: [
+        AccountHealth.healthy, .faltering(.timedOut, since: Date(timeIntervalSinceReferenceDate: 0)),
+        .failing(.unknown), .needsSignIn,
+    ])
+    func aSyncThatMetASignInEndedMeanwhileSaysNothingAboutTheAccount(health: AccountHealth) {
+        // As a sync under way on the old sign-in while the reader signs in again, or removes the account.
+        #expect(health.after(.failure(OAuthSession.Failure.ended), at: start) == health)
+    }
+
     @Test func aTurnedDownSignInStaysUntilASyncWorks() {
         let later = start.addingTimeInterval(AccountHealth.patience * 2)
         #expect(AccountHealth.needsSignIn.after(.failure(URLError(.cannotFindHost)), at: later) == .needsSignIn)

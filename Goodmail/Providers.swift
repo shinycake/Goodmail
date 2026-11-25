@@ -4,41 +4,61 @@ import MailClients
 import MailCore
 import MailStore
 import OutlookProvider
-import Synchronization
 
-/// Each account's provider, made for the account's service on first use and shared by everything that talks to it:
-/// sync, the outbox, sending and prefetch. The one place that knows which provider serves which service.
+/// Each account's session (`AccountSession`), made from its stored sign-in on first use and shared by everything that
+/// talks to it: sync, prefetch and the watch, and the outbox and sending, which read its provider as each drain
+/// begins. The one place that knows which provider serves
+/// which service, and the one that replaces an account's session when its sign-in changes.
 nonisolated final class Providers: Sendable {
     enum Failure: Error {
         /// No stored account has this ID, as when it was removed while work for it was queued.
         case unknownAccount
     }
 
-    private let database: MailDatabase
-    private let made = Mutex<[AccountID: any MailProvider]>([:])
+    private let sessions: AccountSessions<AccountSession>
+    /// Makes the session that works on a provider.
+    private let makeSession: @Sendable (AccountID, any MailProvider) -> AccountSession
 
-    init(database: MailDatabase) {
-        self.database = database
-    }
-
-    func provider(for id: AccountID) throws -> any MailProvider {
-        if let provider = made.withLock({ $0[id] }) { return provider }
-        guard let account = try database.accounts().first(where: { $0.id == id }) else { throw Failure.unknownAccount }
-        let provider = try make(for: account)
-        return made.withLock { made in
-            if let existing = made[id] { return existing }
-            made[id] = provider
-            return provider
+    init(database: MailDatabase, makeSession: @escaping @Sendable (AccountID, any MailProvider) -> AccountSession) {
+        self.makeSession = makeSession
+        sessions = AccountSessions { id in
+            guard let account = try database.accounts().first(where: { $0.id == id }) else {
+                throw Failure.unknownAccount
+            }
+            return makeSession(id, try MailClients.client(for: account, index: database))
         }
     }
 
-    /// Serves the account with `provider` from now on, as after a sign-in whose session already holds a fresh token.
-    func use(_ provider: any MailProvider, for id: AccountID) {
-        made.withLock { $0[id] = provider }
+    func session(for id: AccountID) throws -> AccountSession {
+        do {
+            return try sessions.session(for: id)
+        } catch AccountSessions<AccountSession>.Failure.removed {
+            // Being removed is no account as far as the work queued for it goes.
+            throw Failure.unknownAccount
+        }
     }
 
-    func forget(_ id: AccountID) {
-        made.withLock { $0[id] = nil }
+    func provider(for id: AccountID) throws -> any MailProvider {
+        try session(for: id).provider
+    }
+
+    /// The sessions made so far, as for stopping their prefetch. Reading it makes none.
+    var live: [AccountID: AccountSession] { sessions.live }
+
+    /// Serves the account with `provider` from now on, as after a sign-in whose session already holds a fresh token.
+    func use(_ provider: any MailProvider, for id: AccountID) async {
+        await sessions.replace(id, with: makeSession(id, provider))
+    }
+
+    /// Serves the account from its stored sign-in, read afresh on next use, as after a new password or server, or
+    /// once it's added back.
+    func reload(_ id: AccountID) async {
+        await sessions.replace(id)
+    }
+
+    /// Ends the account's session, so nothing refreshes or writes its sign-in while the account goes.
+    func remove(_ id: AccountID) async {
+        await sessions.remove(id)
     }
 
     /// How the account's service tells the relay about new mail. Gmail and Outlook push through their own APIs, so
@@ -74,9 +94,5 @@ nonisolated final class Providers: Sendable {
         case .outlook: OAuthClient.outlook.refreshTokenKey(id)
         case .imap: IMAPSignIn.key(id)
         }
-    }
-
-    private func make(for account: Account) throws -> any MailProvider {
-        try MailClients.client(for: account, index: database)
     }
 }

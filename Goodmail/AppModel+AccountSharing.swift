@@ -14,6 +14,13 @@ extension AppModel {
     /// Where accounts are shared, while this device shares them.
     var activeSharing: AccountSharing? { AccountSharingMode.current.shares ? sharing : nil }
 
+    /// The accounts the other devices share that this one doesn't have, as the last pass found them.
+    var sharedElsewhere: [Account] { sharingFindings.elsewhere(besides: accounts) }
+
+    /// Accounts this device had before the app was deleted, whose sign-ins are still in its Keychain
+    /// (`AccountSharing.restorable`), and that it doesn't have again yet.
+    var restorable: [Account] { sharingFindings.restorable(besides: accounts) }
+
     /// Brings this device in step with the others: takes up renames, and, when it follows them, adds and removes
     /// accounts as they did, then shares what only this device has. Passes run one at a time, each after the last.
     func followSharedAccounts() async throws {
@@ -74,7 +81,6 @@ extension AppModel {
     /// devices get it with its new sign-in.
     func didSignIn(_ id: AccountID) async {
         Preferences.declinedSharedAccounts.remove(id)
-        sharedElsewhere.removeAll { $0.id == id }
         await shareAccounts()
     }
 
@@ -118,14 +124,14 @@ extension AppModel {
     private func runSharingPass() async throws {
         defer { NotificationCenter.default.post(name: Self.sharedAccountsDidUpdate, object: self) }
         do {
-            restorable = try await sharing?.restorable(for: accounts) ?? []
+            sharingFindings.found(restorable: try await sharing?.restorable(for: accounts) ?? [])
         } catch {
             // Only the offer after a reinstall needs it, so the rest of the pass goes on.
             Logger.sharing.error("Couldn't read the accounts to restore: \(error, privacy: .public)")
         }
         guard let sharing = activeSharing else {
             await shareAccounts()
-            sharedElsewhere = []
+            sharingFindings.found(elsewhere: [])
             return
         }
         let plan = try await sharing.plan(for: accounts)
@@ -144,7 +150,7 @@ extension AppModel {
         let order = plan.order(of: accounts)
         if order != accounts.map(\.id) { try await keep(order: order) }
         await shareAccounts()
-        sharedElsewhere = plan.missing.filter { shared in !accounts.contains { $0.id == shared.id } }
+        sharingFindings.found(elsewhere: plan.missing)
     }
 }
 

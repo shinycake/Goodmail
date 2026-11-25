@@ -1,6 +1,7 @@
 import Foundation
 import GRDB
 import MailCore
+import Synchronization
 import Testing
 
 @testable import MailStore
@@ -43,6 +44,36 @@ struct SenderTests {
         let headers = server.sent.map { String(decoding: $0.raw, as: UTF8.self) }
         #expect(headers[0].contains("From: me@example.com"))
         #expect(headers[1].contains("From: Dana Levi <me@example.com>"))
+    }
+
+    @Test func eachDeliveryGoesOutOnTheSignInTheAccountHasThen() async throws {
+        let bench = try SendBench(sendPath: .direct)
+        let signedInAgain = FakeMailServer(sendPath: .direct, accountID: bench.account)
+        let current = Mutex<any MailProvider>(bench.server)
+        let sender = Sender(
+            accountID: bench.account, provider: { current.withLock { $0 } }, store: bench.database,
+            transport: bench.uploads, uploads: bench.uploadsDirectory, now: bench.clock.next)
+        try await bench.commands().send(bench.draft("Before"), after: .zero)
+        await sender.flush()
+
+        current.withLock { $0 = signedInAgain }
+        try await bench.commands().send(bench.draft("After"), after: .zero)
+        await sender.prepare()
+        await sender.flush()
+
+        #expect(bench.server.sent.count == 1)
+        #expect(signedInAgain.sent.count == 1, "the same queue, on the new sign-in")
+        #expect(signedInAgain.preparedSends == 1)
+    }
+
+    @Test func aDeliveryWhoseAccountHasNoSignInStaysQueued() async throws {
+        let sender = Sender(
+            accountID: account, provider: { throw ProviderError.rejected }, store: database,
+            transport: bench.uploads, uploads: bench.uploadsDirectory, now: bench.clock.next)
+        try await commands().send(draft(), after: .zero)
+
+        #expect(await sender.flush().isEmpty)
+        #expect(try database.dueMessages(for: account, by: .distantFuture).map(\.draft.subject) == ["Hello"])
     }
 
     @Test func mailFromAnAccountThatCannotBeReadStaysQueued() async throws {

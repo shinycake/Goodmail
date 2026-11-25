@@ -13,12 +13,13 @@ extension AppModel {
     func syncChanged(_ id: AccountID, markingInboxSeen: Bool = true) async -> Bool {
         health.syncStarted()
         defer { health.syncEnded() }
+        let engine = Result { try engine(for: id) }
         let outcome = await Result {
-            let engine = try engine(for: id)
+            let engine = try engine.get()
             await outboxes.flush(id)
             try await engine.sync()
         }
-        health.record(outcome, for: id)
+        if speaksForTheAccount(engine, id) { health.record(outcome, for: id) }
         switch outcome {
         case .success:
             await runRules(for: accounts.filter { $0.id == id })

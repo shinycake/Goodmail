@@ -19,9 +19,8 @@ final class AppModel {
     /// Reads and answers conversations, for alert replies, the watch and the composer's quote.
     let answers: ThreadAnswers
     private(set) var accounts: [Account]
+    /// Each account's session: its provider, sync engine and prefetcher.
     let providers: Providers
-    private var engines: [AccountID: SyncEngine] = [:]
-    private var prefetchers: [AccountID: BodyPrefetcher] = [:]
     /// How much the connection allows. Prefetch follows it, and so does sync on a Mac, to start afresh when it comes
     /// back.
     let path: PathMonitor
@@ -54,16 +53,17 @@ final class AppModel {
     var watchChoices: WatchChoices?
     /// Runs after an account is added, so alerts can be asked for and set up.
     var didAddAccount: (() -> Void)?
+    /// Runs as each sync of every account begins, once it made their sessions, so the watches follow the accounts
+    /// added, removed or signed in afresh without waiting for the sync to end.
+    var didMakeSessions: (() -> Void)?
     /// Told after the stored mail changes in bulk, so the system's copies (Spotlight) can follow.
     var didChange: (@Sendable (MailChange) async -> Void)?
     /// Where accounts are shared with the reader's other devices; `nil` keeps every account on this device alone, as
     /// in synthetic mailboxes.
     let sharing: AccountSharing?
-    /// The accounts the other devices share that this one doesn't have, as the last pass found them.
-    var sharedElsewhere: [Account] = []
-    /// Accounts this device had before the app was deleted, whose sign-ins are still in its Keychain
-    /// (`AccountSharing.restorable`).
-    var restorable: [Account] = []
+    /// What the last pass with the other devices found to offer (`followSharedAccounts`), read against `accounts`
+    /// as `sharedElsewhere` and `restorable`.
+    var sharingFindings = SharingFindings()
     /// The pass bringing this device in step with the others, while one runs (`followSharedAccounts`).
     var sharingPass: Task<Void, any Error>?
     /// Keeps the reader's settings the same on their other devices; `nil` keeps them on this device, as in synthetic
@@ -99,21 +99,31 @@ final class AppModel {
             let attestation = RelayAttestation(baseURL: $0, device: AppAttestDevice(), store: Keychain())
             return PushRegistrar(relay: PushRelayClient(baseURL: $0, signer: attestation), store: database)
         }
-        let providers = Providers(database: database)
-        self.providers = providers
         let path = PathMonitor()
         self.path = path
+        let (storage, attachments) = (storage, attachmentsDirectory)
+        let providers = Providers(database: database) { id, provider in
+            AccountSession(
+                provider: provider,
+                engine: SyncEngine(accountID: id, provider: provider, store: database, scope: .window(storage.window)),
+                prefetcher: BodyPrefetcher(
+                    accountID: id, provider: provider, store: database, path: path,
+                    scope: { storage.prefetchScope },
+                    hasRoom: { database.hasRoomToPrefetch(under: storage.cacheLimit) },
+                    didFinish: { await Self.trim(database, attachments: attachments, limit: storage.cacheLimit) }))
+        }
+        self.providers = providers
         threadFetcher = ThreadFetcher(
             provider: { try providers.provider(for: $0) }, store: database, path: path,
             scope: { [storage] in storage.prefetchScope })
         let outboxes = Outboxes { id in
-            Outbox(accountID: id, provider: try providers.provider(for: id), store: database)
+            Outbox(accountID: id, provider: { try providers.provider(for: id) }, store: database)
         }
         self.outboxes = outboxes
         let uploads = URL.applicationSupportDirectory.appending(path: "Uploads", directoryHint: .isDirectory)
         let senders = Senders { id, transport in
             Sender(
-                accountID: id, provider: try providers.provider(for: id), store: database, transport: transport,
+                accountID: id, provider: { try providers.provider(for: id) }, store: database, transport: transport,
                 uploads: uploads)
         }
         self.senders = senders
@@ -190,9 +200,9 @@ final class AppModel {
             accountID: { email in
                 existing.first { $0.email.caseInsensitiveCompare(email) == .orderedSame }?.id ?? .generate()
             },
-            keychain: Keychain.signIns())
-        providers.use(provider(session), for: session.accountID)
-        engines[session.accountID] = nil
+            keychain: Keychain.signIns(),
+            endingTheOld: { [providers] id in await providers.reload(id) })
+        await providers.use(provider(session), for: session.accountID)
         if !accounts.contains(where: { $0.id == session.accountID }) {
             let account = Account(
                 id: session.accountID,
@@ -231,8 +241,7 @@ final class AppModel {
         }
         let id = existing?.id ?? sharedID(of: service, email) ?? .generate()
         try await signIn(email, id)
-        providers.forget(id)
-        engines[id] = nil
+        await providers.reload(id)
         if existing == nil {
             let account = Account(
                 id: id, email: email,
@@ -249,6 +258,8 @@ final class AppModel {
         let new = shared.filter { account in !accounts.contains { $0.id == account.id } }
         guard !new.isEmpty else { return }
         for account in new {
+            // One removed earlier in this launch gets a session again.
+            await providers.reload(account.id)
             try await Self.store { [database] in try database.save(account) }
             accounts.append(account)
         }
@@ -274,17 +285,15 @@ final class AppModel {
         if removal == .everyDevice { try await activeSharing?.retire(id) }
         // While the account can still prove its address to the relay.
         await unsubscribePush(id)
+        // Before its sign-in goes, so a token refresh under way can't write it back.
+        await providers.remove(id)
         if let account = accounts.first(where: { $0.id == id }) { await signOut(account, removal) }
-        providers.forget(id)
-        engines[id] = nil
-        await prefetchers[id]?.cancel()
-        prefetchers[id] = nil
-        await outboxes.forget(id)
-        senders.forget(id)
         // Takes every thread and body of the account with it, which can be most of the database.
         try await Self.store { [database] in try database.removeAccount(id) }
         try? FileManager.default.removeItem(at: attachmentsDirectory.appending(path: id.rawValue))
         accounts.removeAll { $0.id == id }
+        // Its sign-in is gone, so a reinstall's offer can't bring it back.
+        sharingFindings.removed(id)
         health.forget(id)
         await didChange?(.accountRemoved)
     }
@@ -334,6 +343,7 @@ final class AppModel {
         defer { health.syncEnded() }
         // An account whose login is gone from the Keychain has no provider, which is its failure to sync.
         let engines = accounts.map { account in (account.id, Result { try engine(for: account.id) }) }
+        didMakeSessions?()
         let outboxes = outboxes
         // Snoozed threads whose time came, queued before the replay below so the server hears of them now. What the
         // other devices pinned, snoozed, woke or muted is taken up first, so a thread one of them woke isn't woken
@@ -359,7 +369,9 @@ final class AppModel {
             for await (id, outcome) in group { outcomes[id] = outcome }
             return outcomes
         }
-        for (id, outcome) in outcomes { health.record(outcome, for: id) }
+        for (id, engine) in engines where speaksForTheAccount(engine, id) {
+            if let outcome = outcomes[id] { health.record(outcome, for: id) }
+        }
         let synced = accounts.filter { if case .success = outcomes[$0.id] { true } else { false } }
         // With nothing new stored, the accounts, the cache and the system's copies (Spotlight) have nothing to follow.
         if !synced.isEmpty {
@@ -400,7 +412,7 @@ final class AppModel {
 
     /// Stops prefetching, as when the app leaves the foreground. The next sync picks up where it left off.
     func cancelPrefetch() async {
-        for prefetcher in prefetchers.values { await prefetcher.cancel() }
+        for session in providers.live.values { await session.prefetcher.cancel() }
         await threadFetcher.cancelReadAhead()
     }
 
@@ -501,62 +513,37 @@ final class AppModel {
         try await providers.provider(for: message.accountID).source(of: message)
     }
 
+    /// Whether a sync on `engine` still tells of the account: not once it was removed, or signed in afresh, as with
+    /// a new password, while the sync ran on the old sign-in. One whose engine couldn't be made tells of an account
+    /// still here.
+    func speaksForTheAccount(_ engine: Result<SyncEngine, any Error>, _ id: AccountID) -> Bool {
+        switch engine {
+        case .success(let engine): providers.live[id]?.engine === engine
+        case .failure: accounts.contains { $0.id == id }
+        }
+    }
+
     private func prefetcher(for id: AccountID) throws -> BodyPrefetcher {
-        if let prefetcher = prefetchers[id] { return prefetcher }
-        let (database, attachments, storage) = (database, attachmentsDirectory, storage)
-        let prefetcher = BodyPrefetcher(
-            accountID: id, provider: try providers.provider(for: id), store: database, path: path,
-            scope: { storage.prefetchScope },
-            hasRoom: { database.hasRoomToPrefetch(under: storage.cacheLimit) },
-            didFinish: { await Self.trim(database, attachments: attachments, limit: storage.cacheLimit) })
-        prefetchers[id] = prefetcher
-        return prefetcher
+        try providers.session(for: id).prefetcher
     }
 
     func engine(for id: AccountID) throws -> SyncEngine {
-        if let engine = engines[id] { return engine }
-        let engine = SyncEngine(
-            accountID: id, provider: try providers.provider(for: id), store: database, scope: .window(storage.window))
-        engines[id] = engine
-        return engine
+        try providers.session(for: id).engine
     }
 }
 
-/// One outbox per account, made on first use. Failed drains stay queued until the next flush.
-actor Outboxes {
-    private let make: @Sendable (AccountID) throws -> Outbox
-    private var outboxes: [AccountID: Outbox] = [:]
-
-    init(make: @escaping @Sendable (AccountID) throws -> Outbox) {
-        self.make = make
-    }
-
-    func forget(_ id: AccountID) {
-        outboxes[id] = nil
-    }
-
-    func flush(_ id: AccountID) async {
-        do {
-            let outbox = try outboxes[id] ?? make(id)
-            outboxes[id] = outbox
-            try await outbox.flush()
-        } catch {
-            Logger(subsystem: "com.idanbirman.goodmail", category: "outbox")
-                .error("Replay stopped: \(error, privacy: .public)")
-        }
-    }
-}
-
-/// One sender per account, and the background session their sends go through. Each queued message is handed to
-/// it once its undo window closes, with background time asked for so leaving the app in that window doesn't hold
-/// it back; from then on the upload carries on even if the app is suspended or killed. One scheduled further ahead
-/// is left to the next sync after its time: the foreground sync while the app is open, or a background refresh.
+/// One sender per account for the launch, and the background session their sends go through. Each queued message is
+/// handed to it once its undo window closes, with background time asked for so leaving the app in that window
+/// doesn't hold it back; from then on the upload carries on even if the app is suspended or killed. One scheduled
+/// further ahead is left to the next sync after its time: the foreground sync while the app is open, or a background
+/// refresh. A sender reads the account's provider as each send begins, so it follows a new sign-in, and its drains
+/// never overlap one another's.
 final class Senders {
     /// The longest wait held in background time; the longest undo window is 30 seconds.
     static let longestHeldWait: TimeInterval = 60
 
     var onSent: ((AccountID, [Draft]) async -> Void)?
-    private let make: (AccountID, any UploadTransport) throws -> Sender
+    private let make: (AccountID, any UploadTransport) -> Sender
     private var senders: [AccountID: Sender] = [:]
     /// Made with the app model at launch, so iOS can hand over outcomes from earlier launches.
     private(set) lazy var uploads = BackgroundUploads { [weak self] ticket, outcome in
@@ -564,19 +551,15 @@ final class Senders {
         await BackgroundDatabaseWork.shared.run("Upload outcome") { await self?.complete(ticket, with: outcome) }
     }
 
-    init(make: @escaping (AccountID, any UploadTransport) throws -> Sender) {
+    init(make: @escaping (AccountID, any UploadTransport) -> Sender) {
         self.make = make
         _ = uploads
-    }
-
-    func forget(_ id: AccountID) {
-        senders[id] = nil
     }
 
     func deliver(_ id: AccountID, at date: Date) async {
         guard date.timeIntervalSinceNow <= Self.longestHeldWait else { return }
         await BackgroundDatabaseWork.shared.run("Send") {
-            guard let sender = sender(for: id) else { return }
+            let sender = sender(for: id)
             // Logs in while the undo window runs, so only the message is left when it closes.
             await sender.prepare()
             let wait = date.timeIntervalSinceNow
@@ -587,22 +570,14 @@ final class Senders {
     }
 
     private func complete(_ ticket: UploadTicket, with outcome: UploadOutcome) async {
-        guard let sender = sender(for: ticket.accountID),
-            let draft = await sender.complete(ticket.id, with: outcome)
-        else { return }
+        guard let draft = await sender(for: ticket.accountID).complete(ticket.id, with: outcome) else { return }
         await onSent?(ticket.accountID, [draft])
     }
 
-    private func sender(for id: AccountID) -> Sender? {
+    private func sender(for id: AccountID) -> Sender {
         if let sender = senders[id] { return sender }
-        do {
-            let sender = try make(id, uploads)
-            senders[id] = sender
-            return sender
-        } catch {
-            Logger(subsystem: "com.idanbirman.goodmail", category: "send")
-                .error("No sender: \(error, privacy: .public)")
-            return nil
-        }
+        let sender = make(id, uploads)
+        senders[id] = sender
+        return sender
     }
 }

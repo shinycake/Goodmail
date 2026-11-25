@@ -16,9 +16,10 @@ extension AppModel {
     /// have follows them from now on, as their offer does; restoring this device's own changes nothing else.
     func addOfferedAccounts(_ chosen: [AccountID], declining declined: [AccountID]) async throws {
         let restoring = restorable.filter { chosen.contains($0.id) }
+        // Read before the restored accounts are here, which takes them out of it.
+        let followsOthers = chosen.contains { id in sharedElsewhere.contains { $0.id == id } }
         try await adopt(restoring)
-        restorable.removeAll { account in restoring.contains { $0.id == account.id } }
-        if chosen.contains(where: { id in sharedElsewhere.contains { $0.id == id } }) {
+        if followsOthers {
             try await addSharedAccounts(chosen, declining: declined)
         } else {
             Preferences.declinedSharedAccounts.formUnion(declined)

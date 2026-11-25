@@ -59,6 +59,14 @@ public protocol MailProvider: Sendable {
     /// Deletes the user label `id` and the labels nested in it, as `Projects/Goodmail` is in `Projects`. What
     /// happens to their mail is the service's `labelDeletion`. One that is already gone is not an error.
     func deleteLabel(_ id: String) async throws
+
+    /// Stops using the account's sign-in, as once the account signed in afresh or is going: a token refresh under
+    /// way is dropped rather than stored. A provider without a session of its own has nothing to stop.
+    func endSession() async
+}
+
+extension MailProvider {
+    public func endSession() async {}
 }
 
 public enum ProviderError: Error, Equatable {

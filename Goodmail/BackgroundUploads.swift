@@ -39,13 +39,20 @@ nonisolated final class BackgroundUploads: UploadTransport {
 }
 
 private nonisolated final class Delegate: NSObject, URLSessionDataDelegate, Sendable {
+    typealias Handler = @MainActor () -> Void
+
     private struct State {
         /// Each task's answer so far, by task identifier.
         var replies: [Int: Data] = [:]
         /// Outcomes being passed to `onFinish`.
         var takingIn: [UploadID: Task<Void, Never>] = [:]
-        /// What iOS asked to be called once the events it delivered have been taken in.
-        var eventsCompletion: (@MainActor () -> Void)?
+        /// What iOS asked to be called once the events it delivered have been taken in, and when that is.
+        var events = BackgroundEvents<Handler>()
+
+        /// The handlers whose events are now delivered and taken in.
+        mutating func due() -> [Handler] {
+            events.due(allTakenIn: takingIn.isEmpty)
+        }
     }
 
     private let onFinish: @Sendable (UploadTicket, UploadOutcome) async -> Void
@@ -57,8 +64,14 @@ private nonisolated final class Delegate: NSObject, URLSessionDataDelegate, Send
 
     var takingIn: Set<UploadID> { state.withLock { Set($0.takingIn.keys) } }
 
-    func whenEventsAreTakenIn(_ completion: @escaping @MainActor () -> Void) {
-        state.withLock { $0.eventsCompletion = completion }
+    /// The launch can get this before or after iOS says it delivered every event; either way `completion` is called
+    /// once they're taken in.
+    func whenEventsAreTakenIn(_ completion: @escaping Handler) {
+        call(
+            state.withLock { state in
+                state.events.receive(completion)
+                return state.due()
+            })
     }
 
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
@@ -77,21 +90,29 @@ private nonisolated final class Delegate: NSObject, URLSessionDataDelegate, Send
         state.withLock { state in
             state.takingIn[ticket.id] = Task { [onFinish] in
                 await onFinish(ticket, outcome)
-                _ = self.state.withLock { $0.takingIn.removeValue(forKey: ticket.id) }
+                call(
+                    self.state.withLock { state in
+                        state.takingIn[ticket.id] = nil
+                        return state.due()
+                    })
             }
         }
     }
 
     func urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession) {
-        let work = state.withLock { Array($0.takingIn.values) }
-        Task {
-            for task in work { await task.value }
-            let completion = state.withLock { state in
-                defer { state.eventsCompletion = nil }
-                return state.eventsCompletion
-            }
-            // UIKit's completion handler is called once, on the main actor its type requires.
-            await completion?()
+        call(
+            state.withLock { state in
+                state.events.delivered()
+                return state.due()
+            })
+    }
+
+    /// Calls UIKit's completion handlers, each once, on the main actor their type requires. The task only hops
+    /// there: the handlers return at once, can't fail and mustn't be skipped, so nothing waits on it or cancels it.
+    private func call(_ handlers: [Handler]) {
+        guard !handlers.isEmpty else { return }
+        Task { @MainActor in
+            for handler in handlers { handler() }
         }
     }
 }

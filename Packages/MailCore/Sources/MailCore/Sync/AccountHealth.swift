@@ -3,8 +3,8 @@ public import Foundation
 /// How an account's syncs are going, as far as the reader needs to know. Changed only by `after(_:at:)`.
 ///
 /// A sign-in the service turned down needs the reader at once, since signing in again is the only fix. Anything else
-/// usually passes by itself, so it is shown only once it has lasted `patience`. Being offline or cancelled says
-/// nothing about the account and changes nothing.
+/// usually passes by itself, so it is shown only once it has lasted `patience`. Being offline or cancelled, or
+/// running on a sign-in that was replaced or removed meanwhile, says nothing about the account and changes nothing.
 public enum AccountHealth: Equatable, Sendable {
     /// The last sync worked, or none has failed yet.
     case healthy
@@ -22,7 +22,7 @@ public enum AccountHealth: Equatable, Sendable {
     /// The health after a sync at `date` ended with `outcome`.
     public func after(_ outcome: Result<Void, any Error>, at date: Date) -> AccountHealth {
         guard case .failure(let error) = outcome else { return .healthy }
-        if error is CancellationError { return self }
+        if error is CancellationError || error as? OAuthSession.Failure == .ended { return self }
         if let error = error as? any SignInRejecting, error.rejectsSignIn { return .needsSignIn }
         let reason = FailureReason(error)
         if reason == .offline { return self }
