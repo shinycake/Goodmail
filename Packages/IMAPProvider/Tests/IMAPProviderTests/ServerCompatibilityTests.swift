@@ -25,6 +25,21 @@ struct ServerCompatibilityTests {
                 == IMAPFolderStatus(uidValidity: 4, uidNext: 9, messageCount: 3, highestModSeq: nil))
     }
 
+    /// A CONDSTORE server's mailbox that keeps no mod-sequences says HIGHESTMODSEQ 0 to STATUS (RFC 7162 §3.1.3):
+    /// nothing would ever count as changed after 0, so it has none.
+    @Test func aMailboxWithoutModSeqsHasNone() async throws {
+        let connection = try await connection(
+            "CONDSTORE",
+            """
+            C: A1 STATUS "Notes" (MESSAGES UIDNEXT UIDVALIDITY HIGHESTMODSEQ)
+            S: * STATUS "Notes" (MESSAGES 3 UIDNEXT 9 UIDVALIDITY 4 HIGHESTMODSEQ 0)
+            S: A1 OK
+            """)
+        #expect(
+            try await connection.status(of: "Notes")
+                == IMAPFolderStatus(uidValidity: 4, uidNext: 9, messageCount: 3, highestModSeq: nil))
+    }
+
     @Test func aServerWithoutMOVECopiesThenExpunges() async throws {
         let connection = try await connection(
             "UIDPLUS",

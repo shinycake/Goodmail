@@ -23,9 +23,15 @@ actor IMAPConnection {
         case renewal
     }
 
+    /// What the server supports, upper-cased. A list holds only until STARTTLS and login, so it can be unknown
+    /// again; `has(_:)` then asks, and nothing reads not knowing as not supported.
+    enum Capabilities: Equatable, Sendable {
+        case unknown
+        case known(Set<String>)
+    }
+
     private(set) var state: State
-    /// What the server supports, `nil` until it has said.
-    private(set) var capabilities: Set<String>?
+    private(set) var capabilities = Capabilities.unknown
     /// Extensions `enable(_:)` turned on, such as QRESYNC.
     private(set) var enabled: Set<String> = []
     private let transport: any MailTransport
@@ -62,15 +68,13 @@ actor IMAPConnection {
     }
 
     private func startTLS() async throws {
-        guard state == .notAuthenticated else { throw IMAPError.insecure }
-        if capabilities == nil { try await refreshedCapabilities() }
-        guard capabilities?.contains("STARTTLS") == true else { throw IMAPError.insecure }
+        guard state == .notAuthenticated, try await has("STARTTLS") else { throw IMAPError.insecure }
         _ = try await run(.startTLS)
         try await transport.startTLS()
         // Nothing the server said before TLS can be trusted (RFC 2595 §3.1): bytes that came after its OK are
         // dropped, and the session asks for the capabilities again.
         framer = IMAPFramer()
-        capabilities = nil
+        capabilities = .unknown
     }
 
     func login(user: String, password: String) async throws {
@@ -80,7 +84,7 @@ actor IMAPConnection {
                 _ = try await connection.run(.login(user: user, password: password))
                 // Capabilities change at login (RFC 3501 §6.2.3), and iCloud's login reply lists only the
                 // AUTH= ones, so the session asks again.
-                connection.capabilities = nil
+                connection.capabilities = .unknown
             } catch IMAPError.refused(let status) where status.code("UNAVAILABLE") == nil {
                 // A NO to LOGIN is a refused user name or password (RFC 3501 §6.2.3), with or without iCloud's
                 // AUTHENTICATIONFAILED code; only UNAVAILABLE says the server can't check them now (RFC 5530).
@@ -136,16 +140,30 @@ actor IMAPConnection {
         }
     }
 
-    /// Asks for the server's capabilities, which the session does after login.
-    func refreshCapabilities() async throws {
-        try await exclusively { connection in try await connection.refreshedCapabilities() }
+    /// Whether the server supports `capability`, such as IDLE.
+    func supports(_ capability: String) async throws -> Bool {
+        try await exclusively { connection in try await connection.has(capability) }
     }
 
-    private func refreshedCapabilities() async throws {
-        let reply = try await run(.capability)
-        for values in reply.data where values.first?.atom?.uppercased() == "CAPABILITY" {
-            capabilities = Set(values.dropFirst().compactMap { $0.atom?.uppercased() })
+    /// The one way to read a capability: when the list isn't known, the server is asked first, so a command that
+    /// depends on one never guesses.
+    private func has(_ capability: String) async throws -> Bool {
+        let names: Set<String>
+        switch capabilities {
+        case .known(let known):
+            names = known
+        case .unknown:
+            let reply = try await run(.capability)
+            // The list comes as `* CAPABILITY …`, or only in the OK's code. A server that gives neither can't be
+            // relied on for any of it.
+            let line = reply.data.last { $0.first?.atom?.uppercased() == "CAPABILITY" }.map { $0.dropFirst() }
+            guard let listed = line.map(Array.init) ?? reply.completion.code("CAPABILITY") else {
+                throw IMAPError.capabilitiesUnknown
+            }
+            names = Set(listed.compactMap { $0.atom?.uppercased() })
+            capabilities = .known(names)
         }
+        return names.contains(capability.uppercased())
     }
 
     /// Turns on `capability` for the rest of the session (RFC 5161).
@@ -155,8 +173,7 @@ actor IMAPConnection {
             _ = try await connection.run(.enable(capability))
             // A server ignores what it doesn't support and still says OK (RFC 5161 §3.1). iCloud also leaves out
             // the `* ENABLED` line, so an advertised capability counts as on once ENABLE succeeds.
-            let name = capability.uppercased()
-            if connection.capabilities?.contains(name) == true { connection.enabled.insert(name) }
+            if try await connection.has(capability) { connection.enabled.insert(capability.uppercased()) }
         }
     }
 
@@ -164,7 +181,7 @@ actor IMAPConnection {
     func status(of mailbox: String) async throws -> IMAPFolderStatus {
         try await exclusively { connection in
             try connection.requireAuthenticated()
-            let modSeq = connection.capabilities?.contains("CONDSTORE") == true
+            let modSeq = try await connection.has("CONDSTORE")
             let reply = try await connection.run(.status(mailbox, modSeq: modSeq))
             guard let status = reply.data.lazy.compactMap(IMAPFolderStatus.init(statusResponse:)).first else {
                 throw IMAPError.invalid(reply.completion)
@@ -219,19 +236,19 @@ actor IMAPConnection {
     }
 
     /// What changed in the selected mailbox after `modSeq`: the UIDs whose flags changed, and when QRESYNC is
-    /// enabled, the UIDs expunged. Without QRESYNC, `expunged` is `nil`: the server can't say.
-    func changes(sinceModSeq modSeq: UInt64) async throws -> (flagged: [UInt32], expunged: [UInt32]?) {
+    /// enabled, the UIDs expunged. Without QRESYNC the server can't say which were.
+    func changes(sinceModSeq modSeq: UInt64) async throws -> (flagged: [UInt32], expunged: IMAPExpunges) {
         try await exclusively { connection in
             try connection.requireSelected()
             let vanished = connection.enabled.contains("QRESYNC")
             let reply = try await connection.run(.uidFetchChanged(sinceModSeq: modSeq, vanished: vanished))
             let flagged = reply.data.compactMap { IMAPFetch(response: $0)?.items["UID"]?.number }
-            guard vanished else { return (flagged, nil) }
+            guard vanished else { return (flagged, .unnamed) }
             let expunged = reply.data.flatMap { values -> [UInt32] in
                 guard values.first?.atom?.uppercased() == "VANISHED", let set = values.last?.atom else { return [] }
                 return IMAPCommand.uids(inSequenceSet: set)
             }
-            return (flagged, expunged)
+            return (flagged, .named(expunged))
         }
     }
 
@@ -273,7 +290,8 @@ actor IMAPConnection {
             do {
                 let reply = try await connection.run(.uidMove(uids: uids, mailbox: mailbox))
                 return (reply.statuses + [reply.completion]).lazy.compactMap(IMAPCopy.init(status:)).first
-            } catch IMAPError.invalid where connection.capabilities?.contains("MOVE") != true {
+            } catch IMAPError.invalid(let status) {
+                guard try await !connection.has("MOVE") else { throw IMAPError.invalid(status) }
                 let copy = try await connection.copy(uids, to: mailbox)
                 try await connection.markDeletedAndExpunge(uids)
                 return copy
@@ -296,10 +314,12 @@ actor IMAPConnection {
     }
 
     /// Flags these messages `\Deleted` and expunges them. Without UIDPLUS (RFC 4315) EXPUNGE can't name them, so it
-    /// also removes whatever else in the mailbox was flagged `\Deleted`, as every IMAP client's EXPUNGE does.
+    /// also removes whatever else in the mailbox was flagged `\Deleted`, as every IMAP client's EXPUNGE does. That
+    /// EXPUNGE goes only to a server known to lack UIDPLUS, known before anything is flagged.
     private func markDeletedAndExpunge(_ uids: [UInt32]) async throws {
+        let namesUIDs = try await has("UIDPLUS")
         _ = try await run(.uidStore(uids: uids, flags: [#"\Deleted"#], add: true))
-        _ = try await run(capabilities?.contains("UIDPLUS") == true ? .uidExpunge(uids: uids) : .expunge)
+        _ = try await run(namesUIDs ? .uidExpunge(uids: uids) : .expunge)
     }
 
     /// Adds `message` to `mailbox` with `flags`. Returns its UID there when the server says (APPENDUID, RFC 4315).
@@ -492,7 +512,7 @@ actor IMAPConnection {
 
     private func remember(capabilitiesIn status: IMAPStatus) {
         guard let names = status.code("CAPABILITY") else { return }
-        capabilities = Set(names.compactMap { $0.atom?.uppercased() })
+        capabilities = .known(Set(names.compactMap { $0.atom?.uppercased() }))
     }
 
     private func requireAuthenticated() throws {
@@ -505,6 +525,15 @@ actor IMAPConnection {
     private func requireSelected() throws {
         guard case .selected = state else { throw IMAPError.wrongState }
     }
+}
+
+/// What a mailbox's changes say of the messages expunged from it.
+enum IMAPExpunges: Equatable, Sendable {
+    /// These UIDs, all of them, as QRESYNC's VANISHED names them (RFC 7162 §3.2.10).
+    case named([UInt32])
+    /// Nothing named them: the server can't, without QRESYNC, or wasn't asked, as when the folder's HIGHESTMODSEQ
+    /// didn't move. Only a message count short of what it should be then shows that some were.
+    case unnamed
 }
 
 /// What came back for one command: its untagged responses, then its completion.

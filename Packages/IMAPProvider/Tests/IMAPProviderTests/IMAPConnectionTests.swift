@@ -50,9 +50,9 @@ struct IMAPConnectionTests {
         #expect(await connection.state == .notAuthenticated)
 
         try await connection.login(user: "dana@icloud.com", password: "abcd-efgh-ijkl-mnop")
-        #expect(await connection.capabilities == nil, "the greeting's list is from before login")
-        try await connection.refreshCapabilities()
-        #expect(await connection.capabilities?.isSuperset(of: ["CONDSTORE", "QRESYNC", "SPECIAL-USE"]) == true)
+        #expect(await connection.capabilities == .unknown, "the greeting's list is from before login")
+        #expect(try await connection.supports("SPECIAL-USE"))
+        #expect(try await connection.supports("condstore"), "names are compared upper-cased")
 
         let mailboxes = try await connection.mailboxes()
         #expect(mailboxes.map(\.role) == [.inbox, .sent, .trash, .junk, .drafts, .archive, nil])
@@ -61,7 +61,6 @@ struct IMAPConnectionTests {
         let selection = try await connection.select("INBOX")
         #expect(selection.uidValidity == 1_729_000_001)
         #expect(selection.uidNext == 42)
-        #expect(selection.highestModSeq == 90210)
         #expect(selection.messageCount == 2)
         #expect(await connection.state == .selected(selection))
 

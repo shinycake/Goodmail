@@ -47,7 +47,7 @@ struct IMAPWatcher: Sendable {
     private func watchInbox(_ changed: @Sendable () async -> Void, failures: inout Int) async throws {
         let connection = try await connector.open()
         do {
-            guard await connection.capabilities?.contains("IDLE") == true else {
+            guard try await connection.supports("IDLE") else {
                 try? await connection.logout()
                 return
             }

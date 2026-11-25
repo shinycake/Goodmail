@@ -43,7 +43,7 @@ struct FlagChangesTests {
             MessageIndexEntry(key: key(12), threadID: "star@x", internetMessageID: "star@x"),
         ])
         let cursor = IMAPCursor(
-            folders: ["INBOX": Self.inbox], marks: ["INBOX": [10: [.seen], 11: [], 12: [.seen]]])
+            folders: ["INBOX": IMAPCursor.Folder(Self.inbox, tracking: .flagMarks([10: [.seen], 11: [], 12: [.seen]]))])
         let client = IMAPClientTests.client(
             [
                 Self.login, Self.status, IMAPClientTests.select("INBOX", tag: 5, exists: 3),
@@ -67,7 +67,7 @@ struct FlagChangesTests {
 
         #expect(changes.threadIDs == ["read@x", "star@x"])
         let next = try IMAPCursor(changes.cursor)
-        #expect(next.marks?["INBOX"] == [10: [.seen], 11: [.seen], 12: [.seen, .flagged]])
+        #expect(next.folders["INBOX"]?.tracking == .flagMarks([10: [.seen], 11: [.seen], 12: [.seen, .flagged]]))
     }
 
     @Test func aCursorFromBeforeMarksTakesThemWithoutNamingAnything() async throws {
@@ -82,10 +82,47 @@ struct FlagChangesTests {
             ].joined(separator: "\n"),
             index: MemoryIndex())
 
-        let changes = try await client.changes(since: IMAPCursor(folders: ["INBOX": Self.inbox]).rawValue)
+        // As builds from before marks were kept wrote it.
+        let changes = try await client.changes(
+            since: #"{"folders":{"INBOX":{"messageCount":3,"uidNext":13,"uidValidity":7}}}"#)
 
         #expect(changes.threadIDs.isEmpty)
-        #expect(try IMAPCursor(changes.cursor).marks?["INBOX"] == [10: [.seen]])
+        #expect(try IMAPCursor(changes.cursor).folders["INBOX"]?.tracking == .flagMarks([10: [.seen]]))
+    }
+
+    @Test func aFolderThatStoppedReportingItsModSeqExpiresTheCursor() async throws {
+        let client = IMAPClientTests.client(
+            [Self.login, Self.status, IMAPClientTests.select("INBOX", tag: 5, exists: 3)].joined(separator: "\n"),
+            index: MemoryIndex())
+        let cursor = IMAPCursor(folders: ["INBOX": IMAPCursor.Folder(Self.inbox, tracking: .modSeq(5))])
+
+        await #expect(throws: ProviderError.cursorExpired) { try await client.changes(since: cursor.rawValue) }
+    }
+
+    /// As when the server was upgraded to CONDSTORE since the cursor was taken.
+    @Test func aFolderThatStartedReportingItsModSeqIsComparedOnceMoreThenTrackedByIt() async throws {
+        let client = IMAPClientTests.client(
+            [
+                Self.login.replacing("IMAP4rev1 UIDPLUS IDLE", with: "IMAP4rev1 UIDPLUS IDLE CONDSTORE"),
+                """
+                C: A4 STATUS "INBOX" (MESSAGES UIDNEXT UIDVALIDITY HIGHESTMODSEQ)
+                S: * STATUS "INBOX" (MESSAGES 3 UIDNEXT 13 UIDVALIDITY 7 HIGHESTMODSEQ 40)
+                S: A4 OK
+                """,
+                IMAPClientTests.select("INBOX", tag: 5, exists: 3),
+                """
+                C: A6 FETCH 1:* (UID FLAGS)
+                S: * 1 FETCH (UID 10 FLAGS (\\Seen))
+                S: A6 OK
+                """,
+            ].joined(separator: "\n"),
+            index: MemoryIndex())
+        let cursor = IMAPCursor(folders: ["INBOX": IMAPCursor.Folder(Self.inbox, tracking: .flagMarks([10: [.seen]]))])
+
+        let changes = try await client.changes(since: cursor.rawValue)
+
+        #expect(changes.threadIDs.isEmpty)
+        #expect(try IMAPCursor(changes.cursor).folders["INBOX"]?.tracking == .modSeq(40))
     }
 
     @Test func onlyTheLatestMessagesAreCompared() async throws {

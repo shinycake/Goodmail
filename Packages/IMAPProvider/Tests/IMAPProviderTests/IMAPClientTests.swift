@@ -186,14 +186,16 @@ struct IMAPClientTests {
             MessageIndexEntry(key: key(30), threadID: "gone@x", internetMessageID: "gone@x"),
             MessageIndexEntry(key: key(31), threadID: "flag@x", internetMessageID: "flag@x"),
         ])
-        let unchanged = IMAPFolderStatus(uidValidity: 9, uidNext: 4, messageCount: 1, highestModSeq: 5)
+        let unchanged = IMAPCursor.Folder(
+            IMAPFolderStatus(uidValidity: 9, uidNext: 4, messageCount: 1, highestModSeq: 5), tracking: .modSeq(5))
         var folders = Dictionary(
             uniqueKeysWithValues: [
                 "Sent Messages", "Deleted Messages", "Junk", "Drafts", "Archive", "&BeIF0QXVBdMF1A-",
             ].map {
                 ($0, unchanged)
             })
-        folders["INBOX"] = IMAPFolderStatus(uidValidity: 7, uidNext: 32, messageCount: 2, highestModSeq: 100)
+        folders["INBOX"] = IMAPCursor.Folder(
+            IMAPFolderStatus(uidValidity: 7, uidNext: 32, messageCount: 2, highestModSeq: 100), tracking: .modSeq(100))
         let cursor = IMAPCursor(folders: folders).rawValue
         let status = { (tag: Int, name: String, line: String) in
             "C: A\(tag) STATUS \"\(name)\" (MESSAGES UIDNEXT UIDVALIDITY HIGHESTMODSEQ)\nS: * STATUS \"\(name)\" (\(line))\nS: A\(tag) OK"
@@ -234,11 +236,16 @@ struct IMAPClientTests {
         #expect(index.all.map(\.threadID) == ["flag@x", "new@x"], "the expunged message leaves the index")
         let next = try IMAPCursor(changes.cursor)
         #expect(
-            next.folders["INBOX"] == IMAPFolderStatus(uidValidity: 7, uidNext: 33, messageCount: 2, highestModSeq: 104))
+            next.folders["INBOX"]
+                == IMAPCursor.Folder(
+                    IMAPFolderStatus(uidValidity: 7, uidNext: 33, messageCount: 2, highestModSeq: 104),
+                    tracking: .modSeq(104)))
+        #expect(next.folders["Junk"] == unchanged)
     }
 
     @Test func aChangedFolderListOrUIDValidityExpiresTheCursor() async throws {
-        let status = IMAPFolderStatus(uidValidity: 7, uidNext: 1, messageCount: 0, highestModSeq: 1)
+        let status = IMAPCursor.Folder(
+            IMAPFolderStatus(uidValidity: 7, uidNext: 1, messageCount: 0, highestModSeq: 1), tracking: .modSeq(1))
         let onlyInbox = IMAPCursor(folders: ["INBOX": status])
         await #expect(throws: ProviderError.cursorExpired) {
             try await Self.client(Self.login, index: MemoryIndex()).changes(since: onlyInbox.rawValue)

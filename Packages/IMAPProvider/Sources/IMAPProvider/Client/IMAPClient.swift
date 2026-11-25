@@ -55,13 +55,11 @@ public struct IMAPClient: MailProvider {
 
     public func currentCursor() async throws -> String {
         try await session.run { connection in
-            let folders = Folders(try await connection.mailboxes()).all
-            var statuses: [String: IMAPFolderStatus] = [:]
-            for folder in folders {
-                statuses[folder.wireName] = try await connection.status(of: folder.wireName)
+            var statuses: [(folder: IMAPMailbox, status: IMAPFolderStatus)] = []
+            for folder in Folders(try await connection.mailboxes()).all {
+                statuses.append((folder, try await connection.status(of: folder.wireName)))
             }
-            let marks = try await flagMarks(of: folders, statuses: statuses, on: connection)
-            return IMAPCursor(folders: statuses, marks: marks).rawValue
+            return IMAPCursor(folders: try await cursorFolders(statuses, on: connection)).rawValue
         }
     }
 

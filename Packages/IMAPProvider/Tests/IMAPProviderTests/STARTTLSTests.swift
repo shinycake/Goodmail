@@ -18,7 +18,7 @@ struct STARTTLSTests {
                 S: A2 OK Logged in
                 """)
         let connection = try await IMAPConnection(transport: transport, security: .startTLS)
-        #expect(await connection.capabilities == nil, "what the server said in the clear can't be trusted")
+        #expect(await connection.capabilities == .unknown, "what the server said in the clear can't be trusted")
         try await connection.login(user: "dana@example.com", password: "secret")
         #expect(await connection.state == .authenticated)
     }

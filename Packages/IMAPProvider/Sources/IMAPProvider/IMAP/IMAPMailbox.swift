@@ -51,8 +51,6 @@ struct IMAPSelection: Equatable, Sendable {
     /// The UID the next message will get, when the server says.
     var uidNext: UInt32?
     var messageCount: Int
-    /// The mailbox's highest modification sequence, when the server supports CONDSTORE (RFC 7162).
-    var highestModSeq: UInt64?
 
     init(mailbox: String, reply: IMAPReply) throws {
         self.mailbox = mailbox
@@ -63,7 +61,6 @@ struct IMAPSelection: Equatable, Sendable {
         }
         self.uidValidity = uidValidity
         uidNext = code("UIDNEXT").flatMap { UInt32($0) }
-        highestModSeq = code("HIGHESTMODSEQ").flatMap { UInt64($0) }
         messageCount =
             reply.data.lazy.compactMap { values -> Int? in
                 guard values.count == 2, values[1].atom?.uppercased() == "EXISTS" else { return nil }
@@ -77,7 +74,8 @@ struct IMAPFolderStatus: Equatable, Codable, Sendable {
     var uidValidity: UInt32
     var uidNext: UInt32
     var messageCount: Int
-    /// `nil` when the server doesn't support CONDSTORE (RFC 7162).
+    /// `nil` when the server doesn't support CONDSTORE (RFC 7162), and for a mailbox that keeps no mod-sequences,
+    /// whose STATUS says 0 (§3.1.3): nothing ever counts as changed after it, so its flags are compared instead.
     var highestModSeq: UInt64?
 
     /// From `* STATUS "INBOX" (MESSAGES 2 UIDNEXT 42 UIDVALIDITY 1729000001 HIGHESTMODSEQ 90210)`.
@@ -96,7 +94,7 @@ struct IMAPFolderStatus: Equatable, Codable, Sendable {
         else { return nil }
         self.init(
             uidValidity: uidValidity, uidNext: uidNext, messageCount: messageCount,
-            highestModSeq: counters["HIGHESTMODSEQ"].flatMap { UInt64($0) })
+            highestModSeq: counters["HIGHESTMODSEQ"].flatMap { UInt64($0) }.flatMap { $0 == 0 ? nil : $0 })
     }
 
     init(uidValidity: UInt32, uidNext: UInt32, messageCount: Int, highestModSeq: UInt64?) {

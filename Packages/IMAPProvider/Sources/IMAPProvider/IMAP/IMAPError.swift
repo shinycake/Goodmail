@@ -10,6 +10,8 @@ enum IMAPError: Error, Equatable {
     case closed
     /// The command needs a state the connection isn't in, such as fetching before a mailbox is selected.
     case wrongState
+    /// The server answered CAPABILITY without saying what it supports, so nothing that depends on it can be sent.
+    case capabilitiesUnknown
     /// The server won't turn on TLS on a plain connection, so nothing is sent over it.
     case insecure
     /// An argument can't be written as a quoted string.

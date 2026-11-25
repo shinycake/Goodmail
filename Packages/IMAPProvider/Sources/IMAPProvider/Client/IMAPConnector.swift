@@ -15,11 +15,8 @@ struct IMAPConnector: Sendable {
             if await connection.state == .notAuthenticated {
                 try await connection.login(user: credentials.user, password: credentials.password)
             }
-            if await connection.capabilities == nil { try await connection.refreshCapabilities() }
             // QRESYNC names the messages expunged since a cursor (RFC 7162 §3.2.6).
-            if await connection.capabilities?.contains("QRESYNC") == true {
-                try await connection.enable("QRESYNC")
-            }
+            if try await connection.supports("QRESYNC") { try await connection.enable("QRESYNC") }
         } catch {
             await connection.close()
             throw error
