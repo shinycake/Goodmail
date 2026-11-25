@@ -5,19 +5,19 @@ public import Observation
 /// the reader's other devices, or on this one before the app was deleted. Each starts chosen.
 @Observable
 public final class SharedAccountsOffer {
-    public enum State: Equatable {
-        /// Waiting for the reader to choose.
-        case choosing
+    public enum State {
+        /// Waiting for the reader to choose; `failure` is the last add that failed, shown until dismissed.
+        case choosing(failure: (any Error)?)
         /// Adding the chosen accounts.
         case adding
+        /// The reader added the accounts or put the offer off, so it closes.
+        case finished
     }
 
     public let accounts: [Account]
     public let origin: AccountOffer.Origin
     public var chosen: Set<AccountID>
-    public private(set) var state = State.choosing
-    /// The last add that failed, for the view to show.
-    public var error: (any Error)?
+    public private(set) var state = State.choosing(failure: nil)
     /// Runs once the reader added accounts or put the offer off, set by whoever shows it.
     @ObservationIgnored public var onFinished: () -> Void = {}
     @ObservationIgnored private let add: (_ chosen: [AccountID], _ declined: [AccountID]) async throws -> Void
@@ -37,22 +37,46 @@ public final class SharedAccountsOffer {
         self.decline = decline
     }
 
-    /// Adds the chosen accounts, in the offer's order.
+    var isAdding: Bool {
+        if case .adding = state { true } else { false }
+    }
+
+    var isFinished: Bool {
+        if case .finished = state { true } else { false }
+    }
+
+    /// The last add that failed, for the alert.
+    var failure: (any Error)? {
+        if case .choosing(let failure) = state { failure } else { nil }
+    }
+
+    /// Adds the chosen accounts, in the offer's order. Ignored unless the reader is choosing.
     public func addChosen() async {
-        guard state == .choosing else { return }
+        guard case .choosing = state else { return }
         state = .adding
-        defer { state = .choosing }
         let ids = accounts.map(\.id)
         do {
             try await add(ids.filter(chosen.contains), ids.filter { !chosen.contains($0) })
-            onFinished()
+            finish()
         } catch {
-            self.error = error
+            state = .choosing(failure: error)
         }
     }
 
     public func notNow() {
+        guard case .choosing = state else { return }
         decline(accounts.map(\.id))
+        finish()
+    }
+
+    /// The reader read the failure.
+    func dismissFailure() {
+        guard case .choosing(.some) = state else { return }
+        state = .choosing(failure: nil)
+    }
+
+    private func finish() {
+        state = .finished
         onFinished()
     }
 }

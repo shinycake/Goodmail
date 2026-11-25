@@ -13,11 +13,8 @@ struct BadgeSection: View {
 
     var body: some View {
         Section {
-            if let source = choices.sources[account.id] {
-                Picker(
-                    selection: Binding(
-                        get: { source }, set: { new in Task { await choices.set(new, for: account.id) } })
-                ) {
+            if let source = choices.choice(for: account.id) {
+                Picker(selection: Binding(get: { source }, set: { choices.set($0, for: account.id) })) {
                     ForEach(BadgeChoices.choices(for: account, sorted: sorted, current: source), id: \.self) {
                         Text(BadgeChoices.title($0)).tag($0)
                     }
@@ -45,16 +42,20 @@ struct BadgeSection: View {
                 "Badge App Icon", tableName: "Badge", bundle: .module,
                 comment: "Settings section for what an account counts on the app's icon")
         } footer: {
-            if choices.isTurnedOffInSettings {
+            // Nothing until iOS has answered, so the footer doesn't change its words under the reader.
+            switch choices.status {
+            case .loading:
+                EmptyView()
+            case .loaded(_, turnedOff: true):
                 Text(
                     "Badges for Goodmail are turned off in Settings.", tableName: "Badge", bundle: .module,
                     comment: "Explains why the app's icon shows no count")
-            } else {
+            case .loaded(_, turnedOff: false):
                 Text(
                     "The number on Goodmail's icon counts unread mail from every account.", tableName: "Badge",
                     bundle: .module, comment: "Explains the app badge setting")
             }
         }
-        .task { await choices.load() }
+        .loads(choices)
     }
 }

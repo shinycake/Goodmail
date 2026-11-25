@@ -41,13 +41,15 @@ extension AppModel {
         }
     }
 
-    /// How Settings reads and stores the rules, off the main actor, and which label names it suggests.
-    func rulesService() -> MailRules.Service {
+    /// How Settings reads and stores the rules, off the main actor, and which label names it suggests from the
+    /// accounts there are when it asks. Made once, as `rulesService`.
+    func makeRulesService() -> MailRules.Service {
         let database = database
         return MailRules.Service(
             load: { try await Self.offMain { try database.rules() } },
             save: { rules in try await Self.offMain { try database.setRules(rules) } },
-            labelNames: { [accounts] in
+            labelNames: { [weak self] in
+                let accounts = self?.accounts ?? []
                 let names = try? await Self.offMain {
                     try accounts.flatMap { try database.labels(for: $0.id) }.filter { $0.kind == .user && !$0.isHidden }
                         .map(\.name)

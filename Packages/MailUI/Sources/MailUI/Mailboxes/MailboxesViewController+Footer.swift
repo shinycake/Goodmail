@@ -9,9 +9,10 @@ extension MailboxesViewController {
     }
 
     func installFooter() {
-        guard showsFooter, footer == nil, let syncFooter else { return }
+        guard case .sidebar(footer: .none) = chrome, showsFooter, let syncFooter else { return }
         let footer = SidebarFooterView(newLabel: newLabelItem())
         footer.onProblem = { [weak self] notice in self?.explain(notice, with: syncFooter) }
+        wear(footer)
         footer.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(footer)
         NSLayoutConstraint.activate([
@@ -19,7 +20,6 @@ extension MailboxesViewController {
             footer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             footer.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
         ])
-        self.footer = footer
         footer.show(syncFooter.status)
         // The rows' update reads the board only while the footer is there, so it starts watching the board now.
         setNeedsUpdateProperties()
@@ -31,8 +31,8 @@ extension MailboxesViewController {
 
     /// Asks about the account's problem, with its fix, as the list's toolbar does on touch.
     private func explain(_ notice: AccountProblemNotice, with source: SyncFooterSource) {
-        let alert = UIAlertController.accountProblems([notice]) { notice in
-            Task { await source.fix(notice) }
+        let alert = UIAlertController.accountProblems([notice]) { [weak self] notice in
+            self?.fix(notice, with: source)
         }
         present(alert, animated: true)
     }

@@ -40,7 +40,7 @@ struct MailRulesView: View {
             .navigationTitle(Self.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                if case .loaded(let all) = rules.state {
+                if case .loaded(let all, _) = rules.state {
                     if !all.isEmpty { EditButton() }
                     Button {
                         editing = RuleDraft()
@@ -60,11 +60,12 @@ struct MailRulesView: View {
                 Text(
                     "Couldn’t Save Rules", tableName: "Rules", bundle: .module,
                     comment: "Alert title when storing the rules failed"),
-                isPresented: Binding(get: { rules.saveError != nil }, set: { if !$0 { rules.saveError = nil } })
+                isPresented: Binding(
+                    get: { rules.saveFailure != nil }, set: { if !$0 { rules.dismissSaveFailure() } })
             ) {
                 Button(role: .cancel) {}
             } message: {
-                Text(rules.saveError ?? "")
+                Text(rules.saveFailure ?? "")
             }
             .task { await rules.load() }
     }
@@ -89,7 +90,7 @@ struct MailRulesView: View {
                     Text("Try Again", tableName: "Rules", bundle: .module, comment: "Reads the rules again")
                 }
             }
-        case .loaded(let all):
+        case .loaded(let all, _):
             list(all)
         }
     }

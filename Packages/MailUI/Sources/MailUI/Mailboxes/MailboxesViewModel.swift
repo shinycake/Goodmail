@@ -56,11 +56,20 @@ public final class MailboxesViewModel {
     }
 
     public private(set) var directory = MailboxDirectory()
-    /// The rows with labels nested in them that the reader folded away, in the sidebar or the list of mailboxes. The
-    /// list keeps it in step as rows fold, so the rows on show are known without it, for ⌘1 to ⌘9.
-    @ObservationIgnored var folded: Set<Destination> = []
-    /// The sections a sidebar folded under their headers. The sidebar keeps it in step too, for ⌘1 to ⌘9.
-    @ObservationIgnored var foldedSections: Set<Section> = []
+    /// How the rows fold under section headers: not at all in the list of mailboxes, and in a sidebar as kept in the
+    /// store every window's sidebar shares.
+    enum Folding {
+        case list
+        case sidebar(FoldedSections)
+    }
+
+    /// Whether this is a sidebar's model, whose sections fold, or the list of mailboxes'. The list showing the model
+    /// takes its style from it.
+    @ObservationIgnored let folding: Folding
+    /// The rows with labels nested in them that the reader folded away, which the list shows folded and ⌘1 to ⌘9
+    /// leave out. They last as long as this model: a window rebuilt for another width unfolds them again. Changed
+    /// only by `fold(_:folded:)`.
+    private(set) var foldedRows: Set<Destination> = []
     /// The smart mailboxes, with their unread counts.
     public private(set) var smartDirectory = SmartMailboxDirectory()
     /// What every account's mailboxes wear, or the only account's color.
@@ -89,8 +98,15 @@ public final class MailboxesViewModel {
         labelEditor: @escaping (AccountID) -> LabelEditor? = { _ in nil },
         smartMailboxStore: SmartMailboxStore? = nil,
         actions: MailActions? = nil,
-        combinedTheme: CombinedTheme = Preferences.combinedTheme
+        combinedTheme: CombinedTheme = Preferences.combinedTheme,
+        style: MailboxesViewController.Style = .list,
+        foldedSections: FoldedSections = .shared
     ) {
+        folding =
+            switch style {
+            case .list: .list
+            case .sidebar: .sidebar(foldedSections)
+            }
         directoryStream = directory
         smartDirectoryStream = smartMailboxes
         self.smartMailboxStore = smartMailboxStore
@@ -248,5 +264,50 @@ public final class MailboxesViewModel {
     public func compose() {
         guard let account = accounts.first else { return }
         navigate(.compose(Draft(accountID: account.id)))
+    }
+}
+
+/// What the reader folded: a section under its header in a sidebar, kept in `FoldedSections` for every window, and a
+/// row's nested labels, kept in this model (`foldedRows`). The list's rows and ⌘1 to ⌘9 are both read from this, and
+/// the reader folding something is the only change to it.
+extension MailboxesViewModel {
+    /// How the list showing this model looks: a sidebar, or the list of mailboxes.
+    public var style: MailboxesViewController.Style {
+        switch folding {
+        case .list: .list
+        case .sidebar: .sidebar
+        }
+    }
+
+    /// Whether `section` folds under a header row: in a sidebar, every section but the standard mailboxes.
+    func foldsUnderHeader(_ section: Section) -> Bool {
+        sectionStore(section) != nil
+    }
+
+    /// Whether `section`'s rows are folded away under its header.
+    func isFolded(_ section: Section) -> Bool {
+        sectionStore(section)?.isFolded(section) ?? false
+    }
+
+    /// Whether the labels nested in `destination`'s row are folded away.
+    func isFolded(_ destination: Destination) -> Bool {
+        foldedRows.contains(destination)
+    }
+
+    /// The reader folded or unfolded `row`: a section's header, or a row with labels nested in it.
+    func fold(_ row: SidebarRow, folded: Bool) {
+        switch row {
+        case .header(let section):
+            sectionStore(section)?.set(section, folded: folded)
+        case .mailbox(let item):
+            guard isFolded(item.destination) != folded else { return }
+            if folded { foldedRows.insert(item.destination) } else { foldedRows.remove(item.destination) }
+        }
+    }
+
+    /// Where `section`'s folding is kept, if it folds.
+    private func sectionStore(_ section: Section) -> FoldedSections? {
+        guard case .sidebar(let store) = folding, section != .mailboxes else { return nil }
+        return store
     }
 }

@@ -275,12 +275,12 @@ final class SceneCoordinator: NSObject {
             smartMailboxes: { model.database.smartMailboxDirectory(mailboxNames: Mailbox.standardNames) },
             navigate: { [weak self] route in self?.handle(route) },
             labelEditor: { model.labelEditor(for: $0) }, smartMailboxStore: model.smartMailboxStore(),
-            actions: actions)
+            actions: actions, style: style)
         // The lists ask the latest one for the rows ⌘1 to ⌘9 reach, as the window is rebuilt for another width.
         self.sidebar = sidebar
         sidebar.namesChanged = { [weak self] in self?.retitle() }
         return MailboxesViewController(
-            viewModel: sidebar, style: style,
+            viewModel: sidebar,
             syncFooter: SyncFooterSource(health: model.health, accounts: model.accounts) { [weak self] notice in
                 await self?.fix(notice)
             })

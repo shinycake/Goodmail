@@ -4,6 +4,16 @@ import UIKit
 
 @testable import MailUI
 
+/// What a binding showed, picture or initials, in order.
+@MainActor
+private final class Shown {
+    private(set) var pictures: [Bool] = []
+
+    func record(_ image: UIImage?) {
+        pictures.append(image != nil)
+    }
+}
+
 @MainActor
 struct SenderPicturesTests {
     private static let png = UIGraphicsImageRenderer(size: CGSize(width: 256, height: 256)).pngData { context in
@@ -50,6 +60,37 @@ struct SenderPicturesTests {
             Issue.record("A warmed picture is known at once")
             return
         }
+    }
+
+    @Test func aRowThatMovesOnDropsThePictureItWaitedFor() async {
+        let png = Self.png
+        let pictures = SenderPictures(scale: 2) { address in address == "slow@example.com" ? png : nil }
+        let binding = SenderPictureBinding()
+        let shown = Shown()
+
+        binding.bind(address: "slow@example.com", pictures: pictures, show: shown.record)
+        binding.bind(address: nil, pictures: pictures, show: shown.record)
+        _ = await pictures.picture(for: "slow@example.com")
+        for _ in 0..<10 { await Task.yield() }
+
+        #expect(
+            shown.pictures == [false, false],
+            "initials while loading, then initials for no address, and no late picture")
+    }
+
+    @Test func bindingTheSameSenderAgainShowsNothingNew() async {
+        let png = Self.png
+        let pictures = SenderPictures(scale: 2) { _ in png }
+        _ = await pictures.picture(for: "a@example.com")
+        let binding = SenderPictureBinding()
+        let shown = Shown()
+
+        binding.bind(address: "a@example.com", pictures: pictures, show: shown.record)
+        binding.bind(address: "a@example.com", pictures: pictures, show: shown.record)
+        binding.bind(address: nil, pictures: nil, show: shown.record)
+        binding.bind(address: nil, pictures: pictures, show: shown.record)
+
+        #expect(shown.pictures == [true, false], "the picture once, then the initials once")
     }
 
     @Test func aMissingPictureIsRememberedSoInitialsShow() async {

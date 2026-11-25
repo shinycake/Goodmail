@@ -5,8 +5,9 @@ public import Observation
 /// and the shared accounts it doesn't have, any of which the reader can add.
 @Observable
 public final class AccountSharingChoices {
-    public enum State: Equatable {
-        case idle
+    public enum State {
+        /// Nothing under way; `failure` is the last change that failed, shown until the reader dismisses it.
+        case idle(failure: (any Error)?)
         /// Turning syncing on or off.
         case switching
         /// Adding the account from the other devices.
@@ -16,9 +17,7 @@ public final class AccountSharingChoices {
     public private(set) var mode: AccountSharingMode
     /// Accounts set up on the reader's other devices and not on this one.
     public private(set) var elsewhere: [Account]
-    public private(set) var state = State.idle
-    /// The last change that failed, for the view to show.
-    public var error: (any Error)?
+    public private(set) var state = State.idle(failure: nil)
     /// Runs after this device's accounts changed, so the screen showing them reads them again.
     @ObservationIgnored var onAccountsChanged: () -> Void = {}
     @ObservationIgnored private let setMode: (AccountSharingMode) async throws -> Void
@@ -41,6 +40,27 @@ public final class AccountSharingChoices {
     /// Whether this device syncs its accounts with the others.
     public var syncs: Bool { mode.shares }
 
+    /// Whether a change is under way, so the others wait.
+    var isBusy: Bool {
+        if case .idle = state { false } else { true }
+    }
+
+    /// Whether `id` is the account being added.
+    func isAdding(_ id: AccountID) -> Bool {
+        if case .adding(id) = state { true } else { false }
+    }
+
+    /// The last change that failed, for the alert.
+    var failure: (any Error)? {
+        if case .idle(let failure) = state { failure } else { nil }
+    }
+
+    /// The reader read the failure.
+    func dismissFailure() {
+        guard case .idle(.some) = state else { return }
+        state = .idle(failure: nil)
+    }
+
     /// Turning syncing on follows the other devices from then on; turning it off keeps every account here as it is.
     public func setSyncs(_ syncs: Bool) async {
         await change(.switching) { try await setMode(syncs ? .following : .off) }
@@ -56,13 +76,13 @@ public final class AccountSharingChoices {
     }
 
     private func change(_ next: State, _ work: () async throws -> Void) async {
-        guard state == .idle else { return }
+        guard !isBusy else { return }
         state = next
-        defer { state = .idle }
         do {
             try await work()
+            state = .idle(failure: nil)
         } catch {
-            self.error = error
+            state = .idle(failure: error)
         }
         refresh()
         onAccountsChanged()

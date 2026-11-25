@@ -16,11 +16,6 @@ nonisolated enum SidebarRow: Hashable, Sendable {
 /// left and right arrows while it has the keyboard, stays as the reader left it on this device, and counts the unread
 /// threads it hides. The list on iPhone keeps plain headers.
 extension MailboxesViewController {
-    /// Whether `section` folds under a header row here: in a sidebar, every section with a header.
-    func foldsSections(_ section: MailboxesViewModel.Section) -> Bool {
-        style == .sidebar && section != .mailboxes
-    }
-
     func makeLayout() -> UICollectionViewLayout {
         UICollectionViewCompositionalLayout { [weak self] index, environment in
             guard let self else { return nil }
@@ -29,7 +24,7 @@ extension MailboxesViewController {
             list.headerMode =
                 switch (style, section) {
                 case (.list, _): .supplementary
-                case (.sidebar, .some(let section)) where foldsSections(section): .firstItemInSection
+                case (.sidebar, .some(let section)) where viewModel.foldsUnderHeader(section): .firstItemInSection
                 case (.sidebar, _): .none
                 }
             // The list's sections would paint over the doodles behind it, which paint the grouped background
@@ -89,25 +84,13 @@ extension MailboxesViewController {
     /// Keeps a header's unread count current, redrawing only the headers whose count changed.
     func updateFoldedCounts(_ groups: [MailboxesViewModel.Group]) {
         let counts = Dictionary(uniqueKeysWithValues: groups.map { ($0.section, $0.unread) })
-        let changed = counts.filter { sectionUnread[$0.key] != $0.value }.map(\.key).filter(foldsSections)
+        let changed = counts.filter { sectionUnread[$0.key] != $0.value }.map(\.key).filter(viewModel.foldsUnderHeader)
         sectionUnread = counts
         var snapshot = dataSource.snapshot()
         let headers = changed.map(SidebarRow.header).filter { snapshot.indexOfItem($0) != nil }
         guard !headers.isEmpty else { return }
         snapshot.reconfigureItems(headers)
         dataSource.apply(snapshot, animatingDifferences: false)
-    }
-
-    /// Keeps what the reader folded or unfolded: a section for the next launch, and a section or a row's labels in the
-    /// model, which leaves their rows out of the ones ⌘1 to ⌘9 reach.
-    func remember(_ row: SidebarRow, folded: Bool) {
-        switch row {
-        case .header(let section):
-            foldedSections.set(section, folded: folded)
-            viewModel.show(section, folded: folded)
-        case .mailbox(let item):
-            if folded { viewModel.folded.insert(item.destination) } else { viewModel.folded.remove(item.destination) }
-        }
     }
 
     /// Left folds and right unfolds the section whose header has the keyboard, the way they work a Finder sidebar,
@@ -128,21 +111,18 @@ extension MailboxesViewController {
     }
 
     @objc private func foldFocusedSection(_ command: UIKeyCommand) {
-        guard let (row, indexPath) = focusedHeader else { return }
+        guard let focusedHeader else { return }
         let rightToLeft = view.effectiveUserInterfaceLayoutDirection == .rightToLeft
         let unfolds = (command.input == UIKeyCommand.inputRightArrow) != rightToLeft
-        guard let sectionID = dataSource.sectionIdentifier(for: indexPath.section),
-            dataSource.snapshot(for: sectionID).isExpanded(row) != unfolds
-        else { return }
-        toggle(row, at: indexPath)
+        viewModel.fold(focusedHeader, folded: !unfolds)
     }
 
     /// The header row that has the keyboard, if one does.
-    private var focusedHeader: (SidebarRow, IndexPath)? {
+    private var focusedHeader: SidebarRow? {
         guard let cell = UIFocusSystem.focusSystem(for: view)?.focusedItem as? UICollectionViewCell,
             let indexPath = collectionView.indexPath(for: cell),
             let row = dataSource.itemIdentifier(for: indexPath), case .header = row
         else { return nil }
-        return (row, indexPath)
+        return row
     }
 }

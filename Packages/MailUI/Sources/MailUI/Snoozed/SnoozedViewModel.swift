@@ -5,10 +5,14 @@ public import Observation
 /// Threads snoozed out of the Inbox, soonest to come back first.
 @Observable
 public final class SnoozedViewModel: WaitingListModel {
-    public private(set) var content = WaitingContent<ThreadSummary.ID>.loading
-    /// The snoozed conversations as listed, soonest back first, for the window to read on through them. Observed, so
-    /// the reader's chevrons follow it (`StepChevrons`).
-    private(set) var listed: [ThreadSummary] = []
+    /// What the store last said: not read yet, or the snoozed threads, soonest back first. The rows and the
+    /// conversations the window reads on through are both read from it.
+    private enum Snoozed {
+        case loading
+        case loaded([SnoozedThread])
+    }
+
+    private var snoozed = Snoozed.loading
 
     @ObservationIgnored private let threads: () -> AsyncThrowingStream<[SnoozedThread], any Error>
     @ObservationIgnored private let accounts: [Account]
@@ -25,12 +29,27 @@ public final class SnoozedViewModel: WaitingListModel {
         self.navigate = navigate
     }
 
+    public var content: WaitingContent<ThreadSummary.ID> {
+        switch snoozed {
+        case .loading: .loading
+        case .loaded(let threads): .loaded(threads.map(row(for:)))
+        }
+    }
+
+    /// The snoozed conversations as listed, soonest back first, for the window to read on through them. Observed, so
+    /// the reader's chevrons follow it (`StepChevrons`).
+    var listed: [ThreadSummary] {
+        switch snoozed {
+        case .loading: []
+        case .loaded(let threads): threads.map(\.thread)
+        }
+    }
+
     /// Follows the store until the calling task is cancelled. A failure leaves the last list in place.
     public func observe() async {
         do {
             for try await threads in threads() {
-                listed = threads.map(\.thread)
-                content = .loaded(threads.map(row(for:)))
+                snoozed = .loaded(threads)
             }
         } catch {}
     }

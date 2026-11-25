@@ -21,7 +21,7 @@ struct AutoReplyEditorTests {
     @Test func loadingStartsTheDraftFromTheService() async {
         let editor = editor()
         await editor.load()
-        #expect(editor.state == .editing(saved: AutoReply(message: "Away")))
+        #expect(editor.state == .editing(saved: AutoReply(message: "Away"), failure: nil))
         #expect(editor.draft.message == "Away")
         #expect(!editor.hasChanges)
     }
@@ -40,7 +40,7 @@ struct AutoReplyEditorTests {
         editor.isOn = true
         await editor.save()
         #expect(sent.map(\.schedule) == [.on])
-        #expect(editor.state == .editing(saved: editor.draft))
+        #expect(editor.state == .editing(saved: editor.draft, failure: nil))
     }
 
     @Test func aRefusedSaveKeepsTheEditAndSaysWhy() async {
@@ -48,8 +48,12 @@ struct AutoReplyEditorTests {
         await editor.load()
         editor.draft.message = "Back Monday"
         await editor.save()
-        #expect(editor.saveError != nil)
+        #expect(editor.saveFailure != nil)
         #expect(editor.hasChanges)
+
+        editor.dismissSaveFailure()
+        #expect(editor.saveFailure == nil)
+        #expect(editor.hasChanges, "dismissing the alert keeps the edit")
     }
 
     @Test func schedulingStartsTodayForAWeekAndKeepsTheEndAfterTheStart() async {

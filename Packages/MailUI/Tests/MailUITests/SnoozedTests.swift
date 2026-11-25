@@ -34,12 +34,14 @@ struct SnoozedTests {
             actions: MailActions(commands: MailCommands(store: NoStore(), replay: { _ in })),
             navigate: { routes.append($0) })
         #expect(viewModel.content == .loading)
+        #expect(viewModel.listed.isEmpty)
         await viewModel.observe()
 
         guard case .loaded(let rows) = viewModel.content else {
             Issue.record("still loading")
             return
         }
+        #expect(viewModel.listed.map(\.id) == rows.map(\.id), "the window reads on through the rows it lists")
         #expect(rows.map(\.title) == ["Dana", "Dana"])
         #expect(rows.map(\.subtitle) == ["Lunch", "No Subject"])
         #expect(rows.first?.time == ScheduledTime.text(for: wakeAt))

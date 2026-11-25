@@ -18,6 +18,6 @@ extension AppModel {
                 try await Self.offMain { try database.deleteSmartMailbox(id) }
                 self?.shareSettingsNow()
             },
-            labelNames: rulesService().labelNames)
+            labelNames: rulesService.labelNames)
     }
 }

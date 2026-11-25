@@ -30,8 +30,8 @@ struct MailScreensTests {
             making: MailScreens.Makers(
                 mailboxes: { style in
                     MailboxesViewController(
-                        viewModel: MailboxesViewModel(accounts: [], directory: { AsyncThrowingStream { $0.finish() } }),
-                        style: style)
+                        viewModel: MailboxesViewModel(
+                            accounts: [], directory: { AsyncThrowingStream { $0.finish() } }, style: style))
                 },
                 list: { _ in
                     made.lists += 1
@@ -240,8 +240,8 @@ struct MailScreensTests {
             making: MailScreens.Makers(
                 mailboxes: {
                     MailboxesViewController(
-                        viewModel: MailboxesViewModel(accounts: [], directory: { AsyncThrowingStream { $0.finish() } }),
-                        style: $0)
+                        viewModel: MailboxesViewModel(
+                            accounts: [], directory: { AsyncThrowingStream { $0.finish() } }, style: $0))
                 },
                 list: { _ in UIViewController() }, reader: { _, _ in nil }))
         #expect(!screens.show(WindowState(place: .list(reading: a)), row: Self.row(a), .quiet, in: .stack))

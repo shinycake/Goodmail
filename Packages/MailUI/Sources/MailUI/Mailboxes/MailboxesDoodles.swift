@@ -72,7 +72,7 @@ extension MailboxesViewController {
     /// Moves the doodles with the list. The room after the last section is a bottom inset here, where in Settings it
     /// is part of the content, so the geometry is told as Settings reports it.
     func placeDoodles() {
-        guard let doodles else { return }
+        guard case .list(let doodles) = chrome else { return }
         let room = collectionView.contentInset.bottom
         let insets = collectionView.adjustedContentInset
         let visibility = CornerDoodleVisibility(

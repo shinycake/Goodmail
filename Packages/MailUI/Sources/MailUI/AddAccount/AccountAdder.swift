@@ -6,16 +6,15 @@ public import Observation
 /// Settings add accounts through, so each service's sign-in plugs in once, in the app's `signIn`.
 @Observable
 public final class AccountAdder {
-    public enum State: Equatable {
-        /// Waiting for the reader to pick a service.
-        case choosing
+    public enum State {
+        /// Waiting for the reader to pick a service. `failure` is the last sign-in that failed, shown until the
+        /// reader dismisses it; a cancelled sign-in isn't a failure.
+        case choosing(failure: (any Error)?)
         /// Signing in to `service`; the other services wait.
         case signingIn(MailService)
     }
 
-    public private(set) var state = State.choosing
-    /// The last sign-in that failed, for the view to show. A cancelled sign-in isn't a failure.
-    public var error: (any Error)?
+    public private(set) var state = State.choosing(failure: nil)
     /// The services offered, in order.
     public let services: [MailService]
 
@@ -32,16 +31,33 @@ public final class AccountAdder {
         self.signIn = signIn
     }
 
+    /// The service being signed in to, if one is.
+    var signingIn: MailService? {
+        if case .signingIn(let service) = state { service } else { nil }
+    }
+
+    /// The last sign-in that failed, for the alert.
+    var failure: (any Error)? {
+        if case .choosing(let failure) = state { failure } else { nil }
+    }
+
     /// Signs in to `service`, unless a sign-in is already under way.
     public func add(_ service: MailService) async {
-        guard state == .choosing else { return }
+        guard case .choosing = state else { return }
         state = .signingIn(service)
-        defer { state = .choosing }
         do {
-            if try await signIn(service) { onAdded() }
+            let added = try await signIn(service)
+            state = .choosing(failure: nil)
+            if added { onAdded() }
         } catch {
-            self.error = error
+            state = .choosing(failure: error)
         }
+    }
+
+    /// The reader read the failure.
+    func dismissFailure() {
+        guard case .choosing(.some) = state else { return }
+        state = .choosing(failure: nil)
     }
 }
 

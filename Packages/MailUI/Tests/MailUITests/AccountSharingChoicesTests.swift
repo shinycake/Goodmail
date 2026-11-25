@@ -30,6 +30,28 @@ struct AccountSharingChoicesTests {
         #expect(added == [phone.id, home.id], "in the offer's order")
         #expect(declined == [work.id])
         #expect(finished)
+        #expect(offer.isFinished)
+    }
+
+    @Test func aSecondTapWhileAddingNeitherAddsNorFinishes() async {
+        var adds = 0
+        let (gate, open) = AsyncStream<Void>.makeStream()
+        let offer = SharedAccountsOffer(
+            accounts: [phone],
+            add: { _, _ in
+                adds += 1
+                for await _ in gate { break }
+            }, decline: { _ in })
+        let first = Task { await offer.addChosen() }
+        while !offer.isAdding { await Task.yield() }
+
+        await offer.addChosen()
+        #expect(!offer.isFinished, "the ignored tap doesn't close the offer before anything was added")
+
+        open.yield()
+        await first.value
+        #expect(adds == 1)
+        #expect(offer.isFinished)
     }
 
     @Test func notNowDeclinesThemAll() {
@@ -39,6 +61,7 @@ struct AccountSharingChoicesTests {
         offer.notNow()
 
         #expect(declined == [phone.id, work.id])
+        #expect(offer.isFinished)
     }
 
     @Test func aFailedAddKeepsTheOfferOpen() async {
@@ -49,9 +72,16 @@ struct AccountSharingChoicesTests {
 
         await offer.addChosen()
 
-        #expect(offer.error is Refused)
+        #expect(offer.failure is Refused)
         #expect(!finished)
-        #expect(offer.state == .choosing)
+        #expect(!offer.isFinished, "the screen stays open, so the reader can try again")
+
+        offer.dismissFailure()
+        #expect(offer.failure == nil)
+        guard case .choosing = offer.state else {
+            Issue.record("not choosing: \(offer.state)")
+            return
+        }
     }
 
     @Test func turningSyncingOnFollowsTheOtherDevicesAndOffSharesNothing() async {
@@ -80,6 +110,27 @@ struct AccountSharingChoicesTests {
 
         #expect(choices.elsewhere == [home])
         #expect(changed)
-        #expect(choices.state == .idle)
+        #expect(!choices.isBusy)
+        #expect(choices.failure == nil)
+    }
+
+    @Test func aFailedChangeIsShownUntilDismissedAndLetsTheNextOneStart() async {
+        struct Refused: Error {}
+        var adds = 0
+        let choices = AccountSharingChoices(
+            reload: { [work] in (.following, [work]) }, setMode: { _ in },
+            add: { _ in
+                adds += 1
+                throw Refused()
+            })
+
+        await choices.add(work.id)
+        #expect(choices.failure is Refused)
+        #expect(!choices.isBusy)
+
+        choices.dismissFailure()
+        #expect(choices.failure == nil)
+        await choices.add(work.id)
+        #expect(adds == 2)
     }
 }

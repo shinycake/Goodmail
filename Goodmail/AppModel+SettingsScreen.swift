@@ -23,7 +23,7 @@ extension AppModel {
             signatures: Signatures(
                 read: { try await model.signature(for: $0) }, store: { try await model.setSignature($0, for: $1) }),
             closed: closed)
-        viewModel.rules = model.rulesService()
+        viewModel.rules = model.rulesService
         viewModel.storage = model.storageSettings()
         viewModel.autoReply = { model.autoReplyService(for: $0) }
         viewModel.serverSettings = { model.serverSettingsService(for: $0) }

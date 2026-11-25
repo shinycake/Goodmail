@@ -9,9 +9,10 @@ extension MailboxesViewModel {
         let title: String
     }
 
-    /// The first nine rows the sidebar shows now, folded sections and labels left out (`foldedSections`, `folded`). With several accounts a row
-    /// that every account has, as its Inbox, is named with its account. An account's own mailboxes past its Inbox take
-    /// no number, so the next accounts' Inboxes keep theirs, as the blended rows above reach the same places.
+    /// The first nine rows the sidebar shows now, folded sections and labels left out (`isFolded`). With several
+    /// accounts a row that every account has, as its Inbox, is named with its account. An account's own mailboxes
+    /// past its Inbox take no number, so the next accounts' Inboxes keep theirs, as the blended rows above reach the
+    /// same places.
     var numberedRows: NumberedRows<NumberedRow> {
         NumberedRows(
             visible: visibleRows,
@@ -25,19 +26,14 @@ extension MailboxesViewModel {
             })
     }
 
-    /// Notes whether a sidebar shows `section` folded under its header.
-    func show(_ section: Section, folded isFolded: Bool) {
-        if isFolded { foldedSections.insert(section) } else { foldedSections.remove(section) }
-    }
-
     /// Every row on show, top to bottom, in the order the sidebar lists them.
     private var visibleRows: [NumberedRow] {
         var rows: [NumberedRow] = []
-        for group in groups where !foldedSections.contains(group.section) {
+        for group in groups where !isFolded(group.section) {
             func append(_ items: [Item]) {
                 for item in items {
                     rows.append(NumberedRow(destination: item.destination, title: name(of: item, in: group.section)))
-                    guard let nested = group.children[item.destination], !folded.contains(item.destination) else {
+                    guard let nested = group.children[item.destination], !isFolded(item.destination) else {
                         continue
                     }
                     append(nested)

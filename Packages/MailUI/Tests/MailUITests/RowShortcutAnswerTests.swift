@@ -11,8 +11,13 @@ struct RowShortcutAnswerTests {
     private let account = Account(id: AccountID(rawValue: "a"), email: "a@example.com", color: .teal, service: .gmail)
     private let work = Account(id: AccountID(rawValue: "w"), email: "work@example.com", color: .orange, service: .gmail)
 
+    /// The sections a sidebar folds, kept apart from the reader's own.
+    private let folded = FoldedSections(
+        defaults: UserDefaults(suiteName: "RowShortcutAnswerTests-\(UUID().uuidString)")!)
+
     private func sidebar(
-        accounts: [Account]? = nil, labels: [MailboxDirectory.Label] = [], routes: @escaping (Route) -> Void = { _ in }
+        accounts: [Account]? = nil, labels: [MailboxDirectory.Label] = [], style: MailboxesViewController.Style = .list,
+        routes: @escaping (Route) -> Void = { _ in }
     ) async -> MailboxesViewModel {
         let directory = MailboxDirectory(labels: labels, unreadCounts: [:])
         let viewModel = MailboxesViewModel(
@@ -23,7 +28,8 @@ struct RowShortcutAnswerTests {
                     $0.finish()
                 }
             },
-            navigate: routes, actions: MailActions(commands: MailCommands(store: NoStore(), replay: { _ in })))
+            navigate: routes, actions: MailActions(commands: MailCommands(store: NoStore(), replay: { _ in })),
+            style: style, foldedSections: folded)
         await viewModel.observe()
         return viewModel
     }
@@ -45,7 +51,7 @@ struct RowShortcutAnswerTests {
                 == ["Inbox", "Starred", "Sent", "Drafts", "All Mail", "Spam", "Trash", "Receipts", "2026"])
     }
 
-    @Test func labelsFoldedAwayAndFoldersThatOpenNothingTakeNoNumber() async {
+    @Test func labelsFoldedAwayAndFoldersThatOpenNothingTakeNoNumber() async throws {
         // "Extra" only holds labels, so it opens nothing; folding "Receipts" takes its nested label away.
         let sidebar = await sidebar(labels: [
             label("L1", "Receipts"), label("L2", "Receipts/2026"), label("L3", "Extra/Old"),
@@ -53,22 +59,36 @@ struct RowShortcutAnswerTests {
         let before = sidebar.numberedRows.rows.map(\.title)
         #expect(before.contains("2026"))
         #expect(!before.contains("Extra"))
-        sidebar.folded = [.mailbox(Mailbox(labelID: "L1", accountID: account.id))]
+        let receipts = try #require(sidebar.groups.flatMap(\.items).first { $0.title == "Receipts" })
+        sidebar.fold(.mailbox(receipts), folded: true)
         #expect(!sidebar.numberedRows.rows.map(\.title).contains("2026"))
     }
 
     @Test func rowsInAFoldedSectionTakeNoNumber() async throws {
-        let sidebar = await sidebar(labels: [label("L1", "Receipts")])
+        let sidebar = await sidebar(labels: [label("L1", "Receipts")], style: .sidebar)
         let before = sidebar.numberedRows.rows.map(\.title)
         #expect(before.contains("Receipts"))
         let section = try #require(
             sidebar.groups.first { $0.items.contains { $0.title == "Receipts" } }?.section)
-        sidebar.show(section, folded: true)
+        sidebar.fold(.header(section), folded: true)
         let after = sidebar.numberedRows.rows.map(\.title)
         #expect(!after.contains("Receipts"), "a folded section's rows are out of sight")
         #expect(after.starts(with: before.prefix { $0 != "Receipts" }), "the rows above it keep their numbers")
-        sidebar.show(section, folded: false)
+        sidebar.fold(.header(section), folded: false)
         #expect(sidebar.numberedRows.rows.map(\.title) == before)
+    }
+
+    @Test func theListOfMailboxesNumbersEverySectionWhateverASidebarFolded() async throws {
+        // Two windows over the same store: one with a sidebar, one narrow, with the list of mailboxes.
+        let sidebar = await sidebar(labels: [label("L1", "Receipts")], style: .sidebar)
+        let list = await self.sidebar(labels: [label("L1", "Receipts")])
+        let section = try #require(
+            sidebar.groups.first { $0.items.contains { $0.title == "Receipts" } }?.section)
+
+        sidebar.fold(.header(section), folded: true)
+
+        #expect(!sidebar.numberedRows.rows.map(\.title).contains("Receipts"))
+        #expect(list.numberedRows.rows.map(\.title).contains("Receipts"), "the list's sections don't fold")
     }
 
     @Test func goToOpensTheRowUnderItsName() async {

@@ -9,8 +9,9 @@ public final class AutoReplyEditor {
     /// Where the editor stands with the service.
     public enum State: Equatable {
         case loading
-        /// The service's reply, which `draft` started from.
-        case editing(saved: AutoReply)
+        /// The service's reply, which `draft` started from. `failure` is why the last save didn't go through, shown
+        /// until the reader dismisses it.
+        case editing(saved: AutoReply, failure: String?)
         case saving(saved: AutoReply)
         /// The service's reply couldn't be read, so there is nothing to edit.
         case loadFailed
@@ -35,8 +36,6 @@ public final class AutoReplyEditor {
     public private(set) var state: State = .loading
     /// The reply as the reader has it now.
     public var draft = AutoReply()
-    /// A save the service refused, shown until the reader dismisses it.
-    public var saveError: String?
     @ObservationIgnored let service: Service
     @ObservationIgnored private let now: () -> Date
 
@@ -51,8 +50,19 @@ public final class AutoReplyEditor {
 
     /// Whether Save has anything to send.
     var hasChanges: Bool {
-        guard case .editing(let saved) = state else { return false }
+        guard case .editing(let saved, _) = state else { return false }
         return draft != saved
+    }
+
+    /// Why the last save didn't go through, for the alert.
+    var saveFailure: String? {
+        if case .editing(_, let failure) = state { failure } else { nil }
+    }
+
+    /// The reader read why the save failed.
+    func dismissSaveFailure() {
+        guard case .editing(let saved, .some) = state else { return }
+        state = .editing(saved: saved, failure: nil)
     }
 
     func load() async {
@@ -61,22 +71,21 @@ public final class AutoReplyEditor {
         do {
             let reply = try await service.load()
             draft = reply
-            state = .editing(saved: reply)
+            state = .editing(saved: reply, failure: nil)
         } catch {
             state = .loadFailed
         }
     }
 
     func save() async {
-        guard case .editing(let saved) = state, draft != saved else { return }
+        guard case .editing(let saved, _) = state, draft != saved else { return }
         let reply = draft
         state = .saving(saved: saved)
         do {
             try await service.save(reply)
-            state = .editing(saved: reply)
+            state = .editing(saved: reply, failure: nil)
         } catch {
-            saveError = error.localizedDescription
-            state = .editing(saved: saved)
+            state = .editing(saved: saved, failure: error.localizedDescription)
         }
     }
 

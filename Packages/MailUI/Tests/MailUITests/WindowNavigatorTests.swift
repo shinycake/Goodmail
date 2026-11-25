@@ -79,8 +79,8 @@ struct WindowNavigatorTests {
             making: MailScreens.Makers(
                 mailboxes: { style in
                     MailboxesViewController(
-                        viewModel: MailboxesViewModel(accounts: [], directory: { AsyncThrowingStream { $0.finish() } }),
-                        style: style)
+                        viewModel: MailboxesViewModel(
+                            accounts: [], directory: { AsyncThrowingStream { $0.finish() } }, style: style))
                 },
                 list: { [listed] _ in Listed(listed) },
                 reader: { reading, row in Self.reader(for: row, in: reading.mailbox) }))

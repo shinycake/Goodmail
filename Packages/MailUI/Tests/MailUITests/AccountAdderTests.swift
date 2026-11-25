@@ -26,16 +26,32 @@ struct AccountAdderTests {
         await adder.add(.gmail)
         #expect(signedIn == [.gmail, .gmail])
         #expect(added == 1, "a cancelled sign-in adds nothing")
-        #expect(adder.state == .choosing)
-        #expect(adder.error == nil)
+        #expect(adder.signingIn == nil)
+        #expect(adder.failure == nil)
     }
 
-    @Test func aFailedSignInIsKeptToShow() async {
+    @Test func aFailedSignInIsKeptToShowUntilDismissed() async {
         struct Denied: Error {}
         let adder = AccountAdder { _ in throw Denied() }
         await adder.add(.gmail)
-        #expect(adder.error is Denied)
-        #expect(adder.state == .choosing)
+        #expect(adder.failure is Denied)
+        #expect(adder.signingIn == nil)
+
+        adder.dismissFailure()
+        #expect(adder.failure == nil)
+    }
+
+    @Test func aSignInAfterAFailureClearsIt() async {
+        struct Denied: Error {}
+        var fails = true
+        let adder = AccountAdder { _ in
+            if fails { throw Denied() }
+            return true
+        }
+        await adder.add(.gmail)
+        fails = false
+        await adder.add(.gmail)
+        #expect(adder.failure == nil, "the alert is about the last sign-in, which worked")
     }
 
     @Test func aSecondServiceWaitsForTheFirstSignIn() async {
@@ -47,12 +63,12 @@ struct AccountAdderTests {
             return true
         }
         let first = Task { await adder.add(.gmail) }
-        while adder.state == .choosing { await Task.yield() }
-        #expect(adder.state == .signingIn(.gmail))
+        while adder.signingIn == nil { await Task.yield() }
+        #expect(adder.signingIn == .gmail)
         await adder.add(.gmail)
         #expect(calls == 1, "ignored while one is under way")
         open.yield()
         await first.value
-        #expect(adder.state == .choosing)
+        #expect(adder.signingIn == nil)
     }
 }

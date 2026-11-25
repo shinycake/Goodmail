@@ -33,14 +33,15 @@ struct AutoReplyView: View {
                 Text(
                     "Couldn’t Save Automatic Reply", tableName: "AutoReply", bundle: .module,
                     comment: "Alert title when the service refuses the automatic reply"),
-                isPresented: Binding(get: { editor.saveError != nil }, set: { if !$0 { editor.saveError = nil } })
+                isPresented: Binding(
+                    get: { editor.saveFailure != nil }, set: { if !$0 { editor.dismissSaveFailure() } })
             ) {
                 Button(role: .cancel) {
                 } label: {
                     Text("OK", tableName: "AutoReply", bundle: .module, comment: "Dismiss")
                 }
             } message: {
-                Text(editor.saveError ?? "")
+                Text(editor.saveFailure ?? "")
             }
             .task { await editor.load() }
     }

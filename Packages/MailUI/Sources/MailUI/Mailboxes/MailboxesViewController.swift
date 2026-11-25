@@ -9,25 +9,31 @@ public final class MailboxesViewController: UIViewController {
         case sidebar
     }
 
+    /// What the list wears around its rows, which its style decides. Each writes the rows' bottom inset in its own way.
+    enum Chrome {
+        /// The list of mailboxes: faint doodles behind its rows.
+        case list(doodles: MailboxesDoodlesModel)
+        /// A sidebar, with the footer under it in place of its toolbar once a desktop window shows one
+        /// (`installFooter`).
+        case sidebar(footer: SidebarFooterView?)
+    }
+
     let viewModel: MailboxesViewModel
-    let style: Style
+    private(set) var chrome: Chrome
     /// What is shown beside the sidebar, kept selected in it.
     public var selected: MailboxesViewModel.Destination? {
         didSet { selectShownMailbox() }
     }
     private(set) var collectionView: UICollectionView!
-    /// The faint doodles behind the list, which a sidebar goes without.
-    private(set) var doodles: MailboxesDoodlesModel?
     private(set) var dataSource: UICollectionViewDiffableDataSource<MailboxesViewModel.Section, SidebarRow>!
-    /// Which sections the reader folded in a sidebar, kept on this device.
-    let foldedSections: FoldedSections
     /// Each section's unread threads, which its header shows while folded.
     var sectionUnread: [MailboxesViewModel.Section: Int] = [:]
     /// How mail is coming in, for a desktop sidebar's footer.
     let syncFooter: SyncFooterSource?
-    /// The footer under a desktop sidebar, in place of its toolbar.
-    var footer: SidebarFooterView?
     private var observation: Task<Void, Never>?
+    /// The fix under way for an account problem asked about from the footer, which a second tap leaves to finish
+    /// rather than starting another. How it went shows on the health board the footer reads.
+    private var fixing: Task<Void, Never>?
     /// Takes dragged conversations onto the rows. The list's drop delegate, which it doesn't keep.
     private var mailDrop: SidebarDrop?
     /// Each account's label changes, made when first needed.
@@ -37,14 +43,15 @@ public final class MailboxesViewController: UIViewController {
         SmartMailboxFlow(store: $0, presenter: { [weak self] in self })
     }
 
+    /// A sidebar or the list of mailboxes, as `viewModel` is one or the other (`MailboxesViewModel.style`).
     /// `syncFooter` is what a desktop sidebar says under its rows about mail coming in.
-    public init(
-        viewModel: MailboxesViewModel, style: Style = .list, foldedSections: FoldedSections = FoldedSections(),
-        syncFooter: SyncFooterSource? = nil
-    ) {
+    public init(viewModel: MailboxesViewModel, syncFooter: SyncFooterSource? = nil) {
         self.viewModel = viewModel
-        self.style = style
-        self.foldedSections = foldedSections
+        chrome =
+            switch viewModel.style {
+            case .list: .list(doodles: MailboxesDoodlesModel())
+            case .sidebar: .sidebar(footer: nil)
+            }
         self.syncFooter = syncFooter
         super.init(nibName: nil, bundle: nil)
         title = Self.title
@@ -61,8 +68,26 @@ public final class MailboxesViewController: UIViewController {
         String(localized: "Mailboxes", table: "Mailboxes", bundle: .module, comment: "Title of the list of mailboxes")
     }
 
+    var style: Style { viewModel.style }
+
     deinit {
         observation?.cancel()
+        fixing?.cancel()
+    }
+
+    /// The desktop sidebar's footer went in under the rows (`installFooter`), once.
+    func wear(_ footer: SidebarFooterView) {
+        guard case .sidebar(footer: .none) = chrome else { return }
+        chrome = .sidebar(footer: footer)
+    }
+
+    /// Fixes the account's problem, unless a fix is under way already.
+    func fix(_ notice: AccountProblemNotice, with source: SyncFooterSource) {
+        guard fixing == nil else { return }
+        fixing = Task { [weak self] in
+            await source.fix(notice)
+            self?.fixing = nil
+        }
     }
 
     public override func viewDidLoad() {
@@ -78,11 +103,7 @@ public final class MailboxesViewController: UIViewController {
             destination: { [weak self] in self?.dataSource.itemIdentifier(for: $0)?.item?.destination })
         self.mailDrop = mailDrop
         collectionView.dropDelegate = mailDrop
-        if style == .list {
-            let doodles = MailboxesDoodlesModel()
-            installDoodles(doodles)
-            self.doodles = doodles
-        }
+        if case .list(let doodles) = chrome { installDoodles(doodles) }
         let settings = UIBarButtonItem(
             title: String(
                 localized: "Settings", table: "Mailboxes", bundle: .module, comment: "Title of the settings screen"),
@@ -137,12 +158,13 @@ public final class MailboxesViewController: UIViewController {
             dataSource.apply(sectionSnapshot(of: group), to: group.section, animatingDifferences: animated)
         }
         updateFoldedCounts(groups)
-        if let footer, let syncFooter { footer.show(syncFooter.status) }
+        if case .sidebar(let footer?) = chrome, let syncFooter { footer.show(syncFooter.status) }
         selectShownMailbox()
     }
 
-    /// The group's rows with their nested labels, unfolded unless the reader folded them (`MailboxesViewModel.folded`).
-    /// In a sidebar they hang under the section's header row, which folds them all, as the reader last left it.
+    /// The group's rows with their nested labels, unfolded unless the reader folded them. In a sidebar they hang under
+    /// the section's header row, which folds them all. What is folded is the model's (`MailboxesViewModel.isFolded`),
+    /// which changes only as the reader folds, so the rows shown and the rows ⌘1 to ⌘9 reach can't disagree.
     private func sectionSnapshot(
         of group: MailboxesViewModel.Group
     ) -> NSDiffableDataSourceSectionSnapshot<SidebarRow> {
@@ -152,31 +174,29 @@ public final class MailboxesViewController: UIViewController {
             for item in items {
                 guard let children = group.children[item.destination] else { continue }
                 append(children, to: .mailbox(item))
-                if !viewModel.folded.contains(item.destination) { section.expand([.mailbox(item)]) }
+                if !viewModel.isFolded(item.destination) { section.expand([.mailbox(item)]) }
             }
         }
-        if foldsSections(group.section) {
+        if viewModel.foldsUnderHeader(group.section) {
             let header = SidebarRow.header(group.section)
             section.append([header])
             append(group.items, to: header)
-            let isFolded = foldedSections.isFolded(group.section)
-            if !isFolded { section.expand([header]) }
-            viewModel.show(group.section, folded: isFolded)
+            if !viewModel.isFolded(group.section) { section.expand([header]) }
         } else {
             append(group.items, to: nil)
-            viewModel.show(group.section, folded: false)
         }
         return section
     }
 
-    /// Folds or unfolds a parent's labels, as tapping a folder that is no label does.
-    func toggle(_ row: SidebarRow, at indexPath: IndexPath) {
-        guard let sectionID = dataSource.sectionIdentifier(for: indexPath.section) else { return }
-        var section = dataSource.snapshot(for: sectionID)
-        let folds = section.isExpanded(row)
-        if folds { section.collapse([row]) } else { section.expand([row]) }
-        remember(row, folded: folds)
-        dataSource.apply(section, to: sectionID, animatingDifferences: true)
+    /// Folds or unfolds a section or a parent's labels, as a click on its header or on a folder that is no label
+    /// does. The rows follow the model in `updateProperties`.
+    func toggle(_ row: SidebarRow) {
+        let isFolded =
+            switch row {
+            case .header(let section): viewModel.isFolded(section)
+            case .mailbox(let item): viewModel.isFolded(item.destination)
+            }
+        viewModel.fold(row, folded: !isFolded)
     }
 
     private func selectShownMailbox() {
@@ -272,8 +292,12 @@ public final class MailboxesViewController: UIViewController {
             collectionView.dequeueConfiguredReusableSupplementary(using: header, for: indexPath)
         }
         // Rows and sections folded with their disclosure button.
-        dataSource.sectionSnapshotHandlers.willExpandItem = { [weak self] row in self?.remember(row, folded: false) }
-        dataSource.sectionSnapshotHandlers.willCollapseItem = { [weak self] row in self?.remember(row, folded: true) }
+        dataSource.sectionSnapshotHandlers.willExpandItem = { [weak self] row in
+            self?.viewModel.fold(row, folded: false)
+        }
+        dataSource.sectionSnapshotHandlers.willCollapseItem = { [weak self] row in
+            self?.viewModel.fold(row, folded: true)
+        }
     }
 }
 
@@ -297,11 +321,11 @@ extension MailboxesViewController: UICollectionViewDelegate {
         guard let row = dataSource.itemIdentifier(for: indexPath) else { return false }
         switch row {
         case .header:
-            toggle(row, at: indexPath)
+            toggle(row)
             return false
         case .mailbox(let item):
             guard case .folder = item.destination else { return true }
-            toggle(row, at: indexPath)
+            toggle(row)
             return false
         }
     }

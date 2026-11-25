@@ -156,11 +156,8 @@ private struct NotificationsSection: View {
 
     var body: some View {
         Section {
-            if let level = choices.levels[account.id] {
-                Picker(
-                    selection: Binding(
-                        get: { level }, set: { new in Task { await choices.set(new, for: account.id) } })
-                ) {
+            if let level = choices.choice(for: account.id) {
+                Picker(selection: Binding(get: { level }, set: { choices.set($0, for: account.id) })) {
                     ForEach(NotificationChoices.levels(for: account.service), id: \.self) { level in
                         Text(NotificationChoices.title(level)).tag(level)
                     }
@@ -188,17 +185,23 @@ private struct NotificationsSection: View {
                 "Notifications", tableName: "Settings", bundle: .module,
                 comment: "Settings section for an account's alerts")
         } footer: {
-            if choices.isTurnedOffInSettings {
+            // Nothing until iOS has answered, so the footer doesn't change its words under the reader.
+            switch choices.status {
+            case .loading:
+                EmptyView()
+            case .loaded(_, turnedOff: true):
                 Text(
                     "Notifications for Goodmail are turned off in Settings.", tableName: "Settings", bundle: .module,
                     comment: "Explains why no alerts arrive")
-            } else if account.service.hasInboxCategories {
+            case .loaded(_, turnedOff: false) where account.service.hasInboxCategories:
                 Text(
                     "Primary Only skips Promotions, Social, Updates and Forums.", tableName: "Settings",
                     bundle: .module,
                     comment: "Explains the Primary Only alert choice")
+            case .loaded:
+                EmptyView()
             }
         }
-        .task { await choices.load() }
+        .loads(choices)
     }
 }

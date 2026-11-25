@@ -16,7 +16,7 @@ struct OtherDevicesView: View {
                         "Sync Accounts", tableName: "AccountSharing", bundle: .module,
                         comment: "Setting for syncing accounts with the reader's other devices")
                 }
-                .disabled(sharing.state != .idle)
+                .disabled(sharing.isBusy)
             } footer: {
                 if sharing.syncs {
                     Text(
@@ -42,12 +42,12 @@ struct OtherDevicesView: View {
                     ForEach(sharing.elsewhere) { account in
                         Toggle(
                             isOn: Binding(
-                                get: { sharing.state == .adding(account.id) },
+                                get: { sharing.isAdding(account.id) },
                                 set: { if $0 { Task { await sharing.add(account.id) } } })
                         ) {
                             AccountLabel(account: account)
                         }
-                        .disabled(sharing.state != .idle)
+                        .disabled(sharing.isBusy)
                     }
                 } header: {
                     Text(
@@ -89,10 +89,10 @@ struct OtherDevicesView: View {
             Text(
                 "Something Went Wrong", tableName: "AccountSharing", bundle: .module,
                 comment: "Title of an alert when a change to syncing accounts failed"),
-            isPresented: Binding(get: { sharing.error != nil }, set: { if !$0 { sharing.error = nil } })
+            isPresented: Binding(get: { sharing.failure != nil }, set: { if !$0 { sharing.dismissFailure() } })
         ) {
         } message: {
-            Text(sharing.error?.localizedDescription ?? "")
+            Text(sharing.failure?.localizedDescription ?? "")
         }
     }
 

@@ -40,6 +40,9 @@ final class AppModel {
     let minimizedDrafts: MinimizedDrafts
     /// Apply Rules, Block Sender and VIPs, for every window (ADR-038).
     private(set) lazy var senderRules = SenderRules(service: senderRulesService())
+    /// How Settings reads and stores the rules: one for the app, so every Settings window's reads and saves run in
+    /// one order (`MailRules.Service.order`).
+    private(set) lazy var rulesService = makeRulesService()
     /// The alerts shown once a launch in the front viewer, whichever windows open.
     private(set) lazy var launchAlerts = LaunchAlerts(database: database) { [weak self] in
         await self?.gmailAccountsToSignInAgain() ?? []

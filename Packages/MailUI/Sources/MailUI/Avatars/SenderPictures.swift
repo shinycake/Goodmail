@@ -18,11 +18,18 @@ nonisolated public final class SenderPictures: Sendable {
     /// Pictures are decoded at this many points square, the largest avatar the screens draw, at the screen's scale.
     static let side: CGFloat = 40
 
+    /// What is kept for one sender.
+    private enum Entry {
+        /// Being loaded, by the one task every caller waits for.
+        case loading(Task<UIImage?, Never>)
+        /// Loaded: the picture, or `nil` for none.
+        case known(UIImage?)
+    }
+
     private struct State {
-        var pictures: [String: UIImage?] = [:]
-        /// Oldest first, for evicting.
+        var entries: [String: Entry] = [:]
+        /// The known entries, oldest first, for evicting.
         var order: [String] = []
-        var loads: [String: Task<UIImage?, Never>] = [:]
     }
 
     /// Enough for every sender in a long mailbox; a few megabytes at most.
@@ -41,17 +48,17 @@ nonisolated public final class SenderPictures: Sendable {
     func lookup(for address: String) -> Lookup {
         guard let key = Self.key(for: address) else { return .none }
         return state.withLock { state in
-            switch state.pictures[key] {
-            case .some(.some(let image)): .picture(image)
-            case .some(.none): .none
-            case .none: .unknown
+            switch state.entries[key] {
+            case .known(let image?): .picture(image)
+            case .known(nil): .none
+            case .loading, nil: .unknown
             }
         }
     }
 
     /// The sender's picture, loaded once however many rows ask for it at the same time.
     @concurrent func picture(for address: String) async -> UIImage? {
-        switch pending(address) {
+        switch entry(address) {
         case .known(let image): image
         case .loading(let task): await task.value
         }
@@ -60,37 +67,31 @@ nonisolated public final class SenderPictures: Sendable {
     /// Starts loading the pictures of senders whose rows are about to show, so they're known when the rows draw.
     /// Each load remembers its picture when it finishes, whether or not anyone waits for it.
     func warm(_ addresses: [String]) {
-        for address in addresses { _ = pending(address) }
-    }
-
-    private enum Pending {
-        case known(UIImage?)
-        case loading(Task<UIImage?, Never>)
+        for address in addresses { _ = entry(address) }
     }
 
     /// The picture if it's known, else the load under way for it, started now if there is none.
-    private func pending(_ address: String) -> Pending {
+    private func entry(_ address: String) -> Entry {
         guard let key = Self.key(for: address) else { return .known(nil) }
         return state.withLock { state in
-            if let known = state.pictures[key] { return .known(known) }
-            if let running = state.loads[key] { return .loading(running) }
+            if let entry = state.entries[key] { return entry }
             // It can't finish before it's recorded below: remembering takes the lock this holds.
             let started = Task { @concurrent [self] in
                 let image = await load(address).flatMap { Self.decode($0, scale: scale) }
                 remember(image, for: key)
                 return image
             }
-            state.loads[key] = started
-            return .loading(started)
+            let entry = Entry.loading(started)
+            state.entries[key] = entry
+            return entry
         }
     }
 
     private func remember(_ image: UIImage?, for key: String) {
         state.withLock { state in
-            state.loads[key] = nil
-            state.pictures[key] = image
+            state.entries[key] = .known(image)
             state.order.append(key)
-            if state.order.count > Self.capacity { state.pictures[state.order.removeFirst()] = nil }
+            if state.order.count > Self.capacity { state.entries[state.order.removeFirst()] = nil }
         }
     }
 
@@ -125,33 +126,56 @@ extension UITraitCollection {
 /// Shows one sender's picture in an avatar view, following the views it's reused for: a row that moves on to another
 /// thread drops the picture it was waiting for.
 @MainActor final class SenderPictureBinding {
-    private var address: String?
-    private var pictures: SenderPictures?
-    private var load: Task<Void, Never>?
+    /// What the avatar is bound to.
+    private enum Bound {
+        /// No address or no pictures: the initials.
+        case none
+        /// `address`'s picture from `pictures`, shown, or known to be none.
+        case shown(address: String, pictures: SenderPictures)
+        /// Waiting for `address`'s picture, with the initials meanwhile.
+        case loading(address: String, pictures: SenderPictures, Task<Void, Never>)
+
+        func isBound(to address: String?, in pictures: SenderPictures?) -> Bool {
+            switch self {
+            case .none: address == nil || pictures == nil
+            case .shown(let bound, let source), .loading(let bound, let source, _):
+                bound == address && source === pictures
+            }
+        }
+    }
+
+    private var bound = Bound.none
 
     deinit {
-        load?.cancel()
+        if case .loading(_, _, let task) = bound { task.cancel() }
     }
 
     /// Shows `address`'s picture through `show`: at once when it's known, after loading when it isn't, and `nil`
     /// (the initials) meanwhile. A `nil` address or `pictures` shows initials.
     func bind(address: String?, pictures: SenderPictures?, show: @escaping @MainActor (UIImage?) -> Void) {
-        guard address != self.address || pictures !== self.pictures else { return }
-        self.address = address
-        self.pictures = pictures
-        load?.cancel()
-        load = nil
-        guard let address, let pictures else { return show(nil) }
+        guard !bound.isBound(to: address, in: pictures) else { return }
+        if case .loading(_, _, let task) = bound { task.cancel() }
+        guard let address, let pictures else {
+            bound = .none
+            return show(nil)
+        }
         switch pictures.lookup(for: address) {
-        case .picture(let image): show(image)
-        case .none: show(nil)
+        case .picture(let image):
+            bound = .shown(address: address, pictures: pictures)
+            show(image)
+        case .none:
+            bound = .shown(address: address, pictures: pictures)
+            show(nil)
         case .unknown:
             show(nil)
-            load = Task {
+            let load = Task { [weak self] in
                 let image = await pictures.picture(for: address)
-                guard !Task.isCancelled else { return }
+                // Rebound meanwhile: the avatar shows another sender now.
+                guard !Task.isCancelled, let self else { return }
+                bound = .shown(address: address, pictures: pictures)
                 show(image)
             }
+            bound = .loading(address: address, pictures: pictures, load)
         }
     }
 }

@@ -1,27 +1,37 @@
 public import Foundation
 import MailCore
+public import Observation
 
 /// Which of the sidebar's sections the reader folded, kept on this device: how much of the sidebar a window shows
-/// suits the device, as the window's own size does.
-public struct FoldedSections {
+/// suits the device, as the window's own size does. Every window's sidebar reads the one store through Observation,
+/// so a section folded in one window folds in the others at once, and their ⌘1 to ⌘9 follow.
+@Observable
+public final class FoldedSections {
+    /// The app's store, which every window shares.
+    public static let shared = FoldedSections()
     static let key = "sidebarFoldedSections"
-    private let defaults: UserDefaults
+
+    /// The folded sections' `foldingKey`s, as stored.
+    private var keys: Set<String>
+    @ObservationIgnored private let defaults: UserDefaults
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        keys = Set(defaults.stringArray(forKey: Self.key) ?? [])
     }
 
     func isFolded(_ section: MailboxesViewModel.Section) -> Bool {
-        folded.contains(section.foldingKey)
+        keys.contains(section.foldingKey)
     }
 
+    /// The reader folded or unfolded `section`. Stored as a sorted list of keys.
     func set(_ section: MailboxesViewModel.Section, folded isFolded: Bool) {
-        var keys = folded
+        var keys = keys
         if isFolded { keys.insert(section.foldingKey) } else { keys.remove(section.foldingKey) }
+        guard keys != self.keys else { return }
+        self.keys = keys
         defaults.set(keys.sorted(), forKey: Self.key)
     }
-
-    private var folded: Set<String> { Set(defaults.stringArray(forKey: Self.key) ?? []) }
 }
 
 extension MailboxesViewModel.Section {

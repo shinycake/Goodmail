@@ -197,6 +197,109 @@ struct TransferReceivingTests {
         }
     }
 
+    @Test func stoppingGoesBackToScanningAtOnceAndDropsWhatTheCancelledTransferThrows() async throws {
+        let model = TransferReceiving(code: code) { _, progress in
+            progress(.connected)
+            do {
+                try await Task.sleep(for: .seconds(3600))
+            } catch {
+                // A network transfer cancelled under way reports its own error, not a CancellationError.
+                throw URLError(.cancelled)
+            }
+            return []
+        }
+        let receiving = try #require(model.receiving)
+        while case .connecting = model.stage { await Task.yield() }
+        guard case .waiting = model.stage else {
+            Issue.record("not waiting: \(model.stage)")
+            return
+        }
+
+        model.stop()
+        guard case .scanning = model.stage else {
+            Issue.record("still receiving after stop: \(model.stage)")
+            return
+        }
+        #expect(model.receiving == nil)
+
+        await receiving.value
+        guard case .scanning = model.stage else {
+            Issue.record("a cancelled transfer shows as \(model.stage)")
+            return
+        }
+    }
+
+    @Test func aStoppedTransferReportingLateDoesNotMoveTheNextOneOn() async throws {
+        var calls = 0
+        let (gate, open) = AsyncStream<Void>.makeStream()
+        defer { open.finish() }
+        let model = TransferReceiving { _, progress in
+            calls += 1
+            if calls == 1 {
+                // Stopped before it got through, it still reports reaching the other device.
+                for await _ in gate {}
+                progress(.connected)
+                throw URLError(.cancelled)
+            }
+            try await Task.sleep(for: .seconds(3600))
+            return []
+        }
+        model.use(code)
+        let stopped = try #require(model.receiving)
+        model.stop()
+        model.use(code)
+
+        await stopped.value
+
+        guard case .connecting = model.stage else {
+            Issue.record("the next transfer moved on to \(model.stage)")
+            return
+        }
+        model.stop()
+    }
+
+    @Test func accountsAddedAsTheScreenClosesStillShowAsAdded() async throws {
+        let model = TransferReceiving(code: code) { [home] _, _ in
+            // The accounts were added just as the screen closed, so the transfer finishes anyway.
+            try? await Task.sleep(for: .seconds(3600))
+            return [home]
+        }
+        let receiving = try #require(model.receiving)
+
+        model.stop()
+        await receiving.value
+
+        guard case .added(let accounts) = model.stage else {
+            Issue.record("added accounts hidden: \(model.stage)")
+            return
+        }
+        #expect(accounts == [home])
+    }
+
+    @Test func aScreenThatGoesAwayWithoutStoppingEndsTheTransfer() async throws {
+        var cancelled = false
+        var model: TransferReceiving? = TransferReceiving(code: code) { _, _ in
+            do {
+                try await Task.sleep(for: .seconds(3600))
+            } catch {
+                cancelled = true
+            }
+            return []
+        }
+        let receiving = try #require(model?.receiving)
+
+        model = nil
+        await receiving.value
+
+        #expect(cancelled)
+    }
+
+    @Test func aTransferThatEndedKeepsNoTask() async {
+        let model = TransferReceiving(code: code) { _, _ in [] }
+        await model.receiving?.value
+        #expect(model.receiving == nil)
+    }
+
     @Test(arguments: [
         (
             "goodmail-transfer://1?s=Goodmail-abc&k=BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc&c=CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk",

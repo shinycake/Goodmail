@@ -13,14 +13,14 @@ struct ServiceChooser: View {
                 Label {
                     Text(service.displayName)
                 } icon: {
-                    if adder.state == .signingIn(service) {
+                    if adder.signingIn == service {
                         ProgressView()
                     } else {
                         ServiceLogo(service: service)
                     }
                 }
             }
-            .disabled(adder.state != .choosing)
+            .disabled(adder.signingIn != nil)
             .accessibilityIdentifier("addAccount.\(service.rawValue)")
         }
     }
@@ -33,10 +33,10 @@ extension View {
             Text(
                 "Couldn’t Add Account", tableName: "AddAccount", bundle: .module, comment: "Sign-in failure alert title"
             ),
-            isPresented: Binding(get: { adder.error != nil }, set: { if !$0 { adder.error = nil } })
+            isPresented: Binding(get: { adder.failure != nil }, set: { if !$0 { adder.dismissFailure() } })
         ) {
         } message: {
-            Text(adder.error.map(FailureReason.message(for:)) ?? "")
+            Text(adder.failure.map(FailureReason.message(for:)) ?? "")
         }
     }
 }

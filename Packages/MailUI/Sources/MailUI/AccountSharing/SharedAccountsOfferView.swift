@@ -47,29 +47,31 @@ struct SharedAccountsOfferView: View {
                 }
             }
         }
-        .disabled(offer.state == .adding)
+        .disabled(offer.isAdding)
         .safeAreaBar(edge: .bottom) { buttons }
+        // It closes once the offer is answered, and only then: a failed add keeps it open.
+        .onChange(of: offer.isFinished) { _, finished in
+            if finished { dismiss() }
+        }
         .alert(
             Text(
                 "Couldn't Add the Accounts", tableName: "AccountSharing", bundle: .module,
                 comment: "Title of the alert when adding accounts from other devices failed"),
-            isPresented: Binding(get: { offer.error != nil }, set: { if !$0 { offer.error = nil } })
+            isPresented: Binding(get: { offer.failure != nil }, set: { if !$0 { offer.dismissFailure() } })
         ) {
         } message: {
-            Text(offer.error?.localizedDescription ?? "")
+            Text(offer.failure?.localizedDescription ?? "")
         }
     }
 
     private var buttons: some View {
         VStack(spacing: 12) {
             Button {
-                Task {
-                    await offer.addChosen()
-                    if offer.error == nil { dismiss() }
-                }
+                // The offer owns the outcome: it stays open on a failure and closes once finished.
+                Task { await offer.addChosen() }
             } label: {
                 Group {
-                    if offer.state == .adding {
+                    if offer.isAdding {
                         ProgressView()
                     } else {
                         switch offer.origin {
@@ -87,10 +89,9 @@ struct SharedAccountsOfferView: View {
                 .frame(maxWidth: .infinity)
             }
             .buttonStyle(.glassProminent)
-            .disabled(offer.chosen.isEmpty || offer.state == .adding)
+            .disabled(offer.chosen.isEmpty || offer.isAdding)
             Button {
                 offer.notNow()
-                dismiss()
             } label: {
                 Text(
                     "Not Now", tableName: "AccountSharing", bundle: .module,
@@ -99,7 +100,7 @@ struct SharedAccountsOfferView: View {
                 .frame(maxWidth: .infinity)
             }
             .buttonStyle(.glass)
-            .disabled(offer.state == .adding)
+            .disabled(offer.isAdding)
         }
         .controlSize(.large)
         .frame(maxWidth: 360)

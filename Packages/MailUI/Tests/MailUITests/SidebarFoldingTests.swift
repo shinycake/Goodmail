@@ -1,5 +1,7 @@
 import Foundation
 import MailCore
+import Observation
+import Synchronization
 import Testing
 import UIKit
 
@@ -74,6 +76,8 @@ struct SidebarFoldingTests {
         let receipts = Mailbox(labelID: "Label_1", accountID: home.id)
         let directory = MailboxDirectory(
             labels: [MailboxDirectory.Label(mailbox: receipts, name: "Receipts", color: nil)], unreadCounts: [:])
+        let section = MailboxesViewModel.Section.labels
+        FoldedSections(defaults: defaults).set(section, folded: true)
         let viewModel = MailboxesViewModel(
             accounts: [home],
             directory: {
@@ -81,18 +85,57 @@ struct SidebarFoldingTests {
                     $0.yield(directory)
                     $0.finish()
                 }
-            })
+            }, style: .sidebar, foldedSections: FoldedSections(defaults: defaults))
         await viewModel.observe()
-        let section = try #require(viewModel.groups.first { $0.items.contains { $0.title == "Receipts" } }?.section)
-        FoldedSections(defaults: defaults).set(section, folded: true)
+        #expect(viewModel.groups.first { $0.items.contains { $0.title == "Receipts" } }?.section == section)
 
-        let sidebar = MailboxesViewController(
-            viewModel: viewModel, style: .sidebar, foldedSections: FoldedSections(defaults: defaults))
+        let sidebar = MailboxesViewController(viewModel: viewModel)
         sidebar.loadViewIfNeeded()
         sidebar.updateProperties()
         #expect(!viewModel.numberedRows.rows.map(\.title).contains("Receipts"))
 
-        sidebar.remember(.header(section), folded: false)
+        sidebar.toggle(.header(section))
         #expect(viewModel.numberedRows.rows.map(\.title).contains("Receipts"), "unfolding brings its numbers back")
+    }
+
+    @Test func aSectionFoldedInOneWindowFoldsInTheOtherAtOnce() async throws {
+        let receipts = Mailbox(labelID: "Label_1", accountID: home.id)
+        let directory = MailboxDirectory(
+            labels: [MailboxDirectory.Label(mailbox: receipts, name: "Receipts", color: nil)], unreadCounts: [:])
+        let folding = FoldedSections(defaults: defaults)
+        func window() async -> (MailboxesViewModel, MailboxesViewController) {
+            let viewModel = MailboxesViewModel(
+                accounts: [home],
+                directory: {
+                    AsyncThrowingStream {
+                        $0.yield(directory)
+                        $0.finish()
+                    }
+                }, style: .sidebar, foldedSections: folding)
+            await viewModel.observe()
+            let sidebar = MailboxesViewController(viewModel: viewModel)
+            sidebar.loadViewIfNeeded()
+            sidebar.updateProperties()
+            return (viewModel, sidebar)
+        }
+        let (_, first) = await window()
+        let (other, second) = await window()
+        let section = try #require(other.groups.first { $0.items.contains { $0.title == "Receipts" } }?.section)
+
+        // What the other window's rows read, as UIKit tracks it to call `updateProperties` again.
+        let invalidated = Mutex(false)
+        withObservationTracking {
+            second.updateProperties()
+        } onChange: {
+            invalidated.withLock { $0 = true }
+        }
+
+        first.toggle(.header(section))
+
+        #expect(invalidated.withLock { $0 }, "the other window is told to update its rows")
+        #expect(!other.numberedRows.rows.map(\.title).contains("Receipts"), "its numbers follow before it redraws")
+        second.updateProperties()
+        #expect(!second.dataSource.snapshot(for: section).isExpanded(.header(section)))
+        #expect(FoldedSections(defaults: defaults).isFolded(section), "and it stays folded for the next launch")
     }
 }
