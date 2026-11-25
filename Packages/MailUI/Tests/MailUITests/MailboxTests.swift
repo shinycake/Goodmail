@@ -217,7 +217,7 @@ struct MailboxTests {
             accounts: [],
             source: .flat { AsyncThrowingStream { $0.finish() } },
             refresh: {},
-            loadOlder: {
+            older: .pages {
                 calls += 1
                 return try replies.removeFirst().get()
             }
@@ -227,7 +227,7 @@ struct MailboxTests {
         await viewModel.loadOlderIfNeeded()
         await viewModel.loadOlderIfNeeded()
         #expect(calls == 3, "failure retries, true continues, false stops")
-        #expect(!viewModel.isLoadingOlder)
+        #expect(viewModel.older == .exhausted)
     }
 
     @Test func aThreadOpensInANewWindowFromItsMailbox() {

@@ -10,15 +10,15 @@ nonisolated enum InboxZeroArrival: Equatable, Sendable {
     /// It was already empty when the list came on screen: the scene is simply there.
     case settled
 
-    /// The reader's action counts as what emptied the list for this long after it.
+    /// How long after the reader's rows left the scene still plays as earned, should it come on a moment after them.
     static let earnedWindow: Duration = .seconds(3)
 
-    /// How a list that just became empty got there: whether it is `onScreen`, whether it was showing threads a moment
-    /// ago, and how long ago the reader last took threads out of it, if they did.
-    init(onScreen: Bool, hadThreads: Bool, sinceRemoval: Duration?) {
+    /// How a list that just became empty at `now` got there: whether it is `onScreen`, and whether the rows that left
+    /// last were ones the reader took away.
+    init(onScreen: Bool, removal: RecentRemoval, at now: ContinuousClock.Instant) {
         if !onScreen {
             self = .settled
-        } else if hadThreads, let sinceRemoval, sinceRemoval <= Self.earnedWindow {
+        } else if case .took(let at) = removal, now - at <= Self.earnedWindow {
             self = .earned
         } else {
             self = .found

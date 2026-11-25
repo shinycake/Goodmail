@@ -38,7 +38,7 @@ struct InboxCategoryTests {
                     didSelect: didSelect),
                 selected: selected),
             refresh: {},
-            loadOlder: loadOlder)
+            older: .pages(loadOlder))
     }
 
     private func shownThreads(_ viewModel: MailboxViewModel) -> [String] {
@@ -98,7 +98,7 @@ struct InboxCategoryTests {
         let viewModel = viewModel(unread: [.forums: 0, .social: 3], selected: .forums)
         let observing = Task { await viewModel.observe() }
         defer { observing.cancel() }
-        await waitUntil { viewModel.hasLoaded && viewModel.categoryUnreadCounts[.social] == 3 }
+        await waitUntil { viewModel.listing.hasAnswered && viewModel.categoryUnreadCounts[.social] == 3 }
 
         #expect(viewModel.sections.isEmpty)
         #expect(viewModel.categoryWithUnread == .social)
@@ -116,13 +116,13 @@ struct InboxCategoryTests {
             })
         let observing = Task { await viewModel.observe() }
         defer { observing.cancel() }
-        await waitUntil { viewModel.hasLoaded }
+        await waitUntil { viewModel.listing.hasAnswered }
         viewModel.select(.social)
         await waitUntil { shownThreads(viewModel) == ["social"] }
         for _ in 0..<100 { await Task.yield() }
 
         #expect(pages == 0)
-        #expect(!viewModel.isLoadingOlder)
+        #expect(viewModel.older == .mayHaveMore)
     }
 
     @Test func otherMailboxesHaveNoCategories() async {

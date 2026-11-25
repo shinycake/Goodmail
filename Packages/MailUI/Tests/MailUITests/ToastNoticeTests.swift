@@ -29,10 +29,40 @@ struct ToastNoticeTests {
         let actions = await archived()
         let confirmation = actions.toast
         actions.say("Gone")
-        #expect(actions.toast == confirmation, "its Undo stays")
+        #expect(actions.toast?.id == confirmation?.id, "its Undo stays")
+        #expect(actions.toast?.offersUndo == true)
         actions.dismissToast()
         #expect(actions.toast?.message == "Gone")
         #expect(actions.toast?.offersUndo == false)
+    }
+
+    @Test func aNoticeWaitingWaitsBehindTheConfirmationThatReplacesItsOwn() async {
+        let actions = await archived()
+        actions.say("Gone")
+        actions.perform(.trash, on: [thread])
+        await actions.settled()
+        #expect(actions.toast?.offersUndo == true)
+        actions.dismissToast()
+        #expect(actions.toast?.message == "Gone", "it comes up once the last confirmation goes")
+    }
+
+    @Test func aReplacedToastsTimeCannotEndItsReplacement() async throws {
+        let alarms = TestAlarms()
+        defer { alarms.drain() }
+        let actions = MailActions(
+            commands: MailCommands(store: NoStore(), replay: { _ in }), toastDuration: .seconds(60),
+            wait: { await alarms.wait(until: $0) })
+        actions.say("First")
+        let first = try #require(actions.toast)
+        actions.say("Second")
+        let second = try #require(actions.toast)
+        while alarms.count(at: first.ends) == 0 { await Task.yield() }
+        alarms.ring(first.ends)
+        for _ in 0..<20 { await Task.yield() }
+        #expect(actions.toast?.id == second.id, "the first toast's time running out ends nothing now")
+        while alarms.count(at: second.ends) == 0 { await Task.yield() }
+        alarms.ring(second.ends)
+        while actions.toast != nil { await Task.yield() }
     }
 
     @Test func aNoticeFollowsAnUndo() async {

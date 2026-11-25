@@ -16,6 +16,6 @@ extension MailboxViewController {
     /// changes nothing.
     public func showCategory(_ category: InboxCategory) {
         guard viewModel.category != nil, viewModel.category != category else { return }
-        viewModel.select(category)
+        switchCategory(to: category)
     }
 }

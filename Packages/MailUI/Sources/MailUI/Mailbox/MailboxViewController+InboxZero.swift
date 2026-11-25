@@ -24,8 +24,8 @@ extension MailboxViewController {
         return .inboxZero(pointing: pointing)
     }
 
-    /// Shows the scene for `state`, or takes it away. `previous` is the state the list is leaving, which tells an
-    /// Inbox the reader just cleared from one found empty.
+    /// Shows the scene for `state`, or takes it away. `previous` is the state the list is leaving: an Inbox that stays
+    /// empty keeps its scene and only points elsewhere anew.
     func showInboxZero(for state: EmptyState?, after previous: EmptyState?) {
         guard let inboxZero else { return }
         guard case .inboxZero(let pointing) = state else {
@@ -36,9 +36,7 @@ extension MailboxViewController {
             inboxZero.point(to: pointing)
             return
         }
-        let arrival = InboxZeroArrival(
-            onScreen: view.window != nil, hadThreads: previous == nil,
-            sinceRemoval: lastRemoval.map { ContinuousClock.now - $0 })
+        let arrival = InboxZeroArrival(onScreen: view.window != nil, removal: recentRemoval, at: .now)
         inboxZero.arrive(InboxZeroShowing(arrival: arrival, arrivedAt: .now, pointing: pointing))
         // The row VoiceOver was on is gone, so it moves to the words that say why.
         if arrival == .earned {

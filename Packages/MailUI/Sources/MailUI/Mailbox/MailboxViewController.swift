@@ -1,4 +1,4 @@
-public import MailCore
+import MailCore
 public import UIKit
 
 /// The mailbox list. Renders `MailboxViewModel` through Observation and holds no logic of its own (ADR-011).
@@ -25,41 +25,25 @@ public final class MailboxViewController: UIViewController {
     private(set) var search: UISearchController?
     let display: RowDisplay
     /// What an empty list shows.
-    private let empty: UIContentUnavailableConfiguration
-    private var emptyState: EmptyState?
+    let empty: UIContentUnavailableConfiguration
+    /// What the list shows in place of rows now. Only `updateEmptyState` changes it.
+    var emptyState: EmptyState?
+    /// Asks what shows again once a cleared Inbox has waited long enough for its page. Only `recheckEmptyState`
+    /// changes it.
+    var emptyRecheck: Task<Void, Never>?
     /// The scene an empty Inbox shows instead, behind the list; `nil` in every other mailbox.
     let inboxZero: InboxZeroModel?
     /// Where the scene is lent, so it can be taken back after the list has left the window.
     var inboxZeroLoan = InboxZeroLoan()
-    /// When the reader last took threads out of this list, which tells an Inbox they cleared from one found empty.
-    private(set) var lastRemoval: ContinuousClock.Instant?
+    /// Whether the rows that last left were ones the reader took away, which tells an Inbox they cleared from one
+    /// found empty. Only `applySections` and `switchCategory` change it.
+    private(set) var recentRemoval = RecentRemoval.none
     /// Threads just deleted forever from this list, with when, so their rows dissolve as they leave. A thread the
     /// store hasn't taken out by then left some other way, or not at all, and goes quietly.
-    private var deleted: [ThreadSummary.ID: ContinuousClock.Instant] = [:]
-    private static let deletedWindow = Duration.seconds(2)
-    private var listMotion = ListMotion.free
+    var deleted: [ThreadSummary.ID: ContinuousClock.Instant] = [:]
+    /// Whether the list takes changes as they come. Only the transitions in `MailboxViewController+Removal` change it.
+    var listMotion = ListMotion.free
 
-    /// Whether the list takes changes as they come.
-    private enum ListMotion {
-        case free
-        /// Rows are breaking into dust over their hidden cells. The list holds still until the dust has blown clear,
-        /// so the rows below don't slide in under text that hasn't broken up yet, then catches up in one change.
-        case dissolving([ThreadSummary.ID], release: Task<Void, Never>)
-        /// These rows are going into a box. The list holds still, so they lift off where they are, and catches up
-        /// in one change once they are in.
-        case stowing([ThreadSummary.ID])
-    }
-
-    enum EmptyState: Equatable {
-        /// Spam and Trash start empty while their first page is fetched.
-        case loading
-        /// With another category that has unread mail to point to.
-        case empty(pointingTo: InboxCategory?)
-        /// The Inbox is clear, with another category that has unread mail to point to.
-        case inboxZero(pointing: InboxZeroPointer?)
-        /// The filter leaves nothing of the threads the mailbox has.
-        case filtered(ListFilter)
-    }
     private var browsingToolbarItems: [UIBarButtonItem] = []
     /// The buttons at the ends of the browsing toolbar: the drafts pill, when the window has one, and Compose.
     private var browsingEnds: [UIBarButtonItem] = []
@@ -68,7 +52,7 @@ public final class MailboxViewController: UIViewController {
     /// The leading end of the browsing toolbar, while messages are minimized.
     private(set) var draftsPill: DraftsPillItem?
     private lazy var problemsItem = AccountProblemsItem { [weak self] notices in self?.explain(notices) }
-    private lazy var select = SelectItem { [weak self] in self?.setEditing(true, animated: true) }
+    lazy var select = SelectItem { [weak self] in self?.setEditing(true, animated: true) }
     /// The Inbox's category menu, when the list is split into categories.
     private let categoryButton: UIButton?
     private let categoryItem: UIBarButtonItem?
@@ -106,6 +90,7 @@ public final class MailboxViewController: UIViewController {
 
     deinit {
         observation?.cancel()
+        emptyRecheck?.cancel()
         if case .dissolving(_, let release) = listMotion { release.cancel() }
     }
 
@@ -270,59 +255,18 @@ public final class MailboxViewController: UIViewController {
         present(alert, animated: true)
     }
 
-    /// Only on a change: setting the configuration lays the view out again, which would run this again. Reads the
-    /// rows on screen, not the model's, so nothing shows while rows are still going into a box or breaking up. Select
-    /// goes with the last row and comes back with the first.
-    private func updateEmptyState() {
-        // Only a bar showing this list morphs: under a pushed thread, laying the bar out would animate the reader's.
-        let bar = navigationController.flatMap { $0.topViewController === self ? $0.navigationBar : nil }
-        select.show(rows: dataSource.snapshot().numberOfItems, in: bar)
-        let state: EmptyState? =
-            !viewModel.hasLoaded || dataSource.snapshot().numberOfItems > 0
-            ? nil
-            : viewModel.isLoadingOlder
-                ? .loading
-                : filteredState() ?? inboxZeroState() ?? .empty(pointingTo: viewModel.categoryWithUnread)
-        guard state != emptyState else { return }
-        let previous = emptyState
-        emptyState = state
-        contentUnavailableConfiguration =
-            switch state {
-            case nil, .inboxZero: nil
-            case .loading: UIContentUnavailableConfiguration.loading()
-            case .empty(let other?): pointing(empty, to: other)
-            case .empty(nil): empty
-            case .filtered(let filter): filteredConfiguration(for: filter)
-            }
-        showInboxZero(for: state, after: previous)
-    }
-
-    /// `configuration` with a link to another category that has unread mail.
-    private func pointing(_ configuration: UIContentUnavailableConfiguration, to category: InboxCategory)
-        -> UIContentUnavailableConfiguration
-    {
-        var configuration = configuration
-        var button = UIButton.Configuration.plain()
-        button.title = String(
-            localized: "Go to \(category.title)", table: "Mailbox", bundle: .module,
-            comment: "Link from an empty Inbox category to another with unread mail")
-        configuration.button = button
-        configuration.buttonProperties.primaryAction = UIAction { [weak self] _ in self?.show(category) }
-        return configuration
+    /// The one way the list switches category. What the reader asked before says nothing of how this category comes
+    /// to be empty, even when its rows leave after the switch, as at the end of a flight into a box.
+    func switchCategory(to category: InboxCategory) {
+        // Rows that leave until this category's first answer is in are the last one's going, not the reader's.
+        recentRemoval = .switching
+        viewModel.select(category)
     }
 
     /// Switches to `category`'s threads, from the top.
     func show(_ category: InboxCategory) {
-        viewModel.select(category)
+        switchCategory(to: category)
         collectionView.setContentOffset(CGPoint(x: 0, y: -collectionView.adjustedContentInset.top), animated: false)
-    }
-
-    private static func noMail(in mailbox: Mailbox) -> UIContentUnavailableConfiguration {
-        var configuration = UIContentUnavailableConfiguration.empty()
-        configuration.image = UIImage(systemName: mailbox.symbol)
-        configuration.text = String(
-            localized: "No Mail", table: "Mailbox", bundle: .module, comment: "An empty mailbox")
-        return configuration
     }
 
     private func configureSwipes() {
@@ -371,7 +315,6 @@ public final class MailboxViewController: UIViewController {
         guard let indexPath = dataSource.indexPath(for: id), let cell = collectionView.cellForItem(at: indexPath)
         else { return }
         let sheet = UIAlertController.snooze(from: self, source: cell) { [weak self] date in
-            self?.lastRemoval = .now
             self?.viewModel.snooze([id], until: date)
         }
         present(sheet, animated: true)
@@ -432,7 +375,7 @@ public final class MailboxViewController: UIViewController {
         header.backgroundConfiguration = .pinnedHeader(in: header)
     }
 
-    private func applySections(_ sections: [MailboxViewModel.Section]) {
+    func applySections(_ sections: [MailboxViewModel.Section]) {
         guard case .free = listMotion else { return }
         var snapshot = NSDiffableDataSourceSnapshot<MailboxSection, ThreadSummary.ID>()
         var changed: [ThreadSummary.ID] = []
@@ -449,6 +392,9 @@ public final class MailboxViewController: UIViewController {
         snapshot.reconfigureItems(changed)
         if dissolveDeleted(leaving: threads) { return }
         let opening = threadsByID.isEmpty
+        recentRemoval.rowsLeft(
+            threadsByID.values.filter { threads[$0.id] == nil }, answered: viewModel.listing.hasAnswered,
+            in: viewModel.mailbox, asked: viewModel.actions?.lastAsked, at: .now)
         threadsByID = threads
         let retitled = sectionTitles.update(to: sections)
         dataSource.apply(snapshot, animatingDifferences: view.window != nil)
@@ -469,67 +415,6 @@ public final class MailboxViewController: UIViewController {
     }
 }
 
-// MARK: - Deleting
-
-extension MailboxViewController {
-    /// Performs `action`, then `done`. Delete Forever asks first, and on Cancel does neither.
-    func perform(_ action: ThreadAction, on ids: [ThreadSummary.ID], then done: @escaping () -> Void = {}) {
-        guard action == .deleteForever else {
-            lastRemoval = .now
-            viewModel.perform(action, on: ids)
-            return done()
-        }
-        let everything = viewModel.isTrash && ids.count == dataSource.snapshot().numberOfItems
-        let alert = UIAlertController.deleteForever(everything ? .trash(ids.count) : .threads(ids.count)) {
-            [weak self] in
-            guard let self else { return }
-            let now = ContinuousClock.now
-            for id in ids { deleted[id] = now }
-            lastRemoval = now
-            viewModel.perform(.deleteForever, on: ids)
-            done()
-        }
-        present(alert, animated: true)
-    }
-
-    /// Breaks the rows of threads deleted forever that are leaving the list into dust and holds the list still while
-    /// it blows clear. With Reduce Motion on, they fade out with the list's own deletion instead. Returns whether any
-    /// row dissolves, in which case the list takes this change once the hold ends.
-    private func dissolveDeleted(leaving threads: [ThreadSummary.ID: ThreadSummary]) -> Bool {
-        let now = ContinuousClock.now
-        deleted = deleted.filter { now - $0.value < Self.deletedWindow }
-        let leaving = deleted.keys.filter { threads[$0] == nil }
-        guard !leaving.isEmpty else { return false }
-        for id in leaving { deleted[id] = nil }
-        guard view.window != nil, Motion.playsRemovals else { return false }
-        let rows = leaving.compactMap { id in
-            dataSource.indexPath(for: id).flatMap(collectionView.cellForItem).map { (id, $0) }
-        }
-        guard !rows.isEmpty else { return false }
-        for (_, cell) in rows {
-            DissolveView.dissolve(cell, in: collectionView, budget: DissolveView.particleBudget / rows.count)
-        }
-        let release = Task { [weak self] in
-            guard (try? await Task.sleep(for: .seconds(DissolveField.sweep))) != nil else { return }
-            self?.endDissolving()
-        }
-        listMotion = .dissolving(rows.map(\.0), release: release)
-        return true
-    }
-
-    /// Lets the list catch up with every change held back while rows dissolved. A thread that came back meanwhile, as
-    /// one a fetch restored, shows its row again.
-    private func endDissolving() {
-        guard case .dissolving(let ids, _) = listMotion else { return }
-        listMotion = .free
-        applySections(viewModel.sections)
-        updateEmptyState()
-        for id in ids {
-            dataSource.indexPath(for: id).flatMap(collectionView.cellForItem)?.alpha = 1
-        }
-    }
-}
-
 extension MailboxViewController: UICollectionViewDelegate {
     /// How close to the last row the next older page is requested, so it arrives before the user gets there.
     private static let loadOlderLead = 20
@@ -543,7 +428,7 @@ extension MailboxViewController: UICollectionViewDelegate {
         let before = snapshot.sectionIdentifiers.prefix { $0 != section }
             .reduce(0) { $0 + snapshot.numberOfItems(inSection: $1) }
         guard snapshot.numberOfItems - (before + indexPath.item) <= Self.loadOlderLead else { return }
-        Task { [viewModel] in await viewModel.loadOlderIfNeeded() }
+        viewModel.loadOlder()
     }
 
     public func collectionView(
@@ -791,44 +676,5 @@ extension MailboxViewController: UndoToastLane {
     var toolbarEnds: [UIBarButtonItem] {
         guard !isEditing, problemsItem.item.isHidden else { return [] }
         return browsingEnds.filter { !$0.isHidden }
-    }
-}
-
-// MARK: - Putting threads away
-
-extension MailboxViewController {
-    /// Does `action` on `ids` and flies the rows on screen into `box`, holding the list still meanwhile. Once they
-    /// are in, `finish` runs and the list closes the gaps. Off screen, or while other rows are still going in, the
-    /// action just happens.
-    private func stow(
-        _ ids: [ThreadSummary.ID], into box: StowBoxView, doing action: ThreadAction,
-        then finish: @escaping () -> Void
-    ) {
-        lastRemoval = .now
-        guard case .free = listMotion, let window = view.window else {
-            viewModel.perform(action, on: ids)
-            return finish()
-        }
-        let cells = ids.compactMap { dataSource.indexPath(for: $0).flatMap(collectionView.cellForItem) }
-        listMotion = .stowing(ids)
-        collectionView.isUserInteractionEnabled = false
-        viewModel.perform(action, on: ids)
-        StowFlight.run(cells, into: box, over: window) { [weak self] in
-            finish()
-            self?.endStowing()
-        }
-    }
-
-    /// Lets the list catch up with every change held back while rows went into their box. A thread that came back
-    /// meanwhile, as on a quick Undo, shows its row again.
-    private func endStowing() {
-        guard case .stowing(let ids) = listMotion else { return }
-        listMotion = .free
-        collectionView.isUserInteractionEnabled = true
-        applySections(viewModel.sections)
-        updateEmptyState()
-        for id in ids {
-            dataSource.indexPath(for: id).flatMap(collectionView.cellForItem)?.contentView.alpha = 1
-        }
     }
 }

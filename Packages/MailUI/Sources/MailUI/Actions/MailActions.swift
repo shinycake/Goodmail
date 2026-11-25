@@ -11,22 +11,37 @@ public final class MailActions {
     public struct Toast: Equatable, Identifiable {
         /// What a toast is for.
         enum Kind: Equatable {
-            /// Confirms what was done, with an Undo button that takes `Undo` back.
-            case confirmation(Undo)
+            /// Confirms what was done, with an Undo button that takes `Undo` back. `noticeAfter` is the last notice
+            /// said while it shows, which comes up once it goes rather than take its Undo away.
+            case confirmation(Undo, noticeAfter: String? = nil)
             /// Tells the reader something, with no button.
             case notice
         }
 
-        public let id = UUID()
+        public let id: UUID
         public let message: String
         let kind: Kind
         /// When the toast goes, and with it the chance to undo from it.
         public let ends: ContinuousClock.Instant
 
         init(message: String, _ kind: Kind, lasting duration: Duration) {
+            id = UUID()
             self.message = message
             self.kind = kind
             ends = .now + duration
+        }
+
+        /// The same toast, with `notice` to come up once it goes; a notice has nothing to wait behind it.
+        func noticing(_ notice: String) -> Toast? {
+            guard case .confirmation(let undo, _) = kind else { return nil }
+            return Toast(id: id, message: message, kind: .confirmation(undo, noticeAfter: notice), ends: ends)
+        }
+
+        private init(id: UUID, message: String, kind: Kind, ends: ContinuousClock.Instant) {
+            self.id = id
+            self.message = message
+            self.kind = kind
+            self.ends = ends
         }
 
         /// Whether it offers Undo.
@@ -52,10 +67,13 @@ public final class MailActions {
     /// Told when Undo has taken back a change `changed` told of, so the window can bring the reader back to where it
     /// was (R9).
     @ObservationIgnored public var undone: ((MailChange) -> Void)?
+    /// The last change the reader asked of conversations, and when, as `changed` hears it: whatever screen asked it, a
+    /// list tells from it whether rows that leave were taken away by the reader (`RecentRemoval`). Only `apply` sets it.
+    @ObservationIgnored private(set) var lastAsked: (change: MailChange, at: ContinuousClock.Instant)?
 
-    public private(set) var toast: Toast?
-    /// A notice said while a confirmation showed, which waits for it to go rather than take its Undo away.
-    @ObservationIgnored private var waitingNotice: String?
+    /// What the toast shows, if anything. Only `show`, `say` and `endToast` change it.
+    private var slot = ToastSlot.empty
+    public var toast: Toast? { slot.toast }
     /// A failure to apply or undo an action locally.
     public private(set) var error: (any Error)?
     @ObservationIgnored private let commands: MailCommands
@@ -65,6 +83,9 @@ public final class MailActions {
         case none
         /// Undo takes this back, from the toast, a shake or ⌘Z, after the toast has gone too.
         case offering(Undo)
+        /// Undo takes back a message sent now, until `lapse` ends the offer once it has gone. Replaced, the offer stops
+        /// its lapse.
+        case sending(Draft.ID, lapse: Task<Void, Never>)
         /// The reader took the last one back.
         case taken
         /// A sent message went once its wait was over, so it can't be taken back any more.
@@ -73,13 +94,19 @@ public final class MailActions {
 
     /// The one place that says whether there is something to undo. Changes go through `undoLast`, `send` and `apply`.
     @ObservationIgnored private(set) var undoOffer = UndoOffer.none {
-        didSet { offerUndo() }
+        didSet {
+            if case .sending(_, let lapse) = oldValue { lapse.cancel() }
+            offerUndo()
+        }
     }
 
     /// What Undo would take back now.
     var lastUndo: Undo? {
-        guard case .offering(let undo) = undoOffer else { return nil }
-        return undo
+        switch undoOffer {
+        case .offering(let undo): return undo
+        case .sending(let id, _): return .send(id)
+        case .none, .taken, .lapsed: return nil
+        }
     }
     /// The window's undo manager, where Edit > Undo and ⌘Z find the last undo (`offerUndo`).
     @ObservationIgnored public var undoManager: UndoManager? {
@@ -92,15 +119,29 @@ public final class MailActions {
     @ObservationIgnored private let chain = TaskChain()
     @ObservationIgnored private let toastDuration: Duration
     @ObservationIgnored private let undoSendDelay: () -> Duration
+    /// Waits until a toast's or a send's time is up; a test's own clock stands in for the continuous one.
+    @ObservationIgnored private let wait: (ContinuousClock.Instant) async throws -> Void
 
     /// `undoSendDelay` is read at each send, so a change in Settings applies to the next message.
-    public init(
+    public convenience init(
         commands: MailCommands, toastDuration: Duration = .seconds(5),
         undoSendDelay: @escaping () -> Duration = { .seconds(Preferences.undoSendSeconds) }
+    ) {
+        self.init(
+            commands: commands, toastDuration: toastDuration, undoSendDelay: undoSendDelay,
+            wait: { try await Task.sleep(until: $0, clock: .continuous) })
+    }
+
+    /// `wait` stands in for the continuous clock, for a test that says when time is up.
+    init(
+        commands: MailCommands, toastDuration: Duration = .seconds(5),
+        undoSendDelay: @escaping () -> Duration = { .seconds(Preferences.undoSendSeconds) },
+        wait: @escaping (ContinuousClock.Instant) async throws -> Void
     ) {
         self.commands = commands
         self.toastDuration = toastDuration
         self.undoSendDelay = undoSendDelay
+        self.wait = wait
     }
 
     public func perform(_ action: ThreadAction, on threads: [ThreadSummary.ID]) {
@@ -197,17 +238,20 @@ public final class MailActions {
                 let delay = undoSendDelay()
                 try await commands.send(draft, after: delay)
                 guard delay > .zero else { return }
-                undoOffer = .offering(.send(draft.id))
-                // Once the wait is over the message has gone, so Edit > Undo and a shake stop offering it back.
-                show(
-                    Toast(
-                        message: String(
-                            localized: "Sent", table: "Actions", bundle: .module,
-                            comment: "Toast with Undo after sending a message, while it can still be taken back"),
-                        .confirmation(.send(draft.id)), lasting: delay)
-                ) { [self] in
-                    if undoOffer == .offering(.send(draft.id)) { undoOffer = .lapsed }
+                let toast = Toast(
+                    message: String(
+                        localized: "Sent", table: "Actions", bundle: .module,
+                        comment: "Toast with Undo after sending a message, while it can still be taken back"),
+                    .confirmation(.send(draft.id)), lasting: delay)
+                // Once the wait is over the message has gone, so Edit > Undo and a shake stop offering it back,
+                // whatever the toast shows by then.
+                let lapse = Task { [weak self, wait] in
+                    try? await wait(toast.ends)
+                    guard !Task.isCancelled else { return }
+                    self?.undoOffer = .lapsed
                 }
+                undoOffer = .sending(draft.id, lapse: lapse)
+                show(toast)
             case .at(let date):
                 try await commands.schedule(draft, at: date)
                 undoOffer = .offering(.send(draft.id))
@@ -262,7 +306,10 @@ public final class MailActions {
         guard !threads.isEmpty else { return }
         feedback(haptic)
         let asked = request.map { MailChange($0, on: threads) }
-        if let asked { changed?(asked) }
+        if let asked {
+            lastAsked = (asked, .now)
+            changed?(asked)
+        }
         run { [self] commands in
             let applied = try await change(commands)
             guard !applied.isEmpty else { return }
@@ -297,21 +344,22 @@ public final class MailActions {
     }
 
     /// Says `notice` in the toast, with no Undo, for as long as a confirmation stays. A confirmation showing keeps its
-    /// Undo: the notice follows once it goes. What the last Undo takes back stays, for a shake.
+    /// Undo: the notice follows once it goes, in place of any said before it. What the last Undo takes back stays,
+    /// for a shake.
     public func say(_ notice: String) {
-        if toast?.offersUndo == true {
-            waitingNotice = notice
-            return
+        if case .showing(let toast, let expiry) = slot, let waiting = toast.noticing(notice) {
+            slot = .showing(waiting, expiry: expiry)
+        } else {
+            show(Toast(message: notice, .notice, lasting: readingTime))
         }
-        show(Toast(message: notice, .notice, lasting: readingTime))
     }
 
     /// The toast goes; a notice that waited for it comes up.
     private func endToast() {
-        toast = nil
-        guard let notice = waitingNotice else { return }
-        waitingNotice = nil
-        say(notice)
+        guard case .showing(let ended, let expiry) = slot else { return }
+        expiry.cancel()
+        slot = .empty
+        if case .confirmation(_, let notice?) = ended.kind { say(notice) }
     }
 
     /// How long a toast stays when nothing else bounds it, longer while VoiceOver or Switch Control runs. An undo-send
@@ -320,14 +368,22 @@ public final class MailActions {
         ToastTime.lasting(toastDuration, assistiveTechnologyRuns: SystemAccessibility.assistiveTechnologyRuns)
     }
 
-    /// Shows `toast` until it ends, then runs `ended`, if given, whatever shows by then.
-    private func show(_ toast: Toast, then ended: (() -> Void)? = nil) {
-        self.toast = toast
-        Task {
-            try? await Task.sleep(until: toast.ends, clock: .continuous)
-            ended?()
-            if self.toast?.id == toast.id { endToast() }
+    /// Shows `toast` in place of what showed, until it ends. A notice waiting behind a confirmation it replaces waits
+    /// behind it in turn, as only a notice can't be waited behind: `say` never lets one replace a confirmation.
+    private func show(_ shown: Toast) {
+        var waiting: String?
+        if case .showing(let replaced, let expiry) = slot {
+            expiry.cancel()
+            if case .confirmation(_, let notice?) = replaced.kind { waiting = notice }
         }
+        let toast = waiting.flatMap(shown.noticing) ?? shown
+        let expiry = Task { [weak self, wait] in
+            try? await wait(toast.ends)
+            // Replaced or dismissed meanwhile, which cancels it, perhaps after its wait was over.
+            guard !Task.isCancelled else { return }
+            self?.endToast()
+        }
+        slot = .showing(toast, expiry: expiry)
     }
 
     /// What the toast says. Actions that leave the thread in view need none: the row shows the change.

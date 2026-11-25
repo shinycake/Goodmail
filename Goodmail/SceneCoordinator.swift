@@ -372,7 +372,7 @@ final class SceneCoordinator: NSObject {
                 sidebar: { [weak self] in self?.sidebar },
                 refresh: { try await model.syncAll() },
                 retryAlerts: { await model.refreshPush() },
-                loadOlder: { try await model.loadOlder(mailbox) },
+                older: .pages { try await model.loadOlder(mailbox) },
                 navigate: { [weak self] route in self?.handle(route) },
                 readAhead: { model.readAhead($0) },
                 actions: actions,

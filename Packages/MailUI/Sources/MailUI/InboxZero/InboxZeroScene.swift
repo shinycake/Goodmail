@@ -13,8 +13,6 @@ struct InboxZeroScene: View {
     let showing: InboxZeroShowing
     let model: InboxZeroModel
     @State private var streak = TapStreak()
-    /// Where the envelopes and doodles are, once the scene has laid out.
-    @State private var stage: InboxZeroStage?
     @State private var greeting = InboxZeroGreeting(at: .now)
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.layoutDirection) private var layoutDirection
@@ -47,7 +45,7 @@ struct InboxZeroScene: View {
     private func frame(at now: Date, layout: InboxZeroLayout, pileWidth: CGFloat) -> some View {
         let entrance = InboxZeroEntrance(
             arrival: showing.arrival, elapsed: reduceMotion ? nil : now.timeIntervalSince(showing.arrivedAt))
-        let stage = stage ?? InboxZeroStage(field: .zero, layout: layout, pileWidth: pileWidth)
+        let stage = model.stage ?? InboxZeroStage(field: .zero, layout: layout, pileWidth: pileWidth)
         let field = stage.field.size
         let focus = stage.focus
         let playing = model.isPlaying
@@ -78,7 +76,6 @@ struct InboxZeroScene: View {
             InboxZeroStage(
                 field: proxy.frame(in: .named(InboxZeroStage.space)), layout: layout, pileWidth: pileWidth)
         } action: { laidOut in
-            self.stage = laidOut
             model.stage = laidOut
         }
         .background {

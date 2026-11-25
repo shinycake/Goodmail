@@ -64,7 +64,7 @@ struct ListFilterListTests {
         let viewModel = viewModel([thread("a"), thread("b")], filter: .on([.unread]))
         let observing = Task { await viewModel.observe() }
         defer { observing.cancel() }
-        await waitUntil { viewModel.hasLoaded }
+        await waitUntil { viewModel.listing.hasAnswered }
         #expect(viewModel.sections.isEmpty)
         #expect(viewModel.hiddenByFilter == 2, "a mailbox that holds mail, not an empty one")
     }
@@ -75,7 +75,7 @@ struct ListFilterListTests {
             filter: .on([.unread, .starred]))
         let observing = Task { await viewModel.observe() }
         defer { observing.cancel() }
-        await waitUntil { viewModel.hasLoaded }
+        await waitUntil { viewModel.listing.hasAnswered }
         #expect(shown(viewModel) == ["a"])
     }
 
@@ -86,6 +86,30 @@ struct ListFilterListTests {
         let observing = Task { await viewModel.observe() }
         defer { observing.cancel() }
         await waitUntil { shown(viewModel) == ["a"] }
+    }
+
+    @Test func withAttachmentsTurnedOnAgainWaitsForTheStoresNewAnswer() async {
+        let withFile = thread("a")
+        let threads = [withFile, thread("b")]
+        var asked = 0
+        let viewModel = MailboxViewModel(
+            accounts: [account], source: .flat { AsyncThrowingStream { $0.yield(threads) } },
+            filter: .on([.withAttachments]), didChangeFilter: { _ in },
+            attachmentThreads: {
+                asked += 1
+                // The first answer comes at once; the second not before the test ends.
+                return AsyncThrowingStream { if asked == 1 { $0.yield([withFile.id]) } }
+            },
+            refresh: {})
+        let observing = Task { await viewModel.observe() }
+        defer { observing.cancel() }
+        await waitUntil { shown(viewModel) == ["a"] }
+        viewModel.setFilter(viewModel.filter.toggled())
+        await waitUntil { viewModel.attachmentWatch == .off }
+        viewModel.setFilter(viewModel.filter.toggled())
+        #expect(shown(viewModel).isEmpty, "what was heard before it went off says nothing now")
+        await waitUntil { asked == 2 }
+        #expect(shown(viewModel).isEmpty)
     }
 
     @Test func theWindowIsToldOfEachChoiceOnceAndNotOfARepeat() {

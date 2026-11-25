@@ -73,6 +73,37 @@ struct ReadRowTests {
         await observing.value
     }
 
+    @Test func aConversationReadAgainOnceItsRowLeftMovesFromTheTop() async {
+        let (list, feed) = list(.desktop, filter: .none)
+        let observing = Task { await list.observe() }
+        feed.yield(threads(ids, unread: []))
+        while list.rows != ids { await Task.yield() }
+        list.click(ids[1], .plain)
+        // Another conversation, not listed here, is read; then t1's row goes.
+        list.markReading(ThreadSummary.ID(accountID: account.id, threadID: "elsewhere"))
+        feed.yield(threads([ids[0], ids[2], ids[3]], unread: []))
+        while list.rows.count != 3 { await Task.yield() }
+        // The window goes back to t1, whose row has left: it wasn't picked from these rows this time.
+        list.markReading(ids[1])
+        list.move(1, extending: false)
+        #expect(list.selection == .reading(ids[0]), "no trail from when it was last picked")
+        feed.finish()
+        await observing.value
+    }
+
+    @Test func aPickKeepsItsTrailOnlyWhilePickedFromTheRows() {
+        let rows = Array(ids.prefix(3))
+        var pick = ListPick()
+        pick.pick(.reading(ids[1]), from: rows)
+        #expect(pick.trail == rows)
+        pick.pick(.reading(ids[1]), from: [ids[0]])
+        #expect(pick.trail == rows, "the same pick again keeps it")
+        pick.pick(.reading(ids[3]), from: rows)
+        #expect(pick.trail.isEmpty, "picked while not listed")
+        pick.pick(.several([ids[0], ids[1]], anchor: ids[0]), from: rows)
+        #expect(pick.trail.isEmpty)
+    }
+
     @Test func markingNoneLeavesSeveralPicked() async {
         let (list, feed) = list(.desktop)
         let observing = Task { await list.observe() }

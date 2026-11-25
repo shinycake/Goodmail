@@ -45,19 +45,72 @@ struct InboxZeroTests {
 
     // MARK: Arrival
 
+    private static let t = ThreadSummary.ID(accountID: AccountID(rawValue: "a"), threadID: "t")
+    private static let other = ThreadSummary.ID(accountID: AccountID(rawValue: "a"), threadID: "other")
+
+    private func inInbox(_ id: ThreadSummary.ID) -> ThreadSummary {
+        ThreadSummary(
+            id: id, subject: "", snippet: "", sender: Contact(name: nil, address: "x@example.com"), date: arrived,
+            isUnread: true, messageCount: 1, labelIDs: [SystemLabel.inbox, SystemLabel.unread])
+    }
+
+    /// After the reader asked `request` of `asked` at `askedAt`, the rows of `left` left the Inbox at `leftAt`.
+    private func removal(
+        _ request: MailChange.Request = .action(.archive), of asked: [ThreadSummary.ID],
+        at askedAt: ContinuousClock.Instant, then left: [ThreadSummary.ID], at leftAt: ContinuousClock.Instant
+    ) -> RecentRemoval {
+        var removal = RecentRemoval.none
+        removal.rowsLeft(
+            left.map(inInbox), answered: true, in: .inbox, asked: (MailChange(request, on: asked), askedAt), at: leftAt)
+        return removal
+    }
+
     @Test func emptiedByTheReaderAMomentAgoIsEarned() {
-        let arrival = InboxZeroArrival(onScreen: true, hadThreads: true, sinceRemoval: .seconds(1))
-        #expect(arrival == .earned)
+        let now = ContinuousClock.now
+        let took = removal(of: [Self.t], at: now - .seconds(1), then: [Self.t], at: now)
+        #expect(took == .took(at: now))
+        #expect(InboxZeroArrival(onScreen: true, removal: took, at: now) == .earned)
+        #expect(InboxZeroArrival(onScreen: true, removal: took, at: now + .seconds(2)) == .earned, "after a short page")
     }
 
     @Test func emptiedLongAfterTheReaderLastActedIsFound() {
-        #expect(InboxZeroArrival(onScreen: true, hadThreads: true, sinceRemoval: .seconds(30)) == .found)
-        #expect(InboxZeroArrival(onScreen: true, hadThreads: true, sinceRemoval: nil) == .found)
-        #expect(InboxZeroArrival(onScreen: true, hadThreads: false, sinceRemoval: .seconds(1)) == .found)
+        let now = ContinuousClock.now
+        #expect(removal(of: [Self.t], at: now - .seconds(30), then: [Self.t], at: now) == .none)
+        let took = removal(of: [Self.t], at: now, then: [Self.t], at: now)
+        #expect(InboxZeroArrival(onScreen: true, removal: took, at: now + .seconds(30)) == .found, "a long page")
+        #expect(InboxZeroArrival(onScreen: true, removal: .none, at: now) == .found)
+    }
+
+    @Test func emptiedBySyncJustAfterTheReaderActedIsFound() {
+        let now = ContinuousClock.now
+        #expect(removal(of: [Self.t], at: now, then: [Self.other], at: now) == .none, "not a row the reader asked away")
+        // Starring or marking read leaves the row in the Inbox, so a sync that then takes it doesn't count.
+        #expect(removal(.action(.star(true)), of: [Self.t], at: now, then: [Self.t], at: now) == .none)
+        #expect(removal(.action(.markRead(true)), of: [Self.t], at: now, then: [Self.t], at: now) == .none)
+        #expect(removal(.snooze, of: [Self.t], at: now, then: [Self.t], at: now) == .took(at: now))
+    }
+
+    @Test func rowsLeavingBeforeTheNewCategorysFirstAnswerIsInAreNotTheReaders() {
+        let now = ContinuousClock.now
+        var removal = RecentRemoval.switching
+        // A row archived while the switch waits, as one archived just before it whose flight into a box ends now.
+        let meanwhile = (MailChange(.action(.archive), on: [Self.t]), now)
+        removal.rowsLeft([inInbox(Self.t)], answered: false, in: .inbox, asked: meanwhile, at: now)
+        #expect(removal == .switching)
+        // The last category's rows, the archived one among them, go as the new category's answer comes in.
+        removal.rowsLeft(
+            [inInbox(Self.t), inInbox(Self.other)], answered: true, in: .inbox, asked: meanwhile,
+            at: now + .seconds(1))
+        #expect(removal == .none)
+        let since = (MailChange(.action(.archive), on: [Self.other]), now + .seconds(1))
+        removal.rowsLeft([inInbox(Self.other)], answered: true, in: .inbox, asked: since, at: now + .seconds(2))
+        #expect(removal == .took(at: now + .seconds(2)))
     }
 
     @Test func emptyBeforeTheListCameOnScreenIsSettled() {
-        #expect(InboxZeroArrival(onScreen: false, hadThreads: true, sinceRemoval: .seconds(1)) == .settled)
+        let now = ContinuousClock.now
+        let took = removal(of: [Self.t], at: now, then: [Self.t], at: now)
+        #expect(InboxZeroArrival(onScreen: false, removal: took, at: now) == .settled)
     }
 
     // MARK: Entrance

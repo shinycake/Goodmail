@@ -24,8 +24,7 @@ extension MailboxViewModel {
 
     /// ↓ (`offset` 1) or ↑ (-1), with ⇧ when `extending`.
     func move(_ offset: Int, extending: Bool) {
-        let trail = readFrom.flatMap { $0.thread == reading ? $0.rows : nil } ?? []
-        pick(selection.moving(offset, extending: extending, in: rows, trail: trail), revealing: true)
+        pick(selection.moving(offset, extending: extending, in: rows, trail: listPick.trail), revealing: true)
     }
 
     /// ⌘A.

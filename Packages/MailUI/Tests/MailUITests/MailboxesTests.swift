@@ -288,7 +288,7 @@ struct MailboxesTests {
                 }
             },
             refresh: {},
-            loadOlder: {
+            older: .pages {
                 loads += 1
                 return false
             })

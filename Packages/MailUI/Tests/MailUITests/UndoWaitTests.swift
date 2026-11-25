@@ -58,4 +58,22 @@ struct UndoWaitTests {
         #expect(await actions.waitOutUndo { _ in } == .ended)
         #expect(!manager.canUndo)
     }
+
+    @Test func `a sent message stops being offered back once it goes even with its toast dismissed`() async throws {
+        let alarms = TestAlarms()
+        defer { alarms.drain() }
+        let actions = MailActions(
+            commands: MailCommands(store: OutgoingQueue(), replay: { _ in }), undoSendDelay: { .seconds(60) },
+            wait: { await alarms.wait(until: $0) })
+        actions.send(draft)
+        await actions.settled()
+        let ends = try #require(actions.toast?.ends)
+        actions.dismissToast()
+        #expect(actions.lastUndo == .send(draft.id), "a shake still takes it back while it waits")
+        // The send's lapse and the dismissed toast's own end both wait for the same time.
+        while alarms.count(at: ends) < 2 { await Task.yield() }
+        alarms.ring(ends)
+        for _ in 0..<20 where actions.lastUndo != nil { await Task.yield() }
+        #expect(actions.undoOffer == .lapsed)
+    }
 }

@@ -53,8 +53,8 @@ nonisolated struct InboxZeroReach: Equatable, Sendable {
     /// Switches the list to a category.
     @ObservationIgnored var go: (InboxCategory) -> Void = { _ in }
     /// Where the scene's envelopes and doodles are, in the scene's own space, as it last laid out. The game takes over
-    /// from here and folds back to here. Not observed: nothing draws from it.
-    @ObservationIgnored var stage: InboxZeroStage? {
+    /// from here and folds back to here, and the scene draws from it. Only the scene's layout sets it.
+    var stage: InboxZeroStage? {
         didSet { if stage != oldValue { laidOut() } }
     }
     /// Called when the scene lays out anew, so the list can say where it is in the window.

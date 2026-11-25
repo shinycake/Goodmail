@@ -139,6 +139,120 @@ struct ThreadSearchTests {
         try await search.loadMore()
         #expect(provider.asked == [nil, "2"], "the new text has no pages yet")
     }
+
+    /// Holds the provider's next page for "invoice" back until it opens, and says when one is waiting.
+    private final class LatePage {
+        private let stream: AsyncStream<Void>
+        private let opener: AsyncStream<Void>.Continuation
+        var waiting = false
+
+        init() {
+            (stream, opener) = AsyncStream<Void>.makeStream()
+        }
+
+        func page(_ text: String, after page: SearchPage?) async -> SearchPage {
+            let account = AccountID(rawValue: "a")
+            if text == "invoice", page != nil {
+                waiting = true
+                for await _ in stream {}
+            }
+            return SearchPage(
+                ids: [ThreadSummary.ID(accountID: account, threadID: "\(text)\(page == nil ? 1 : 2)")],
+                next: page == nil ? [account: "2"] : [:])
+        }
+
+        func open() { opener.finish() }
+    }
+
+    /// A provider that answers its first call, then holds every later one until it opens and fails it, as offline.
+    private final class GoesOffline {
+        struct Offline: Error {}
+        private let stream: AsyncStream<Void>
+        private let opener: AsyncStream<Void>.Continuation
+        var calls = 0
+
+        init() {
+            (stream, opener) = AsyncStream<Void>.makeStream()
+        }
+
+        func page(_ text: String, after page: SearchPage?) async throws -> SearchPage {
+            calls += 1
+            let account = AccountID(rawValue: "a")
+            guard calls == 1 else {
+                for await _ in stream {}
+                throw Offline()
+            }
+            return SearchPage(ids: [ThreadSummary.ID(accountID: account, threadID: "s1")], next: [account: "1"])
+        }
+
+        func open() { opener.finish() }
+    }
+
+    @Test func aRefreshKeepsWhatWasFoundAndKeepsItWhenItFails() async throws {
+        let provider = GoesOffline()
+        let included = Included()
+        let search = ThreadSearch(
+            local: { text, ids in
+                included.ids = ids.map(\.threadID)
+                return self.local(text, ids)
+            },
+            remote: { try await provider.page($0, after: $1) },
+            pause: .seconds(60))
+        _ = search.results()
+        search.update("invoice")
+        try await search.refresh()
+        #expect(included.ids == ["s1"])
+
+        let refreshing = Task { try await search.refresh() }
+        while provider.calls < 2 { await Task.yield() }
+        #expect(included.ids == ["s1"], "the matches stay while the provider is asked again")
+        #expect(!search.hasMore, "no next page while the first is asked for again")
+        provider.open()
+        await #expect(throws: GoesOffline.Offline.self) { try await refreshing.value }
+        #expect(included.ids == ["s1"], "a failed refresh leaves them")
+        #expect(search.hasMore, "and their next page")
+    }
+
+    @Test func aCancelledWaitForAPageEndsWithoutThePage() async throws {
+        let late = LatePage()
+        let search = ThreadSearch(local: local, remote: { await late.page($0, after: $1) }, pause: .seconds(60))
+        _ = search.results()
+        search.update("invoice")
+        try await search.refresh()
+        let waiting = Task { try await search.loadMore() }
+        while !late.waiting { await Task.yield() }
+        waiting.cancel()
+        await #expect(throws: CancellationError.self) { try await waiting.value }
+        late.open()
+    }
+
+    @Test func aNewTextFetchesItsNextPageWhileTheLastTextsIsStillComing() async throws {
+        let late = LatePage()
+        let included = Included()
+        let search = ThreadSearch(
+            local: { text, ids in
+                included.ids = ids.map(\.threadID)
+                return self.local(text, ids)
+            },
+            remote: { await late.page($0, after: $1) },
+            pause: .seconds(60))
+        _ = search.results()
+        search.update("invoice")
+        try await search.refresh()
+        let invoicePage = Task { try await search.loadMore() }
+        while !late.waiting { await Task.yield() }
+
+        search.update("other")
+        try await search.refresh()
+        #expect(search.hasMore)
+        try await search.loadMore()
+        #expect(included.ids == ["other1", "other2"], "the new text pages, whatever is still on its way")
+        #expect(!search.hasMore)
+
+        late.open()
+        try await invoicePage.value
+        #expect(included.ids == ["other1", "other2"], "the old text's page never lands")
+    }
 }
 
 @MainActor

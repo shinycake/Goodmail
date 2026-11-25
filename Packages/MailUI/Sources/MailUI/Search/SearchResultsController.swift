@@ -44,12 +44,9 @@ public final class SearchResultsController: UIViewController, UISearchResultsUpd
                 accounts: accounts,
                 source: .flat { search.results() },
                 refresh: { try await search.refresh() },
-                // The search knows when its text has no more pages, but the text changes under this list, so the
-                // list never stops asking.
-                loadOlder: {
-                    try await search.loadMore()
-                    return true
-                },
+                // The search knows whether its text has more pages, and starts them over as the text changes under
+                // this list, so the list asks it each time rather than keep an answer of its own.
+                older: .owned(hasMore: { search.hasMore }, fetch: { try await search.loadMore() }),
                 navigate: navigate,
                 readAhead: readAhead,
                 actions: actions,
