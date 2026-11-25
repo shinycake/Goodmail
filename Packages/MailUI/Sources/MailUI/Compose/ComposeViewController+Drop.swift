@@ -21,6 +21,7 @@ extension ComposeViewController {
     /// Puts what came into the message: a title as the subject when there is none yet, words where the caret is in
     /// the body, and files attached while they fit. A message that has stopped being written takes nothing.
     public func receive(_ loaded: SharedItems.Loaded) {
+        guard viewModel.isWriting else { return }
         loadViewIfNeeded()
         let content = loaded.content
         if viewModel.subject.isEmpty, !content.subject.isEmpty {

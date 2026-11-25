@@ -54,7 +54,7 @@ struct ComposeViewModelTests {
         model.send(body: MessageBody(plain: "Here"))
         #expect(sent?.attachments == [photo])
         model.removeAttachment(photo.id)
-        #expect(model.attachments.isEmpty)
+        #expect(model.attachments == [photo], "a sent message's files stay as they went")
     }
 
     @Test func anUntouchedMessageClosesQuietly() {
@@ -108,20 +108,23 @@ struct ComposeViewModelTests {
         let draft = Draft(
             accountID: account, subject: "Plan", body: MessageBody(html: "<div>Hi</div>", plain: "Hi"),
             savedDraft: Message.ID(accountID: account, messageID: "d1"))
-        let model = ComposeViewModel(
-            draft: draft, accountEmail: "me@example.com", signature: { _ in "Dana" },
-            saveDraft: { draft, _ in saved = draft },
-            deleteDraft: { deleted = $0 }, send: { _, _ in })
-        #expect(model.draft.body.plain == "Hi", "no second signature")
-        #expect(!model.hasChanges(body: draft.body))
+        let model = { () -> ComposeViewModel in
+            ComposeViewModel(
+                draft: draft, accountEmail: "me@example.com", signature: { _ in "Dana" },
+                saveDraft: { draft, _ in saved = draft },
+                deleteDraft: { deleted = $0 }, send: { _, _ in })
+        }
+        let saving = model()
+        #expect(saving.draft.body.plain == "Hi", "no second signature")
+        #expect(!saving.hasChanges(body: draft.body))
         #expect(
-            model.hasChanges(body: MessageBody(html: "<div dir=\"auto\"><b>Hi</b></div>", plain: "Hi")),
+            saving.hasChanges(body: MessageBody(html: "<div dir=\"auto\"><b>Hi</b></div>", plain: "Hi")),
             "formatting alone counts as a change")
-        #expect(model.canSaveDraft)
-        model.saveDraft(body: MessageBody(plain: "Hi there"))
+        #expect(saving.canSaveDraft)
+        saving.saveDraft(body: MessageBody(plain: "Hi there"))
         #expect(saved?.body.plain == "Hi there")
         #expect(saved?.savedDraft == draft.savedDraft)
-        model.deleteDraft()
+        model().deleteDraft()
         #expect(deleted?.savedDraft == draft.savedDraft)
     }
 

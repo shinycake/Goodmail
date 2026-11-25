@@ -26,8 +26,8 @@ final class RecipientField: UIView {
 
     let role: Recipients.Role
     var onIntent: (Intent) -> Void = { _ in }
-    /// Whether people are offered under the field, which Up, Down and Tab then move through and pick from.
-    var offersSuggestions: () -> Bool {
+    /// Whether the key goes to the people offered under the field, to move through and pick from.
+    var offersSuggestions: (RecipientTextField.SuggestionKey) -> Bool {
         get { textField.offersSuggestions }
         set { textField.offersSuggestions = newValue }
     }

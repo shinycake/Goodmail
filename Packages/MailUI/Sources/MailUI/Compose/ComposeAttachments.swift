@@ -56,11 +56,15 @@ private final class AttachmentChip: ConfiguredButton {
 }
 
 extension ComposeViewController {
-    /// The paperclip: a menu of where to take files from.
+    /// The paperclip: a menu of where to take files from, asked of the message's picker as it opens, since a message
+    /// back after a failed send has a new one.
     func attachItem() -> UIBarButtonItem {
         UIBarButtonItem(
             title: String(localized: "Attach", table: "Compose", bundle: .module, comment: "Adds files to the message"),
-            image: UIImage(systemName: "paperclip"), menu: UIMenu(children: picker.actions()))
+            image: UIImage(systemName: "paperclip"),
+            menu: UIMenu(children: [
+                UIDeferredMenuElement.uncached { [weak self] completion in completion(self?.picker.actions() ?? []) }
+            ]))
     }
 
     /// Explains that a file can't go with the message, since it would take it past what Gmail accepts.

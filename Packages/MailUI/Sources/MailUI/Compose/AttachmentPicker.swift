@@ -1,43 +1,84 @@
 import MailCore
+import ObjectiveC
 import PhotosUI
 import UIKit
 import UniformTypeIdentifiers
 import VisionKit
 
 /// Takes files for a message from the places `AttachmentSource` names: picked photos and files, a photo from the
-/// camera, or a scan as one PDF. Each lands through `add`, in the order it was chosen. The composer and the chat's
-/// quick reply each own one.
+/// camera, or a scan as one PDF. Every one goes through one queue, prepared one at a time off the main actor, and
+/// lands through `add` in the order it was chosen, until the place that owns the picker finishes it. The composer and
+/// the chat's quick reply each own one.
 final class AttachmentPicker: NSObject {
     /// The screen the pickers and any alert present from.
     weak var presenter: UIViewController?
     private let add: (DraftAttachment) -> Void
-    /// Photos and scans waiting to be turned into attachments, in the order they were taken.
-    private let captures = AsyncStream.makeStream(of: CapturedAttachment.Preparation.self)
-    /// Prepares `captures` one at a time. `finish()` stops the one in hand and every one waiting.
-    private var preparing: Task<Void, Never>?
+    /// Whether files are still taken. Only `queue` and `finish` change it.
+    private var phase = Phase.open
+
+    private enum Phase {
+        /// Taking files, none chosen yet.
+        case open
+        /// Taking files: `queue` holds the ones chosen and not yet prepared, which `preparing` works through.
+        case accepting(queue: AsyncStream<Chosen>.Continuation, preparing: Task<Void, Never>)
+        /// The place is gone: nothing more is picked, prepared or added.
+        case finished
+    }
+
+    /// Something chosen to attach, before it is read or encoded.
+    private enum Chosen {
+        case photo(NSItemProvider)
+        case file(URL)
+        case capture(CapturedAttachment.Preparation)
+    }
 
     init(add: @escaping (DraftAttachment) -> Void) {
         self.add = add
         super.init()
-        preparing = Task { [weak self, captures = captures.stream] in
-            for await make in captures {
+    }
+
+    isolated deinit {
+        finish()
+    }
+
+    /// Stops taking files, the one being prepared and every one waiting included: the message they were for is gone.
+    /// Whatever was still being read is dropped, not attached to whatever the place writes next.
+    func finish() {
+        if case .accepting(let queue, let preparing) = phase {
+            queue.finish()
+            preparing.cancel()
+        }
+        phase = .finished
+    }
+
+    /// Prepares what is chosen, one at a time, in order, until the picker finishes. The phase alone decides whether
+    /// what was prepared still lands: a capture that fails says so and the queue goes on.
+    private func startPreparing() -> Phase {
+        let (chosen, queue) = AsyncStream.makeStream(of: Chosen.self)
+        let preparing = Task { [weak self] in
+            for await next in chosen {
+                let prepared: Prepared
                 do {
-                    let attachment = try await make()
-                    try Task.checkCancellation()
-                    self?.add(attachment)
-                } catch is CancellationError {
-                    return  // The message closed; nothing is left to attach to.
+                    prepared = .ready(try await Self.prepare(next))
                 } catch {
-                    self?.couldNotPrepare()
+                    prepared = .failed
+                }
+                guard let self, case .accepting = phase else { return }
+                switch prepared {
+                case .ready(let attachment?): add(attachment)
+                case .ready(nil): break
+                case .failed: couldNotPrepare()
                 }
             }
         }
+        return .accepting(queue: queue, preparing: preparing)
     }
 
-    /// Stops preparing captures: the message they were for is gone.
-    func finish() {
-        captures.continuation.finish()
-        preparing?.cancel()
+    /// What preparing one choice came to.
+    private enum Prepared {
+        /// Its attachment, or `nil` when there was nothing to read.
+        case ready(DraftAttachment?)
+        case failed
     }
 
     /// One action per source this device has, in menu order.
@@ -50,6 +91,7 @@ final class AttachmentPicker: NSObject {
     }
 
     func choose(_ source: AttachmentSource) {
+        if case .finished = phase { return }
         switch source {
         case .photoLibrary:
             var configuration = PHPickerConfiguration()
@@ -57,27 +99,66 @@ final class AttachmentPicker: NSObject {
             configuration.preferredAssetRepresentationMode = .compatible
             let picker = PHPickerViewController(configuration: configuration)
             picker.delegate = self
-            presenter?.present(picker, animated: true)
+            present(picker)
         case .file:
             let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: true)
             picker.allowsMultipleSelection = true
             picker.delegate = self
-            presenter?.present(picker, animated: true)
+            present(picker)
         case .camera:
             let picker = UIImagePickerController()
             picker.sourceType = .camera
             picker.delegate = self
-            presenter?.present(picker, animated: true)
+            present(picker)
         case .scan:
             let scanner = VNDocumentCameraViewController()
             scanner.delegate = self
-            presenter?.present(scanner, animated: true)
+            present(scanner)
         }
     }
 
-    /// Queues a capture to be prepared off the main actor and attached after the ones taken before it.
+    /// Presents `sheet`, which keeps this picker, its delegate, for as long as the sheet lives. The place can let the
+    /// picker go while the sheet is up, as a chat reply sent or a reader left does, and a sheet whose delegate is gone
+    /// can't be dismissed: its delegate methods dismiss it before anything else, finished or not.
+    func present(_ sheet: UIViewController) {
+        // Safe: the key is a byte allocated once and never freed, used only for its address; the runtime retains the
+        // picker for the sheet and releases it with the sheet.
+        unsafe objc_setAssociatedObject(sheet, Self.sheetKey, self, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        presenter?.present(sheet, animated: true)
+    }
+
+    /// The key a sheet keeps its picker under.
+    private static let sheetKey = UnsafeRawPointer(UnsafeMutableRawPointer.allocate(byteCount: 1, alignment: 1))
+
+    /// Queues a capture to be prepared off the main actor and attached after the ones chosen before it.
     func attach(_ make: @escaping CapturedAttachment.Preparation) {
-        captures.continuation.yield(make)
+        queue(.capture(make))
+    }
+
+    /// Queues what was chosen, to be prepared and attached after the ones chosen before it.
+    private func queue(_ chosen: Chosen) {
+        switch phase {
+        case .finished: return
+        case .open: phase = startPreparing()
+        case .accepting: break
+        }
+        guard case .accepting(let queue, _) = phase else { return }
+        queue.yield(chosen)
+    }
+
+    /// Reads or encodes what was chosen into its attachment; `nil` when there was nothing to read.
+    private static func prepare(_ chosen: Chosen) async throws -> DraftAttachment? {
+        switch chosen {
+        case .photo(let provider):
+            return await attachment(from: provider)
+        case .file(let url):
+            return await contents(of: url).map {
+                attachment(
+                    data: $0, filename: url.lastPathComponent, type: UTType(filenameExtension: url.pathExtension))
+            }
+        case .capture(let make):
+            return try await make()
+        }
     }
 
     static func attachment(data: Data, filename: String, type: UTType?) -> DraftAttachment {
@@ -86,6 +167,7 @@ final class AttachmentPicker: NSObject {
     }
 
     private func couldNotPrepare() {
+        if case .finished = phase { return }
         let alert = UIAlertController(
             title: String(localized: "Couldn't Attach", table: "Compose", bundle: .module, comment: "Alert title"),
             message: String(
@@ -102,12 +184,7 @@ final class AttachmentPicker: NSObject {
 extension AttachmentPicker: PHPickerViewControllerDelegate, UIDocumentPickerDelegate {
     func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
         picker.dismiss(animated: true)
-        // One at a time, so they land in the order they were picked.
-        Task { [weak self] in
-            for result in results {
-                if let attachment = await Self.attachment(from: result.itemProvider) { self?.add(attachment) }
-            }
-        }
+        for result in results { queue(.photo(result.itemProvider)) }
     }
 
     private static func attachment(from provider: NSItemProvider) async -> DraftAttachment? {
@@ -122,16 +199,7 @@ extension AttachmentPicker: PHPickerViewControllerDelegate, UIDocumentPickerDele
     }
 
     func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
-        // In order, as with photos.
-        Task { [weak self] in
-            for url in urls {
-                guard let data = await Self.contents(of: url) else { continue }
-                self?.add(
-                    Self.attachment(
-                        data: data, filename: url.lastPathComponent, type: UTType(filenameExtension: url.pathExtension)
-                    ))
-            }
-        }
+        for url in urls { queue(.file(url)) }
     }
 
     /// Reads a picked file off the main actor: it can be tens of megabytes.

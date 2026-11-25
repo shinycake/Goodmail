@@ -114,18 +114,33 @@ public enum SharedItems {
     struct Started {
         fileprivate var request: Request
         fileprivate let limit: Int
-        fileprivate var reads: [(NSItemProvider, Reading?, PieceRead?)] = []
+        /// Each provider, in order, with its richest reading under way.
+        fileprivate var reads: [(NSItemProvider, FirstRead)] = []
+
+        /// A provider's first reading, started as it came.
+        fileprivate enum FirstRead {
+            /// The provider holds nothing a message can.
+            case nothingToRead
+            case started(PieceRead)
+
+            var read: PieceRead? {
+                guard case .started(let read) = self else { return nil }
+                return read
+            }
+        }
 
         /// Asks one more provider for what it holds, now.
         mutating func start(_ provider: NSItemProvider) {
-            let first = readings(of: provider).first
+            let first: FirstRead =
+                readings(of: provider).first.map { .started(read($0, of: provider, room: limit)) }
+                ?? .nothingToRead
             request.providers.append(provider)
-            reads.append((provider, first, first.map { read($0, of: provider, room: limit) }))
+            reads.append((provider, first))
         }
 
         /// Stops the reads, for a place that no longer wants what they find.
         func cancel() {
-            for (_, _, read) in reads { read?.cancel() }
+            for (_, first) in reads { first.read?.cancel() }
         }
 
         /// What came, in order, files while they fit together. A read that found nothing falls to the provider's next
@@ -133,15 +148,16 @@ public enum SharedItems {
         func loaded() async -> Loaded {
             var assembly = Assembly(request, limit: limit)
             await withTaskCancellationHandler {
-                for (provider, first, read) in reads {
+                for (provider, first) in reads {
                     guard !Task.isCancelled else { break }
-                    if let piece = await read?.piece() {
+                    guard case .started(let read) = first else { continue }
+                    if let piece = await read.piece() {
                         assembly.add(piece)
-                    } else if first != nil {
+                    } else {
                         assembly.add(await SharedItems.piece(of: provider, skippingFirst: true, room: assembly.room))
                     }
                 }
-            } onCancel: { [pending = reads.compactMap(\.2)] in
+            } onCancel: { [pending = reads.compactMap(\.1.read)] in
                 for read in pending { read.cancel() }
             }
             return assembly.loaded

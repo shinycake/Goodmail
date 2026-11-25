@@ -55,9 +55,8 @@ struct DraggedRecipient {
 /// A text field that reports Delete when it has nothing left to delete, so the field can select and remove tokens.
 final class RecipientTextField: UITextField {
     var onDeleteWhenEmpty: () -> Void = {}
-    /// Whether people are offered under the field: Up, Down and Tab then go to them, not to the text or the next
-    /// field.
-    var offersSuggestions: () -> Bool = { false }
+    /// Whether the key goes to the people offered under the field, not to the text or the next field.
+    var offersSuggestions: (SuggestionKey) -> Bool = { _ in false }
     var onSuggestionKey: (SuggestionKey) -> Void = { _ in }
 
     enum SuggestionKey {
@@ -67,8 +66,12 @@ final class RecipientTextField: UITextField {
     }
 
     override var keyCommands: [UIKeyCommand]? {
-        guard offersSuggestions() else { return super.keyCommands }
-        return [UIKeyCommand.inputUpArrow, UIKeyCommand.inputDownArrow, "\t"].map { input in
+        let keys: [(SuggestionKey, String)] = [
+            (.up, UIKeyCommand.inputUpArrow), (.down, UIKeyCommand.inputDownArrow), (.tab, "\t"),
+        ]
+        let taken = keys.filter { offersSuggestions($0.0) }
+        guard !taken.isEmpty else { return super.keyCommands }
+        return taken.map { _, input in
             let command = UIKeyCommand(input: input, modifierFlags: [], action: #selector(suggestionKey(_:)))
             command.wantsPriorityOverSystemBehavior = true
             return command

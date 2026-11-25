@@ -16,10 +16,8 @@ protocol DraftsPillSite: AnyObject {
 /// A hub rather than Observation, because the count must reach the pill in the same run-loop turn as the composer's
 /// card setting off over it, and `updateProperties()` runs later.
 public final class DraftsDock {
-    /// How many messages are minimized. Only `show` changes it.
-    private(set) var count = 0
-    /// What the only minimized message is called; `nil` unless there is exactly one.
-    private var title: String?
+    /// The messages minimized. Only `show` changes it.
+    private var shelved = Shelved.none
     /// Whether a card is on its way into the pill, which counts its message from the moment it sets off. The shelf's
     /// count and the stage's card are independent facts: every combination is valid.
     private var isReceiving = false
@@ -48,8 +46,7 @@ public final class DraftsDock {
 
     /// Shows how many of `minimized` there are on every pill, and the title of a lone one; none hides them.
     func show(_ minimized: [Draft]) {
-        count = minimized.count
-        title = minimized.count == 1 ? minimized[0].shelfTitle : nil
+        shelved = Shelved(minimized)
         render()
     }
 
@@ -102,6 +99,34 @@ public final class DraftsDock {
 
     private func render(_ pill: DraftsPillItem) {
         // A card on its way in is a message of its own, without a title the pill would read out.
-        pill.show(count + (isReceiving ? 1 : 0), title: isReceiving ? nil : title)
+        if isReceiving { return pill.show(shelved.count + 1) }
+        switch shelved {
+        case .none: pill.show(0)
+        case .one(let title): pill.show(1, title: title)
+        case .several(let count): pill.show(count)
+        }
+    }
+}
+
+/// The messages minimized, as the pills tell them: how many, and what a lone one is called.
+private enum Shelved: Equatable {
+    case none
+    case one(title: String)
+    case several(Int)
+
+    init(_ minimized: [Draft]) {
+        switch minimized.count {
+        case 0: self = .none
+        case 1: self = .one(title: minimized[0].shelfTitle)
+        case let count: self = .several(count)
+        }
+    }
+
+    var count: Int {
+        switch self {
+        case .none: 0
+        case .one: 1
+        case .several(let count): count
+        }
     }
 }

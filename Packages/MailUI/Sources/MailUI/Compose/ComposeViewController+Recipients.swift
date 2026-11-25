@@ -8,7 +8,9 @@ extension ComposeViewController {
         let field = RecipientField(role: role, title: role.label, accessory: accessory)
         field.moveTargets = Recipients.Role.allCases.filter { $0 != role }.map { ($0, $0.moveTitle) }
         field.show(viewModel.recipients[role])
-        field.offersSuggestions = { [weak self, weak field] in self?.isSuggesting(under: field) ?? false }
+        field.offersSuggestions = { [weak self, weak field] key in
+            self?.offersSuggestions(key, under: field) ?? false
+        }
         field.onIntent = { [weak self, weak field] intent in
             guard let self, let field else { return }
             handle(intent, in: field)
@@ -35,15 +37,11 @@ extension ComposeViewController {
             for other in [toField, ccField, bccField] { other.show(viewModel.recipients[other.role]) }
             updateSendEnabled()
         case .commit:
-            if completeWithHighlighted(in: field, by: .returnKey) { return }
-            let wasEmpty = viewModel.recipients[field.role].typed.isEmpty
-            edit(field) { $0.commit() }
-            hideSuggestions()
-            if wasEmpty { next(after: field).becomeFirstResponder() }
+            pressed(.returnKey, in: field)
         case .highlight(let step):
             moveHighlight(step, in: field)
         case .complete:
-            _ = completeWithHighlighted(in: field, by: .tab)
+            pressed(.tab, in: field)
         case .endEditing:
             edit(field) {
                 $0.commit()
@@ -52,6 +50,8 @@ extension ComposeViewController {
             hideSuggestions()
         case .drop(let text):
             edit(field) { $0.type($0.typed + "," + text + ",") }
+            // What was typed became tokens: a list found for it offers no one now.
+            hideSuggestions()
         }
     }
 
@@ -63,10 +63,9 @@ extension ComposeViewController {
     }
 
     /// Where Return goes from a field with nothing typed: the next visible one, then the subject.
-    private func next(after field: RecipientField) -> UIResponder {
-        let order: [(RecipientField, Bool)] = [
-            (toField, true), (ccField, !ccRow.isHidden), (bccField, !bccRow.isHidden),
-        ]
+    func next(after field: RecipientField) -> UIResponder {
+        let copies = copyFields == .shown
+        let order: [(RecipientField, Bool)] = [(toField, true), (ccField, copies), (bccField, copies)]
         guard let index = order.firstIndex(where: { $0.0 === field }) else { return subjectField }
         return order[(index + 1)...].first(where: \.1)?.0 ?? subjectField
     }

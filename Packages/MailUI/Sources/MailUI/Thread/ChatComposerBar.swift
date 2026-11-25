@@ -35,7 +35,9 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
     /// Plain, on the field's glass beside Send, like Send it doesn't stack glass on glass.
     private let expandButton = ConfiguredButton(configuration: .plain())
     private let attachmentsView = ComposeAttachmentsView()
-    private(set) lazy var picker = AttachmentPicker { [weak self] in self?.attach($0) }
+    /// Takes files for the reply being typed. Emptying the field hands it a new one, so what the last one was still
+    /// preparing is dropped rather than landing in the next reply.
+    private(set) lazy var picker = makePicker()
     /// Takes in what is dragged in from other apps or pasted: words where the caret is, files attached.
     private(set) lazy var intake = ContentIntake(
         room: { [unowned self] in attachments.room },
@@ -144,9 +146,14 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
     required init?(coder: NSCoder) { fatalError("Programmatic UI only") }
 
     /// The screen the attachment pickers present from.
-    var presenter: UIViewController? {
-        get { picker.presenter }
-        set { picker.presenter = newValue }
+    weak var presenter: UIViewController? {
+        didSet { picker.presenter = presenter }
+    }
+
+    private func makePicker() -> AttachmentPicker {
+        let picker = AttachmentPicker { [weak self] in self?.attach($0) }
+        picker.presenter = presenter
+        return picker
     }
 
     /// The account's color, for the send button.
@@ -416,7 +423,10 @@ final class ChatComposerBar: UIView, UITextViewDelegate {
         clear()
     }
 
+    /// Empties the field after its reply went, moved on or was kept: files still being prepared for it are dropped.
     private func clear() {
+        picker.finish()
+        picker = makePicker()
         textView.text = ""
         attachments = []
         attachmentsChanged()

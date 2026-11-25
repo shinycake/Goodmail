@@ -12,10 +12,12 @@ nonisolated struct SuggestionList: Equatable, Sendable {
         case on(Int)
     }
 
-    /// The list for `contacts`, with nobody picked; `nil` when there is nobody to offer.
-    init?(_ contacts: [Contact]) {
+    /// The list for `contacts`, with `picked` still picked when it is among them, else nobody; `nil` when there is
+    /// nobody to offer.
+    init?(_ contacts: [Contact], keeping picked: Contact? = nil) {
         guard !contacts.isEmpty else { return nil }
         self.contacts = contacts
+        if let index = picked.flatMap({ contacts.firstIndex(of: $0) }) { highlight = .on(index) }
     }
 
     /// The person Up and Down moved to, which Return adds; `nil` while nobody is picked.

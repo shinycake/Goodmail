@@ -7,7 +7,7 @@ public final class ComposeViewController: UIViewController {
     let viewModel: ComposeViewModel
     private let scrollView = UIScrollView()
     /// The Cc/Bcc button sits at the end of the To line until those lines show.
-    lazy var toField = recipientField(.to, accessory: startsWithCopyFields ? nil : ccToggle())
+    lazy var toField = recipientField(.to, accessory: copyFields == .folded ? ccToggle() : nil)
     lazy var ccField = recipientField(.cc)
     lazy var bccField = recipientField(.bcc)
     let subjectField = UITextField()
@@ -19,16 +19,19 @@ public final class ComposeViewController: UIViewController {
     var typedRange: NSRange?
     private let quoteButton = ConfiguredButton(configuration: .gray())
     private let quoteLabel = UILabel()
+    /// Whether the quoted conversation shows. Only the fold's button changes it.
+    private var quote = QuoteFold.folded
     var ccRow: UIView!
     var bccRow: UIView!
     var toRow: UIView!
     var fields: UIStackView!
+    /// Whether the Cc and Bcc lines show. Only `showCopyFields` changes it, and the rows and the To line's Cc/Bcc
+    /// button follow it.
+    private(set) var copyFields: CopyFields
     /// People matching the recipient being typed, shown under its field.
     let suggestionRows = UIStackView()
-    /// Whether people are offered under a recipient field; `showSuggestions` and `hideSuggestions` change it.
-    var suggesting = Suggesting.hidden
-    /// Looking up the people for the last keystroke; a newer keystroke replaces it.
-    var suggestionLookup: Task<Void, Never>?
+    /// The people offered under a recipient field, or looked up for it.
+    private(set) lazy var suggestions = makeSuggestions()
     let attachmentsView = ComposeAttachmentsView()
     /// Takes in what is dragged in from other apps or pasted: words where the caret is, files attached.
     /// Asks whether words dropped into the body go in as text or as a quote.
@@ -37,8 +40,9 @@ public final class ComposeViewController: UIViewController {
         room: { [unowned self] in viewModel.attachmentRoom }, receive: { [unowned self] in receive($0) })
     private let sendItem = UIBarButtonItem()
     private let fromButton = ConfiguredButton(configuration: .plain())
-    /// Takes files from Photos, Files, the camera and the scanner.
-    lazy var picker = AttachmentPicker { [weak self] in self?.add($0) }
+    /// Takes files from Photos, Files, the camera and the scanner. It finishes as the message ends; a message back
+    /// after a failed send takes a new one.
+    private(set) lazy var picker = makePicker()
     /// Keeps the composer while it is minimized, moves it on and off the screen, and hears when it is done.
     weak var host: (any ComposerHost)?
     /// Moves the message into a window of its own, with it as written so far, where the device has windows; `nil`
@@ -49,6 +53,8 @@ public final class ComposeViewController: UIViewController {
 
     public init(viewModel: ComposeViewModel) {
         self.viewModel = viewModel
+        // A draft that already copies someone opens with the Cc and Bcc lines showing.
+        copyFields = viewModel.recipients.cc.isEmpty && viewModel.recipients.bcc.isEmpty ? .folded : .shown
         super.init(nibName: nil, bundle: nil)
         viewModel.didKeep = { [weak self] in
             guard let self else { return }
@@ -61,7 +67,6 @@ public final class ComposeViewController: UIViewController {
 
     public override func viewDidLoad() {
         super.viewDidLoad()
-        picker.presenter = self
         view.backgroundColor = .systemBackground
         configureNavigation()
 
@@ -70,7 +75,6 @@ public final class ComposeViewController: UIViewController {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(scrollView)
 
-        let showsCc = startsWithCopyFields
         configure(subjectField, text: viewModel.subject)
         toField.textField.accessibilityIdentifier = "compose.to"
         for field in [toField.textField, ccField.textField, bccField.textField, subjectField] {
@@ -100,9 +104,8 @@ public final class ComposeViewController: UIViewController {
 
         ccRow = row(ccField)
         bccRow = row(bccField)
-        ccRow.isHidden = !showsCc
-        bccRow.isHidden = !showsCc
         toRow = row(toField)
+        showCopyFieldRows()
         let stack = UIStackView(arrangedSubviews: [
             toRow, ccRow, bccRow,
             row(
@@ -141,6 +144,7 @@ public final class ComposeViewController: UIViewController {
         ])
         updateScrollBottom()
         updateSendEnabled()
+        followLifecycle()
         // Leaving the app keeps the draft with the provider, in case the app isn't opened again.
         NotificationCenter.default.addObserver(
             self, selector: #selector(keepDraft(_:)), name: UIScene.didEnterBackgroundNotification, object: nil)
@@ -152,18 +156,15 @@ public final class ComposeViewController: UIViewController {
         viewModel.keepNow(body: body)
     }
 
-    /// A draft that already copies someone opens with the Cc and Bcc lines showing.
-    private var startsWithCopyFields: Bool {
-        !viewModel.recipients.cc.isEmpty || !viewModel.recipients.bcc.isEmpty
-    }
-
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         scene = view.window?.windowScene
     }
 
-    /// The card came to rest on the screen: writing starts, or goes on where it was.
+    /// The card came to rest on the screen: writing starts, or goes on where it was. A message that ended on its way,
+    /// as one sent while its card still rose, takes no caret: it is leaving.
     func didOpen() {
+        guard viewModel.isWriting else { return }
         switch showing {
         case .shown, .leaving: return
         case .minimized(let field):
@@ -308,12 +309,31 @@ public final class ComposeViewController: UIViewController {
 
     /// Shows the Cc and Bcc lines, which also takes the Cc/Bcc button away.
     func showCopyFields() {
-        guard ccRow.isHidden else { return }
+        guard copyFields == .folded else { return }
+        copyFields = .shown
         toField.removeAccessory()
-        UIView.animate(springDuration: 0.3) {
-            self.ccRow.isHidden = false
-            self.bccRow.isHidden = false
-        }
+        UIView.animate(springDuration: 0.3) { self.showCopyFieldRows() }
+    }
+
+    /// The Cc and Bcc rows as `copyFields` says.
+    private func showCopyFieldRows() {
+        ccRow.isHidden = copyFields == .folded
+        bccRow.isHidden = copyFields == .folded
+    }
+
+    /// Whether the Cc and Bcc lines show, or fold behind the Cc/Bcc button at the end of the To line. Once shown they
+    /// stay.
+    enum CopyFields {
+        case folded
+        case shown
+    }
+
+    /// Whether the quoted conversation under the message shows.
+    private enum QuoteFold {
+        case folded
+        case unfolded
+
+        var toggled: QuoteFold { self == .folded ? .unfolded : .folded }
     }
 
     /// A line of the header, with a hairline under it.
@@ -405,13 +425,12 @@ public final class ComposeViewController: UIViewController {
         quoteLabel.font = .preferredFont(forTextStyle: .subheadline)
         quoteLabel.textColor = .secondaryLabel
         quoteLabel.adjustsFontForContentSizeCategory = true
-        quoteLabel.isHidden = true
-        updateQuoteButtonLabel()
+        showQuote()
         quoteButton.addAction(
             UIAction { [weak self] _ in
                 guard let self else { return }
-                UIView.animate(springDuration: 0.3) { self.quoteLabel.isHidden.toggle() }
-                updateQuoteButtonLabel()
+                quote = quote.toggled
+                UIView.animate(springDuration: 0.3) { self.showQuote() }
             }, for: .primaryActionTriggered)
         let buttonRow = UIStackView(arrangedSubviews: [quoteButton, UIView()])
         let section = UIStackView(arrangedSubviews: [buttonRow, quoteLabel])
@@ -420,16 +439,20 @@ public final class ComposeViewController: UIViewController {
         return section
     }
 
-    /// The fold says what it will do next, since its "•••" reads the same either way.
-    private func updateQuoteButtonLabel() {
+    /// The quoted text as `quote` says. The fold says what it will do next, since its "•••" reads the same either way.
+    private func showQuote() {
+        quoteLabel.isHidden = quote == .folded
         quoteButton.accessibilityLabel =
-            quoteLabel.isHidden
-            ? String(
-                localized: "Show Quoted Text", table: "Compose", bundle: .module,
-                comment: "Accessibility label of the fold")
-            : String(
-                localized: "Hide Quoted Text", table: "Compose", bundle: .module,
-                comment: "Accessibility label of the open fold")
+            switch quote {
+            case .folded:
+                String(
+                    localized: "Show Quoted Text", table: "Compose", bundle: .module,
+                    comment: "Accessibility label of the fold")
+            case .unfolded:
+                String(
+                    localized: "Hide Quoted Text", table: "Compose", bundle: .module,
+                    comment: "Accessibility label of the open fold")
+            }
     }
 
     func fieldChanged() {
@@ -452,16 +475,18 @@ public final class ComposeViewController: UIViewController {
         RichText(bodyView.attributedText ?? NSAttributedString()).messageBody
     }
 
-    /// Adds a picked file, or explains why it can't go.
+    /// Adds a picked file, or explains why it can't go. A message that has stopped being written takes nothing.
     func add(_ attachment: DraftAttachment) {
+        guard viewModel.isWriting else { return }
         guard viewModel.attach(attachment) else { return tooLarge() }
         attachmentsView.show(viewModel.attachments)
         updateSendEnabled()
     }
 
+    /// Sends the message and closes, once: a second tap or Command-Return on its way out does nothing.
     func send(at time: SendTime = .now) {
         fieldChanged()
-        viewModel.send(body: body, at: time)
+        guard viewModel.send(body: body, at: time) else { return }
         close()
     }
 
@@ -500,11 +525,9 @@ public final class ComposeViewController: UIViewController {
     }
 
     private func cancel() {
+        guard viewModel.isWriting else { return }
         fieldChanged()
-        guard viewModel.hasChanges(body: body) else {
-            viewModel.closeUnchanged()
-            return close()
-        }
+        guard viewModel.hasChanges(body: body) else { return discard() }
         let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         sheet.addAction(
             UIAlertAction(
@@ -530,9 +553,9 @@ public final class ComposeViewController: UIViewController {
         present(sheet, animated: true)
     }
 
-    /// Throws the message away and closes.
+    /// Throws the message away and closes, unless it already ended, as by being sent.
     func deleteDraft() {
-        viewModel.deleteDraft()
+        guard viewModel.deleteDraft() else { return }
         close()
     }
 
@@ -542,40 +565,62 @@ public final class ComposeViewController: UIViewController {
         // what it says.
         loadViewIfNeeded()
         fieldChanged()
-        viewModel.saveDraft(body: body)
+        guard viewModel.saveDraft(body: body) else { return }
         close()
     }
 
-    /// The host took the message back after its send or save failed: writing goes on, kept as it is written.
+    /// The host took the message back after its send or save failed: writing goes on, kept as it is written, with a
+    /// new picker for files, as closing finished the last.
     public func resumeAfterFailure() {
+        guard !viewModel.isWriting else { return }
         viewModel.resumeKeeping()
+        guard viewModel.isWriting else { return }
+        picker = makePicker()
+        followLifecycle()
     }
 
     /// The writer dismissed the message where it can't be minimized, as by dragging a share sheet down: one with
     /// something in it is saved to Drafts, one without closes, kept nowhere.
     public func dismissKeepingDraft() {
         fieldChanged()
-        guard viewModel.canSaveDraft, viewModel.hasChanges(body: body) else {
-            viewModel.closeUnchanged()
-            return close()
-        }
+        guard viewModel.canSaveDraft, viewModel.hasChanges(body: body) else { return discard() }
         saveDraft()
     }
 
     /// Takes the message off this window, as written so far, for a window of its own to go on with it. Nothing is
-    /// sent, kept or deleted: the same message carries on there.
-    func handOff() -> Draft {
+    /// sent, kept or deleted: the same message carries on there. `nil` once the message ended.
+    func handOff() -> Draft? {
         fieldChanged()
-        let draft = written
+        guard let draft = viewModel.handOff(body: body) else { return nil }
         close()
         return draft
     }
 
-    /// The message is done with: sent, deleted, saved away or closed unchanged. The host takes it off the screen.
+    /// The message is done with: sent, deleted, saved away, handed off or closed unchanged. Nothing on it acts again
+    /// while the host takes it off the screen.
     private func close() {
         picker.finish()
         intake.cancel()
+        hideSuggestions()
+        followLifecycle()
         host?.composerDidClose(self)
+    }
+
+    /// Whether the composer takes input follows whether its message is still written: an ended one's card can stay on
+    /// screen for the moment it takes to slide away, and nothing on it may send, save or delete it again.
+    private func followLifecycle() {
+        let writing = viewModel.isWriting
+        for item in (navigationItem.leftBarButtonItems ?? []) + (navigationItem.rightBarButtonItems ?? []) {
+            item.isEnabled = writing
+        }
+        sendItem.isEnabled = viewModel.canSend
+        if isViewLoaded { view.isUserInteractionEnabled = writing }
+    }
+
+    private func makePicker() -> AttachmentPicker {
+        let picker = AttachmentPicker { [weak self] in self?.add($0) }
+        picker.presenter = self
+        return picker
     }
 
     /// The draft as written so far, for the drafts shelf and the picker; as it opened before the editor loads.
@@ -610,12 +655,17 @@ public final class ComposeViewController: UIViewController {
 
     /// The card left with nothing written: the message closes, kept nowhere.
     func discard() {
-        viewModel.closeUnchanged()
+        guard viewModel.closeUnchanged() else { return }
         close()
     }
 
-    /// Moves the message out of the way into the drafts pill, kept as it is, to come back to.
+    /// Moves the message out of the way into the drafts pill, kept as it is, to come back to. One that ended is already
+    /// on its way off the screen.
     func minimize(then next: (() -> Void)? = nil) {
+        guard viewModel.isWriting else {
+            next?()
+            return
+        }
         prepareToLeave(keeping: true)
         if let host { host.minimize(self, then: next) } else { next?() }
     }

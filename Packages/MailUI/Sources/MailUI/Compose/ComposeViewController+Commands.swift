@@ -4,13 +4,22 @@ import UIKit
 /// The composer sends, attaches, shows Cc and Bcc and formats from the menu bar and the keyboard, as its buttons do.
 /// Formatting waits for the body to have the keyboard, and the menu checks the styles and lists the selection has.
 extension ComposeViewController: CommandScreen {
+    /// Once the message ended, its commands stay dimmed while its card leaves, rather than falling to the screens
+    /// behind it.
     public func answer(to command: MailCommand) -> CommandAnswer {
+        let answer = writingAnswer(to: command)
+        guard !viewModel.isWriting else { return answer }
+        if case .notHere = answer { return .notHere }
+        return .unavailable
+    }
+
+    private func writingAnswer(to command: MailCommand) -> CommandAnswer {
         switch command {
         case .send: return .offering(viewModel.canSend ? { [weak self] in self?.send() } : nil)
         case .sendLater: return .offering(viewModel.canSend ? { [weak self] in self?.pickSendTime() } : nil)
         case .attachFiles: return .ready(perform: { [weak self] in self?.picker.choose(.file) })
         case .showCopyFields:
-            guard ccRow.isHidden else { return .unavailable }
+            guard copyFields == .folded else { return .unavailable }
             return .ready(perform: { [weak self] in
                 self?.showCopyFields()
                 self?.ccField.becomeFirstResponder()

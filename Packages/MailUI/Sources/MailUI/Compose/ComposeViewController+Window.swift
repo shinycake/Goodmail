@@ -11,8 +11,8 @@ extension ComposeViewController {
         let item = UIBarButtonItem(
             title: title, image: UIImage(systemName: "macwindow.badge.plus"),
             primaryAction: UIAction(title: title) { [weak self] _ in
-                guard let self else { return }
-                open(handOff())
+                guard let self, let draft = handOff() else { return }
+                open(draft)
             })
         item.accessibilityIdentifier = "compose.newWindow"
         return item

@@ -2,90 +2,104 @@ import MailCore
 import UIKit
 
 /// The people offered under the recipient being typed: listed under its field, one highlighted, which Up and Down
-/// move and Return or Tab adds, and any of them added with a click or a tap.
+/// move and Return or Tab adds, and any of them added with a click or a tap. `suggestions` holds what is offered; this
+/// draws it and does what its keys ask.
 extension ComposeViewController {
-    /// Whether people are offered under a recipient field, and which.
-    enum Suggesting {
-        case hidden
-        case shown(SuggestionList, under: RecipientField)
+    func makeSuggestions() -> RecipientSuggestions {
+        RecipientSuggestions(
+            draw: { [weak self] now, before in self?.show(now, replacing: before) },
+            press: { [weak self] key, field in self?.press(key, in: field) })
     }
 
-    /// Whether people are offered under `field` now.
+    /// What is typed in `field` after its tokens.
+    private func typed(in field: RecipientField) -> String {
+        viewModel.recipients[field.role].typed
+    }
+
+    /// Whether `key` in `field` goes to the people offered under it rather than to the text or the next field.
+    func offersSuggestions(_ key: RecipientTextField.SuggestionKey, under field: RecipientField?) -> Bool {
+        guard let field else { return false }
+        return suggestions.takes(key, under: field, typed: typed(in: field))
+    }
+
+    /// Whether people found for what is typed in `field` are offered under it now.
     func isSuggesting(under field: RecipientField?) -> Bool {
-        guard case .shown(_, let under) = suggesting else { return false }
-        return under === field
+        guard let field else { return false }
+        return suggestions.current(under: field, typed: typed(in: field)) != nil
     }
 
     /// Looks up the people matching what is being typed in `field` and lists them right under it.
     func showSuggestions(for field: RecipientField) {
-        suggestionLookup?.cancel()
         let role = field.role
-        suggestionLookup = Task { [weak self, weak field] in
-            guard let self, let field else { return }
-            let contacts = await viewModel.suggestions(for: role)
-            guard !Task.isCancelled else { return }
-            show(SuggestionList(contacts), under: field)
+        suggestions.look(for: typed(in: field), under: field) { [weak self] in
+            await self?.viewModel.suggestions(for: role) ?? []
         }
     }
 
     func hideSuggestions() {
-        suggestionLookup?.cancel()
-        show(nil, under: nil)
+        suggestions.hide()
     }
 
     /// Up or Down in `field` moves the highlight among the people offered under it.
     func moveHighlight(_ step: SuggestionList.Step, in field: RecipientField) {
-        guard case .shown(var list, let under) = suggesting, under === field else { return }
-        list.move(step)
-        suggesting = .shown(list, under: under)
-        showHighlight(of: list)
+        suggestions.move(step, under: field, typed: typed(in: field))
     }
 
-    /// Which key asks to add someone from the list: Return only the person picked with Up or Down, so a typed
-    /// address that also matches someone else stays as typed; Tab the picked one or else the first.
-    enum CompletionKey {
-        case returnKey
-        case tab
+    /// Return or Tab in `field`: waits for a lookup under way when its answer decides what the key does, else does it.
+    func pressed(_ key: RecipientSuggestions.CompletionKey, in field: RecipientField) {
+        guard !suggestions.wait(key, under: field) else { return }
+        press(key, in: field)
     }
 
-    /// Adds the person `key` asks for from the list under `field`. Returns whether it did.
-    func completeWithHighlighted(in field: RecipientField, by key: CompletionKey) -> Bool {
-        guard case .shown(let list, let under) = suggesting, under === field else { return false }
+    /// Adds the person `key` asks for from the list found for what is typed in `field`. Without one, Return makes
+    /// tokens of what is typed, or goes on to the next field when nothing is, and Tab goes on to the next field.
+    private func press(_ key: RecipientSuggestions.CompletionKey, in field: RecipientField) {
+        let list = suggestions.current(under: field, typed: typed(in: field))
         let person: Contact? =
             switch key {
-            case .returnKey: list.picked
-            case .tab: list.tabChoice
+            case .returnKey: list?.picked
+            case .tab: list?.tabChoice
             }
-        guard let person else { return false }
-        edit(field) { $0.complete(with: person) }
-        hideSuggestions()
-        return true
+        if let person {
+            edit(field) { $0.complete(with: person) }
+            return hideSuggestions()
+        }
+        switch key {
+        case .returnKey:
+            let wasEmpty = typed(in: field).isEmpty
+            edit(field) { $0.commit() }
+            hideSuggestions()
+            if wasEmpty { next(after: field).becomeFirstResponder() }
+        case .tab:
+            hideSuggestions()
+            next(after: field).becomeFirstResponder()
+        }
     }
 
-    /// Lists `list` under `field`, or hides the list for `nil`. The one place `suggesting` is set from a lookup.
-    private func show(_ list: SuggestionList?, under field: RecipientField?) {
-        let shown: Int
-        switch suggesting {
-        case .hidden: shown = 0
-        case .shown(let old, _): shown = old.contacts.count
+    /// Lists `shown` under its field in place of `old`, or hides the list for `nil`. The same people under the same
+    /// field only move their highlight.
+    private func show(
+        _ shown: RecipientSuggestions.OnShow?, replacing old: RecipientSuggestions.OnShow?
+    ) {
+        if let shown, let old, shown.field === old.field, shown.list.contacts == old.list.contacts {
+            return showHighlight(of: shown.list)
         }
         for view in suggestionRows.arrangedSubviews { view.removeFromSuperview() }
         suggestionRows.removeFromSuperview()
-        guard let list, let field, let row = [toField: toRow, ccField: ccRow, bccField: bccRow][field] ?? nil,
+        guard let shown, let row = [toField: toRow, ccField: ccRow, bccField: bccRow][shown.field] ?? nil,
             let index = fields.arrangedSubviews.firstIndex(of: row)
         else {
-            suggesting = .hidden
             suggestionRows.isHidden = true
             return
         }
-        suggesting = .shown(list, under: field)
+        let (list, field) = shown
         for contact in list.contacts { suggestionRows.addArrangedSubview(button(for: contact, in: field)) }
         showHighlight(of: list)
         fields.insertArrangedSubview(suggestionRows, at: index + 1)
         suggestionRows.isHidden = false
         // The list appears under the field without moving VoiceOver off it, so say how many there are, after the
         // letter just typed is read and only when the number changes.
-        if list.contacts.count != shown {
+        if list.contacts.count != old?.list.contacts.count ?? 0 {
             SystemAccessibility.announce(
                 String(
                     localized: "\(list.contacts.count) suggestions", table: "Compose", bundle: .module,

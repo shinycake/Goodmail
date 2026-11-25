@@ -24,15 +24,40 @@ public final class ComposeViewModel {
     @ObservationIgnored private let suggest: (String) async -> [Contact]
     /// A draft that comes back with text, after Undo or a failed send, holds work closing would lose.
     @ObservationIgnored let isRestored: Bool
-    @ObservationIgnored private var autosave: Autosave = .untouched
+    /// Whether the message is still being written, and how it ended once it isn't. Only the methods below move it.
+    /// Not observed: it changes with every keystroke while autosave waits, and the composer is UIKit, reading
+    /// `isWriting` and `canSend` as it acts rather than observing them.
+    @ObservationIgnored private(set) var lifecycle = Lifecycle.writing(.untouched)
     /// Runs after each version autosave or leaving the screen keeps, for the composer's host to keep what it holds of
     /// the message in step.
     @ObservationIgnored var didKeep: (() -> Void)?
     /// How long after an edit the draft is kept on the device, so a crash loses at most that much writing.
     @ObservationIgnored private let autosavePause: Duration
 
-    /// Where the draft stands with autosave. Only the methods below move it.
-    private enum Autosave {
+    /// The message is written until it ends one way; from then on nothing sends, saves, deletes or keeps it again,
+    /// even while its card is still sliding off the screen.
+    enum Lifecycle {
+        /// Being written, with where the draft stands with autosave.
+        case writing(Autosave)
+        /// Done with. A send or save that fails brings it back to `writing` (`resumeKeeping`).
+        case ended(Ending)
+    }
+
+    /// How the message stopped being written.
+    enum Ending: Equatable, Sendable {
+        /// Queued to go, now or later.
+        case sent
+        /// Kept in the provider's Drafts by the writer's choice.
+        case saved
+        case deleted
+        /// Closed with nothing changed, any version autosave kept undone.
+        case closedUnchanged
+        /// Moved, as written, to a window of its own, which goes on with it.
+        case handedOff
+    }
+
+    /// Where the draft stands with autosave while it is written.
+    enum Autosave {
         /// Nothing kept since the composer opened.
         case untouched
         /// A version was kept, which closing must settle: the writer's choice, or putting back what was opened.
@@ -41,8 +66,21 @@ public final class ComposeViewModel {
         /// earlier version was. Later edits join the wait rather than restart it, so typing that never rests is
         /// still kept.
         case waiting(Task<Void, Never>, body: () -> MessageBody?, hasKept: Bool)
-        /// The composer is closing; nothing more is kept.
-        case closed
+
+        /// Whether a version was kept, which closing unchanged must undo.
+        var hasKept: Bool {
+            switch self {
+            case .untouched: false
+            case .kept: true
+            case .waiting(_, _, let hasKept): hasKept
+            }
+        }
+    }
+
+    /// Whether the message is still being written: everything that would send, save, delete or change it asks.
+    public var isWriting: Bool {
+        guard case .writing = lifecycle else { return false }
+        return true
     }
 
     /// `send` queues the finished draft to go now or later; the composer closes right after. `saveDraft` keeps it in
@@ -77,10 +115,10 @@ public final class ComposeViewModel {
         self.suggest = suggest
     }
 
-    /// Every typed recipient looks like an address, and there is at least one.
+    /// The message is still being written, every typed recipient looks like an address, and there is at least one.
     public var canSend: Bool {
         let all = recipients.all
-        return !all.isEmpty && all.allSatisfy(\.hasValidAddress)
+        return isWriting && !all.isEmpty && all.allSatisfy(\.hasValidAddress)
     }
 
     public var isReply: Bool { draft.inReplyTo != nil }
@@ -99,21 +137,28 @@ public final class ComposeViewModel {
     /// How many more bytes of files the message can take.
     var attachmentRoom: Int { attachments.room }
 
-    /// Adds the file unless it would take the message past what Gmail accepts. Returns whether it was added.
+    /// Adds the file unless it would take the message past what Gmail accepts, or the message is no longer written.
+    /// Returns whether it was added.
     @discardableResult
     public func attach(_ attachment: DraftAttachment) -> Bool {
-        attachments.attachIfRoom(attachment)
+        guard isWriting else { return false }
+        return attachments.attachIfRoom(attachment)
     }
 
     public func removeAttachment(_ id: DraftAttachment.ID) {
+        guard isWriting else { return }
         attachments.removeAll { $0.id == id }
     }
 
-    /// Queues the message with `body` as written, to go at `time`. Does nothing while `canSend` is false.
-    public func send(body: MessageBody, at time: SendTime = .now) {
-        guard canSend else { return }
-        close()
-        sendAction(finished(body: body), time)
+    /// Queues the message with `body` as written, to go at `time`. Does nothing while `canSend` is false, so a
+    /// second Send after the first does nothing. Returns whether it went.
+    @discardableResult
+    public func send(body: MessageBody, at time: SendTime = .now) -> Bool {
+        guard canSend else { return false }
+        let draft = finished(body: body)
+        end(.sent)
+        sendAction(draft, time)
+        return true
     }
 
     public var canSaveDraft: Bool { saveAction != nil }
@@ -146,30 +191,42 @@ public final class ComposeViewModel {
         return plain.isEmpty ? MessageBody(html: "", plain: "") : MessageBody(html: nil, plain: plain)
     }
 
-    /// Keeps the message as written in the provider's Drafts.
-    public func saveDraft(body: MessageBody) {
-        close()
-        saveAction?(finished(body: body), .now)
+    /// Keeps the message as written in the provider's Drafts. Returns whether it did: not once the message ended.
+    @discardableResult
+    public func saveDraft(body: MessageBody) -> Bool {
+        guard isWriting else { return false }
+        let draft = finished(body: body)
+        end(.saved)
+        saveAction?(draft, .now)
+        return true
     }
 
-    /// Throws the message away, with the provider's copy when it was opened from one or autosave kept one.
-    public func deleteDraft() {
-        close()
+    /// Throws the message away, with the provider's copy when it was opened from one or autosave kept one. Returns
+    /// whether it did: not once the message ended, as after it was sent.
+    @discardableResult
+    public func deleteDraft() -> Bool {
+        guard isWriting else { return false }
+        end(.deleted)
         deleteAction(draft)
+        return true
+    }
+
+    /// The message moves to a window of its own, which goes on writing it: this composer keeps nothing more. Returns
+    /// the message as written, or `nil` once it ended.
+    public func handOff(body: MessageBody) -> Draft? {
+        guard isWriting else { return nil }
+        let draft = finished(body: body)
+        end(.handedOff)
+        return draft
     }
 
     /// Something changed: the draft is kept a moment later, as `body` reads it then (`nil` once the editor is
     /// gone), if it differs from how it opened. Edits during the wait are kept with it.
     public func edited(body: @escaping () -> MessageBody?) {
-        guard saveAction != nil else { return }
-        let hasKept: Bool
-        switch autosave {
-        case .closed: return
-        case .waiting(let task, _, let kept):
-            autosave = .waiting(task, body: body, hasKept: kept)
+        guard saveAction != nil, case .writing(let autosave) = lifecycle else { return }
+        if case .waiting(let task, _, let hasKept) = autosave {
+            lifecycle = .writing(.waiting(task, body: body, hasKept: hasKept))
             return
-        case .untouched: hasKept = false
-        case .kept: hasKept = true
         }
         // A draft is written whole, files and all, so one carrying large files is kept less often.
         let large = attachments.reduce(0) { $0 + $1.size } > Self.largeAttachments
@@ -179,14 +236,14 @@ public final class ComposeViewModel {
             guard !Task.isCancelled else { return }
             self?.keepWaitingEdit()
         }
-        autosave = .waiting(task, body: body, hasKept: hasKept)
+        lifecycle = .writing(.waiting(task, body: body, hasKept: autosave.hasKept))
     }
 
     /// The wait after an edit ended: the message is kept as it reads now.
     private func keepWaitingEdit() {
-        guard case .waiting(_, let read, let hasKept) = autosave else { return }
+        guard case .writing(.waiting(_, let read, let hasKept)) = lifecycle else { return }
         guard let body = read() else {
-            autosave = hasKept ? .kept : .untouched
+            lifecycle = .writing(hasKept ? .kept : .untouched)
             return
         }
         keep(body: body, wait: .asWritten)
@@ -198,13 +255,15 @@ public final class ComposeViewModel {
     /// The message came back to be written after its send or save failed, with nothing sent or saved: what is
     /// written from here is kept again, and closing settles it as one that was kept.
     public func resumeKeeping() {
-        guard case .closed = autosave else { return }
-        autosave = .kept
+        switch lifecycle {
+        case .ended(.sent), .ended(.saved): lifecycle = .writing(.kept)
+        case .writing, .ended(.deleted), .ended(.closedUnchanged), .ended(.handedOff): break
+        }
     }
 
     /// Waits for an edit waiting to be kept.
     func settleAutosave() async {
-        if case .waiting(let task, _, _) = autosave { await task.value }
+        if case .writing(.waiting(let task, _, _)) = lifecycle { await task.value }
     }
 
     /// The app is leaving the screen: keeps the draft with the provider now, in case it isn't reopened.
@@ -215,41 +274,32 @@ public final class ComposeViewModel {
     /// Keeps the draft as written, once it differs from how it opened. After a version was kept it is always kept
     /// again, so the copy follows the writer even back to how it started.
     private func keep(body: MessageBody, wait: DraftSave) {
-        guard let saveAction else { return }
-        let hasKept: Bool
-        switch autosave {
-        case .closed: return
-        case .untouched: hasKept = false
-        case .kept: hasKept = true
-        case .waiting(let task, _, let kept):
-            task.cancel()
-            hasKept = kept
-        }
-        guard hasKept || hasChanges(body: body) else {
-            autosave = .untouched
+        guard let saveAction, case .writing(let autosave) = lifecycle else { return }
+        if case .waiting(let task, _, _) = autosave { task.cancel() }
+        guard autosave.hasKept || hasChanges(body: body) else {
+            lifecycle = .writing(.untouched)
             return
         }
         saveAction(finished(body: body), wait)
-        autosave = .kept
+        lifecycle = .writing(.kept)
         didKeep?()
     }
 
     /// Closes without a change. A version autosave kept is undone: the copy it was opened from is put back, or the
-    /// kept one removed.
-    public func closeUnchanged() {
-        let hasKept =
-            switch autosave {
-            case .kept, .waiting(_, _, hasKept: true): true
-            case .untouched, .waiting, .closed: false
-            }
-        close()
-        guard hasKept else { return }
+    /// kept one removed. Returns whether it closed: not once the message ended another way.
+    @discardableResult
+    public func closeUnchanged() -> Bool {
+        guard case .writing(let autosave) = lifecycle else { return false }
+        end(.closedUnchanged)
+        guard autosave.hasKept else { return true }
         if draft.savedDraft != nil { saveAction?(draft, .now) } else { deleteAction(draft) }
+        return true
     }
 
-    private func close() {
-        if case .waiting(let task, _, _) = autosave { task.cancel() }
-        autosave = .closed
+    /// The one way out of writing. An edit still waiting to be kept is dropped: the ending settles the message.
+    private func end(_ ending: Ending) {
+        if case .writing(.waiting(let task, _, _)) = lifecycle { task.cancel() }
+        lifecycle = .ended(ending)
     }
 
     func finished(body: MessageBody) -> Draft {

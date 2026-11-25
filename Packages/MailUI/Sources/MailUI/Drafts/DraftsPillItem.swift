@@ -15,8 +15,6 @@ final class DraftsPillItem {
     private let opened: () -> Void
     /// What it shows. Zero hides the item.
     private(set) var count = 0
-    /// What the only minimized message is called, which VoiceOver reads as the pill's value; `nil` with several.
-    private var title: String?
 
     /// `dismissAll` hears Dismiss All picked in the menu a long press shows, with the pill's button.
     init(site: any DraftsPillSite, opened: @escaping () -> Void, dismissAll: @escaping (UIView) -> Void = { _ in }) {
@@ -57,10 +55,9 @@ final class DraftsPillItem {
     /// Whether the pill's place is on screen and still, so a card can aim at it.
     var isOnShow: Bool { site?.showsDraftsPill ?? false }
 
-    /// Shows `count`, and `title` as the value of a pill holding one message; zero hides the pill. Only a new count
-    /// touches the button, as it lays the toolbar out again.
+    /// Shows `count`, and `title`, what a lone message is called, as the value VoiceOver reads; zero hides the pill.
+    /// Only a new count touches the button, as it lays the toolbar out again.
     func show(_ count: Int, title: String? = nil) {
-        self.title = title
         button.accessibilityValue = title
         guard count != self.count else { return }
         UIView.performWithoutAnimation {

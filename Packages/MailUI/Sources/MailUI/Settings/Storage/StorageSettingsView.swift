@@ -88,7 +88,7 @@ struct StorageSettingsView: View {
             isPresented: $confirmingClear, titleVisibility: .visible
         ) {
             Button(role: .destructive) {
-                Task { await model.clear() }
+                model.clear()
             } label: {
                 Text(
                     "Remove", tableName: "Storage", bundle: .module, comment: "Confirms removing downloaded mail")

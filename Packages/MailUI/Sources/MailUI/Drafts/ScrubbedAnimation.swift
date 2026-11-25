@@ -18,8 +18,10 @@ final class ScrubbedAnimation: NSObject {
         case holding(UIPanGestureRecognizer)
         /// Scrubbed by the finger dragging `pan`, which last moved at `moved` (in `CACurrentMediaTime`).
         case following(UIPanGestureRecognizer, moved: CFTimeInterval)
-        /// A spring takes it the rest of the way.
+        /// A spring takes it the rest of the way, or the animator is being stopped at its end.
         case settling
+        /// At rest at one end, `landed` told: nothing moves it again.
+        case landed
     }
 
     private let animator: UIViewPropertyAnimator
@@ -47,7 +49,7 @@ final class ScrubbedAnimation: NSObject {
         // Left to finish on its own, an animator the finger is holding can run out from under it when the main
         // thread stalls. Paused at its ends instead, it waits for `settled` to end it once the spring has stopped.
         animator.pausesOnCompletion = true
-        animator.addCompletion { position in landed(position == .end) }
+        animator.addCompletion { [weak self] position in self?.land(arrived: position == .end) }
         running = animator.observe(\.isRunning) { [weak self] animator, _ in
             // KVO calls back on the thread that changed the animator, and only the main thread drives it.
             MainActor.assumeIsolated {
@@ -69,9 +71,11 @@ final class ScrubbedAnimation: NSObject {
         pan.addTarget(self, action: #selector(followed(_:)))
     }
 
-    /// Ends the motion at once, where it was headed.
+    /// Ends the motion at once, where it was headed. One that already landed stays as it is.
     func finishNow() {
         switch phase {
+        case .landed:
+            return
         case .holding(let pan):
             pan.removeTarget(self, action: #selector(followed(_:)))
             animator.pauseAnimation()
@@ -84,13 +88,20 @@ final class ScrubbedAnimation: NSObject {
         end()
     }
 
+    /// The one place the motion comes to rest, and `landed` hears it, once.
+    private func land(arrived: Bool) {
+        guard case .settling = phase else { return }
+        phase = .landed
+        landed(arrived)
+    }
+
     @objc private func followed(_ pan: UIPanGestureRecognizer) {
         switch phase {
         case .holding(let holding) where holding === pan:
             held(pan)
         case .following(let following, let moved) where following === pan:
             follow(pan, moved: moved)
-        case .ready, .holding, .following, .settling:
+        case .ready, .holding, .following, .settling, .landed:
             break
         }
     }
@@ -108,7 +119,7 @@ final class ScrubbedAnimation: NSObject {
             // Called off before it moved: nothing started, so it's where it began.
             pan.removeTarget(self, action: #selector(followed(_:)))
             phase = .settling
-            landed(false)
+            land(arrived: false)
         case .possible, .began, .recognized:
             break
         @unknown default:

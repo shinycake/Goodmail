@@ -38,14 +38,14 @@ struct RecipientSuggestionKeysTests {
         let field = composer.toField
         field.onIntent(.type("da"))
         await suggestions(in: composer)
-        #expect(field.offersSuggestions())
+        #expect(field.offersSuggestions(.down) && field.offersSuggestions(.tab))
 
         field.onIntent(.highlight(.down))
         field.onIntent(.highlight(.down))
         field.onIntent(key)
         #expect(model.recipients.to.contacts == [dan])
         #expect(model.recipients.to.typed.isEmpty)
-        #expect(!field.offersSuggestions(), "the list goes once someone is added")
+        #expect(!field.offersSuggestions(.tab), "the list goes once someone is added")
     }
 
     /// A new address that happens to match someone known goes to whoever was typed, on every device.
@@ -54,7 +54,7 @@ struct RecipientSuggestionKeysTests {
         let field = composer.toField
         field.onIntent(.type("dan@example.org"))
         await suggestions(in: composer)
-        #expect(field.offersSuggestions())
+        #expect(field.offersSuggestions(.tab))
         field.onIntent(.commit)
         #expect(model.recipients.to.contacts.map(\.address) == ["dan@example.org"])
     }
@@ -73,6 +73,82 @@ struct RecipientSuggestionKeysTests {
         composer.toField.onIntent(.type("someone@example.com"))
         composer.toField.onIntent(.commit)
         #expect(model.recipients.to.contacts.map(\.address) == ["someone@example.com"])
+    }
+
+    /// Holds the lookup for one text until the test lets it go.
+    @MainActor
+    final class SlowLookup {
+        private(set) var waiting: CheckedContinuation<Void, Never>?
+
+        func hold() async {
+            await withCheckedContinuation { waiting = $0 }
+        }
+
+        func release() {
+            waiting?.resume()
+            waiting = nil
+        }
+    }
+
+    private let john = Contact(name: "John", address: "john@example.com")
+    private let joan = Contact(name: "Joan", address: "joan@example.com")
+
+    /// A composer that finds John and Joan for "jo", and only Joan for "joan", once `slow` lets that lookup go.
+    private func composer(holding slow: SlowLookup) -> (ComposeViewController, ComposeViewModel) {
+        let (john, joan) = (john, joan)
+        let model = ComposeViewModel(
+            draft: Draft(accountID: AccountID(rawValue: "a")), accountEmail: "me@example.com",
+            suggest: { typed in
+                guard typed == "joan" else { return [john, joan] }
+                await slow.hold()
+                return [joan]
+            }, send: { _, _ in })
+        let composer = ComposeViewController(viewModel: model)
+        composer.loadViewIfNeeded()
+        return (composer, model)
+    }
+
+    /// The people found for "jo" stay on show while "joan" is looked up, but nobody is added from them: Tab waits
+    /// for the answer and adds the first person found for "joan". Up and Down meanwhile stay with the text.
+    @Test func `Tab during a lookup adds from what it finds`() async {
+        let slow = SlowLookup()
+        let (composer, model) = composer(holding: slow)
+        let field = composer.toField
+        field.onIntent(.type("jo"))
+        await suggestions(in: composer)
+
+        field.onIntent(.type("joan"))
+        while slow.waiting == nil { await Task.yield() }
+        #expect(field.offersSuggestions(.tab), "Tab waits for the list rather than leaving the field")
+        #expect(!field.offersSuggestions(.down), "the earlier list can't be picked from")
+        field.onIntent(.complete)
+        #expect(model.recipients.to.contacts.isEmpty, "nobody added from the list for \"jo\"")
+
+        slow.release()
+        while model.recipients.to.contacts.isEmpty { await Task.yield() }
+        #expect(model.recipients.to.contacts == [joan])
+        #expect(model.recipients.to.typed.isEmpty)
+    }
+
+    /// Someone picked with Down stays picked when the lookup for more letters finds them too, and Return pressed
+    /// meanwhile adds them once it answers.
+    @Test func `Return during a lookup adds the person still picked`() async {
+        let slow = SlowLookup()
+        let (composer, model) = composer(holding: slow)
+        let field = composer.toField
+        field.onIntent(.type("jo"))
+        await suggestions(in: composer)
+        field.onIntent(.highlight(.down))
+        field.onIntent(.highlight(.down))
+
+        field.onIntent(.type("joan"))
+        while slow.waiting == nil { await Task.yield() }
+        field.onIntent(.commit)
+        #expect(model.recipients.to.contacts.isEmpty)
+
+        slow.release()
+        while model.recipients.to.contacts.isEmpty { await Task.yield() }
+        #expect(model.recipients.to.contacts == [joan])
     }
 
     private func composer(suggesting people: [Contact]) -> (ComposeViewController, ComposeViewModel) {
