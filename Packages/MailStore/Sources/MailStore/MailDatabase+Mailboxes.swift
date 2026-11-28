@@ -36,11 +36,7 @@ extension MailDatabase {
                 counts[Mailbox(labelID: own.labelID), default: 0] += unread
             }
         }
-        let allMail = threadQuery(in: .allMail)
-        let allMailUnread =
-            try Int.fetchOne(
-                db, sql: "SELECT COUNT(*) " + allMail.sql + " AND thread.isUnread", arguments: allMail.arguments)
-            ?? 0
+        let allMailUnread = try threadSelection(in: .allMail).unreadCount(in: db)
         if allMailUnread > 0 { counts[.allMail] = allMailUnread }
         let scheduled =
             try Int.fetchOne(

@@ -79,7 +79,7 @@ extension MailDatabase: SyncStore {
     public func oldestThreadDate(in mailbox: Mailbox, account: AccountID) throws -> Date? {
         var scoped = mailbox
         scoped.accountID = account
-        let query = Self.threadQuery(in: scoped)
+        let query = Self.threadSelection(in: scoped)
         return try pool.read { db in
             try Date.fetchOne(db, sql: "SELECT MIN(thread.date) " + query.sql, arguments: query.arguments)
         }

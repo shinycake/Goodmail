@@ -106,13 +106,9 @@ extension MailDatabase: OutboxStore {
             try db.execute(sql: "DELETE FROM thread WHERE accountID = ? AND id = ?", arguments: [account, thread])
             return before
         case .labeled(let after) where after != before:
-            try db.execute(
-                sql: "DELETE FROM threadLabel WHERE accountID = ? AND threadID = ?", arguments: [account, thread])
-            for label in after.subtracting([SystemLabel.unread]) {
-                try db.execute(
-                    sql: "INSERT INTO threadLabel (accountID, threadID, labelID) VALUES (?, ?, ?)",
-                    arguments: [account, thread, label])
-            }
+            try replaceLabels(
+                of: ThreadSummary.ID(accountID: AccountID(rawValue: account), threadID: thread),
+                with: after.subtracting([SystemLabel.unread]), in: db)
             try db.execute(
                 sql: "UPDATE thread SET isUnread = ? WHERE accountID = ? AND id = ?",
                 arguments: [after.contains(SystemLabel.unread), account, thread])

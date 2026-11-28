@@ -73,7 +73,9 @@ extension MailDatabase {
         return try pool.read { db in
             let lookup = try FactsLookup(db, mailboxNames: mailboxNames)
             var matches: [MailFacts] = []
-            for thread in try Self.fetchThreads(db, query: (sql, arguments)) {
+            for thread in try Self.fetchThreads(
+                db, query: ThreadSelection(sql: sql, arguments: arguments, order: .thread))
+            {
                 guard let facts = lookup.facts(of: thread), condition.matches(facts, in: context) else { continue }
                 matches.append(facts)
                 if matches.count == Self.factsMatchLimit { break }
@@ -161,7 +163,9 @@ struct FactsLookup {
         return matches
     }
 
-    private static func one(_ id: ThreadSummary.ID) -> (sql: String, arguments: StatementArguments) {
-        ("FROM thread WHERE thread.accountID = ? AND thread.id = ?", [id.accountID.rawValue, id.threadID])
+    private static func one(_ id: ThreadSummary.ID) -> ThreadSelection {
+        ThreadSelection(
+            sql: "FROM thread WHERE thread.accountID = ? AND thread.id = ?",
+            arguments: [id.accountID.rawValue, id.threadID], order: .thread)
     }
 }

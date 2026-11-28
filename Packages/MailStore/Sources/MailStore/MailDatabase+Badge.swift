@@ -29,15 +29,13 @@ extension MailDatabase {
         var total = 0
         for (id, source) in try badgeSources(in: db) where inFocus.contains(id.rawValue) {
             let inbox = Mailbox(labelID: SystemLabel.inbox, accountID: id)
-            let query: (sql: String, arguments: StatementArguments)
+            let query: ThreadSelection
             switch source {
             case .off: continue
-            case .inbox: query = threadQuery(in: inbox)
-            case .primary: query = threadQuery(in: inbox, category: .primary, unsorted: [])
+            case .inbox: query = threadSelection(in: inbox)
+            case .primary: query = threadSelection(in: inbox, category: .primary, unsorted: [])
             }
-            total +=
-                try Int.fetchOne(
-                    db, sql: "SELECT COUNT(*) " + query.sql + " AND thread.isUnread", arguments: query.arguments) ?? 0
+            total += try query.unreadCount(in: db)
         }
         return total
     }

@@ -23,17 +23,11 @@ struct SmartMatch {
         -> [SmartMailbox.ID: [ThreadSummary]]
     {
         guard !conditions.isEmpty else { return [:] }
-        var query = MailDatabase.threadQuery(in: .allMail)
-        if unreadOnly { query.sql += " AND thread.isUnread" }
+        var query = MailDatabase.threadSelection(in: .allMail)
+        if unreadOnly { query = query.filtered("thread.isUnread") }
         let bounds = Self.loosestBounds(of: conditions.values, now: context.now)
-        if let from = bounds.from {
-            query.sql += " AND thread.date >= ?"
-            query.arguments += [from]
-        }
-        if let to = bounds.to {
-            query.sql += " AND thread.date <= ?"
-            query.arguments += [to]
-        }
+        if let from = bounds.from { query = query.filtered("thread.date >= ?", [from]) }
+        if let to = bounds.to { query = query.filtered("thread.date <= ?", [to]) }
         let threads = try MailDatabase.fetchThreads(db, query: query)
         var matched: [SmartMailbox.ID: Set<ThreadSummary.ID>] = conditions.mapValues { _ in [] }
         var unsettled: Set<ThreadSummary.ID> = []

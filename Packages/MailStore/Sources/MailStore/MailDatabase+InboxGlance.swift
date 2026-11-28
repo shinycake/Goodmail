@@ -31,18 +31,19 @@ extension MailDatabase {
     }
 
     static func inboxGlance(limit: Int, in db: Database) throws -> InboxGlance {
-        let inbox = threadQuery(in: .inbox)
+        let inbox = threadSelection(in: .inbox)
         let newest = try fetchThreads(db, query: inbox, limit: limit)
-        let isPinned =
-            " AND EXISTS (SELECT 1 FROM pin WHERE pin.accountID = thread.accountID AND pin.threadID = thread.id)"
-        let pinnedThreads = try fetchThreads(db, query: (inbox.sql + isPinned, inbox.arguments), limit: limit)
+        let pinned = inbox.filtered(
+            "EXISTS (SELECT 1 FROM pin WHERE pin.accountID = thread.accountID AND pin.threadID = thread.id)")
+        let pinnedThreads = try fetchThreads(db, query: pinned, limit: limit)
         let newestIDs = Set(newest.map(\.id))
         let threads = (newest + pinnedThreads.filter { !newestIDs.contains($0.id) }).sorted { $0.date > $1.date }
+        let unreadThreads = inbox.filtered("thread.isUnread")
         let unread = try Row.fetchAll(
             db,
-            sql: "SELECT thread.accountID AS account, COUNT(*) AS count " + inbox.sql
-                + " AND thread.isUnread GROUP BY thread.accountID",
-            arguments: inbox.arguments)
+            sql: "SELECT thread.accountID AS account, COUNT(*) AS count " + unreadThreads.sql
+                + " GROUP BY thread.accountID",
+            arguments: unreadThreads.arguments)
         return InboxGlance(
             accounts: try AccountRecord.order(Column("position"), Column("createdAt")).fetchAll(db).compactMap(
                 \.account),

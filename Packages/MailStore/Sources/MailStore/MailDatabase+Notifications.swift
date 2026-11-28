@@ -78,8 +78,8 @@ extension MailDatabase: NotificationStore {
     private static func inboxThreads(of account: AccountID, after date: Date, in db: Database) throws
         -> [ThreadSummary]
     {
-        let inbox = threadQuery(in: Mailbox(labelID: SystemLabel.inbox, accountID: account))
-        return try fetchThreads(db, query: (inbox.sql + " AND thread.date > ?", inbox.arguments + [date]))
+        let inbox = threadSelection(in: Mailbox(labelID: SystemLabel.inbox, accountID: account))
+        return try fetchThreads(db, query: inbox.filtered("thread.date > ?", [date]))
     }
 
     private static func notifications(for account: AccountID, now: Date, in db: Database) throws

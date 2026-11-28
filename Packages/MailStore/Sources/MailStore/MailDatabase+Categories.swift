@@ -9,7 +9,7 @@ extension MailDatabase {
         -> AsyncThrowingStream<[ThreadSummary], any Error>
     {
         observe { db in
-            try Self.fetchThreads(db, query: Self.threadQuery(in: mailbox, category: category, unsorted: unsorted))
+            try Self.fetchThreads(db, query: Self.threadSelection(in: mailbox, category: category, unsorted: unsorted))
         }
     }
 
@@ -20,28 +20,25 @@ extension MailDatabase {
         observe { db in
             var counts: [InboxCategory: Int] = [:]
             for category in InboxCategory.allCases {
-                let query = Self.threadQuery(in: mailbox, category: category, unsorted: unsorted)
-                let count =
-                    try Int.fetchOne(
-                        db, sql: "SELECT COUNT(*) " + query.sql + " AND thread.isUnread", arguments: query.arguments)
-                    ?? 0
+                let count = try Self.threadSelection(in: mailbox, category: category, unsorted: unsorted)
+                    .unreadCount(in: db)
                 if count > 0 { counts[category] = count }
             }
             return counts
         }
     }
 
-    /// `threadQuery(in:)` narrowed to the threads under `category`.
-    static func threadQuery(in mailbox: Mailbox, category: InboxCategory, unsorted: Set<AccountID>)
-        -> (sql: String, arguments: StatementArguments)
+    /// `threadSelection(in:)` narrowed to the threads under `category`.
+    static func threadSelection(in mailbox: Mailbox, category: InboxCategory, unsorted: Set<AccountID>)
+        -> ThreadSelection
     {
-        var (sql, arguments) = threadQuery(in: mailbox)
+        var query = threadSelection(in: mailbox)
         let others = InboxCategory.allCases.filter { $0 != .primary }.map(\.labelID)
         let unsortedIDs = unsorted.map(\.rawValue).sorted()
         let unsortedList = unsortedIDs.map { _ in "?" }.joined(separator: ", ")
         if category == .primary {
             // Labelled Primary, or with no other category, or in an account that doesn't sort its Inbox.
-            sql += """
+            query.sql += """
                  AND (EXISTS (
                     SELECT 1 FROM threadLabel AS category
                     WHERE category.accountID = thread.accountID AND category.threadID = thread.id
@@ -51,26 +48,26 @@ extension MailDatabase {
                     WHERE category.accountID = thread.accountID AND category.threadID = thread.id
                     AND category.labelID IN (\(others.map { _ in "?" }.joined(separator: ", "))))
                 """
-            arguments += [category.labelID]
-            arguments += StatementArguments(others)
+            query.arguments += [category.labelID]
+            query.arguments += StatementArguments(others)
             if !unsortedIDs.isEmpty {
-                sql += " OR thread.accountID IN (\(unsortedList))"
-                arguments += StatementArguments(unsortedIDs)
+                query.sql += " OR thread.accountID IN (\(unsortedList))"
+                query.arguments += StatementArguments(unsortedIDs)
             }
-            sql += ")"
+            query.sql += ")"
         } else {
-            sql += """
+            query.sql += """
                  AND EXISTS (
                     SELECT 1 FROM threadLabel AS category
                     WHERE category.accountID = thread.accountID AND category.threadID = thread.id
                     AND category.labelID = ?)
                 """
-            arguments += [category.labelID]
+            query.arguments += [category.labelID]
             if !unsortedIDs.isEmpty {
-                sql += " AND thread.accountID NOT IN (\(unsortedList))"
-                arguments += StatementArguments(unsortedIDs)
+                query.sql += " AND thread.accountID NOT IN (\(unsortedList))"
+                query.arguments += StatementArguments(unsortedIDs)
             }
         }
-        return (sql, arguments)
+        return query
     }
 }

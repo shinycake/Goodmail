@@ -6,7 +6,7 @@ public import MailCore
 extension MailDatabase {
     /// The newest `limit` threads in `mailbox`.
     public func threads(in mailbox: Mailbox, limit: Int) throws -> [ThreadSummary] {
-        try pool.read { db in try Self.fetchThreads(db, query: Self.threadQuery(in: mailbox), limit: limit) }
+        try pool.read { db in try Self.fetchThreads(db, query: Self.threadSelection(in: mailbox), limit: limit) }
     }
 
     /// The stored threads among `ids`, newest first, whatever mailbox they are in.
@@ -14,10 +14,9 @@ extension MailDatabase {
         guard !ids.isEmpty else { return [] }
         // Thread IDs are only unique per account, so match the pair.
         let keys = ids.map { $0.accountID.rawValue + "\u{1F}" + $0.threadID }
-        let query: (sql: String, arguments: StatementArguments) = (
-            "FROM thread WHERE thread.accountID || char(31) || thread.id IN (SELECT value FROM json_each(?))",
-            [String(decoding: try JSONEncoder().encode(keys), as: UTF8.self)]
-        )
+        let query = ThreadSelection(
+            sql: "FROM thread WHERE thread.accountID || char(31) || thread.id IN (SELECT value FROM json_each(?))",
+            arguments: [String(decoding: try JSONEncoder().encode(keys), as: UTF8.self)], order: .thread)
         return try pool.read { db in try Self.fetchThreads(db, query: query) }
     }
 

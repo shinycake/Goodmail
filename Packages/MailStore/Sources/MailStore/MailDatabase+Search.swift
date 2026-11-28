@@ -19,9 +19,7 @@ extension MailDatabase {
     static let searchLimit = 300
 
     /// `FROM … WHERE …` for `search`, or nil when nothing can match.
-    static func searchQuery(_ text: String, including ids: [ThreadSummary.ID]) throws
-        -> (sql: String, arguments: StatementArguments)?
-    {
+    static func searchQuery(_ text: String, including ids: [ThreadSummary.ID]) throws -> ThreadSelection? {
         var matches: [String] = []
         var arguments: StatementArguments = []
         if let local = localMatch(SearchQuery(text)) {
@@ -43,7 +41,7 @@ extension MailDatabase {
                 WHERE excluded.accountID = thread.accountID AND excluded.threadID = thread.id
                 AND excluded.labelID IN (?, ?))
             """
-        return (sql, arguments + [SystemLabel.spam, SystemLabel.trash])
+        return ThreadSelection(sql: sql, arguments: arguments + [SystemLabel.spam, SystemLabel.trash], order: .thread)
     }
 
     /// The condition for the threads matching `query` here, or nil when there is nothing to match or the query asks
