@@ -5,6 +5,7 @@
 #   scripts/ui-suite --gate                  the launch and smoke tests, which scripts/check runs
 #   scripts/ui-suite --only <Class[/test]>   only these, on one simulator; repeat --only for more
 #   scripts/ui-suite --main                  the full suite on the latest origin/main, unless it already passed there
+#   scripts/ui-suite --perf                  the performance tests, alone on one simulator, against their baselines
 #   --workers 1|2                            with the full suite or --main: on this many simulators, whatever else runs
 #
 # The full suite splits its classes into shards by their number of tests, and runs each shard in its own
@@ -13,6 +14,8 @@
 # more other simulators are already booted, when the 16 GB Mac would page hard and it takes one.
 # A test that fails in the full suite runs once more, and the summary names every test that needed it. The gate and
 # --only never retry: a failure there is the answer.
+# --perf runs the *PerformanceTests, which no other mode runs, with GOODMAIL_PERF set, and then compares their medians
+# with GoodmailUITests/Performance/baselines.json (scripts/perf-compare). Run it with nothing else testing.
 # --main tests origin/main in its own worktree at $BUILD_ROOT/ui-suite-main and records the commit in
 # $BUILD_ROOT/.ui-suite-passed when it passes, so a scheduled run skips a commit it has already passed.
 set -euo pipefail
@@ -26,7 +29,7 @@ source scripts/xcode-helpers
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX
 
 usage() {
-    sed -n '4,8p' "$0" | cut -c3- >&2
+    sed -n '4,9p' "$0" | cut -c3- >&2
     exit 2
 }
 
@@ -37,6 +40,7 @@ while (($#)); do
     case "$1" in
         --gate) set_mode gate ;;
         --main) set_mode main ;;
+        --perf) set_mode perf ;;
         --only)
             [[ $# -ge 2 ]] || usage
             set_mode only
@@ -102,21 +106,38 @@ test_classes() {
             else counts[class]++
         }
         END { for (c in counts) if (counts[c] > 0) print counts[c], c; exit lost }
-    ' GoodmailUITests/*.swift
+    ' $(find GoodmailUITests -name '*.swift' | sort)
 }
 
+# Booted simulators other than this checkout's own two, counted before either boots.
+other_booted() {
+    xcrun simctl list devices booted | grep -E '\([0-9A-F-]{36}\)' |
+        grep -vcF -e "$CHECK_NAME (" -e "$CHECK2_NAME (" || true
+}
+
+classes=$(test_classes) || exit 1
 # What each mode runs: its shards (space-separated tests, one shard per simulator) and whether a failed test retries.
 shards=() retries=()
 case "$mode" in
     gate) shards=("LaunchTests SmokeTests") ;;
     only) shards=("${only[*]}") ;;
+    perf)
+        # One shard: the performance tests want the Mac to themselves.
+        perf_classes=$(awk '$2 ~ /PerformanceTests$/ { printf "%s ", $2 }' <<<"$classes")
+        # An empty shard would run every test.
+        [[ -n "$perf_classes" ]] || { echo "✘ No *PerformanceTests classes in GoodmailUITests" >&2; exit 1; }
+        shards=("$perf_classes")
+        others=$(other_booted)
+        if ((others > 0)); then
+            echo "⚠ $others other simulator(s) are booted, so their load is measured too. Compare with care."
+        fi
+        # xcodebuild hands TEST_RUNNER_ variables to the tests without the prefix.
+        export TEST_RUNNER_GOODMAIL_PERF=1
+        ;;
     full)
-        classes=$(test_classes) || exit 1
         retries=(-retry-tests-on-failure -test-iterations 2)
         if [[ "$workers" == auto ]]; then
-            # Booted simulators other than this checkout's own two, counted before either boots.
-            others=$(xcrun simctl list devices booted | grep -E '\([0-9A-F-]{36}\)' |
-                grep -vcF -e "$CHECK_NAME (" -e "$CHECK2_NAME (" || true)
+            others=$(other_booted)
             workers=2
             if ((others >= 2)); then
                 echo "⚠ $others other simulators are booted, so the suite runs on one simulator instead of two."
@@ -249,3 +270,8 @@ for i in "${!shards[@]}"; do
 done
 ((failed == 0)) || exit 1
 printf '\n✔ UI tests (%s) passed\n' "$mode"
+if [[ "$mode" == perf ]]; then
+    step "Against the baselines (scripts/perf-compare)"
+    scripts/perf-compare "${results[0]}"
+    echo "To make this run the baselines: scripts/perf-compare --record ${results[0]}"
+fi

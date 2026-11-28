@@ -53,6 +53,7 @@ public final class ThreadViewController: UIViewController {
     private var readableWidth: [NSLayoutConstraint] = []
     private var chatWidth: [NSLayoutConstraint] = []
     private var observation: Task<Void, Never>?
+    private var firstPage = Signpost.Once(.threadOpen)
     /// A fetch asked for again from Try Again, which a newer one replaces; leaving the reader cancels it.
     private var fetchingAgain: Task<Void, Never>?
     /// The layout the reader last scrolled to the focused message in; switching layouts scrolls there again.
@@ -89,6 +90,7 @@ public final class ThreadViewController: UIViewController {
         self.unsubscribeOffer = unsubscribeOffer
         super.init(nibName: nil, bundle: nil)
         navigationItem.largeTitleDisplayMode = .never
+        firstPage.begin()
     }
 
     @available(*, unavailable)
@@ -612,6 +614,7 @@ public final class ThreadViewController: UIViewController {
         card.onTrust = { [weak self] in self?.viewModel.alwaysAllowRemoteContent(by: $0) }
         card.openURL = openURL
         wireDesktop(card, message: id)
+        card.onBodyLayout = { [weak self] in self?.firstPage.end() }
         card.onOpenAttachment = { [weak self, weak card] attachment in
             self?.open(attachment, in: id) { card?.setLoading($0, for: attachment) }
         }

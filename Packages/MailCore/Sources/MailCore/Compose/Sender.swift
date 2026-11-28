@@ -136,7 +136,8 @@ public actor Sender {
                 return taken
             }
             guard let message = due.first else { return taken }
-            switch await attempt(message, on: provider) {
+            let step = await Signpost.send.measure(accountID.rawValue) { await attempt(message, on: provider) }
+            switch step {
             case .next: continue
             case .took(let draft): taken.append(draft)
             case .tookLast(let draft): return taken + [draft]
@@ -348,4 +349,9 @@ public actor Sender {
         }
         return draft
     }
+}
+
+extension Signpost {
+    /// One queued message's attempt, from taking it off the queue to it going out, or failing to.
+    static let send = Signpost("Send")
 }

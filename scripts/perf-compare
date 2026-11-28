@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+"""Compares a run of the performance tests with the baselines kept in git (scripts/ui-suite --perf runs it).
+
+  scripts/perf-compare <run>            each metric's median against GoodmailUITests/Performance/baselines.json
+  scripts/perf-compare --record <run>   rewrites the baselines from this run
+
+<run> is a result bundle (.xcresult), or the JSON `xcrun xcresulttool get test-results metrics` prints for one.
+scripts/ui-suite --perf prints the path of its bundle. A median more than its tolerance above the baseline is a
+regression. For now regressions only warn: the script prints a ⚠ line for each and exits 0. Baselines come from Debug
+builds on the owner's Mac, slimmed simulator and all, so only compare runs from it.
+"""
+
+import json
+import statistics
+import subprocess
+import sys
+from pathlib import Path
+
+BASELINES = Path(__file__).resolve().parent.parent / "GoodmailUITests/Performance/baselines.json"
+# How far above its baseline a median may go before it counts as a regression, as a fraction of the baseline. Wide,
+# since other threads' builds and simulators share the Mac the runs are on. A baseline can set its own.
+DEFAULT_TOLERANCE = 0.25
+
+
+def read_run(path):
+    """The metrics of the run in a result bundle, or in a JSON file of what xcresulttool prints for one."""
+    path = Path(path)
+    if path.suffix == ".xcresult":
+        printed = subprocess.run(
+            ["xcrun", "xcresulttool", "get", "test-results", "metrics", "--compact", "--path", str(path)],
+            check=True, capture_output=True, text=True).stdout
+        return metrics_from(json.loads(printed))
+    return metrics_from(json.loads(path.read_text()))
+
+
+def metrics_from(tests):
+    """The metrics xcresulttool lists, as {test: {metric identifier: {name, unit, median, polarity}}}."""
+    # A test that ran more than once, as with -test-iterations, pools its measurements.
+    pooled = {}
+    for test in tests:
+        for test_run in test["testRuns"]:
+            for metric in test_run["metrics"]:
+                identifier = metric.get("identifier") or metric["displayName"]
+                entry = pooled.setdefault(test["testIdentifier"], {}).setdefault(identifier, {
+                    "name": metric["displayName"],
+                    "unit": metric.get("unitOfMeasurement", ""),
+                    "polarity": metric.get("polarity", "prefers smaller"),
+                    "measurements": [],
+                })
+                entry["measurements"] += metric.get("measurements", [])
+    run = {}
+    for test, metrics in pooled.items():
+        for identifier, entry in metrics.items():
+            measurements = entry.pop("measurements")
+            if measurements:
+                run.setdefault(test, {})[identifier] = entry | {"median": statistics.median(measurements)}
+    return run
+
+
+def compare(run, baselines):
+    """The lines to print and how many regressions they hold."""
+    lines, regressions = [], 0
+    for test, metrics in sorted(baselines.get("tests", {}).items()):
+        for identifier, baseline in sorted(metrics.items()):
+            name, unit, expected = baseline["name"], baseline["unit"], baseline["median"]
+            measured = run.get(test, {}).get(identifier)
+            if measured is None:
+                lines.append(f"⚠ {test} {name}: not in this run")
+                regressions += 1
+                continue
+            median = measured["median"]
+            tolerance = baseline.get("tolerance", baselines.get("tolerance", DEFAULT_TOLERANCE))
+            # A metric that prefers larger values, such as a frame rate, regresses downwards.
+            worse = median < expected * (1 - tolerance) if baseline["polarity"] == "prefers larger" \
+                else median > expected * (1 + tolerance)
+            change = f"{(median - expected) / expected:+.0%}" if expected else "no baseline to scale"
+            line = f"{test} {name}: {median:.4g} {unit} against {expected:.4g} {unit} ({change})"
+            if worse:
+                lines.append(f"⚠ {line}, past the {tolerance:.0%} tolerance")
+                regressions += 1
+            else:
+                lines.append(f"  {line}")
+    for test, metrics in sorted(run.items()):
+        for identifier, measured in sorted(metrics.items()):
+            if identifier not in baselines.get("tests", {}).get(test, {}):
+                lines.append(f"  {test} {measured['name']}: {measured['median']:.4g} {measured['unit']}, no baseline")
+    return lines, regressions
+
+
+def record(run, baselines, still_exists):
+    """The baselines with this run's medians in place of their own, keeping any tolerance set by hand. The baseline of
+    a test the run didn't measure, as one it skipped or didn't run, stays while `still_exists(test)`, so a test that was
+    renamed or removed loses its baseline."""
+    tests = {test: dict(metrics) for test, metrics in baselines.get("tests", {}).items()
+             if test in run or still_exists(test)}
+    for test, metrics in run.items():
+        for identifier, measured in metrics.items():
+            entry = {key: measured[key] for key in ("name", "unit", "polarity")}
+            entry["median"] = round(measured["median"], 6)
+            kept = baselines.get("tests", {}).get(test, {}).get(identifier, {})
+            if "tolerance" in kept:
+                entry["tolerance"] = kept["tolerance"]
+            tests.setdefault(test, {})[identifier] = entry
+    return {"tolerance": baselines.get("tolerance", DEFAULT_TOLERANCE), "tests": tests}
+
+
+def in_sources(test):
+    """Whether a test such as "LaunchPerformanceTests/testLaunch()" is still in the UI tests' sources."""
+    test_class, _, method = test.partition("/")
+    method = method.removesuffix("()")
+    for source in BASELINES.parent.parent.rglob("*.swift"):
+        text = source.read_text()
+        if f"class {test_class}:" in text and f"func {method}(" in text:
+            return True
+    return False
+
+
+def main(arguments):
+    recording = arguments[:1] == ["--record"]
+    if recording:
+        arguments = arguments[1:]
+    if len(arguments) != 1:
+        print(__doc__.split("\n\n")[1], file=sys.stderr)
+        return 2
+    run = read_run(arguments[0])
+    baselines = json.loads(BASELINES.read_text()) if BASELINES.exists() else {"tests": {}}
+    if recording:
+        BASELINES.write_text(json.dumps(record(run, baselines, in_sources), indent=2, sort_keys=True) + "\n")
+        print(f"Recorded the baselines of {sum(map(len, run.values()))} metrics in {BASELINES}")
+        return 0
+    lines, regressions = compare(run, baselines)
+    print("\n".join(lines))
+    if not baselines.get("tests"):
+        print("\nNo baselines yet: record them with --record.")
+    elif regressions:
+        print(f"\n⚠ {regressions} metric{'' if regressions == 1 else 's'} slower than the baselines allow, or missing"
+              " from this run. Only a warning for now.")
+    else:
+        print("\n✔ Every metric is within its baseline's tolerance.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

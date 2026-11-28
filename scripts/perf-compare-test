@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+"""Tests for scripts/perf-compare, on metrics shaped like `xcresulttool get test-results metrics` prints them."""
+
+import importlib.machinery
+import importlib.util
+import json
+import sys
+import unittest
+from pathlib import Path
+
+loader = importlib.machinery.SourceFileLoader("perf_compare", str(Path(__file__).with_name("perf-compare")))
+spec = importlib.util.spec_from_loader("perf_compare", loader)
+perf_compare = importlib.util.module_from_spec(spec)
+loader.exec_module(perf_compare)
+
+LAUNCH = "LaunchPerformanceTests/testLaunch()"
+LAUNCH_METRIC = "com.apple.dt.XCTMetric_ApplicationLaunch-AppLaunch.duration"
+FRAMES = "ScrollPerformanceTests/testScrollDecelerationWith50kThreads()"
+FRAMES_METRIC = "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.frameRate"
+
+
+def metrics_json(launches, frame_rates):
+    """A run in xcresulttool's shape: launch durations in seconds, and frame rates, which prefer larger values."""
+    def test(identifier, metric, name, unit, measurements, polarity):
+        return {
+            "testIdentifier": identifier,
+            "testRuns": [{
+                "testPlanConfiguration": {"configurationId": "1", "configurationName": "Test Scheme Action"},
+                "device": {"deviceId": "X", "deviceName": "Goodmail Check"},
+                "metrics": [{"displayName": name, "unitOfMeasurement": unit, "measurements": measurements,
+                             "identifier": metric, "polarity": polarity}],
+            }],
+        }
+    return [test(LAUNCH, LAUNCH_METRIC, "Duration (AppLaunch)", "s", launches, "prefers smaller"),
+            test(FRAMES, FRAMES_METRIC, "Frame Rate", "fps", frame_rates, "prefers larger")]
+
+
+def read(run):
+    return perf_compare.metrics_from(run)
+
+
+def record(run, baselines, still_exists=lambda test: True):
+    return perf_compare.record(run, baselines, still_exists)
+
+
+class PerfCompareTests(unittest.TestCase):
+    def setUp(self):
+        self.baselines = record(read(metrics_json([1.0, 1.1, 0.9], [60, 59, 61])), {"tolerance": 0.2})
+
+    def test_record_keeps_each_metrics_median(self):
+        self.assertEqual(self.baselines["tests"][LAUNCH][LAUNCH_METRIC]["median"], 1.0)
+        self.assertEqual(self.baselines["tests"][FRAMES][FRAMES_METRIC]["median"], 60)
+
+    def test_a_run_within_the_tolerance_passes(self):
+        lines, regressions = perf_compare.compare(read(metrics_json([1.1, 1.15, 1.2], [55, 56, 57])), self.baselines)
+        self.assertEqual(regressions, 0, lines)
+
+    def test_a_slower_median_past_the_tolerance_warns(self):
+        lines, regressions = perf_compare.compare(read(metrics_json([1.3, 1.25, 1.4], [60, 60, 60])), self.baselines)
+        self.assertEqual(regressions, 1)
+        self.assertTrue(any(line.startswith("⚠") and "AppLaunch" in line for line in lines), lines)
+
+    def test_a_metric_that_prefers_larger_values_regresses_downwards(self):
+        lines, regressions = perf_compare.compare(read(metrics_json([1.0, 1.0, 1.0], [40, 41, 42])), self.baselines)
+        self.assertEqual(regressions, 1)
+        self.assertTrue(any(line.startswith("⚠") and "Frame Rate" in line for line in lines), lines)
+        _, faster = perf_compare.compare(read(metrics_json([1.0, 1.0, 1.0], [90, 90, 90])), self.baselines)
+        self.assertEqual(faster, 0)
+
+    def test_a_metric_missing_from_the_run_warns(self):
+        run = read(metrics_json([1.0], [60]))
+        del run[FRAMES]
+        lines, regressions = perf_compare.compare(run, self.baselines)
+        self.assertEqual(regressions, 1)
+        self.assertIn("not in this run", "\n".join(lines))
+
+    def test_recording_keeps_a_tolerance_set_by_hand(self):
+        self.baselines["tests"][LAUNCH][LAUNCH_METRIC]["tolerance"] = 0.5
+        again = record(read(metrics_json([2.0], [60])), self.baselines)
+        self.assertEqual(again["tests"][LAUNCH][LAUNCH_METRIC], {
+            "name": "Duration (AppLaunch)", "unit": "s", "median": 2.0, "polarity": "prefers smaller", "tolerance": 0.5})
+
+    def test_recording_keeps_the_baseline_of_a_test_the_run_skipped(self):
+        run = read(metrics_json([2.0], [60]))
+        del run[FRAMES]
+        again = record(run, self.baselines)
+        self.assertEqual(again["tests"][LAUNCH][LAUNCH_METRIC]["median"], 2.0)
+        self.assertEqual(again["tests"][FRAMES], self.baselines["tests"][FRAMES])
+
+    def test_recording_drops_the_baseline_of_a_test_that_is_gone(self):
+        renamed = "LaunchPerformanceTests/testColdLaunch()"
+        run = read(metrics_json([2.0], [60]))
+        run[renamed] = run.pop(LAUNCH)
+        again = record(run, self.baselines, still_exists=lambda test: test != LAUNCH)
+        self.assertNotIn(LAUNCH, again["tests"])
+        self.assertIn(renamed, again["tests"])
+
+    def test_a_test_run_more_than_once_pools_its_measurements(self):
+        tests = metrics_json([1.0, 1.0], [60])
+        tests[0]["testRuns"].append(json.loads(json.dumps(tests[0]["testRuns"][0])))
+        tests[0]["testRuns"][1]["metrics"][0]["measurements"] = [4.0, 4.0, 4.0]
+        self.assertEqual(read(tests)[LAUNCH][LAUNCH_METRIC]["median"], 4.0)
+
+    def test_a_metric_without_an_identifier_goes_by_its_name(self):
+        tests = metrics_json([1.0], [60])
+        del tests[0]["testRuns"][0]["metrics"][0]["identifier"]
+        self.assertIn("Duration (AppLaunch)", read(tests)[LAUNCH])
+
+
+if __name__ == "__main__":
+    unittest.main(argv=[sys.argv[0], "-q"])

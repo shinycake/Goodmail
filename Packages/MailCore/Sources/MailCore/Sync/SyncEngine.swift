@@ -41,7 +41,7 @@ public actor SyncEngine {
     /// Brings the account up to date. Concurrent callers share the sync in progress.
     public func sync() async throws {
         if let running { return try await running.value }
-        let task = Task { try await performSync() }
+        let task = Task { try await Signpost.sync.measure(accountID.rawValue) { try await performSync() } }
         running = task
         defer { running = nil }
         try await task.value
@@ -257,4 +257,9 @@ public actor SyncEngine {
         )
         return fetch.found
     }
+}
+
+extension Signpost {
+    /// One account's sync, from its start to the account being up to date or the sync failing.
+    static let sync = Signpost("Sync")
 }

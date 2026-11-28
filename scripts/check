@@ -65,6 +65,9 @@ scripts/configured-buttons
 step "Database reads off the main actor (scripts/blocking-reads)"
 scripts/blocking-reads
 
+step "Performance baseline comparison (scripts/perf-compare-test)"
+scripts/perf-compare-test
+
 # The message script ships as plain JavaScript parts (MessageScript), each run in a block of its own, so a part that
 # parses on its own also parses in the page. One that doesn't would only show as mail whose card never takes its
 # height. Nothing installs node: the Mac has it, and where a runner doesn't, the MailUI tests on the Mac still catch it.

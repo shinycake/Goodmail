@@ -63,6 +63,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         options connectionOptions: UIScene.ConnectionOptions
     ) {
         guard let windowScene = scene as? UIWindowScene else { return }
+        LaunchInterval.begin()
         // What the session said of a window before is of one that has gone.
         SessionRecord.clear(session)
         let launch = Self.launch

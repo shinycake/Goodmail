@@ -1,0 +1,51 @@
+{
+  "tests": {
+    "LaunchPerformanceTests/testLaunch()": {
+      "com.apple.dt.XCTMetric_ApplicationLaunch-ApplicationFirstFramePresentationResponsive.duration": {
+        "median": 3.798422,
+        "name": "Duration (ApplicationFirstFramePresentationResponsive)",
+        "polarity": "prefers smaller",
+        "unit": "s"
+      },
+      "com.apple.dt.XCTMetric_OSSignpost-Launch.duration": {
+        "median": 1.052668,
+        "name": "Duration (Launch)",
+        "polarity": "prefers smaller",
+        "unit": "s"
+      }
+    },
+    "ScrollPerformanceTests/testFirstRowsWith50kThreads()": {
+      "com.apple.dt.XCTMetric_OSSignpost-MailboxFirstRows.duration": {
+        "median": 1.037569,
+        "name": "Duration (MailboxFirstRows)",
+        "polarity": "prefers smaller",
+        "unit": "s"
+      }
+    },
+    "ScrollPerformanceTests/testScrollDecelerationWith50kThreads()": {
+      "com.apple.dt.XCTMetric_OSSignpost-Scroll_Deceleration.duration": {
+        "median": 2.433426,
+        "name": "Duration (Scroll_Deceleration)",
+        "polarity": "prefers smaller",
+        "unit": "s"
+      }
+    },
+    "SignpostPerformanceTests/testMailboxFirstRows()": {
+      "com.apple.dt.XCTMetric_OSSignpost-MailboxFirstRows.duration": {
+        "median": 0.47496,
+        "name": "Duration (MailboxFirstRows)",
+        "polarity": "prefers smaller",
+        "unit": "s"
+      }
+    },
+    "SignpostPerformanceTests/testThreadOpen()": {
+      "com.apple.dt.XCTMetric_OSSignpost-ThreadOpen.duration": {
+        "median": 0.129528,
+        "name": "Duration (ThreadOpen)",
+        "polarity": "prefers smaller",
+        "unit": "s"
+      }
+    }
+  },
+  "tolerance": 0.25
+}

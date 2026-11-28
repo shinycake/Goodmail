@@ -7,6 +7,7 @@ public final class MailboxViewController: UIViewController {
     private(set) var collectionView: UICollectionView!
     private(set) var dataSource: UICollectionViewDiffableDataSource<MailboxSection, ThreadSummary.ID>!
     private(set) var threadsByID: [ThreadSummary.ID: ThreadSummary] = [:]
+    var firstRows = Signpost.Once(.mailboxFirstRows)
     private var sectionTitles = SectionTitles()
     private var observation: Task<Void, Never>?
     private(set) var swipes: SwipeActionsController!
@@ -113,6 +114,7 @@ public final class MailboxViewController: UIViewController {
         view.addSubview(collectionView)
         if let inboxZero { installInboxZero(inboxZero) }
         configureDataSource()
+        noteListBuilt()
         configureSwipes()
         configureDrag()
         configurePointerPicking()
@@ -398,6 +400,7 @@ public final class MailboxViewController: UIViewController {
         threadsByID = threads
         let retitled = sectionTitles.update(to: sections)
         dataSource.apply(snapshot, animatingDifferences: view.window != nil)
+        noteListShown()
         // Headers are retitled in place. Reloading their sections would reload every row in them too, and a row
         // reloaded while a gap above it closes and select mode ends could be left blurred mid-crossfade.
         for section in retitled {
