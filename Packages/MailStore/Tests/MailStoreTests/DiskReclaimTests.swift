@@ -122,7 +122,9 @@ final class DiskReclaimTests {
             let unshrunk = try database.diskUsage()
             let again = try database.reclaimDisk(.readerAsked, volumeFree: Self.roomy, mayConvert: false)
             withExtendedLifetime(reading) {}
-            #expect(released == .partly(bytes: trimmed.totalBytes - unshrunk.totalBytes))
+            // The released pages wait in the log the read keeps from emptying, so on Apple platforms the files can
+            // even grow, which counts as nothing given back.
+            #expect(released == .partly(bytes: max(0, trimmed.totalBytes - unshrunk.totalBytes)))
             #expect(unshrunk.fileBytes == trimmed.fileBytes)
             #expect(unshrunk.freeBytes == 0)
             #expect(again == .notNow)
