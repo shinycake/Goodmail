@@ -171,7 +171,7 @@
                 }
             } catch {
                 Logger(subsystem: "com.idanbirman.goodmail", category: "spotlight")
-                    .error("Couldn't update Spotlight: \(error, privacy: .public)")
+                    .error("Couldn't update Spotlight: \(error, privacy: .private)")
             }
         }
     }

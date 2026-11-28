@@ -21,8 +21,14 @@ extension AppModel {
             })
     }
 
+    /// The stored choices, or none when they can't be read, so Settings shows each account's default.
     private func badgeSources() async -> [AccountID: BadgeSource] {
-        (try? await database.offMain { try $0.badgeSources() }) ?? [:]
+        do {
+            return try await database.offMain { try $0.badgeSources() }
+        } catch {
+            Logger.push.error("Couldn't read the badge choices: \(error, privacy: .private)")
+            return [:]
+        }
     }
 
     /// Stores the choice. The badge follows by itself, since `AppBadge` watches the count.
@@ -30,7 +36,7 @@ extension AppModel {
         do {
             try await database.offMain { try $0.setBadgeSource(source, for: id) }
         } catch {
-            Logger.push.error("Couldn't store the badge choice: \(error, privacy: .public)")
+            Logger.push.error("Couldn't store the badge choice: \(error, privacy: .private)")
         }
     }
 }

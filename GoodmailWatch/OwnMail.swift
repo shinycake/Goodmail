@@ -140,7 +140,7 @@ final class OwnMail {
                 uploads: folder.appending(path: "Uploads", directoryHint: .isDirectory), independence: independence,
                 handBack: handBack)
         } catch {
-            log.error("Couldn't open the watch's own mail: \(error, privacy: .public)")
+            log.error("Couldn't open the watch's own mail: \(error, privacy: .private)")
             return nil
         }
     }
@@ -154,7 +154,7 @@ final class OwnMail {
             do {
                 try await host.follow(following.accounts, independence: following.independence)
             } catch {
-                Self.log.error("Couldn't follow the iPhone's accounts: \(error, privacy: .public)")
+                Self.log.error("Couldn't follow the iPhone's accounts: \(error, privacy: .private)")
             }
             Self.resend(in: inbox, threads, sources: try? await host.sources(), from: host)
             ask(.check)
@@ -170,7 +170,7 @@ final class OwnMail {
                 do {
                     try await host.sync()
                 } catch {
-                    Self.log.error("Couldn't check the watch's own mail: \(error, privacy: .public)")
+                    Self.log.error("Couldn't check the watch's own mail: \(error, privacy: .private)")
                 }
                 Self.resend(in: inbox, threads, sources: try? await host.sources(), from: host)
             case .prune:
@@ -183,7 +183,7 @@ final class OwnMail {
         do {
             try await host.prune()
         } catch {
-            log.error("Couldn't prune the watch's own mail: \(error, privacy: .public)")
+            log.error("Couldn't prune the watch's own mail: \(error, privacy: .private)")
         }
     }
 
@@ -191,7 +191,7 @@ final class OwnMail {
         do {
             for try await snapshot in host.snapshots() { await server.inboxChanged(snapshot) }
         } catch {
-            log.error("Stopped reading the watch's own Inbox: \(error, privacy: .public)")
+            log.error("Stopped reading the watch's own Inbox: \(error, privacy: .private)")
         }
     }
 
@@ -200,7 +200,7 @@ final class OwnMail {
             do {
                 try await server.received(command)
             } catch {
-                log.error("Couldn't run a command on the watch: \(error, privacy: .public)")
+                log.error("Couldn't run a command on the watch: \(error, privacy: .private)")
             }
         }
     }

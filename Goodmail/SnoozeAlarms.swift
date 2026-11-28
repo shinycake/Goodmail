@@ -23,7 +23,7 @@ final class SnoozeAlarms {
                     await Self.schedule(snoozed, accounts: model.accounts)
                 }
             } catch {
-                Logger.snooze.error("Stopped scheduling snooze alerts: \(error, privacy: .public)")
+                Logger.snooze.error("Stopped scheduling snooze alerts: \(error, privacy: .private)")
             }
         }
     }
@@ -44,7 +44,7 @@ final class SnoozeAlarms {
             do {
                 try await center.add(SnoozeAlarm.request(for: thread, in: account))
             } catch {
-                Logger.snooze.error("Couldn't schedule a snooze alert: \(error, privacy: .public)")
+                Logger.snooze.error("Couldn't schedule a snooze alert: \(error, privacy: .private)")
             }
         }
     }

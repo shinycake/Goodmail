@@ -85,7 +85,7 @@ final class AppLaunch {
             state = .running(services)
             services.start()
         case .failure(let error):
-            log.fault("Couldn't open the mail database: \(error, privacy: .public)")
+            log.fault("Couldn't open the mail database: \(error, privacy: .private)")
             state = .failed(error)
         }
         for continuation in waiting { continuation.resume(with: result) }
@@ -112,7 +112,7 @@ struct AppServices {
         do {
             try await model.followSharedAccounts()
         } catch {
-            Logger.sharing.error("Couldn't read the accounts other devices share: \(error, privacy: .public)")
+            Logger.sharing.error("Couldn't read the accounts other devices share: \(error, privacy: .private)")
         }
         // Then the settings, so a new device opens with the reader's choices for the accounts it now has.
         await model.syncSettings()

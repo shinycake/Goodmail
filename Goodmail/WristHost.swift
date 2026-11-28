@@ -105,7 +105,7 @@ final class WristHost {
             do {
                 try await server.received(JSONDecoder().decode(WristCommand.self, from: data))
             } catch {
-                log.error("Couldn't make a change from the watch: \(error, privacy: .public)")
+                log.error("Couldn't make a change from the watch: \(error, privacy: .private)")
             }
         }
     }
@@ -138,7 +138,7 @@ final class WristHost {
                 try await host.conversation(id)
             }
         } catch {
-            log.error("Couldn't load a conversation for the watch: \(error, privacy: .public)")
+            log.error("Couldn't load a conversation for the watch: \(error, privacy: .private)")
             return nil
         }
     }
@@ -149,7 +149,7 @@ final class WristHost {
                 await server.inboxChanged(snapshot)
             }
         } catch {
-            log.error("Stopped sending the Inbox to the watch: \(error, privacy: .public)")
+            log.error("Stopped sending the Inbox to the watch: \(error, privacy: .private)")
         }
     }
 

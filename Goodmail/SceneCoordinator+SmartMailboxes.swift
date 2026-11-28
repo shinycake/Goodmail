@@ -1,6 +1,7 @@
 import MailCore
 import MailStore
 import MailUI
+import OSLog
 import UIKit
 
 /// Smart mailboxes in a window (ADR-039): a box's list, and New Smart Mailbox from the menu bar.
@@ -37,7 +38,12 @@ extension SceneCoordinator {
 
     /// The box's title as stored now; `nil` once it's deleted or can't be read.
     private nonisolated static func title(of id: SmartMailbox.ID, in database: OffMainDatabase) async -> String? {
-        try? await database.offMain { try $0.smartMailboxes().first { $0.id == id }?.title }
+        do {
+            return try await database.offMain { try $0.smartMailboxes().first { $0.id == id }?.title }
+        } catch {
+            Logger.windows.error("Couldn't read a smart mailbox's title: \(error, privacy: .private)")
+            return nil
+        }
     }
 
     /// New Smart Mailbox, wherever the window shows mail.

@@ -34,6 +34,7 @@ public actor RecipientSuggester {
     private let addressBook: any DeviceContacts
     /// The device's people, once they have been read, or none while access is withheld.
     private var device: [Contact]?
+    private let log = MailLog(category: "contacts")
 
     /// `writtenIn` finds the people mail and Google Contacts know, best first. It reads the database, so it runs off
     /// the main actor.
@@ -45,7 +46,13 @@ public actor RecipientSuggester {
     public func suggestions(for typed: String, limit: Int = 5) async -> [Contact] {
         let device = await devicePeople()
         // A database that fails to read costs only the suggestions from mail, not the device's.
-        let known = (try? await writtenIn(typed)) ?? []
+        let known: [Contact]
+        do {
+            known = try await writtenIn(typed)
+        } catch {
+            log.error("Couldn't read the people mail knows, for a recipient's suggestions", error)
+            known = []
+        }
         let matching = device.filter { Self.matches($0, typed) }.sorted {
             $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending
         }

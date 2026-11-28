@@ -68,7 +68,7 @@ struct SharedAccountsOfferView: View {
         VStack(spacing: 12) {
             Button {
                 // The offer owns the outcome: it stays open on a failure and closes once finished.
-                Task { await offer.addChosen() }
+                offer.addChosen()
             } label: {
                 Group {
                     if offer.isAdding {

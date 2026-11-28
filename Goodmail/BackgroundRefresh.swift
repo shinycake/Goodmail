@@ -41,13 +41,25 @@ nonisolated struct BackgroundRefresh: Sendable {
         // A scheduled message or snoozed thread due sooner asks for the refresh by its time; iOS still decides when
         // it runs.
         let regular = Date(timeIntervalSinceNow: Self.interval)
+        // A date that can't be read leaves the regular interval to stand for it.
         let due = await database.offMain { database in
-            [try? database.nextSendDate(), try? database.nextWakeDate()].compactMap { $0 ?? nil }
+            var due: [Date] = []
+            do {
+                if let send = try database.nextSendDate() { due.append(send) }
+            } catch {
+                Self.log.error("Couldn't read when the next scheduled message goes: \(error, privacy: .private)")
+            }
+            do {
+                if let wake = try database.nextWakeDate() { due.append(wake) }
+            } catch {
+                Self.log.error("Couldn't read when the next snoozed thread wakes: \(error, privacy: .private)")
+            }
+            return due
         }
         request.earliestBeginDate = min(regular, max(due.min() ?? regular, .now))
         BGTaskScheduler.shared.submitTaskRequest(request) { error in
             guard let error else { return }
-            Self.log.error("Couldn't schedule background refresh: \(error, privacy: .public)")
+            Self.log.error("Couldn't schedule background refresh: \(error, privacy: .private)")
         }
     }
 
@@ -68,7 +80,7 @@ nonisolated struct BackgroundRefresh: Sendable {
                     await refresh.model.prefetchNewest()
                     return true
                 } catch {
-                    log.error("Background sync failed: \(error, privacy: .public)")
+                    log.error("Background sync failed: \(error, privacy: .private)")
                     return false
                 }
             }

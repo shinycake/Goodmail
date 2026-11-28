@@ -35,7 +35,7 @@ final class OwnAlerts {
         do {
             _ = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
         } catch {
-            Self.log.error("Couldn't ask to show alerts: \(error, privacy: .public)")
+            Self.log.error("Couldn't ask to show alerts: \(error, privacy: .private)")
         }
         WKApplication.shared().registerForRemoteNotifications()
         var latest: Data?
@@ -100,7 +100,7 @@ final class OwnAlerts {
     }
 
     static func didFailToRegister(_ error: any Error) {
-        log.error("Couldn't register for the watch's own alerts: \(error, privacy: .public)")
+        log.error("Couldn't register for the watch's own alerts: \(error, privacy: .private)")
     }
 }
 

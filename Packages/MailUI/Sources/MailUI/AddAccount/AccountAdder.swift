@@ -10,8 +10,9 @@ public final class AccountAdder {
         /// Waiting for the reader to pick a service. `failure` is the last sign-in that failed, shown until the
         /// reader dismisses it; a cancelled sign-in isn't a failure.
         case choosing(failure: (any Error)?)
-        /// Signing in to `service`; the other services wait.
-        case signingIn(MailService)
+        /// Signing in to `service`, in a task the adder owns, so the sign-in goes on when the screen is left; the
+        /// other services wait.
+        case signingIn(MailService, Task<Void, Never>)
     }
 
     public private(set) var state = State.choosing(failure: nil)
@@ -33,7 +34,7 @@ public final class AccountAdder {
 
     /// The service being signed in to, if one is.
     var signingIn: MailService? {
-        if case .signingIn(let service) = state { service } else { nil }
+        if case .signingIn(let service, _) = state { service } else { nil }
     }
 
     /// The last sign-in that failed, for the alert.
@@ -42,9 +43,17 @@ public final class AccountAdder {
     }
 
     /// Signs in to `service`, unless a sign-in is already under way.
-    public func add(_ service: MailService) async {
+    public func add(_ service: MailService) {
         guard case .choosing = state else { return }
-        state = .signingIn(service)
+        state = .signingIn(service, Task { await self.run(service) })
+    }
+
+    /// Waits for the sign-in under way, if any, as a test does.
+    func settled() async {
+        if case .signingIn(_, let signingIn) = state { await signingIn.value }
+    }
+
+    private func run(_ service: MailService) async {
         do {
             let added = try await signIn(service)
             state = .choosing(failure: nil)

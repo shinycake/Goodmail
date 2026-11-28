@@ -42,7 +42,7 @@ actor Outboxes {
             try await outbox.flush()
         } catch {
             Logger(subsystem: "com.idanbirman.goodmail", category: "outbox")
-                .error("Replay stopped: \(error, privacy: .public)")
+                .error("Replay stopped: \(error, privacy: .private)")
         }
     }
 }

@@ -36,7 +36,7 @@ extension AppModel {
             outcome.logFailures(after: occasion)
             if !outcome.alerts.isEmpty { await RuleNotification.post(outcome.alerts, in: account) }
         } catch {
-            RuleRun.log.error("Rules after \(occasion, privacy: .public) failed: \(error, privacy: .public)")
+            RuleRun.log.error("Rules after \(occasion, privacy: .public) failed: \(error, privacy: .private)")
         }
     }
 
@@ -49,11 +49,18 @@ extension AppModel {
             save: { rules in try await database.offMain { try $0.setRules(rules) } },
             labelNames: { [weak self] in
                 let accounts = self?.accounts ?? []
-                let names = try? await database.offMain { database in
-                    try accounts.flatMap { try database.labels(for: $0.id) }.filter { $0.kind == .user && !$0.isHidden }
-                        .map(\.name)
+                let names: [String]
+                do {
+                    names = try await database.offMain { database in
+                        try accounts.flatMap { try database.labels(for: $0.id) }
+                            .filter { $0.kind == .user && !$0.isHidden }.map(\.name)
+                    }
+                } catch {
+                    // The editor offers no names then; the reader can still type one.
+                    RuleRun.log.error("Couldn't read the label names to suggest: \(error, privacy: .private)")
+                    names = []
                 }
-                return Array(Set(names ?? [])).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+                return Array(Set(names)).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
             })
     }
 }

@@ -18,7 +18,7 @@ extension AccountSignIn {
             }
         } catch {
             Logger(subsystem: "com.idanbirman.goodmail", category: "accounts")
-                .error("Signing an account in again failed: \(error, privacy: .public)")
+                .error("Signing an account in again failed: \(error, privacy: .private)")
         }
     }
 

@@ -204,7 +204,7 @@ extension MailDatabase: OutgoingStore {
         } catch {
             #if canImport(os)
                 Logger(subsystem: "com.idanbirman.goodmail", category: "outgoing")
-                    .error("An outgoing message didn't read and was left out: \(error, privacy: .public)")
+                    .error("An outgoing message didn't read and was left out: \(error, privacy: .private)")
             #endif
             return nil
         }

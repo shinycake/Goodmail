@@ -33,7 +33,7 @@ public enum HandledAlerts {
             center.removeDeliveredNotifications(withIdentifiers: stale)
             Logger.handledAlerts.notice("Took down \(stale.count, privacy: .public) alerts for mail dealt with")
         } catch {
-            Logger.handledAlerts.error("Couldn't check alerts against the mail: \(error, privacy: .public)")
+            Logger.handledAlerts.error("Couldn't check alerts against the mail: \(error, privacy: .private)")
         }
     }
 }

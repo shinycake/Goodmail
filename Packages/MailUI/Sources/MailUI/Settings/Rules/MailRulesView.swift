@@ -25,6 +25,8 @@ struct RulesSection: View {
 struct MailRulesView: View {
     @State private var rules: MailRules
     @State private var editing: RuleDraft?
+    /// Each Try Again counts up, and the read runs again in a task the screen owns.
+    @State private var loadAttempt = 0
 
     /// The model is made once for this screen; the service it talks to doesn't change while it shows.
     init(service: MailRules.Service) {
@@ -67,7 +69,7 @@ struct MailRulesView: View {
             } message: {
                 Text(rules.saveFailure ?? "")
             }
-            .task { await rules.load() }
+            .task(id: loadAttempt) { await rules.load() }
     }
 
     @ViewBuilder private var content: some View {
@@ -85,7 +87,7 @@ struct MailRulesView: View {
                 }
             } actions: {
                 Button {
-                    Task { await rules.load() }
+                    loadAttempt += 1
                 } label: {
                     Text("Try Again", tableName: "Rules", bundle: .module, comment: "Reads the rules again")
                 }

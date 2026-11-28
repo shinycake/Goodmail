@@ -23,7 +23,8 @@ struct SettingsTests {
             update: { _ in },
             closed: { closed = true })
         #expect(model.accounts == [personal])
-        await model.adder.add(.gmail)
+        model.adder.add(.gmail)
+        await model.adder.settled()
         #expect(model.accounts == [personal, work])
         #expect(model.adder.signingIn == nil)
         model.removeAccount(personal.id)
@@ -144,7 +145,8 @@ struct SettingsTests {
         let model = SettingsViewModel(
             accounts: { [personal] }, signIn: { _ in throw Denied() }, remove: { _, _ in }, update: { _ in },
             closed: {})
-        await model.adder.add(.gmail)
+        model.adder.add(.gmail)
+        await model.adder.settled()
         #expect(model.adder.failure is Denied)
         #expect(model.accounts == [personal])
     }

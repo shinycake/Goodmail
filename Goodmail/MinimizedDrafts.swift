@@ -99,7 +99,7 @@ final class MinimizedDrafts {
         do {
             return try await store.claim(for: window, sparing: sparing)
         } catch {
-            log.error("Couldn't read the minimized drafts: \(error, privacy: .public)")
+            log.error("Couldn't read the minimized drafts: \(error, privacy: .private)")
             return []
         }
     }
@@ -108,7 +108,7 @@ final class MinimizedDrafts {
         do {
             return try await store.drafts(of: window)
         } catch {
-            log.error("Couldn't read a window's message: \(error, privacy: .public)")
+            log.error("Couldn't read a window's message: \(error, privacy: .private)")
             return []
         }
     }
@@ -119,7 +119,7 @@ final class MinimizedDrafts {
         do {
             try await store.keep(drafts, for: window, version: version)
         } catch {
-            log.error("Couldn't keep the minimized drafts: \(error, privacy: .public)")
+            log.error("Couldn't keep the minimized drafts: \(error, privacy: .private)")
         }
     }
 

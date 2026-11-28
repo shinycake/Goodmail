@@ -62,7 +62,7 @@
                 if session.isReachable { session.sendMessageData(data, replyHandler: nil, errorHandler: nil) }
                 session.transferUserInfo([Self.commandKey: data])
             } catch {
-                Self.log.error("Couldn't send a change to the iPhone: \(error, privacy: .public)")
+                Self.log.error("Couldn't send a change to the iPhone: \(error, privacy: .private)")
             }
         }
 
@@ -92,10 +92,10 @@
                 session.sendMessage(
                     [Self.threadKey: try reply.encoded(within: Self.threadLimit)], replyHandler: nil,
                     errorHandler: { @Sendable error in
-                        Self.log.error("A conversation didn't reach the watch: \(error, privacy: .public)")
+                        Self.log.error("A conversation didn't reach the watch: \(error, privacy: .private)")
                     })
             } catch {
-                Self.log.error("Couldn't send a conversation to the watch: \(error, privacy: .public)")
+                Self.log.error("Couldn't send a conversation to the watch: \(error, privacy: .private)")
             }
         }
 
@@ -122,7 +122,7 @@
                     try session.updateApplicationContext([Self.snapshotKey: unsent.encoded()])
                     self.unsent = nil
                 } catch {
-                    Self.log.error("Couldn't send the Inbox to the watch: \(error, privacy: .public)")
+                    Self.log.error("Couldn't send the Inbox to the watch: \(error, privacy: .private)")
                 }
             }
         #endif

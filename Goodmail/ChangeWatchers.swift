@@ -87,7 +87,7 @@ final class ChangeWatchers {
                     // The app left the foreground, the account was removed, or the watches start afresh.
                     return
                 } catch {
-                    log.error("Watching an account for changes stopped: \(error, privacy: .public)")
+                    log.error("Watching an account for changes stopped: \(error, privacy: .private)")
                 }
                 guard let delay = restarts.delay(afterRunning: ContinuousClock.now - began) else { return }
                 do { try await Task.sleep(for: delay) } catch { return }

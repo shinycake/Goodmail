@@ -32,7 +32,7 @@ final class AppBadge {
             do {
                 for try await count in database.badgeCounts() { self?.set(count) }
             } catch {
-                Logger.push.error("Stopped updating the badge: \(error, privacy: .public)")
+                Logger.push.error("Stopped updating the badge: \(error, privacy: .private)")
             }
         }
         presence.follow { [weak self] _, new in
@@ -56,7 +56,7 @@ final class AppBadge {
                     "Asked for alerts and badges: granted \(granted, privacy: .public), badges \(badges, privacy: .public)"
                 )
             } catch {
-                Logger.push.error("Couldn't ask for alerts: \(error, privacy: .public)")
+                Logger.push.error("Couldn't ask for alerts: \(error, privacy: .private)")
             }
         }
         setAgain()
@@ -95,7 +95,7 @@ final class AppBadge {
                     badges \(badges, privacy: .public)
                     """)
             } catch {
-                Logger.push.error("Couldn't set the badge: \(error, privacy: .public)")
+                Logger.push.error("Couldn't set the badge: \(error, privacy: .private)")
             }
         }
     }

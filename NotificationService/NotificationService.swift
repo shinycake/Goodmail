@@ -25,6 +25,9 @@ final class NotificationService: UNNotificationServiceExtension {
         let userInfo = request.content.userInfo
         let target = NewMailFetch.target(in: userInfo)
         let receipt = AlertReceipt.id(in: userInfo)
+        // A bridge from iOS's callback, which nothing awaits: iOS keeps the extension running until `delivery` hands
+        // over the alert, which it does exactly once, from here or from `serviceExtensionTimeWillExpire`, and the
+        // task's failures end in `delivery` and the log. Whatever the task does after the deadline goes nowhere.
         Task { @concurrent in
             // Beside the fetch, which can take most of the 8 seconds before the relay alerts the watch instead.
             async let confirmed: Void = Self.confirm(receipt)
@@ -43,13 +46,13 @@ final class NotificationService: UNNotificationServiceExtension {
                 try await UNUserNotificationCenter.current().setBadgeCount(badge)
                 Logger.push.notice("Set the badge to \(badge, privacy: .public) after a push")
             } catch {
-                Logger.push.error("Couldn't set the badge after a push: \(error, privacy: .public)")
+                Logger.push.error("Couldn't set the badge after a push: \(error, privacy: .private)")
             }
             // The catch-up also brought what was read, filed or deleted since, here or anywhere else.
             await fetch.dismissHandledAlerts()
             await delivery.finish(with: outcome, pictures: pictures)
         } catch {
-            Logger.push.error("Couldn't fetch the new mail: \(error, privacy: .public)")
+            Logger.push.error("Couldn't fetch the new mail: \(error, privacy: .private)")
             delivery.asSent()
         }
     }
@@ -61,7 +64,7 @@ final class NotificationService: UNNotificationServiceExtension {
         do {
             try await relay.acknowledge(alert: receipt)
         } catch {
-            Logger.push.error("Couldn't confirm an alert to the relay: \(error, privacy: .public)")
+            Logger.push.error("Couldn't confirm an alert to the relay: \(error, privacy: .private)")
         }
     }
 
@@ -121,7 +124,12 @@ private final class Delivery: @unchecked Sendable {
                 let content = await SenderAlert.content(for: other, in: account, pictures: pictures)
                 let request = UNNotificationRequest(
                     identifier: NewMailAlert.identifier(for: other.thread.id), content: content, trigger: nil)
-                try? await UNUserNotificationCenter.current().add(request)
+                do {
+                    try await UNUserNotificationCenter.current().add(request)
+                } catch {
+                    // The push's alert still shows the newest; this thread waits for the next push or the app.
+                    Logger.push.error("Couldn't post the alert for a new thread: \(error, privacy: .private)")
+                }
             }
             let alert = await SenderAlert.content(for: newest, in: account, pictures: pictures)
             deliver { _ in alert }

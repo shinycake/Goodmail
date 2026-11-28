@@ -3,7 +3,7 @@ public import MailCore
 public import Observation
 
 /// One account's automatic reply as the reader edits it: loaded from the service, changed here, and saved back
-/// when the reader taps Save. Every state change happens in `load()` or `save()`.
+/// when the reader taps Save. Every state change happens in `load()`, `save()` or the save it starts.
 @Observable
 public final class AutoReplyEditor {
     /// Where the editor stands with the service.
@@ -12,7 +12,8 @@ public final class AutoReplyEditor {
         /// The service's reply, which `draft` started from. `failure` is why the last save didn't go through, shown
         /// until the reader dismisses it.
         case editing(saved: AutoReply, failure: String?)
-        case saving(saved: AutoReply)
+        /// Sending the draft, in a task the editor owns, so the save goes on when the page is left.
+        case saving(saved: AutoReply, Task<Void, Never>)
         /// The service's reply couldn't be read, so there is nothing to edit.
         case loadFailed
     }
@@ -77,10 +78,19 @@ public final class AutoReplyEditor {
         }
     }
 
-    func save() async {
+    /// Sends the draft, unless it has nothing new or a save is under way.
+    func save() {
         guard case .editing(let saved, _) = state, draft != saved else { return }
         let reply = draft
-        state = .saving(saved: saved)
+        state = .saving(saved: saved, Task { await self.send(reply, replacing: saved) })
+    }
+
+    /// Waits for the save under way, if any, as a test does.
+    func settled() async {
+        if case .saving(_, let save) = state { await save.value }
+    }
+
+    private func send(_ reply: AutoReply, replacing saved: AutoReply) async {
         do {
             try await service.save(reply)
             state = .editing(saved: reply, failure: nil)

@@ -110,7 +110,7 @@ final class PushCoordinator {
             do {
                 try await model.reply(to: thread, with: reply)
             } catch {
-                Logger.push.error("Couldn't send the reply from an alert: \(error, privacy: .public)")
+                Logger.push.error("Couldn't send the reply from an alert: \(error, privacy: .private)")
             }
         case .markRead: await model.perform(.markRead(true), onAlerted: thread)
         case .archive: await model.perform(.archive, onAlerted: thread)

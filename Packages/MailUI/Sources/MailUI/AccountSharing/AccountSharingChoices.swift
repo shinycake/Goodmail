@@ -5,13 +5,14 @@ public import Observation
 /// and the shared accounts it doesn't have, any of which the reader can add.
 @Observable
 public final class AccountSharingChoices {
+    /// Each change runs in a task the choices own, so it goes on when the page is left.
     public enum State {
         /// Nothing under way; `failure` is the last change that failed, shown until the reader dismisses it.
         case idle(failure: (any Error)?)
         /// Turning syncing on or off.
-        case switching
+        case switching(Task<Void, Never>)
         /// Adding the account from the other devices.
-        case adding(AccountID)
+        case adding(AccountID, Task<Void, Never>)
     }
 
     public private(set) var mode: AccountSharingMode
@@ -21,7 +22,7 @@ public final class AccountSharingChoices {
     /// Runs after this device's accounts changed, so the screen showing them reads them again.
     @ObservationIgnored var onAccountsChanged: () -> Void = {}
     @ObservationIgnored private let setMode: (AccountSharingMode) async throws -> Void
-    @ObservationIgnored private let add: (AccountID) async throws -> Void
+    @ObservationIgnored private let addShared: (AccountID) async throws -> Void
     @ObservationIgnored private let reload: () -> (AccountSharingMode, [Account])
 
     /// `setMode` keeps the device's new mode and brings it in step with the other devices; `add` adds one of their
@@ -34,7 +35,7 @@ public final class AccountSharingChoices {
         (mode, elsewhere) = reload()
         self.reload = reload
         self.setMode = setMode
-        self.add = add
+        addShared = add
     }
 
     /// Whether this device syncs its accounts with the others.
@@ -47,7 +48,7 @@ public final class AccountSharingChoices {
 
     /// Whether `id` is the account being added.
     func isAdding(_ id: AccountID) -> Bool {
-        if case .adding(id) = state { true } else { false }
+        if case .adding(id, _) = state { true } else { false }
     }
 
     /// The last change that failed, for the alert.
@@ -62,12 +63,22 @@ public final class AccountSharingChoices {
     }
 
     /// Turning syncing on follows the other devices from then on; turning it off keeps every account here as it is.
-    public func setSyncs(_ syncs: Bool) async {
-        await change(.switching) { try await setMode(syncs ? .following : .off) }
+    public func setSyncs(_ syncs: Bool) {
+        guard !isBusy else { return }
+        state = .switching(Task { await self.run { try await self.setMode(syncs ? .following : .off) } })
     }
 
-    public func add(_ id: AccountID) async {
-        await change(.adding(id)) { try await add(id) }
+    public func add(_ id: AccountID) {
+        guard !isBusy else { return }
+        state = .adding(id, Task { await self.run { try await self.addShared(id) } })
+    }
+
+    /// Waits for the change under way, if any, as a test does.
+    func settled() async {
+        switch state {
+        case .idle: break
+        case .switching(let change), .adding(_, let change): await change.value
+        }
     }
 
     /// Reads the mode and the other devices' accounts again, as after an account was removed from this device.
@@ -75,9 +86,7 @@ public final class AccountSharingChoices {
         (mode, elsewhere) = reload()
     }
 
-    private func change(_ next: State, _ work: () async throws -> Void) async {
-        guard !isBusy else { return }
-        state = next
+    private func run(_ work: () async throws -> Void) async {
         do {
             try await work()
             state = .idle(failure: nil)

@@ -20,7 +20,7 @@ extension OwnMail {
         do {
             try await Self.follow(inbox.mailbox, on: host)
         } catch {
-            Self.log.error("Couldn't follow the stored accounts for a refresh: \(error, privacy: .public)")
+            Self.log.error("Couldn't follow the stored accounts for a refresh: \(error, privacy: .private)")
         }
         await host.catchUp()
         do {
@@ -29,7 +29,7 @@ extension OwnMail {
             }
             try await store.save(inbox.mailbox)
         } catch {
-            Self.log.error("Couldn't keep the watch's refreshed mail: \(error, privacy: .public)")
+            Self.log.error("Couldn't keep the watch's refreshed mail: \(error, privacy: .private)")
         }
         WidgetCenter.shared.reloadAllTimelines()
     }
@@ -45,7 +45,7 @@ extension OwnMail {
             withPreferredDate: date, userInfo: refreshIdentifier as NSString
         ) { @Sendable error in
             // WatchKit calls this on its own queue, so it must not inherit the main actor; it only logs.
-            if let error { log.error("Couldn't schedule the watch's refresh: \(error, privacy: .public)") }
+            if let error { log.error("Couldn't schedule the watch's refresh: \(error, privacy: .private)") }
         }
     }
 

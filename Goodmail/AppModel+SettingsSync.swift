@@ -34,7 +34,7 @@ extension AppModel {
         do {
             pass = try await settingsSync.sync()
         } catch {
-            Logger.settingsSync.error("Couldn't sync the settings: \(error, privacy: .public)")
+            Logger.settingsSync.error("Couldn't sync the settings: \(error, privacy: .private)")
             return
         }
         for failure in pass.failures {

@@ -8,6 +8,7 @@ public import UserNotifications
 public enum RuleNotification {
     /// Where rule notifications stack, apart from each account's new mail.
     static let threadIdentifier = "rules"
+    private static let log = MailLog(category: "rules")
 
     public static func request(for alert: RuleAlert, in account: Account) -> UNNotificationRequest {
         let content = UNMutableNotificationContent()
@@ -30,9 +31,16 @@ public enum RuleNotification {
             trigger: nil)
     }
 
-    /// Posts each alert's notification. One iOS refuses is left out; the mail is as the rules left it either way.
+    /// Posts each alert's notification. One iOS refuses is logged and left out; the mail is as the rules left it
+    /// either way.
     public static func post(_ alerts: [RuleAlert], in account: Account) async {
         let center = UNUserNotificationCenter.current()
-        for alert in alerts { try? await center.add(request(for: alert, in: account)) }
+        for alert in alerts {
+            do {
+                try await center.add(request(for: alert, in: account))
+            } catch {
+                log.error("Couldn't post a rule's notification", error)
+            }
+        }
     }
 }

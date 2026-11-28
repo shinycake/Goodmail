@@ -93,21 +93,38 @@ import UIKit
     @Test func fixingPausedAlertsRegistersWithTheRelayAgain() async {
         var retried = 0
         let model = viewModel(health: AccountHealthBoard(), retryAlerts: { retried += 1 })
-        await model.fix(AccountProblemNotice(account: icloud, problem: .alertsPaused))
+        await model.fix(AccountProblemNotice(account: icloud, problem: .alertsPaused))?.value
         #expect(retried == 1)
     }
 
-    @Test func fixingATurnedDownSignInOpensTheSignIn() async {
+    @Test func fixingPausedAlertsAgainWhileTheyRegisterJoinsTheRegistration() async throws {
+        var retried = 0
+        let (gate, open) = AsyncStream<Void>.makeStream()
+        let model = viewModel(
+            health: AccountHealthBoard(),
+            retryAlerts: {
+                retried += 1
+                for await _ in gate { break }
+            })
+        let notice = AccountProblemNotice(account: icloud, problem: .alertsPaused)
+        let first = try #require(model.fix(notice))
+        #expect(model.fix(notice) == first)
+        open.yield()
+        await first.value
+        #expect(retried == 1)
+    }
+
+    @Test func fixingATurnedDownSignInOpensTheSignIn() {
         var routes: [Route] = []
         let model = viewModel(health: AccountHealthBoard(), navigate: { routes.append($0) })
-        await model.fix(AccountProblemNotice(account: gmail, problem: .signInRejected))
+        #expect(model.fix(AccountProblemNotice(account: gmail, problem: .signInRejected)) == nil)
         #expect(routes == [.signInAgain(gmail.id)])
     }
 
     @Test func fixingAFailingSyncSyncsNow() async {
         var refreshed = 0
         let model = viewModel(health: AccountHealthBoard(), refresh: { refreshed += 1 })
-        await model.fix(AccountProblemNotice(account: icloud, problem: .cantSync(.timedOut)))
+        await model.fix(AccountProblemNotice(account: icloud, problem: .cantSync(.timedOut)))?.value
         #expect(refreshed == 1)
     }
 

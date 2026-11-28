@@ -89,7 +89,15 @@ extension WristOwnHost {
     /// through `served`, or a sender made for it when the account isn't served, from the account as the database
     /// keeps it: at a launch with the switch off, no account has been followed yet.
     private func settleUploads(of account: AccountID, served: Served?) async {
-        let stored = (try? database.accounts())?.first { $0.id == account }.map { stored in
+        let accounts: [Account]
+        do {
+            accounts = try database.accounts()
+        } catch {
+            // Unless the account is served, its uploads wait for the next time it is.
+            Self.log.error("Couldn't read the accounts to settle an account's uploads", error)
+            accounts = []
+        }
+        let stored = accounts.first { $0.id == account }.map { stored in
             WristAccount(
                 id: stored.id, address: stored.email, color: stored.color, unread: 0, service: stored.service)
         }

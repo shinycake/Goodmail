@@ -39,7 +39,7 @@ public enum CommunicationAlert {
             alert.threadIdentifier = plain.threadIdentifier
             return alert
         } catch {
-            Logger.communicationAlert.error("Couldn't show the sender: \(error, privacy: .public)")
+            Logger.communicationAlert.error("Couldn't show the sender: \(error, privacy: .private)")
             return plain
         }
     }

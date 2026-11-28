@@ -11,7 +11,7 @@ struct OtherDevicesView: View {
     var body: some View {
         Form {
             Section {
-                Toggle(isOn: Binding(get: { sharing.syncs }, set: { on in Task { await sharing.setSyncs(on) } })) {
+                Toggle(isOn: Binding(get: { sharing.syncs }, set: { sharing.setSyncs($0) })) {
                     Text(
                         "Sync Accounts", tableName: "AccountSharing", bundle: .module,
                         comment: "Setting for syncing accounts with the reader's other devices")
@@ -43,7 +43,7 @@ struct OtherDevicesView: View {
                         Toggle(
                             isOn: Binding(
                                 get: { sharing.isAdding(account.id) },
-                                set: { if $0 { Task { await sharing.add(account.id) } } })
+                                set: { if $0 { sharing.add(account.id) } })
                         ) {
                             AccountLabel(account: account)
                         }

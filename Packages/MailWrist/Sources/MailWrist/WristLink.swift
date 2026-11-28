@@ -27,7 +27,7 @@
                     try await store.save(update.mailbox)
                     stored()
                 } catch {
-                    WristChannel.log.error("Couldn't keep the watch's mail: \(error, privacy: .public)")
+                    WristChannel.log.error("Couldn't keep the watch's mail: \(error, privacy: .private)")
                 }
                 guard let command = update.command else { continue }
                 switch command.executor {

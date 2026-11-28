@@ -25,7 +25,8 @@ struct AccountSharingChoicesTests {
         #expect(offer.chosen == [phone.id, work.id, home.id], "every account starts chosen")
 
         offer.chosen.remove(work.id)
-        await offer.addChosen()
+        offer.addChosen()
+        await offer.settled()
 
         #expect(added == [phone.id, home.id], "in the offer's order")
         #expect(declined == [work.id])
@@ -42,14 +43,14 @@ struct AccountSharingChoicesTests {
                 adds += 1
                 for await _ in gate { break }
             }, decline: { _ in })
-        let first = Task { await offer.addChosen() }
-        while !offer.isAdding { await Task.yield() }
+        offer.addChosen()
+        #expect(offer.isAdding, "the offer adds on its own, with no one waiting")
 
-        await offer.addChosen()
+        offer.addChosen()
         #expect(!offer.isFinished, "the ignored tap doesn't close the offer before anything was added")
 
         open.yield()
-        await first.value
+        await offer.settled()
         #expect(adds == 1)
         #expect(offer.isFinished)
     }
@@ -70,7 +71,8 @@ struct AccountSharingChoicesTests {
         let offer = SharedAccountsOffer(accounts: [phone], add: { _, _ in throw Refused() }, decline: { _ in })
         offer.onFinished = { finished = true }
 
-        await offer.addChosen()
+        offer.addChosen()
+        await offer.settled()
 
         #expect(offer.failure is Refused)
         #expect(!finished)
@@ -89,11 +91,13 @@ struct AccountSharingChoicesTests {
         let choices = AccountSharingChoices(
             reload: { (mode, []) }, setMode: { mode = $0 }, add: { _ in })
 
-        await choices.setSyncs(false)
+        choices.setSyncs(false)
+        await choices.settled()
         #expect(mode == .off)
         #expect(!choices.syncs)
 
-        await choices.setSyncs(true)
+        choices.setSyncs(true)
+        await choices.settled()
         #expect(mode == .following)
         #expect(choices.syncs)
     }
@@ -106,7 +110,8 @@ struct AccountSharingChoicesTests {
             add: { id in elsewhere.removeAll { $0.id == id } })
         choices.onAccountsChanged = { changed = true }
 
-        await choices.add(work.id)
+        choices.add(work.id)
+        await choices.settled()
 
         #expect(choices.elsewhere == [home])
         #expect(changed)
@@ -124,13 +129,36 @@ struct AccountSharingChoicesTests {
                 throw Refused()
             })
 
-        await choices.add(work.id)
+        choices.add(work.id)
+        await choices.settled()
         #expect(choices.failure is Refused)
         #expect(!choices.isBusy)
 
         choices.dismissFailure()
         #expect(choices.failure == nil)
-        await choices.add(work.id)
+        choices.add(work.id)
+        await choices.settled()
         #expect(adds == 2)
+    }
+
+    @Test func aChangeRunsOnItsOwnAndTheOthersWaitForIt() async {
+        var modes: [AccountSharingMode] = []
+        let (gate, open) = AsyncStream<Void>.makeStream()
+        let choices = AccountSharingChoices(
+            reload: { [work] in (.following, [work]) },
+            setMode: {
+                modes.append($0)
+                for await _ in gate { break }
+            },
+            add: { _ in Issue.record("an add waits for the switch under way") })
+
+        choices.setSyncs(false)
+        #expect(choices.isBusy)
+        choices.add(work.id)
+        choices.setSyncs(true)
+        open.yield()
+        await choices.settled()
+        #expect(modes == [.off])
+        #expect(!choices.isBusy)
     }
 }

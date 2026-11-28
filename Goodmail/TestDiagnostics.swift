@@ -31,7 +31,7 @@
                 }
             } catch {
                 Logger(subsystem: "com.idanbirman.goodmail", category: "diagnostics")
-                    .error("Seeding diagnostics failed: \(error, privacy: .public)")
+                    .error("Seeding diagnostics failed: \(error, privacy: .private)")
             }
         }
     }
