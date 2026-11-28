@@ -10,7 +10,7 @@ extension MailDatabase {
         let typed = text.trimmingCharacters(in: .whitespaces)
         guard !typed.isEmpty else { return [] }
         let escaped = typed.replacing("\\", with: "\\\\").replacing("%", with: "\\%").replacing("_", with: "\\_")
-        return try pool.read { db in
+        return try read { db in
             try Row.fetchAll(
                 db,
                 sql: """

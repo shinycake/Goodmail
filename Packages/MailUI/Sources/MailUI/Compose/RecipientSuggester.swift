@@ -30,14 +30,14 @@ nonisolated public protocol DeviceContacts: Sendable {
 /// An actor, so the database lookup and the matching and sorting over the whole book stay off the main actor on every
 /// keystroke.
 public actor RecipientSuggester {
-    private let writtenIn: @Sendable (String) throws -> [Contact]
+    private let writtenIn: @Sendable (String) async throws -> [Contact]
     private let addressBook: any DeviceContacts
     /// The device's people, once they have been read, or none while access is withheld.
     private var device: [Contact]?
 
-    /// `writtenIn` finds the people mail and Google Contacts know, best first. It reads the database, so it is called
-    /// on this actor, never on the main actor.
-    public init(writtenIn: @escaping @Sendable (String) throws -> [Contact], addressBook: any DeviceContacts) {
+    /// `writtenIn` finds the people mail and Google Contacts know, best first. It reads the database, so it runs off
+    /// the main actor.
+    public init(writtenIn: @escaping @Sendable (String) async throws -> [Contact], addressBook: any DeviceContacts) {
         self.writtenIn = writtenIn
         self.addressBook = addressBook
     }
@@ -45,7 +45,7 @@ public actor RecipientSuggester {
     public func suggestions(for typed: String, limit: Int = 5) async -> [Contact] {
         let device = await devicePeople()
         // A database that fails to read costs only the suggestions from mail, not the device's.
-        let known = (try? writtenIn(typed)) ?? []
+        let known = (try? await writtenIn(typed)) ?? []
         let matching = device.filter { Self.matches($0, typed) }.sorted {
             $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending
         }

@@ -21,7 +21,7 @@ public struct OpenThreadIntent: OpenIntent {
 
     public func perform() async throws -> some IntentResult {
         // The lookup reads the database, so it runs here, off the main actor; only showing the route hops there.
-        guard let route = try Catalog(host: host).route(toThread: target.id) else { throw IntentError.gone }
+        guard let route = try await Catalog(host: host).route(toThread: target.id) else { throw IntentError.gone }
         await host.open(route)
         return .result()
     }
@@ -91,8 +91,8 @@ enum IntentError: Error, CustomLocalizedStringResourceConvertible {
 
 extension Catalog {
     /// Where opening the thread goes: the reader, from the mailbox the thread is in. `nil` once it is gone.
-    func route(toThread identifier: String) throws -> Route? {
-        guard let id = EntityID.thread(identifier), let thread = try host.threads([id]).first else { return nil }
+    func route(toThread identifier: String) async throws -> Route? {
+        guard let id = EntityID.thread(identifier), let thread = try await host.threads([id]).first else { return nil }
         return .thread(id, in: Mailbox.holding(thread.labelIDs))
     }
 }
@@ -145,7 +145,7 @@ public struct NewMessageIntent: AppIntent {
     public init() {}
 
     public func perform() async throws -> some IntentResult {
-        let draft = try Catalog(host: host).newDraft(
+        let draft = try await Catalog(host: host).newDraft(
             WrittenMail(
                 to: (to ?? []).recipients, cc: (cc ?? []).recipients, bcc: (bcc ?? []).recipients, subject: subject,
                 text: body ?? "",

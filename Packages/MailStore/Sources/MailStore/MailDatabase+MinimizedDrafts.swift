@@ -61,7 +61,7 @@ extension MailDatabase {
     /// other window's.
     public func minimizedDrafts(of window: String) throws -> [Draft] {
         let decoder = JSONDecoder()
-        return try pool.read { db in
+        return try read { db in
             try String.fetchAll(
                 db, sql: "SELECT draft FROM minimizedDraft WHERE window = ? ORDER BY position, rowid",
                 arguments: [window])

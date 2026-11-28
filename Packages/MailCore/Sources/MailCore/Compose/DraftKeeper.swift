@@ -77,7 +77,7 @@ public final class DraftKeeper: Sendable {
     /// put back if that fails. Call after `settle`. The app may be saving that version at the same moment, since a
     /// save stays queued while it goes; its copy is then either recorded in time for the process's own save or send to
     /// replace or remove, or left in Drafts.
-    public func take(_ draft: Draft.ID) -> OutgoingMessage? {
+    @concurrent public func take(_ draft: Draft.ID) async -> OutgoingMessage? {
         do {
             return try store.cancel(draft)
         } catch {

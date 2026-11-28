@@ -130,15 +130,15 @@ public struct ThreadQuery: EntityStringQuery, IndexedEntityQuery, EntityProperty
     }
 
     public func entities(for identifiers: [String]) async throws -> [ThreadEntity] {
-        try Catalog(host: host).threads(identifiers)
+        try await Catalog(host: host).threads(identifiers)
     }
 
     public func entities(matching string: String) async throws -> [ThreadEntity] {
-        try Catalog(host: host).threads(matching: string)
+        try await Catalog(host: host).threads(matching: string)
     }
 
     public func suggestedEntities() async throws -> [ThreadEntity] {
-        try Catalog(host: host).recentThreads()
+        try await Catalog(host: host).recentThreads()
     }
 
     /// Spotlight lost its copy: index the newest conversations again.
@@ -149,7 +149,7 @@ public struct ThreadQuery: EntityStringQuery, IndexedEntityQuery, EntityProperty
     public func reindexEntities(for identifiers: [String], indexDescription: CSSearchableIndexDescription)
         async throws
     {
-        let threads = try Catalog(host: host).threads(identifiers, withMessages: false)
+        let threads = try await Catalog(host: host).threads(identifiers, withMessages: false)
         try await SystemSpotlightIndex().index(threads)
     }
 }

@@ -31,9 +31,8 @@ extension AppModel {
         in account: Account, after occasion: String, _ run: (RuleRunner) async throws -> RuleRun
     ) async {
         do {
-            let providers = providers
-            let provider = try await Self.offMain { [id = account.id] in try providers.provider(for: id) }
-            let outcome = try await run(RuleRunner(store: database, provider: provider, commands: commands))
+            let provider = try await providers.provider(madeFor: account.id)
+            let outcome = try await run(RuleRunner(store: database.blocking, provider: provider, commands: commands))
             outcome.logFailures(after: occasion)
             if !outcome.alerts.isEmpty { await RuleNotification.post(outcome.alerts, in: account) }
         } catch {
@@ -46,11 +45,11 @@ extension AppModel {
     func makeRulesService() -> MailRules.Service {
         let database = database
         return MailRules.Service(
-            load: { try await Self.offMain { try database.rules() } },
-            save: { rules in try await Self.offMain { try database.setRules(rules) } },
+            load: { try await database.offMain { try $0.rules() } },
+            save: { rules in try await database.offMain { try $0.setRules(rules) } },
             labelNames: { [weak self] in
                 let accounts = self?.accounts ?? []
-                let names = try? await Self.offMain {
+                let names = try? await database.offMain { database in
                     try accounts.flatMap { try database.labels(for: $0.id) }.filter { $0.kind == .user && !$0.isHidden }
                         .map(\.name)
                 }

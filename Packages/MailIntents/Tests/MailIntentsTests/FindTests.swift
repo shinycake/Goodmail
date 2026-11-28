@@ -46,12 +46,12 @@ struct FindTests {
         #expect(found.map(\.currency) == ["USD", "USD"])
     }
 
-    @Test func aMessageCarriesEveryDetail() throws {
+    @Test func aMessageCarriesEveryDetail() async throws {
         let (thread, message) = order("Echo", total: "$49.99", minutesAgo: 0, cc: 2)
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "UTC")!
         let catalog = Catalog(host: host([(thread, message)]), calendar: calendar)
-        let entity = try #require(try catalog.messages(["A1/Echo/m-Echo"]).first)
+        let entity = try #require(try await catalog.messages(["A1/Echo/m-Echo"]).first)
         #expect(entity.senderDomain == "amazon.com")
         #expect(entity.ccCount == 2)
         #expect(entity.recipientCount == 3)

@@ -104,6 +104,9 @@ public protocol SyncStore: Sendable {
     func syncState(for account: AccountID) throws -> SyncState?
     /// Applies everything in one transaction, or nothing.
     func apply(_ changes: StoreChanges) throws
+    /// Stores the account's signature, empty for none. Returns the revision of the stored accounts the write left,
+    /// read in its transaction, for the app to wait until it shows (ADR-043).
+    func storeSignature(_ signature: String, for account: AccountID) throws -> Int
     /// The date of the account's oldest stored thread in `mailbox`, where backfill continues from.
     func oldestThreadDate(in mailbox: Mailbox, account: AccountID) throws -> Date?
     /// When the account's address book was last fetched, if ever.

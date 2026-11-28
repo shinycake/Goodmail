@@ -4,7 +4,7 @@ public import MailCore
 
 extension MailDatabase: SyncStore {
     public func syncState(for account: AccountID) throws -> SyncState? {
-        try pool.read { db in
+        try read { db in
             guard
                 let json = try String.fetchOne(
                     db, sql: "SELECT state FROM syncState WHERE accountID = ?", arguments: [account.rawValue])
@@ -33,16 +33,8 @@ extension MailDatabase: SyncStore {
                     try LabelRecord(label, accountID: account).insert(db)
                 }
             }
-            if let signature = changes.signature {
-                try db.execute(
-                    sql: "UPDATE account SET signature = ? WHERE id = ? AND signature IS NOT ?",
-                    arguments: [signature.isEmpty ? nil : signature, account, signature.isEmpty ? nil : signature])
-            }
-            if let aliases = changes.aliases {
-                try db.execute(
-                    sql: "UPDATE account SET aliases = ? WHERE id = ?",
-                    arguments: [String(decoding: try JSONEncoder().encode(aliases), as: UTF8.self), account])
-            }
+            if let signature = changes.signature { try Self.store(signature: signature, account: account, in: db) }
+            if let aliases = changes.aliases { try Self.store(aliases: aliases, account: account, in: db) }
             if let book = changes.addressBook {
                 try db.execute(sql: "DELETE FROM addressBook WHERE accountID = ?", arguments: [account])
                 for contact in book.contacts {
@@ -69,8 +61,31 @@ extension MailDatabase: SyncStore {
         }
     }
 
+    public func storeSignature(_ signature: String, for account: AccountID) throws -> Int {
+        try write { db in
+            try Self.store(signature: signature, account: account.rawValue, in: db)
+            return try Self.accountsRevision(db)
+        }
+    }
+
+    /// Empty stores none. Leaves the row alone when it already has it, so the accounts' revision stays.
+    private static func store(signature: String, account: String, in db: Database) throws {
+        let stored = signature.isEmpty ? nil : signature
+        try db.execute(
+            sql: "UPDATE account SET signature = ? WHERE id = ? AND signature IS NOT ?",
+            arguments: [stored, account, stored])
+    }
+
+    /// Encoded as `AccountRecord` encodes them, so storing the same aliases again leaves the same text, and the
+    /// accounts' revision stays.
+    private static func store(aliases: [Contact], account: String, in db: Database) throws {
+        let json = String(
+            decoding: try AccountRecord.databaseJSONEncoder(for: "aliases").encode(aliases), as: UTF8.self)
+        try db.execute(sql: "UPDATE account SET aliases = ? WHERE id = ?", arguments: [json, account])
+    }
+
     public func addressBookDate(for account: AccountID) throws -> Date? {
-        try pool.read { db in
+        try read { db in
             try Date.fetchOne(
                 db, sql: "SELECT max(fetchedAt) FROM addressBook WHERE accountID = ?", arguments: [account.rawValue])
         }
@@ -80,7 +95,7 @@ extension MailDatabase: SyncStore {
         var scoped = mailbox
         scoped.accountID = account
         let query = Self.threadSelection(in: scoped)
-        return try pool.read { db in
+        return try read { db in
             try Date.fetchOne(db, sql: "SELECT MIN(thread.date) " + query.sql, arguments: query.arguments)
         }
     }
@@ -90,7 +105,7 @@ extension MailDatabase: SyncStore {
         let sorted = labels.sorted()
         var arguments: StatementArguments = [account.rawValue]
         arguments += StatementArguments(sorted)
-        return try pool.read { db in
+        return try read { db in
             try String.fetchAll(
                 db,
                 sql: """
@@ -103,7 +118,7 @@ extension MailDatabase: SyncStore {
 
     /// The account's labels, system ones first, then by name.
     public func labels(for account: AccountID) throws -> [MailLabel] {
-        try pool.read { db in
+        try read { db in
             try LabelRecord
                 .filter(Column("accountID") == account.rawValue)
                 .order(Column("kind"), Column("name"))

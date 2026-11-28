@@ -1,17 +1,29 @@
+import Dispatch
 public import Foundation
 import GRDB
 
 /// The shared mail database. The app and the Notification Service Extension both write to it (ADR-002),
 /// so every write is a short transaction and every process waits out the other's lock.
+///
+/// Every read and write blocks its caller, which the MailCore actors rely on so a command's reads and writes don't
+/// interleave with another's. None may block the main thread, where another process's lock could hold it for
+/// seconds: code on the main actor holds an `OffMainDatabase` instead (ADR-043), and Debug builds trap a read or
+/// write made there.
 public final class MailDatabase: Sendable {
-    let pool: DatabasePool
+    /// Private to this file, so every read and write goes through `read`, `write` or `writeUnannounced`, which trap on
+    /// the main queue. Streams follow it through `followed`, on GRDB's own queues.
+    private let pool: DatabasePool
     /// Tells both processes the mail changed; `write` posts it. Internal for writes that change nothing most times.
     let signal: ChangeSignal
     /// Re-checks when the process resumes, for the other processes' writes heard while suspended.
     private let resumed: ObservationRecheck
+    /// Where the streams follow their queries (`MailFollowing`).
+    public let followed: FollowedStore
 
-    /// Opens (creating if needed) the database at `url` and migrates it to the current schema.
+    /// Opens (creating if needed) the database at `url` and migrates it to the current schema. Never on the main
+    /// thread: migrating after an update can take a while.
     public init(url: URL) throws {
+        Self.offMainOnly()
         let directory = url.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         // The NSE opens the database while the phone is locked; files created here inherit this class.
@@ -26,8 +38,8 @@ public final class MailDatabase: Sendable {
         configuration.observesSuspensionNotifications = true
         let pool = try DatabasePool(path: url.path, configuration: configuration)
         try Self.migrator.migrate(pool)
-        try Self.fillMessageText(in: pool)
         self.pool = pool
+        followed = FollowedStore(reader: pool)
         // Another process wrote: re-run this process's observations against the new data. On the writer's queue, so
         // a resume on the main actor doesn't wait for the lock. While suspended it fails, and `resumed` re-checks.
         let recheck: @Sendable () -> Void = {
@@ -35,13 +47,36 @@ public final class MailDatabase: Sendable {
         }
         signal = ChangeSignal(onForeignChange: recheck)
         resumed = ObservationRecheck(recheck)
+        try fillMessageText()
+    }
+
+    /// Every read goes through here.
+    func read<T>(_ value: (Database) throws -> T) throws -> T {
+        Self.offMainOnly()
+        return try pool.read(value)
     }
 
     /// Every write goes through here, so the other processes hear about it.
     func write<T>(_ updates: (Database) throws -> T) throws -> T {
-        let result = try pool.write(updates)
+        let result = try writeUnannounced(updates)
         signal.post()
         return result
+    }
+
+    /// A write the other processes aren't told of, for one that posts `signal` itself only when it changed something.
+    func writeUnannounced<T>(_ updates: (Database) throws -> T) throws -> T {
+        Self.offMainOnly()
+        return try pool.write(updates)
+    }
+
+    /// Traps in Debug builds on the main queue, which the main thread and the main actor run: a call that slipped past
+    /// `OffMainDatabase`, or an `async` function that ran on its caller's actor (`NonisolatedNonsendingByDefault`)
+    /// where it should have been `@concurrent` (ADR-043). The queue rather than the thread, since outside an app, as
+    /// in Linux tests, a worker thread runs the main queue. Release builds check nothing.
+    private static func offMainOnly() {
+        #if DEBUG
+            dispatchPrecondition(condition: .notOnQueue(.main))
+        #endif
     }
 
     static var migrator: DatabaseMigrator {
@@ -387,6 +422,7 @@ public final class MailDatabase: Sendable {
         migrator.registerMigration("v37-delivery-checks", migrate: checkDeliveriesAndSnoozeKeepers)
         migrator.registerMigration("v38-watch-changes", migrate: createWatchChanges)
         migrator.registerMigration("v39-mailbox-order", migrate: orderMailboxes)
+        migrator.registerMigration("v40-accounts-revision", migrate: reviseAccounts)
         return migrator
     }
 }

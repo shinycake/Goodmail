@@ -11,15 +11,15 @@ struct MailDatabaseTests {
 
     @Test func opensInWALModeSoTheAppAndExtensionCanShareIt() throws {
         let database = try MailDatabase(url: url)
-        let mode = try database.pool.read { db in try String.fetchOne(db, sql: "PRAGMA journal_mode") }
+        let mode = try database.read { db in try String.fetchOne(db, sql: "PRAGMA journal_mode") }
         #expect(mode == "wal")
     }
 
     @Test func appliesEveryMigration() throws {
         let database = try MailDatabase(url: url)
-        let applied = try database.pool.read { db in try MailDatabase.migrator.appliedIdentifiers(db) }
+        let applied = try database.read { db in try MailDatabase.migrator.appliedIdentifiers(db) }
         #expect(applied == Set(MailDatabase.migrator.migrations))
-        #expect(try database.pool.read { db in try db.tableExists("account") })
+        #expect(try database.read { db in try db.tableExists("account") })
     }
 
     @Test func reopeningAnExistingDatabaseIsHarmless() throws {

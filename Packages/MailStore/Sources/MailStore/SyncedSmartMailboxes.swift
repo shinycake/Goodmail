@@ -49,7 +49,7 @@ struct SyncedSmartMailboxes: SettingsFamily {
     }
 
     private func records() throws -> [SmartMailboxRecord] {
-        try database.pool.read { db in try SmartMailboxRecord.order(Column("position")).fetchAll(db) }
+        try database.read { db in try SmartMailboxRecord.order(Column("position")).fetchAll(db) }
     }
 }
 

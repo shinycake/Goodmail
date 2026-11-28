@@ -29,7 +29,7 @@ extension MailDatabase {
     /// Marks the thread's bodies as read at `date`.
     public func touchMessages(inThread thread: ThreadSummary.ID, at date: Date = .now) throws {
         // Not `write`: evicting doesn't care about this and the other process needn't hear of it.
-        try pool.write { db in
+        try writeUnannounced { db in
             try db.execute(
                 sql: "UPDATE message SET accessedAt = ? WHERE accountID = ? AND threadID = ?",
                 arguments: [date, thread.accountID.rawValue, thread.threadID])
@@ -38,7 +38,7 @@ extension MailDatabase {
 
     /// The cache's size now. `attachments` is the folder the attachment files are kept in, if any.
     public func cacheUsage(attachments: URL? = nil) throws -> CacheUsage {
-        let bodies = try pool.read { db in try Int.fetchOne(db, sql: "SELECT COALESCE(SUM(size), 0) FROM message") ?? 0
+        let bodies = try read { db in try Int.fetchOne(db, sql: "SELECT COALESCE(SUM(size), 0) FROM message") ?? 0
         }
         return CacheUsage(
             bodies: bodies, attachments: Self.attachmentFolders(in: attachments).reduce(0) { $0 + $1.size })
@@ -60,7 +60,7 @@ extension MailDatabase {
     @discardableResult
     public func trimCache(to limit: Int = MailDatabase.cacheLimit, attachments: URL? = nil) throws -> CacheTrim {
         let folders = Self.attachmentFolders(in: attachments)
-        let (threads, chosenFolders) = try pool.write { db in
+        let (threads, chosenFolders) = try writeUnannounced { db in
             let bodies = try Int.fetchOne(db, sql: "SELECT COALESCE(SUM(size), 0) FROM message") ?? 0
             let excess = bodies + folders.reduce(0) { $0 + $1.size } - limit
             guard excess > 0 else { return ([EvictableThread](), [AttachmentFolder]()) }
@@ -196,7 +196,7 @@ extension MailDatabase: ThreadFetchStore {
         """
 
     public func threadsMissingBodies(account: AccountID, among newest: Int) throws -> [ThreadSummary.ID] {
-        try pool.read { db in
+        try read { db in
             try String.fetchAll(
                 db,
                 sql: """
@@ -217,7 +217,7 @@ extension MailDatabase: ThreadFetchStore {
     }
 
     public func threadsMissingBodies(among threads: [ThreadSummary.ID]) throws -> [ThreadSummary.ID] {
-        let missing = try pool.read { db in
+        let missing = try read { db in
             try Dictionary(grouping: threads, by: \.accountID).flatMap { account, threads in
                 try String.fetchAll(
                     db,
@@ -238,7 +238,7 @@ extension MailDatabase: ThreadFetchStore {
         // Dated by the mail, not the fetch: prefetching shouldn't make bodies look more read than any the reader opened.
         var accessedAt = min(messages.map(\.date).max() ?? fetchedAt, fetchedAt)
         // Unless the reader opened the thread while it was being fetched.
-        let read = try pool.read { db in
+        let read = try read { db in
             try Date.fetchOne(
                 db, sql: "SELECT MAX(accessedAt) FROM message WHERE accountID = ? AND threadID = ?",
                 arguments: [thread.accountID.rawValue, thread.threadID])

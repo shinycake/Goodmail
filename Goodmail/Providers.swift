@@ -19,13 +19,19 @@ nonisolated final class Providers: Sendable {
     /// Makes the session that works on a provider.
     private let makeSession: @Sendable (AccountID, any MailProvider) -> AccountSession
 
-    init(database: MailDatabase, makeSession: @escaping @Sendable (AccountID, any MailProvider) -> AccountSession) {
+    /// `accounts` are the stored accounts as the app model follows them, which sessions are made for, so making one
+    /// reads nothing from the database on whichever actor asks first, the main actor among them (ADR-043). `index`
+    /// keeps the thread of each message for the providers whose changes name messages.
+    init(
+        accounts: FollowedValue<StoredAccounts>, index: MailDatabase,
+        makeSession: @escaping @Sendable (AccountID, any MailProvider) -> AccountSession
+    ) {
         self.makeSession = makeSession
         sessions = AccountSessions { id in
-            guard let account = try database.accounts().first(where: { $0.id == id }) else {
+            guard let account = accounts.latest.accounts.first(where: { $0.id == id }) else {
                 throw Failure.unknownAccount
             }
-            return makeSession(id, try MailClients.client(for: account, index: database))
+            return makeSession(id, try MailClients.client(for: account, index: index))
         }
     }
 
@@ -36,6 +42,12 @@ nonisolated final class Providers: Sendable {
             // Being removed is no account as far as the work queued for it goes.
             throw Failure.unknownAccount
         }
+    }
+
+    /// The account's provider, its session made off the caller's actor if it isn't yet: making one reads the
+    /// Keychain.
+    @concurrent func provider(madeFor id: AccountID) async throws -> any MailProvider {
+        try provider(for: id)
     }
 
     func provider(for id: AccountID) throws -> any MailProvider {

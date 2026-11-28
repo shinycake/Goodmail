@@ -209,7 +209,7 @@ struct OutboxTests {
         archived.labelIDs = []
         try database.apply(StoreChanges(accountID: account.id, upserts: [archived], fetchedAt: clock.next()))
         #expect(try await inbox() == [])
-        let left = try await database.pool.read { try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM outbox") }
+        let left = try database.read { try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM outbox") }
         #expect(left == 0, "a fetch after the send has it, so the intent is done")
     }
 

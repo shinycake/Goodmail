@@ -27,18 +27,22 @@ nonisolated struct ShareSession: Sendable {
         case noSharedContainer
     }
 
-    let database: MailDatabase
+    /// Read and written off the main actor, as the sheet's composer asks (ADR-043).
+    let database: OffMainDatabase
     /// The message as it is written, kept for the app in case the sheet goes away unasked.
     let drafts: DraftKeeper
     /// The accounts in the order the reader keeps them; the first is where a new message starts.
     let accounts: [Account]
+    /// Each account's signature, where it has one, which a new message starts with.
+    let signatures: [AccountID: String]
 
     @concurrent static func open() async throws -> ShareSession {
         guard let directory = SharedContainer.directoryURL else { throw Failure.noSharedContainer }
-        let database = try MailDatabase(url: directory.appending(path: "Mail/mail.sqlite"))
+        let database = try await OffMainDatabase.open(url: directory.appending(path: "Mail/mail.sqlite"))
+        let stored = try await database.offMain { try $0.storedAccounts() }
         return ShareSession(
-            database: database, drafts: DraftKeeper(store: database, keepAwake: ShareTime.awake(running:)),
-            accounts: try database.accounts())
+            database: database, drafts: DraftKeeper(store: database.blocking, keepAwake: ShareTime.awake(running:)),
+            accounts: stored.accounts, signatures: stored.signatures)
     }
 
     /// Carries out `errand` for `draft`. A message to send or a draft to save goes now, from here; what can't
@@ -50,7 +54,7 @@ nonisolated struct ShareSession: Sendable {
     /// message couldn't be kept at all.
     @concurrent func run(_ errand: Errand, for draft: Draft) async throws -> Ending {
         await drafts.settle()
-        let written = drafts.take(draft.id)
+        let written = await drafts.take(draft.id)
         do {
             return try await carry(errand, for: draft)
         } catch let error as ImmediateDelivery.NotKept where !error.mayHaveGone {
@@ -65,24 +69,24 @@ nonisolated struct ShareSession: Sendable {
         case .send: purpose = .send
         case .saveDraft: purpose = .saveDraft
         case .schedule(let date):
-            try keep(OutgoingMessage(draft: draft, purpose: .scheduledSend, sendAt: date))
+            try await keep(OutgoingMessage(draft: draft, purpose: .scheduledSend, sendAt: date))
             return .delivered(.handedOver(.queued))
         }
         // The accounts come from this database, so the draft's is always among them.
         let account = accounts.first { $0.id == draft.accountID }
-        guard let provider = try? account.map({ try MailClients.client(for: $0, index: database) }) else {
-            try keep(OutgoingMessage(draft: draft, purpose: purpose, sendAt: .now))
+        guard let provider = try? account.map({ try MailClients.client(for: $0, index: database.blocking) }) else {
+            try await keep(OutgoingMessage(draft: draft, purpose: purpose, sendAt: .now))
             return .waitingForSignIn
         }
         let delivery = ImmediateDelivery(
-            draft, as: purpose, provider: provider, store: database,
+            draft, as: purpose, provider: provider, store: database.blocking,
             scratch: FileManager.default.temporaryDirectory.appending(path: "Uploads", directoryHint: .isDirectory))
         return .delivered(try await Self.awake(whileRunning: delivery))
     }
 
-    private func keep(_ message: OutgoingMessage) throws {
+    private func keep(_ message: OutgoingMessage) async throws {
         do {
-            try database.enqueue(message)
+            try await database.offMain { try $0.enqueue(message) }
         } catch {
             throw ImmediateDelivery.NotKept(mayHaveGone: false)
         }

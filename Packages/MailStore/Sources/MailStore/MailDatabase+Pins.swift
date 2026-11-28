@@ -4,7 +4,7 @@ public import MailCore
 
 extension MailDatabase: PinStore {
     public func pins(among threads: [ThreadSummary.ID]) throws -> Set<ThreadSummary.ID> {
-        try pool.read { db in
+        try read { db in
             try Set(
                 threads.filter { thread in
                     try Bool.fetchOne(
@@ -25,10 +25,12 @@ extension MailDatabase: PinStore {
             }
         }
     }
+}
 
+extension MailFollowing {
     /// The pinned threads, in every account. Emits now and after every change.
     public func pinnedThreads() -> AsyncThrowingStream<Set<ThreadSummary.ID>, any Error> {
-        observe { db in
+        followed.observe { db in
             Set(
                 try Row.fetchAll(db, sql: "SELECT accountID, threadID FROM pin").map {
                     ThreadSummary.ID(accountID: AccountID(rawValue: $0["accountID"]), threadID: $0["threadID"])

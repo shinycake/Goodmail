@@ -12,41 +12,57 @@ struct Catalog {
     /// The moment ages are read from.
     var now: Date = .now
 
-    func accounts() throws -> [AccountEntity] {
-        try host.accounts().map(AccountEntity.init)
+    func accounts() async throws -> [AccountEntity] {
+        try await host.accounts().map(AccountEntity.init)
     }
 
-    func mailboxes() throws -> [MailboxEntity] {
-        try accounts().flatMap { account in
-            try host.mailboxes(of: account.accountID).map { MailboxEntity($0, account: account) }
+    /// Every account's mailboxes, in the accounts' order, read side by side.
+    func mailboxes() async throws -> [MailboxEntity] {
+        let accounts = try await accounts()
+        let host = host
+        let byAccount = try await withThrowingTaskGroup(of: (Int, [MailboxEntity]).self) { group in
+            for (index, account) in accounts.enumerated() {
+                group.addTask {
+                    (index, try await host.mailboxes(of: account.accountID).map { MailboxEntity($0, account: account) })
+                }
+            }
+            return try await group.reduce(into: [Int: [MailboxEntity]]()) { $0[$1.0] = $1.1 }
         }
+        return accounts.indices.flatMap { byAccount[$0] ?? [] }
     }
 
     /// With `withMessages: false` the threads carry no messages, which spares decoding every cached body when only
     /// the thread itself is wanted, as Spotlight does.
-    func threads(_ identifiers: [String], withMessages: Bool = true) throws -> [ThreadEntity] {
-        try threads(ids: identifiers.compactMap(EntityID.thread), withMessages: withMessages)
+    func threads(_ identifiers: [String], withMessages: Bool = true) async throws -> [ThreadEntity] {
+        try await threads(ids: identifiers.compactMap(EntityID.thread), withMessages: withMessages)
     }
 
-    func threads(matching text: String) throws -> [ThreadEntity] {
-        try threads(ids: host.threads(matching: text, limit: Self.suggestionLimit).map(\.id))
+    func threads(matching text: String) async throws -> [ThreadEntity] {
+        try await threads(ids: host.threads(matching: text, limit: Self.suggestionLimit).map(\.id))
     }
 
     /// The newest threads in the Inbox.
-    func recentThreads() throws -> [ThreadEntity] {
-        try threads(ids: host.threads(in: .inbox, limit: Self.suggestionLimit).map(\.id))
+    func recentThreads() async throws -> [ThreadEntity] {
+        try await threads(ids: host.threads(in: .inbox, limit: Self.suggestionLimit).map(\.id))
     }
 
     /// The stored threads among `ids`, newest first.
-    func threads(ids: [ThreadSummary.ID], withMessages: Bool = true) throws -> [ThreadEntity] {
+    func threads(ids: [ThreadSummary.ID], withMessages: Bool = true) async throws -> [ThreadEntity] {
         // In the order asked for, as the identifiers were given.
         let position = Dictionary(ids.enumerated().map { ($1, $0) }, uniquingKeysWith: { first, _ in first })
-        let threads = try host.threadFacts(ids).sorted {
-            position[$0.envelope.thread, default: .max] < position[$1.envelope.thread, default: .max]
+        let inOrder: ([MailFacts]) -> [MailFacts] = { facts in
+            facts.sorted { position[$0.envelope.thread, default: .max] < position[$1.envelope.thread, default: .max] }
         }
-        guard withMessages else { return threads.map { ThreadEntity($0, messages: [], now: now) } }
-        let byThread = Dictionary(grouping: try host.messageFacts(inThreads: ids), by: \.envelope.thread)
-        let messages = try Messages(catalog: self)
+        guard withMessages else {
+            return inOrder(try await host.threadFacts(ids)).map { ThreadEntity($0, messages: [], now: now) }
+        }
+        // The threads, their cached messages and every account's mailboxes, read side by side.
+        async let facts = host.threadFacts(ids)
+        async let cached = host.messageFacts(inThreads: ids)
+        async let made = Messages(catalog: self)
+        let threads = inOrder(try await facts)
+        let byThread = Dictionary(grouping: try await cached, by: \.envelope.thread)
+        let messages = try await made
         return threads.map { thread in
             let conversation = [thread.envelope.thread: ThreadEntity(thread, messages: [], now: now)]
             // Oldest first, as a conversation reads.
@@ -56,12 +72,12 @@ struct Catalog {
         }
     }
 
-    func messages(_ identifiers: [String]) throws -> [MessageEntity] {
+    func messages(_ identifiers: [String]) async throws -> [MessageEntity] {
         let ids = identifiers.compactMap(EntityID.message)
         let wanted = Set(ids.map(\.message))
-        let facts = try host.messageFacts(inThreads: Array(Set(ids.map(\.thread))))
+        let facts = try await host.messageFacts(inThreads: Array(Set(ids.map(\.thread))))
             .filter { $0.content.map { wanted.contains($0.id) } ?? false }
-        return try Messages(catalog: self).entities(facts, conversations: conversations(of: facts))
+        return try await entities(of: facts)
     }
 
     /// The cached messages that meet `condition`, in `sorts`' order, at most `limit` of them. Reads every cached body
@@ -69,26 +85,33 @@ struct Catalog {
     @concurrent func messages(matching condition: MailCondition, sortedBy sorts: [MailSort], limit: Int?)
         async throws -> [MessageEntity]
     {
-        let found = try host.messageFacts(matching: condition, in: MailCondition.Context(calendar: calendar))
+        let found = try await host.messageFacts(matching: condition, in: MailCondition.Context(calendar: calendar))
         let sorted = MailSort.sorted(found, by: sorts)
         let kept = limit.map { Array(sorted.prefix($0)) } ?? sorted
-        return try Messages(catalog: self).entities(kept, conversations: conversations(of: kept))
+        return try await entities(of: kept)
+    }
+
+    /// The messages' entities, with every account's mailboxes and the messages' conversations read side by side.
+    private func entities(of facts: [MailFacts]) async throws -> [MessageEntity] {
+        async let made = Messages(catalog: self)
+        async let threads = conversations(of: facts)
+        return try await made.entities(facts, conversations: threads)
     }
 
     /// The stored threads that meet `condition`, in `sorts`' order, at most `limit` of them, without their messages.
     @concurrent func threads(matching condition: MailCondition, sortedBy sorts: [MailSort], limit: Int?)
         async throws -> [ThreadEntity]
     {
-        let found = try host.threadFacts(matching: condition, in: MailCondition.Context(calendar: calendar))
+        let found = try await host.threadFacts(matching: condition, in: MailCondition.Context(calendar: calendar))
         let sorted = MailSort.sorted(found, by: sorts)
         return (limit.map { Array(sorted.prefix($0)) } ?? sorted).map { ThreadEntity($0, messages: [], now: now) }
     }
 
     /// The conversations the messages belong to, without their messages, by ID.
-    private func conversations(of messages: [MailFacts]) throws -> [ThreadSummary.ID: ThreadEntity] {
+    private func conversations(of messages: [MailFacts]) async throws -> [ThreadSummary.ID: ThreadEntity] {
         let ids = Array(Set(messages.map(\.envelope.thread)))
         return Dictionary(
-            try host.threadFacts(ids).map { ($0.envelope.thread, ThreadEntity($0, messages: [], now: now)) },
+            try await host.threadFacts(ids).map { ($0.envelope.thread, ThreadEntity($0, messages: [], now: now)) },
             uniquingKeysWith: { first, _ in first })
     }
 
@@ -98,8 +121,9 @@ struct Catalog {
         private let calendar: Calendar
         private let now: Date
 
-        init(catalog: Catalog) throws {
-            byID = Dictionary(try catalog.mailboxes().map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        init(catalog: Catalog) async throws {
+            byID = Dictionary(
+                try await catalog.mailboxes().map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
             calendar = catalog.calendar
             now = catalog.now
         }

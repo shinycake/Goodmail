@@ -6,7 +6,7 @@ public import MailCore
 extension MailDatabase {
     /// Every account's badge choice, `BadgeSource.initial` for one the reader never chose for.
     public func badgeSources() throws -> [AccountID: BadgeSource] {
-        try pool.read { db in try Self.badgeSources(in: db) }
+        try read { db in try Self.badgeSources(in: db) }
     }
 
     public func setBadgeSource(_ source: BadgeSource, for account: AccountID) throws {
@@ -16,12 +16,7 @@ extension MailDatabase {
     /// The app badge: each account's unread threads in what its `BadgeSource` counts. An account the Focus leaves out
     /// counts none.
     public func badgeCount() throws -> Int {
-        try pool.read { db in try Self.badgeCount(in: db) }
-    }
-
-    /// `badgeCount()`, now and after every change.
-    public func badgeCounts() -> AsyncThrowingStream<Int, any Error> {
-        observe { db in try Self.badgeCount(in: db) }
+        try read { db in try Self.badgeCount(in: db) }
     }
 
     static func badgeCount(in db: Database) throws -> Int {
@@ -47,6 +42,13 @@ extension MailDatabase {
             uniqueKeysWithValues: try String.fetchAll(db, sql: "SELECT id FROM account").map { id in
                 (AccountID(rawValue: id), chosen[id] ?? .initial)
             })
+    }
+}
+
+extension MailFollowing {
+    /// `badgeCount()`, now and after every change.
+    public func badgeCounts() -> AsyncThrowingStream<Int, any Error> {
+        followed.observe { db in try MailDatabase.badgeCount(in: db) }
     }
 }
 

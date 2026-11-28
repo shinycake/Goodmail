@@ -53,7 +53,7 @@ struct SyncEngineTests {
     }
 
     private func allLocal() throws -> Set<String> {
-        try Set(database.pool.read { try String.fetchAll($0, sql: "SELECT id FROM thread") })
+        try Set(database.read { try String.fetchAll($0, sql: "SELECT id FROM thread") })
     }
 
     @Test func firstSyncFillsTheWindowInboxFirst() async throws {
@@ -201,7 +201,7 @@ struct SyncEngineTests {
         let json =
             #"{"cursor":"\#(try await server.currentCursor())","startedAt":\#(startedAt),"generation":1,"#
             + #""stage":2,"pageToken":"4"}"#
-        try await database.pool.write { db in
+        try database.writeUnannounced { db in
             try db.execute(
                 sql: "INSERT INTO syncState (accountID, state) VALUES (?, ?)",
                 arguments: [account.id.rawValue, #"{"resyncing":{"_0":\#(json)}}"#])
@@ -344,7 +344,7 @@ struct SyncEngineTests {
         let engine = engine()
         server.onSignatureRead { [server] in
             server.onSignatureRead(nil)
-            try? await engine.setSignature("New")
+            _ = try? await engine.setSignature("New")
         }
         try await engine.sync()
         #expect(try database.signature(for: account.id) == "New")

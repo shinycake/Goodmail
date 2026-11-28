@@ -26,7 +26,7 @@ extension AppModel {
 extension SettingsSync {
     /// The database's mail state, shared through iCloud Keychain beside the settings, with a ledger of its own in this
     /// device's Application Support.
-    static func mailState(_ database: MailDatabase) -> SettingsSync {
+    static func mailState(_ database: OffMainDatabase) -> SettingsSync {
         SettingsSync(
             cloud: Keychain(service: "com.idanbirman.goodmail.mailstate", place: .iCloud),
             ledger: SettingsLedgerFile(

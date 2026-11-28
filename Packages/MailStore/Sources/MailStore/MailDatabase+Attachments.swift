@@ -1,12 +1,12 @@
 import GRDB
 public import MailCore
 
-extension MailDatabase {
+extension MailFollowing {
     /// The conversations with a downloaded message that carries files, not counting the pictures its body shows
     /// inline. A conversation whose messages were never downloaded can't be known to, so it isn't here. Emits now and
     /// after every change, which reads every stored message, so it is followed only while a list filters by it.
     public func threadsHoldingAttachments() -> AsyncThrowingStream<Set<ThreadSummary.ID>, any Error> {
-        observe { db in
+        followed.observe { db in
             let rows = try Row.fetchAll(
                 db,
                 sql: """

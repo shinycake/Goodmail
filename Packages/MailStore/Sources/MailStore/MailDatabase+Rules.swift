@@ -5,7 +5,7 @@ public import MailCore
 /// The reader's mail rules, and how far each account's arrived mail has been through them (`RuleRunner`).
 extension MailDatabase: RuleStore {
     public func rules() throws -> [MailRule] {
-        try pool.read { db in
+        try read { db in
             try MailRuleRecord.order(Column("position")).fetchAll(db).compactMap(\.rule)
         }
     }

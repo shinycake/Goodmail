@@ -17,7 +17,7 @@
     /// The app's side of the App Intents (ADR-012): reads come from the shared database, and routes go to the frontmost
     /// window's coordinator.
     nonisolated struct IntentsHost: MailIntentsHost {
-        let database: MailDatabase
+        let database: OffMainDatabase
         let commands: MailCommands
         let routes: IntentRoutes
         let unsubscriber: ListUnsubscriber
@@ -28,10 +28,10 @@
         /// Fetches a thread's messages into the store when the cached ones don't reach its newest.
         let loadThread: @Sendable (ThreadSummary.ID) async throws -> Void
 
-        func accounts() throws -> [Account] { try database.accounts() }
+        func accounts() async throws -> [Account] { try await database.offMain { try $0.accounts() } }
 
-        func mailboxes(of account: AccountID) throws -> [NamedMailbox] {
-            let labels = try database.labels(for: account)
+        func mailboxes(of account: AccountID) async throws -> [NamedMailbox] {
+            let labels = try await database.offMain { try $0.labels(for: account) }
                 .filter { $0.kind == .user && !$0.isHidden }
                 .map {
                     MailboxDirectory.Label(
@@ -41,30 +41,40 @@
             return (standard + labels.map(\.mailbox)).map { NamedMailbox(mailbox: $0, name: $0.title(labels: labels)) }
         }
 
-        func threads(_ ids: [ThreadSummary.ID]) throws -> [ThreadSummary] { try database.threads(ids) }
-
-        func threads(in mailbox: Mailbox, limit: Int) throws -> [ThreadSummary] {
-            try database.threads(in: mailbox, limit: limit)
+        func threads(_ ids: [ThreadSummary.ID]) async throws -> [ThreadSummary] {
+            try await database.offMain { try $0.threads(ids) }
         }
 
-        func threads(matching text: String, limit: Int) throws -> [ThreadSummary] {
-            try database.threads(matching: text, limit: limit)
+        func threads(in mailbox: Mailbox, limit: Int) async throws -> [ThreadSummary] {
+            try await database.offMain { try $0.threads(in: mailbox, limit: limit) }
         }
 
-        func threadFacts(_ ids: [ThreadSummary.ID]) throws -> [MailFacts] {
-            try database.threadFacts(ids, mailboxNames: Mailbox.standardNames)
+        func threads(matching text: String, limit: Int) async throws -> [ThreadSummary] {
+            try await database.offMain { try $0.threads(matching: text, limit: limit) }
         }
 
-        func messageFacts(inThreads ids: [ThreadSummary.ID]) throws -> [MailFacts] {
-            try database.messageFacts(inThreads: ids, mailboxNames: Mailbox.standardNames)
+        func threadFacts(_ ids: [ThreadSummary.ID]) async throws -> [MailFacts] {
+            try await database.offMain { try $0.threadFacts(ids, mailboxNames: Mailbox.standardNames) }
         }
 
-        func messageFacts(matching condition: MailCondition, in context: MailCondition.Context) throws -> [MailFacts] {
-            try database.messageFacts(matching: condition, in: context, mailboxNames: Mailbox.standardNames)
+        func messageFacts(inThreads ids: [ThreadSummary.ID]) async throws -> [MailFacts] {
+            try await database.offMain { try $0.messageFacts(inThreads: ids, mailboxNames: Mailbox.standardNames) }
         }
 
-        func threadFacts(matching condition: MailCondition, in context: MailCondition.Context) throws -> [MailFacts] {
-            try database.threadFacts(matching: condition, in: context, mailboxNames: Mailbox.standardNames)
+        func messageFacts(matching condition: MailCondition, in context: MailCondition.Context) async throws
+            -> [MailFacts]
+        {
+            try await database.offMain {
+                try $0.messageFacts(matching: condition, in: context, mailboxNames: Mailbox.standardNames)
+            }
+        }
+
+        func threadFacts(matching condition: MailCondition, in context: MailCondition.Context) async throws
+            -> [MailFacts]
+        {
+            try await database.offMain {
+                try $0.threadFacts(matching: condition, in: context, mailboxNames: Mailbox.standardNames)
+            }
         }
 
         // Intents can run with the app in the background, as from Siri or a widget, so their writes keep it awake.
@@ -90,10 +100,16 @@
             try await unsubscriber.unsubscribe(unsubscribe, account: account)
         }
 
-        func answer(_ answer: Answer, to message: Message.ID, inThread thread: ThreadSummary.ID) async throws -> Draft?
+        // `answer`, `data` and `source` run off the caller's actor, since IMAP and Outlook read the message index as
+        // they fetch (ADR-043).
+        @concurrent func answer(_ answer: Answer, to message: Message.ID, inThread thread: ThreadSummary.ID)
+            async throws -> Draft?
         {
-            guard let account = try database.accounts().first(where: { $0.id == thread.accountID }) else { return nil }
-            var messages = try database.cachedMessages(inThread: thread)
+            let (accounts, cached) = try await database.offMain { database in
+                (try database.accounts(), try database.cachedMessages(inThread: thread))
+            }
+            guard let account = accounts.first(where: { $0.id == thread.accountID }) else { return nil }
+            var messages = cached
             if !messages.contains(where: { $0.id == message }) {
                 messages = try await providers.provider(for: thread.accountID).messages(inThread: thread.threadID)
                     .sorted { $0.date < $1.date }
@@ -111,11 +127,11 @@
             }
         }
 
-        func data(for attachment: Attachment, in message: Message.ID) async throws -> Data {
+        @concurrent func data(for attachment: Attachment, in message: Message.ID) async throws -> Data {
             try await providers.provider(for: message.accountID).data(for: attachment, in: message)
         }
 
-        func source(of message: Message.ID) async throws -> Data {
+        @concurrent func source(of message: Message.ID) async throws -> Data {
             try await providers.provider(for: message.accountID).source(of: message)
         }
 
@@ -137,7 +153,7 @@
             try await BackgroundDatabaseWork.shared.run("Intent") { try await commands.undo(undo) }
         }
 
-        func apply(_ focus: FocusFilter) throws { try database.apply(focus) }
+        func apply(_ focus: FocusFilter) async throws { try await database.offMain { try $0.apply(focus) } }
 
         @MainActor func open(_ route: Route) { routes.open(route) }
 

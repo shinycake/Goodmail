@@ -23,7 +23,7 @@ public struct UnsubscribeIntent: AppIntent {
     }
 
     public func perform() async throws -> some IntentResult & ReturnsValue<URL?> {
-        let facts = try Catalog(host: host).facts(ofMessage: message.id)
+        let facts = try await Catalog(host: host).facts(ofMessage: message.id)
         guard let unsubscribe = facts.content?.unsubscribe else { throw IntentError.notAList }
         switch try await host.unsubscribe(unsubscribe, account: facts.envelope.account.id) {
         case .done: return .result(value: nil)
@@ -48,7 +48,7 @@ public struct CheckForNewMailIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult & ReturnsValue<[ThreadEntity]> {
         let catalog = Catalog(host: host)
-        let newest = try catalog.newestDate()
+        let newest = try await catalog.newestDate()
         try await host.refresh()
         return .result(value: try await catalog.threads(newerThan: newest))
     }
@@ -56,9 +56,11 @@ public struct CheckForNewMailIntent: AppIntent {
 
 extension Catalog {
     /// The cached message the identifier names.
-    func facts(ofMessage identifier: String) throws -> MailFacts {
+    func facts(ofMessage identifier: String) async throws -> MailFacts {
         guard let id = EntityID.message(identifier),
-            let facts = try host.messageFacts(inThreads: [id.thread]).first(where: { $0.content?.id == id.message })
+            let facts = try await host.messageFacts(inThreads: [id.thread]).first(where: {
+                $0.content?.id == id.message
+            })
         else { throw IntentError.gone }
         return facts
     }
@@ -69,8 +71,8 @@ extension Catalog {
     static let newMailLimit = 100
 
     /// When the newest stored conversation last got a message, or `nil` when nothing is stored yet.
-    func newestDate() throws -> Date? {
-        try host.threads(in: .allMail, limit: 1).first?.date
+    func newestDate() async throws -> Date? {
+        try await host.threads(in: .allMail, limit: 1).first?.date
     }
 
     /// The conversations whose newest message came after `date`, newest first. Nothing before the first sync, when

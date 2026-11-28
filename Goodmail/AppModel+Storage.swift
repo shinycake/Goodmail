@@ -9,13 +9,13 @@ extension AppModel {
         return StorageSettings(
             service: StorageSettings.Service(
                 usage: {
-                    try await Self.offMain {
+                    try await database.offMain { database in
                         let usage = try database.cacheUsage(attachments: attachments)
                         return StorageSettings.Usage(messages: usage.bodies, attachments: usage.attachments)
                     }
                 },
                 trim: { limit in
-                    try await Self.offMain { _ = try database.trimCache(to: limit, attachments: attachments) }
+                    try await database.offMain { _ = try $0.trimCache(to: limit, attachments: attachments) }
                 }),
             preferences: storage)
     }

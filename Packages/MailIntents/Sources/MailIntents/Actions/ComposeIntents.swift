@@ -53,7 +53,7 @@ public struct SendEmailIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let catalog = Catalog(host: host)
-        let draft = try catalog.newDraft(
+        let draft = try await catalog.newDraft(
             WrittenMail(
                 to: to.recipients, cc: (cc ?? []).recipients, bcc: (bcc ?? []).recipients, subject: subject,
                 text: body ?? "",
@@ -177,14 +177,14 @@ public enum AnswerKind: String, AppEnum {
 extension Catalog {
     /// The account with the identifier, or the first account when none is given. `nil` when it's gone or there is
     /// none.
-    func account(_ identifier: String?) throws -> Account? {
-        let accounts = try host.accounts()
+    func account(_ identifier: String?) async throws -> Account? {
+        let accounts = try await host.accounts()
         return identifier.map { id in accounts.first { $0.id.rawValue == id } } ?? accounts.first
     }
 
     /// A new message with what was written, from the account with the identifier or else the first.
-    func newDraft(_ mail: WrittenMail, from account: String?) throws -> Draft {
-        guard let account = try self.account(account) else { throw IntentError.gone }
+    func newDraft(_ mail: WrittenMail, from account: String?) async throws -> Draft {
+        guard let account = try await self.account(account) else { throw IntentError.gone }
         var draft = Draft(accountID: account.id)
         do { try draft.add(mail) } catch { throw IntentError(error) }
         return draft

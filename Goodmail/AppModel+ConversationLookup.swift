@@ -11,8 +11,9 @@ extension AppModel {
         #else
             let synthetic = false
         #endif
+        let store = database.blocking  // blocking-reads: allow: read and written only in `find`, which is @concurrent
         return ConversationLookup(
-            stored: { [database] in try database.thread($0) },
+            stored: { [store] in try store.thread($0) },
             fetch: { [providers] thread in
                 if synthetic { return ThreadFetch(found: [], missing: [thread.threadID]) }
                 let provider: any MailProvider
@@ -23,6 +24,6 @@ extension AppModel {
                 }
                 return try await provider.threads(withIDs: [thread.threadID])
             },
-            store: { [database] in try database.apply($0) })
+            store: { [store] in try store.apply($0) })
     }
 }

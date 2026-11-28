@@ -6,7 +6,7 @@ public import MailCore
 /// holds, read from the mail on the device.
 extension MailDatabase {
     public func smartMailboxes() throws -> [SmartMailbox] {
-        try pool.read(Self.smartMailboxes)
+        try read(Self.smartMailboxes)
     }
 
     /// Makes `boxes` the smart mailboxes, in this order.
@@ -34,35 +34,6 @@ extension MailDatabase {
         try write { db in _ = try SmartMailboxRecord.deleteOne(db, key: id.rawValue) }
     }
 
-    /// The boxes in their order, with each one's unread conversations. Emits now and after every change.
-    /// `mailboxNames` names the standard mailboxes, as `MailDatabase.messageFacts` takes them.
-    public func smartMailboxDirectory(mailboxNames: [String: String] = [:])
-        -> AsyncThrowingStream<SmartMailboxDirectory, any Error>
-    {
-        observe { db in
-            let boxes = try Self.smartMailboxes(db)
-            let vips = try Self.vips(db)
-            let unread = try SmartMatch(db, mailboxNames: mailboxNames, context: MailCondition.Context()).threads(
-                meeting: Dictionary(uniqueKeysWithValues: boxes.map { ($0.id, $0.condition(vips: vips)) }),
-                unreadOnly: true)
-            return SmartMailboxDirectory(
-                mailboxes: boxes, unreadCounts: unread.compactMapValues { $0.isEmpty ? nil : $0.count })
-        }
-    }
-
-    /// The conversations in the box, newest first, as the box is defined at each change: an edit from another device
-    /// shows at once, and a deleted box shows none. Emits now and after every change.
-    public func threads(inSmartMailbox id: SmartMailbox.ID, mailboxNames: [String: String] = [:])
-        -> AsyncThrowingStream<[ThreadSummary], any Error>
-    {
-        observe { db in
-            guard let box = try Self.smartMailboxes(db).first(where: { $0.id == id }) else { return [] }
-            let condition = box.condition(vips: try Self.vips(db))
-            return try SmartMatch(db, mailboxNames: mailboxNames, context: MailCondition.Context())
-                .threads(meeting: [id: condition], unreadOnly: false)[id] ?? []
-        }
-    }
-
     static func smartMailboxes(_ db: Database) throws -> [SmartMailbox] {
         try SmartMailboxRecord.order(Column("position")).fetchAll(db).compactMap(\.smartMailbox)
     }
@@ -77,6 +48,37 @@ extension MailDatabase {
         }
         for (position, box) in SmartMailbox.startingSet.enumerated() {
             try SmartMailboxRecord(box, position: position).insert(db)
+        }
+    }
+}
+
+extension MailFollowing {
+    /// The boxes in their order, with each one's unread conversations. Emits now and after every change.
+    /// `mailboxNames` names the standard mailboxes, as `MailDatabase.messageFacts` takes them.
+    public func smartMailboxDirectory(mailboxNames: [String: String] = [:])
+        -> AsyncThrowingStream<SmartMailboxDirectory, any Error>
+    {
+        followed.observe { db in
+            let boxes = try MailDatabase.smartMailboxes(db)
+            let vips = try MailDatabase.vips(db)
+            let unread = try SmartMatch(db, mailboxNames: mailboxNames, context: MailCondition.Context()).threads(
+                meeting: Dictionary(uniqueKeysWithValues: boxes.map { ($0.id, $0.condition(vips: vips)) }),
+                unreadOnly: true)
+            return SmartMailboxDirectory(
+                mailboxes: boxes, unreadCounts: unread.compactMapValues { $0.isEmpty ? nil : $0.count })
+        }
+    }
+
+    /// The conversations in the box, newest first, as the box is defined at each change: an edit from another device
+    /// shows at once, and a deleted box shows none. Emits now and after every change.
+    public func threads(inSmartMailbox id: SmartMailbox.ID, mailboxNames: [String: String] = [:])
+        -> AsyncThrowingStream<[ThreadSummary], any Error>
+    {
+        followed.observe { db in
+            guard let box = try MailDatabase.smartMailboxes(db).first(where: { $0.id == id }) else { return [] }
+            let condition = box.condition(vips: try MailDatabase.vips(db))
+            return try SmartMatch(db, mailboxNames: mailboxNames, context: MailCondition.Context())
+                .threads(meeting: [id: condition], unreadOnly: false)[id] ?? []
         }
     }
 }

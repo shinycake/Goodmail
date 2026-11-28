@@ -31,8 +31,8 @@ final class QuickActionMenu {
     }
 
     /// The newest thread in Drafts, or `nil` when it can't be read.
-    @concurrent private static func newestDraft(in database: MailDatabase) async -> NewestDraft? {
-        guard let threads = try? database.threads(in: .drafts, limit: 1) else { return nil }
+    private static func newestDraft(in database: OffMainDatabase) async -> NewestDraft? {
+        guard let threads = try? await database.offMain({ try $0.threads(in: .drafts, limit: 1) }) else { return nil }
         return NewestDraft(thread: threads.first)
     }
 

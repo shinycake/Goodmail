@@ -6,7 +6,7 @@ import UIKit
 /// to edit, retry or delete, and the first Gmail account whose sign-in can't delete forever, asked to sign in again.
 /// Held by the model for every window, so a second window, or one opened later, doesn't show them again.
 final class LaunchAlerts {
-    private let database: MailDatabase
+    private let database: OffMainDatabase
     private let signInsToRenew: () async -> [Account]
     private var ledger = LaunchAlertLedger<OutgoingMessage>()
     /// Only `viewerShowed()` changes it.
@@ -19,7 +19,7 @@ final class LaunchAlerts {
         case watching(failures: Task<Void, Never>, signIns: Task<Void, Never>)
     }
 
-    init(database: MailDatabase, signInsToRenew: @escaping () async -> [Account]) {
+    init(database: OffMainDatabase, signInsToRenew: @escaping () async -> [Account]) {
         self.database = database
         self.signInsToRenew = signInsToRenew
     }

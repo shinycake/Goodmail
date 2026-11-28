@@ -53,7 +53,7 @@ struct MailboxQueryPlanTests {
     @Test(arguments: Shape.all)
     func readsInOrderFromAnIndexWithoutSorting(_ shape: Shape) throws {
         let query = shape.query
-        let plan = try database.pool.read { db in
+        let plan = try database.read { db in
             try Row.fetchAll(db, sql: "EXPLAIN QUERY PLAN " + query.listing(limit: 200), arguments: query.arguments)
                 .map { $0["detail"] as String }
         }
@@ -62,7 +62,7 @@ struct MailboxQueryPlanTests {
 
     @Test(arguments: Shape.all)
     func listsEveryThreadItHoldsNewestFirstAndTheLaterOfTwoOnTheSameDateFirst(_ shape: Shape) throws {
-        let listed = try database.pool.read { db in try MailDatabase.fetchThreads(db, query: shape.query) }
+        let listed = try database.read { db in try MailDatabase.fetchThreads(db, query: shape.query) }
         // Newer threads have lower indexes, and the two of a pair on the same date were stored in index order.
         let newestFirst = (0..<Corpus.threadCount).sorted { ($0 / 2, $1) < ($1 / 2, $0) }
         let expected = newestFirst.map(Corpus.thread).filter(shape.holds)

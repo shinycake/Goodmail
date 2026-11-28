@@ -35,7 +35,7 @@ struct FlowTests {
 
     // MARK: Senders
 
-    @Test func theSenderPickerOffersWhoWritesMostThenWhoWroteLast() throws {
+    @Test func theSenderPickerOffersWhoWritesMostThenWhoWroteLast() async throws {
         let host = FakeHost(
             accountList: [account],
             stored: [
@@ -43,24 +43,24 @@ struct FlowTests {
                 thread("t3", from: Contact(name: nil, address: "dana@example.com"), daysAgo: 3),
                 thread("t4", from: Contact(name: nil, address: account.email), daysAgo: 4),
             ])
-        let senders = try catalog(host).frequentSenders()
+        let senders = try await catalog(host).frequentSenders()
         #expect(senders.map(\.id) == ["dana@example.com", "news@shop.com"], "most first, and never the account")
         #expect(senders.first?.name == "Dana", "named as the conversation that named them")
         #expect(senders.first?.domain == "example.com")
     }
 
-    @Test func aTypedAddressCanBeChosenEvenIfItNeverWrote() throws {
+    @Test func aTypedAddressCanBeChosenEvenIfItNeverWrote() async throws {
         let host = FakeHost(accountList: [account], stored: [thread("t1", from: dana, daysAgo: 1)])
-        let found = try catalog(host).senders(matching: "Avi <avi@example.org>")
+        let found = try await catalog(host).senders(matching: "Avi <avi@example.org>")
         #expect(found.map(\.address) == ["avi@example.org"])
         #expect(found.first?.name == "Avi")
-        #expect(try catalog(host).senders(matching: "dan").map(\.id) == ["dana@example.com"])
-        #expect(try catalog(host).senders(matching: "avi").isEmpty, "not an address, and nobody by that name")
+        #expect(try await catalog(host).senders(matching: "dan").map(\.id) == ["dana@example.com"])
+        #expect(try await catalog(host).senders(matching: "avi").isEmpty, "not an address, and nobody by that name")
     }
 
-    @Test func aSenderResolvesByAddressWhetherOrNotItWrote() throws {
+    @Test func aSenderResolvesByAddressWhetherOrNotItWrote() async throws {
         let host = FakeHost(accountList: [account], stored: [thread("t1", from: dana, daysAgo: 1)])
-        let senders = try catalog(host).senders(["dana@example.com", "avi@example.org"])
+        let senders = try await catalog(host).senders(["dana@example.com", "avi@example.org"])
         #expect(senders.map(\.name) == ["Dana", ""])
         #expect(senders.map(\.address) == ["Dana@Example.com", "avi@example.org"])
     }
@@ -83,7 +83,7 @@ struct FlowTests {
         #expect(DaysOld.of(now + 60, now: now) == 0)
     }
 
-    @Test func olderThanAWeekFindsWhatAnEntityCallsOlder() throws {
+    @Test func olderThanAWeekFindsWhatAnEntityCallsOlder() async throws {
         let host = FakeHost(
             accountList: [account],
             stored: [
@@ -99,16 +99,16 @@ struct FlowTests {
         #expect(try found(DaysOld.atMost(6, now: now)) == ["new"], "less than 7")
         #expect(try found(DaysOld.exactly(7, now: now)) == ["week"])
         #expect(try found(DaysOld.between(10, 6, now: now)) == ["new", "week"])
-        let entities = try catalog(host).threads(["A1/new", "A1/week"])
+        let entities = try await catalog(host).threads(["A1/new", "A1/week"])
         #expect(entities.map(\.daysOld) == [6, 7])
     }
 
     // MARK: Messages and conversations
 
-    @Test func aMessageNamesItsSenderAndItsConversation() throws {
+    @Test func aMessageNamesItsSenderAndItsConversation() async throws {
         let plan = thread("t1", from: dana, daysAgo: 2, count: 3)
         let host = FakeHost(accountList: [account], stored: [plan], cached: [plan.id: [message("m1", in: plan)]])
-        let entity = try #require(try catalog(host).messages(["A1/t1/m1"]).first)
+        let entity = try #require(try await catalog(host).messages(["A1/t1/m1"]).first)
         #expect(entity.from.id == "dana@example.com")
         #expect(entity.daysOld == 2)
         #expect(entity.conversation.id == "A1/t1")

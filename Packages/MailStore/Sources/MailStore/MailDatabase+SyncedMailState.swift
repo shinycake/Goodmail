@@ -8,12 +8,12 @@ public import MailCore
 extension MailDatabase {
     /// The pinned threads, in every account.
     public func pinnedThreadIDs() throws -> Set<ThreadSummary.ID> {
-        try pool.read { db in try Self.threadIDs(in: "pin", db) }
+        try read { db in try Self.threadIDs(in: "pin", db) }
     }
 
     /// Every thread's snooze, asleep or woken, in every account.
     public func allSnoozes() throws -> [ThreadSummary.ID: SnoozeState] {
-        try pool.read { db in
+        try read { db in
             var snoozes: [ThreadSummary.ID: SnoozeState] = [:]
             for row in try Row.fetchAll(db, sql: "SELECT accountID, threadID, wakeAt, wokeAt, keeper FROM snooze") {
                 let id = ThreadSummary.ID(accountID: AccountID(rawValue: row["accountID"]), threadID: row["threadID"])
@@ -25,7 +25,7 @@ extension MailDatabase {
 
     /// The threads muted on the device, in every account.
     public func deviceMutedThreadIDs() throws -> Set<ThreadSummary.ID> {
-        try pool.read { db in try Self.threadIDs(in: "deviceMute", db) }
+        try read { db in try Self.threadIDs(in: "deviceMute", db) }
     }
 
     /// Takes up snoozes another device made, changed or ended. A thread put to sleep there leaves this device's

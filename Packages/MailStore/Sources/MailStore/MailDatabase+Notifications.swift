@@ -4,7 +4,7 @@ public import MailCore
 
 extension MailDatabase: NotificationStore {
     public func notifications(for account: AccountID, now: Date) throws -> AccountNotifications {
-        try pool.read { db in try Self.notifications(for: account, now: now, in: db) }
+        try read { db in try Self.notifications(for: account, now: now, in: db) }
     }
 
     public func setNotificationLevel(_ level: NotificationLevel, for account: AccountID, now: Date) throws {
@@ -47,7 +47,7 @@ extension MailDatabase: NotificationStore {
     }
 
     public func pushSubscription(for account: AccountID) throws -> PushSubscription? {
-        try pool.read { db in try PushSubscriptionRecord.fetchOne(db, key: account.rawValue)?.subscription }
+        try read { db in try PushSubscriptionRecord.fetchOne(db, key: account.rawValue)?.subscription }
     }
 
     public func setPushSubscription(_ subscription: PushSubscription?, for account: AccountID) throws {
@@ -62,7 +62,7 @@ extension MailDatabase: NotificationStore {
 
     /// The newest Inbox thread stored for the account, which the reader has seen once the app showed it.
     public func newestInboxDate(for account: AccountID) throws -> Date? {
-        try pool.read { db in
+        try read { db in
             try Date.fetchOne(
                 db,
                 sql: """

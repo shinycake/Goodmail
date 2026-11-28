@@ -34,14 +34,9 @@ extension MailDatabase {
     /// This device's marks, read at once.
     public func deviceMarks() throws -> DeviceMarks {
         let limit = Self.deviceMarkLimit
-        return try pool.read { db in
-            let rows = try Row.fetchAll(db, sql: "SELECT id, inFocus, signature FROM account")
+        return try read { db in
+            let rows = try Row.fetchAll(db, sql: "SELECT id, inFocus FROM account")
             let inFocus = Set(rows.filter { $0["inFocus"] }.map { AccountID(rawValue: $0["id"]) })
-            var signatures: [AccountID: String] = [:]
-            for row in rows {
-                guard let signature: String = row["signature"], !signature.isEmpty else { continue }
-                signatures[AccountID(rawValue: row["id"])] = signature
-            }
             return DeviceMarks(
                 pinned: try Self.threadIDs(
                     "SELECT accountID, threadID FROM pin ORDER BY rowid DESC LIMIT ?", limit: limit, in: db),
@@ -52,7 +47,7 @@ extension MailDatabase {
                     "SELECT accountID, threadID FROM deviceMute ORDER BY mutedThrough DESC LIMIT ?", limit: limit,
                     in: db),
                 focus: inFocus.count == rows.count ? .everyAccount : .accounts(inFocus),
-                signatures: signatures)
+                signatures: try Self.signatures(db))
         }
     }
 

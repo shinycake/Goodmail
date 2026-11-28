@@ -171,7 +171,7 @@ extension Catalog {
     func move(_ identifiers: [String], to destination: MoveDestination) async throws -> [MailCommands.Undo] {
         // An automation's Find can come up empty; doing nothing then is a success, so the shortcut runs on.
         guard !identifiers.isEmpty else { return [] }
-        let threads = try host.threads(identifiers.compactMap(EntityID.thread))
+        let threads = try await host.threads(identifiers.compactMap(EntityID.thread))
         guard !threads.isEmpty else { throw IntentError.gone }
         // Threads in the same mailbox move in one change.
         let bySource = Dictionary(grouping: threads) { Mailbox.holding($0.labelIDs) }

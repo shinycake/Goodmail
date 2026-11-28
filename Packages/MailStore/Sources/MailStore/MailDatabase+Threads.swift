@@ -22,30 +22,8 @@ extension MailDatabase {
         try replaceLabels(of: thread.id, with: thread.labelIDs, in: db)
     }
 
-    /// The threads in `mailbox`, newest first. Emits now and after every change.
-    public func threads(in mailbox: Mailbox) -> AsyncThrowingStream<[ThreadSummary], any Error> {
-        // Signals from other processes re-run the query even when nothing it reads changed.
-        observe { db in try Self.fetchThreads(db, query: Self.threadSelection(in: mailbox)) }
-    }
-
-    /// Follows a query on the main queue until the stream is dropped.
-    func observe<Value: Equatable & Sendable>(_ fetch: @escaping @Sendable (Database) throws -> Value)
-        -> AsyncThrowingStream<Value, any Error>
-    {
-        let observation = ValueObservation.tracking(fetch).removeDuplicates()
-        return AsyncThrowingStream { continuation in
-            let cancellable = observation.start(
-                in: pool,
-                scheduling: .async(onQueue: .main),
-                onError: { continuation.finish(throwing: $0) },
-                onChange: { continuation.yield($0) }
-            )
-            continuation.onTermination = { _ in cancellable.cancel() }
-        }
-    }
-
     public func thread(_ id: ThreadSummary.ID) throws -> ThreadSummary? {
-        try pool.read { db in try Self.thread(id, in: db) }
+        try read { db in try Self.thread(id, in: db) }
     }
 
     static func thread(_ id: ThreadSummary.ID, in db: Database) throws -> ThreadSummary? {
@@ -58,6 +36,14 @@ extension MailDatabase {
             db, sql: "SELECT labelID FROM threadLabel WHERE accountID = ? AND threadID = ?",
             arguments: [id.accountID.rawValue, id.threadID])
         return record.summary(labelIDs: Set(labels))
+    }
+}
+
+extension MailFollowing {
+    /// The threads in `mailbox`, newest first. Emits now and after every change.
+    public func threads(in mailbox: Mailbox) -> AsyncThrowingStream<[ThreadSummary], any Error> {
+        // Signals from other processes re-run the query even when nothing it reads changed.
+        followed.observe { db in try MailDatabase.fetchThreads(db, query: MailDatabase.threadSelection(in: mailbox)) }
     }
 }
 

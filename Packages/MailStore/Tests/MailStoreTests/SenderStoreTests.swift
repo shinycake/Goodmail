@@ -56,7 +56,7 @@ struct SenderStoreTests {
         try database.block(dana, named: "Block dana@example.com")
 
         #expect(try database.rules().map(\.name) == ["Block dana@example.com", "Read"])
-        let kept = try database.pool.read { db in
+        let kept = try database.read { db in
             try Row.fetchAll(db, sql: "SELECT id, position FROM mailRule ORDER BY position").map {
                 "\($0["id"] as String)@\($0["position"] as Int)"
             }

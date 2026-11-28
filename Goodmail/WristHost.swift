@@ -1,5 +1,6 @@
 import Foundation
 import MailCore
+import MailStore
 import MailUI
 import MailWrist
 import MailWristHost
@@ -24,7 +25,7 @@ final class WristHost {
 
     init(model: AppModel) {
         host = WristMailHost(
-            database: model.database, commands: model.commands, answers: model.answers,
+            database: model.database.blocking, commands: model.commands, answers: model.answers,
             independence: { WristIndependence(mailWithoutIPhone: WatchChoices.mailWithoutIPhone) })
         outboxes = model.outboxes
         pairWatch = { [weak model] token in await model?.pairWatch(token) }

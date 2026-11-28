@@ -24,7 +24,7 @@ extension MailDatabase {
             filters.append("message.date <= ?")
             arguments += [to]
         }
-        return try pool.read { db in
+        return try read { db in
             let lookup = try FactsLookup(db, mailboxNames: mailboxNames)
             return try lookup.messages(
                 db, where: filters.isEmpty ? "1" : filters.joined(separator: " AND "), arguments: arguments
@@ -37,7 +37,7 @@ extension MailDatabase {
         guard !ids.isEmpty else { return [] }
         let keys = ids.map { $0.accountID.rawValue + "\u{1F}" + $0.threadID }
         let json = String(decoding: try JSONEncoder().encode(keys), as: UTF8.self)
-        return try pool.read { db in
+        return try read { db in
             try FactsLookup(db, mailboxNames: mailboxNames).messages(
                 db, where: "message.accountID || char(31) || message.threadID IN (SELECT value FROM json_each(?))",
                 arguments: [json]
@@ -48,7 +48,7 @@ extension MailDatabase {
     /// The stored threads among `ids`, newest first, each as its list row shows it.
     public func threadFacts(_ ids: [ThreadSummary.ID], mailboxNames: [String: String]) throws -> [MailFacts] {
         let threads = try threads(ids)
-        return try pool.read { db in
+        return try read { db in
             let lookup = try FactsLookup(db, mailboxNames: mailboxNames)
             return threads.compactMap(lookup.facts(of:))
         }
@@ -70,7 +70,7 @@ extension MailDatabase {
             sql += " AND thread.date <= ?"
             arguments += [to]
         }
-        return try pool.read { db in
+        return try read { db in
             let lookup = try FactsLookup(db, mailboxNames: mailboxNames)
             var matches: [MailFacts] = []
             for thread in try Self.fetchThreads(

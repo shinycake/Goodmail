@@ -4,24 +4,26 @@ public import MailCore
 
 /// What the intents need from the process they run in: its mail, the commands that change it, and its windows. The
 /// app registers one at launch with `registerMailIntentsHost(_:)`; every intent and query reads it as a dependency.
+/// Every read and write is `async`, so a host reads its database off the caller's actor, which can be the main actor
+/// (ADR-043).
 public protocol MailIntentsHost: Sendable {
-    func accounts() throws -> [Account]
+    func accounts() async throws -> [Account]
     /// The account's standard mailboxes and visible labels, named as the mailbox list names them.
-    func mailboxes(of account: AccountID) throws -> [NamedMailbox]
+    func mailboxes(of account: AccountID) async throws -> [NamedMailbox]
     /// The stored threads among `ids`.
-    func threads(_ ids: [ThreadSummary.ID]) throws -> [ThreadSummary]
+    func threads(_ ids: [ThreadSummary.ID]) async throws -> [ThreadSummary]
     /// The newest `limit` threads in `mailbox`.
-    func threads(in mailbox: Mailbox, limit: Int) throws -> [ThreadSummary]
+    func threads(in mailbox: Mailbox, limit: Int) async throws -> [ThreadSummary]
     /// The newest `limit` threads search finds for `text` on the device.
-    func threads(matching text: String, limit: Int) throws -> [ThreadSummary]
+    func threads(matching text: String, limit: Int) async throws -> [ThreadSummary]
     /// The stored threads among `ids`, newest first, as filters see them.
-    func threadFacts(_ ids: [ThreadSummary.ID]) throws -> [MailFacts]
+    func threadFacts(_ ids: [ThreadSummary.ID]) async throws -> [MailFacts]
     /// The cached messages of the threads, newest first, as filters see them.
-    func messageFacts(inThreads ids: [ThreadSummary.ID]) throws -> [MailFacts]
+    func messageFacts(inThreads ids: [ThreadSummary.ID]) async throws -> [MailFacts]
     /// The cached messages that meet `condition`, newest first, as many as the store reads for a filter.
-    func messageFacts(matching condition: MailCondition, in context: MailCondition.Context) throws -> [MailFacts]
+    func messageFacts(matching condition: MailCondition, in context: MailCondition.Context) async throws -> [MailFacts]
     /// The stored threads that meet `condition`, newest first, each as its list row shows it.
-    func threadFacts(matching condition: MailCondition, in context: MailCondition.Context) throws -> [MailFacts]
+    func threadFacts(matching condition: MailCondition, in context: MailCondition.Context) async throws -> [MailFacts]
     /// Makes sure the device holds the threads' messages up to their newest, fetching them when it doesn't.
     func loadMessages(of threads: [ThreadSummary.ID]) async throws
     /// An attachment's contents, from the account's server.
@@ -49,7 +51,7 @@ public protocol MailIntentsHost: Sendable {
     /// Takes back what `perform` or `pin` did, through `MailCommands`, when the system asks an intent to undo.
     func undo(_ undo: MailCommands.Undo) async throws
     /// Narrows the views that blend every account, and the alerts, to the accounts the Focus names.
-    func apply(_ focus: FocusFilter) throws
+    func apply(_ focus: FocusFilter) async throws
     /// Shows `route` in the frontmost window (ADR-011).
     @MainActor func open(_ route: Route)
     /// The thread open in the frontmost window, or `nil` when none is.

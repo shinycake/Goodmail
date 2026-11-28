@@ -30,26 +30,31 @@ enum InboxSnapshot: Sendable {
                 color: .blue)
         })
 
-    /// The shared database's newest Inbox conversations.
-    static func load() -> InboxSnapshot {
-        guard let database = WidgetDatabase.shared else { return .unavailable }
+    /// The shared database's newest Inbox conversations, read off the main actor.
+    static func load() async -> InboxSnapshot {
+        guard let database = await WidgetDatabase.opening.value else { return .unavailable }
         do {
-            let accounts = try database.accounts()
-            guard !accounts.isEmpty else { return .noAccounts }
-            let colors = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0.color) })
-            return .inbox(
-                try database.threads(in: .inbox, limit: limit).map { thread in
-                    Row(thread: thread, color: colors[thread.id.accountID] ?? .blue)
-                })
+            return try await database.offMain { database in
+                let accounts = try database.accounts()
+                guard !accounts.isEmpty else { return .noAccounts }
+                let colors = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0.color) })
+                return .inbox(
+                    try database.threads(in: .inbox, limit: limit).map { thread in
+                        Row(thread: thread, color: colors[thread.id.accountID] ?? .blue)
+                    })
+            }
         } catch {
             return .unavailable
         }
     }
 }
 
-/// The App Group's database, opened once per widget process; `nil` without the App Group.
+/// The App Group's database, opened once per widget process, off the main actor, by whichever of the timeline and the
+/// intents asks first; `nil` without the App Group, or when it can't open.
 enum WidgetDatabase {
-    static let shared: MailDatabase? = SharedContainer.directoryURL.flatMap { directory in
-        try? MailDatabase(url: directory.appending(path: "Mail/mail.sqlite"))
+    /// Owned by the process, which it lasts as long as: every reader awaits its value, and nothing cancels it.
+    static let opening = Task { @concurrent () -> OffMainDatabase? in
+        guard let directory = SharedContainer.directoryURL else { return nil }
+        return try? await OffMainDatabase.open(url: directory.appending(path: "Mail/mail.sqlite"))
     }
 }

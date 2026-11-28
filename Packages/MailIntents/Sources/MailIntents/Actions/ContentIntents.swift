@@ -107,7 +107,8 @@ public struct GetOpenConversationIntent: AppIntent {
     public init() {}
 
     public func perform() async throws -> some IntentResult & ReturnsValue<ThreadEntity> {
-        guard let id = await host.openThread(), let thread = try Catalog(host: host).threads(ids: [id]).first else {
+        guard let id = await host.openThread(), let thread = try await Catalog(host: host).threads(ids: [id]).first
+        else {
             throw IntentError.nothingOpen
         }
         return .result(value: thread)
@@ -123,7 +124,7 @@ extension Catalog {
         let ids = identifiers.compactMap(EntityID.thread)
         guard !ids.isEmpty else { throw IntentError.gone }
         try await host.loadMessages(of: ids)
-        return try threads(ids: ids).flatMap { latestOnly ? Array($0.messages.suffix(1)) : $0.messages }
+        return try await threads(ids: ids).flatMap { latestOnly ? Array($0.messages.suffix(1)) : $0.messages }
     }
 
     /// The files attached to the messages, in order, downloaded one after another so a long list doesn't flood the
@@ -131,7 +132,7 @@ extension Catalog {
     func attachments(ofMessages identifiers: [String], includingInline: Bool) async throws -> [IntentFile] {
         var files: [IntentFile] = []
         for identifier in identifiers {
-            guard let content = try facts(ofMessage: identifier).content else { continue }
+            guard let content = try await facts(ofMessage: identifier).content else { continue }
             for attachment in content.attachments + (includingInline ? content.inlineAttachments : []) {
                 try Task.checkCancellation()
                 let data = try await host.data(for: attachment, in: content.id)
@@ -148,7 +149,7 @@ extension Catalog {
         var named: [String: Int] = [:]
         var files: [IntentFile] = []
         for identifier in identifiers {
-            let facts = try facts(ofMessage: identifier)
+            let facts = try await facts(ofMessage: identifier)
             guard let content = facts.content else { continue }
             try Task.checkCancellation()
             let data = try await host.source(of: content.id)

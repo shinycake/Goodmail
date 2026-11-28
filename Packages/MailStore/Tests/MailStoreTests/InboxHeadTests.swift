@@ -45,7 +45,7 @@ struct InboxHeadTests {
     }
 
     private func storedThreads() throws -> Set<String> {
-        try Set(database.pool.read { try String.fetchAll($0, sql: "SELECT id FROM thread") })
+        try Set(database.read { try String.fetchAll($0, sql: "SELECT id FROM thread") })
     }
 
     // MARK: Sync

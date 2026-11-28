@@ -3,11 +3,6 @@ import GRDB
 public import MailCore
 
 extension MailDatabase {
-    /// The user labels and unread counts for the mailbox list. Emits now and after every change.
-    public func mailboxDirectory() -> AsyncThrowingStream<MailboxDirectory, any Error> {
-        observe { db in try Self.fetchDirectory(db) }
-    }
-
     static func fetchDirectory(_ db: Database) throws -> MailboxDirectory {
         let labels =
             try LabelRecord
@@ -53,5 +48,12 @@ extension MailDatabase {
                     name: record.name, color: record.color)
             },
             unreadCounts: counts, scheduledCount: scheduled, snoozedCount: snoozed)
+    }
+}
+
+extension MailFollowing {
+    /// The user labels and unread counts for the mailbox list. Emits now and after every change.
+    public func mailboxDirectory() -> AsyncThrowingStream<MailboxDirectory, any Error> {
+        followed.observe { db in try MailDatabase.fetchDirectory(db) }
     }
 }

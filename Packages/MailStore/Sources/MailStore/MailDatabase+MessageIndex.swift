@@ -36,7 +36,7 @@ extension MailDatabase: MessageIndexStore {
 
     private func entries(account: AccountID, where column: String, in values: [String]) throws -> [MessageIndexEntry] {
         guard !values.isEmpty else { return [] }
-        return try pool.read { db in
+        return try read { db in
             try MessageIndexRecord
                 .filter(Column("accountID") == account.rawValue && values.contains(Column(column)))
                 .order(Column("key"))

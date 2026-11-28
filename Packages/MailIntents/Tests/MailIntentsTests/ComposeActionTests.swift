@@ -37,7 +37,7 @@ struct ComposeActionTests {
     @Test func anEmailGoesNowOrAtItsTime() async throws {
         let host = host
         let catalog = Catalog(host: host)
-        let draft = try catalog.newDraft(
+        let draft = try await catalog.newDraft(
             WrittenMail(to: ["Dana <dana@example.com>"], subject: "Hi", text: "Hello"), from: nil)
         let later = Date(timeIntervalSince1970: 1_800_000_000)
         try await catalog.send(draft, at: nil)
@@ -50,7 +50,7 @@ struct ComposeActionTests {
     @Test func anEmailWithNoOneToGoToIsntSent() async throws {
         let host = host
         let catalog = Catalog(host: host)
-        let draft = try catalog.newDraft(WrittenMail(text: "Hello"), from: nil)
+        let draft = try await catalog.newDraft(WrittenMail(text: "Hello"), from: nil)
         await #expect(throws: IntentError.self) { try await catalog.send(draft, at: nil) }
         #expect(host.performed.sent.isEmpty)
     }

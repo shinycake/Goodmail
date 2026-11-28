@@ -25,17 +25,17 @@ struct CatalogTests {
             body: MessageBody(html: "<p>Hi &amp; bye</p>"))
     }
 
-    @Test func threadIdentifiersRoundTrip() throws {
+    @Test func threadIdentifiersRoundTrip() async throws {
         var host = self.host
         host.stored = [thread("t1")]
         let catalog = Catalog(host: host)
-        let entity = try #require(try catalog.recentThreads().first)
+        let entity = try #require(try await catalog.recentThreads().first)
         #expect(entity.id == "A1/t1")
-        #expect(try catalog.threads([entity.id]).map(\.title) == ["Subject t1"])
-        #expect(try catalog.threads(["nonsense", "A1/gone"]).isEmpty)
+        #expect(try await catalog.threads([entity.id]).map(\.title) == ["Subject t1"])
+        #expect(try await catalog.threads(["nonsense", "A1/gone"]).isEmpty)
     }
 
-    @Test func aThreadCarriesItsCachedMessagesInTheMailboxTheyAreIn() throws {
+    @Test func aThreadCarriesItsCachedMessagesInTheMailboxTheyAreIn() async throws {
         var host = self.host
         let summary = thread("t1")
         host.stored = [summary]
@@ -43,7 +43,7 @@ struct CatalogTests {
             message("m1", in: "t1", labels: [SystemLabel.inbox, SystemLabel.unread, "CATEGORY_SOCIAL"]),
             message("m2", in: "t1", labels: [SystemLabel.sent, SystemLabel.starred]),
         ]
-        let entity = try #require(try Catalog(host: host).threads(["A1/t1"]).first)
+        let entity = try #require(try await Catalog(host: host).threads(["A1/t1"]).first)
         let first = try #require(entity.messages.first)
         #expect(entity.messages.map(\.id) == ["A1/t1/m1", "A1/t1/m2"])
         #expect(first.mailbox.id == "A1/INBOX")
@@ -56,20 +56,20 @@ struct CatalogTests {
         #expect(entity.messages[1].category == nil)
     }
 
-    @Test func aThreadNotYetFetchedHasNoMessages() throws {
+    @Test func aThreadNotYetFetchedHasNoMessages() async throws {
         var host = self.host
         host.stored = [thread("t1")]
-        #expect(try Catalog(host: host).threads(["A1/t1"]).first?.messages.isEmpty == true)
+        #expect(try await Catalog(host: host).threads(["A1/t1"]).first?.messages.isEmpty == true)
     }
 
-    @Test func messagesAreFoundByIdentifier() throws {
+    @Test func messagesAreFoundByIdentifier() async throws {
         var host = self.host
         let summary = thread("t1")
         host.stored = [summary]
         host.cached[summary.id] = [
             message("m1", in: "t1", labels: [SystemLabel.inbox]), message("m2", in: "t1", labels: [SystemLabel.trash]),
         ]
-        let found = try Catalog(host: host).messages(["A1/t1/m2", "A1/t1/missing"])
+        let found = try await Catalog(host: host).messages(["A1/t1/m2", "A1/t1/missing"])
         #expect(found.map(\.id) == ["A1/t1/m2"])
         #expect(found.first?.mailbox.id == "A1/TRASH")
     }
@@ -82,17 +82,17 @@ struct CatalogTests {
         host.cached[junk.id] = [message("m1", in: "t1", labels: [SystemLabel.spam])]
         host.cached[archived.id] = [message("m2", in: "t2", labels: [])]
         let catalog = Catalog(host: host)
-        let undo = try await catalog.markNotJunk(try catalog.messages(["A1/t1/m1", "A1/t2/m2"]))
+        let undo = try await catalog.markNotJunk(try await catalog.messages(["A1/t1/m1", "A1/t2/m2"]))
         #expect(undo.count == 1)
         #expect(host.performed.on("t1") == [.moveToInbox])
         #expect(host.performed.on("t2").isEmpty)
     }
 
-    @Test func everyAccountOffersItsMailboxesAndLabels() throws {
+    @Test func everyAccountOffersItsMailboxesAndLabels() async throws {
         var host = self.host
         let label = Mailbox(labelID: "Label_7", accountID: account.id)
         host.labels[account.id] = [NamedMailbox(mailbox: label, name: "Receipts")]
-        let mailboxes = try Catalog(host: host).mailboxes()
+        let mailboxes = try await Catalog(host: host).mailboxes()
         #expect(mailboxes.map(\.id).contains("A1/"))
         #expect(mailboxes.last?.id == "A1/Label_7")
         #expect(mailboxes.last?.name == "Receipts")
@@ -100,15 +100,15 @@ struct CatalogTests {
         #expect(mailboxes.first?.mailbox == Mailbox(labelID: SystemLabel.inbox, accountID: account.id))
     }
 
-    @Test func openingAThreadReadsItFromTheMailboxItIsIn() throws {
+    @Test func openingAThreadReadsItFromTheMailboxItIsIn() async throws {
         var host = self.host
         host.stored = [thread("t1", labels: [SystemLabel.spam]), thread("t2", labels: ["Label_7"])]
         let catalog = Catalog(host: host)
         let t1 = ThreadSummary.ID(accountID: account.id, threadID: "t1")
         let t2 = ThreadSummary.ID(accountID: account.id, threadID: "t2")
-        #expect(try catalog.route(toThread: "A1/t1") == .thread(t1, in: .spam))
-        #expect(try catalog.route(toThread: "A1/t2") == .thread(t2, in: .allMail))
-        #expect(try catalog.route(toThread: "A1/gone") == nil)
+        #expect(try await catalog.route(toThread: "A1/t1") == .thread(t1, in: .spam))
+        #expect(try await catalog.route(toThread: "A1/t2") == .thread(t2, in: .allMail))
+        #expect(try await catalog.route(toThread: "A1/gone") == nil)
     }
 }
 
@@ -117,14 +117,14 @@ struct NewMessageTests {
     private let second = Account(
         id: AccountID(rawValue: "A2"), email: "two@example.com", color: .orange, service: .icloud)
 
-    @Test func aNewMessageComesFromTheAccountGivenOrElseTheFirst() throws {
+    @Test func aNewMessageComesFromTheAccountGivenOrElseTheFirst() async throws {
         let catalog = Catalog(host: FakeHost(accountList: [first, second]))
-        #expect(try catalog.account(nil)?.id == first.id)
-        #expect(try catalog.account("A2")?.id == second.id)
-        #expect(try catalog.account("gone") == nil)
+        #expect(try await catalog.account(nil)?.id == first.id)
+        #expect(try await catalog.account("A2")?.id == second.id)
+        #expect(try await catalog.account("gone") == nil)
     }
 
-    @Test func thereIsNoNewMessageWithoutAnAccount() throws {
-        #expect(try Catalog(host: FakeHost()).account(nil) == nil)
+    @Test func thereIsNoNewMessageWithoutAnAccount() async throws {
+        #expect(try await Catalog(host: FakeHost()).account(nil) == nil)
     }
 }

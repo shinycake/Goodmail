@@ -1,5 +1,6 @@
 import MailCore
 import MailNotifications
+import MailStore
 
 /// What the relay's quiet push asks for: mail in an account was read, filed or deleted on another device or in
 /// another app, so alerts this iPhone still shows for it should come down (PushWorker/README.md).
@@ -12,7 +13,7 @@ extension AppModel {
         // What brought the push may be a pin, snooze or mute made on another device, as a mute's archive.
         await syncMailState()
         let synced = await syncChanged(account.id, markingInboxSeen: false)
-        await HandledAlerts.dismiss(in: database)
+        await HandledAlerts.dismiss(in: database.blocking)
         return synced
     }
 }

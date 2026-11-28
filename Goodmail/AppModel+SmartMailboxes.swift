@@ -8,14 +8,14 @@ extension AppModel {
     func smartMailboxStore() -> SmartMailboxStore {
         let database = database
         return SmartMailboxStore(
-            box: { id in try await Self.offMain { try database.smartMailboxes().first { $0.id == id } } },
-            vips: { try await Self.offMain { try database.vips() } },
+            box: { id in try await database.offMain { try $0.smartMailboxes().first { $0.id == id } } },
+            vips: { try await database.offMain { try $0.vips() } },
             save: { [weak self] box, vips in
-                try await Self.offMain { try database.saveSmartMailbox(box, vips: vips) }
+                try await database.offMain { try $0.saveSmartMailbox(box, vips: vips) }
                 self?.shareSettingsNow()
             },
             delete: { [weak self] id in
-                try await Self.offMain { try database.deleteSmartMailbox(id) }
+                try await database.offMain { try $0.deleteSmartMailbox(id) }
                 self?.shareSettingsNow()
             },
             labelNames: rulesService.labelNames)

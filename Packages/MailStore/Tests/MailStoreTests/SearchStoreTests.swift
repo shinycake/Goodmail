@@ -173,13 +173,13 @@ struct BodySearchStoreTests {
         #expect(try await search("draft") == [])
         #expect(try await search("final") == ["t"])
 
-        try await database.pool.write { db in try db.execute(sql: "UPDATE message SET bodyText = 'moved venue'") }
+        try database.writeUnannounced { db in try db.execute(sql: "UPDATE message SET bodyText = 'moved venue'") }
         #expect(try await search("final") == [])
         #expect(try await search("venue") == ["t"])
 
         try database.apply(StoreChanges(accountID: account.id, deletions: ["t"]))
         #expect(try await search("venue") == [])
-        let indexed = try await database.pool.read { db in
+        let indexed = try database.read { db in
             try Int.fetchOne(db, sql: "SELECT count(*) FROM messageSearch")
         }
         #expect(indexed == 0)
@@ -189,7 +189,7 @@ struct BodySearchStoreTests {
         try database.upsert([thread("t", subject: "Plans")])
         try database.save([message("m", in: "t", MessageBody(html: "<p>Old venue</p>"))], inThread: id("t"))
         // As a body saved by a build without the index would be.
-        try await database.pool.write { db in try db.execute(sql: "UPDATE message SET bodyText = NULL") }
+        try database.writeUnannounced { db in try db.execute(sql: "UPDATE message SET bodyText = NULL") }
         #expect(try await search("venue") == [])
         #expect(try await search("venue", in: try MailDatabase(url: url)) == ["t"])
     }
@@ -198,9 +198,9 @@ struct BodySearchStoreTests {
         try database.upsert([thread("t", subject: "Plans")])
         let messages = (1...5).map { message("m\($0)", in: "t", MessageBody(plain: "venue \($0)")) }
         try database.save(messages, inThread: id("t"))
-        try await database.pool.write { db in try db.execute(sql: "UPDATE message SET bodyText = NULL") }
-        try MailDatabase.fillMessageText(in: database.pool, batch: 2)
-        let left = try await database.pool.read { db in
+        try database.writeUnannounced { db in try db.execute(sql: "UPDATE message SET bodyText = NULL") }
+        try database.fillMessageText(batch: 2)
+        let left = try database.read { db in
             try Int.fetchOne(db, sql: "SELECT count(*) FROM message WHERE bodyText IS NULL")
         }
         #expect(left == 0)

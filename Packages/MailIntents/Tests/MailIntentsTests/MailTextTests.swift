@@ -36,11 +36,11 @@ struct MailTextTests {
         return Catalog(host: host)
     }
 
-    @Test func aMessageReadsAsItsHeadersThenItsBody() throws {
+    @Test func aMessageReadsAsItsHeadersThenItsBody() async throws {
         let catalog = catalog([
             message("m", body: "See you at one", cc: [Contact(name: "Dan", address: "dan@example.com")])
         ])
-        let entity = try #require(try catalog.messages(["A1/t/m"]).first)
+        let entity = try #require(try await catalog.messages(["A1/t/m"]).first)
         let lines = entity.plainText.components(separatedBy: "\n")
         #expect(lines.first == "From: Yael <yael@example.com>")
         #expect(lines.contains("To: me@example.com"))
@@ -51,15 +51,15 @@ struct MailTextTests {
         #expect(lines.last == "See you at one")
     }
 
-    @Test func aMessageWithoutCcLeavesTheLineOut() throws {
-        let entity = try #require(try catalog([message("m", body: "Hi")]).messages(["A1/t/m"]).first)
+    @Test func aMessageWithoutCcLeavesTheLineOut() async throws {
+        let entity = try #require(try await catalog([message("m", body: "Hi")]).messages(["A1/t/m"]).first)
         #expect(!entity.plainText.contains("Cc:"))
     }
 
-    @Test func aConversationReadsAsEachOfItsMessagesOldestFirst() throws {
+    @Test func aConversationReadsAsEachOfItsMessagesOldestFirst() async throws {
         // The store keeps a thread's messages newest first.
         let catalog = catalog([message("m2", body: "Second"), message("m1", body: "First", minutesAgo: 10)])
-        let entity = try #require(try catalog.threads(["A1/t"]).first)
+        let entity = try #require(try await catalog.threads(["A1/t"]).first)
         let text = entity.plainText
         let first = try #require(text.range(of: "First"))
         let second = try #require(text.range(of: "Second"))

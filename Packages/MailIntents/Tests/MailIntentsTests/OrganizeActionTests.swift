@@ -56,7 +56,7 @@ struct OrganizeActionTests {
         #expect(duration.seconds == seconds)
     }
 
-    @Test func aMessageIsFoundByItsIdentifier() throws {
+    @Test func aMessageIsFoundByItsIdentifier() async throws {
         var host = host(thread("t1", labels: [SystemLabel.inbox]))
         let list = Unsubscribe.oneClick(URL(string: "https://list.example.com/leave")!)
         host.cached[ThreadSummary.ID(accountID: account.id, threadID: "t1")] = [
@@ -65,9 +65,9 @@ struct OrganizeActionTests {
                 from: Contact(name: "List", address: "news@example.com"), to: [], subject: "News", date: .now,
                 labelIDs: [SystemLabel.inbox], body: MessageBody(html: "<p>News</p>"), unsubscribe: list)
         ]
-        let facts = try Catalog(host: host).facts(ofMessage: "A1/t1/m1")
+        let facts = try await Catalog(host: host).facts(ofMessage: "A1/t1/m1")
         #expect(facts.content?.unsubscribe == list)
-        #expect(throws: IntentError.self) { try Catalog(host: host).facts(ofMessage: "A1/t1/m2") }
+        await #expect(throws: IntentError.self) { try await Catalog(host: host).facts(ofMessage: "A1/t1/m2") }
     }
 }
 

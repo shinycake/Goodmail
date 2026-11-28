@@ -7,7 +7,7 @@ extension MailDatabase: SnoozeStore {
     static let wokeShownFor: TimeInterval = 24 * 3600
 
     public func snoozes(of threads: [ThreadSummary.ID]) throws -> [ThreadSummary.ID: SnoozeState] {
-        try pool.read { db in
+        try read { db in
             var snoozes: [ThreadSummary.ID: SnoozeState] = [:]
             for thread in threads {
                 let row = try Row.fetchOne(
@@ -48,11 +48,11 @@ extension MailDatabase: SnoozeStore {
     }
 
     public func dueSnoozes(by date: Date) throws -> [ThreadSummary.ID] {
-        try pool.read { db in try Self.asleep(in: db) }.filter { $0.wakesAt <= date }.map(\.id)
+        try read { db in try Self.asleep(in: db) }.filter { $0.wakesAt <= date }.map(\.id)
     }
 
     public func nextWakeDate() throws -> Date? {
-        try pool.read { db in try Self.asleep(in: db) }.first?.wakesAt
+        try read { db in try Self.asleep(in: db) }.first?.wakesAt
     }
 
     /// Every asleep thread with when this device wakes it, soonest first.
@@ -83,17 +83,31 @@ extension MailDatabase: SnoozeStore {
         }
     }
 
+    static func state(_ row: Row) -> SnoozeState? {
+        if let until: Date = row["wakeAt"] { return .asleep(until: until, keeper: keeper(row)) }
+        if let at: Date = row["wokeAt"] { return .woke(at: at) }
+        return nil
+    }
+
+    /// Who answers for an asleep row's wake. Every asleep row has one since `v34-snooze-keeper`; a keeper a newer
+    /// build wrote reads as another device's, so this one never alerts for it.
+    fileprivate static func keeper(_ row: Row) -> SnoozeKeeper {
+        (row["keeper"] as String?).flatMap(SnoozeKeeper.init(rawValue:)) ?? .otherDevice
+    }
+}
+
+extension MailFollowing {
     /// Snoozed threads, in every account, soonest to wake first, each with when it wakes. Emits now and after every
     /// change.
     public func snoozedThreads() -> AsyncThrowingStream<[SnoozedThread], any Error> {
-        observe { db in
+        followed.observe { db in
             let wakeTimes = try Row.fetchAll(
                 db,
                 sql: "SELECT accountID, threadID, wakeAt, keeper FROM snooze WHERE wakeAt IS NOT NULL ORDER BY wakeAt")
             return try wakeTimes.compactMap { row in
                 let id = ThreadSummary.ID(accountID: AccountID(rawValue: row["accountID"]), threadID: row["threadID"])
-                return try Self.thread(id, in: db).map {
-                    SnoozedThread(thread: $0, wakeAt: row["wakeAt"], keeper: Self.keeper(row))
+                return try MailDatabase.thread(id, in: db).map {
+                    SnoozedThread(thread: $0, wakeAt: row["wakeAt"], keeper: MailDatabase.keeper(row))
                 }
             }
         }
@@ -102,7 +116,7 @@ extension MailDatabase: SnoozeStore {
     /// Threads put back in the Inbox by their snooze, in every account, each with when it woke. Emits now and after
     /// every change.
     public func wokenThreads() -> AsyncThrowingStream<[ThreadSummary.ID: Date], any Error> {
-        observe { db in
+        followed.observe { db in
             let rows = try Row.fetchAll(
                 db, sql: "SELECT accountID, threadID, wokeAt FROM snooze WHERE wokeAt IS NOT NULL")
             return Dictionary(
@@ -113,17 +127,5 @@ extension MailDatabase: SnoozeStore {
                     )
                 })
         }
-    }
-
-    static func state(_ row: Row) -> SnoozeState? {
-        if let until: Date = row["wakeAt"] { return .asleep(until: until, keeper: keeper(row)) }
-        if let at: Date = row["wokeAt"] { return .woke(at: at) }
-        return nil
-    }
-
-    /// Who answers for an asleep row's wake. Every asleep row has one since `v34-snooze-keeper`; a keeper a newer
-    /// build wrote reads as another device's, so this one never alerts for it.
-    private static func keeper(_ row: Row) -> SnoozeKeeper {
-        (row["keeper"] as String?).flatMap(SnoozeKeeper.init(rawValue:)) ?? .otherDevice
     }
 }

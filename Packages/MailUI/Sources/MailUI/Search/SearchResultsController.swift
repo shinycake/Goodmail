@@ -8,7 +8,8 @@ public final class SearchResultsController: UIViewController, UISearchResultsUpd
     /// The results, which a conversation opened from them goes on in.
     let list: MailboxViewController
     private let recents: RecentSearches
-    private let contacts: (String) -> [Contact]
+    /// The people what is typed names, which the filters offer.
+    private let people: SearchPeople
     private let suggestions = SearchSuggestionsViewController()
     private var suggestionsHeight: NSLayoutConstraint!
     /// Holds the suggestions to half the column while results show under them, so a short column, as a phone's on its
@@ -24,12 +25,13 @@ public final class SearchResultsController: UIViewController, UISearchResultsUpd
         search: ThreadSearch, accounts: [Account], navigate: @escaping (Route) -> Void,
         readAhead: @escaping (ThreadFetcher.Request) -> Void = { _ in },
         actions: MailActions?,
-        contacts: @escaping (String) -> [Contact] = { _ in [] }, recents: RecentSearches = RecentSearches(),
+        contacts: @escaping @Sendable (String) async -> [Contact] = { _ in [] },
+        recents: RecentSearches = RecentSearches(),
         interaction: InteractionStyle = .touch
     ) {
         self.search = search
         self.recents = recents
-        self.contacts = contacts
+        people = SearchPeople(lookUp: contacts)
         saveAsSmartMailbox = { navigate(.newSmartMailbox($0)) }
         // Opening a result is what makes a search worth remembering.
         let navigate: (Route) -> Void = { route in
@@ -120,19 +122,23 @@ public final class SearchResultsController: UIViewController, UISearchResultsUpd
         let query = SearchQuery(terms: applied + SearchQuery(typed).terms)
         self.query = query
         search.update(query.text)
-        let recentSearches = query.isEmpty ? recents.all : []
-        suggestions.show(
-            filters: filters(for: typed, besides: applied), recents: recentSearches,
-            canSave: SmartMailboxDraft(query: query) != nil)
+        showSuggestions(for: typed, besides: applied)
+        people.lookUp(typed) { [weak self] in self?.showSuggestions(for: typed, besides: applied) }
         // While nothing is asked, the suggestions stand alone; otherwise they sit above the results.
         list.view.isHidden = query.isEmpty
         suggestionsShareColumn.isActive = !query.isEmpty
-        suggestionsHeight.constant = suggestions.contentHeight
         searchController.showsSearchResultsController = true
     }
 
     public func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
         recents.record(search.text)
+    }
+
+    private func showSuggestions(for typed: String, besides applied: [SearchQuery.Term]) {
+        suggestions.show(
+            filters: filters(for: typed, besides: applied), recents: query.isEmpty ? recents.all : [],
+            canSave: SmartMailboxDraft(query: query) != nil)
+        suggestionsHeight.constant = suggestions.contentHeight
     }
 
     /// The filters to offer for what is typed: the filters it starts to spell, people it names, and its words in the
@@ -144,7 +150,7 @@ public final class SearchResultsController: UIViewController, UISearchResultsUpd
             text.isEmpty
             ? SearchFilter.all
             : SearchFilter.all.filter { $0.title.lowercased().hasPrefix(text.lowercased()) }
-                + contacts(text).map(SearchFilter.from) + [.subject(text)]
+                + people.people(for: text).map(SearchFilter.from) + [.subject(text)]
         return filters.filter { !applied.contains($0.term) }
     }
 

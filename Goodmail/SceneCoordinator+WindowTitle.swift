@@ -42,7 +42,7 @@ extension SceneCoordinator {
         return (
             "",
             { [database = model.database] in
-                guard let labels = try? database.labels(for: account) else { return nil }
+                guard let labels = try? await database.offMain({ try $0.labels(for: account) }) else { return nil }
                 let named = labels.map {
                     MailboxDirectory.Label(
                         mailbox: Mailbox(labelID: $0.id, accountID: account), name: $0.name, color: nil)

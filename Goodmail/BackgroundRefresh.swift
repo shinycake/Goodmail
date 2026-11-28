@@ -24,7 +24,7 @@ nonisolated struct BackgroundRefresh: Sendable {
     private static let log = Logger(subsystem: "com.idanbirman.goodmail", category: "sync")
 
     let model: AppModel
-    let database: MailDatabase
+    let database: OffMainDatabase
 
     /// Call once, before launch finishes: background task handlers must be registered by then. The database may still
     /// be opening, so each refresh waits for `refresh`, and completes at once without one, when it couldn't open.
@@ -35,13 +35,15 @@ nonisolated struct BackgroundRefresh: Sendable {
         }
     }
 
-    /// Asks for the next refresh. It reads the database for what falls due next, so it runs off the main actor.
-    @concurrent func schedule() async {
+    /// Asks for the next refresh, by what the database says falls due next.
+    func schedule() async {
         let request = BGAppRefreshTaskRequest(identifier: Self.taskID)
         // A scheduled message or snoozed thread due sooner asks for the refresh by its time; iOS still decides when
         // it runs.
         let regular = Date(timeIntervalSinceNow: Self.interval)
-        let due = [try? database.nextSendDate(), try? database.nextWakeDate()].compactMap { $0 ?? nil }
+        let due = await database.offMain { database in
+            [try? database.nextSendDate(), try? database.nextWakeDate()].compactMap { $0 ?? nil }
+        }
         request.earliestBeginDate = min(regular, max(due.min() ?? regular, .now))
         BGTaskScheduler.shared.submitTaskRequest(request) { error in
             guard let error else { return }

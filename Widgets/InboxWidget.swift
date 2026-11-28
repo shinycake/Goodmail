@@ -27,11 +27,17 @@ struct InboxWidget: Widget {
         func placeholder(in context: Context) -> Entry { Entry(date: .now, content: .placeholder) }
 
         func getSnapshot(in context: Context, completion: @escaping @Sendable (Entry) -> Void) {
-            completion(Entry(date: .now, content: context.isPreview ? .placeholder : InboxSnapshot.load()))
+            guard !context.isPreview else { return completion(Entry(date: .now, content: .placeholder)) }
+            // Unowned on purpose. Safe: WidgetKit owns the request through `completion`, which runs exactly once, and
+            // the read can't fail or be cancelled; it reads off the main actor (`InboxSnapshot.load`).
+            Task { @concurrent in completion(Entry(date: .now, content: await InboxSnapshot.load())) }
         }
 
         func getTimeline(in context: Context, completion: @escaping @Sendable (Timeline<Entry>) -> Void) {
-            completion(Timeline(entries: [Entry(date: .now, content: InboxSnapshot.load())], policy: .never))
+            // Unowned on purpose, as in `getSnapshot`.
+            Task { @concurrent in
+                completion(Timeline(entries: [Entry(date: .now, content: await InboxSnapshot.load())], policy: .never))
+            }
         }
     }
 }

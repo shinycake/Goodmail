@@ -58,15 +58,15 @@ extension MailDatabase {
     ///
     /// `batch` bodies at a time, each batch its own short write: the notification extension can be the first to open
     /// the database after an update, inside its small memory limit, and the other process waits out every write.
-    static func fillMessageText(in pool: DatabasePool, batch: Int = 200) throws {
-        let missing = try pool.read { db in
+    func fillMessageText(batch: Int = 200) throws {
+        let missing = try read { db in
             try Bool.fetchOne(db, sql: "SELECT EXISTS (SELECT 1 FROM message WHERE bodyText IS NULL)") ?? false
         }
         guard missing else { return }
         let decoder = JSONDecoder()
         var filled = batch
         while filled == batch {
-            filled = try pool.write { db in
+            filled = try writeUnannounced { db in
                 let rows = try Row.fetchAll(
                     db, sql: "SELECT rowid, content FROM message WHERE bodyText IS NULL LIMIT ?", arguments: [batch])
                 for row in rows {
@@ -82,10 +82,12 @@ extension MailDatabase {
             }
         }
     }
+}
 
+extension MailFollowing {
     /// The thread's stored messages, oldest first. Emits now (empty if none are cached) and after every change.
     public func messages(inThread thread: ThreadSummary.ID) -> AsyncThrowingStream<[Message], any Error> {
-        let observation = ValueObservation.tracking { db in
+        followed.observe { db in
             let decoder = JSONDecoder()
             return try String.fetchAll(
                 db,
@@ -93,16 +95,6 @@ extension MailDatabase {
                 arguments: [thread.accountID.rawValue, thread.threadID]
             )
             .map { try decoder.decode(Message.self, from: Data($0.utf8)) }
-        }
-        .removeDuplicates()
-        return AsyncThrowingStream { continuation in
-            let cancellable = observation.start(
-                in: pool,
-                scheduling: .async(onQueue: .main),
-                onError: { continuation.finish(throwing: $0) },
-                onChange: { continuation.yield($0) }
-            )
-            continuation.onTermination = { _ in cancellable.cancel() }
         }
     }
 }

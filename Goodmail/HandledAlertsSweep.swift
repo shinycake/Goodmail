@@ -6,11 +6,11 @@ import OSLog
 /// read, filed or deleted (`MailDatabase.handlingChanges()`), here, in a sync of what changed on another device or in
 /// another app, or in what the notification extension stored, it sweeps Notification Center (`HandledAlerts`).
 final class HandledAlertsSweep {
-    private let database: MailDatabase
+    private let database: OffMainDatabase
     /// Follows the changes for the app's lifetime, one sweep at a time.
     private var following: Task<Void, Never>?
 
-    init(database: MailDatabase) {
+    init(database: OffMainDatabase) {
         self.database = database
     }
 
@@ -19,7 +19,7 @@ final class HandledAlertsSweep {
     func start() {
         following = Task { [database] in
             do {
-                for try await _ in database.handlingChanges() { await HandledAlerts.dismiss(in: database) }
+                for try await _ in database.handlingChanges() { await HandledAlerts.dismiss(in: database.blocking) }
             } catch {
                 Logger.push.error("Stopped taking down alerts for mail dealt with: \(error, privacy: .public)")
             }
