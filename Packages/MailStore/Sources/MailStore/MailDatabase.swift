@@ -36,7 +36,9 @@ public final class MailDatabase: Sendable {
         configuration.busyMode = .timeout(5)
         // So `suspendAll()` can release the locks before iOS suspends the process (0xdead10cc).
         configuration.observesSuspensionNotifications = true
+        configuration.prepareDatabase(Self.prepare)
         let pool = try DatabasePool(path: url.path, configuration: configuration)
+        try Self.startIncrementalIfNew(pool)
         try Self.migrator.migrate(pool)
         self.pool = pool
         followed = FollowedStore(reader: pool)
@@ -68,6 +70,18 @@ public final class MailDatabase: Sendable {
         Self.offMainOnly()
         return try pool.write(updates)
     }
+
+    /// Work outside a transaction that changes no mail, as giving disk space back does (ADR-044), so nobody is told.
+    func writeWithoutTransaction<T>(_ updates: (Database) throws -> T) throws -> T {
+        Self.offMainOnly()
+        return try pool.writeWithoutTransaction(updates)
+    }
+
+    /// Where the database file is.
+    var path: String { pool.path }
+
+    /// A read that pins the log in place, as a reader in another process does. Tests use it to stand in for the share extension or widget.
+    func makeSnapshot() throws -> DatabaseSnapshot { try pool.makeSnapshot() }
 
     /// Traps in Debug builds on the main queue, which the main thread and the main actor run: a call that slipped past
     /// `OffMainDatabase`, or an `async` function that ran on its caller's actor (`NonisolatedNonsendingByDefault`)
