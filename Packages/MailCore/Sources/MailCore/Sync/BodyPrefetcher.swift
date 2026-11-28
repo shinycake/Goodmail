@@ -20,6 +20,7 @@ public actor BodyPrefetcher {
     public static let meteredThreadLimit = 50
     /// Fetches in flight at once.
     public static let concurrency = 3
+    private static let log = MailLog(category: "prefetch")
 
     public nonisolated let accountID: AccountID
     private let provider: any MailProvider
@@ -131,8 +132,14 @@ public actor BodyPrefetcher {
             scope().threadLimit(on: path.allowance, unmetered: threadLimit, metered: meteredThreadLimit)
         }
         let newest = limit()
-        guard newest > 0, hasRoom(), let missing = try? store.threadsMissingBodies(account: accountID, among: newest)
-        else { return 0 }
+        guard newest > 0, hasRoom() else { return 0 }
+        let missing: [ThreadSummary.ID]
+        do {
+            missing = try store.threadsMissingBodies(account: accountID, among: newest)
+        } catch {
+            Self.log.error("The threads missing bodies couldn't be read, so none were fetched ahead", error)
+            return 0
+        }
         var remaining = missing.prefix(count).makeIterator()
         var launched = 0
         var stored = 0

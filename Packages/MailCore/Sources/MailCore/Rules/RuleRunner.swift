@@ -154,19 +154,31 @@ public struct RuleRunner: Sendable {
     /// Downloads the messages of the claimed threads that have none cached, a few at a time, so rules on what only
     /// a body tells (the CC list, the text, prices) can judge them. A failed fetch leaves the thread to its list row.
     private func fetchMissingBodies(of threads: [ThreadSummary.ID]) async {
-        let cached = Set(
-            ((try? store.messageFacts(inThreads: threads, mailboxNames: [:])) ?? []).map(\.envelope.thread))
+        let cached: Set<ThreadSummary.ID>
+        do {
+            cached = Set(try store.messageFacts(inThreads: threads, mailboxNames: [:]).map(\.envelope.thread))
+        } catch {
+            // Fetching them all is the fallback: a thread whose body is cached is only fetched again.
+            Self.log.error("The cached messages of new mail couldn't be read, so all of it is fetched", error)
+            cached = []
+        }
         let missing = threads.filter { !cached.contains($0) }
         let (provider, store, fetchedAt) = (provider, store, now())
         await withTaskGroup(of: Void.self) { group in
             for thread in missing {
                 group.addTask {
                     guard let messages = try? await provider.messages(inThread: thread.threadID) else { return }
-                    try? store.savePrefetched(messages, inThread: thread, fetchedAt: fetchedAt)
+                    do {
+                        try store.savePrefetched(messages, inThread: thread, fetchedAt: fetchedAt)
+                    } catch {
+                        Self.log.error("A fetched message couldn't be stored, so rules judge it by its row", error)
+                    }
                 }
             }
         }
     }
+
+    private static let log = MailLog(category: "rules")
 
     /// Each thread's newest cached message, from someone else when judged on request, or its list row when none is
     /// cached.

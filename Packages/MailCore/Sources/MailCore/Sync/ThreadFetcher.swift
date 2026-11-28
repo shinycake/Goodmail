@@ -32,6 +32,7 @@ public actor ThreadFetcher {
     public static let visibleConcurrency = 3
     /// Rows in view waiting their turn; a long scroll drops the oldest, which have scrolled away.
     public static let visibleQueueLimit = 24
+    private static let log = MailLog(category: "prefetch")
 
     private enum Kind {
         /// The reader opened it.
@@ -99,9 +100,14 @@ public actor ThreadFetcher {
             case .visible: scope().threadLimit(on: path.allowance, unmetered: 1, metered: 1) > 0
             case .touched: path.allowance > .none
             }
-        guard allowed,
-            let missing = try? store.threadsMissingBodies(among: threads.filter { fetches[$0] == nil })
-        else { return }
+        guard allowed else { return }
+        let missing: [ThreadSummary.ID]
+        do {
+            missing = try store.threadsMissingBodies(among: threads.filter { fetches[$0] == nil })
+        } catch {
+            Self.log.error("The rows missing bodies couldn't be read, so none were fetched ahead", error)
+            return
+        }
         switch reason {
         case .touched:
             for thread in missing { start(thread, as: .readAhead(.touched)) }

@@ -41,15 +41,20 @@ public final class DraftKeeper: Sendable {
 
     private let store: any OutgoingStore
     private let keepAwake: KeepAwake
+    private let log: MailLog
     private let state = Mutex(State.idle)
 
-    public init(store: any OutgoingStore, keepAwake: @escaping KeepAwake = { $0() }) {
+    /// Writes that fail are recorded in `log`.
+    public init(
+        store: any OutgoingStore, keepAwake: @escaping KeepAwake = { $0() }, log: MailLog = MailLog(category: "drafts")
+    ) {
         self.store = store
         self.keepAwake = keepAwake
+        self.log = log
     }
 
-    /// Writes `version`, after the one being written if any. Errors are dropped: the version before stays queued, and
-    /// the next edit tries again.
+    /// Writes `version`, after the one being written if any. A write that fails is logged; a version that failed to
+    /// be written leaves the one before queued, and the next edit tries again.
     public func keep(_ version: Version) {
         state.withLock { state in
             switch state {
@@ -73,7 +78,12 @@ public final class DraftKeeper: Sendable {
     /// save stays queued while it goes; its copy is then either recorded in time for the process's own save or send to
     /// replace or remove, or left in Drafts.
     public func take(_ draft: Draft.ID) -> OutgoingMessage? {
-        try? store.cancel(draft)
+        do {
+            return try store.cancel(draft)
+        } catch {
+            log.error("A draft's waiting save couldn't be taken back; it stays queued for the app", error)
+            return nil
+        }
     }
 
     /// Puts back what `take` took, when the process couldn't finish the message itself.
@@ -84,9 +94,9 @@ public final class DraftKeeper: Sendable {
     @concurrent private func write(from first: Version) async {
         var version = first
         while true {
-            let store = store
+            let (store, log) = (store, log)
             let writing = version
-            await keepAwake { Self.write(writing, to: store) }
+            await keepAwake { Self.write(writing, to: store, log: log) }
             let next = state.withLock { state -> Version? in
                 guard case .writing(let task, let next) = state else { return nil }
                 state = next == nil ? .idle : .writing(task, next: nil)
@@ -97,15 +107,22 @@ public final class DraftKeeper: Sendable {
         }
     }
 
-    private static func write(_ version: Version, to store: any OutgoingStore) {
-        switch version {
-        case .written(let draft, let date):
-            try? store.enqueueSave(OutgoingMessage(draft: draft, purpose: .saveDraft, sendAt: date))
-        case .deleted(let draft):
-            _ = try? store.cancel(draft.id)
-            // Only a copy the app already saved needs the app to remove it.
-            guard (try? store.savedCopy(of: draft.id)) != nil else { return }
-            try? store.enqueue(OutgoingMessage(draft: draft, purpose: .deleteDraft, sendAt: .now))
+    /// A delete stops at its first step that fails: the queue that couldn't take the step won't take the next. So a
+    /// delete whose waiting save was taken back but whose removal couldn't be queued leaves the app's saved copy in
+    /// Drafts.
+    private static func write(_ version: Version, to store: any OutgoingStore, log: MailLog) {
+        do {
+            switch version {
+            case .written(let draft, let date):
+                try store.enqueueSave(OutgoingMessage(draft: draft, purpose: .saveDraft, sendAt: date))
+            case .deleted(let draft):
+                _ = try store.cancel(draft.id)
+                // Only a copy the app already saved needs the app to remove it.
+                guard try store.savedCopy(of: draft.id) != nil else { return }
+                try store.enqueue(OutgoingMessage(draft: draft, purpose: .deleteDraft, sendAt: .now))
+            }
+        } catch {
+            log.error("A draft's newest version, or its deletion, couldn't be written to the queue", error)
         }
     }
 }

@@ -53,6 +53,7 @@ public actor RelayAttestation: RelaySigner {
     static let keyHeader = "X-Goodmail-Attest-Key"
     static let timeHeader = "X-Goodmail-Attest-Time"
     static let assertionHeader = "X-Goodmail-Attest-Assertion"
+    private static let log = MailLog(category: "push")
 
     private let baseURL: URL
     private let device: any AttestationDevice
@@ -145,7 +146,12 @@ public actor RelayAttestation: RelaySigner {
             switch outcome {
             case .success(let keyID):
                 state = .attested(keyID)
-                try? store.set(Data(keyID.utf8), for: Self.storageKey)
+                do {
+                    try store.set(Data(keyID.utf8), for: Self.storageKey)
+                } catch {
+                    // The key still signs until the app quits; the next launch attests another.
+                    Self.log.error("The attested key couldn't be kept in the Keychain", error)
+                }
             case .failure:
                 state = .none
             }

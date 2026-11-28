@@ -23,8 +23,14 @@ extension IMAPClient: DirectSending {
     /// Files a sent message in Sent, unless the server already did. Filing never fails a send: the outbox would send
     /// the message again, and the next `changes(since:)` finds a copy the server filed late.
     public func fileSent(_ raw: Data, inThread threadID: String?) async {
-        _ = try? await file(raw, as: SystemLabel.sent, flags: [#"\Seen"#], inThread: threadID, unlessFiled: true)
+        do {
+            try await file(raw, as: SystemLabel.sent, flags: [#"\Seen"#], inThread: threadID, unlessFiled: true)
+        } catch {
+            Self.sendLog.error("A sent message's copy couldn't be filed in Sent", error)
+        }
     }
+
+    private static let sendLog = MailLog(category: "outgoing")
 
     /// Files the draft in Drafts, then removes the one it replaces.
     @discardableResult

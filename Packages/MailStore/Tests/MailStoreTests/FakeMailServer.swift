@@ -53,6 +53,7 @@ final class FakeMailServer: SendAsSyncing {
         var onFileSent: (@Sendable () -> Void)?
         var filedSent: [Data] = []
         var preparedSends = 0
+        var sendAttempts = 0
     }
 
     /// How the fake takes sends: as Gmail's uploads, or over its own connection, as iCloud's SMTP.
@@ -239,9 +240,13 @@ extension FakeMailServer: DirectSending {
     /// How many times a direct send was prepared for.
     var preparedSends: Int { state.withLock { $0.preparedSends } }
 
+    /// How many direct sends were tried, whether they went or not.
+    var sendAttempts: Int { state.withLock { $0.sendAttempts } }
+
     /// A direct send goes, or is refused when `answerSends` set a status outside 2xx.
     func send(_ raw: Data, inThread threadID: String?) async throws {
         try state.withLock { state in
+            state.sendAttempts += 1
             if let failure = state.failPrepare { throw failure }
             guard let status = state.sendStatus, !(200..<300).contains(status) else {
                 state.sent.append((raw, threadID))

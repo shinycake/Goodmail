@@ -13,20 +13,23 @@ public actor Sender {
     private let transport: any UploadTransport
     private let files: UploadFiles
     private let now: @Sendable () -> Date
+    private let log: MailLog
     private var running: Task<[Draft], Never>?
     /// Messages that went but are still queued, because taking them out of the queue failed, as it does while the
     /// database is suspended. Never sent again; taken out at the start of each drain. Held in memory alone: the write
     /// that would record it is the one that failed.
     private var sentButQueued: Set<Draft.ID> = []
 
-    /// Upload bodies are kept under `uploads`, in a folder of the account's own.
+    /// Upload bodies are kept under `uploads`, in a folder of the account's own. Reads and writes of the queue that
+    /// fail are recorded in `log`.
     public init(
         accountID: AccountID,
         provider: @escaping @Sendable () throws -> any MailProvider,
         store: any OutgoingStore,
         transport: any UploadTransport,
         uploads: URL,
-        now: @escaping @Sendable () -> Date = { .now }
+        now: @escaping @Sendable () -> Date = { .now },
+        log: MailLog = MailLog(category: "outgoing")
     ) {
         self.accountID = accountID
         self.provider = provider
@@ -34,6 +37,7 @@ public actor Sender {
         self.transport = transport
         files = UploadFiles(directory: uploads.appending(path: accountID.rawValue, directoryHint: .isDirectory))
         self.now = now
+        self.log = log
     }
 
     public init(
@@ -42,16 +46,18 @@ public actor Sender {
         store: any OutgoingStore,
         transport: any UploadTransport,
         uploads: URL,
-        now: @escaping @Sendable () -> Date = { .now }
+        now: @escaping @Sendable () -> Date = { .now },
+        log: MailLog = MailLog(category: "outgoing")
     ) {
         self.init(
             accountID: accountID, provider: { provider }, store: store, transport: transport, uploads: uploads,
-            now: now)
+            now: now, log: log)
     }
 
     /// Settles uploads that ended unheard, then hands off, saves or deletes what is due. A refused message is
-    /// marked failed and kept, for the writer to fix; a network failure, or an account that can't be read, leaves it
-    /// queued for the next call. Returns what went: drafts saved or deleted now, and sends confirmed while settling.
+    /// marked failed and kept, for the writer to fix; a network failure, an account that can't be read, or a queue
+    /// that can't be read or written leaves it queued for the next call. Returns what went: drafts saved or deleted
+    /// now, and sends confirmed while settling.
     @discardableResult
     public func flush() async -> [Draft] {
         if let running { return await running.value }
@@ -81,8 +87,8 @@ public actor Sender {
     /// no longer current, such as one reported twice, changes nothing.
     public func complete(_ id: UploadID, with outcome: UploadOutcome) async -> Draft? {
         defer { files.remove(id) }
-        guard let message = try? store.uploadingMessages(for: accountID).first(where: { $0.delivery == .uploading(id) })
-        else { return nil }
+        // A queue that can't be read leaves the message uploading, for `settleUploads` to ask about.
+        guard let message = uploadingMessages()?.first(where: { $0.delivery == .uploading(id) }) else { return nil }
         guard let provider = try? self.provider(), case .upload(let uploads) = provider.sending else { return nil }
         guard case .response(let status, let body) = outcome else {
             return await settleUnanswered(message, id, with: uploads, on: provider)
@@ -103,7 +109,7 @@ public actor Sender {
         case .unknown:
             return await settleUnanswered(message, id, with: uploads, on: provider)
         }
-        guard (try? store.update(message.id, from: .uploading(id), to: next)) == true, next == nil else { return nil }
+        guard moved(message, from: .uploading(id), to: next), next == nil else { return nil }
         await deleteSavedCopy(of: message.draft, on: provider)
         return message.draft
     }
@@ -121,7 +127,15 @@ public actor Sender {
         guard let provider = try? self.provider() else { return [] }
         var taken = await settleUploads(on: provider)
         guard dequeueSent() else { return taken }
-        while let message = (try? store.dueMessages(for: accountID, by: now()))?.first {
+        while true {
+            let due: [OutgoingMessage]
+            do {
+                due = try store.dueMessages(for: accountID, by: now())
+            } catch {
+                log.error("The outgoing queue couldn't be read, so its mail waits for the next flush", error)
+                return taken
+            }
+            guard let message = due.first else { return taken }
             switch await attempt(message, on: provider) {
             case .next: continue
             case .took(let draft): taken.append(draft)
@@ -129,16 +143,21 @@ public actor Sender {
             case .stop: return taken
             }
         }
-        return taken
     }
 
     /// Takes out of the queue the messages that went while it couldn't be written. Returns whether none is left, so
     /// the queue's first due message is one that hasn't gone.
     private func dequeueSent() -> Bool {
-        for id in sentButQueued where (try? store.update(id, from: .queued, to: nil)) != nil {
-            sentButQueued.remove(id)
+        for id in sentButQueued {
+            do {
+                _ = try store.update(id, from: .queued, to: nil)
+                sentButQueued.remove(id)
+            } catch {
+                log.error("A message that went still couldn't leave the queue, so nothing goes until it does", error)
+                return false
+            }
         }
-        return sentButQueued.isEmpty
+        return true
     }
 
     private func attempt(_ message: OutgoingMessage, on provider: any MailProvider) async -> Step {
@@ -146,13 +165,18 @@ public actor Sender {
         do {
             draft = try await fetchingForwardedFiles(of: message.draft, from: provider)
         } catch ProviderError.notFound {
-            _ = try? store.update(message.id, from: .queued, to: message.with(.failed(.forwardedAttachmentMissing)))
-            return .next
+            return requeue(message, as: message.with(.failed(.forwardedAttachmentMissing)))
         } catch {
             return .stop
         }
         // Read as each message goes, so a renamed account's next message carries the new name.
-        guard let account = try? store.sender(for: accountID) else { return .stop }
+        let account: Contact
+        do {
+            account = try store.sender(for: accountID)
+        } catch {
+            log.error("Who the account's mail is from couldn't be read, so its mail waits", error)
+            return .stop
+        }
         let raw = MIMEWriter.message(
             for: draft, from: draft.sender(account: account), date: now(), messageID: message.headerID)
         do {
@@ -164,8 +188,15 @@ public actor Sender {
                     // Out of the queue first, so it shows as sent while its copy is filed and its draft removed. A
                     // queue that can't be written still holds it as due: it is remembered as gone, and the drain
                     // stops, since the next message's steps couldn't be written either.
-                    let dequeued = (try? store.update(message.id, from: .queued, to: nil)) != nil
-                    if !dequeued { sentButQueued.insert(message.id) }
+                    let dequeued: Bool
+                    do {
+                        _ = try store.update(message.id, from: .queued, to: nil)
+                        dequeued = true
+                    } catch {
+                        log.fault("A message went but couldn't leave the queue; it is held as gone", error)
+                        sentButQueued.insert(message.id)
+                        dequeued = false
+                    }
                     await direct.fileSent(raw, inThread: draft.threadID)
                     await deleteSavedCopy(of: draft, on: provider)
                     return dequeued ? .took(message.draft) : .tookLast(message.draft)
@@ -187,16 +218,49 @@ public actor Sender {
             _ = try store.update(message.id, from: .queued, to: nil)
             return .took(message.draft)
         } catch ProviderError.rejected {
-            _ = try? store.update(message.id, from: .queued, to: message.with(.failed(.rejected)))
-            return .next
+            return requeue(message, as: message.with(.failed(.rejected)))
         } catch ProviderError.notFound {
             // The thread is gone; save it on its own.
             var alone = message
             alone.draft.threadID = nil
-            _ = try? store.update(message.id, from: .queued, to: alone)
-            return .next
+            return requeue(message, as: alone)
         } catch {
             return .stop
+        }
+    }
+
+    /// Writes what a queued message that didn't go becomes, and goes on to the next. A write that fails stops the
+    /// drain: the message is still due as it was, so going on would only try it again, and again.
+    private func requeue(_ message: OutgoingMessage, as next: OutgoingMessage) -> Step {
+        do {
+            _ = try store.update(message.id, from: .queued, to: next)
+            return .next
+        } catch {
+            log.error("A message that didn't go couldn't be marked so, so its mail waits for the next flush", error)
+            return .stop
+        }
+    }
+
+    /// Writes an uploading message's next step, as `OutgoingStore.update` does. A write that fails leaves it
+    /// uploading, for `settleUploads` to resolve on a later flush. Returns whether it moved.
+    private func moved(_ message: OutgoingMessage, from expected: OutgoingMessage.Delivery, to next: OutgoingMessage?)
+        -> Bool
+    {
+        do {
+            return try store.update(message.id, from: expected, to: next)
+        } catch {
+            log.error("An upload's outcome couldn't be written, so it is settled on a later flush", error)
+            return false
+        }
+    }
+
+    /// The messages handed to an upload, or `nil` when the queue can't be read.
+    private func uploadingMessages() -> [OutgoingMessage]? {
+        do {
+            return try store.uploadingMessages(for: accountID)
+        } catch {
+            log.error("The uploads under way couldn't be read, so they are settled on a later flush", error)
+            return nil
         }
     }
 
@@ -215,7 +279,7 @@ public actor Sender {
             try await transport.upload(prepared.request, from: file, ticket: UploadTicket(accountID: accountID, id: id))
         } catch {
             files.remove(id)
-            _ = try? store.update(message.id, from: .uploading(id), to: message)
+            _ = moved(message, from: .uploading(id), to: message)
             throw error
         }
     }
@@ -225,12 +289,16 @@ public actor Sender {
     private func settleUploads(on provider: any MailProvider) async -> [Draft] {
         guard case .upload(let uploads) = provider.sending else { return [] }
         let active = await transport.activeUploads()
+        guard let messages = uploadingMessages() else { return [] }
         var sent: [Draft] = []
-        for message in (try? store.uploadingMessages(for: accountID)) ?? [] {
+        for message in messages {
             guard case .uploading(let id) = message.delivery, !active.contains(id) else { continue }
             if let draft = await settleUnanswered(message, id, with: uploads, on: provider) { sent.append(draft) }
         }
-        let uploading = ((try? store.uploadingMessages(for: accountID)) ?? []).compactMap { message in
+        // Only a queue that was read says which files are needed; clearing against one that wasn't would take them
+        // all, the files of uploads under way among them.
+        guard let left = uploadingMessages() else { return sent }
+        let uploading = left.compactMap { message in
             if case .uploading(let id) = message.delivery { id } else { nil }
         }
         files.removeAll(except: Set(uploading))
@@ -246,7 +314,7 @@ public actor Sender {
         files.remove(id)
         guard let went = try? await uploads.hasSent(message) else { return nil }
         let next = went ? nil : message.with(.failed(.unconfirmed))
-        guard (try? store.update(message.id, from: .uploading(id), to: next)) == true, went else { return nil }
+        guard moved(message, from: .uploading(id), to: next), went else { return nil }
         await deleteSavedCopy(of: message.draft, on: provider)
         return message.draft
     }
@@ -258,9 +326,13 @@ public actor Sender {
 
     /// A saved copy left behind is only a stale draft, not worth failing a sent message over.
     private func deleteSavedCopy(of draft: Draft, on provider: any MailProvider) async {
-        guard let saved = try? savedCopy(of: draft) else { return }
-        try? await provider.deleteDraft(saved)
-        try? store.setSavedCopy(nil, of: draft.id)
+        do {
+            guard let saved = try savedCopy(of: draft) else { return }
+            try? await provider.deleteDraft(saved)
+            try store.setSavedCopy(nil, of: draft.id)
+        } catch {
+            log.error("A sent message's saved draft couldn't be looked up or forgotten", error)
+        }
     }
 
     private func fetchingForwardedFiles(of draft: Draft, from provider: any MailProvider) async throws -> Draft {
