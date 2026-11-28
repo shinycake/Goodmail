@@ -14,6 +14,10 @@ public actor Sender {
     private let files: UploadFiles
     private let now: @Sendable () -> Date
     private var running: Task<[Draft], Never>?
+    /// Messages that went but are still queued, because taking them out of the queue failed, as it does while the
+    /// database is suspended. Never sent again; taken out at the start of each drain. Held in memory alone: the write
+    /// that would record it is the one that failed.
+    private var sentButQueued: Set<Draft.ID> = []
 
     /// Upload bodies are kept under `uploads`, in a folder of the account's own.
     public init(
@@ -107,6 +111,8 @@ public actor Sender {
     private enum Step {
         case next
         case took(Draft)
+        /// It went, and nothing more goes on this drain.
+        case tookLast(Draft)
         case stop
     }
 
@@ -114,14 +120,25 @@ public actor Sender {
         // An account whose sign-in can't be read keeps its mail queued for the next flush.
         guard let provider = try? self.provider() else { return [] }
         var taken = await settleUploads(on: provider)
+        guard dequeueSent() else { return taken }
         while let message = (try? store.dueMessages(for: accountID, by: now()))?.first {
             switch await attempt(message, on: provider) {
             case .next: continue
             case .took(let draft): taken.append(draft)
+            case .tookLast(let draft): return taken + [draft]
             case .stop: return taken
             }
         }
         return taken
+    }
+
+    /// Takes out of the queue the messages that went while it couldn't be written. Returns whether none is left, so
+    /// the queue's first due message is one that hasn't gone.
+    private func dequeueSent() -> Bool {
+        for id in sentButQueued where (try? store.update(id, from: .queued, to: nil)) != nil {
+            sentButQueued.remove(id)
+        }
+        return sentButQueued.isEmpty
     }
 
     private func attempt(_ message: OutgoingMessage, on provider: any MailProvider) async -> Step {
@@ -144,11 +161,14 @@ public actor Sender {
                 switch provider.sending {
                 case .direct(let direct):
                     try await direct.send(raw, inThread: draft.threadID)
-                    // Out of the queue first, so it shows as sent while its copy is filed and its draft removed.
-                    _ = try? store.update(message.id, from: .queued, to: nil)
+                    // Out of the queue first, so it shows as sent while its copy is filed and its draft removed. A
+                    // queue that can't be written still holds it as due: it is remembered as gone, and the drain
+                    // stops, since the next message's steps couldn't be written either.
+                    let dequeued = (try? store.update(message.id, from: .queued, to: nil)) != nil
+                    if !dequeued { sentButQueued.insert(message.id) }
                     await direct.fileSent(raw, inThread: draft.threadID)
                     await deleteSavedCopy(of: draft, on: provider)
-                    return .took(message.draft)
+                    return dequeued ? .took(message.draft) : .tookLast(message.draft)
                 case .upload(let uploads):
                     try await handOff(message, raw: raw, via: uploads)
                     return .next
