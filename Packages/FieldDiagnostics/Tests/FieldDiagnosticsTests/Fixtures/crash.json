@@ -1,0 +1,21 @@
+{
+  "appVersion": "1.0 (212)",
+  "content": {
+    "event": {
+      "_0": {
+        "crash": {
+          "_0": {
+            "exceptionType": 1,
+            "reason": "Namespace SIGNAL, Code 11",
+            "signal": 11
+          }
+        }
+      }
+    }
+  },
+  "period": {
+    "duration": 30.0,
+    "start": "2026-11-27T15:59:30Z"
+  },
+  "raw": "ewogICJlbnZpcm9ubWVudCI6IHsKICAgICJhcHBsaWNhdGlvbkJ1aWxkVmVyc2lvbiI6ICIyMTIiLAogICAgImFwcGxpY2F0aW9uVmVyc2lvbiI6ICIxLjAiLAogICAgImRldmljZVR5cGUiOiAiaVBob25lMTgsMSIsCiAgICAiaXNUZXN0RmxpZ2h0QXBwIjogdHJ1ZSwKICAgICJvc1ZlcnNpb24iOiAiaVBob25lIE9TIDI3LjIgKDI0QzEwMSkiCiAgfSwKICAicmVzdWx0IjogewogICAgImNyYXNoIjogewogICAgICAiY2FsbFN0YWNrVHJlZSI6IHsKICAgICAgICAiY2FsbFN0YWNrVGhyZWFkcyI6IFtdCiAgICAgIH0sCiAgICAgICJleGNlcHRpb25UeXBlIjogMSwKICAgICAgInNpZ25hbCI6IDExLAogICAgICAidGVybWluYXRpb25SZWFzb24iOiAiTmFtZXNwYWNlIFNJR05BTCwgQ29kZSAxMSIKICAgIH0KICB9LAogICJ0aW1lUmFuZ2UiOiB7CiAgICAiZW5kIjogIjIwMjYtMTEtMjdUMTY6MDA6MDBaIiwKICAgICJzdGFydCI6ICIyMDI2LTExLTI3VDE1OjU5OjMwWiIKICB9Cn0="
+}

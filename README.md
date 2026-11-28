@@ -116,6 +116,7 @@ Goodmail is a thin app over local Swift packages, one per module:
 | `MailUI` | Every screen: the mailbox lists, the reader, the composer, settings |
 | `MailIntents` | App Intents, App Shortcuts and Spotlight |
 | `MailNotifications` | Building alerts in the Notification Service Extension |
+| `FieldDiagnostics` | The reports MetricKit sends, kept on the device for Settings > Diagnostics |
 
 The push relay is a Cloudflare Worker in TypeScript, in [`PushWorker`](PushWorker/README.md). State is modelled explicitly as enums with one place that makes transitions, network and database work never runs on the main actor, and no file is over 1000 lines.
 
@@ -145,7 +146,7 @@ Claude Code tooling is declared in the repo:
 - `scripts/run` builds the signed Debug app and installs it on the dev simulator, keeping its Gmail sign-in. Arguments pass through to the app, e.g. `scripts/run -AppleLanguages "(he)"`.
 - `scripts/run-mac` builds the signed Debug Mac app (Mac Catalyst, ADR-032) and launches it. Arguments pass through to the app the same way.
 - Debug builds launched with `-GoodmailSyntheticThreads 300 -GoodmailSyntheticCorpus <repo>/TestMail` show a demo mailbox with no sign-in. The screenshots in `docs/screenshots` come from it, so they hold no real mail.
-- Claude cloud sessions (Linux) compile the packages and their tests for iOS with xtool (`scripts/ios-build`) and run the MailCore, GmailProvider, IMAPProvider, OutlookProvider, MailStore and PlaneGame tests natively; `scripts/check` does both there. Setup is automatic: see [docs/setup/cloud-builds.md](docs/setup/cloud-builds.md).
+- Claude cloud sessions (Linux) compile the packages and their tests for iOS with xtool (`scripts/ios-build`) and run the MailCore, GmailProvider, IMAPProvider, OutlookProvider, MailStore, PlaneGame and FieldDiagnostics tests natively; `scripts/check` does both there. Setup is automatic: see [docs/setup/cloud-builds.md](docs/setup/cloud-builds.md).
 - `scripts/testflight` archives a signed Release build of the current commit and uploads it with `asc`, the App Store Connect CLI. App Store Connect picks the build number. Every build goes to the internal "Internal" TestFlight group, which has access to all builds, and `scripts/public-beta` then submits it to the public beta, the external "Apple Review" group: see [docs/setup/testflight.md](docs/setup/testflight.md). It needs Xcode signed in to the team and `asc auth status` showing an API key.
 - After cloning, enable the tracked hooks (pre-commit runs `--lint`, pre-push runs everything):
 

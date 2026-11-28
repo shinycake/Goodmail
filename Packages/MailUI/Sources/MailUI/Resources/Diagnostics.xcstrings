@@ -1,0 +1,567 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@ to %@" : {
+      "comment" : "Row: the hangs that lasted between the two times",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‏%1$@ עד %2$@"
+          }
+        }
+      }
+    },
+    "%lld on screen, %lld in the background" : {
+      "comment" : "Under an exit reason: how many times the app was ended while open, and while in the background",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld על המסך, %2$lld ברקע"
+          }
+        }
+      }
+    },
+    "Background Task Ran Out of Time" : {
+      "comment" : "Exit reason: a background task took too long",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נגמר הזמן למשימה ברקע"
+          }
+        }
+      }
+    },
+    "Bad Memory Access" : {
+      "comment" : "Exit reason: a crash touching memory the app may not",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "גישה שגויה לזיכרון"
+          }
+        }
+      }
+    },
+    "CPU Limit" : {
+      "comment" : "Exit reason: the app used too much processor time in the background",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מגבלת CPU"
+          }
+        }
+      }
+    },
+    "CPU Time" : {
+      "comment" : "Row: the processor time the app used",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "זמן CPU"
+          }
+        }
+      }
+    },
+    "Couldn’t Delete the Reports" : {
+      "comment" : "Shown when the diagnostic reports couldn't be deleted",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן למחוק את הדוחות"
+          }
+        }
+      }
+    },
+    "Couldn’t Read the Reports" : {
+      "comment" : "Shown when the diagnostic reports on the device can't be read",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לא ניתן לקרוא את הדוחות"
+          }
+        }
+      }
+    },
+    "Crash" : {
+      "comment" : "A crash report",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קריסה"
+          }
+        }
+      }
+    },
+    "Crashes and Exits" : {
+      "comment" : "Section: the times the system ended the app, crashes included",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קריסות וסגירות"
+          }
+        }
+      }
+    },
+    "Daily Summary" : {
+      "comment" : "A report of a day's launch times, hangs, memory, disk writes and exits",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סיכום יומי"
+          }
+        }
+      }
+    },
+    "Delete All" : {
+      "comment" : "Confirms deleting every diagnostic report",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחיקת הכול"
+          }
+        }
+      }
+    },
+    "Delete All Reports" : {
+      "comment" : "Deletes every diagnostic report from the device",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מחיקת כל הדוחות"
+          }
+        }
+      }
+    },
+    "Delete All Reports?" : {
+      "comment" : "Title asking to confirm deleting every diagnostic report",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "למחוק את כל הדוחות?"
+          }
+        }
+      }
+    },
+    "Diagnostics" : {
+      "comment" : "Title of the page of reports the system sent about how the app ran",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אבחון"
+          }
+        }
+      }
+    },
+    "Disk" : {
+      "comment" : "Section: what the app wrote to disk",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דיסק"
+          }
+        }
+      }
+    },
+    "Duration" : {
+      "comment" : "Row: how long a hang or a launch took",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "משך"
+          }
+        }
+      }
+    },
+    "Each time the system ended Goodmail, other than when you closed it." : {
+      "comment" : "Explains the crashes and exits section",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כל פעם שהמערכת סגרה את Goodmail, חוץ מכשסגרת אותו בעצמך."
+          }
+        }
+      }
+    },
+    "Exception" : {
+      "comment" : "Row: the Mach exception a crash raised",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חריגה"
+          }
+        }
+      }
+    },
+    "From the tap to the first frame. Half took less than the typical time, and 1 in 10 took longer than the slowest." : {
+      "comment" : "Explains the launch and resume times",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מההקשה ועד הפריים הראשון. חצי לקחו פחות מהזמן הטיפוסי, ו-1 מכל 10 לקחו יותר מהאיטיות ביותר."
+          }
+        }
+      }
+    },
+    "Hang" : {
+      "comment" : "A report of the app not answering for a while",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תקיעה"
+          }
+        }
+      }
+    },
+    "Hangs" : {
+      "comment" : "Hangs: a section of a day's report, and its row that counts them",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תקיעות"
+          }
+        }
+      }
+    },
+    "Heavy Disk Writes" : {
+      "comment" : "A report of the app writing too much to disk in a day",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כתיבה רבה לדיסק"
+          }
+        }
+      }
+    },
+    "High CPU Use" : {
+      "comment" : "A report of the app using too much processor time",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שימוש גבוה ב-CPU"
+          }
+        }
+      }
+    },
+    "Illegal Instruction" : {
+      "comment" : "Exit reason: a crash on an instruction the app may not run, such as a failed check",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פקודה לא חוקית"
+          }
+        }
+      }
+    },
+    "Launch" : {
+      "comment" : "Section: how long the app took to open",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פתיחה"
+          }
+        }
+      }
+    },
+    "Measured Over" : {
+      "comment" : "Row: the time over which the app used the processor time above",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נמדד במשך"
+          }
+        }
+      }
+    },
+    "Memory" : {
+      "comment" : "Section: the memory the app took",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "זיכרון"
+          }
+        }
+      }
+    },
+    "Memory Limit" : {
+      "comment" : "The system ending the app for using too much memory: a report's title, and a reason for an exit",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מגבלת זיכרון"
+          }
+        }
+      }
+    },
+    "Memory Needed Elsewhere" : {
+      "comment" : "Exit reason: the system took the memory back while the app was in the background",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הזיכרון נדרש למקום אחר"
+          }
+        }
+      }
+    },
+    "No Reports Yet" : {
+      "comment" : "Shown when the system hasn't sent any diagnostic report",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אין עדיין דוחות"
+          }
+        }
+      }
+    },
+    "None" : {
+      "comment" : "Shown in a section the day's report has nothing for",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אין"
+          }
+        }
+      }
+    },
+    "Other Crash" : {
+      "comment" : "Exit reason: the app crashed or ended itself in another way",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קריסה אחרת"
+          }
+        }
+      }
+    },
+    "Peak Memory" : {
+      "comment" : "Row: the most memory the app took in a day",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שיא זיכרון"
+          }
+        }
+      }
+    },
+    "Reports come from the system and stay on this device unless you share them." : {
+      "comment" : "Explains where diagnostic reports go",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הדוחות מגיעים מהמערכת ונשארים במכשיר הזה, אלא אם משתפים אותם."
+          }
+        }
+      }
+    },
+    "Reports you shared aren't affected." : {
+      "comment" : "Says that deleting the reports leaves copies already shared",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "דוחות שכבר שיתפת לא יימחקו."
+          }
+        }
+      }
+    },
+    "Share All" : {
+      "comment" : "Shares every diagnostic report's file",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שיתוף הכול"
+          }
+        }
+      }
+    },
+    "Share Report" : {
+      "comment" : "Shares one diagnostic report's file",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שיתוף הדוח"
+          }
+        }
+      }
+    },
+    "Signal" : {
+      "comment" : "Row: the signal that ended the app",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אות"
+          }
+        }
+      }
+    },
+    "Slow Launch" : {
+      "comment" : "A report of a slow launch",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פתיחה איטית"
+          }
+        }
+      }
+    },
+    "Slowest Launches" : {
+      "comment" : "Row: the time the slowest tenth of launches took longer than",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הפתיחות האיטיות ביותר"
+          }
+        }
+      }
+    },
+    "Slowest Resumes" : {
+      "comment" : "Row: the time the slowest tenth of returns from the background took longer than",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "החזרות האיטיות ביותר"
+          }
+        }
+      }
+    },
+    "Suspended With a Locked File" : {
+      "comment" : "Exit reason: the app was suspended holding a lock on a shared file",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הושהה עם קובץ נעול"
+          }
+        }
+      }
+    },
+    "The system ended Goodmail for using more memory than it allows." : {
+      "comment" : "Explains a memory limit report",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "המערכת סגרה את Goodmail כי הוא השתמש ביותר זיכרון ממה שמותר לו."
+          }
+        }
+      }
+    },
+    "The system sends a report about once a day, and one after a crash or a hang the next time Goodmail opens." : {
+      "comment" : "Explains when diagnostic reports arrive",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "המערכת שולחת דוח בערך פעם ביום, ודוח על קריסה או תקיעה בפעם הבאה ש-Goodmail נפתח."
+          }
+        }
+      }
+    },
+    "Time" : {
+      "comment" : "Row: the period a report covers",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "זמן"
+          }
+        }
+      }
+    },
+    "Typical Launch" : {
+      "comment" : "Row: the median launch time",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פתיחה טיפוסית"
+          }
+        }
+      }
+    },
+    "Typical Resume" : {
+      "comment" : "Row: the median time to come back from the background",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "חזרה טיפוסית"
+          }
+        }
+      }
+    },
+    "Version" : {
+      "comment" : "Row: the version of the app a report is about",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "גרסה"
+          }
+        }
+      }
+    },
+    "Watchdog" : {
+      "comment" : "Exit reason: the app took too long to launch, resume or answer",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‏Watchdog"
+          }
+        }
+      }
+    },
+    "Written to Disk" : {
+      "comment" : "Row: what the app wrote to disk",
+      "localizations" : {
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נכתב לדיסק"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

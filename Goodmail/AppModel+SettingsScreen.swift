@@ -1,3 +1,4 @@
+import FieldDiagnostics
 import MailCore
 import MailUI
 import UserNotifications
@@ -25,6 +26,7 @@ extension AppModel {
             closed: closed)
         viewModel.rules = model.rulesService
         viewModel.storage = model.storageSettings()
+        viewModel.diagnostics = DiagnosticsModel(archive: .app)
         viewModel.autoReply = { model.autoReplyService(for: $0) }
         viewModel.serverSettings = { model.serverSettingsService(for: $0) }
         viewModel.sharing = model.sharingChoices()

@@ -1,3 +1,4 @@
+import FieldDiagnostics
 import MailCore
 import MailUI
 import OSLog
@@ -27,10 +28,13 @@ final class AppLaunch {
     private lazy var alerts = AlertResponder { [unowned self] in try await services().push }
     /// The open. Kept so it has an owner; it ends by settling `state`, and nothing cancels it.
     private var opening: Task<Void, Never>?
+    /// Keeps MetricKit's reports for Settings > Diagnostics (ADR-042), from launch on, whether the database opens or not.
+    private var fieldDiagnostics: MetricKitFeed?
 
     /// Call once, before launch finishes.
     func start() {
         _ = BackgroundDatabaseWork.shared
+        fieldDiagnostics = MetricKitFeed(archive: .app)
         switch PresenceTracker.shared.policy {
         case .suspends:
             BackgroundRefresh.register { [weak self] in try? await self?.services().syncScheduler.refresh }
@@ -99,6 +103,7 @@ struct AppServices {
         let model = try await openModel()
         #if DEBUG
             await TestSharedAccounts.seedIfRequested()
+            await TestDiagnostics.seedIfRequested(into: .app)
         #endif
         // Before any window shows, so a new device opens on the accounts its reader's other devices offer.
         do {

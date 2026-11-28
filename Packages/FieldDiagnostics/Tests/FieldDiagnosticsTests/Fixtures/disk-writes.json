@@ -1,0 +1,17 @@
+{
+  "appVersion": "1.0 (212)",
+  "content": {
+    "event": {
+      "_0": {
+        "diskWrite": {
+          "bytes": 1073741824
+        }
+      }
+    }
+  },
+  "period": {
+    "duration": 30.0,
+    "start": "2026-11-25T14:59:30Z"
+  },
+  "raw": "ewogICJlbnZpcm9ubWVudCI6IHsKICAgICJhcHBsaWNhdGlvbkJ1aWxkVmVyc2lvbiI6ICIyMTIiLAogICAgImFwcGxpY2F0aW9uVmVyc2lvbiI6ICIxLjAiLAogICAgImRldmljZVR5cGUiOiAiaVBob25lMTgsMSIsCiAgICAiaXNUZXN0RmxpZ2h0QXBwIjogdHJ1ZSwKICAgICJvc1ZlcnNpb24iOiAiaVBob25lIE9TIDI3LjIgKDI0QzEwMSkiCiAgfSwKICAicmVzdWx0IjogewogICAgImRpc2tXcml0ZUV4Y2VwdGlvbiI6IHsKICAgICAgImNhbGxTdGFja1RyZWUiOiB7CiAgICAgICAgImNhbGxTdGFja1RocmVhZHMiOiBbXQogICAgICB9LAogICAgICAidG90YWxCeXRlc1dyaXR0ZW4iOiAiMSBHQiIKICAgIH0KICB9LAogICJ0aW1lUmFuZ2UiOiB7CiAgICAiZW5kIjogIjIwMjYtMTEtMjVUMTU6MDA6MDBaIiwKICAgICJzdGFydCI6ICIyMDI2LTExLTI1VDE0OjU5OjMwWiIKICB9Cn0="
+}

@@ -1,0 +1,90 @@
+{
+  "appVersion": "1.0 (212)",
+  "content": {
+    "metrics": {
+      "_0": {
+        "diskWrites": 48500000,
+        "exits": [
+          {
+            "background": 1,
+            "foreground": 0,
+            "reason": "memoryLimit"
+          },
+          {
+            "background": 0,
+            "foreground": 1,
+            "reason": "watchdog"
+          }
+        ],
+        "hangs": {
+          "buckets": [
+            {
+              "count": 3,
+              "end": 0.5,
+              "start": 0.25
+            },
+            {
+              "count": 1,
+              "end": 1,
+              "start": 0.5
+            },
+            {
+              "count": 1,
+              "end": 4,
+              "start": 2
+            }
+          ]
+        },
+        "launches": {
+          "buckets": [
+            {
+              "count": 6,
+              "end": 0.25,
+              "start": 0
+            },
+            {
+              "count": 9,
+              "end": 0.5,
+              "start": 0.25
+            },
+            {
+              "count": 4,
+              "end": 1,
+              "start": 0.5
+            },
+            {
+              "count": 1,
+              "end": 2,
+              "start": 1
+            }
+          ]
+        },
+        "peakMemory": 212000000,
+        "resumes": {
+          "buckets": [
+            {
+              "count": 40,
+              "end": 0.1,
+              "start": 0
+            },
+            {
+              "count": 12,
+              "end": 0.2,
+              "start": 0.1
+            },
+            {
+              "count": 3,
+              "end": 0.5,
+              "start": 0.2
+            }
+          ]
+        }
+      }
+    }
+  },
+  "period": {
+    "duration": 86400.0,
+    "start": "2026-11-26T21:00:00Z"
+  },
+  "raw": "ewogICJlbnZpcm9ubWVudCI6IHsKICAgICJhcHBsaWNhdGlvbkJ1aWxkVmVyc2lvbiI6ICIyMTIiLAogICAgImFwcGxpY2F0aW9uVmVyc2lvbiI6ICIxLjAiLAogICAgImRldmljZVR5cGUiOiAiaVBob25lMTgsMSIsCiAgICAiaXNUZXN0RmxpZ2h0QXBwIjogdHJ1ZSwKICAgICJvc1ZlcnNpb24iOiAiaVBob25lIE9TIDI3LjIgKDI0QzEwMSkiCiAgfSwKICAiaW50ZXJ2YWxFbnRyaWVzIjogWwogICAgewogICAgICAibm90ZSI6ICJTYW1wbGUgZGF0YSBmb3IgdGhlIERpYWdub3N0aWNzIHNjcmVlbidzIFVJIHRlc3QiCiAgICB9CiAgXSwKICAidGltZVJhbmdlIjogewogICAgImVuZCI6ICIyMDI2LTExLTI3VDIxOjAwOjAwWiIsCiAgICAic3RhcnQiOiAiMjAyNi0xMS0yNlQyMTowMDowMFoiCiAgfQp9"
+}

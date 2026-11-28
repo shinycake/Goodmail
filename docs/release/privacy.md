@@ -28,8 +28,9 @@ Reviewed 2026-11-13, against `main` at 42720fc. The push Worker section was upda
 | Sign-ins the watch reads mail with | The iPhone's Gmail and Outlook refresh tokens, in the shared Keychain access group, reaching the watch through iCloud Keychain (account sharing) | Synchronizable Keychain items, end-to-end encrypted by iCloud Keychain | The watch app |
 | The watch's APNs token and the Mail Without iPhone switch | `UserDefaults.standard` on the iPhone (`WristPushToken`, `mailWithoutIPhone`) | Default | The relay gets the token, below |
 | Diagnostics | Unified logging (`os.Logger`), MetricKit and Xcode Organizer | On device; leaves only in a sysdiagnose the user sends, or Apple's opt-in diagnostics sharing | Apple, if the user opts in |
+| MetricKit's reports: a day's launch times, hangs, memory, disk writes and exits, and each crash, hang and exception with its call stacks and the device's model, OS version and region format (ADR-042) | JSON at `Application Support/Diagnostics/<id>.report.json` and `<id>.payload.json` (`DiagnosticsArchive`), for Settings > Diagnostics. Kept 90 days and 20 MB at most | `completeUntilFirstUserAuthentication`; not in device backups | None. The reader can share a report from Settings > Diagnostics, through the share sheet, to whoever they choose; Goodmail sends none itself |
 
-Debug builds also read a few launch arguments through `UserDefaults` (`GoodmailSyntheticThreads`, `GoodmailSyntheticCorpus`, `GoodmailDeliverTestMessageAfter`, the test-mail tools, and the watch app's `GoodmailWristSample`, `GoodmailWristSampleOpen`, `GoodmailWristSampleState`, `GoodmailWristIndependent` and `GoodmailWristSeedSignIns`). They are compiled out of Release.
+Debug builds also read a few launch arguments through `UserDefaults` (`GoodmailSyntheticThreads`, `GoodmailSyntheticCorpus`, `GoodmailDeliverTestMessageAfter`, `GoodmailSeedDiagnostics`, the test-mail tools, and the watch app's `GoodmailWristSample`, `GoodmailWristSampleOpen`, `GoodmailWristSampleState`, `GoodmailWristIndependent` and `GoodmailWristSeedSignIns`). They are compiled out of Release.
 
 Removing an account (`AppModel.removeAccount`) deletes its refresh token, its rows in the database and its opened attachments; the next snapshot the iPhone sends leaves its rows off the watch. Deleting the app removes everything above except Keychain items, which iOS keeps across reinstalls. Items that are `ThisDeviceOnly` never leave the device.
 
@@ -143,7 +144,7 @@ Apple counts data as collected when it leaves the device and the developer or a 
   - **Device ID.** The APNs token is a push routing token, not a device identifier in Apple's sense.
   - **Email address.** The Worker hashes it on arrival and doesn't keep it. It passes through only to serve the request.
   - **Emails or text messages, Contacts.** These go between the device and Google, never to Goodmail.
-  - **Diagnostics.** MetricKit and Organizer data come from Apple's own opt-in sharing, which Apple discloses.
+  - **Diagnostics.** MetricKit and Organizer data come from Apple's own opt-in sharing, which Apple discloses. The copies Settings > Diagnostics keeps never leave the device unless the reader shares one themselves, which isn't collection.
 
 The registration PR must add the same entry to the app's manifest (`NSPrivacyCollectedDataTypeUserID`, linked, not tracking, purpose `NSPrivacyCollectedDataTypePurposeAppFunctionality`), so the manifest and the label agree.
 

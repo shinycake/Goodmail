@@ -1,6 +1,6 @@
 # iOS and Mac builds on Linux cloud workers
 
-Claude cloud sessions run on Linux without Xcode. They compile every package and its tests for iOS (`arm64-apple-ios`) with [xtool](https://github.com/xtool-org/xtool)'s Darwin SDK, so package work can leave the Mac (ADR-017). They compile the app's packages for Mac Catalyst too (`arm64-apple-ios27.2-macabi`, ADR-032), so a change that breaks the Mac app fails the check. Linux has no iOS simulator, and xtool doesn't have one either. So cloud sessions run the tests of the packages that also build for Linux, natively: MailCore, GmailProvider, IMAPProvider, OutlookProvider, MailStore and PlaneGame. The Mac's `scripts/check` runs everything, including MailUI's tests and the app's launch tests.
+Claude cloud sessions run on Linux without Xcode. They compile every package and its tests for iOS (`arm64-apple-ios`) with [xtool](https://github.com/xtool-org/xtool)'s Darwin SDK, so package work can leave the Mac (ADR-017). They compile the app's packages for Mac Catalyst too (`arm64-apple-ios27.2-macabi`, ADR-032), so a change that breaks the Mac app fails the check. Linux has no iOS simulator, and xtool doesn't have one either. So cloud sessions run the tests of the packages that also build for Linux, natively: MailCore, GmailProvider, IMAPProvider, OutlookProvider, MailStore, PlaneGame and FieldDiagnostics. The Mac's `scripts/check` runs everything, including MailUI's tests and the app's launch tests.
 
 ## In a cloud session
 
@@ -13,7 +13,7 @@ Setup also enables the tracked git hooks. Its first run in a fresh container tak
 
 - `scripts/ios-build [Package …]` compiles packages and their tests for iOS, then the same packages, without their tests, for Mac Catalyst. With no arguments it compiles all of them, then type-checks the Xcode targets that SwiftPM can't build (the app, NotificationService, WidgetsExtension and ShareExtension) against those package builds, once for each platform. The type-check uses the project's Debug Swift settings, which are listed in the script, so update them there when the project's settings change. The Catalyst pass uses the macOS SDK from `goodmail-sdk`, with the UIKit frameworks and Swift modules under its `System/iOSSupport`. Its packages build into `.build/catalyst-packages`, apart from the iOS ones. Every package the app links lists `.macCatalyst("27.2")` in its manifest. The watch-only packages don't. Both passes catch compile errors, but they don't link, compile assets or String Catalogs, or check entitlements. Only the Mac's build does those.
 - MailIntents doesn't build on Linux: its entities and intents adopt the `.mail` app schemas through Apple's `@AppEntity(schema:)` and `@AppIntent(schema:)` macros, whose implementation ships only as a macOS compiler plugin. `scripts/ios-build` skips it, and the app's code that uses it sits behind `#if canImport(MailIntents)`, so the app still type-checks. The Mac's `scripts/check` builds and tests it.
-- `scripts/check` on Linux runs the lint, the line cap, `scripts/ios-build`, and `swift test` for MailCore, GmailProvider, IMAPProvider, OutlookProvider, MailStore and PlaneGame. The pre-push hook runs it.
+- `scripts/check` on Linux runs the lint, the line cap, `scripts/ios-build`, and `swift test` for MailCore, GmailProvider, IMAPProvider, OutlookProvider, MailStore, PlaneGame and FieldDiagnostics. The pre-push hook runs it.
 - `swift test --package-path Packages/MailStore` runs one package's tests natively.
 
 ## In CI
@@ -28,7 +28,7 @@ Setup also enables the tracked git hooks. Its first run in a fresh container tak
 
 ## Keeping the logic packages Linux-testable
 
-MailCore, GmailProvider, IMAPProvider, OutlookProvider, MailStore, MailWrist, MailWristHost and PlaneGame stay free of UIKit and SwiftUI. Where they need an Apple-only API, it is fenced with `#if canImport(…)`, so Linux test builds compile without it:
+MailCore, GmailProvider, IMAPProvider, OutlookProvider, MailStore, MailWrist, MailWristHost, PlaneGame and FieldDiagnostics stay free of UIKit and SwiftUI. Where they need an Apple-only API, it is fenced with `#if canImport(…)`, so Linux test builds compile without it:
 
 - `Keychain` exists only where Security does. Callers pass a `SecretStore`, which tests replace with memory.
 - Charset lookup uses CoreFoundation on Apple platforms. Linux's Foundation has no windows-1255, so that one test is skipped there.
@@ -38,6 +38,7 @@ MailCore, GmailProvider, IMAPProvider, OutlookProvider, MailStore, MailWrist, Ma
 - IMAPProvider's transport is a URLSession stream task, which FoundationNetworking on Linux lacks. Its IMAP and SMTP code talks to a `MailTransport`, which the tests replay transcripts through, so it builds and tests on Linux without the transport.
 - MailWrist's `WristChannel` exists only where WatchConnectivity does. The snapshot and the watch's view models are plain Foundation and Observation, and those are what the tests cover.
 - `ChangeSignal` uses Darwin notifications between processes. On Linux it signals within the process only, which is what the tests exercise.
+- FieldDiagnostics reads MetricKit, and logs with OSLog, only where they exist. Its summaries, archive and retention are plain Foundation, and those are what the tests cover.
 
 A new Apple-only import in these packages breaks the Linux tests in `scripts/check`, which catches the regression in a cloud session.
 
