@@ -27,7 +27,7 @@ struct ReadRowTests {
     ) {
         let (stream, feed) = AsyncThrowingStream<[ThreadSummary], any Error>.makeStream()
         let list = MailboxViewModel(
-            accounts: [account], source: .flat { stream }, filter: filter, didChangeFilter: { _ in },
+            accounts: [account], source: .flat(.whole { stream }), filter: filter, didChangeFilter: { _ in },
             refresh: {}, actions: MailActions(commands: MailCommands(store: NoStore(), replay: { _ in })),
             interaction: interaction, now: { now })
         return (list, feed)

@@ -46,9 +46,9 @@ struct DeviceMuteTests {
     }
 
     private func inbox(of account: Account) async throws -> [String] {
-        var threads = database.threads(in: Mailbox(labelID: SystemLabel.inbox, accountID: account.id))
+        var threads = database.threads(in: Mailbox(labelID: SystemLabel.inbox, accountID: account.id), window: .whole)
             .makeAsyncIterator()
-        return try await threads.next()?.map(\.id.threadID) ?? []
+        return try await threads.next()?.threads.map(\.id.threadID) ?? []
     }
 
     private func queuedActions(for account: Account) throws -> [ThreadAction] {

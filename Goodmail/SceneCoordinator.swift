@@ -417,10 +417,10 @@ final class SceneCoordinator: NSObject {
         let unsorted = model.unsortedInboxAccounts
         let accounts = model.accounts.filter { mailbox.accountID == nil || mailbox.accountID == $0.id }
         guard mailbox.labelID == SystemLabel.inbox, accounts.contains(where: { !unsorted.contains($0.id) }) else {
-            return .flat { database.threads(in: mailbox) }
+            return .flat(.windowed { database.threads(in: mailbox, window: $0) })
         }
         let categories = InboxCategories(
-            threads: { database.threads(in: mailbox, category: $0, unsorted: unsorted) },
+            threads: { database.threads(in: mailbox, category: $0, unsorted: unsorted, window: $1) },
             unreadCounts: { database.categoryUnreadCounts(in: mailbox, unsorted: unsorted) },
             didSelect: { [weak self] category in self?.navigator.send(.category(category)) })
         return .categorised(categories, selected: shown.category)

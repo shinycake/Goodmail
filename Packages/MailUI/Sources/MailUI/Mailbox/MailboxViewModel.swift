@@ -5,19 +5,28 @@ public import Observation
 
 /// What a mailbox list shows: one list of threads, or the Inbox split into Gmail's categories with one of them shown.
 public enum MailboxSource {
-    case flat(() -> AsyncThrowingStream<[ThreadSummary], any Error>)
+    case flat(ThreadSource)
     case categorised(InboxCategories, selected: InboxCategory)
 }
 
-/// Where the Inbox's categories come from: the threads under one, and the unread counts for the menu.
+/// Where one list's threads come from.
+public enum ThreadSource {
+    /// A mailbox, read a window at a time (ADR-046).
+    case windowed((ThreadWindow) -> AsyncThrowingStream<ThreadListing, any Error>)
+    /// A list read whole, as search's results and a smart mailbox's, which hold only what they match.
+    case whole(() -> AsyncThrowingStream<[ThreadSummary], any Error>)
+}
+
+/// Where the Inbox's categories come from: the threads under one, a window at a time, and the unread counts for the
+/// menu.
 public struct InboxCategories {
-    let threads: (InboxCategory) -> AsyncThrowingStream<[ThreadSummary], any Error>
+    let threads: (InboxCategory, ThreadWindow) -> AsyncThrowingStream<ThreadListing, any Error>
     let unreadCounts: () -> AsyncThrowingStream<[InboxCategory: Int], any Error>
     /// Told of each category the reader picks, so a rebuilt list can open on it.
     let didSelect: (InboxCategory) -> Void
 
     public init(
-        threads: @escaping (InboxCategory) -> AsyncThrowingStream<[ThreadSummary], any Error>,
+        threads: @escaping (InboxCategory, ThreadWindow) -> AsyncThrowingStream<ThreadListing, any Error>,
         unreadCounts: @escaping () -> AsyncThrowingStream<[InboxCategory: Int], any Error>,
         didSelect: @escaping (InboxCategory) -> Void = { _ in }
     ) {
@@ -44,8 +53,11 @@ public final class MailboxViewModel {
     }
 
     public private(set) var sections: [Section] = []
-    /// Whether the store has answered for what the list shows, and with threads. Only `follow` and `select` change it.
-    private(set) var listing = Listing.waiting(showing: [])
+    /// Whether the store has answered for what the list shows, and with threads. Only `follow`, `select` and
+    /// `moveWindow` change it.
+    private(set) var listing = Listing.waiting(showing: ThreadListing(whole: []))
+    /// How much of the mailbox the list reads. Only `moveWindow` changes it.
+    private(set) var window: ListWindow
     /// Whether a sync the list asked for is under way.
     public var isRefreshing: Bool { syncing != nil }
     /// The sync the list asked for, which a second ask joins rather than starting another. Only `sync()` changes it.
@@ -177,6 +189,7 @@ public final class MailboxViewModel {
         wokenThreads = woken
         pinnedThreads = pins
         visit = FilterVisit(filter)
+        window = ListWindow(windowed: source.isWindowed, needs: filter.isOn ? [.filter] : [])
         self.didChangeFilter = didChangeFilter
         self.attachmentThreads = attachmentThreads
         self.sidebar = sidebar
@@ -208,19 +221,35 @@ public final class MailboxViewModel {
     }
 
     private func followSource() async {
-        switch source {
-        case .flat(let threads):
-            await follow(threads(), for: nil)
-        case .categorised(let categories, _):
-            async let counts: Void = followUnreadCounts(categories)
-            // Each selection replaces the list it follows.
-            var following: Task<Void, Never>?
-            for await case let category? in Observations({ self.category }) {
-                following?.cancel()
-                following = Task { await follow(categories.threads(category), for: category) }
-            }
+        // A list read whole has no window to change, so it follows its one stream to the end.
+        if case .flat(.whole(let threads)) = source {
+            return await follow(threads().map(ThreadListing.init(whole:)), for: ask)
+        }
+        async let counts: Void = followUnreadCounts()
+        // Each category and each window replaces the stream before it.
+        var following: Task<Void, Never>?
+        var followed: ListAsk?
+        for await ask in Observations({ self.ask }) where ask != followed {
+            followed = ask
             following?.cancel()
-            await counts
+            following = follow(ask)
+        }
+        following?.cancel()
+        await counts
+    }
+
+    /// Follows what the store lists for `ask`, until the task it returns is cancelled.
+    private func follow(_ ask: ListAsk) -> Task<Void, Never> {
+        switch source {
+        case .flat(.windowed(let threads)):
+            let listings = threads(ask.window)
+            return Task { await follow(listings, for: ask) }
+        case .flat(.whole(let threads)):
+            let listings = threads().map(ThreadListing.init(whole:))
+            return Task { await follow(listings, for: ask) }
+        case .categorised(let categories, let selected):
+            let listings = categories.threads(selected, ask.window)
+            return Task { await follow(listings, for: ask) }
         }
     }
 
@@ -229,8 +258,19 @@ public final class MailboxViewModel {
         guard case .categorised(let categories, let selected) = source, category != selected else { return }
         source = .categorised(categories, selected: category)
         listing = listing.waiting
+        moveWindow { $0.restart() }
         visit.restart(reading: reading)
         categories.didSelect(category)
+    }
+
+    /// The one place `window` changes, by one of its transitions. A window that asks the store for other threads waits
+    /// for their answer, still showing the rows it has, so nothing reads the last window's answer as this one's.
+    func moveWindow(_ change: (inout ListWindow) -> Void) {
+        var moved = window
+        change(&moved)
+        guard moved != window else { return }
+        if moved.asked != window.asked { listing = listing.waiting }
+        window = moved
     }
 
     /// Another category with unread mail, for an empty list to point to.
@@ -259,7 +299,8 @@ public final class MailboxViewModel {
         } catch {}
     }
 
-    private func followUnreadCounts(_ categories: InboxCategories) async {
+    private func followUnreadCounts() async {
+        guard case .categorised(let categories, _) = source else { return }
         do {
             for try await counts in categories.unreadCounts() { categoryUnreadCounts = counts }
         } catch {
@@ -267,18 +308,17 @@ public final class MailboxViewModel {
         }
     }
 
-    /// Follows the threads of `category`, or of the whole list for `nil`.
-    private func follow(_ threads: AsyncThrowingStream<[ThreadSummary], any Error>, for category: InboxCategory?) async
-    {
+    /// Follows what the store lists for `ask`.
+    private func follow(_ listings: some AsyncSequence<ThreadListing, any Error>, for ask: ListAsk) async {
         do {
-            for try await threads in threads {
-                // A list replaced by another category's may still hand over a value, until it is cancelled once the
-                // switch is seen.
-                if Task.isCancelled || category != self.category { return }
+            for try await listed in listings {
+                // A list replaced by another category's or window's may still hand over a value, until it is
+                // cancelled once the change is seen.
+                if Task.isCancelled || ask != self.ask { return }
                 // An answer that changes nothing, as the store gives after a page whose threads don't show here,
                 // asks for no further page: that would ask again after every page, for ever.
-                let changed = !listing.hasAnswered || threads != listing.threads
-                listing = listing.answered(threads)
+                let changed = !listing.hasAnswered || listed != listing.shown
+                listing = listing.answered(listed)
                 regroup()
                 if changed { fetchOlderWhileShort() }
             }
@@ -290,15 +330,18 @@ public final class MailboxViewModel {
     private static let log = Logger(subsystem: "com.idanbirman.goodmail", category: "mailbox")
 
     /// Pinned threads first, newest on top, then threads back from snooze, latest woken on top, then the rest by
-    /// time.
+    /// time. Threads the store held below the window show only in the first two, while the pins and snoozes say they
+    /// belong there: the time sections are the window's alone.
     func regroup() {
         let now = now()
         let before = rows
         let listed = listing.threads
         let kept = listed.filter(isShown)
         hiddenByFilter = listed.count - kept.count
-        let pinned = kept.filter { self.pinned.contains($0.id) }
-        let unpinned = kept.filter { !self.pinned.contains($0.id) }
+        // Below every thread in the window, so they keep the list's order after it.
+        let held = listing.held.filter { (self.pinned.contains($0.id) || woken[$0.id] != nil) && isShown($0) }
+        let pinned = (kept + held).filter { self.pinned.contains($0.id) }
+        let unpinned = (kept + held).filter { !self.pinned.contains($0.id) }
         let back = unpinned.compactMap { thread in woken[thread.id].map { (thread, $0) } }
             .sorted { $0.1 > $1.1 }.map(\.0)
         let rest = unpinned.filter { woken[$0.id] == nil }
@@ -380,7 +423,8 @@ public final class MailboxViewModel {
     /// that failed, as offline, a short list that never changes asks again only on the store's next real change or a
     /// scroll near its end, not by itself once the network is back.
     private func fetchOlderWhileShort() {
-        if case .flat = source, listing.threads.count < Self.shortList { loadOlder() }
+        guard case .flat = source, listing.reach == .whole, listing.threads.count < Self.shortList else { return }
+        loadOlder()
     }
 
     /// Call as the list nears its end, and wait for the page to come. See `loadOlder`.
@@ -432,6 +476,8 @@ public final class MailboxViewModel {
     func pick(_ new: ListSelection, revealing: Bool) {
         guard new != selection else { return }
         listPick.pick(new, from: rows)
+        // Select All keeps every thread listed only while several stay picked.
+        if case .several(let ids, _) = new, !ids.isEmpty {} else { letGo(.selectAll) }
         if case .reading(let id) = new { visit.read(id) }
         guard revealing else { return }
         switch new {

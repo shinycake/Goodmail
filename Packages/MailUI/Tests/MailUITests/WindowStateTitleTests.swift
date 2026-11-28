@@ -54,7 +54,8 @@ struct WindowStateTitleTests {
     @Test func aDraggedRowOpensItsThreadOverItsListOnTheShownCategory() {
         let label = Mailbox(labelID: "Label_1", accountID: account.id)
         let list = MailboxViewModel(
-            mailbox: label, accounts: [account], source: .flat { AsyncThrowingStream { $0.finish() } }, refresh: {})
+            mailbox: label, accounts: [account], source: .flat(.whole { AsyncThrowingStream { $0.finish() } }),
+            refresh: {})
         #expect(list.newWindow(for: thread) == reading(.mailbox(label), in: label))
     }
 }

@@ -130,10 +130,13 @@ extension MailboxViewController {
         collectionView.scrollToItem(at: indexPath, at: downward ? .bottom : .top, animated: false)
     }
 
-    /// ⌘A, from Edit > Select All: every conversation in the list.
+    /// ⌘A, from Edit > Select All: every conversation in the list, once the store has listed every one.
     public override func selectAll(_ sender: Any?) {
         guard picksWithPointer else { return }
-        viewModel.selectAll()
+        whenEveryThread { list in
+            guard await list.listEveryThreadToSelect() else { return }
+            list.selectAll()
+        }
     }
 
     public override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {

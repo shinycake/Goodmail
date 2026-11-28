@@ -31,8 +31,8 @@ struct ThreadStoreTests {
     }
 
     private func inbox() async throws -> [ThreadSummary] {
-        var iterator = database.threads(in: .inbox).makeAsyncIterator()
-        return try await iterator.next(isolation: #isolation) ?? []
+        var iterator = database.threads(in: .inbox, window: .whole).makeAsyncIterator()
+        return try await iterator.next(isolation: #isolation)?.threads ?? []
     }
 
     @Test func inboxIsNewestFirstAndExcludesOtherLabels() async throws {
@@ -57,9 +57,9 @@ struct ThreadStoreTests {
     }
 
     @Test func streamEmitsAgainAfterAWrite() async throws {
-        var iterator = database.threads(in: .inbox).makeAsyncIterator()
-        #expect(try await iterator.next(isolation: #isolation) == [])
+        var iterator = database.threads(in: .inbox, window: .whole).makeAsyncIterator()
+        #expect(try await iterator.next(isolation: #isolation)?.threads == [])
         try database.upsert([thread("t", minutesAgo: 0)])
-        #expect(try await iterator.next(isolation: #isolation)?.map(\.id.threadID) == ["t"])
+        #expect(try await iterator.next(isolation: #isolation)?.threads.map(\.id.threadID) == ["t"])
     }
 }

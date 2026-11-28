@@ -50,8 +50,8 @@ struct OutboxTests {
     }
 
     private func inbox() async throws -> [String] {
-        var iterator = database.threads(in: .inbox).makeAsyncIterator()
-        return try await iterator.next(isolation: #isolation)?.map(\.id.threadID) ?? []
+        var iterator = database.threads(in: .inbox, window: .whole).makeAsyncIterator()
+        return try await iterator.next(isolation: #isolation)?.threads.map(\.id.threadID) ?? []
     }
 
     @Test func archiveLeavesTheInboxAtOnceAndReplaysOnce() async throws {
@@ -314,8 +314,8 @@ struct OutboxTests {
 
         #expect(try database.thread(id("t1"))?.labelIDs == ["TRASH"])
         #expect(try await inbox() == ["t2"])
-        var trash = database.threads(in: .trash).makeAsyncIterator()
-        #expect(try await trash.next()?.map(\.id.threadID) == ["t1"])
+        var trash = database.threads(in: .trash, window: .whole).makeAsyncIterator()
+        #expect(try await trash.next()?.threads.map(\.id.threadID) == ["t1"])
 
         try await commands.undo(undo)
         #expect(try database.thread(id("t1"))?.labelIDs == ["INBOX", "Label_1"])
