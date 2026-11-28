@@ -8,7 +8,7 @@ struct ServiceChooser: View {
     var body: some View {
         ForEach(adder.services, id: \.self) { service in
             Button {
-                Task { await adder.add(service) }
+                adder.add(service)
             } label: {
                 Label {
                     Text(service.displayName)

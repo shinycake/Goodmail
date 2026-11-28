@@ -44,7 +44,7 @@
                 }
                 try await archive.store(delivery)
             } catch {
-                log.error("Couldn't keep a MetricKit report: \(error, privacy: .public)")
+                log.error("Couldn't keep a MetricKit report: \(error, privacy: .private)")
             }
         }
     }

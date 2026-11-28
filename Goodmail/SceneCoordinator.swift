@@ -77,7 +77,14 @@ final class SceneCoordinator: NSObject {
                     afterRemoval: Preferences.afterRemoval, unsortedInboxes: model.unsortedInboxAccounts)
             },
             lookUp: { [lookup = model.conversationLookup] in await lookup.find($0) },
-            stored: { [database = model.database] id in try? await database.offMain { try $0.thread(id) } })
+            stored: { [database = model.database] id in
+                do {
+                    return try await database.offMain { try $0.thread(id) }
+                } catch {
+                    Logger.windows.error("Couldn't read a thread to show: \(error, privacy: .private)")
+                    return nil
+                }
+            })
         super.init()
         window.windowAnswer = { [weak self] in self?.windowAnswer(to: $0) ?? .notHere }
         actions.reopen = { [weak self] draft in self?.handle(.compose(draft)) }
@@ -363,7 +370,13 @@ final class SceneCoordinator: NSObject {
             search: search, accounts: model.accounts, navigate: { [weak self] route in self?.handle(route) },
             readAhead: { model.readAhead($0) }, actions: actions,
             contacts: { [database = model.database] typed in
-                (try? await database.offMain { try $0.contacts(matching: typed, limit: 3) }) ?? []
+                do {
+                    return try await database.offMain { try $0.contacts(matching: typed, limit: 3) }
+                } catch {
+                    // The search still shows the mail it finds, without the people.
+                    Logger.windows.error("Couldn't read the people to search for: \(error, privacy: .private)")
+                    return []
+                }
             },
             interaction: window.interactionStyle)
         let list = MailboxViewController(
@@ -473,4 +486,9 @@ extension SceneCoordinator {
         window.windowScene?.userActivity?.becomeCurrent()
         retitle()
     }
+}
+
+extension Logger {
+    /// What a window couldn't read for what it shows, as a picker's labels or a list's name.
+    nonisolated static let windows = Logger(subsystem: "com.idanbirman.goodmail", category: "windows")
 }

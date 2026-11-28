@@ -33,6 +33,11 @@ final class AppModel {
     let path: PathMonitor
     /// Fetches threads as they open, joining a fetch their row began when touched or scrolled into view.
     let threadFetcher: ThreadFetcher
+    /// The work started from synchronous code: the outbox replays and sends the commands ask for as they change mail,
+    /// and handing the lists' read-ahead to `threadFetcher`. The model's own, cancelled with it.
+    private let errands = Errands()
+    /// The read-ahead requests the lists make (`readAhead(_:)`), handed to `threadFetcher` in the order they came.
+    let readAheads: AsyncStream<ThreadFetcher.Request>.Continuation
     /// Where opened attachments are kept; they count toward the cache cap with the bodies.
     let attachmentsDirectory = URL.cachesDirectory.appending(path: "Attachments", directoryHint: .isDirectory)
     let outboxes: Outboxes
@@ -131,9 +136,18 @@ final class AppModel {
                     didFinish: { await Self.trim(database, attachments: attachments, limit: storage.cacheLimit) }))
         }
         self.providers = providers
-        threadFetcher = ThreadFetcher(
+        let threadFetcher = ThreadFetcher(
             provider: { try providers.provider(for: $0) }, store: database.blocking, path: path,
             scope: { [storage] in storage.prefetchScope })
+        self.threadFetcher = threadFetcher
+        // One errand hands them over, one after another: a skip that came after a read-ahead of the same rows must
+        // land after it.
+        let (readAheadRequests, readAheads) = AsyncStream.makeStream(of: ThreadFetcher.Request.self)
+        self.readAheads = readAheads
+        let errands = errands
+        errands.start {
+            for await request in readAheadRequests { await threadFetcher.handle(request) }
+        }
         let outboxes = Outboxes { id in
             Outbox(accountID: id, provider: { try providers.provider(for: id) }, store: database.blocking)
         }
@@ -148,15 +162,25 @@ final class AppModel {
         self.senders = senders
         commands = MailCommands(
             store: database.blocking,
-            replay: { id in Task { await outboxes.flush(id) } },
-            deliver: { id, date in Task { await senders.deliver(id, at: date) } })
+            replay: { id in errands.start { await outboxes.flush(id) } },
+            deliver: { id, date in errands.start { await senders.deliver(id, at: date) } })
         answers = ThreadAnswers(database: database.blocking, commands: commands, provider: providers.provider(for:))
         // A sent message lands in its thread on the server; fetch it so the list and the reader show it there.
-        senders.onSent = { [weak self] id, sent in
-            guard let self else { return }
-            try? await engine(for: id).sync()
-            for threadID in Set(sent.compactMap(\.threadID)) {
-                try? await loadMessages(of: ThreadSummary.ID(accountID: id, threadID: threadID))
+        senders.onSent = { [weak self] id, sent in await self?.followSent(sent, from: id) }
+    }
+
+    /// Syncs the account messages were just sent from, telling `health` how it went as every sync does, then fetches
+    /// the threads they landed in. A thread that doesn't load shows them on the next sync.
+    private func followSent(_ sent: [Draft], from id: AccountID) async {
+        let engine = Result { try engine(for: id) }
+        let outcome = await Result { try await engine.get().sync() }
+        if speaksForTheAccount(engine, id) { health.record(outcome, for: id) }
+        for threadID in Set(sent.compactMap(\.threadID)) {
+            do {
+                try await loadMessages(of: ThreadSummary.ID(accountID: id, threadID: threadID))
+            } catch {
+                Logger(subsystem: "com.idanbirman.goodmail", category: "sync")
+                    .error("Couldn't load the thread of a sent message: \(error, privacy: .private)")
             }
         }
     }
@@ -283,7 +307,7 @@ final class AppModel {
             try await syncAll()
         } catch {
             Logger(subsystem: "com.idanbirman.goodmail", category: "sync")
-                .error("The sync after adding an account failed: \(error, privacy: .public)")
+                .error("The sync after adding an account failed: \(error, privacy: .private)")
         }
     }
 
@@ -341,8 +365,10 @@ final class AppModel {
 
     /// Sends queued actions, then syncs, every account at once, and tells `health` how each went. Each engine
     /// coalesces overlapping calls, so this is safe to call often. One account that fails doesn't stop the others;
-    /// once all are done, the first failure is thrown. With `prefetch`, each account that synced then starts
-    /// fetching bodies in the background (ADR-007); a background refresh leaves that to the next time the app is open.
+    /// once all are done, the first account's failure is thrown, which `health` already has unless it no longer
+    /// speaks for that account. One before the accounts', as waking the snoozed threads, is logged and stops nothing.
+    /// With `prefetch`, each account that synced then starts fetching bodies in the background (ADR-007); a background
+    /// refresh leaves that to the next time the app is open.
     func syncAll(prefetch: Bool = true) async throws {
         health.syncStarted()
         defer { health.syncEnded() }
@@ -354,8 +380,12 @@ final class AppModel {
         // other devices pinned, snoozed, woke or muted is taken up first, so a thread one of them woke isn't woken
         // twice, and a wake made here is shared at once so the others don't wake it too.
         await syncMailState()
-        let woken = try await commands.wakeSnoozed()
-        if !woken.isEmpty { await syncMailState() }
+        do {
+            if try await !commands.wakeSnoozed().isEmpty { await syncMailState() }
+        } catch {
+            // No account's sync tells of it, so it's logged here. They go on, and the next sync wakes the threads.
+            Logger.snooze.error("Couldn't wake the snoozed threads that are due: \(error, privacy: .private)")
+        }
         // Messages whose undo window closed while the app was away.
         for account in accounts { await senders.deliver(account.id, at: .now) }
         let outcomes = await withTaskGroup(of: (AccountID, Result<Void, any Error>).self) { group in
@@ -429,7 +459,7 @@ final class AppModel {
             try await database.offMain { _ = try $0.trimCache(to: limit, attachments: attachments) }
         } catch {
             Logger(subsystem: "com.idanbirman.goodmail", category: "cache")
-                .error("Couldn't trim the cache: \(error, privacy: .public)")
+                .error("Couldn't trim the cache: \(error, privacy: .private)")
         }
     }
 
@@ -481,7 +511,13 @@ final class AppModel {
     /// What the reader does on opening a thread: marks its cached bodies as read, which the cache cap evicts by,
     /// then fetches the latest.
     func open(_ thread: ThreadSummary.ID) async throws {
-        try? await database.offMain { try $0.touchMessages(inThread: thread) }
+        do {
+            try await database.offMain { try $0.touchMessages(inThread: thread) }
+        } catch {
+            // The thread still opens; its bodies only stay as old to the cache cap as they were.
+            Logger(subsystem: "com.idanbirman.goodmail", category: "cache")
+                .error("Couldn't mark an opened thread's bodies as read: \(error, privacy: .private)")
+        }
         try await loadMessages(of: thread)
     }
 
@@ -582,6 +618,7 @@ final class Senders {
             // Logs in while the undo window runs, so only the message is left when it closes.
             await sender.prepare()
             let wait = date.timeIntervalSinceNow
+            // A wait cut short sends nothing early: `flush` takes only the messages due by now.
             if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
             let went = await sender.flush()
             if !went.isEmpty { await onSent?(id, went) }

@@ -6,6 +6,7 @@ public import MailWrist
 /// Serves the Apple Watch from a mail database (ADR-022, ADR-023): the Inbox as snapshots, the watch's commands run
 /// through `MailCommands`, and conversations as the chat view shows them. The iPhone runs one for the watch.
 public struct WristMailHost: Sendable {
+    private static let log = MailLog(category: "wrist")
     private let database: MailDatabase
     private let commands: MailCommands
     private let answers: ThreadAnswers
@@ -29,8 +30,12 @@ public struct WristMailHost: Sendable {
     ) -> AsyncMapSequence<AsyncThrowingStream<InboxGlance, any Error>, WristSnapshot> {
         database.wristSnapshots(now: now) { [database, independence] accounts in
             // Without them the watch keeps the last extras it heard.
-            guard let marks = try? database.deviceMarks() else { return nil }
-            return WristExtras(marks, accounts: accounts, independence: independence())
+            do {
+                return WristExtras(try database.deviceMarks(), accounts: accounts, independence: independence())
+            } catch {
+                Self.log.error("Couldn't read the device marks for the watch", error)
+                return nil
+            }
         }
     }
 

@@ -1,6 +1,7 @@
 import MailCore
 import MailStore
 import MailUI
+import OSLog
 import UIKit
 
 extension SceneCoordinator {
@@ -42,7 +43,14 @@ extension SceneCoordinator {
         return (
             "",
             { [database = model.database] in
-                guard let labels = try? await database.offMain({ try $0.labels(for: account) }) else { return nil }
+                let labels: [MailLabel]
+                do {
+                    labels = try await database.offMain { try $0.labels(for: account) }
+                } catch {
+                    // The list stays untitled.
+                    Logger.windows.error("Couldn't read the labels to name a list: \(error, privacy: .private)")
+                    return nil
+                }
                 let named = labels.map {
                     MailboxDirectory.Label(
                         mailbox: Mailbox(labelID: $0.id, accountID: account), name: $0.name, color: nil)

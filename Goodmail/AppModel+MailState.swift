@@ -18,7 +18,7 @@ extension AppModel {
                     "Couldn't sync \(failure.family, privacy: .public): \(failure.error, privacy: .public)")
             }
         } catch {
-            Logger.settingsSync.error("Couldn't sync the mail state: \(error, privacy: .public)")
+            Logger.settingsSync.error("Couldn't sync the mail state: \(error, privacy: .private)")
         }
     }
 }

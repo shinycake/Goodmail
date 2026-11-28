@@ -2,6 +2,7 @@ import Foundation
 import MailCore
 import MailWrist
 import MailWristUI
+import OSLog
 import SwiftUI
 import UserNotifications
 import WatchKit
@@ -70,7 +71,12 @@ final class WatchAppDelegate: NSObject, WKApplicationDelegate {
             if WatchSample.showIfRequested(inbox: inbox, threads: threads, route: route) {
                 following = Task { [inbox, threads, own, store, alerts] in
                     // Stored for the watch face; failing leaves the face on the last mailbox, fine for screenshots.
-                    try? await store.save(inbox.mailbox)
+                    do {
+                        try await store.save(inbox.mailbox)
+                    } catch {
+                        Logger(subsystem: "com.idanbirman.goodmail", category: "watch")
+                            .error("Couldn't store the sample mailbox for the face: \(error, privacy: .private)")
+                    }
                     WidgetCenter.shared.reloadAllTimelines()
                     // Alerts pushed with `simctl push` show and open over the sample.
                     async let alerting: Void = alerts.run()

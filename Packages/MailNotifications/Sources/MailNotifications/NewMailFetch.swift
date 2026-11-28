@@ -103,7 +103,7 @@ public struct NewMailFetch: Sendable {
             if !run.alerts.isEmpty { await notify(run.alerts, account) }
             try await Outbox(accountID: account.id, provider: client, store: database, now: now).flush()
         } catch {
-            RuleRun.log.error("Rules after a push failed: \(error, privacy: .public)")
+            RuleRun.log.error("Rules after a push failed: \(error, privacy: .private)")
         }
     }
 

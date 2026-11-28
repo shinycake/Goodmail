@@ -21,9 +21,11 @@ struct AccountAdderTests {
         var added = 0
         adder.onAdded = { added += 1 }
 
-        await adder.add(.gmail)
+        adder.add(.gmail)
+        await adder.settled()
         answer = false
-        await adder.add(.gmail)
+        adder.add(.gmail)
+        await adder.settled()
         #expect(signedIn == [.gmail, .gmail])
         #expect(added == 1, "a cancelled sign-in adds nothing")
         #expect(adder.signingIn == nil)
@@ -33,7 +35,8 @@ struct AccountAdderTests {
     @Test func aFailedSignInIsKeptToShowUntilDismissed() async {
         struct Denied: Error {}
         let adder = AccountAdder { _ in throw Denied() }
-        await adder.add(.gmail)
+        adder.add(.gmail)
+        await adder.settled()
         #expect(adder.failure is Denied)
         #expect(adder.signingIn == nil)
 
@@ -48,9 +51,11 @@ struct AccountAdderTests {
             if fails { throw Denied() }
             return true
         }
-        await adder.add(.gmail)
+        adder.add(.gmail)
+        await adder.settled()
         fails = false
-        await adder.add(.gmail)
+        adder.add(.gmail)
+        await adder.settled()
         #expect(adder.failure == nil, "the alert is about the last sign-in, which worked")
     }
 
@@ -62,13 +67,13 @@ struct AccountAdderTests {
             for await _ in gate { break }
             return true
         }
-        let first = Task { await adder.add(.gmail) }
-        while adder.signingIn == nil { await Task.yield() }
+        adder.add(.gmail)
+        #expect(adder.signingIn == .gmail, "the adder signs in on its own, with no one waiting")
+        adder.add(.outlook)
         #expect(adder.signingIn == .gmail)
-        await adder.add(.gmail)
-        #expect(calls == 1, "ignored while one is under way")
         open.yield()
-        await first.value
+        await adder.settled()
+        #expect(calls == 1, "ignored while one is under way")
         #expect(adder.signingIn == nil)
     }
 }

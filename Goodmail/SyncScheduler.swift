@@ -20,10 +20,10 @@ final class SyncScheduler {
     private var rounds: Task<Void, Never>?
     /// Mac: starts the watches and the rounds afresh each time the network comes back, for the life of the process.
     private var networkReturns: Task<Void, Never>?
-    /// Asks for the next background refresh on leaving the foreground. It reads the database as iOS may suspend the
-    /// app, so it runs inside `BackgroundDatabaseWork`, which keeps the app awake and the database usable until it
-    /// ends, and suspends the database under it if that time runs out (0xdead10cc). Each leave's waits for the one
-    /// before, so they never overlap and the last one asked is the one that stands.
+    /// Stops prefetching, then asks for the next background refresh, on leaving the foreground. The ask reads the
+    /// database as iOS may suspend the app, so it runs inside `BackgroundDatabaseWork`, which keeps the app awake and
+    /// the database usable until it ends, and suspends the database under it if that time runs out (0xdead10cc). Each
+    /// leave's ask waits for the one before, so they never overlap and the last one asked is the one that stands.
     private var scheduling: Task<Void, Never>?
 
     init(model: AppModel, presence: PresenceTracker) {
@@ -64,10 +64,10 @@ final class SyncScheduler {
     private func leave() {
         rounds?.cancel()
         watchers.stop()
-        Task { [model] in await model.cancelPrefetch() }
         model.shareSettingsNow()
         let previous = scheduling
-        scheduling = Task { [refresh] in
+        scheduling = Task { [model, refresh] in
+            await model.cancelPrefetch()
             await previous?.value
             await BackgroundDatabaseWork.shared.run("Schedule refresh") { await refresh.schedule() }
         }
@@ -95,7 +95,7 @@ final class SyncScheduler {
                         do {
                             try await model.followSharedAccounts()
                         } catch {
-                            log.error("Following the shared accounts failed: \(error, privacy: .public)")
+                            log.error("Following the shared accounts failed: \(error, privacy: .private)")
                         }
                         // Settings changed here or on the other devices, for the accounts here now.
                         await model.syncSettings()
@@ -103,7 +103,7 @@ final class SyncScheduler {
                             try await model.syncAll()
                             if shown { await model.markInboxSeen() }
                         } catch {
-                            log.error("Sync failed: \(error, privacy: .public)")
+                            log.error("Sync failed: \(error, privacy: .private)")
                         }
                         guard let interval = presence.presence.syncInterval else { break }
                         let began = ContinuousClock.now

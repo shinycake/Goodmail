@@ -17,7 +17,7 @@ extension AppModel {
                     try await database.offMain { try $0.block(sender, named: name) }
                     self?.shareSettingsNow()
                 } catch {
-                    RuleRun.log.error("Block Sender couldn't write its rule: \(error, privacy: .public)")
+                    RuleRun.log.error("Block Sender couldn't write its rule: \(error, privacy: .private)")
                 }
             },
             setVIP: { [weak self] sender, isVIP in
@@ -25,7 +25,7 @@ extension AppModel {
                     try await database.offMain { try $0.setVIP(sender, isVIP) }
                     self?.shareSettingsNow()
                 } catch {
-                    RuleRun.log.error("The VIPs couldn't be changed: \(error, privacy: .public)")
+                    RuleRun.log.error("The VIPs couldn't be changed: \(error, privacy: .private)")
                 }
             },
             vips: { database.vipList() })

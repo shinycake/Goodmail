@@ -92,12 +92,12 @@ extension AppModel {
         do {
             try await sharing?.forget(account.id)
         } catch {
-            Logger.sharing.error("Couldn't forget an account's record: \(error, privacy: .public)")
+            Logger.sharing.error("Couldn't forget an account's record: \(error, privacy: .private)")
         }
         do {
             try await Self.forgetSignIn(of: account, everywhere: removal == .everyDevice)
         } catch {
-            Logger.sharing.error("Couldn't sign an account out: \(error, privacy: .public)")
+            Logger.sharing.error("Couldn't sign an account out: \(error, privacy: .private)")
         }
     }
 
@@ -112,12 +112,12 @@ extension AppModel {
             // Remembered on this device whether or not it shares, so a reinstall can bring them back.
             try await sharing?.remember(accounts)
         } catch {
-            Logger.sharing.error("Couldn't remember the accounts: \(error, privacy: .public)")
+            Logger.sharing.error("Couldn't remember the accounts: \(error, privacy: .private)")
         }
         do {
             try await activeSharing?.share(accounts)
         } catch {
-            Logger.sharing.error("Couldn't share the accounts: \(error, privacy: .public)")
+            Logger.sharing.error("Couldn't share the accounts: \(error, privacy: .private)")
         }
     }
 
@@ -127,7 +127,7 @@ extension AppModel {
             sharingFindings.found(restorable: try await sharing?.restorable(for: accounts) ?? [])
         } catch {
             // Only the offer after a reinstall needs it, so the rest of the pass goes on.
-            Logger.sharing.error("Couldn't read the accounts to restore: \(error, privacy: .public)")
+            Logger.sharing.error("Couldn't read the accounts to restore: \(error, privacy: .private)")
         }
         guard let sharing = activeSharing else {
             await shareAccounts()

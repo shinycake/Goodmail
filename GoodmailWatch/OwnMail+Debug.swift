@@ -26,7 +26,7 @@
                     try signIns.keepOnDevice(refreshToken: seed.refreshToken, for: account)
                 }
             } catch {
-                log.error("Couldn't seed the watch's sign-ins: \(error, privacy: .public)")
+                log.error("Couldn't seed the watch's sign-ins: \(error, privacy: .private)")
             }
         }
     }

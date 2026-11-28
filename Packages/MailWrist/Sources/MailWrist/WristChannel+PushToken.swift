@@ -22,7 +22,7 @@
                 do {
                     try session.updateApplicationContext([Self.pushTokenKey: token.lowercaseHex])
                 } catch {
-                    Self.log.error("Couldn't send the watch's push token: \(error, privacy: .public)")
+                    Self.log.error("Couldn't send the watch's push token: \(error, privacy: .private)")
                 }
             }
         #endif

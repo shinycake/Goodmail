@@ -50,7 +50,7 @@ extension MailDatabase {
             } catch {
                 #if canImport(os)
                     Logger(subsystem: "com.idanbirman.goodmail", category: "drafts")
-                        .error("A minimized draft didn't read and was left out: \(error, privacy: .public)")
+                        .error("A minimized draft didn't read and was left out: \(error, privacy: .private)")
                 #endif
                 return nil
             }

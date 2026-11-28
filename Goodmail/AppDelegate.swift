@@ -34,7 +34,9 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         completionHandler: @escaping () -> Void
     ) {
         guard identifier == BackgroundUploads.identifier else { return completionHandler() }
-        // iOS can launch the app for this, so the database may still be opening.
+        // iOS can launch the app for this, so the database may still be opening. The task hands the handler on, or
+        // calls it when the database couldn't open, so iOS owns it: it waits for the handler, and nothing else
+        // awaits or cancels the task.
         Task { [launch] in
             guard let model = try? await launch.services().model else { return completionHandler() }
             model.handleBackgroundUploadEvents { @MainActor in completionHandler() }
@@ -56,6 +58,8 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         guard userInfo["handled"] != nil, let target = NewMailFetch.target(in: userInfo) else {
             return completionHandler(.noData)
         }
+        // The task calls the handler on every path, so iOS owns it: it waits for the handler, and nothing else awaits
+        // or cancels the task.
         Task { [launch] in
             guard let model = try? await launch.services().model else { return completionHandler(.failed) }
             let synced = await BackgroundDatabaseWork.shared.run("Mail dealt with elsewhere") {
@@ -66,7 +70,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: any Error) {
-        Logger.push.error("Couldn't register for push: \(error, privacy: .public)")
+        Logger.push.error("Couldn't register for push: \(error, privacy: .private)")
     }
 }
 

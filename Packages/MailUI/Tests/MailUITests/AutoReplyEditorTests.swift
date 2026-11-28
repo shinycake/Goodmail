@@ -38,16 +38,40 @@ struct AutoReplyEditorTests {
         let editor = editor(saves: { sent.append($0) })
         await editor.load()
         editor.isOn = true
-        await editor.save()
+        editor.save()
+        await editor.settled()
         #expect(sent.map(\.schedule) == [.on])
         #expect(editor.state == .editing(saved: editor.draft, failure: nil))
+    }
+
+    @Test func theSaveIsTheEditorsOwnAndASecondTapWhileItRunsSendsNothing() async {
+        var sent = 0
+        let (gate, open) = AsyncStream<Void>.makeStream()
+        let editor = AutoReplyEditor(
+            service: AutoReplyEditor.Service(
+                hasSubject: true, load: { AutoReply(message: "Away") },
+                save: { _ in
+                    sent += 1
+                    for await _ in gate { break }
+                }))
+        await editor.load()
+        editor.draft.message = "Back Monday"
+        editor.save()
+        #expect(editor.isSaving)
+
+        editor.save()
+        open.yield()
+        await editor.settled()
+        #expect(sent == 1)
+        #expect(editor.state == .editing(saved: AutoReply(message: "Back Monday"), failure: nil))
     }
 
     @Test func aRefusedSaveKeepsTheEditAndSaysWhy() async {
         let editor = editor(saves: { _ in throw Refused() })
         await editor.load()
         editor.draft.message = "Back Monday"
-        await editor.save()
+        editor.save()
+        await editor.settled()
         #expect(editor.saveFailure != nil)
         #expect(editor.hasChanges)
 

@@ -1,6 +1,7 @@
 import MailCore
 import MailStore
 import MailUI
+import OSLog
 import UIKit
 
 extension SceneCoordinator {
@@ -67,7 +68,13 @@ extension SceneCoordinator {
         let account = MoveViewModel.account(of: ids)
         pickingLabels = Task { [weak self, database = model.database] in
             var labels: [MailLabel] = []
-            if let account { labels = (try? await database.offMain { try $0.labels(for: account) }) ?? [] }
+            if let account {
+                do {
+                    labels = try await database.offMain { try $0.labels(for: account) }
+                } catch {
+                    Logger.windows.error("Couldn't read the labels to move to: \(error, privacy: .private)")
+                }
+            }
             guard !Task.isCancelled, let self, let presenter = topViewController() else { return }
             let picker = MoveViewController(
                 viewModel: MoveViewModel(
@@ -84,11 +91,22 @@ extension SceneCoordinator {
         [ThreadSummary], [MailLabel]
     )? {
         await database.offMain { database in
-            let threads = ids.compactMap { try? database.thread($0) }
-            guard let account = threads.first?.id.accountID, let labels = try? database.labels(for: account) else {
+            // A row that can't be read is left out, as one gone from the device is.
+            let threads = ids.compactMap { id in
+                do {
+                    return try database.thread(id)
+                } catch {
+                    Logger.windows.error("Couldn't read a thread to label: \(error, privacy: .private)")
+                    return nil
+                }
+            }
+            guard let account = threads.first?.id.accountID else { return nil }
+            do {
+                return (threads, try database.labels(for: account))
+            } catch {
+                Logger.windows.error("Couldn't read the labels to label with: \(error, privacy: .private)")
                 return nil
             }
-            return (threads, labels)
         }
     }
 

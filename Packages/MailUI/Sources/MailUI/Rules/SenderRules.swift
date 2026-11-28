@@ -52,7 +52,7 @@ public final class SenderRules {
                 for try await vips in service.vips() { self?.vips = vips }
             } catch {
                 Logger(subsystem: "com.idanbirman.goodmail", category: "rules")
-                    .error("The VIPs stopped updating: \(error, privacy: .public)")
+                    .error("The VIPs stopped updating: \(error, privacy: .private)")
             }
         }
     }

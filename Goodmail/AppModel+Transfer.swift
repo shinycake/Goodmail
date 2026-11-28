@@ -1,5 +1,6 @@
 import Foundation
 import MailCore
+import OSLog
 
 /// Moving accounts between devices by QR code (`TransferHost`, `TransferNetwork`).
 extension AppModel {
@@ -29,7 +30,13 @@ extension AppModel {
             // The sign-ins of accounts that didn't make it in would be left with nothing to use them. Only this
             // device's copies go: a shared one may be another device's sign-in for the same account.
             let left = new.filter { entry in !accounts.contains { $0.id == entry.id } }
-            try? await Self.forgetSignIns(of: left)
+            do {
+                try await Self.forgetSignIns(of: left)
+            } catch {
+                // The failure to add is the one the reader hears of; this one only leaves sign-ins in the Keychain.
+                Logger(subsystem: "com.idanbirman.goodmail", category: "transfer")
+                    .error("Couldn't forget the sign-ins of accounts not added: \(error, privacy: .private)")
+            }
             throw error
         }
         for account in added { await didSignIn(account.id) }

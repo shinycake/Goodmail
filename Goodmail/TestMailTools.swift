@@ -27,7 +27,7 @@
                     if let fixtures { try await record(corpus, into: fixtures, from: gmail) }
                     log.notice("done")
                 } catch {
-                    log.error("Failed: \(error, privacy: .public)")
+                    log.error("Failed: \(error, privacy: .private)")
                 }
             }
         }

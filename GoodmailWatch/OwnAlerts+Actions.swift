@@ -58,7 +58,7 @@ extension WatchAppDelegate {
             // The owner turned "Mail Without iPhone" off since the alert came: the iPhone runs it instead.
             inbox.handToPhone(command)
         } catch {
-            OwnAlerts.log.error("Couldn't run an alert's action on the watch: \(error, privacy: .public)")
+            OwnAlerts.log.error("Couldn't run an alert's action on the watch: \(error, privacy: .private)")
             // A reply that didn't go shows in the app to send again, rather than being lost.
             inbox.couldntRun(command)
         }

@@ -21,7 +21,7 @@ final class HandledAlertsSweep {
             do {
                 for try await _ in database.handlingChanges() { await HandledAlerts.dismiss(in: database.blocking) }
             } catch {
-                Logger.push.error("Stopped taking down alerts for mail dealt with: \(error, privacy: .public)")
+                Logger.push.error("Stopped taking down alerts for mail dealt with: \(error, privacy: .private)")
             }
         }
     }

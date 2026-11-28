@@ -14,6 +14,8 @@ import Synchronization
 public actor WristOwnHost {
     /// How many Inbox conversations the watch keeps for each account.
     public static let inboxLimit = 100
+    /// Where serving the watch's own mail records what it carried on without.
+    static let log = MailLog(category: "own-mail")
 
     public nonisolated let database: MailDatabase
     let signIns: WristSignIns
@@ -249,8 +251,12 @@ public actor WristOwnHost {
                 health[id] = (health[id] ?? .healthy).after(outcome, at: date)
             }
             // The queues were sent: a change with nothing left on its way is settled. One being made may not have
-            // queued yet. Unread, they wait for the next check.
-            try? database.removeSettledWatchChanges(except: Set(current.changes.values.map(\.command)))
+            // queued yet. Unread, or not removed, they wait for the next check.
+            do {
+                try database.removeSettledWatchChanges(except: Set(current.changes.values.map(\.command)))
+            } catch {
+                Self.log.error("Couldn't forget the watch's settled changes", error)
+            }
         }
         let worked = outcomes.values.contains { if case .success = $0 { true } else { false } }
         independence.finishCheck(checkID, in: stretch, workedAt: worked ? date : nil)
@@ -263,8 +269,12 @@ public actor WristOwnHost {
         await withTaskGroup(of: (AccountID, Result<Void, any Error>).self) { group in
             for (id, served) in served {
                 group.addTask {
-                    // Before the sync reads them back.
-                    try? await served.outbox.flush()
+                    // Before the sync reads them back. What doesn't go now goes on the next check.
+                    do {
+                        try await served.outbox.flush()
+                    } catch {
+                        Self.log.error("Couldn't send the watch's queued changes", error)
+                    }
                     await deliver(served, account: id, uploads: uploads)
                     do {
                         try await step(served.engine)

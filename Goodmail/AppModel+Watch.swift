@@ -28,7 +28,7 @@ extension AppModel {
             return true
         case .failure(let error):
             Logger(subsystem: "com.idanbirman.goodmail", category: "sync")
-                .error("The sync after a reported change failed: \(error, privacy: .public)")
+                .error("The sync after a reported change failed: \(error, privacy: .private)")
             return false
         }
     }

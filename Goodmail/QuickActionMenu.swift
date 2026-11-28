@@ -1,6 +1,7 @@
 import MailCore
 import MailStore
 import MailUI
+import OSLog
 import UIKit
 
 /// The Home Screen quick actions: what touching and holding the app icon offers. Apple suggests setting them as the
@@ -32,8 +33,13 @@ final class QuickActionMenu {
 
     /// The newest thread in Drafts, or `nil` when it can't be read.
     private static func newestDraft(in database: OffMainDatabase) async -> NewestDraft? {
-        guard let threads = try? await database.offMain({ try $0.threads(in: .drafts, limit: 1) }) else { return nil }
-        return NewestDraft(thread: threads.first)
+        do {
+            return NewestDraft(thread: try await database.offMain { try $0.threads(in: .drafts, limit: 1) }.first)
+        } catch {
+            Logger(subsystem: "com.idanbirman.goodmail", category: "quick-actions")
+                .error("Couldn't read the newest draft for the quick actions: \(error, privacy: .private)")
+            return nil
+        }
     }
 
     /// What reading Drafts found: its newest thread, or none.

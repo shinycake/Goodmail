@@ -50,6 +50,8 @@ public final class MailboxViewModel {
     public var isRefreshing: Bool { syncing != nil }
     /// The sync the list asked for, which a second ask joins rather than starting another. Only `sync()` changes it.
     private var syncing: Task<Void, Never>?
+    /// The registration with the relay that fixing paused alerts asked for. Only `registerAgain()` changes it.
+    @ObservationIgnored private var registering: Task<Void, Never>?
     /// Where fetching older threads for the bottom of the list stands. Only `loadOlder` changes it.
     private(set) var older = OlderPages.mayHaveMore
     /// What an empty list means now.
@@ -261,7 +263,7 @@ public final class MailboxViewModel {
         do {
             for try await counts in categories.unreadCounts() { categoryUnreadCounts = counts }
         } catch {
-            Self.log.error("The category counts stopped: \(error, privacy: .public)")
+            Self.log.error("The category counts stopped: \(error, privacy: .private)")
         }
     }
 
@@ -281,7 +283,7 @@ public final class MailboxViewModel {
                 if changed { fetchOlderWhileShort() }
             }
         } catch {
-            Self.log.error("The list stopped: \(error, privacy: .public)")
+            Self.log.error("The list stopped: \(error, privacy: .private)")
         }
     }
 
@@ -346,12 +348,27 @@ public final class MailboxViewModel {
 
     /// What a notice's button does: the service's sign-in for a sign-in it turned down, a sync now for one that
     /// can't sync, and registering with the relay again for paused alerts, which has it try the login once more.
-    public func fix(_ notice: AccountProblemNotice) async {
+    /// Returns the work it started, if any: like a sync, the model's own, which runs to its end when the list goes.
+    @discardableResult
+    public func fix(_ notice: AccountProblemNotice) -> Task<Void, Never>? {
         switch notice.problem {
-        case .signInRejected: navigate(.signInAgain(notice.account.id))
-        case .cantSync: await refresh()
-        case .alertsPaused: await retryAlerts()
+        case .signInRejected:
+            navigate(.signInAgain(notice.account.id))
+            return nil
+        case .cantSync: return sync()
+        case .alertsPaused: return registerAgain()
         }
+    }
+
+    /// The registration with the relay under way, or a new one, which a second ask joins as with `sync()`.
+    private func registerAgain() -> Task<Void, Never> {
+        if let registering { return registering }
+        let task = Task { [weak self, retryAlerts] in
+            await retryAlerts()
+            self?.registering = nil
+        }
+        registering = task
+        return task
     }
 
     /// A list too short to scroll never nears its end, so fetch older mail now: Spam and Trash start empty, and a quiet

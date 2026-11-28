@@ -5,6 +5,8 @@ import SwiftUI
 /// with Save, since the service is what sends it.
 struct AutoReplyView: View {
     @State private var editor: AutoReplyEditor
+    /// Each Try Again counts up, and the load runs again in a task the screen owns.
+    @State private var loadAttempt = 0
 
     /// The editor is made once for this screen; the service it talks to doesn't change while it shows.
     init(service: AutoReplyEditor.Service) {
@@ -21,7 +23,7 @@ struct AutoReplyView: View {
                         ProgressView()
                     } else {
                         Button(role: .confirm) {
-                            Task { await editor.save() }
+                            editor.save()
                         } label: {
                             Text("Save", tableName: "AutoReply", bundle: .module, comment: "Saves the automatic reply")
                         }
@@ -43,7 +45,7 @@ struct AutoReplyView: View {
             } message: {
                 Text(editor.saveFailure ?? "")
             }
-            .task { await editor.load() }
+            .task(id: loadAttempt) { await editor.load() }
     }
 
     @ViewBuilder private var content: some View {
@@ -65,7 +67,7 @@ struct AutoReplyView: View {
                     comment: "Explains a failed load of the automatic reply")
             } actions: {
                 Button {
-                    Task { await editor.load() }
+                    loadAttempt += 1
                 } label: {
                     Text("Try Again", tableName: "AutoReply", bundle: .module, comment: "Loads the reply again")
                 }

@@ -251,8 +251,7 @@ public final class MailboxViewController: UIViewController {
     /// Asks about the accounts' sync problems, each with its fix.
     private func explain(_ notices: [AccountProblemNotice]) {
         let alert = UIAlertController.accountProblems(notices) { [weak self] notice in
-            guard let self else { return }
-            Task { await self.viewModel.fix(notice) }
+            self?.viewModel.fix(notice)
         }
         present(alert, animated: true)
     }

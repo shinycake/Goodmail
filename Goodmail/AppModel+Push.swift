@@ -28,7 +28,7 @@ extension AppModel {
         }
         for (id, outcome) in outcomes {
             if case .failure(let error) = outcome {
-                Logger.push.error("Couldn't update push for an account: \(error, privacy: .public)")
+                Logger.push.error("Couldn't update push for an account: \(error, privacy: .private)")
             }
             health.recordAlerts(outcome, for: id)
         }
@@ -41,38 +41,47 @@ extension AppModel {
         do {
             try await registrar.unsubscribe(id, source: source)
         } catch {
-            Logger.push.error("Couldn't unregister push for an account: \(error, privacy: .public)")
+            Logger.push.error("Couldn't unregister push for an account: \(error, privacy: .private)")
         }
     }
 
+    /// Each account's alert choice, or none when they can't be read, so Settings shows each account's default.
     func notificationLevels() async -> [AccountID: NotificationLevel] {
         let ids = accounts.map(\.id)
-        return
-            (try? await database.offMain { database in
+        do {
+            return try await database.offMain { database in
                 Dictionary(
                     uniqueKeysWithValues: try ids.map { ($0, try database.notifications(for: $0, now: .now).level) })
-            }) ?? [:]
+            }
+        } catch {
+            Logger.push.error("Couldn't read the alert choices: \(error, privacy: .private)")
+            return [:]
+        }
     }
 
     func setNotificationLevel(_ level: NotificationLevel, for id: AccountID) async {
         do {
             try await database.offMain { try $0.setNotificationLevel(level, for: id, now: .now) }
         } catch {
-            Logger.push.error("Couldn't store the alert choice: \(error, privacy: .public)")
+            Logger.push.error("Couldn't store the alert choice: \(error, privacy: .private)")
         }
         await refreshPush()
     }
 
     /// Records the Inbox as seen while the app shows it, so mail read here never alerts later when its thread
-    /// changes again.
+    /// changes again. One that isn't recorded may alert on the next change; the next round records it.
     func markInboxSeen() async {
         let ids = accounts.map(\.id)
-        try? await database.offMain { database in
-            for id in ids {
-                if let newest = try database.newestInboxDate(for: id) {
-                    try database.markSeen(through: newest, for: id, now: .now)
+        do {
+            try await database.offMain { database in
+                for id in ids {
+                    if let newest = try database.newestInboxDate(for: id) {
+                        try database.markSeen(through: newest, for: id, now: .now)
+                    }
                 }
             }
+        } catch {
+            Logger.push.error("Couldn't record the Inbox as seen: \(error, privacy: .private)")
         }
     }
 
@@ -82,7 +91,7 @@ extension AppModel {
         do {
             _ = try await commands.perform(action, on: [thread])
         } catch {
-            Logger.push.error("Couldn't apply an alert action: \(error, privacy: .public)")
+            Logger.push.error("Couldn't apply an alert action: \(error, privacy: .private)")
         }
         await outboxes.flush(thread.accountID)
     }
@@ -97,7 +106,7 @@ extension AppModel {
         do {
             return try providers.pushSource(for: account)
         } catch {
-            Logger.push.error("No push for an account: \(error, privacy: .public)")
+            Logger.push.error("No push for an account: \(error, privacy: .private)")
             return nil
         }
     }

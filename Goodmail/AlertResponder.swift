@@ -20,7 +20,8 @@ final class AlertResponder: NSObject {
 
 /// iOS calls these on its own queue, so they read what they need there and hop to the main actor to act on it.
 /// They take iOS's completion handler rather than being `async`: the `async` forms hand iOS their result off the main
-/// thread, where UIKit asserts while updating the app's snapshot.
+/// thread, where UIKit asserts while updating the app's snapshot. Each task ends by calling the handler, on every
+/// path, so iOS owns it: iOS waits for the handler, and nothing else awaits or cancels the task.
 extension AlertResponder: UNUserNotificationCenterDelegate {
     /// The reader is already in the app, where the new mail shows in the list: the alert goes straight to
     /// Notification Center.

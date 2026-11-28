@@ -161,6 +161,10 @@ extension WristOwnHost {
         for check in stretch.checks.values { _ = await check.value }
         for change in stretch.changes.values { _ = await change.task.result }
         // A failure keeps the changes and the copy, for the next start to give back and forget.
-        try? await settle(served: stretch.served)
+        do {
+            try await settle(served: stretch.served)
+        } catch {
+            Self.log.error("Couldn't give back the watch's changes and forget its copy", error)
+        }
     }
 }

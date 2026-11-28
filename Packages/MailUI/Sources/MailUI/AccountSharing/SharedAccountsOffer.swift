@@ -8,8 +8,8 @@ public final class SharedAccountsOffer {
     public enum State {
         /// Waiting for the reader to choose; `failure` is the last add that failed, shown until dismissed.
         case choosing(failure: (any Error)?)
-        /// Adding the chosen accounts.
-        case adding
+        /// Adding the chosen accounts, in a task the offer owns: it stays open on a failure and closes once finished.
+        case adding(Task<Void, Never>)
         /// The reader added the accounts or put the offer off, so it closes.
         case finished
     }
@@ -51,12 +51,21 @@ public final class SharedAccountsOffer {
     }
 
     /// Adds the chosen accounts, in the offer's order. Ignored unless the reader is choosing.
-    public func addChosen() async {
+    public func addChosen() {
         guard case .choosing = state else { return }
-        state = .adding
         let ids = accounts.map(\.id)
+        let (picked, declined) = (ids.filter(chosen.contains), ids.filter { !chosen.contains($0) })
+        state = .adding(Task { await self.run(adding: picked, declining: declined) })
+    }
+
+    /// Waits for the add under way, if any, as a test does.
+    func settled() async {
+        if case .adding(let adding) = state { await adding.value }
+    }
+
+    private func run(adding picked: [AccountID], declining declined: [AccountID]) async {
         do {
-            try await add(ids.filter(chosen.contains), ids.filter { !chosen.contains($0) })
+            try await add(picked, declined)
             finish()
         } catch {
             state = .choosing(failure: error)
