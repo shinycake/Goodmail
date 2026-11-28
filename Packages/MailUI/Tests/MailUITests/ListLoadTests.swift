@@ -41,7 +41,7 @@ struct ListLoadTests {
     {
         let (stream, feed) = AsyncThrowingStream<[ThreadSummary], any Error>.makeStream()
         let list = MailboxViewModel(
-            accounts: [account], source: .flat { stream }, refresh: {}, older: .pages { await gate.page() })
+            accounts: [account], source: .flat(.whole { stream }), refresh: {}, older: .pages { await gate.page() })
         return (list, feed)
     }
 
@@ -97,7 +97,7 @@ struct ListLoadTests {
         var more = false
         var fetches = 0
         let list = MailboxViewModel(
-            accounts: [account], source: .flat { AsyncThrowingStream { $0.finish() } }, refresh: {},
+            accounts: [account], source: .flat(.whole { AsyncThrowingStream { $0.finish() } }), refresh: {},
             older: .owned(hasMore: { more }, fetch: { fetches += 1 }))
         #expect(list.loadOlder() == nil, "nothing to fetch for this text")
         more = true
@@ -112,18 +112,20 @@ struct ListLoadTests {
             accounts: [account],
             source: .categorised(
                 InboxCategories(
-                    threads: { [thread] category in
-                        AsyncThrowingStream { $0.yield(category == .primary ? [thread("p")] : []) }
+                    threads: { [thread] category, _ in
+                        AsyncThrowingStream {
+                            $0.yield(ThreadListing(whole: category == .primary ? [thread("p")] : []))
+                        }
                     },
                     unreadCounts: { AsyncThrowingStream { $0.yield([:]) } }),
                 selected: .primary),
             refresh: {})
         let observing = Task { await list.observe() }
         defer { observing.cancel() }
-        await waitUntil { list.listing == .listed([thread("p")]) }
+        await waitUntil { list.listing == .listed(ThreadListing(whole: [thread("p")])) }
         list.select(.social)
         #expect(
-            list.listing == .waiting(showing: [thread("p")]),
+            list.listing == .waiting(showing: ThreadListing(whole: [thread("p")])),
             "Primary's threads stay until Social's come, so the switch is one change, but say nothing of Social's")
         #expect(list.rows.map(\.threadID) == ["p"])
         #expect(list.emptyListing == .unknown)
@@ -136,7 +138,7 @@ struct ListLoadTests {
             accounts: [account],
             source: .categorised(
                 InboxCategories(
-                    threads: { _ in AsyncThrowingStream { $0.yield([]) } },
+                    threads: { _, _ in AsyncThrowingStream { $0.yield(ThreadListing(whole: [])) } },
                     unreadCounts: { AsyncThrowingStream { $0.yield([:]) } }),
                 selected: .primary),
             refresh: {}, older: .pages { await gate.page() })
@@ -152,7 +154,7 @@ struct ListLoadTests {
         var pages = 0
         let (stream, feed) = AsyncThrowingStream<[ThreadSummary], any Error>.makeStream()
         let list = MailboxViewModel(
-            accounts: [account], source: .flat { stream }, refresh: {},
+            accounts: [account], source: .flat(.whole { stream }), refresh: {},
             older: .pages { [thread] in
                 pages += 1
                 // The store answers with the page's threads before the fetch hears back.
@@ -171,7 +173,7 @@ struct ListLoadTests {
         var pages = 0
         let (stream, feed) = AsyncThrowingStream<[ThreadSummary], any Error>.makeStream()
         let list = MailboxViewModel(
-            accounts: [account], source: .flat { stream }, refresh: {},
+            accounts: [account], source: .flat(.whole { stream }), refresh: {},
             older: .pages {
                 pages += 1
                 return true

@@ -44,7 +44,7 @@ public final class SearchResultsController: UIViewController, UISearchResultsUpd
                 title: String(
                     localized: "Search", table: "Search", bundle: .module, comment: "Title of the search results list"),
                 accounts: accounts,
-                source: .flat { search.results() },
+                source: .flat(.whole { search.results() }),
                 refresh: { try await search.refresh() },
                 // The search knows whether its text has more pages, and starts them over as the text changes under
                 // this list, so the list asks it each time rather than keep an answer of its own.

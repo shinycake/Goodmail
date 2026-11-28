@@ -51,14 +51,14 @@ struct OffMainDatabaseTests {
         let database = try await OffMainDatabase.open(url: Self.url())
         let (account, thread) = (account, thread)
         _ = try await database.offMain { try $0.save(account) }
-        var held = database.threads(in: .inbox).makeAsyncIterator()
-        var blocking = database.blocking.threads(in: .inbox).makeAsyncIterator()
-        #expect(try await held.next(isolation: #isolation)?.isEmpty == true)
-        #expect(try await blocking.next(isolation: #isolation)?.isEmpty == true)
+        var held = database.threads(in: .inbox, window: .whole).makeAsyncIterator()
+        var blocking = database.blocking.threads(in: .inbox, window: .whole).makeAsyncIterator()
+        #expect(try await held.next(isolation: #isolation)?.threads.isEmpty == true)
+        #expect(try await blocking.next(isolation: #isolation)?.threads.isEmpty == true)
 
         try await database.offMain { try $0.upsert([thread]) }
-        #expect(try await held.next(isolation: #isolation)?.map(\.id) == [thread.id])
-        #expect(try await blocking.next(isolation: #isolation)?.map(\.id) == [thread.id])
+        #expect(try await held.next(isolation: #isolation)?.threads.map(\.id) == [thread.id])
+        #expect(try await blocking.next(isolation: #isolation)?.threads.map(\.id) == [thread.id])
     }
 
     // Exit tests run in a child process, which only macOS and Linux can start; the iOS build of the tests leaves it out.

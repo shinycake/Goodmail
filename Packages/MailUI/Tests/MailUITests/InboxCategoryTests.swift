@@ -27,8 +27,10 @@ struct InboxCategoryTests {
             accounts: [account],
             source: .categorised(
                 InboxCategories(
-                    threads: { [thread] category in
-                        AsyncThrowingStream { $0.yield(category == .forums ? [] : [thread(category.rawValue)]) }
+                    threads: { [thread] category, _ in
+                        AsyncThrowingStream {
+                            $0.yield(ThreadListing(whole: category == .forums ? [] : [thread(category.rawValue)]))
+                        }
                     },
                     unreadCounts: {
                         AsyncThrowingStream {
@@ -128,12 +130,13 @@ struct InboxCategoryTests {
     @Test func otherMailboxesHaveNoCategories() async {
         let viewModel = MailboxViewModel(
             mailbox: .starred, accounts: [account],
-            source: .flat { [thread] in
-                AsyncThrowingStream {
-                    $0.yield([thread("starred")])
-                    $0.finish()
-                }
-            },
+            source: .flat(
+                .whole { [thread] in
+                    AsyncThrowingStream {
+                        $0.yield([thread("starred")])
+                        $0.finish()
+                    }
+                }),
             refresh: {})
         await viewModel.observe()
         #expect(viewModel.category == nil)

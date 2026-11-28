@@ -19,7 +19,7 @@ import UIKit
         retryAlerts: @escaping () async -> Void = {}, navigate: @escaping (Route) -> Void = { _ in }
     ) -> MailboxViewModel {
         MailboxViewModel(
-            mailbox: mailbox, accounts: [gmail, icloud], source: .flat { AsyncThrowingStream { $0.finish() } },
+            mailbox: mailbox, accounts: [gmail, icloud], source: .flat(.whole { AsyncThrowingStream { $0.finish() } }),
             refresh: refresh, retryAlerts: retryAlerts, navigate: navigate, health: health)
     }
 

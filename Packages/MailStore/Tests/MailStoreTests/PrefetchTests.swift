@@ -258,10 +258,10 @@ struct PrefetchTests {
 
     @Test func prefetchingLeavesTheThreadSummariesAsTheyWere() async throws {
         try seed("t1", hoursAgo: 1)
-        var before = database.threads(in: .inbox).makeAsyncIterator()
+        var before = database.threads(in: .inbox, window: .whole).makeAsyncIterator()
         let summaries = try await before.next()
         await prefetcher().run()
-        var after = database.threads(in: .inbox).makeAsyncIterator()
+        var after = database.threads(in: .inbox, window: .whole).makeAsyncIterator()
         #expect(try await after.next() == summaries)
     }
 

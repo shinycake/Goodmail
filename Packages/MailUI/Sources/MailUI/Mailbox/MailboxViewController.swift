@@ -43,6 +43,8 @@ public final class MailboxViewController: UIViewController {
     var deleted: [ThreadSummary.ID: ContinuousClock.Instant] = [:]
     /// Whether the list takes changes as they come. Only the transitions in `MailboxViewController+Removal` change it.
     var listMotion = ListMotion.free
+    /// Select All or Empty Trash, waiting for the store to list every thread. Only `whenEveryThread` changes it.
+    var everyThreadWait: Task<Void, Never>?
 
     private var browsingToolbarItems: [UIBarButtonItem] = []
     /// The buttons at the ends of the browsing toolbar: the drafts pill, when the window has one, and Compose.
@@ -91,6 +93,7 @@ public final class MailboxViewController: UIViewController {
     deinit {
         observation?.cancel()
         emptyRecheck?.cancel()
+        everyThreadWait?.cancel()
         if case .dissolving(_, let release) = listMotion { release.cancel() }
     }
 
@@ -415,9 +418,6 @@ public final class MailboxViewController: UIViewController {
 }
 
 extension MailboxViewController: UICollectionViewDelegate {
-    /// How close to the last row the next older page is requested, so it arrives before the user gets there.
-    private static let loadOlderLead = 20
-
     public func collectionView(
         _ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath
     ) {
@@ -426,8 +426,8 @@ extension MailboxViewController: UICollectionViewDelegate {
         guard let section = dataSource.sectionIdentifier(for: indexPath.section) else { return }
         let before = snapshot.sectionIdentifiers.prefix { $0 != section }
             .reduce(0) { $0 + snapshot.numberOfItems(inSection: $1) }
-        guard snapshot.numberOfItems - (before + indexPath.item) <= Self.loadOlderLead else { return }
-        viewModel.loadOlder()
+        // Near the end, the list reads further, from the store or the service.
+        viewModel.show(row: before + indexPath.item)
     }
 
     public func collectionView(
@@ -632,7 +632,20 @@ extension MailboxViewController {
         setToolbarItems(Array(items.prefix(1)) + organize + [.flexibleSpace()] + items.dropFirst(), animated: false)
     }
 
+    /// Select All, once the store has listed every thread, or Deselect All.
     private func selectEveryRow(_ select: Bool) {
+        guard select else { return pickEveryRow(false) }
+        whenEveryThread { [weak self] list in
+            guard await list.listEveryThreadToSelect() else { return }
+            self?.pickEveryRow(true)
+        }
+    }
+
+    /// Selects or deselects every row in Select mode.
+    private func pickEveryRow(_ select: Bool) {
+        guard isEditing else { return }
+        // The rows the whole mailbox brought, which the list may not have taken yet.
+        if select { applySections(viewModel.sections) }
         for item in dataSource.snapshot().itemIdentifiers {
             guard let indexPath = dataSource.indexPath(for: item) else { continue }
             if select {
@@ -645,9 +658,10 @@ extension MailboxViewController {
         updateSelectionChrome()
     }
 
-    /// Performs `action` on the selected threads, or with `all` on every one in the list, and stops selecting.
+    /// Performs `action` on the selected threads, or with `all` empties Trash, and stops selecting.
     private func performOnSelection(_ action: ThreadAction, all: Bool = false) {
-        let ids = all ? dataSource.snapshot().itemIdentifiers : selectedIDs
+        if all { return emptyTrash() }
+        let ids = selectedIDs
         guard let kind = action.stow, Motion.playsRemovals, let window = view.window else {
             return perform(action, on: ids) { [weak self] in self?.setEditing(false, animated: true) }
         }

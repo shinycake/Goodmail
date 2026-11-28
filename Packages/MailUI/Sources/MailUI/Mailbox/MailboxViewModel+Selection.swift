@@ -27,7 +27,7 @@ extension MailboxViewModel {
         pick(selection.moving(offset, extending: extending, in: rows, trail: listPick.trail), revealing: true)
     }
 
-    /// ⌘A.
+    /// ⌘A, once every thread is listed (`listEveryThreadToSelect`).
     func selectAll() {
         pick(selection.selectingAll(in: rows), revealing: true)
     }
@@ -72,6 +72,8 @@ extension MailboxViewModel {
         pick(new, revealing: false)
         // Under a filter, this one may come back.
         if filter.isOn { regroup() }
+        // Next and Previous read on down the list without scrolling it, so reading near its end reads further.
+        if let id, let row = rows.firstIndex(of: id) { show(row: row) }
     }
 
     // MARK: Rows leaving

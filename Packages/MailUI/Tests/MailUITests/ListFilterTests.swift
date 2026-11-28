@@ -23,7 +23,7 @@ struct ListFilterListTests {
         changed: @escaping (ListFilter) -> Void = { _ in }
     ) -> MailboxViewModel {
         MailboxViewModel(
-            accounts: [account], source: .flat { AsyncThrowingStream { $0.yield(threads) } }, filter: filter,
+            accounts: [account], source: .flat(.whole { AsyncThrowingStream { $0.yield(threads) } }), filter: filter,
             didChangeFilter: changed, attachmentThreads: { AsyncThrowingStream { $0.yield(withAttachments) } },
             refresh: {})
     }
@@ -93,7 +93,7 @@ struct ListFilterListTests {
         let threads = [withFile, thread("b")]
         var asked = 0
         let viewModel = MailboxViewModel(
-            accounts: [account], source: .flat { AsyncThrowingStream { $0.yield(threads) } },
+            accounts: [account], source: .flat(.whole { AsyncThrowingStream { $0.yield(threads) } }),
             filter: .on([.withAttachments]), didChangeFilter: { _ in },
             attachmentThreads: {
                 asked += 1
@@ -123,7 +123,7 @@ struct ListFilterListTests {
 
     @Test func aListWithNoWindowToKeepTheFilterIsNotFiltered() {
         let search = MailboxViewModel(
-            accounts: [account], source: .flat { AsyncThrowingStream { $0.finish() } }, refresh: {})
+            accounts: [account], source: .flat(.whole { AsyncThrowingStream { $0.finish() } }), refresh: {})
         #expect(!search.offersFilter)
         search.setFilter(.on([.unread]))
         #expect(search.filter == .none)

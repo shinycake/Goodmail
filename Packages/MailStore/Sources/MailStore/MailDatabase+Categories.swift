@@ -3,17 +3,6 @@ import GRDB
 public import MailCore
 
 extension MailFollowing {
-    /// The threads in `mailbox` that fall under `category`, newest first. Every thread of an account in `unsorted`,
-    /// whose Inbox isn't split, counts as Primary. Emits now and after every change.
-    public func threads(in mailbox: Mailbox, category: InboxCategory, unsorted: Set<AccountID> = [])
-        -> AsyncThrowingStream<[ThreadSummary], any Error>
-    {
-        followed.observe { db in
-            try MailDatabase.fetchThreads(
-                db, query: MailDatabase.threadSelection(in: mailbox, category: category, unsorted: unsorted))
-        }
-    }
-
     /// Unread threads in `mailbox` per category; categories with none are left out. Emits now and after every change.
     public func categoryUnreadCounts(in mailbox: Mailbox, unsorted: Set<AccountID> = [])
         -> AsyncThrowingStream<[InboxCategory: Int], any Error>

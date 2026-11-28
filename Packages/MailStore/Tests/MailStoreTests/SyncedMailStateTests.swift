@@ -61,9 +61,9 @@ struct SyncedMailStateTests {
     }
 
     private func inbox(_ database: MailDatabase) async throws -> Set<String> {
-        var threads = database.threads(in: Mailbox(labelID: SystemLabel.inbox, accountID: gmail.id))
+        var threads = database.threads(in: Mailbox(labelID: SystemLabel.inbox, accountID: gmail.id), window: .whole)
             .makeAsyncIterator()
-        return Set(try await threads.next()?.map(\.id.threadID) ?? [])
+        return Set(try await threads.next()?.threads.map(\.id.threadID) ?? [])
     }
 
     private func queued(_ database: MailDatabase, for account: Account? = nil) throws -> [ThreadAction] {

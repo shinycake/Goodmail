@@ -35,7 +35,7 @@ struct MailboxStoreTests {
     }
 
     private func ids(in mailbox: Mailbox) async throws -> [String] {
-        try await first(database.threads(in: mailbox))?.map(\.id.threadID) ?? []
+        try await first(database.threads(in: mailbox, window: .whole))?.threads.map(\.id.threadID) ?? []
     }
 
     @Test func allMailIsEverythingButSpamAndTrash() async throws {
@@ -48,7 +48,7 @@ struct MailboxStoreTests {
         #expect(try await ids(in: .allMail) == ["inbox", "archived"])
         #expect(try await ids(in: .trash) == ["binned"])
         #expect(try await ids(in: .starred) == ["binned"])
-        for thread in try await first(database.threads(in: .allMail)) ?? [] {
+        for thread in try await first(database.threads(in: .allMail, window: .whole))?.threads ?? [] {
             #expect(Mailbox.allMail.contains(thread))
         }
     }

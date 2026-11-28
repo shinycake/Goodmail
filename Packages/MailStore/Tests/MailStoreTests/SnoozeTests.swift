@@ -36,8 +36,8 @@ struct SnoozeTests {
     }
 
     private func inbox() async throws -> [String] {
-        var threads = database.threads(in: .inbox).makeAsyncIterator()
-        return try await threads.next()?.map(\.id.threadID) ?? []
+        var threads = database.threads(in: .inbox, window: .whole).makeAsyncIterator()
+        return try await threads.next()?.threads.map(\.id.threadID) ?? []
     }
 
     @Test func aSnoozedThreadLeavesTheInboxUntilItsTime() async throws {

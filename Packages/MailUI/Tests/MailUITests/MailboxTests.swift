@@ -79,12 +79,13 @@ struct MailboxTests {
         }
         let viewModel = MailboxViewModel(
             accounts: [account],
-            source: .flat {
-                AsyncThrowingStream {
-                    $0.yield(threads)
-                    $0.finish()
-                }
-            },
+            source: .flat(
+                .whole {
+                    AsyncThrowingStream {
+                        $0.yield(threads)
+                        $0.finish()
+                    }
+                }),
             refresh: {},
             now: { [now] in now },
             calendar: calendar
@@ -113,12 +114,13 @@ struct MailboxTests {
         ]
         let viewModel = MailboxViewModel(
             accounts: [account],
-            source: .flat {
-                AsyncThrowingStream {
-                    $0.yield(threads)
-                    $0.finish()
-                }
-            },
+            source: .flat(
+                .whole {
+                    AsyncThrowingStream {
+                        $0.yield(threads)
+                        $0.finish()
+                    }
+                }),
             woken: {
                 AsyncThrowingStream {
                     $0.yield(woken)
@@ -146,12 +148,13 @@ struct MailboxTests {
         }
         let viewModel = MailboxViewModel(
             accounts: [account],
-            source: .flat {
-                AsyncThrowingStream {
-                    $0.yield(threads)
-                    $0.finish()
-                }
-            },
+            source: .flat(
+                .whole {
+                    AsyncThrowingStream {
+                        $0.yield(threads)
+                        $0.finish()
+                    }
+                }),
             woken: {
                 AsyncThrowingStream {
                     $0.yield([threads[1].id: date(2026, 10, 21, 8)])
@@ -180,7 +183,7 @@ struct MailboxTests {
 
     @Test func aListWithoutPinsOffersNoPinning() {
         let viewModel = MailboxViewModel(
-            accounts: [], source: .flat { AsyncThrowingStream { $0.finish() } }, refresh: {})
+            accounts: [], source: .flat(.whole { AsyncThrowingStream { $0.finish() } }), refresh: {})
         let id = ThreadSummary.ID(accountID: AccountID(rawValue: "a"), threadID: "t")
         #expect(viewModel.isPinned(id) == nil)
         #expect(viewModel.pinning([id]) == nil)
@@ -190,7 +193,7 @@ struct MailboxTests {
         struct Offline: Error {}
         let viewModel = MailboxViewModel(
             accounts: [],
-            source: .flat { AsyncThrowingStream { $0.finish() } },
+            source: .flat(.whole { AsyncThrowingStream { $0.finish() } }),
             refresh: { throw Offline() }
         )
         await viewModel.refresh()
@@ -200,7 +203,7 @@ struct MailboxTests {
     @Test func getMailWhileASyncRunsJoinsItInsteadOfStartingAnother() async {
         var syncs = 0
         let viewModel = MailboxViewModel(
-            accounts: [], source: .flat { AsyncThrowingStream { $0.finish() } }, refresh: { syncs += 1 })
+            accounts: [], source: .flat(.whole { AsyncThrowingStream { $0.finish() } }), refresh: { syncs += 1 })
         viewModel.getMail()
         #expect(viewModel.isRefreshing)
         viewModel.getMail()
@@ -215,7 +218,7 @@ struct MailboxTests {
         var replies: [Result<Bool, any Error>] = [.failure(Offline()), .success(true), .success(false)]
         let viewModel = MailboxViewModel(
             accounts: [],
-            source: .flat { AsyncThrowingStream { $0.finish() } },
+            source: .flat(.whole { AsyncThrowingStream { $0.finish() } }),
             refresh: {},
             older: .pages {
                 calls += 1
@@ -235,7 +238,7 @@ struct MailboxTests {
         let thread = ThreadSummary.ID(accountID: AccountID(rawValue: "work"), threadID: "t")
         var routes: [Route] = []
         let list = MailboxViewModel(
-            mailbox: label, accounts: [], source: .flat { AsyncThrowingStream { $0.finish() } }, refresh: {},
+            mailbox: label, accounts: [], source: .flat(.whole { AsyncThrowingStream { $0.finish() } }), refresh: {},
             navigate: { routes.append($0) })
         list.openInNewWindow(thread)
         #expect(routes == [.newWindow(thread, in: label)])

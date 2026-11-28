@@ -23,8 +23,23 @@ extension MailboxViewController {
             viewModel.perform(action, on: ids)
             return done()
         }
-        let everything = viewModel.isTrash && ids.count == dataSource.snapshot().numberOfItems
-        let alert = UIAlertController.deleteForever(everything ? .trash(ids.count) : .threads(ids.count)) {
+        let everything = viewModel.isTrash && viewModel.showsEvery(ids)
+        deleteForever(ids, asking: everything ? .trash(ids.count) : .threads(ids.count), then: done)
+    }
+
+    /// Empties Trash: every thread in it, not only those its window lists, once the store has listed them all.
+    func emptyTrash() {
+        whenEveryThread { [weak self] list in
+            guard let ids = await list.everyThread(), !ids.isEmpty else { return }
+            self?.deleteForever(ids, asking: .trash(ids.count)) { self?.setEditing(false, animated: true) }
+        }
+    }
+
+    /// Deletes `ids` forever once the reader confirms `scope`, then `done`; on Cancel does neither.
+    private func deleteForever(
+        _ ids: [ThreadSummary.ID], asking scope: DeleteForeverScope, then done: @escaping () -> Void
+    ) {
+        let alert = UIAlertController.deleteForever(scope) {
             [weak self] in
             guard let self else { return }
             let now = ContinuousClock.now
