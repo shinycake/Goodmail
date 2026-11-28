@@ -60,6 +60,10 @@
       "kind": "local",
       "path": "Packages/MailClients",
     },
+    {
+      "kind": "local",
+      "path": "Packages/FieldDiagnostics",
+    },
   ],
   "files": [
     { "path": "WidgetsExtension.entitlements" },
@@ -174,6 +178,9 @@
       ],
       "package-product-members": [
         {
+          "product-name": "FieldDiagnostics",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
           "product-name": "GmailProvider",
           "build-phase": { "build-phase": "frameworks" },
         }, {

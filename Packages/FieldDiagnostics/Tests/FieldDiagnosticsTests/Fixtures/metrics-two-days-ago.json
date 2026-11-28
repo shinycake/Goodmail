@@ -1,0 +1,64 @@
+{
+  "appVersion": "1.0 (212)",
+  "content": {
+    "metrics": {
+      "_0": {
+        "diskWrites": 31200000,
+        "exits": [],
+        "hangs": {
+          "buckets": [
+            {
+              "count": 1,
+              "end": 0.5,
+              "start": 0.25
+            }
+          ]
+        },
+        "launches": {
+          "buckets": [
+            {
+              "count": 4,
+              "end": 0.25,
+              "start": 0
+            },
+            {
+              "count": 11,
+              "end": 0.5,
+              "start": 0.25
+            },
+            {
+              "count": 2,
+              "end": 1,
+              "start": 0.5
+            }
+          ]
+        },
+        "peakMemory": 198000000,
+        "resumes": {
+          "buckets": [
+            {
+              "count": 40,
+              "end": 0.1,
+              "start": 0
+            },
+            {
+              "count": 12,
+              "end": 0.2,
+              "start": 0.1
+            },
+            {
+              "count": 3,
+              "end": 0.5,
+              "start": 0.2
+            }
+          ]
+        }
+      }
+    }
+  },
+  "period": {
+    "duration": 86400.0,
+    "start": "2026-11-25T21:00:00Z"
+  },
+  "raw": "ewogICJlbnZpcm9ubWVudCI6IHsKICAgICJhcHBsaWNhdGlvbkJ1aWxkVmVyc2lvbiI6ICIyMTIiLAogICAgImFwcGxpY2F0aW9uVmVyc2lvbiI6ICIxLjAiLAogICAgImRldmljZVR5cGUiOiAiaVBob25lMTgsMSIsCiAgICAiaXNUZXN0RmxpZ2h0QXBwIjogdHJ1ZSwKICAgICJvc1ZlcnNpb24iOiAiaVBob25lIE9TIDI3LjIgKDI0QzEwMSkiCiAgfSwKICAiaW50ZXJ2YWxFbnRyaWVzIjogWwogICAgewogICAgICAibm90ZSI6ICJTYW1wbGUgZGF0YSBmb3IgdGhlIERpYWdub3N0aWNzIHNjcmVlbidzIFVJIHRlc3QiCiAgICB9CiAgXSwKICAidGltZVJhbmdlIjogewogICAgImVuZCI6ICIyMDI2LTExLTI2VDIxOjAwOjAwWiIsCiAgICAic3RhcnQiOiAiMjAyNi0xMS0yNVQyMTowMDowMFoiCiAgfQp9"
+}
