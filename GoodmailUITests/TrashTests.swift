@@ -49,8 +49,9 @@ final class TrashTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["No Mail"].waitForExistence(timeout: 10), "Trash is empty")
         attach(app, "trash-emptied")
         let bar = app.navigationBars.firstMatch
-        XCTAssertFalse(bar.buttons["Done"].exists, "Emptying Trash ends selecting")
-        XCTAssertFalse(bar.buttons["Select"].exists, "An empty list has nothing to select")
+        // "No Mail" shows as the last rows start leaving, and the bar changes once their removal animation ends.
+        XCTAssertTrue(bar.buttons["Done"].waitForNonExistence(timeout: 5), "Emptying Trash ends selecting")
+        XCTAssertTrue(bar.buttons["Select"].waitForNonExistence(timeout: 5), "An empty list has nothing to select")
         XCTAssertTrue(bar.buttons["Search"].exists, "Search stays")
     }
 
@@ -63,6 +64,7 @@ final class TrashTests: XCTestCase {
             "-GoodmailSyntheticThreads", "40", "-GoodmailSyntheticArrivalEvery", "3600",
             "-AppleLanguages", "(en)", "-AppleLocale", "en_US",
         ]
+        app.launchArguments += AnimationSpeed.fast.arguments
         app.launch()
         XCTAssertTrue(app.collectionViews["mailbox"].cells.firstMatch.waitForExistence(timeout: 15))
         let trash = app.collectionViews["mailboxes"].cells["mailbox.TRASH"].firstMatch

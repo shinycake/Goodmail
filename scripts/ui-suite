@@ -1,0 +1,251 @@
+#!/usr/bin/env bash
+# The app's UI tests (GoodmailUITests), built once and then run on the check simulators (ADR-013).
+#
+#   scripts/ui-suite                         the full suite: every test class but the *PerformanceTests, in shards
+#   scripts/ui-suite --gate                  the launch and smoke tests, which scripts/check runs
+#   scripts/ui-suite --only <Class[/test]>   only these, on one simulator; repeat --only for more
+#   scripts/ui-suite --main                  the full suite on the latest origin/main, unless it already passed there
+#   --workers 1|2                            with the full suite or --main: on this many simulators, whatever else runs
+#
+# The full suite splits its classes into shards by their number of tests, and runs each shard in its own
+# `xcodebuild test-without-building` on its own simulator, CHECK_NAME and CHECK2_NAME (scripts/build-paths): two
+# explicit simulators, so both run slim (docs/setup/mac-simulators.md). Without --workers it takes two unless two or
+# more other simulators are already booted, when the 16 GB Mac would page hard and it takes one.
+# A test that fails in the full suite runs once more, and the summary names every test that needed it. The gate and
+# --only never retry: a failure there is the answer.
+# --main tests origin/main in its own worktree at $BUILD_ROOT/ui-suite-main and records the commit in
+# $BUILD_ROOT/.ui-suite-passed when it passes, so a scheduled run skips a commit it has already passed.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+[[ "$(uname)" == Darwin ]] || {
+    echo "scripts/ui-suite needs a Mac with Xcode." >&2
+    exit 2
+}
+source scripts/build-paths
+source scripts/xcode-helpers
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX
+
+usage() {
+    sed -n '4,8p' "$0" | cut -c3- >&2
+    exit 2
+}
+
+# One mode, from one flag; --only may repeat.
+mode=full workers=auto only=()
+set_mode() { [[ "$mode" == full || "$mode" == "$1" ]] || usage; mode=$1; }
+while (($#)); do
+    case "$1" in
+        --gate) set_mode gate ;;
+        --main) set_mode main ;;
+        --only)
+            [[ $# -ge 2 ]] || usage
+            set_mode only
+            only+=("$2")
+            shift
+            ;;
+        --workers)
+            [[ $# -ge 2 && "$2" =~ ^[12]$ ]] || usage
+            workers=$2
+            shift
+            ;;
+        *) usage ;;
+    esac
+    shift
+done
+[[ "$workers" == auto || "$mode" == full || "$mode" == main ]] || usage
+
+if [[ "$mode" == main ]]; then
+    marker="$BUILD_ROOT/.ui-suite-passed" tree="$BUILD_ROOT/ui-suite-main" lock="$BUILD_ROOT/.ui-suite-main.lock"
+    mkdir -p "$BUILD_ROOT"
+    # A lock left by a run that was killed outright goes once it's older than any full run takes.
+    [[ -z "$(find "$lock" -maxdepth 0 -mmin +240 2>/dev/null)" ]] || rmdir "$lock"
+    mkdir "$lock" 2>/dev/null || {
+        echo "Another scripts/ui-suite --main is running ($lock)." >&2
+        exit 1
+    }
+    trap 'rmdir "$lock"' EXIT
+    git fetch -q origin main
+    sha=$(git rev-parse FETCH_HEAD)
+    if [[ -f "$marker" && "$(cat "$marker")" == "$sha" ]]; then
+        echo "The UI suite already passed on origin/main (${sha:0:8})."
+        exit 0
+    fi
+    if [[ ! -e "$tree" ]]; then
+        git worktree add -q --detach "$tree" "$sha"
+    elif [[ "$(git -C "$tree" rev-parse --show-toplevel 2>/dev/null)" == "$tree" ]]; then
+        git -C "$tree" checkout -q --force --detach "$sha"
+    else
+        # A checkout there that isn't its own worktree would be the one around it: never force that one.
+        echo "✘ $tree isn't a worktree of its own. Remove it, and the next run makes it again." >&2
+        exit 1
+    fi
+    echo "Testing origin/main (${sha:0:8}) in $tree"
+    if [[ "$workers" == auto ]]; then "$tree/scripts/ui-suite"; else "$tree/scripts/ui-suite" --workers "$workers"; fi
+    echo "$sha" >"$marker"
+    exit 0
+fi
+
+step() { printf '\n▸ %s\n' "$1"; }
+started=$(date +%s)
+elapsed() { echo "$(($(date +%s) - $1))s"; }
+
+# The test classes and how many tests each has, as "<count> <class>", from the sources. A test outside a class this
+# finds would never run anywhere, so that fails the run instead.
+test_classes() {
+    awk '
+        FNR == 1 { class = "" }
+        match($0, /^[@A-Za-z ]*class [A-Za-z0-9_]+: XCTestCase/) {
+            class = $0; sub(/^[@A-Za-z ]*class /, "", class); sub(/:.*/, "", class); counts[class] += 0
+        }
+        /^ *(@MainActor )?func test[A-Za-z0-9_]*\(/ {
+            if (class == "") { print "✘ " FILENAME ":" FNR " is a test outside any XCTestCase class" > "/dev/stderr"; lost = 1 }
+            else counts[class]++
+        }
+        END { for (c in counts) if (counts[c] > 0) print counts[c], c; exit lost }
+    ' GoodmailUITests/*.swift
+}
+
+# What each mode runs: its shards (space-separated tests, one shard per simulator) and whether a failed test retries.
+shards=() retries=()
+case "$mode" in
+    gate) shards=("LaunchTests SmokeTests") ;;
+    only) shards=("${only[*]}") ;;
+    full)
+        classes=$(test_classes) || exit 1
+        retries=(-retry-tests-on-failure -test-iterations 2)
+        if [[ "$workers" == auto ]]; then
+            # Booted simulators other than this checkout's own two, counted before either boots.
+            others=$(xcrun simctl list devices booted | grep -E '\([0-9A-F-]{36}\)' |
+                grep -vcF -e "$CHECK_NAME (" -e "$CHECK2_NAME (" || true)
+            workers=2
+            if ((others >= 2)); then
+                echo "⚠ $others other simulators are booted, so the suite runs on one simulator instead of two."
+                workers=1
+            fi
+        fi
+        # Greedy: each class, largest first, joins the shard with the fewest tests so far.
+        totals=()
+        for ((i = 0; i < workers; i++)); do shards[i]="" totals[i]=0; done
+        while read -r count class; do
+            [[ "$class" == *PerformanceTests ]] && continue
+            smallest=0
+            for ((i = 1; i < workers; i++)); do ((totals[i] < totals[smallest])) && smallest=$i; done
+            shards[smallest]+="$class "
+            totals[smallest]=$((totals[smallest] + count))
+        done < <(sort -rn <<<"$classes")
+        for ((i = 0; i < workers; i++)); do
+            [[ -n "${shards[i]}" ]] || {
+                echo "✘ Shard $((i + 1)) has no tests." >&2
+                exit 1
+            }
+            echo "Shard $((i + 1)): ${totals[i]} tests: ${shards[i]}"
+        done
+        ;;
+esac
+
+names=("$CHECK_NAME" "$CHECK2_NAME")
+simulators=()
+for i in "${!shards[@]}"; do
+    simulators[i]=$(check_simulator "${names[i]}") || exit 1
+    delete_on_exit_in_worktree "${simulators[i]}"
+done
+# The second simulator runs only the full suite, so it doesn't stay booted after it.
+((${#simulators[@]} == 1)) || shut_down_on_exit "${simulators[1]}"
+# Each run starts from a fresh install. A synthetic mailbox that takes no arrivals is seeded once per install and keeps
+# what a test did to it, so on a simulator an earlier run used, a test would start from that run's leftovers.
+for udid in "${simulators[@]}"; do xcrun simctl uninstall "$udid" com.idanbirman.goodmail >/dev/null 2>&1 || true; done
+
+step "Build the app and its UI tests"
+build_started=$(date +%s)
+strict_xcodebuild build-for-testing -quiet -project Goodmail.xcodeproj -scheme Goodmail \
+    -destination "platform=iOS Simulator,id=${simulators[0]}" -derivedDataPath "$BUILD_DIR/DerivedData" \
+    CODE_SIGNING_ALLOWED=NO
+# Xcode names the file after the scheme, SDK and architecture, which change with its version.
+xctestrun=$(ls -t "$BUILD_DIR"/DerivedData/Build/Products/Goodmail_*.xctestrun | head -1)
+built_in=$(elapsed "$build_started")
+echo "Built in $built_in: $(basename "$xctestrun")"
+
+# Runs shard $1 on its simulator, into its own result bundle. Each shard keeps its logs in its own DerivedData, so two
+# runs never write into one. exec makes the job xcodebuild itself, so stopping the job stops the tests.
+run_shard() {
+    local i=$1 selection=() test
+    for test in ${shards[i]}; do selection+=(-only-testing "GoodmailUITests/$test"); done
+    exec xcodebuild test-without-building -quiet -xctestrun "$xctestrun" \
+        -destination "platform=iOS Simulator,id=${simulators[i]}" \
+        -derivedDataPath "$BUILD_DIR/DerivedData-UITests-$((i + 1))" -resultBundlePath "${results[i]}" \
+        ${retries[@]+"${retries[@]}"} "${selection[@]}"
+}
+
+step "UI tests ($mode, ${#shards[@]} simulator$( ((${#shards[@]} == 1)) || echo s))"
+tests_started=$(date +%s)
+stamp=$(date +%Y%m%d-%H%M%S)
+mkdir -p "$BUILD_DIR/results"
+results=() logs=() pids=() statuses=() follower=""
+# A shard that already ended makes kill fail, which set -e would stop the trap on.
+trap 'kill ${pids[@]+"${pids[@]}"} $follower 2>/dev/null || true; exit 130' INT TERM
+for i in "${!shards[@]}"; do
+    results[i]="$BUILD_DIR/results/ui-$mode-$stamp-$((i + 1)).xcresult"
+    logs[i]="$BUILD_DIR/results/ui-$mode-$stamp-$((i + 1)).log"
+    : >"${logs[i]}" # there for the follower below before xcodebuild writes to it
+    run_shard "$i" >"${logs[i]}" 2>&1 &
+    pids[i]=$!
+done
+# One shard streams its log here. Side by side, their lines would interleave, so each stays in its log, and the summary
+# says why each failed test failed.
+if ((${#shards[@]} == 1)); then
+    tail -n +1 -f "${logs[0]}" &
+    follower=$!
+    disown "$follower" # so stopping it at the end prints no "Terminated"
+fi
+for i in "${!pids[@]}"; do
+    status=0
+    wait "${pids[i]}" || status=$?
+    statuses[i]=$status
+done
+pids=()
+[[ -z "$follower" ]] || kill "$follower" 2>/dev/null || true
+follower=""
+trap - INT TERM
+
+# What a shard's result bundle says: its counts, the tests that failed, and the tests that passed only on a retry.
+summarize() {
+    xcrun xcresulttool get test-results tests --compact --path "$1" | python3 -I -c '
+import json, sys
+def cases(node, suite=""):
+    if node.get("nodeType") == "Test Case":
+        yield suite + "/" + node["name"].removesuffix("()"), node
+    for child in node.get("children", []):
+        yield from cases(child, node["name"] if node.get("nodeType") == "Test Suite" else suite)
+found = [c for root in json.load(sys.stdin)["testNodes"] for c in cases(root)]
+runs = lambda node: sum(c.get("nodeType") == "Repetition" for c in node.get("children", []))
+failed = [name for name, node in found if node.get("result") == "Failed"]
+def why(node):
+    for child in node.get("children", []):
+        if child.get("nodeType") == "Failure Message": return child["name"].splitlines()[0][:200]
+        found = why(child)
+        if found: return found
+reasons = {name: why(node) for name, node in found if node.get("result") == "Failed"}
+retried = [name for name, node in found if node.get("result") == "Passed" and runs(node) > 1]
+passed, skipped = (sum(node.get("result") == result for _, node in found) for result in ("Passed", "Skipped"))
+print(f"  {passed} passed, {len(failed)} failed, {len(retried)} passed on a retry, {skipped} skipped")
+for name in failed: print(f"  ✘ {name}: {reasons[name]}")
+for name in retried: print(f"  ↻ {name} failed once, then passed")
+'
+}
+
+failed=0
+step "Summary: built in $built_in, tested in $(elapsed "$tests_started"), $(elapsed "$started") in all"
+for i in "${!shards[@]}"; do
+    echo "Shard $((i + 1)) on ${names[i]}:"
+    if [[ -d "${results[i]}" ]]; then
+        summarize "${results[i]}" || echo "  (xcresulttool could not read ${results[i]})"
+    fi
+    if ((statuses[i] == 0)); then
+        rm -f "${logs[i]}" # the result bundle has it all
+        continue
+    fi
+    failed=1
+    echo "  ✘ exit ${statuses[i]}; log ${logs[i]}, result bundle ${results[i]}"
+done
+((failed == 0)) || exit 1
+printf '\n✔ UI tests (%s) passed\n' "$mode"

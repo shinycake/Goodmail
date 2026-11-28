@@ -23,6 +23,7 @@ final class OtherAccountTests: XCTestCase {
     private func checkPasswordCarriesOver(language: String, locale: String) {
         let app = XCUIApplication()
         app.launchArguments = ["-AppleLanguages", "(\(language))", "-AppleLocale", locale]
+        app.launchArguments += AnimationSpeed.fast.arguments
         app.launch()
 
         let other = app.buttons["addAccount.imap"]

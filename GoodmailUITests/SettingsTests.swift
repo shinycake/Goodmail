@@ -11,6 +11,7 @@ final class SettingsTests: XCTestCase {
     func testOpeningAnAccountAfterAChangeKeepsSettingsOpen() {
         let app = XCUIApplication()
         app.launchArguments = ["-GoodmailSyntheticThreads", "200", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launchArguments += AnimationSpeed.fast.arguments
         app.launch()
         XCTAssertTrue(app.collectionViews["mailbox"].cells.firstMatch.waitForExistence(timeout: 15))
         if app.windows.firstMatch.horizontalSizeClass == .compact {
@@ -72,6 +73,7 @@ final class SettingsTests: XCTestCase {
             "-GoodmailSyntheticThreads", "20", "-AppleLanguages", "(\(language))", "-AppleLocale", locale,
             "-removalAnimation", "playful",
         ]
+        app.launchArguments += AnimationSpeed.fast.arguments
         app.launch()
         XCTAssertTrue(app.collectionViews["mailbox"].cells.firstMatch.waitForExistence(timeout: 15))
         if app.windows.firstMatch.horizontalSizeClass == .compact {

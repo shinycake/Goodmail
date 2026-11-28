@@ -87,7 +87,7 @@ final class KeyboardShortcutUITests: XCTestCase {
         func topRow() -> String? {
             (try? list.snapshot())?.children.filter { $0.elementType == .cell }
                 .compactMap { cell in
-                    Self.labels(in: cell).first { $0.contains("@example.com") }.map { (cell.frame.minY, $0) }
+                    SyntheticMail.labels(in: cell).first { $0.contains("@example.com") }.map { (cell.frame.minY, $0) }
                 }
                 .min { $0.0 < $1.0 }?.1
         }
@@ -112,11 +112,6 @@ final class KeyboardShortcutUITests: XCTestCase {
     @MainActor
     private func subject(in app: XCUIApplication) -> String {
         app.staticTexts["thread.subject"].label
-    }
-
-    @MainActor
-    private static func labels(in snapshot: any XCUIElementSnapshot) -> [String] {
-        [snapshot.label] + snapshot.children.flatMap(labels)
     }
 
     @MainActor

@@ -12,6 +12,7 @@ final class MenuKeyboardTests: XCTestCase {
         app.launchArguments = [
             "-GoodmailSyntheticThreads", "20", "-AppleLanguages", "(en)", "-AppleLocale", "en_US",
         ]
+        app.launchArguments += AnimationSpeed.fast.arguments
         app.launch()
         XCTAssertTrue(app.collectionViews["mailbox"].cells.firstMatch.waitForExistence(timeout: 15))
 

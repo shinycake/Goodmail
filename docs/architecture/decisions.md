@@ -131,6 +131,13 @@ The owner decided these on 2026-10-20 after talking through the options. Each en
 
 - **Branching:** short-lived branches, one vertical slice per commit on `main`, linear history (since ADR-028, pushed straight to main, not merged through PRs).
 - **The gate:** `scripts/check` runs format lint, the line cap, the build and the tests. A tracked pre-push hook (`.githooks`, `core.hooksPath`) runs it.
+- **Amended (2026-11-28): a fast gate, and the full UI suite on its own.** The check's last step used to run every UI test, one after another, which was 47 of its 55 minutes on the Mac. Now `scripts/ui-suite` builds the app and its tests once (`build-for-testing`) and runs them with `test-without-building`:
+  - The gate (`scripts/check`) runs `LaunchTests` and `SmokeTests`: the list shows, a conversation opens and goes back (also in Hebrew), a swipe archives and Undo brings it back, Compose and Settings open and close. No retries.
+  - The full suite (`scripts/ui-suite`, `scripts/check --ui`) runs every class but the `*PerformanceTests`, split into two shards by test count and run side by side on two slim simulators, "Goodmail Check" and "Goodmail Check2". A failed test runs once more, and the summary names each one that needed it, so a flake shows instead of hiding.
+  - The pre-push hook runs the full suite when the pushed commits change `Goodmail/`, `GoodmailUITests/`, `Packages/MailUI/` or `Goodmail.xcodeproj/`, and the gate otherwise.
+  - **Rejected:** `-parallel-testing-worker-count`, whose simulator clones get new UDIDs on every run, so they boot stock (7.9 GB each instead of 2.1 slim) unless `simslim watch` runs, and that would slim the dev simulator too (docs/setup/mac-simulators.md); a test plan, since the JSON project (ADR-015) has no shared scheme to hold one.
+  - **Risk:** two booted simulators on the 16 GB Mac next to other threads' ones. With two or more others already booted, the suite runs on one simulator.
+  - UI tests can opt in to `-GoodmailFastAnimations YES` (Debug only), which runs the app's window animations ten times faster. Classes that check animation frames or time gestures against them keep real time.
 - **Merging:** superseded by ADR-016, then by ADR-028: changes are pushed straight to main after a local review. The owner reviews the result afterwards, and feedback becomes follow-up work.
 - **CI:** a GitHub Actions Linux runner runs the Linux `scripts/check` (ADR-017) on main. Xcode Cloud comes later, only for TestFlight builds.
 - **Merge-conflict hygiene:**

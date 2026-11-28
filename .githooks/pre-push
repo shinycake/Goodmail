@@ -4,9 +4,23 @@
 # Git passes one line per pushed ref on stdin: <local ref> <local sha> <remote ref> <remote sha>. A push that only
 # adds tags or deletes refs sends no new code, so it skips the gate. scripts/testflight pushes its build tag this way
 # after the build is out, and that push used to sit through the whole check.
-code=false
-while read -r local_ref local_sha _remote_ref _remote_sha; do
-    [[ "$local_sha" =~ ^0+$ || "$local_ref" == refs/tags/* ]] || code=true
+# Commits that change the app or its UI run the full UI suite (scripts/check --ui); the rest run the launch and smoke
+# tests. A ref the remote doesn't have yet is compared with origin/main, and one this clone can't compare runs it all.
+UI_PATHS=(Goodmail/ GoodmailUITests/ Packages/MailUI/ Goodmail.xcodeproj/)
+suite=none # what the push needs, only ever raised: none, then gate, then full
+while read -r local_ref local_sha _remote_ref remote_sha; do
+    [[ "$local_sha" =~ ^0+$ || "$local_ref" == refs/tags/* ]] && continue
+    [[ "$suite" == full ]] || suite=gate
+    base=$remote_sha
+    [[ "$base" =~ ^0+$ ]] && base=$(git merge-base origin/main "$local_sha" 2>/dev/null)
+    if [[ -z "$base" ]] || ! changed=$(git diff --name-only "$base" "$local_sha" -- "${UI_PATHS[@]}" 2>/dev/null) ||
+        [[ -n "$changed" ]]; then
+        suite=full
+    fi
 done
-$code || exit 0
-exec "$(git rev-parse --show-toplevel)/scripts/check"
+check="$(git rev-parse --show-toplevel)/scripts/check"
+case "$suite" in
+    none) exit 0 ;;
+    gate) exec "$check" ;;
+    full) exec "$check" --ui ;;
+esac

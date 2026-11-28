@@ -91,6 +91,7 @@ final class ComposeDarkModeTests: XCTestCase {
             "-GoodmailSyntheticThreads", "20", "-GoodmailSyntheticCorpus", corpus, "-GoodmailSyntheticArrivalEvery",
             "3600", "-AppleLanguages", "(en)", "-AppleLocale", "en_US",
         ]
+        app.launchArguments += AnimationSpeed.fast.arguments
         app.launch()
         XCTAssertTrue(app.collectionViews["mailbox"].cells.firstMatch.waitForExistence(timeout: 15))
         return app

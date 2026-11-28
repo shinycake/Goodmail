@@ -104,6 +104,7 @@ final class SelectionToolbarTests: XCTestCase {
                 .appending(path: "TestMail").path(percentEncoded: false)
             app.launchArguments += ["-GoodmailSyntheticCorpus", folder, "-conversationLayout", "chat"]
         }
+        app.launchArguments += AnimationSpeed.fast.arguments
         app.launch()
         XCTAssertTrue(app.collectionViews["mailbox"].cells.firstMatch.waitForExistence(timeout: 15))
         return app

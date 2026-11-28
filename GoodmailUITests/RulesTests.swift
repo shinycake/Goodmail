@@ -36,6 +36,7 @@ final class RulesTests: XCTestCase {
         app.launchArguments = [
             "-GoodmailSyntheticThreads", "200", "-AppleLanguages", "(\(language))", "-AppleLocale", locale,
         ]
+        app.launchArguments += AnimationSpeed.fast.arguments
         app.launch()
         XCTAssertTrue(app.collectionViews["mailbox"].cells.firstMatch.waitForExistence(timeout: 15))
         if app.windows.firstMatch.horizontalSizeClass == .compact {

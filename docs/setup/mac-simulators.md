@@ -12,6 +12,11 @@ can start a process: builds fail and new Claude Code sessions don't open.
   Debug build on it. Only the main session uses it. Never slim, erase, reboot or shut it down.
 - **Goodmail Check** and **Goodmail Check <worktree>** belong to `scripts/check`. A worktree's own one is deleted when
   its check ends.
+- **Goodmail Check2** and **Goodmail Check2 <worktree>** are the full UI suite's second simulator (`scripts/ui-suite`,
+  `scripts/check --ui`), which runs a share of the suite, split by test count, next to the first. It's slimmed like the
+  first and shut down when the run ends. A worktree's own one is deleted then, and `scripts/cleanup` keeps the main one
+  like **Goodmail Check**. With two or more other simulators booted, the suite leaves it off and runs on one simulator,
+  so the Mac doesn't page.
 - **Goodmail <purpose> <worktree>** belongs to the thread working in that worktree. `scripts/sim` creates them, and
   `scripts/cleanup` deletes them ([mac-disk.md](mac-disk.md)).
 - Any other simulator a thread created is that thread's. Don't shut down or reboot a simulator you didn't boot.

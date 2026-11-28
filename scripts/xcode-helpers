@@ -1,0 +1,68 @@
+# Sourced, after scripts/build-paths, by the Mac scripts that build with xcodebuild or test on a check simulator.
+#
+#   strict_xcodebuild <xcodebuild arguments>   xcodebuild, failing on any Swift warning in our sources (ADR-021)
+#   check_simulator <name>                     the UDID of simulator <name>, created, slimmed and booted as needed
+#   delete_on_exit_in_worktree <udid>...       in a linked worktree, delete these simulators when the script exits
+#   shut_down_on_exit <udid>...                shut these simulators down when the script exits
+
+# Every Swift warning is an error (ADR-021), but a few slip past the compiler's flag, such as ones an Objective-C
+# header downgrades, so the Mac build fails on any warning in our sources that reaches the log too.
+strict_xcodebuild() {
+    local log="$BUILD_DIR/xcodebuild-$$.log"
+    mkdir -p "$BUILD_DIR"
+    xcodebuild "$@" 2>&1 | tee "$log"
+    if grep -E '^/.*\.swift:[0-9]+:[0-9]+: warning:' "$log" | grep -v '/SourcePackages/checkouts/'; then
+        echo "✘ Swift warnings above. Fix them: every warning is an error (ADR-021)."
+        exit 1
+    fi
+    rm -f "$log" # kept only when the build fails, to read
+}
+
+# The check simulators run the unsigned test build, so it never replaces the signed dev install (and its Keychain
+# sign-in) on the everyday simulator. GOODMAIL_SIMULATOR picks the device type of a new one (default: iPhone 18 Pro).
+# Callers take its output with $(...), where bash 3.2 ignores set -e, so every step that must work says so itself.
+check_simulator() {
+    local name=$1 udid
+    udid=$(xcrun simctl list devices available | grep -m1 -F "$name (" | grep -oE '[0-9A-F-]{36}' || true)
+    if [[ -z "$udid" ]]; then
+        udid=$(xcrun simctl create "$name" "${GOODMAIL_SIMULATOR:-iPhone 18 Pro}") && [[ -n "$udid" ]] || {
+            echo "✘ Could not create the simulator $name." >&2
+            return 1
+        }
+        # A new iOS 27.2 simulator ignores dark appearance until its first reboot, so the dark accessibility audit would
+        # quietly run in light. One boot and shutdown settles it.
+        xcrun simctl bootstatus "$udid" -b >/dev/null && xcrun simctl shutdown "$udid" || return 1
+    fi
+    # simslim, where installed, switches off the background services tests don't need before the simulator boots, which
+    # cuts it from about 200 processes to 70 (docs/setup/mac-simulators.md). It never reboots a simulator already booted.
+    if command -v simslim >/dev/null && xcrun simctl list devices | grep -F "($udid)" | grep -qF "(Shutdown)"; then
+        simslim on "$udid" --profile scripts/simslim-profile.json --preserve-boot-state >/dev/null ||
+            echo "⚠ simslim could not slim $name; testing on a stock simulator." >&2
+    fi
+    # Boot it up front: xcodebuild gives a booting simulator only 60 seconds, which a busy Mac can miss.
+    xcrun simctl bootstatus "$udid" -b >/dev/null || {
+        echo "✘ The simulator $name did not boot." >&2
+        return 1
+    }
+    echo "$udid"
+}
+
+# Simulators live on the internal disk, so a worktree's own ones go when its check or suite ends. The main checkout's
+# check simulator stays booted, to start warm next time; one that only the full UI suite uses is shut down instead.
+# Each call adds to the earlier ones, and one EXIT trap handles them all. A simulator may already be shut down, or
+# deleted by a script this one ran (scripts/check runs scripts/ui-suite), and set -e still holds in the trap, where a
+# failure would turn the run's exit status into 1: so each step may fail.
+deleted_at_exit=() shut_down_at_exit=()
+release_simulators() {
+    local udid
+    for udid in ${shut_down_at_exit[@]+"${shut_down_at_exit[@]}"}; do
+        xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true
+    done
+    for udid in ${deleted_at_exit[@]+"${deleted_at_exit[@]}"}; do
+        xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true
+        xcrun simctl delete "$udid" >/dev/null 2>&1 || true
+    done
+}
+trap release_simulators EXIT
+delete_on_exit_in_worktree() { [[ "$CHECK_NAME" == "Goodmail Check" ]] || deleted_at_exit+=("$@"); }
+shut_down_on_exit() { shut_down_at_exit+=("$@"); }

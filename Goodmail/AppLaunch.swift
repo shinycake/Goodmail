@@ -31,6 +31,9 @@ final class AppLaunch {
     /// Call once, before launch finishes.
     func start() {
         _ = BackgroundDatabaseWork.shared
+        #if DEBUG
+            TestAnimations.startIfRequested()
+        #endif
         switch PresenceTracker.shared.policy {
         case .suspends:
             BackgroundRefresh.register { [weak self] in try? await self?.services().syncScheduler.refresh }

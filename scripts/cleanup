@@ -8,10 +8,11 @@
 #   scripts/cleanup --done      this worktree's task is over: delete its build folder and its simulators now, then sweep
 #
 # The sweep deletes
-#   - shut-down simulators named "Goodmail …" that nobody has booted for a day, except the main "Goodmail Check";
+#   - shut-down simulators named "Goodmail …" that nobody has booted for a day, except the main "Goodmail Check" and
+#     "Goodmail Check2";
 #   - build output (DerivedData, SwiftPM scratch folders, archives) under BUILD_ROOT (scripts/build-paths) untouched for
 #     GOODMAIL_CLEANUP_DAYS days (default 3), or for an hour when its worktree is gone; other files there stay;
-#   - all but the newest three check result bundles in each results folder, and leftover xcodebuild logs;
+#   - all but the newest six check result bundles and UI suite logs in each results folder, and leftover xcodebuild logs;
 #   - SwiftPM .build folders inside Goodmail worktrees, wherever they are, and Goodmail's folders in Xcode's own DerivedData, both after
 #     the same number of days.
 # Each app and extension in a folder it deletes is first taken out of LaunchServices and PlugInKit, so Launchpad,
@@ -162,7 +163,7 @@ trap 'rmdir "$lock"' EXIT
 
 devices="$HOME/Library/Developer/CoreSimulator/Devices"
 while IFS='|' read -r state udid name; do
-    [[ "$state" == Shutdown && "$name" != "Goodmail Check" ]] || continue
+    [[ "$state" == Shutdown && "$name" != "Goodmail Check" && "$name" != "Goodmail Check2" ]] || continue
     key=${name##* }
     if [[ "$key" =~ -[0-9a-f]{8}$ && "$live_keys" != *" $key "* ]]; then
         remove_simulator "$udid" "$name" "its worktree is gone"
@@ -212,11 +213,16 @@ for folder in "$BUILD_ROOT"/worktrees/*/results; do
     ! orphaned "$folder" || remove_folder "$folder" "$BUSY_MINUTES" "its worktree is gone"
 done
 
-# Every check leaves a result bundle; the newest three per folder are plenty to read a failure.
+# Every check leaves a result bundle, one per simulator in a full UI suite run (scripts/ui-suite), which also keeps a
+# shard's log when it fails. The newest six of each per folder are plenty to read a failure.
 while IFS= read -r results; do
     while IFS= read -r bundle; do
         remove_folder "$bundle" "$BUSY_MINUTES" "an older check result"
-    done < <(ls -1dt "$results"/*.xcresult 2>/dev/null | tail -n +4)
+    done < <(ls -1dt "$results"/*.xcresult 2>/dev/null | tail -n +7)
+    while IFS= read -r log; do
+        ((dry_run)) || rm -f "$log"
+        echo "$(verb) $log"
+    done < <(ls -1t "$results"/ui-*.log 2>/dev/null | tail -n +7)
 done < <(find "$BUILD_ROOT" -maxdepth 3 -type d -name results 2>/dev/null)
 while IFS= read -r log; do
     ((dry_run)) || rm -f "$log"

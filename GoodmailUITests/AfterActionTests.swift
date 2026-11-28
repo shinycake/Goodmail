@@ -12,7 +12,7 @@ final class AfterActionTests: XCTestCase {
     @MainActor
     func testArchivingAMiddleConversationShowsTheOneBelow() {
         let app = launch()
-        let rows = subjects(ofFirst: 3, in: app)
+        let rows = app.subjects(ofFirst: 3)
         open(rows[1], in: app)
         tapReaderAction("Archive", in: app)
         XCTAssertTrue(reads(rows[2], in: app), "the conversation below takes the reader's place")
@@ -25,7 +25,7 @@ final class AfterActionTests: XCTestCase {
         let app = launch()
         // Travel holds two conversations, neither in the Inbox, so Archive leaves both rows where they are.
         openMailbox("mailbox.Label_2.synthetic-1", in: app)
-        let rows = subjects(ofFirst: 2, in: app)
+        let rows = app.subjects(ofFirst: 2)
         open(rows[1], in: app)
         tapReaderAction("Archive", in: app)
         XCTAssertTrue(reads(rows[0], in: app), "the conversation above takes the reader's place")
@@ -37,7 +37,7 @@ final class AfterActionTests: XCTestCase {
         let app = launch()
         // Receipts holds one conversation.
         openMailbox("mailbox.Label_1.synthetic-1", in: app)
-        let rows = subjects(ofFirst: 1, in: app)
+        let rows = app.subjects(ofFirst: 1)
         open(rows[0], in: app)
         tapReaderAction("Archive", in: app)
         XCTAssertTrue(app.scrollViews["thread"].waitForNonExistence(timeout: 5), "nothing is left to read")
@@ -50,7 +50,7 @@ final class AfterActionTests: XCTestCase {
     @MainActor
     func testReturnToTheListGoesBackToTheList() {
         let app = launch(afterRemoval: "list")
-        let rows = subjects(ofFirst: 3, in: app)
+        let rows = app.subjects(ofFirst: 3)
         open(rows[1], in: app)
         tapReaderAction("Archive", in: app)
         XCTAssertTrue(app.scrollViews["thread"].waitForNonExistence(timeout: 5), "the reader closes")
@@ -61,7 +61,7 @@ final class AfterActionTests: XCTestCase {
     @MainActor
     func testUndoReadsTheArchivedConversationAgain() {
         let app = launch()
-        let rows = subjects(ofFirst: 3, in: app)
+        let rows = app.subjects(ofFirst: 3)
         open(rows[1], in: app)
         tapReaderAction("Archive", in: app)
         XCTAssertTrue(reads(rows[2], in: app))
@@ -76,13 +76,12 @@ final class AfterActionTests: XCTestCase {
     @MainActor
     func testMarkAsUnreadGoesBackToTheList() {
         let app = launch()
-        let rows = subjects(ofFirst: 3, in: app)
+        let rows = app.subjects(ofFirst: 3)
         open(rows[1], in: app)
         tapReaderAction("Mark as Unread", in: app)
         XCTAssertTrue(app.scrollViews["thread"].waitForNonExistence(timeout: 5), "the reader closes")
         XCTAssertTrue(
-            app.collectionViews["mailbox"].cells.containing(NSPredicate(format: "label CONTAINS %@", rows[1]))
-                .firstMatch.waitForExistence(timeout: 5), "its row stays, for later")
+            app.row(showing: rows[1]).waitForExistence(timeout: 5), "its row stays, for later")
         attach(app, "after-mark-unread")
     }
 
@@ -91,7 +90,7 @@ final class AfterActionTests: XCTestCase {
     func testAnAlertOverAnOpenReaderTakesItsPlace() {
         // t19 is in the first account's Inbox, as "Weekend plans" (`SyntheticMailbox`).
         let app = launch(extra: ["-GoodmailTestArrivalThread", "synthetic-1/t19"])
-        let rows = subjects(ofFirst: 3, in: app).filter { $0 != "Weekend plans" }
+        let rows = app.subjects(ofFirst: 3).filter { $0 != "Weekend plans" }
         open(rows[0], in: app)
         postTestTrigger("arrival")
         XCTAssertTrue(
@@ -106,7 +105,7 @@ final class AfterActionTests: XCTestCase {
     func testArchivingFromSnoozedShowsTheNextSnoozed() {
         let app = launch(extra: ["-GoodmailSyntheticSnoozed", "YES"])
         openMailbox("mailbox.snoozed", in: app, list: "snoozed")
-        let rows = subjects(ofFirst: 2, in: app, list: "snoozed")
+        let rows = app.subjects(ofFirst: 2, list: "snoozed")
         open(rows[0], in: app, list: "snoozed")
         tapReaderAction("Archive", in: app)
         XCTAssertTrue(reads(rows[1], in: app), "the next snoozed conversation takes the reader's place")
@@ -124,7 +123,7 @@ final class AfterActionTests: XCTestCase {
         let unread = app.buttons["Unread"]
         XCTAssertTrue(unread.waitForExistence(timeout: 5), "a tap opens the filter's choices")
         unread.tap()
-        let rows = subjects(ofFirst: 2, in: app)
+        let rows = app.subjects(ofFirst: 2)
         open(rows[0], in: app)
         tapReaderAction("Archive", in: app)
         XCTAssertTrue(reads(rows[1], in: app))
@@ -134,18 +133,11 @@ final class AfterActionTests: XCTestCase {
         XCTAssertTrue(reads(rows[0], in: app), "Undo reads it again")
         if UIDevice.current.userInterfaceIdiom == .phone { app.navigationBars.buttons.element(boundBy: 0).tap() }
         XCTAssertTrue(
-            app.collectionViews["mailbox"].cells.containing(NSPredicate(format: "label CONTAINS %@", rows[0]))
-                .firstMatch.waitForExistence(timeout: 5), "its row is listed again, read")
+            app.row(showing: rows[0]).waitForExistence(timeout: 5), "its row is listed again, read")
         attach(app, "after-undo-unread")
     }
 
     // MARK: Helpers
-
-    /// The synthetic mailboxes' subjects (`SyntheticMailbox`), which tell their rows apart.
-    private static let syntheticSubjects = [
-        "Lunch tomorrow?", "סיכום פגישה", "Your receipt from Apple", "Weekend plans", "[goodmail] CI passed",
-        "Quarterly report draft — please review by Thursday", "תזכורת: תור לרופא", "Photos from the trip",
-    ]
 
     /// The synthetic mailboxes, seeded fresh each launch, with nothing arriving during the test. `afterRemoval` sets
     /// After Archive or Delete.
@@ -162,44 +154,10 @@ final class AfterActionTests: XCTestCase {
         return app
     }
 
-    /// The subjects of the list's first `count` conversations, top to bottom, skipping the section headers. It reads
-    /// one snapshot of the list: cells bound by index re-resolve on every query, so asking each for its descendants
-    /// mixes up rows.
-    @MainActor
-    private func subjects(
-        ofFirst count: Int, in app: XCUIApplication, list: String = "mailbox", line: UInt = #line
-    ) -> [String] {
-        let rows = app.collectionViews[list]
-        var found: [String] = []
-        XCTAssertTrue(
-            waitUntil {
-                found = (try? rows.snapshot()).map(Self.rowSubjects) ?? []
-                return found.count >= count
-            }, "the list shows \(count) conversations", line: line)
-        let first = Array(found.prefix(count))
-        XCTAssertEqual(Set(first).count, first.count, "neighboring rows have different subjects", line: line)
-        return first
-    }
-
-    /// The subject each conversation row in `list` shows, top to bottom.
-    @MainActor
-    private static func rowSubjects(in list: any XCUIElementSnapshot) -> [String] {
-        list.children.filter { $0.elementType == .cell }.sorted { $0.frame.minY < $1.frame.minY }.compactMap { cell in
-            let labels = labels(in: cell)
-            return syntheticSubjects.first { subject in labels.contains { $0.contains(subject) } }
-        }
-    }
-
-    @MainActor
-    private static func labels(in snapshot: any XCUIElementSnapshot) -> [String] {
-        [snapshot.label] + snapshot.children.flatMap(labels)
-    }
-
     /// Opens the conversation whose row shows `subject`.
     @MainActor
     private func open(_ subject: String, in app: XCUIApplication, list: String = "mailbox", line: UInt = #line) {
-        let row = app.collectionViews[list].cells.containing(NSPredicate(format: "label CONTAINS %@", subject))
-            .firstMatch
+        let row = app.row(showing: subject, list: list)
         XCTAssertTrue(row.waitForExistence(timeout: 10), line: line)
         XCTAssertTrue(
             retry({ row.tap() }, until: { app.scrollViews["thread"].exists }), "the conversation opens", line: line)
