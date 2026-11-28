@@ -52,7 +52,7 @@ struct SyncedMailStateTests {
     private func sync(_ database: MailDatabase, at date: Date) async throws -> SettingsSyncPass {
         let ledger = database === phone ? phoneLedger : macLedger
         return try await SettingsSync(
-            cloud: cloud, ledger: ledger, families: database.syncedMailState, now: { date }
+            cloud: cloud, ledger: ledger, families: OffMainDatabase(database).syncedMailState, now: { date }
         ).sync()
     }
 

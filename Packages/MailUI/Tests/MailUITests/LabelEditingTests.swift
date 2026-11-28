@@ -41,7 +41,7 @@ struct LabelEditingTests {
 
     @Test func moveOffersANewLabelOnlyForOneAccount() {
         let one = MoveViewModel(
-            threads: [ThreadSummary.ID(accountID: gmail.id, threadID: "t")], from: .inbox, labels: { _ in [] },
+            threads: [ThreadSummary.ID(accountID: gmail.id, threadID: "t")], from: .inbox, labels: [],
             editor: { _ in Self.editor }, actions: nil)
         #expect(one.editor != nil)
 
@@ -49,7 +49,7 @@ struct LabelEditingTests {
             threads: [
                 ThreadSummary.ID(accountID: gmail.id, threadID: "t"),
                 ThreadSummary.ID(accountID: icloud.id, threadID: "u"),
-            ], from: .inbox, labels: { _ in [] }, editor: { _ in Self.editor }, actions: nil)
+            ], from: .inbox, labels: [], editor: { _ in Self.editor }, actions: nil)
         #expect(several.editor == nil, "each account has its own labels")
     }
 

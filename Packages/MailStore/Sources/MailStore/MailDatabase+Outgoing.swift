@@ -16,7 +16,7 @@ extension MailDatabase: OutgoingStore {
     }
 
     public func sender(for account: AccountID) throws -> Contact {
-        let record = try pool.read { db in try AccountRecord.fetchOne(db, key: account.rawValue) }
+        let record = try read { db in try AccountRecord.fetchOne(db, key: account.rawValue) }
         guard let record else { throw AccountMissing(account: account) }
         return Contact(name: record.name, address: record.email)
     }
@@ -58,7 +58,7 @@ extension MailDatabase: OutgoingStore {
     }
 
     public func savedCopy(of draft: Draft.ID) throws -> Message.ID? {
-        try pool.read { db in
+        try read { db in
             try Row.fetchOne(
                 db, sql: "SELECT accountID, messageID FROM savedDraftCopy WHERE draftID = ?",
                 arguments: [draft.uuidString]
@@ -104,7 +104,7 @@ extension MailDatabase: OutgoingStore {
 
     public func dueMessages(for account: AccountID, by date: Date) throws -> [OutgoingMessage] {
         let queued = OutgoingMessage.Delivery.queued.condition
-        return try pool.read { db in
+        return try read { db in
             try Self.readableOutgoing(
                 db, sql: "WHERE accountID = ? AND \(queued.sql) AND sendAt <= ? ORDER BY sendAt",
                 arguments: [account.rawValue] + queued.arguments + [date])
@@ -112,7 +112,7 @@ extension MailDatabase: OutgoingStore {
     }
 
     public func uploadingMessages(for account: AccountID) throws -> [OutgoingMessage] {
-        try pool.read { db in
+        try read { db in
             try Self.readableOutgoing(
                 db,
                 sql: "WHERE accountID = ? AND \(OutgoingMessage.Delivery.Stage.uploading.condition) ORDER BY sendAt",
@@ -148,41 +148,10 @@ extension MailDatabase: OutgoingStore {
         }
     }
 
-    /// Messages that failed to send, in every account. Emits now and after every change.
-    public func failedMessages() -> AsyncThrowingStream<[OutgoingMessage], any Error> {
-        observe { db in
-            try Self.readableOutgoing(
-                db, sql: "WHERE \(OutgoingMessage.Delivery.Stage.failed.condition) ORDER BY sendAt", arguments: [])
-        }
-    }
-
-    /// Messages waiting for the time the writer picked, in every account, soonest first. Emits now and after every
-    /// change.
-    public func scheduledMessages() -> AsyncThrowingStream<[OutgoingMessage], any Error> {
-        observe { db in
-            try Self.readableOutgoing(
-                db, sql: "WHERE purpose = ? AND \(OutgoingMessage.Delivery.Stage.queued.condition) ORDER BY sendAt",
-                arguments: [OutgoingMessage.Purpose.scheduledSend.rawValue])
-        }
-    }
-
-    /// Everything queued to go in one conversation, whatever its purpose and however far it got, in the order it
-    /// goes. The thread lives inside each draft, so the account's queue, a handful of rows, is read and filtered.
-    /// Emits now and after every change.
-    public func outgoingMessages(inThread thread: ThreadSummary.ID) -> AsyncThrowingStream<[OutgoingMessage], any Error>
-    {
-        observe { db in
-            try Self.readableOutgoing(
-                db, sql: "WHERE accountID = ? ORDER BY sendAt", arguments: [thread.accountID.rawValue]
-            )
-            .filter { $0.draft.threadID == thread.threadID }
-        }
-    }
-
     /// The earliest time a waiting message falls due, in any account. Skips rows that don't read, as the queue
     /// does, so nothing asks to wake for one; it reads the rows soonest first and stops at the first that reads.
     public func nextSendDate() throws -> Date? {
-        try pool.read { db in
+        try read { db in
             let queued = try Row.fetchCursor(
                 db,
                 sql: """
@@ -222,7 +191,7 @@ extension MailDatabase: OutgoingStore {
 
     /// The messages the rows hold, for the lists and the queue. A row that doesn't read is left out and logged, so
     /// the rest of its account's queue still goes, and stays where it is for a build that reads it.
-    private static func readableOutgoing(_ db: Database, sql: String, arguments: StatementArguments) throws
+    fileprivate static func readableOutgoing(_ db: Database, sql: String, arguments: StatementArguments) throws
         -> [OutgoingMessage]
     {
         try rows(db, sql: sql, arguments: arguments).compactMap(readable)
@@ -254,6 +223,39 @@ extension MailDatabase: OutgoingStore {
             draft: try JSONDecoder().decode(Draft.self, from: Data(draft.utf8)),
             purpose: OutgoingMessage.Purpose(rawValue: purpose) ?? .saveDraft, sendAt: row["sendAt"],
             delivery: try OutgoingMessage.Delivery(failure: row["failure"], upload: row["upload"]))
+    }
+}
+
+extension MailFollowing {
+    /// Messages that failed to send, in every account. Emits now and after every change.
+    public func failedMessages() -> AsyncThrowingStream<[OutgoingMessage], any Error> {
+        followed.observe { db in
+            try MailDatabase.readableOutgoing(
+                db, sql: "WHERE \(OutgoingMessage.Delivery.Stage.failed.condition) ORDER BY sendAt", arguments: [])
+        }
+    }
+
+    /// Messages waiting for the time the writer picked, in every account, soonest first. Emits now and after every
+    /// change.
+    public func scheduledMessages() -> AsyncThrowingStream<[OutgoingMessage], any Error> {
+        followed.observe { db in
+            try MailDatabase.readableOutgoing(
+                db, sql: "WHERE purpose = ? AND \(OutgoingMessage.Delivery.Stage.queued.condition) ORDER BY sendAt",
+                arguments: [OutgoingMessage.Purpose.scheduledSend.rawValue])
+        }
+    }
+
+    /// Everything queued to go in one conversation, whatever its purpose and however far it got, in the order it
+    /// goes. The thread lives inside each draft, so the account's queue, a handful of rows, is read and filtered.
+    /// Emits now and after every change.
+    public func outgoingMessages(inThread thread: ThreadSummary.ID) -> AsyncThrowingStream<[OutgoingMessage], any Error>
+    {
+        followed.observe { db in
+            try MailDatabase.readableOutgoing(
+                db, sql: "WHERE accountID = ? ORDER BY sendAt", arguments: [thread.accountID.rawValue]
+            )
+            .filter { $0.draft.threadID == thread.threadID }
+        }
     }
 }
 

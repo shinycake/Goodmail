@@ -78,7 +78,7 @@ struct SenderTests {
 
     @Test func mailFromAnAccountThatCannotBeReadStaysQueued() async throws {
         try await commands().send(draft(), after: .zero)
-        try await database.pool.write { db in try db.execute(sql: "DELETE FROM account") }
+        try database.writeUnannounced { db in try db.execute(sql: "DELETE FROM account") }
 
         #expect(try await bench.deliver().isEmpty)
         #expect(server.sent.isEmpty)
@@ -223,7 +223,7 @@ struct SenderTests {
 
     @Test func aFailureStoredAsASentenceByAnEarlierBuildReadsAsRefused() async throws {
         try await commands().send(draft(), after: .zero)
-        try await database.pool.write { db in
+        try database.writeUnannounced { db in
             try db.execute(sql: "UPDATE outgoing SET failure = 'The server refused the message.'")
         }
         var failed = database.failedMessages().makeAsyncIterator()
@@ -263,7 +263,7 @@ struct SenderTests {
         try database.removeAccount(account)
 
         #expect(try database.accounts().map(\.id) == [other])
-        let left = try await database.pool.read { db in
+        let left = try database.read { db in
             try ["thread", "threadLabel", "label", "syncState", "outbox", "outgoing"].map { table in
                 try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM \(table) WHERE accountID = ?", arguments: ["a1"])
             }

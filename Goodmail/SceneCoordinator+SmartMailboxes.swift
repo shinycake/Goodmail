@@ -9,10 +9,16 @@ extension SceneCoordinator {
     /// is all on the device, so there is nothing older to fetch.
     func smartMailboxViewController(for id: SmartMailbox.ID) -> MailboxViewController {
         let model = model
+        let known = sidebar?.smartDirectory.mailboxes.first { $0.id == id }
+        // A box the sidebar hasn't shown yet, as when a window opens on it, is named once it is read.
+        let database = model.database
+        let naming: MailboxViewModel.Naming? =
+            if known == nil { { await Self.title(of: id, in: database) } } else { nil }
         return MailboxViewController(
             viewModel: MailboxViewModel(
                 mailbox: .allMail,
-                title: smartMailbox(id)?.title ?? SmartMailbox.sectionTitle,
+                title: known?.title ?? SmartMailbox.sectionTitle,
+                naming: naming,
                 accounts: model.accounts,
                 source: .flat { model.database.threads(inSmartMailbox: id, mailboxNames: Mailbox.standardNames) },
                 pins: { model.database.pinnedThreads() },
@@ -29,9 +35,9 @@ extension SceneCoordinator {
             draftsDock: drafts.dock)
     }
 
-    /// The box as stored now, which names its list and its window; `nil` once it's deleted.
-    func smartMailbox(_ id: SmartMailbox.ID) -> SmartMailbox? {
-        try? model.database.smartMailboxes().first { $0.id == id }
+    /// The box's title as stored now; `nil` once it's deleted or can't be read.
+    private nonisolated static func title(of id: SmartMailbox.ID, in database: OffMainDatabase) async -> String? {
+        try? await database.offMain { try $0.smartMailboxes().first { $0.id == id }?.title }
     }
 
     /// New Smart Mailbox, wherever the window shows mail.

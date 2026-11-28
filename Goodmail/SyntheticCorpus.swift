@@ -7,7 +7,7 @@
     /// corpus into the synthetic mailbox as whole threads, messages and bodies included, so the reader and compose
     /// can be checked in the simulator without signing in. Each corpus folder is one thread at the top of the first
     /// account's Inbox. Attachments list but don't open: their data would come from a provider.
-    enum SyntheticCorpus {
+    nonisolated enum SyntheticCorpus {
         static var requestedFolder: URL? {
             UserDefaults.standard.string(forKey: "GoodmailSyntheticCorpus").map { URL(filePath: $0) }
         }

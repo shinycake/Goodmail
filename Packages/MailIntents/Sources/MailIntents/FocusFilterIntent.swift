@@ -22,7 +22,7 @@ public struct AccountsFocusFilter: SetFocusFilterIntent {
     public init() {}
 
     public func perform() async throws -> some IntentResult {
-        try host.apply(FocusFilter(showing: accounts))
+        try await host.apply(FocusFilter(showing: accounts))
         return .result()
     }
 }

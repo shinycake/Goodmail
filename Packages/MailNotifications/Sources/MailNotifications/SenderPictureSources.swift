@@ -17,7 +17,7 @@ public struct SenderPictureSources: Sendable {
     }
 
     /// The picture as image data, or `nil` when there is none, and the sender's initials should show.
-    public func picture(for address: String) async -> Data? {
+    @concurrent public func picture(for address: String) async -> Data? {
         if let photo = ContactPhotos.photo(for: address) { return photo }
         if let photo = await profiles.photo(for: address) { return photo }
         return await logos.logo(for: address)

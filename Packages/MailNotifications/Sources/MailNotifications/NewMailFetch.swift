@@ -63,16 +63,16 @@ public struct NewMailFetch: Sendable {
     }
 
     /// The app badge after the fetch, as `MailDatabase.badgeCount()` counts it.
-    public func badgeCount() throws -> Int {
+    @concurrent public func badgeCount() async throws -> Int {
         try database.badgeCount()
     }
 
     /// Takes down the alerts whose mail the catch-up found dealt with elsewhere (`HandledAlerts`).
-    public func dismissHandledAlerts() async {
+    @concurrent public func dismissHandledAlerts() async {
         await HandledAlerts.dismiss(in: database)
     }
 
-    public func run(_ target: Target) async throws -> Outcome {
+    @concurrent public func run(_ target: Target) async throws -> Outcome {
         guard let account = target.account(among: try database.accounts()) else { throw Failure.unknownAccount }
         let client = try provider(account)
         let caughtUp = try await SyncEngine(accountID: account.id, provider: client, store: database).catchUp()

@@ -30,7 +30,7 @@ struct SyncedAccountSettingsTests {
 
     @discardableResult
     private func sync(_ database: MailDatabase, ledger: SharedLedger) async throws -> SettingsSyncPass {
-        try await SettingsSync(cloud: cloud, ledger: ledger, families: database.syncedSettings).sync()
+        try await SettingsSync(cloud: cloud, ledger: ledger, families: OffMainDatabase(database).syncedSettings).sync()
     }
 
     @Test func settingsMadeOnOneDeviceReachTheOther() async throws {

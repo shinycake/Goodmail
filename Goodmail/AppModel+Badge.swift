@@ -22,15 +22,13 @@ extension AppModel {
     }
 
     private func badgeSources() async -> [AccountID: BadgeSource] {
-        let database = database
-        return (try? await Self.offMain { try database.badgeSources() }) ?? [:]
+        (try? await database.offMain { try $0.badgeSources() }) ?? [:]
     }
 
     /// Stores the choice. The badge follows by itself, since `AppBadge` watches the count.
     private func setBadgeSource(_ source: BadgeSource, for id: AccountID) async {
-        let database = database
         do {
-            try await Self.offMain { try database.setBadgeSource(source, for: id) }
+            try await database.offMain { try $0.setBadgeSource(source, for: id) }
         } catch {
             Logger.push.error("Couldn't store the badge choice: \(error, privacy: .public)")
         }

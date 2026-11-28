@@ -3,18 +3,6 @@ import GRDB
 public import MailCore
 
 extension MailDatabase {
-    /// Threads whose subject, sender, snippet or cached bodies hold each word of `text` (as a word prefix), with
-    /// `including`, the provider's matches for it; newest first, Spam and Trash left out as in Gmail's search.
-    /// Emits now and after every change.
-    public func search(_ text: String, including ids: [ThreadSummary.ID] = [])
-        -> AsyncThrowingStream<[ThreadSummary], any Error>
-    {
-        observe { db in
-            guard let query = try Self.searchQuery(text, including: ids) else { return [] }
-            return try Self.fetchThreads(db, query: query, limit: Self.searchLimit + ids.count)
-        }
-    }
-
     /// Enough local matches to scroll through; the provider's, paged in as the list nears its end, come on top.
     static let searchLimit = 300
 
@@ -85,5 +73,19 @@ extension MailDatabase {
         guard !conditions.isEmpty else { return nil }
         let arguments = conditions.reduce(into: StatementArguments()) { $0 += $1.arguments }
         return ("(" + conditions.map(\.sql).joined(separator: " AND ") + ")", arguments)
+    }
+}
+
+extension MailFollowing {
+    /// Threads whose subject, sender, snippet or cached bodies hold each word of `text` (as a word prefix), with
+    /// `including`, the provider's matches for it; newest first, Spam and Trash left out as in Gmail's search.
+    /// Emits now and after every change.
+    public func search(_ text: String, including ids: [ThreadSummary.ID] = [])
+        -> AsyncThrowingStream<[ThreadSummary], any Error>
+    {
+        followed.observe { db in
+            guard let query = try MailDatabase.searchQuery(text, including: ids) else { return [] }
+            return try MailDatabase.fetchThreads(db, query: query, limit: MailDatabase.searchLimit + ids.count)
+        }
     }
 }

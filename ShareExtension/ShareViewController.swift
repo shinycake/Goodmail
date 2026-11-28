@@ -94,12 +94,13 @@ final class ShareViewController: UIViewController, UIAdaptivePresentationControl
     {
         let database = session.database
         let suggester = RecipientSuggester(
-            writtenIn: { try database.contacts(matching: $0) }, addressBook: SystemAddressBook())
+            writtenIn: { typed in try await database.offMain { try $0.contacts(matching: typed) } },
+            addressBook: SystemAddressBook())
         let draft = Draft(accountID: account.id, subject: shared.subject, attachments: shared.files)
         return ComposeViewController(
             viewModel: ComposeViewModel(
                 draft: draft, accountEmail: account.email, senders: session.accounts, shared: shared.body,
-                signature: { try? database.signature(for: $0) },
+                signature: { session.signatures[$0] },
                 suggest: { await suggester.suggestions(for: $0) },
                 // As written, the app saves it in Drafts after its usual wait; leaving the screen, at once, in case
                 // the sheet doesn't come back. The writer's own Save Draft goes from here.

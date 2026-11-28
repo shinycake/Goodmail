@@ -46,18 +46,17 @@ extension AppModel {
     }
 
     func notificationLevels() async -> [AccountID: NotificationLevel] {
-        let (database, ids) = (database, accounts.map(\.id))
+        let ids = accounts.map(\.id)
         return
-            (try? await Self.offMain {
+            (try? await database.offMain { database in
                 Dictionary(
                     uniqueKeysWithValues: try ids.map { ($0, try database.notifications(for: $0, now: .now).level) })
             }) ?? [:]
     }
 
     func setNotificationLevel(_ level: NotificationLevel, for id: AccountID) async {
-        let database = database
         do {
-            try await Self.offMain { try database.setNotificationLevel(level, for: id, now: .now) }
+            try await database.offMain { try $0.setNotificationLevel(level, for: id, now: .now) }
         } catch {
             Logger.push.error("Couldn't store the alert choice: \(error, privacy: .public)")
         }
@@ -67,8 +66,8 @@ extension AppModel {
     /// Records the Inbox as seen while the app shows it, so mail read here never alerts later when its thread
     /// changes again.
     func markInboxSeen() async {
-        let (database, ids) = (database, accounts.map(\.id))
-        try? await Self.offMain {
+        let ids = accounts.map(\.id)
+        try? await database.offMain { database in
             for id in ids {
                 if let newest = try database.newestInboxDate(for: id) {
                     try database.markSeen(through: newest, for: id, now: .now)
@@ -101,11 +100,6 @@ extension AppModel {
             Logger.push.error("No push for an account: \(error, privacy: .public)")
             return nil
         }
-    }
-
-    /// Database work off the main actor: any write can wait out another process's lock (ADR-002).
-    @concurrent static func offMain<T: Sendable>(_ work: @Sendable () throws -> T) async throws -> T {
-        try work()
     }
 }
 

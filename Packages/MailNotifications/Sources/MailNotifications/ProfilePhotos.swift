@@ -20,7 +20,8 @@ public struct ProfilePhotos: Sendable {
     }
 
     /// The person's photo, or `nil` when no address book has one or it can't be fetched now.
-    public func photo(for address: String) async -> Data? {
+    /// Off the caller's actor: it reads the address book from the database and the kept photo from disk.
+    @concurrent public func photo(for address: String) async -> Data? {
         guard let url = photoURL(address) else { return nil }
         let file = directory.appending(path: Self.fileName(for: url))
         if let kept = try? Data(contentsOf: file) { return kept }

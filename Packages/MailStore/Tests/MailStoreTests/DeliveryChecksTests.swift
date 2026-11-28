@@ -54,7 +54,7 @@ struct DeliveryChecksTests {
         let database = try MailDatabase(url: url)
         #expect(try database.dueMessages(for: account, by: Self.now).map(\.id) == [queued.id])
         #expect(try database.uploadingMessages(for: account).isEmpty)
-        let failed = try database.pool.read { db in
+        let failed = try database.read { db in
             try String.fetchOne(db, sql: "SELECT failure FROM outgoing WHERE id = ?", arguments: [both.id.uuidString])
         }
         #expect(failed == "rejected", "the writer sees it failed rather than it going a second time")
@@ -88,19 +88,19 @@ struct DeliveryChecksTests {
         try database.save(Account(id: account, email: "me@example.com", color: .teal, service: .gmail))
         let (both, bothJSON) = try draft("both")
         #expect(throws: DatabaseError.self) {
-            try database.pool.write { db in
+            try database.writeUnannounced { db in
                 try insertOutgoing(db, bothJSON, id: both.id, failure: "rejected", upload: UUID().uuidString)
             }
         }
         #expect(throws: DatabaseError.self) {
-            try database.pool.write { db in
+            try database.writeUnannounced { db in
                 try db.execute(
                     sql: "INSERT INTO snooze (accountID, threadID, wakeAt, keeper) VALUES (?, 't', ?, NULL)",
                     arguments: [account.rawValue, Self.now])
             }
         }
         #expect(throws: DatabaseError.self) {
-            try database.pool.write { db in
+            try database.writeUnannounced { db in
                 try db.execute(
                     sql: "INSERT INTO snooze (accountID, threadID, wokeAt, keeper) VALUES (?, 't', ?, 'thisDevice')",
                     arguments: [account.rawValue, Self.now])
@@ -116,7 +116,7 @@ struct DeliveryChecksTests {
         let later = Self.now.addingTimeInterval(60)
         try database.enqueue(OutgoingMessage(draft: queued, sendAt: later))
         // Both fall due before it.
-        try database.pool.write { db in
+        try database.writeUnannounced { db in
             try insertOutgoing(db, #"{"from":"a newer build"}"#, id: UUID(), failure: nil, upload: nil)
             try insertOutgoing(db, badUploadJSON, id: badUpload.id, failure: nil, upload: "not an upload")
         }
@@ -130,13 +130,13 @@ struct DeliveryChecksTests {
         let database = try MailDatabase(url: url)
         try database.save(Account(id: account, email: "me@example.com", color: .teal, service: .gmail))
         let id = UUID()
-        try database.pool.write { db in
+        try database.writeUnannounced { db in
             try insertOutgoing(db, #"{"from":"a newer build"}"#, id: id, failure: nil, upload: nil)
         }
 
         #expect(throws: (any Error).self) { try database.requeue(id, as: .scheduledSend, at: Self.now) }
         #expect(throws: (any Error).self) { try database.cancel(id) }
-        let purpose = try database.pool.read { db in
+        let purpose = try database.read { db in
             try String.fetchOne(db, sql: "SELECT purpose FROM outgoing WHERE id = ?", arguments: [id.uuidString])
         }
         #expect(purpose == "send", "neither change was written")

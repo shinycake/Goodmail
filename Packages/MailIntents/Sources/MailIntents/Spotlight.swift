@@ -23,7 +23,7 @@ public struct SpotlightIndexer: Sendable {
     /// Indexes the newest conversations, and takes out the newest ones moved to Spam or Trash since. Reads the
     /// database, so it runs off the caller's actor.
     @concurrent public func refresh() async throws {
-        let change = try Catalog(host: host).spotlightChange(window: Self.window)
+        let change = try await Catalog(host: host).spotlightChange(window: Self.window)
         try await index.index(change.index)
         try await index.remove(change.remove)
     }
@@ -62,9 +62,13 @@ struct SystemSpotlightIndex: SpotlightIndex {
 extension Catalog {
     /// What Spotlight should hold: the newest `window` conversations outside Spam and Trash, without their
     /// messages, and the newest in Spam and Trash to take out.
-    func spotlightChange(window: Int) throws -> (index: [ThreadEntity], remove: [String]) {
-        let current = try threads(ids: host.threads(in: .allMail, limit: window).map(\.id), withMessages: false)
-        let gone = try [Mailbox.spam, .trash].flatMap { try host.threads(in: $0, limit: window) }
+    func spotlightChange(window: Int) async throws -> (index: [ThreadEntity], remove: [String]) {
+        // Read side by side: the three mailboxes don't depend on one another.
+        async let newest = host.threads(in: .allMail, limit: window)
+        async let spam = host.threads(in: .spam, limit: window)
+        async let trash = host.threads(in: .trash, limit: window)
+        let current = try await threads(ids: newest.map(\.id), withMessages: false)
+        let gone = try await spam + trash
         return (current, gone.map { EntityID.string($0.id) })
     }
 }

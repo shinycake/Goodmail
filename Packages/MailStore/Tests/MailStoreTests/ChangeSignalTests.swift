@@ -65,7 +65,7 @@ struct ChangeSignalTests {
 
         // Written without the signal, as one the suspended app heard but couldn't act on.
         let pushed = thread("pushed", minutesAgo: 1)
-        try await extensionProcess.pool.write { try MailDatabase.upsert(pushed, in: $0) }
+        try extensionProcess.writeUnannounced { try MailDatabase.upsert(pushed, in: $0) }
 
         MailDatabase.resumeAll()
         #expect(try await inbox.next()?.map(\.id.threadID) == ["pushed", "synced"])

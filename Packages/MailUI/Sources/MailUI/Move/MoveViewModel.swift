@@ -24,9 +24,9 @@ public final class MoveViewModel {
     private let mailbox: Mailbox
     private let actions: MailActions?
 
-    /// `labels` gives an account's labels, and `editor` what changes them.
+    /// `labels` are those of the threads' account (`account(of:)`), and `editor` gives what changes an account's.
     public init(
-        threads: [ThreadSummary.ID], from mailbox: Mailbox, labels: (AccountID) -> [MailLabel],
+        threads: [ThreadSummary.ID], from mailbox: Mailbox, labels: [MailLabel],
         editor: (AccountID) -> LabelEditor? = { _ in nil }, actions: MailActions?
     ) {
         self.threads = threads
@@ -45,14 +45,19 @@ public final class MoveViewModel {
                 destination: .trash, name: Mailbox.trash.title(labels: []), symbol: Mailbox.trash.symbol, color: nil),
         ]
         .filter { $0.destination != current }
-        let accounts = Set(threads.map(\.accountID))
-        let account = accounts.count == 1 ? accounts.first : nil
+        let account = Self.account(of: threads)
         self.labels =
-            account.map { account in
-                labels(account).filter { $0.kind == .user && !$0.isHidden }.map(Self.choice)
-                    .filter { $0.destination != current }
-            } ?? []
+            account == nil
+            ? []
+            : labels.filter { $0.kind == .user && !$0.isHidden }.map(Self.choice).filter { $0.destination != current }
         self.editor = account.flatMap(editor)
+    }
+
+    /// The one account the threads come from, whose labels Move offers; `nil` when they come from several, since each
+    /// account has its own labels.
+    public static func account(of threads: [ThreadSummary.ID]) -> AccountID? {
+        let accounts = Set(threads.map(\.accountID))
+        return accounts.count == 1 ? accounts.first : nil
     }
 
     private static func choice(_ label: MailLabel) -> Choice {

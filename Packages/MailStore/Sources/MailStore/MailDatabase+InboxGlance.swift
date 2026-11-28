@@ -24,12 +24,6 @@ public struct InboxGlance: Equatable, Sendable {
 }
 
 extension MailDatabase {
-    /// The unified Inbox's newest `limit` threads and its pinned ones, with the accounts and their unread counts.
-    /// Emits now and after every change. Like the Inbox, it shows only the accounts the Focus lets through.
-    public func inboxGlance(limit: Int) -> AsyncThrowingStream<InboxGlance, any Error> {
-        observe { db in try Self.inboxGlance(limit: limit, in: db) }
-    }
-
     static func inboxGlance(limit: Int, in db: Database) throws -> InboxGlance {
         let inbox = threadSelection(in: .inbox)
         let newest = try fetchThreads(db, query: inbox, limit: limit)
@@ -51,5 +45,13 @@ extension MailDatabase {
             pinned: Set(pinnedThreads.map(\.id)),
             unread: Dictionary(
                 uniqueKeysWithValues: unread.map { (AccountID(rawValue: $0["account"]), $0["count"] as Int) }))
+    }
+}
+
+extension MailFollowing {
+    /// The unified Inbox's newest `limit` threads and its pinned ones, with the accounts and their unread counts.
+    /// Emits now and after every change. Like the Inbox, it shows only the accounts the Focus lets through.
+    public func inboxGlance(limit: Int) -> AsyncThrowingStream<InboxGlance, any Error> {
+        followed.observe { db in try MailDatabase.inboxGlance(limit: limit, in: db) }
     }
 }

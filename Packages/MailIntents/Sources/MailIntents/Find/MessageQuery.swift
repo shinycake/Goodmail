@@ -246,17 +246,17 @@ public struct MessageQuery: EntityStringQuery, EntityPropertyQuery {
     }
 
     public func entities(for identifiers: [String]) async throws -> [MessageEntity] {
-        try Catalog(host: host).messages(identifiers)
+        try await Catalog(host: host).messages(identifiers)
     }
 
     /// The cached messages of the conversations search finds.
     public func entities(matching string: String) async throws -> [MessageEntity] {
-        try Catalog(host: host).threads(matching: string).flatMap(\.messages)
+        try await Catalog(host: host).threads(matching: string).flatMap(\.messages)
     }
 
     /// The cached messages of the newest conversations in the Inbox.
     public func suggestedEntities() async throws -> [MessageEntity] {
-        try Catalog(host: host).recentThreads().flatMap(\.messages)
+        try await Catalog(host: host).recentThreads().flatMap(\.messages)
     }
 }
 

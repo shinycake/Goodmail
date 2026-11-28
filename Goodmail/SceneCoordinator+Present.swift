@@ -16,15 +16,7 @@ extension SceneCoordinator {
         case .changeLabels(let ids):
             presentLabelPicker(for: ids)
         case .move(let ids, let mailbox):
-            guard let presenter = topViewController() else { return }
-            let database = model.database
-            let picker = MoveViewController(
-                viewModel: MoveViewModel(
-                    threads: ids, from: mailbox, labels: { (try? database.labels(for: $0)) ?? [] },
-                    editor: { [model] in model.labelEditor(for: $0) }, actions: actions))
-            let navigation = UINavigationController(rootViewController: picker)
-            navigation.sheetPresentationController?.detents = [.medium(), .large()]
-            presenter.present(navigation, animated: true)
+            presentMovePicker(for: ids, from: mailbox)
         case .settings(let page):
             switch window.interactionStyle.settingsPlacement {
             case .cover: showSettings(at: page)
@@ -68,16 +60,36 @@ extension SceneCoordinator {
         }
     }
 
+    /// The move picker for `ids`, once their account's labels are read off the main actor; with none when the threads
+    /// come from several accounts or the labels can't be read. A newer picker replaces it.
+    private func presentMovePicker(for ids: [ThreadSummary.ID], from mailbox: Mailbox) {
+        pickingLabels?.cancel()
+        let account = MoveViewModel.account(of: ids)
+        pickingLabels = Task { [weak self, database = model.database] in
+            var labels: [MailLabel] = []
+            if let account { labels = (try? await database.offMain { try $0.labels(for: account) }) ?? [] }
+            guard !Task.isCancelled, let self, let presenter = topViewController() else { return }
+            let picker = MoveViewController(
+                viewModel: MoveViewModel(
+                    threads: ids, from: mailbox, labels: labels,
+                    editor: { [model] in model.labelEditor(for: $0) }, actions: actions))
+            let navigation = UINavigationController(rootViewController: picker)
+            navigation.sheetPresentationController?.detents = [.medium(), .large()]
+            presenter.present(navigation, animated: true)
+        }
+    }
+
     /// The rows of `ids` on the device and their account's labels, or `nil` when none is or the labels can't be read.
-    @concurrent
-    private nonisolated static func labelPicking(_ ids: [ThreadSummary.ID], in database: MailDatabase) async -> (
+    private static func labelPicking(_ ids: [ThreadSummary.ID], in database: OffMainDatabase) async -> (
         [ThreadSummary], [MailLabel]
     )? {
-        let threads = ids.compactMap { try? database.thread($0) }
-        guard let account = threads.first?.id.accountID, let labels = try? database.labels(for: account) else {
-            return nil
+        await database.offMain { database in
+            let threads = ids.compactMap { try? database.thread($0) }
+            guard let account = threads.first?.id.accountID, let labels = try? database.labels(for: account) else {
+                return nil
+            }
+            return (threads, labels)
         }
-        return (threads, labels)
     }
 
     /// The composer with `answer` to the thread's newest message, once it is fetched. A newer answer or draft

@@ -59,15 +59,15 @@ public struct SenderQuery: EntityStringQuery {
     public init() {}
 
     public func entities(for identifiers: [String]) async throws -> [SenderEntity] {
-        try Catalog(host: host).senders(identifiers)
+        try await Catalog(host: host).senders(identifiers)
     }
 
     public func entities(matching string: String) async throws -> [SenderEntity] {
-        try Catalog(host: host).senders(matching: string)
+        try await Catalog(host: host).senders(matching: string)
     }
 
     public func suggestedEntities() async throws -> [SenderEntity] {
-        try Array(Catalog(host: host).frequentSenders().prefix(Catalog.suggestionLimit))
+        try await Array(Catalog(host: host).frequentSenders().prefix(Catalog.suggestionLimit))
     }
 }
 
@@ -77,11 +77,12 @@ extension Catalog {
 
     /// Who wrote the newest Inbox conversations, most conversations first, then the most recent. Leaves out the
     /// accounts' own addresses.
-    func frequentSenders() throws -> [SenderEntity] {
-        let own = Set(
-            try host.accounts().flatMap { [$0.email] + $0.aliases.map(\.address) }.map { $0.lowercased() })
+    func frequentSenders() async throws -> [SenderEntity] {
+        async let accounts = host.accounts()
+        async let inbox = host.threads(in: .inbox, limit: Self.senderWindow)
+        let own = Set(try await accounts.flatMap { [$0.email] + $0.aliases.map(\.address) }.map { $0.lowercased() })
         var tally: [String: (contact: Contact, count: Int, newest: Int)] = [:]
-        for (position, thread) in try host.threads(in: .inbox, limit: Self.senderWindow).enumerated() {
+        for (position, thread) in try await inbox.enumerated() {
             let key = thread.sender.address.lowercased()
             guard !key.isEmpty, !own.contains(key) else { continue }
             if let seen = tally[key] {
@@ -98,16 +99,16 @@ extension Catalog {
     }
 
     /// The senders with these identifiers, named as the Inbox names them, or by address alone when it doesn't.
-    func senders(_ identifiers: [String]) throws -> [SenderEntity] {
-        let known = Dictionary(try frequentSenders().map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    func senders(_ identifiers: [String]) async throws -> [SenderEntity] {
+        let known = Dictionary(try await frequentSenders().map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         return identifiers.map { known[$0.lowercased()] ?? SenderEntity(Contact(name: nil, address: $0)) }
     }
 
     /// The senders whose name or address holds `text`. Typed text that reads as an address comes first, so any
     /// address can be chosen.
-    func senders(matching text: String) throws -> [SenderEntity] {
+    func senders(matching text: String) async throws -> [SenderEntity] {
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let found = try frequentSenders().filter {
+        let found = try await frequentSenders().filter {
             $0.name.localizedStandardContains(text) || $0.address.localizedStandardContains(text)
         }
         let typed = Contact(parsing: text)

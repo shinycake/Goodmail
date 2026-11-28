@@ -16,7 +16,9 @@ struct SyncedSmartMailboxesTests {
     }
 
     private func sync(_ database: MailDatabase, ledger: SharedLedger) async throws {
-        let pass = try await SettingsSync(cloud: cloud, ledger: ledger, families: database.syncedSettings).sync()
+        let pass = try await SettingsSync(
+            cloud: cloud, ledger: ledger, families: OffMainDatabase(database).syncedSettings
+        ).sync()
         #expect(pass.failures.isEmpty)
     }
 
@@ -84,12 +86,12 @@ struct SyncedSmartMailboxesTests {
         try await sync(phone, ledger: phoneLedger)
         try await sync(pad, ledger: padLedger)
         try await sync(phone, ledger: phoneLedger)
-        let stored = try await pad.pool.read { db in
+        let stored = try pad.read { db in
             try String.fetchAll(db, sql: "SELECT id FROM smartMailbox ORDER BY position")
         }
         #expect(stored == ["unread", "vips", "attachments", "later"])
         #expect(try pad.smartMailboxes() == SmartMailbox.startingSet, "left out where it can't be read")
-        let kept = try await phone.pool.read { db in try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM smartMailbox") }
+        let kept = try phone.read { db in try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM smartMailbox") }
         #expect(kept == 4)
     }
 }

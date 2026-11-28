@@ -73,7 +73,7 @@ struct MoveViewModelTests {
     private func model(
         _ threads: [ThreadSummary.ID], from mailbox: Mailbox, actions: MailActions? = nil
     ) -> MoveViewModel {
-        MoveViewModel(threads: threads, from: mailbox, labels: { _ in labels }, actions: actions)
+        MoveViewModel(threads: threads, from: mailbox, labels: labels, actions: actions)
     }
 
     @Test func placesComeFirstThenVisibleUserLabelsWithTheirColors() {

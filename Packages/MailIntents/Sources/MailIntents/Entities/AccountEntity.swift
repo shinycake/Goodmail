@@ -37,10 +37,10 @@ public struct AccountQuery: EntityQuery {
     public init() {}
 
     public func entities(for identifiers: [String]) async throws -> [AccountEntity] {
-        try Catalog(host: host).accounts().filter { identifiers.contains($0.id) }
+        try await Catalog(host: host).accounts().filter { identifiers.contains($0.id) }
     }
 
     public func suggestedEntities() async throws -> [AccountEntity] {
-        try Catalog(host: host).accounts()
+        try await Catalog(host: host).accounts()
     }
 }

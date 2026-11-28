@@ -10,7 +10,7 @@ import UserNotifications
 /// count is set again whenever the reader comes to the app and once they answer the permission prompt. It asks for that
 /// permission itself, since every account's mail counts, push or not.
 final class AppBadge {
-    private let database: MailDatabase
+    private let database: OffMainDatabase
     /// The accounts now, read when deciding whether there is anything to ask permission for.
     private var accounts: () -> [Account] = { [] }
     /// Follows the count for the app's lifetime.
@@ -22,7 +22,7 @@ final class AppBadge {
     /// The ask for permission at launch, for builds and accounts without push, which never reach the push ask.
     private var asking: Task<Void, Never>?
 
-    init(database: MailDatabase) {
+    init(database: OffMainDatabase) {
         self.database = database
     }
 

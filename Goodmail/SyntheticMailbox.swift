@@ -5,7 +5,7 @@
 
     /// Launch with `-GoodmailSyntheticThreads 50000` for a throwaway mailbox of that many generated threads:
     /// the M1 scroll-performance spike, and screenshots that never show real mail.
-    enum SyntheticMailbox {
+    nonisolated enum SyntheticMailbox {
         static var requestedCount: Int? {
             let count = UserDefaults.standard.integer(forKey: "GoodmailSyntheticThreads")
             return count > 0 ? count : nil
@@ -17,7 +17,8 @@
             return interval > 0 ? interval : nil
         }
 
-        static func makeModel(threadCount: Int) throws -> AppModel {
+        /// The model of a synthetic mailbox of `threadCount` threads, opened and seeded off the main actor.
+        @MainActor static func makeModel(threadCount: Int) async throws -> AppModel {
             // Seeded once per size and reused, so launches measure the app rather than the generator. A mailbox
             // taking arrivals starts fresh each launch instead, so earlier arrivals don't pile up at its top.
             let folder = URL.cachesDirectory.appending(
@@ -25,8 +26,19 @@
             if arrivalInterval != nil { try? FileManager.default.removeItem(at: folder) }
             let url = folder.appending(path: "mail.sqlite")
             let seeded = FileManager.default.fileExists(atPath: url.path())
-            let database = try MailDatabase(url: url)
-            if seeded { return try model(of: database) }
+            let database = try await OffMainDatabase.open(url: url)
+            let stored = try await database.offMain { database in
+                if !seeded { try seed(database, threadCount: threadCount) }
+                if let corpus = SyntheticCorpus.requestedFolder {
+                    try SyntheticCorpus.file(corpus, into: database, account: AccountID(rawValue: "synthetic-1"))
+                }
+                return try database.storedAccounts()
+            }
+            // No push: its accounts aren't real, and asking for alerts would cover the app in UI tests.
+            return AppModel(database: database, stored: stored, pushRelay: nil)
+        }
+
+        private static func seed(_ database: MailDatabase, threadCount: Int) throws {
             let accounts = [
                 Account(
                     id: AccountID(rawValue: "synthetic-1"), email: "you@example.com", color: .blue, service: .gmail),
@@ -68,7 +80,6 @@
             }
             try database.upsert(threads)
             try snoozeIfRequested(threads, in: database, now: now)
-            return try model(of: database)
         }
 
         /// With `-GoodmailSyntheticSnoozed YES` as well, the two conversations out of every mailbox but All Mail are
@@ -87,39 +98,30 @@
         /// With `-GoodmailSyntheticArrivalEvery 2` as well, a new thread lands at the top of the Inbox that many
         /// seconds apart, so the list can be watched taking in mail. The UI tests use it to check that open swipe
         /// buttons stay on their row.
-        static func deliverArrivalsIfRequested(to database: MailDatabase) {
+        static func deliverArrivalsIfRequested(to database: OffMainDatabase) {
             guard requestedCount != nil, let interval = arrivalInterval else { return }
             // A debug launch option that runs for the life of the process: nothing awaits or cancels it, and it
             // stops at the first write that fails.
             Task { await deliverArrivals(every: interval, to: database) }
         }
 
-        @concurrent private static func deliverArrivals(every interval: Int, to database: MailDatabase) async {
+        private static func deliverArrivals(every interval: Int, to database: OffMainDatabase) async {
             for index in 1... {
                 do {
                     try await Task.sleep(for: .seconds(interval))
-                    try database.upsert([
-                        ThreadSummary(
-                            id: ThreadSummary.ID(
-                                accountID: AccountID(rawValue: "synthetic-1"), threadID: "arrival-\(index)"),
-                            subject: "New arrival \(index)",
-                            snippet: "Delivered while the list was open.",
-                            sender: Contact(name: "Arrivals", address: "arrivals@example.com"),
-                            date: .now, isUnread: true, messageCount: 1, labelIDs: ["INBOX", "CATEGORY_PERSONAL"])
-                    ])
+                    let arrival = ThreadSummary(
+                        id: ThreadSummary.ID(
+                            accountID: AccountID(rawValue: "synthetic-1"), threadID: "arrival-\(index)"),
+                        subject: "New arrival \(index)",
+                        snippet: "Delivered while the list was open.",
+                        sender: Contact(name: "Arrivals", address: "arrivals@example.com"),
+                        date: .now, isUnread: true, messageCount: 1, labelIDs: ["INBOX", "CATEGORY_PERSONAL"])
+                    try await database.offMain { try $0.upsert([arrival]) }
                 } catch {
                     print("Synthetic arrival failed: \(error)")
                     return
                 }
             }
-        }
-
-        private static func model(of database: MailDatabase) throws -> AppModel {
-            if let corpus = SyntheticCorpus.requestedFolder {
-                try SyntheticCorpus.file(corpus, into: database, account: AccountID(rawValue: "synthetic-1"))
-            }
-            // No push: its accounts aren't real, and asking for alerts would cover the app in UI tests.
-            return try AppModel(database: database, pushRelay: nil)
         }
 
         /// Mostly Inbox, with some of every other mailbox so each has something to show, and the Inbox spread over

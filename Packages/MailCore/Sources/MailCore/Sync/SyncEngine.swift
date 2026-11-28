@@ -101,11 +101,12 @@ public actor SyncEngine {
     }
 
     /// Makes `text` the account's signature: at the service first when it keeps one, so a refused edit changes
-    /// nothing, then on the device. Empty removes it.
-    public func setSignature(_ text: String) async throws {
+    /// nothing, then on the device. Empty removes it. Returns the revision of the stored accounts the write left
+    /// (`SyncStore.storeSignature(_:for:)`).
+    @discardableResult public func setSignature(_ text: String) async throws -> Int {
         if let service = provider as? any SendAsSyncing { try await service.setSignature(text) }
         signatureReads.wrote()
-        try store.apply(StoreChanges(accountID: accountID, signature: text))
+        return try store.storeSignature(text, for: accountID)
     }
 
     /// Makes a user label named `name`, a path such as `Projects/Goodmail`, at the service, then stores the

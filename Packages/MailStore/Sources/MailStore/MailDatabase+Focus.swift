@@ -19,7 +19,7 @@ extension MailDatabase {
 
     /// The Focus filter in effect.
     public func focusFilter() throws -> FocusFilter {
-        try pool.read { db in
+        try read { db in
             let rows = try Row.fetchAll(db, sql: "SELECT id, inFocus FROM account")
             let inFocus = Set(rows.filter { $0["inFocus"] }.map { AccountID(rawValue: $0["id"]) })
             return inFocus.count == rows.count ? .everyAccount : .accounts(inFocus)

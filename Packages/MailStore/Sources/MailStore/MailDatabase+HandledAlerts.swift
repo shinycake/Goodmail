@@ -7,7 +7,7 @@ extension MailDatabase {
     /// The identifiers of the `alerts` whose mail no longer needs them, as `DeliveredAlert.Kind` says for each:
     /// read, filed out of the Inbox, deleted, or gone from the store, however the change reached it.
     public func handledAlerts(_ alerts: [DeliveredAlert]) throws -> [String] {
-        try pool.read { db in
+        try read { db in
             try alerts.filter { alert in
                 try Self.isHandled(alert, thread: Self.thread(alert.thread, in: db))
             }
@@ -30,12 +30,14 @@ extension MailDatabase {
         case .rule: !thread.labelIDs.isDisjoint(with: [SystemLabel.trash, SystemLabel.spam])
         }
     }
+}
 
+extension MailFollowing {
     /// Emits now and again each time a thread may have been read, filed or deleted: whenever which threads are
     /// unread, in the Inbox, in Trash or in Spam changes, in this process or another. Another sync touching the
     /// same threads emits nothing, so a sweep of delivered alerts runs only when one could have been dealt with.
     public func handlingChanges() -> AsyncThrowingStream<HandlingMark, any Error> {
-        observe { db in try HandlingMark(in: db) }
+        followed.observe { db in try HandlingMark(in: db) }
     }
 }
 

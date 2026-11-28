@@ -2,6 +2,7 @@
     import Foundation
     import MailCore
     import MailNotifications
+    import MailStore
     import UIKit
     import UserNotifications
 
@@ -18,7 +19,7 @@
             else { return }
             let subject = defaults.string(forKey: "GoodmailTestAlertSubject") ?? "Your October statement is ready"
             let directory = (SharedContainer.directoryURL ?? URL.cachesDirectory).appending(path: "SenderPictures")
-            let pictures = SenderPictureSources(directory: directory, database: model.database)
+            let pictures = SenderPictureSources(directory: directory, database: model.database.blocking)
             let sender = Contact(parsing: from)
             guard
                 let thread = defaults.string(forKey: "GoodmailTestAlertThread").flatMap(

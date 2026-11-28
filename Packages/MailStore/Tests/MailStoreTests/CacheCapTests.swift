@@ -48,7 +48,7 @@ struct CacheCapTests {
     }
 
     private func cachedThreads() throws -> Set<String> {
-        try Set(database.pool.read { try String.fetchAll($0, sql: "SELECT DISTINCT threadID FROM message") })
+        try Set(database.read { try String.fetchAll($0, sql: "SELECT DISTINCT threadID FROM message") })
     }
 
     private func listed() async throws -> [String] {

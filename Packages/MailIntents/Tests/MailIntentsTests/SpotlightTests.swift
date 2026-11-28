@@ -39,7 +39,7 @@ struct SpotlightTests {
         #expect(index.calls.count == 3)
     }
 
-    @Test func indexedConversationsCarryNoMessages() throws {
+    @Test func indexedConversationsCarryNoMessages() async throws {
         var host = host
         host.cached[ThreadSummary.ID(accountID: account.id, threadID: "inbox")] = [
             Message(
@@ -47,7 +47,7 @@ struct SpotlightTests {
                 from: Contact(name: nil, address: "a@example.com"), subject: "Hi", date: .now,
                 labelIDs: [SystemLabel.inbox], body: MessageBody(plain: "Body"))
         ]
-        let change = try Catalog(host: host).spotlightChange(window: 10)
+        let change = try await Catalog(host: host).spotlightChange(window: 10)
         #expect(change.index.allSatisfy { $0.messages.isEmpty })
     }
 

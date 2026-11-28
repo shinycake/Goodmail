@@ -70,7 +70,7 @@ struct DraftKeeperTests {
         keeper.keep(.written(draft, by: due))
         await keeper.settle()
 
-        let taken = try #require(keeper.take(draft.id))
+        let taken = try #require(await keeper.take(draft.id))
         #expect(try queued(in: bench).isEmpty)
 
         keeper.restore(taken)

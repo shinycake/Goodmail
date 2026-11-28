@@ -4,14 +4,17 @@ public import MailCore
 /// The settings the database keeps that follow the reader to their other devices (`SettingsSync`), one group each.
 /// Each account's setting is an element named by the account's ID, which is the same on every device; a device
 /// without the account leaves it alone.
-extension MailDatabase {
+extension OffMainDatabase {
+    /// The families read and write on the settings sync's actor, so they take the blocking database.
     public var syncedSettings: [any SettingsFamily] {
         [
-            SyncedSignatures(database: self), SyncedAlerts(database: self), SyncedBadges(database: self),
-            SyncedRules(database: self), SyncedSmartMailboxes(database: self), SyncedVIPs(database: self),
+            SyncedSignatures(database: blocking), SyncedAlerts(database: blocking), SyncedBadges(database: blocking),
+            SyncedRules(database: blocking), SyncedSmartMailboxes(database: blocking), SyncedVIPs(database: blocking),
         ]
     }
+}
 
+extension MailDatabase {
     /// The names the database's groups are shared under.
     public enum SyncedGroup {
         public static let signatures = "signatures"

@@ -31,7 +31,7 @@ struct AccountStoreTests {
     @Test func anAccountOfAServiceThisBuildDoesNotKnowIsLeftOut() throws {
         let database = try MailDatabase(url: url)
         try database.save(home)
-        try database.pool.write { db in try db.execute(sql: "UPDATE account SET service = 'pigeon'") }
+        try database.writeUnannounced { db in try db.execute(sql: "UPDATE account SET service = 'pigeon'") }
         #expect(try database.accounts().isEmpty)
     }
 
@@ -107,6 +107,16 @@ struct AccountStoreTests {
         try database.reorderAccounts([work.id, home.id])
         try database.save(school)
         #expect(try database.accounts() == [work, home, school])
+    }
+
+    @Test func signaturesAreThoseOfTheAccountsThatHaveOne() throws {
+        let database = try MailDatabase(url: url)
+        for account in [home, work, school] { try database.save(account) }
+        try database.apply(StoreChanges(accountID: home.id, signature: "Dana"))
+        try database.apply(StoreChanges(accountID: school.id, signature: "Dana Levi\nClass of 2027"))
+        try database.apply(StoreChanges(accountID: school.id, signature: ""))
+        try database.apply(StoreChanges(accountID: work.id, signature: "Dana at work"))
+        #expect(try database.signatures() == [home.id: "Dana", work.id: "Dana at work"], "a cleared one is none")
     }
 
     @Test func savingAnAccountAgainKeepsItsPlace() throws {

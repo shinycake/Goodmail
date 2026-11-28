@@ -5,12 +5,7 @@ public import MailCore
 /// What the reader decided about senders (ADR-038): who is a VIP, and Block Sender's rules.
 extension MailDatabase {
     public func vips() throws -> VIPList {
-        try pool.read(Self.vips)
-    }
-
-    /// The VIPs. Emits now and after every change.
-    public func vipList() -> AsyncThrowingStream<VIPList, any Error> {
-        observe(Self.vips)
+        try read(Self.vips)
     }
 
     /// Makes `sender` a VIP, last, or no longer one.
@@ -58,5 +53,12 @@ extension MailDatabase {
             table.primaryKey("address", .text)
             table.column("position", .integer).notNull()
         }
+    }
+}
+
+extension MailFollowing {
+    /// The VIPs. Emits now and after every change.
+    public func vipList() -> AsyncThrowingStream<VIPList, any Error> {
+        followed.observe(MailDatabase.vips)
     }
 }

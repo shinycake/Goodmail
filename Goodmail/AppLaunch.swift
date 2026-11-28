@@ -135,7 +135,7 @@ struct AppServices {
             // `-GoodmailFailLaunch YES` shows what a database that can't open looks like.
             if UserDefaults.standard.bool(forKey: "GoodmailFailLaunch") { throw CocoaError(.fileReadCorruptFile) }
             if let count = SyntheticMailbox.requestedCount {
-                return try SyntheticMailbox.makeModel(threadCount: count)
+                return try await SyntheticMailbox.makeModel(threadCount: count)
             }
         #endif
         return try await AppModel.openShared()

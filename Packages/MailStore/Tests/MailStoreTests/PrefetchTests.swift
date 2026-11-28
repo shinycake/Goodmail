@@ -84,14 +84,14 @@ struct PrefetchTests {
     }
 
     private func cachedMessages(in threadID: String) throws -> [String] {
-        try database.pool.read {
+        try database.read {
             try String.fetchAll(
                 $0, sql: "SELECT id FROM message WHERE threadID = ? ORDER BY date", arguments: [threadID])
         }
     }
 
     private func cached() throws -> Set<String> {
-        try Set(database.pool.read { try String.fetchAll($0, sql: "SELECT DISTINCT threadID FROM message") })
+        try Set(database.read { try String.fetchAll($0, sql: "SELECT DISTINCT threadID FROM message") })
     }
 
     @Test func fetchesTheBodiesOfThreadsThatLackThem() async throws {

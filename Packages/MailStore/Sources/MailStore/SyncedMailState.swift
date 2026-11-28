@@ -4,11 +4,14 @@ public import MailCore
 /// The mail state the database keeps that follows the reader to their other devices (ADR-037): pins, snoozes and
 /// mutes kept on the device, one group each. Each thread is an element named by `ThreadSummary.ID.syncedElement`,
 /// and a device leaves alone the threads of accounts it doesn't have.
-extension MailDatabase {
+extension OffMainDatabase {
+    /// The families read and write on the settings sync's actor, so they take the blocking database.
     public var syncedMailState: [any SettingsFamily] {
-        [SyncedPins(database: self), SyncedSnoozes(database: self), SyncedMutes(database: self)]
+        [SyncedPins(database: blocking), SyncedSnoozes(database: blocking), SyncedMutes(database: blocking)]
     }
+}
 
+extension MailDatabase {
     /// The names the mail state's groups are shared under.
     public enum SyncedMailGroup {
         public static let pins = "pins"

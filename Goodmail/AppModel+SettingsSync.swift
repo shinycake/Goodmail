@@ -52,7 +52,7 @@ extension AppModel {
 extension SettingsSync {
     /// The app's settings sync: the preferences and the database's settings, shared through iCloud Keychain under
     /// their own service, with the ledger in this device's Application Support.
-    @MainActor static func synced(_ database: MailDatabase) -> SettingsSync {
+    @MainActor static func synced(_ database: OffMainDatabase) -> SettingsSync {
         ImageTrustRules().foldInLegacyRules()
         return SettingsSync(
             cloud: Keychain(service: "com.idanbirman.goodmail.settings", place: .iCloud),

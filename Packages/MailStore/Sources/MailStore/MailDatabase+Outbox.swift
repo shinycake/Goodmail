@@ -32,7 +32,7 @@ extension MailDatabase: OutboxStore {
     }
 
     public func pendingIntents(for account: AccountID) throws -> [OutboxIntent] {
-        try pool.read { db in
+        try read { db in
             try Self.intents(account: account.rawValue, unsentOnly: true, threadIDs: nil, in: db)
         }
     }

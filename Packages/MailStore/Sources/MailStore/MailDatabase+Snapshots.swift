@@ -6,7 +6,7 @@ public import MailCore
 extension MailDatabase {
     /// The newest `limit` threads in `mailbox`.
     public func threads(in mailbox: Mailbox, limit: Int) throws -> [ThreadSummary] {
-        try pool.read { db in try Self.fetchThreads(db, query: Self.threadSelection(in: mailbox), limit: limit) }
+        try read { db in try Self.fetchThreads(db, query: Self.threadSelection(in: mailbox), limit: limit) }
     }
 
     /// The stored threads among `ids`, newest first, whatever mailbox they are in.
@@ -17,19 +17,19 @@ extension MailDatabase {
         let query = ThreadSelection(
             sql: "FROM thread WHERE thread.accountID || char(31) || thread.id IN (SELECT value FROM json_each(?))",
             arguments: [String(decoding: try JSONEncoder().encode(keys), as: UTF8.self)], order: .thread)
-        return try pool.read { db in try Self.fetchThreads(db, query: query) }
+        return try read { db in try Self.fetchThreads(db, query: query) }
     }
 
     /// The newest `limit` threads that search finds for `text` here, as the search screen's local matches.
     public func threads(matching text: String, limit: Int) throws -> [ThreadSummary] {
         guard let query = try Self.searchQuery(text, including: []) else { return [] }
-        return try pool.read { db in try Self.fetchThreads(db, query: query, limit: limit) }
+        return try read { db in try Self.fetchThreads(db, query: query, limit: limit) }
     }
 
     /// The thread's cached messages, oldest first; empty when none are.
     public func cachedMessages(inThread thread: ThreadSummary.ID) throws -> [Message] {
         let decoder = JSONDecoder()
-        return try pool.read { db in
+        return try read { db in
             try String.fetchAll(
                 db,
                 sql: "SELECT content FROM message WHERE accountID = ? AND threadID = ? ORDER BY date",

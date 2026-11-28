@@ -34,7 +34,7 @@ struct MailboxOrderTests {
 
     /// Label rows whose date isn't their thread's.
     private func staleCopies(in database: MailDatabase) throws -> Int {
-        try database.pool.read { db in
+        try database.read { db in
             try Int.fetchOne(
                 db,
                 sql: """
@@ -57,7 +57,7 @@ struct MailboxOrderTests {
     @Test func aThreadRedatedWithoutItsLabelsMovesInThemToo() throws {
         let database = try openWithThreads([thread("old", minutesAgo: 60), thread("new", minutesAgo: 1)])
 
-        try database.pool.write { db in
+        try database.writeUnannounced { db in
             try db.execute(sql: "UPDATE thread SET date = ? WHERE id = 'old'", arguments: [Self.now])
         }
 
@@ -131,7 +131,7 @@ struct MailboxOrderTests {
         let database = try MailDatabase(url: url)
 
         #expect(try staleCopies(in: database) == 0)
-        #expect(try database.pool.read { db in try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM threadLabel") } == 4)
+        #expect(try database.read { db in try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM threadLabel") } == 4)
         #expect(try listed(Mailbox(labelID: "Label_1"), in: database) == ["new", "old"])
         #expect(
             try database.thread(ThreadSummary.ID(accountID: account, threadID: "old"))?.labelIDs

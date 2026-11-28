@@ -30,14 +30,14 @@ public struct MailboxQuery: EntityStringQuery {
     public init() {}
 
     public func entities(for identifiers: [String]) async throws -> [MailboxEntity] {
-        try Catalog(host: host).mailboxes().filter { identifiers.contains($0.id) }
+        try await Catalog(host: host).mailboxes().filter { identifiers.contains($0.id) }
     }
 
     public func entities(matching string: String) async throws -> [MailboxEntity] {
-        try Catalog(host: host).mailboxes().filter { $0.name.localizedStandardContains(string) }
+        try await Catalog(host: host).mailboxes().filter { $0.name.localizedStandardContains(string) }
     }
 
     public func suggestedEntities() async throws -> [MailboxEntity] {
-        try Catalog(host: host).mailboxes()
+        try await Catalog(host: host).mailboxes()
     }
 }

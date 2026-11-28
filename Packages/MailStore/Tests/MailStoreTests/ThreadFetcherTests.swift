@@ -52,7 +52,7 @@ struct ThreadFetcherTests {
 
     /// Each cached thread with when its bodies were last read.
     private func cached() throws -> [String: Date] {
-        try database.pool.read { db in
+        try database.read { db in
             try Dictionary(
                 uniqueKeysWithValues: Row.fetchAll(
                     db, sql: "SELECT threadID, MAX(accessedAt) AS accessedAt FROM message GROUP BY threadID"

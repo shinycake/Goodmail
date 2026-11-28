@@ -25,7 +25,7 @@ final class SceneCoordinator: NSObject {
     var answering: Task<Void, Never>?
     /// Follows the labels and smart mailboxes here, so a list gone from the device gives way (`followOwnLists`).
     var listsCheck: Task<Void, Never>?
-    /// The label picker's threads and labels, read off the main actor before it opens; a newer one replaces it.
+    /// The label or move picker's threads and labels, read off the main actor before it opens; a newer one replaces it.
     var pickingLabels: Task<Void, Never>?
     /// What fills the window. After `init`, only `enter(_:)` changes it.
     private(set) var screen: Screen
@@ -77,7 +77,7 @@ final class SceneCoordinator: NSObject {
                     afterRemoval: Preferences.afterRemoval, unsortedInboxes: model.unsortedInboxAccounts)
             },
             lookUp: { [lookup = model.conversationLookup] in await lookup.find($0) },
-            stored: { [database = model.database] in try? database.thread($0) })
+            stored: { [database = model.database] id in try? await database.offMain { try $0.thread(id) } })
         super.init()
         window.windowAnswer = { [weak self] in self?.windowAnswer(to: $0) ?? .notHere }
         actions.reopen = { [weak self] draft in self?.handle(.compose(draft)) }
@@ -362,7 +362,9 @@ final class SceneCoordinator: NSObject {
         let results = SearchResultsController(
             search: search, accounts: model.accounts, navigate: { [weak self] route in self?.handle(route) },
             readAhead: { model.readAhead($0) }, actions: actions,
-            contacts: { (try? model.database.contacts(matching: $0, limit: 3)) ?? [] },
+            contacts: { [database = model.database] typed in
+                (try? await database.offMain { try $0.contacts(matching: typed, limit: 3) }) ?? []
+            },
             interaction: window.interactionStyle)
         let list = MailboxViewController(
             viewModel: MailboxViewModel(

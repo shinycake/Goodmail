@@ -14,11 +14,18 @@ import UIKit
 final class AppModel {
     /// The sync Get Mail started, while it runs. Only `getMail()` sets it.
     private var gettingMail: Task<Void, Never>?
-    let database: MailDatabase
+    /// Every read and write awaits, off the main actor (ADR-043).
+    let database: OffMainDatabase
     let commands: MailCommands
     /// Reads and answers conversations, for alert replies, the watch and the composer's quote.
     let answers: ThreadAnswers
-    private(set) var accounts: [Account]
+    /// The stored accounts and their signatures as the database last said, followed from every writer: this app, a
+    /// sync, another process. Every screen and the sessions (`Providers`) read it at once (ADR-043).
+    let stored: FollowedValue<StoredAccounts>
+    /// The stored accounts, in the reader's order.
+    var accounts: [Account] { stored.latest.accounts }
+    /// Each account's stored signature, where it has one, for the composer to start a message with.
+    var signatures: [AccountID: String] { stored.latest.signatures }
     /// Each account's session: its provider, sync engine and prefetcher.
     let providers: Providers
     /// How much the connection allows. Prefetch follows it, and so does sync on a Mac, to start afresh when it comes
@@ -86,55 +93,64 @@ final class AppModel {
 
     /// `pushRelay` is where accounts subscribe to push; `nil` keeps alerts off, as in synthetic mailboxes. `sharing`
     /// is where accounts are shared with the reader's other devices, and `settingsSync` and `mailStateSync` keep
-    /// settings and mail state in step with them.
+    /// settings and mail state in step with them. `stored` is what the database holds of the accounts, read off the
+    /// main actor as it opened; the model follows it from there.
     init(
-        database: MailDatabase, pushRelay: URL? = PushConfiguration.relayURL, sharing: AccountSharing? = nil,
-        settingsSync: SettingsSync? = nil, mailStateSync: SettingsSync? = nil
-    ) throws {
+        database: OffMainDatabase, stored: StoredAccounts, pushRelay: URL? = PushConfiguration.relayURL,
+        sharing: AccountSharing? = nil, settingsSync: SettingsSync? = nil, mailStateSync: SettingsSync? = nil
+    ) {
         self.database = database
         self.sharing = sharing
         self.settingsSync = settingsSync
         self.mailStateSync = mailStateSync
-        senderPictures = .cached(with: database)
-        minimizedDrafts = MinimizedDrafts(database: database)
-        accounts = try database.accounts()
+        // The actors below read and write the blocking database on their own executors.
+        senderPictures = .cached(with: database.blocking)
+        minimizedDrafts = MinimizedDrafts(database: database.blocking)
+        let followed = FollowedValue(
+            stored, following: { database.accountsAndSignatures() },
+            reading: { try await database.offMain { try $0.storedAccounts() } },
+            log: MailLog(category: "accounts"))
+        self.stored = followed
         pushRegistrar = pushRelay.map {
             let attestation = RelayAttestation(baseURL: $0, device: AppAttestDevice(), store: Keychain())
-            return PushRegistrar(relay: PushRelayClient(baseURL: $0, signer: attestation), store: database)
+            return PushRegistrar(relay: PushRelayClient(baseURL: $0, signer: attestation), store: database.blocking)
         }
         let path = PathMonitor()
         self.path = path
         let (storage, attachments) = (storage, attachmentsDirectory)
-        let providers = Providers(database: database) { id, provider in
+        let cache = database.blocking  // blocking-reads: allow: read only by `hasRoom`, on the prefetcher's actor
+        let providers = Providers(accounts: followed, index: database.blocking) { id, provider in
             AccountSession(
                 provider: provider,
-                engine: SyncEngine(accountID: id, provider: provider, store: database, scope: .window(storage.window)),
+                engine: SyncEngine(
+                    accountID: id, provider: provider, store: database.blocking, scope: .window(storage.window)),
                 prefetcher: BodyPrefetcher(
-                    accountID: id, provider: provider, store: database, path: path,
+                    accountID: id, provider: provider, store: database.blocking, path: path,
                     scope: { storage.prefetchScope },
-                    hasRoom: { database.hasRoomToPrefetch(under: storage.cacheLimit) },
+                    hasRoom: { cache.hasRoomToPrefetch(under: storage.cacheLimit) },
                     didFinish: { await Self.trim(database, attachments: attachments, limit: storage.cacheLimit) }))
         }
         self.providers = providers
         threadFetcher = ThreadFetcher(
-            provider: { try providers.provider(for: $0) }, store: database, path: path,
+            provider: { try providers.provider(for: $0) }, store: database.blocking, path: path,
             scope: { [storage] in storage.prefetchScope })
         let outboxes = Outboxes { id in
-            Outbox(accountID: id, provider: { try providers.provider(for: id) }, store: database)
+            Outbox(accountID: id, provider: { try providers.provider(for: id) }, store: database.blocking)
         }
         self.outboxes = outboxes
         let uploads = URL.applicationSupportDirectory.appending(path: "Uploads", directoryHint: .isDirectory)
         let senders = Senders { id, transport in
             Sender(
-                accountID: id, provider: { try providers.provider(for: id) }, store: database, transport: transport,
+                accountID: id, provider: { try providers.provider(for: id) }, store: database.blocking,
+                transport: transport,
                 uploads: uploads)
         }
         self.senders = senders
         commands = MailCommands(
-            store: database,
+            store: database.blocking,
             replay: { id in Task { await outboxes.flush(id) } },
             deliver: { id, date in Task { await senders.deliver(id, at: date) } })
-        answers = ThreadAnswers(database: database, commands: commands, provider: providers.provider(for:))
+        answers = ThreadAnswers(database: database.blocking, commands: commands, provider: providers.provider(for:))
         // A sent message lands in its thread on the server; fetch it so the list and the reader show it there.
         senders.onSent = { [weak self] id, sent in
             guard let self else { return }
@@ -152,19 +168,13 @@ final class AppModel {
 
     /// The shared container's database, so the extensions see the same mail (ADR-002).
     static func openShared() async throws -> AppModel {
-        let database = try await openSharedDatabase()
-        return try AppModel(
-            database: database,
-            sharing: AccountSharing(shared: Keychain.iCloud, device: Keychain(), signInKey: Providers.signInKey),
-            settingsSync: .synced(database), mailStateSync: .mailState(database))
-    }
-
-    /// Off the main actor: opening migrates the database and fills in what older builds left out, which can take a
-    /// while after an update.
-    @concurrent private nonisolated static func openSharedDatabase() async throws -> MailDatabase {
         // Unsigned simulator builds have no App Group.
         let directory = SharedContainer.directoryURL ?? URL.applicationSupportDirectory
-        return try MailDatabase(url: directory.appending(path: "Mail/mail.sqlite"))
+        let database = try await OffMainDatabase.open(url: directory.appending(path: "Mail/mail.sqlite"))
+        return AppModel(
+            database: database, stored: try await database.offMain { try $0.storedAccounts() },
+            sharing: AccountSharing(shared: Keychain.iCloud, device: Keychain(), signInKey: Providers.signInKey),
+            settingsSync: .synced(database), mailStateSync: .mailState(database))
     }
 
     /// Signs in with Google and adds the account, or re-authenticates it if it's already here. `loginHint` is the
@@ -179,7 +189,7 @@ final class AppModel {
     /// is the address Microsoft's page starts with. Returns `false` if the user cancelled.
     func addOutlookAccount(using web: WebAuthentication, loginHint: String? = nil) async throws -> Bool {
         try await addAccount(.outlook, signingInWith: .outlook, using: web, loginHint: loginHint) { [database] in
-            OutlookClient(session: $0, index: database)
+            OutlookClient(session: $0, index: database.blocking)
         }
     }
 
@@ -213,8 +223,7 @@ final class AppModel {
                 color: AccountColor.next(after: accounts.map(\.color)),
                 service: service
             )
-            try await Self.store { [database] in try database.save(account) }
-            accounts.append(account)
+            try await store(account)
             didAddAccount?()
         }
         await didSignIn(session.accountID)
@@ -249,8 +258,7 @@ final class AppModel {
             let account = Account(
                 id: id, email: email,
                 color: AccountColor.next(after: accounts.map(\.color)), service: service, name: name)
-            try await Self.store { [database] in try database.save(account) }
-            accounts.append(account)
+            try await store(account)
         }
         await didSignIn(id)
         await syncAfterAdding()
@@ -263,8 +271,7 @@ final class AppModel {
         for account in new {
             // One removed earlier in this launch gets a session again.
             await providers.reload(account.id)
-            try await Self.store { [database] in try database.save(account) }
-            accounts.append(account)
+            try await store(account)
         }
         didAddAccount?()
     }
@@ -292,9 +299,8 @@ final class AppModel {
         await providers.remove(id)
         if let account = accounts.first(where: { $0.id == id }) { await signOut(account, removal) }
         // Takes every thread and body of the account with it, which can be most of the database.
-        try await Self.store { [database] in try database.removeAccount(id) }
+        try await changeAccounts { try $0.removeAccount(id) }
         try? FileManager.default.removeItem(at: attachmentsDirectory.appending(path: id.rawValue))
-        accounts.removeAll { $0.id == id }
         // Its sign-in is gone, so a reinstall's offer can't bring it back.
         sharingFindings.removed(id)
         health.forget(id)
@@ -315,16 +321,12 @@ final class AppModel {
 
     /// Stores the account's name and color on this device alone, as when another device changed them.
     func keep(_ account: Account) async throws {
-        try await Self.store { [database] in try database.update(account) }
-        accounts = accounts.map { $0.id == account.id ? account : $0 }
+        try await changeAccounts { try $0.update(account) }
     }
 
     /// Stores the accounts' order on this device alone, as when another device changed it.
     func keep(order: [AccountID]) async throws {
-        accounts = try await Self.offMain { [database] in
-            try database.reorderAccounts(order)
-            return try database.accounts()
-        }
+        try await changeAccounts { try $0.reorderAccounts(order) }
     }
 
     /// Get Mail from any window: syncs every account in one task the app owns, which a second Get Mail joins and
@@ -378,9 +380,6 @@ final class AppModel {
         let synced = accounts.filter { if case .success = outcomes[$0.id] { true } else { false } }
         // With nothing new stored, the accounts, the cache and the system's copies (Spotlight) have nothing to follow.
         if !synced.isEmpty {
-            // The sync reads each account's aliases, which the composer and replies take from `accounts`.
-            let stored = try await Self.offMain { [database] in try database.accounts() }
-            if stored != accounts { accounts = stored }
             await runRules(for: synced)
             if prefetch { for account in synced { await (try? prefetcher(for: account.id))?.start() } }
             await trimCache()
@@ -425,9 +424,9 @@ final class AppModel {
         await Self.trim(database, attachments: attachmentsDirectory, limit: storage.cacheLimit)
     }
 
-    @concurrent private static func trim(_ database: MailDatabase, attachments: URL, limit: Int) async {
+    private nonisolated static func trim(_ database: OffMainDatabase, attachments: URL, limit: Int) async {
         do {
-            try database.trimCache(to: limit, attachments: attachments)
+            try await database.offMain { _ = try $0.trimCache(to: limit, attachments: attachments) }
         } catch {
             Logger(subsystem: "com.idanbirman.goodmail", category: "cache")
                 .error("Couldn't trim the cache: \(error, privacy: .public)")
@@ -482,7 +481,7 @@ final class AppModel {
     /// What the reader does on opening a thread: marks its cached bodies as read, which the cache cap evicts by,
     /// then fetches the latest.
     func open(_ thread: ThreadSummary.ID) async throws {
-        try? await Self.store { [database] in try database.touchMessages(inThread: thread) }
+        try? await database.offMain { try $0.touchMessages(inThread: thread) }
         try await loadMessages(of: thread)
     }
 
@@ -496,14 +495,31 @@ final class AppModel {
         try await answers.messagesToAnswer(in: thread)
     }
 
-    /// Runs a database write off the main actor. Any write can wait out another process's lock for seconds
-    /// (ADR-002), and the larger ones take long enough by themselves to drop frames.
-    @concurrent static func store(_ write: @Sendable () throws -> Void) async throws {
-        try write()
+    /// Stores the new account, and returns once `accounts` has it, so its session can be made.
+    private func store(_ account: Account) async throws {
+        try await changeAccounts { try $0.save(account) }
     }
 
-    /// A part's data, from its kept file, or fetched and kept, so a body's inline images download once.
-    func attachmentData(_ attachment: Attachment, in message: Message.ID) async throws -> Data {
+    /// Writes `change` off the main actor, then waits until the followed accounts are as new as the revision it
+    /// returns, so what the caller does next, as making a session or sharing the accounts, sees it, whatever else
+    /// changed them meanwhile (ADR-043). Throws only when the write fails: if the accounts can't be read to show it,
+    /// the change still stands, and the next read shows it.
+    private func changeAccounts(_ change: @escaping @Sendable (MailDatabase) throws -> Int) async throws {
+        let revision = try await database.offMain { try change($0) }
+        await show(revision)
+    }
+
+    /// Waits until the followed accounts are as new as `revision`.
+    func show(_ revision: Int) async {
+        guard await stored.wait(forRevision: revision) else {
+            return Logger(subsystem: "com.idanbirman.goodmail", category: "accounts")
+                .error("A change to the accounts was stored, but the model didn't see it")
+        }
+    }
+
+    /// A part's data, from its kept file, or fetched and kept, so a body's inline images download once. Off the main
+    /// actor, as every provider call is: IMAP and Outlook read the message index as they fetch (ADR-043).
+    @concurrent nonisolated func attachmentData(_ attachment: Attachment, in message: Message.ID) async throws -> Data {
         let files = AttachmentFiles(root: attachmentsDirectory)
         if let data = await files.cachedData(for: attachment, in: message) { return data }
         let data = try await providers.provider(for: message.accountID).data(for: attachment, in: message)
@@ -512,7 +528,7 @@ final class AppModel {
         return data
     }
 
-    func source(of message: Message.ID) async throws -> Data {
+    @concurrent nonisolated func source(of message: Message.ID) async throws -> Data {
         try await providers.provider(for: message.accountID).source(of: message)
     }
 

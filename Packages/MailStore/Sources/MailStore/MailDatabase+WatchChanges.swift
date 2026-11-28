@@ -43,7 +43,7 @@ extension MailDatabase {
 
     /// Every change kept, in the order they were kept.
     public func watchChanges() throws -> [WatchChange] {
-        try pool.read { db in
+        try read { db in
             let drafts = try Row.fetchAll(db, sql: "SELECT change, draft FROM watchChangeDraft ORDER BY rowid")
                 .reduce(into: [String: [Draft.ID]]()) { drafts, row in
                     if let draft = UUID(uuidString: row["draft"]) { drafts[row["change"], default: []].append(draft) }
@@ -105,7 +105,7 @@ extension MailDatabase {
 
     /// The handbacks not yet delivered, oldest first, each with its place to remove it by.
     public func watchHandbacks() throws -> [(position: Int64, handback: Data)] {
-        try pool.read { db in
+        try read { db in
             try Row.fetchAll(db, sql: "SELECT position, handback FROM watchHandback ORDER BY position").map {
                 (position: $0["position"], handback: $0["handback"])
             }
