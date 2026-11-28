@@ -47,9 +47,14 @@ extension MailboxViewController {
     func showPick() {
         guard picksWithPointer else { return }
         let picked = viewModel.selection.ids
-        let shown = Set(collectionView.indexPathsForSelectedItems ?? [])
-        for indexPath in shown where !(dataSource.itemIdentifier(for: indexPath).map(picked.contains) ?? false) {
-            collectionView.deselectItem(at: indexPath, animated: false)
+        var shown = Set(collectionView.indexPathsForSelectedItems ?? [])
+        let stale = shown.filter { !(dataSource.itemIdentifier(for: $0).map(picked.contains) ?? false) }
+        // Clearing every row at once, and picking the few again, beats deselecting thousands one by one.
+        if stale.count > picked.count {
+            clearSelection()
+            shown = []
+        } else {
+            for indexPath in stale { collectionView.deselectItem(at: indexPath, animated: false) }
         }
         for id in picked {
             guard let indexPath = dataSource.indexPath(for: id), !shown.contains(indexPath) else { continue }
@@ -130,10 +135,13 @@ extension MailboxViewController {
         collectionView.scrollToItem(at: indexPath, at: downward ? .bottom : .top, animated: false)
     }
 
-    /// ⌘A, from Edit > Select All: every conversation in the list.
+    /// ⌘A, from Edit > Select All: every conversation in the list, once the store has listed every one.
     public override func selectAll(_ sender: Any?) {
         guard picksWithPointer else { return }
-        viewModel.selectAll()
+        whenEveryThread { list in
+            guard await list.listEveryThreadToSelect() else { return }
+            list.selectAll()
+        }
     }
 
     public override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {

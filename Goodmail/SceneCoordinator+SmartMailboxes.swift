@@ -21,7 +21,8 @@ extension SceneCoordinator {
                 title: known?.title ?? SmartMailbox.sectionTitle,
                 naming: naming,
                 accounts: model.accounts,
-                source: .flat { model.database.threads(inSmartMailbox: id, mailboxNames: Mailbox.standardNames) },
+                source: .flat(
+                    .whole { model.database.threads(inSmartMailbox: id, mailboxNames: Mailbox.standardNames) }),
                 pins: { model.database.pinnedThreads() },
                 refresh: { try await model.syncAll() },
                 retryAlerts: { await model.refreshPush() },

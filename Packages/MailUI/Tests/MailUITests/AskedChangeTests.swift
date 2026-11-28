@@ -30,7 +30,7 @@ struct AskedChangeTests {
     @Test func aCommandOrTheReadersActionIsKept() {
         let actions = actions()
         let list = MailboxViewModel(
-            accounts: [], source: .flat { AsyncThrowingStream { $0.finish() } }, refresh: {}, actions: actions)
+            accounts: [], source: .flat(.whole { AsyncThrowingStream { $0.finish() } }), refresh: {}, actions: actions)
         list.perform(.trash, on: [thread])
         #expect(actions.lastAsked?.change == MailChange(.action(.trash), on: [thread]))
     }

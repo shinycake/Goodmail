@@ -187,8 +187,8 @@ final class DiskReclaimTests {
         try Fixture.makeLegacyFile(at: url)
         let database = try MailDatabase(url: url)
         try Fixture.fill(database, threads: 10)
-        var inbox = database.threads(in: .inbox).makeAsyncIterator()
-        #expect(try await inbox.next()?.count == 10)
+        var inbox = database.threads(in: .inbox, window: .whole).makeAsyncIterator()
+        #expect(try await inbox.next()?.threads.count == 10)
 
         try database.trimCache(to: 0)
         guard case .reclaimed = try database.reclaimDisk(.readerAsked, volumeFree: Self.roomy, mayConvert: true) else {
@@ -197,7 +197,7 @@ final class DiskReclaimTests {
         }
         try database.upsert([Fixture.thread(10)])
 
-        #expect(try await inbox.next()?.count == 11)
+        #expect(try await inbox.next()?.threads.count == 11)
     }
 }
 

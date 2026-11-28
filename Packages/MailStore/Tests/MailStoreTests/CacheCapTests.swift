@@ -52,8 +52,8 @@ struct CacheCapTests {
     }
 
     private func listed() async throws -> [String] {
-        var iterator = database.threads(in: .inbox).makeAsyncIterator()
-        return try await iterator.next(isolation: #isolation)?.map(\.id.threadID) ?? []
+        var iterator = database.threads(in: .inbox, window: .whole).makeAsyncIterator()
+        return try await iterator.next(isolation: #isolation)?.threads.map(\.id.threadID) ?? []
     }
 
     /// What each thread cached by `cache` weighs; all of them weigh the same.

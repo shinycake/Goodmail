@@ -16,8 +16,8 @@ struct ChangeSignalTests {
         let account = Account(id: AccountID(rawValue: "a1"), email: "tester@example.com", color: .teal, service: .gmail)
         try app.save(account)
 
-        var inbox = app.threads(in: .inbox).makeAsyncIterator()
-        #expect(try await inbox.next()?.isEmpty == true)
+        var inbox = app.threads(in: .inbox, window: .whole).makeAsyncIterator()
+        #expect(try await inbox.next()?.threads.isEmpty == true)
 
         try extensionProcess.upsert([
             ThreadSummary(
@@ -31,7 +31,7 @@ struct ChangeSignalTests {
                 labelIDs: ["INBOX"]
             )
         ])
-        #expect(try await inbox.next()?.map(\.id.threadID) == ["pushed"])
+        #expect(try await inbox.next()?.threads.map(\.id.threadID) == ["pushed"])
     }
 
     /// A suspended app can't re-check when the extension signals: the extension stored the mail it alerted for, and
@@ -57,17 +57,17 @@ struct ChangeSignalTests {
             )
         }
 
-        var inbox = app.threads(in: .inbox).makeAsyncIterator()
-        #expect(try await inbox.next()?.isEmpty == true)
+        var inbox = app.threads(in: .inbox, window: .whole).makeAsyncIterator()
+        #expect(try await inbox.next()?.threads.isEmpty == true)
         // The app's own write, so the observation is past its start, which would catch the next write by itself.
         try app.upsert([thread("synced", minutesAgo: 60)])
-        #expect(try await inbox.next()?.map(\.id.threadID) == ["synced"])
+        #expect(try await inbox.next()?.threads.map(\.id.threadID) == ["synced"])
 
         // Written without the signal, as one the suspended app heard but couldn't act on.
         let pushed = thread("pushed", minutesAgo: 1)
         try extensionProcess.writeUnannounced { try MailDatabase.upsert(pushed, in: $0) }
 
         MailDatabase.resumeAll()
-        #expect(try await inbox.next()?.map(\.id.threadID) == ["pushed", "synced"])
+        #expect(try await inbox.next()?.threads.map(\.id.threadID) == ["pushed", "synced"])
     }
 }

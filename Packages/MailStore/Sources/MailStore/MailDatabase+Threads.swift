@@ -39,14 +39,6 @@ extension MailDatabase {
     }
 }
 
-extension MailFollowing {
-    /// The threads in `mailbox`, newest first. Emits now and after every change.
-    public func threads(in mailbox: Mailbox) -> AsyncThrowingStream<[ThreadSummary], any Error> {
-        // Signals from other processes re-run the query even when nothing it reads changed.
-        followed.observe { db in try MailDatabase.fetchThreads(db, query: MailDatabase.threadSelection(in: mailbox)) }
-    }
-}
-
 struct ThreadRecord: Codable, FetchableRecord, PersistableRecord {
     static let databaseTableName = "thread"
 

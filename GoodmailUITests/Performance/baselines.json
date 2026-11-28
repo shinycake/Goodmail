@@ -16,7 +16,7 @@
     },
     "ScrollPerformanceTests/testFirstRowsWith50kThreads()": {
       "com.apple.dt.XCTMetric_OSSignpost-MailboxFirstRows.duration": {
-        "median": 1.037569,
+        "median": 0.542921,
         "name": "Duration (MailboxFirstRows)",
         "polarity": "prefers smaller",
         "unit": "s"

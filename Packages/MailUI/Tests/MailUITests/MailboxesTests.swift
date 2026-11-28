@@ -110,7 +110,8 @@ struct MailboxesTests {
         var routes: [Route] = []
         func mailbox(_ mailbox: Mailbox) -> MailboxViewModel {
             MailboxViewModel(
-                mailbox: mailbox, accounts: [account, work], source: .flat { AsyncThrowingStream { $0.finish() } },
+                mailbox: mailbox, accounts: [account, work],
+                source: .flat(.whole { AsyncThrowingStream { $0.finish() } }),
                 refresh: {}, navigate: { routes.append($0) }, combinedTheme: .gradient)
         }
         let own = mailbox(Mailbox(labelID: SystemLabel.inbox, accountID: work.id))
@@ -224,7 +225,7 @@ struct MailboxesTests {
 
     @Test func swipingAnInboxThreadOffersSnoozeAfterArchive() {
         let viewModel = MailboxViewModel(
-            accounts: [], source: .flat { AsyncThrowingStream { $0.finish() } }, refresh: {},
+            accounts: [], source: .flat(.whole { AsyncThrowingStream { $0.finish() } }), refresh: {},
             actions: MailActions(commands: MailCommands(store: NoStore(), replay: { _ in })))
         #expect(
             viewModel.swipeActions(for: thread(labels: ["INBOX"]), on: .right).map(\.swipe) == [
@@ -281,12 +282,13 @@ struct MailboxesTests {
         let viewModel = MailboxViewModel(
             mailbox: .trash,
             accounts: [account],
-            source: .flat {
-                AsyncThrowingStream {
-                    $0.yield([])
-                    $0.finish()
-                }
-            },
+            source: .flat(
+                .whole {
+                    AsyncThrowingStream {
+                        $0.yield([])
+                        $0.finish()
+                    }
+                }),
             refresh: {},
             older: .pages {
                 loads += 1

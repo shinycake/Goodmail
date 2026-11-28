@@ -27,6 +27,10 @@ struct ThreadSelection {
         }
 
         var sql: String { "ORDER BY \(table).date DESC, \(table).rowid DESC" }
+
+        /// The same order, sorted rather than read from the index, for a few threads found another way: offered the
+        /// index, SQLite would rather walk the whole mailbox in order than sort a handful.
+        var sortingSQL: String { "ORDER BY +\(table).date DESC, +\(table).rowid DESC" }
     }
 
     /// The threads it selects that also meet `condition`, an SQL expression.
@@ -42,13 +46,21 @@ struct ThreadSelection {
 
     /// The statement that reads its threads as list rows, in order, only the first `limit` when there is one.
     func listing(limit: Int?) -> String {
+        rows(ordered: order.sql) + (limit.map { " LIMIT \($0)" } ?? "")
+    }
+
+    /// The statement that reads its threads as list rows, in order, sorting them: for a selection narrowed to a few
+    /// threads by key, as the held ones (`MailDatabase.held(in:)`).
+    var sortedListing: String { rows(ordered: order.sortingSQL) }
+
+    private func rows(ordered orderBy: String) -> String {
         """
         SELECT thread.*,
             (SELECT group_concat(labelID, char(31)) FROM threadLabel AS all_labels
              WHERE all_labels.accountID = thread.accountID AND all_labels.threadID = thread.id) AS labelIDs
         \(sql)
-        \(order.sql)
-        """ + (limit.map { " LIMIT \($0)" } ?? "")
+        \(orderBy)
+        """
     }
 }
 
@@ -85,7 +97,11 @@ extension MailDatabase {
     }
 
     static func fetchThreads(_ db: Database, query: ThreadSelection, limit: Int? = nil) throws -> [ThreadSummary] {
-        let rows = try Row.fetchCursor(db, sql: query.listing(limit: limit), arguments: query.arguments)
+        try fetchThreads(db, sql: query.listing(limit: limit), arguments: query.arguments)
+    }
+
+    static func fetchThreads(_ db: Database, sql: String, arguments: StatementArguments) throws -> [ThreadSummary] {
+        let rows = try Row.fetchCursor(db, sql: sql, arguments: arguments)
         return try Array(
             rows.map { row in
                 let labels: String = row["labelIDs"] ?? ""

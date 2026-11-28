@@ -48,8 +48,8 @@ struct SyncEngineTests {
     }
 
     private func local(_ label: String = "INBOX") async throws -> [String] {
-        var iterator = database.threads(in: Mailbox(labelID: label)).makeAsyncIterator()
-        return try await iterator.next(isolation: #isolation)?.map(\.id.threadID) ?? []
+        var iterator = database.threads(in: Mailbox(labelID: label), window: .whole).makeAsyncIterator()
+        return try await iterator.next(isolation: #isolation)?.threads.map(\.id.threadID) ?? []
     }
 
     private func allLocal() throws -> Set<String> {

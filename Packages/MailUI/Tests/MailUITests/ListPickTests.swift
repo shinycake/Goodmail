@@ -30,7 +30,8 @@ struct ListPickTests {
         let (stream, feed) = AsyncThrowingStream<[ThreadSummary], any Error>.makeStream()
         let routes = Routes()
         let list = MailboxViewModel(
-            accounts: [account], source: .flat { stream }, filter: filter, didChangeFilter: { _ in }, refresh: {},
+            accounts: [account], source: .flat(.whole { stream }), filter: filter, didChangeFilter: { _ in },
+            refresh: {},
             navigate: { routes.all.append($0) }, interaction: interaction, now: { now })
         return (list, feed, routes)
     }

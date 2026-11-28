@@ -3,9 +3,12 @@ import Observation
 
 /// The list's filter: which threads of what the store listed it shows (`ListFilter`).
 extension MailboxViewModel {
-    /// Shows the threads `filter` admits, or all of them when it is off, and tells the window.
+    /// Shows the threads `filter` admits, or all of them when it is off, and tells the window. A filter reads the
+    /// whole mailbox, so it shows every thread it admits, not only those of the window.
     func setFilter(_ new: ListFilter) {
         guard offersFilter, new != filter else { return }
+        // Before the rows change, so letting go can tell what the reader reached among them.
+        if new.isOn { moveWindow { $0.hold(.filter) } } else { letGo(.filter) }
         filter = new
         didChangeFilter?(new)
         regroup()
