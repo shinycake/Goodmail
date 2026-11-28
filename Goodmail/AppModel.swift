@@ -448,10 +448,11 @@ final class AppModel {
         await threadFetcher.cancelReadAhead()
     }
 
-    /// Evicts the least recently read bodies and attachments when the cache is over its cap (ADR-007). Off the
-    /// main thread: it scans the attachments folder.
+    /// Evicts the least recently read bodies and attachments when the cache is over its cap (ADR-007), and gives the
+    /// space back (ADR-044). Off the main thread: it scans the attachments folder.
     private func trimCache() async {
         await Self.trim(database, attachments: attachmentsDirectory, limit: storage.cacheLimit)
+        await Self.reclaimDisk(database, .afterTrim, mayRewrite: mayRewriteDatabase)
     }
 
     private nonisolated static func trim(_ database: OffMainDatabase, attachments: URL, limit: Int) async {
